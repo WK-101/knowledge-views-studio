@@ -1,0 +1,59 @@
+name: Release
+
+# Builds the plugin and attaches the three files Obsidian needs
+# (main.js, manifest.json, styles.css) to a GitHub Release.
+#
+# To cut a release:
+#   1. bump "version" in manifest.json (and add it to versions.json)
+#   2. git tag 1.0.0        <- the tag MUST equal the manifest version, with no "v"
+#   3. git push origin 1.0.0
+# The release then appears automatically, and Obsidian can find it.
+
+on:
+  push:
+    tags: ["*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Verify the tag matches manifest.json
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          MANIFEST=$(node -p "require('./manifest.json').version")
+          if [ "$TAG" != "$MANIFEST" ]; then
+            echo "::error::Tag '$TAG' does not match manifest version '$MANIFEST'. Obsidian will not see this release."
+            exit 1
+          fi
+          echo "Tag and manifest agree: $TAG"
+
+      - name: Run the gates
+        run: |
+          npx tsc --noEmit
+          npx vitest run
+          npx eslint .
+
+      - name: Build
+        run: npm run build
+
+      - name: Create the release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF#refs/tags/}" \
+            --title "${GITHUB_REF#refs/tags/}" \
+            --generate-notes \
+            main.js manifest.json styles.css

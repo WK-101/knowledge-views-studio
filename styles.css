@@ -1,0 +1,4043 @@
+/* Knowledge Views Studio — styles use Obsidian theme variables so views match
+   the active light/dark theme automatically. All classes are namespaced `kvs-`. */
+
+.kvs-view {
+  --kvs-border: var(--background-modifier-border);
+  font-size: var(--font-ui-small);
+}
+
+.kvs-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-4-1) 0;
+  color: var(--text-muted);
+}
+.kvs-count {
+  font-size: var(--font-ui-smaller);
+}
+
+.kvs-empty,
+.kvs-loading {
+  padding: var(--size-4-4);
+  text-align: center;
+  color: var(--text-muted);
+}
+.kvs-error {
+  padding: var(--size-4-3);
+  border-radius: var(--radius-s);
+  background: var(--background-modifier-error);
+  color: var(--text-on-accent);
+}
+
+/* Table view */
+.kvs-table-scroll {
+  /* Embeds: allow horizontal scroll for wide tables. The dashboard flex-fills
+     this element (below) so it scrolls internally and keeps a sticky header. */
+  overflow-x: auto;
+}
+.kvs-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.kvs-th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-align: left;
+  padding: var(--size-4-1) var(--size-4-3);
+  background: var(--background-primary);
+  border-bottom: 1px solid var(--background-modifier-border);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+.kvs-th:hover {
+  background: var(--background-modifier-hover);
+}
+.kvs-th-label {
+  display: inline-flex;
+  align-items: center;
+  font-weight: var(--font-semibold);
+}
+.kvs-sort-indicator {
+  color: var(--text-accent);
+}
+.kvs-td {
+  padding: var(--size-4-2) var(--size-4-3);
+  border-bottom: 1px solid var(--kvs-border);
+  vertical-align: top;
+  overflow-wrap: break-word;
+}
+.kvs-row:hover .kvs-td {
+  background: var(--background-modifier-hover);
+}
+.kvs-td p,
+.kvs-card-value p {
+  margin: 0;
+  display: inline;
+}
+.kvs-group-cell {
+  padding: var(--size-4-2) var(--size-4-3);
+  background: var(--background-secondary-alt);
+  font-weight: var(--font-semibold);
+}
+.kvs-group-count,
+.kvs-cards-group-header .kvs-group-count {
+  color: var(--text-muted);
+  font-weight: var(--font-normal);
+}
+
+/* Cards view */
+.kvs-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--size-4-3);
+  margin-top: var(--size-4-2);
+}
+.kvs-card {
+  padding: var(--size-4-3);
+  border: 1px solid var(--kvs-border);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+}
+.kvs-card-title {
+  font-weight: var(--font-semibold);
+  margin-bottom: var(--size-4-2);
+}
+.kvs-card-field {
+  display: flex;
+  gap: var(--size-4-2);
+  margin-top: var(--size-2-1);
+  font-size: var(--font-ui-smaller);
+}
+.kvs-card-label {
+  color: var(--text-muted);
+  min-width: 80px;
+}
+.kvs-cards-group-header {
+  margin-top: var(--size-4-4);
+  font-weight: var(--font-semibold);
+}
+
+/* Cell primitives */
+.kvs-tag,
+.kvs-pill {
+  display: inline-block;
+  padding: 0 var(--size-4-2);
+  margin: 0 var(--size-2-1) var(--size-2-1) 0;
+  border-radius: var(--radius-s);
+  background: var(--background-modifier-hover);
+  font-size: var(--font-ui-smaller);
+}
+/* Tags render as a wrapping row of pills; each pill stays on one line (a multi-word tag never
+   splits across lines), and pills wrap between tags. */
+.kvs-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-2-1);
+}
+.kvs-tags .kvs-tag {
+  margin: 0;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: keep-all;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kvs-tag {
+  color: var(--text-accent);
+}
+.kvs-rating {
+  color: var(--text-accent);
+  letter-spacing: 1px;
+}
+.kvs-cell-image img {
+  max-width: 160px;
+  max-height: 120px;
+  border-radius: var(--radius-s);
+}
+
+/* Dashboard pane */
+.kvs-dashboard-header {
+  padding: var(--size-4-2) 0;
+}
+.kvs-dashboard-body {
+  padding-top: var(--size-4-2);
+}
+
+/* Settings */
+.kvs-settings-profile {
+  margin: var(--size-4-2) 0;
+  padding: var(--size-4-2) var(--size-4-3);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+}
+.kvs-invalid input {
+  border-color: var(--text-error);
+}
+
+/* Phase 5 — editor modal & customization UI */
+.kvs-editor-modal {
+  width: min(720px, 90vw);
+}
+.kvs-editor {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.kvs-settings-column,
+.kvs-settings-condition {
+  margin: var(--size-2-3) 0;
+  padding: var(--size-2-2) var(--size-4-2);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+}
+.kvs-settings-condition .setting-item {
+  border: none;
+  padding: var(--size-2-2) 0;
+}
+.kvs-import-textarea {
+  width: 100%;
+  font-family: var(--font-monospace);
+  resize: vertical;
+}
+.kvs-import-status {
+  margin-top: var(--size-2-2);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+.kvs-import-status.kvs-invalid,
+.kvs-invalid {
+  color: var(--text-error);
+}
+.kvs-invalid input,
+.kvs-invalid textarea {
+  border-color: var(--text-error);
+}
+
+/* Phase 6 — inline editing */
+.kvs-td.kvs-editable {
+  cursor: text;
+}
+.kvs-td.kvs-editable:hover {
+  outline: 1px solid var(--background-modifier-border-hover);
+  outline-offset: -1px;
+}
+.kvs-cell-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: inherit;
+  padding: var(--size-2-1) var(--size-2-2);
+}
+.kvs-cell-textarea {
+  resize: vertical;
+  font-family: inherit;
+}
+
+/* ---- Phase 7: view host, banner, accessibility ---- */
+.kvs-view-host {
+  min-height: 1px;
+}
+
+.kvs-banner {
+  margin-bottom: var(--size-4-2);
+  padding: var(--size-4-2) var(--size-4-3);
+  border: 1px solid var(--background-modifier-border);
+  border-left: 3px solid var(--interactive-accent);
+  border-radius: var(--radius-s);
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.kvs-th:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: -2px;
+}
+
+/* ---- Bulk-edit bar ---- */
+.kvs-bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--size-4-2);
+  padding: var(--size-4-2) var(--size-4-3);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  background: var(--background-secondary);
+}
+
+.kvs-bulk-count {
+  font-weight: var(--font-semibold);
+  color: var(--text-normal);
+}
+
+.kvs-bulk-label {
+  color: var(--text-muted);
+}
+
+.kvs-bulk-value .kvs-cell-input {
+  width: 12em;
+}
+
+.kvs-select-cell {
+  width: 2.2em;
+  text-align: center;
+}
+
+/* ---- Kanban / board ---- */
+.kvs-kanban-board {
+  display: flex;
+  gap: var(--size-4-3);
+  align-items: flex-start;
+  overflow-x: auto;
+  padding-bottom: var(--size-4-2);
+}
+
+.kvs-kanban-column {
+  flex: 0 0 16rem;
+  display: flex;
+  flex-direction: column;
+  max-height: 70vh;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+}
+
+.kvs-kanban-column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--size-4-2);
+  padding: var(--size-4-2) var(--size-4-3);
+  border-bottom: 1px solid var(--background-modifier-border);
+  position: sticky;
+  top: 0;
+}
+
+.kvs-kanban-column-title {
+  font-weight: var(--font-semibold);
+  color: var(--text-normal);
+}
+
+.kvs-kanban-column-count {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  background: var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  padding: 0 var(--size-2-2);
+}
+
+.kvs-kanban-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-2);
+  padding: var(--size-4-2);
+  overflow-y: auto;
+  min-height: 2.5rem;
+}
+
+.kvs-kanban-list.kvs-drop-target {
+  background: var(--background-modifier-hover);
+  border-radius: var(--radius-s);
+  outline: 2px dashed var(--interactive-accent);
+  outline-offset: -4px;
+}
+
+.kvs-kanban-card {
+  padding: var(--size-4-2);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  background: var(--background-primary);
+}
+
+.kvs-kanban-card.kvs-draggable {
+  cursor: grab;
+}
+
+.kvs-kanban-card.kvs-draggable:active {
+  cursor: grabbing;
+}
+
+.kvs-kanban-card-title {
+  font-weight: var(--font-semibold);
+  margin-bottom: var(--size-2-2);
+}
+
+.kvs-kanban-card-field {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.kvs-kanban-card-label {
+  color: var(--text-faint);
+}
+
+.kvs-kanban-card-value {
+  color: var(--text-normal);
+}
+
+/* ---- Calendar ---- */
+.kvs-cal-header {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-2);
+}
+
+.kvs-cal-nav,
+.kvs-cal-today {
+  padding: var(--size-2-2) var(--size-4-2);
+}
+
+.kvs-cal-month {
+  font-weight: var(--font-semibold);
+  min-width: 10em;
+  text-align: center;
+}
+
+.kvs-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background: var(--background-modifier-border);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  overflow: hidden;
+}
+
+.kvs-cal-weekday {
+  background: var(--background-secondary);
+  padding: var(--size-2-2);
+  text-align: center;
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-semibold);
+  color: var(--text-muted);
+}
+
+.kvs-cal-day {
+  background: var(--background-primary);
+  min-height: 5.5rem;
+  padding: var(--size-2-2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.kvs-cal-day.kvs-cal-out {
+  background: var(--background-secondary);
+}
+
+.kvs-cal-daynum {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  align-self: flex-end;
+}
+
+.kvs-cal-out .kvs-cal-daynum {
+  color: var(--text-faint);
+}
+
+.kvs-cal-chip {
+  font-size: var(--font-ui-smaller);
+  padding: 1px var(--size-2-2);
+  border-radius: var(--radius-s);
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kvs-cal-chip:hover {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.kvs-cal-more {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+}
+
+/* ---- Pivot / summary ---- */
+.kvs-pivot-table .kvs-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.kvs-pivot-table .kvs-total {
+  font-weight: var(--font-semibold);
+  color: var(--text-normal);
+}
+
+.kvs-pivot-table .kvs-total-row .kvs-td {
+  border-top: 2px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+}
+
+/* ---- Bases integration: KVS views rendered on Bases data ---- */
+.kvs-bases-host {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  padding: var(--size-4-2);
+}
+
+/* ---- Phase 9: in-pane dashboard toolbar ---- */
+.kvs-toolbar-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  flex-wrap: wrap;
+  padding: var(--size-4-2) var(--size-4-2);
+  border-bottom: 1px solid var(--background-modifier-border);
+  position: sticky;
+  top: 0;
+  background: var(--background-primary);
+  z-index: 1;
+}
+.kvs-tb-group {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-3);
+}
+.kvs-tb-right {
+  margin-left: auto;
+}
+.kvs-view-select {
+  max-width: 14rem;
+  font-weight: var(--font-semibold);
+}
+.kvs-layout-select {
+  max-width: 9rem;
+}
+.kvs-icon-btn {
+  padding: 0 var(--size-2-3);
+  min-width: 1.8rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+.kvs-icon-btn:hover:not(:disabled) {
+  color: var(--text-normal);
+}
+.kvs-tb-btn {
+  padding: var(--size-2-2) var(--size-4-2);
+}
+.kvs-tb-btn.kvs-tb-active {
+  color: var(--text-on-accent);
+  background: var(--interactive-accent);
+}
+.kvs-search {
+  width: 12rem;
+  max-width: 40vw;
+}
+.kvs-results {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  white-space: nowrap;
+}
+
+/* ---- Popover (toolbar menus) ---- */
+.kvs-popover {
+  position: absolute;
+  z-index: var(--layer-menu);
+  min-width: 16rem;
+  max-width: min(28rem, 92vw);
+  max-height: 70vh;
+  overflow: auto;
+  padding: var(--size-4-3);
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-s);
+}
+.kvs-popover-title {
+  font-weight: var(--font-semibold);
+  margin-bottom: var(--size-4-2);
+}
+.kvs-prop-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-2-2);
+}
+.kvs-prop-row,
+.kvs-filter-row,
+.kvs-sort-row {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-3);
+}
+.kvs-filter-row,
+.kvs-filter-list {
+  flex-wrap: wrap;
+}
+.kvs-filter-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-2-3);
+  margin: var(--size-4-2) 0;
+}
+.kvs-prop-name {
+  flex: 1;
+  min-width: 6rem;
+}
+.kvs-sort-row {
+  margin-bottom: var(--size-2-3);
+}
+.kvs-sort-label {
+  width: 5rem;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+/* ---- Selectable cell content (text + tags) ---- */
+.kvs-td,
+.kvs-card-value,
+.kvs-kanban-card,
+.kvs-cal-chip,
+.kvs-tag,
+.kvs-pill {
+  -webkit-user-select: text;
+  user-select: text;
+}
+.kvs-tag {
+  cursor: text;
+}
+
+/* ---- Phase 9.1: native, Bases-style toolbar ---- */
+.kvs-toolbar-bar {
+  gap: var(--size-2-3);
+  padding: var(--size-2-3) var(--size-4-2);
+}
+.kvs-tb-spacer {
+  flex: 1 1 auto;
+}
+
+/* View switcher pill (icon + name + chevron) opening a menu */
+.kvs-view-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-2-2);
+  padding: var(--size-2-2) var(--size-2-3);
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  max-width: 18rem;
+  color: var(--text-normal);
+}
+.kvs-view-switcher:hover {
+  background: var(--background-modifier-hover);
+}
+.kvs-view-icon,
+.kvs-view-chevron {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-muted);
+}
+.kvs-view-icon .svg-icon {
+  width: var(--icon-s);
+  height: var(--icon-s);
+}
+.kvs-view-chevron .svg-icon {
+  width: var(--icon-xs);
+  height: var(--icon-xs);
+}
+.kvs-view-name {
+  font-weight: var(--font-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Icon buttons reuse Obsidian's clickable-icon; active + accent variants */
+.kvs-tb-icon.kvs-tb-active {
+  color: var(--text-accent);
+}
+.kvs-new-cta {
+  color: var(--text-accent);
+}
+.kvs-new-cta:hover:not(:disabled) {
+  background: var(--background-modifier-hover);
+  color: var(--text-accent);
+}
+
+/* Results count as a borderless menu button */
+.kvs-results {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  padding: var(--size-2-2) var(--size-2-3);
+  border-radius: var(--radius-s);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.kvs-results:hover:not(:disabled) {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+/* Compact search field */
+.kvs-search-wrap {
+  width: 12rem;
+  max-width: 38vw;
+}
+.kvs-search {
+  width: 100%;
+}
+
+/* Drag-reorder grips for sort keys and properties */
+.kvs-grip {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-faint);
+  cursor: grab;
+}
+.kvs-grip:active {
+  cursor: grabbing;
+}
+.kvs-grip .svg-icon {
+  width: var(--icon-s);
+  height: var(--icon-s);
+}
+.kvs-sort-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-2-3);
+  margin-bottom: var(--size-4-2);
+}
+.kvs-sort-key-row {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-3);
+}
+.kvs-dragging {
+  opacity: 0.4;
+}
+.kvs-popover-rule {
+  border: none;
+  border-top: 1px solid var(--background-modifier-border);
+  margin: var(--size-4-2) 0;
+}
+
+/* ---- Phase 9.2: nested filter groups ---- */
+.kvs-filter-root {
+  display: flex;
+  flex-direction: column;
+}
+.kvs-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-2-3);
+}
+.kvs-filter-group-nested {
+  margin-top: var(--size-2-3);
+  padding: var(--size-2-3) var(--size-2-3) var(--size-2-3) var(--size-4-2);
+  border-left: 2px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  background: var(--background-secondary);
+}
+.kvs-filter-group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-3);
+  margin-bottom: var(--size-2-2);
+}
+.kvs-filter-group-head .dropdown {
+  flex: 1;
+}
+.kvs-filter-actions {
+  display: flex;
+  gap: var(--size-2-3);
+  margin-top: var(--size-2-2);
+}
+
+/* ---- Phase 10: layout fixes, source links, pagination, virtualization ---- */
+
+/* Toolbar is a fixed header; only the body scrolls (no content bleeding under it) */
+.kvs-dashboard {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+.kvs-toolbar-bar {
+  position: static;
+  flex: 0 0 auto;
+  z-index: 2;
+}
+.kvs-dashboard-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 0;
+}
+
+/* Pager footer */
+.kvs-pager {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-2-2);
+}
+.kvs-pager:empty {
+  display: none;
+}
+.kvs-pager-label {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  white-space: nowrap;
+}
+
+/* Column widths become authoritative when any width is set */
+.kvs-table.kvs-fixed {
+  table-layout: fixed;
+}
+.kvs-table.kvs-fixed .kvs-td,
+.kvs-table.kvs-fixed .kvs-th {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Source-note link cell */
+.kvs-source-cell {
+  width: 2rem;
+  text-align: center;
+}
+.kvs-source-link {
+  color: var(--text-faint);
+}
+.kvs-source-link:hover {
+  color: var(--text-normal);
+}
+
+/* Click-to-open kanban card title */
+.kvs-kanban-card-open {
+  cursor: pointer;
+}
+.kvs-kanban-card-open:hover {
+  text-decoration: underline;
+}
+
+/* Native tags get a little breathing room between them */
+.kvs-td a.tag,
+.kvs-kanban-card-value a.tag,
+.kvs-card-value a.tag {
+  margin-right: 0.3em;
+}
+
+/* Windowed virtualization: bounded scroll + uniform row height */
+.kvs-virtual-scroll {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+/* Virtualized rows use measured heights, so cells wrap according to the row
+   density (compact stays single-line via .kvs-rows-compact; normal/comfortable wrap). */
+.kvs-table.kvs-virtual .kvs-td p {
+  margin: 0;
+}
+.kvs-vspacer td {
+  padding: 0;
+  border: none;
+  line-height: 0;
+  font-size: 0;
+}
+
+/* ---- Phase 11: virtualization for grouped tables and boards ---- */
+/* Group header rows keep the uniform row height while a table is virtualized */
+/* Group headers in a virtualized table size to their content (measured). */
+
+/* Virtualized kanban columns: block flow + uniform, fixed card height */
+.kvs-kanban-list-virtual {
+  display: block;
+  gap: 0;
+  padding: 0 var(--size-4-2);
+}
+.kvs-kanban-list-virtual .kvs-kanban-card {
+  height: 104px;
+  margin-bottom: var(--size-4-2);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.kvs-kanban-vspacer {
+  width: 100%;
+}
+
+/* ---- Phase 12: field roles + row-detail modal ---- */
+.kvs-source-cell {
+  width: 3.4rem;
+  white-space: nowrap;
+}
+.kvs-card-clickable {
+  cursor: pointer;
+}
+
+.kvs-row-detail-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-4);
+}
+.kvs-row-detail-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-2-1);
+}
+.kvs-row-detail-label {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.kvs-row-detail-value {
+  color: var(--text-normal);
+}
+.kvs-row-detail-value p {
+  margin: 0;
+}
+.kvs-row-detail-meta {
+  border-top: 1px solid var(--background-modifier-border);
+  padding-top: var(--size-4-2);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+.kvs-row-detail-path {
+  font-family: var(--font-monospace);
+  word-break: break-all;
+}
+
+/* ---- Phase 13: tags editor, column resize, frozen first column ---- */
+
+/* Inline tags (token) editor */
+.kvs-tags-editor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-2-1);
+  padding: 2px 4px;
+}
+.kvs-tags-chips {
+  display: contents;
+}
+.kvs-tag-token {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  gap: 2px;
+  background: var(--background-modifier-hover);
+  border-radius: var(--radius-s);
+  padding: 0 var(--size-2-2);
+  font-size: var(--font-ui-smaller);
+}
+.kvs-tag-token-x {
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.kvs-tag-token-x:hover {
+  color: var(--text-error);
+}
+.kvs-tags-input {
+  flex: 1;
+  min-width: 4rem;
+  border: none;
+  background: transparent;
+  outline: none;
+  box-shadow: none;
+}
+
+/* Column drag-resize handle (sits on the header's right edge) */
+.kvs-col-resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  user-select: none;
+}
+.kvs-col-resize:hover {
+  background: var(--interactive-accent);
+  opacity: 0.5;
+}
+
+/* Frozen first column (plus the combined leading gutter) */
+.kvs-frozen-cols tbody .kvs-gutter-cell,
+.kvs-frozen-cols tbody .kvs-frozen-col0 {
+  position: sticky;
+  z-index: 2;
+  background: var(--background-primary);
+}
+.kvs-frozen-cols thead .kvs-gutter-cell,
+.kvs-frozen-cols thead .kvs-frozen-col0 {
+  z-index: 4;
+}
+.kvs-frozen-cols .kvs-gutter-cell {
+  left: 0;
+}
+.kvs-frozen-cols .kvs-frozen-col0 {
+  /* Offset by the gutter's actual width (set on the table), so resizing the gutter stays aligned. */
+  left: var(--kvs-gutter-w, 0px);
+}
+.kvs-frozen-cols .kvs-row:hover .kvs-gutter-cell,
+.kvs-frozen-cols .kvs-row:hover .kvs-frozen-col0 {
+  background: var(--background-modifier-hover);
+}
+
+/* ---- Phase 14: freeze header row ---- */
+.kvs-frozen-header-scroll {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* ---- Phase 15: image size + zoom ---- */
+.kvs-td img,
+.kvs-card img,
+.kvs-kanban-card img,
+.kvs-row-detail img {
+  max-height: var(--kvs-img-max-h, 320px);
+  max-width: var(--kvs-img-max-w, 100%);
+  object-fit: contain;
+  border-radius: var(--radius-s);
+  cursor: zoom-in;
+}
+.kvs-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: var(--layer-modal, 100);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3vmin;
+  background: rgba(0, 0, 0, 0.85);
+  cursor: zoom-out;
+}
+.kvs-lightbox-img {
+  max-width: 96vw;
+  max-height: 94vh;
+  object-fit: contain;
+  border-radius: var(--radius-m);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* ---- Phase 16: export (hidden print frame) ---- */
+.kvs-print-frame {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 1200px;
+  height: 1600px;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ---- Phase 17: import (file preview) ---- */
+.kvs-import-error {
+  color: var(--text-error);
+  font-size: var(--font-ui-smaller);
+  margin: var(--size-4-2) 0;
+}
+.kvs-import-preview {
+  margin: var(--size-4-2) 0;
+}
+.kvs-import-preview-caption,
+.kvs-import-preview-more {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+.kvs-import-preview-more {
+  margin-top: var(--size-2-2);
+}
+.kvs-import-preview-scroll {
+  max-height: 200px;
+  overflow: auto;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  margin-top: var(--size-2-2);
+}
+.kvs-import-preview-table {
+  border-collapse: collapse;
+  font-size: var(--font-ui-smaller);
+}
+.kvs-import-preview-table th,
+.kvs-import-preview-table td {
+  border: 1px solid var(--background-modifier-border);
+  padding: 2px 6px;
+  text-align: left;
+  white-space: nowrap;
+}
+.kvs-import-preview-table th {
+  background: var(--background-secondary);
+  position: sticky;
+  top: 0;
+}
+
+/* ================================================================
+   Phase 18 — native UI refinement (Bases-like polish)
+   Goal: the dashboard reads as a native Obsidian view that fills the
+   pane, not a bordered widget floating inside a padded window.
+   ================================================================ */
+
+/* Fill the pane flush: drop the default view-content padding. */
+.view-content.kvs-dashboard {
+  padding: 0;
+}
+
+/* Toolbar is a quiet header strip with a single hairline separator,
+   its content inset aligned with the table's first column. */
+.kvs-toolbar-bar {
+  padding: var(--size-2-3) var(--size-4-3);
+  border-bottom: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+}
+
+/* Header labels sit at medium weight; the sort caret is inline and subtle. */
+.kvs-th-label {
+  font-weight: var(--font-medium);
+  gap: var(--size-2-1);
+}
+.kvs-th-label .svg-icon {
+  color: var(--text-faint);
+}
+.kvs-sort-indicator {
+  display: inline-flex;
+  align-items: center;
+  margin-left: var(--size-2-1);
+  color: var(--text-accent);
+}
+
+/* Rows: full-bleed hairline separators, gentle hover — no card borders. */
+.kvs-td {
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.kvs-row:last-child .kvs-td {
+  border-bottom: none;
+}
+
+/* Group rows read as quiet section dividers. */
+.kvs-group-cell {
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Cards: native surface with a subtle border and a gentle hover lift. */
+.kvs-card {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+.kvs-card:hover {
+  border-color: var(--background-modifier-border-hover);
+  box-shadow: var(--shadow-s);
+}
+
+/* Give the card grid, board, and calendar breathing room from the pane edge
+   (the table manages its own inset via cell padding). */
+.kvs-cards-grid,
+.kvs-kanban-board,
+.kvs-calendar-view {
+  padding: var(--size-4-3);
+}
+
+/* In the dashboard the toolbar already shows the row count, so hide each
+   view's own count line to keep the content flush under the toolbar. */
+.kvs-dashboard .kvs-view > .kvs-toolbar {
+  display: none;
+}
+
+/* Empty / loading states fill more naturally. */
+.kvs-empty,
+.kvs-loading {
+  padding: var(--size-4-6) var(--size-4-4);
+}
+
+/* ================================================================
+   Phase 19 — row density, native tags, refined selection
+   ================================================================ */
+
+/* Row height (density) — normal is the base .kvs-td padding. */
+.kvs-rows-compact .kvs-td {
+  padding-top: var(--size-2-2);
+  padding-bottom: var(--size-2-2);
+  white-space: nowrap;
+}
+.kvs-rows-comfortable .kvs-td {
+  padding-top: var(--size-4-3);
+  padding-bottom: var(--size-4-3);
+}
+
+/* Native tag links (rendered directly so emoji tags show). */
+.kvs-tag-link {
+  margin-right: var(--size-2-2);
+}
+.kvs-tag-link:last-child {
+  margin-right: 0;
+}
+.kvs-tag-suggestion .tag {
+  pointer-events: none;
+}
+
+/* Selection checkbox: centered and native. */
+.kvs-select-cell {
+  text-align: center;
+  vertical-align: middle;
+}
+.kvs-checkbox {
+  margin: 0;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+/* Bulk-edit action bar: a clean grouped strip, not a wrapped jumble. */
+.kvs-bulk-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--size-4-2) var(--size-4-3);
+  margin-bottom: var(--size-4-2);
+  padding: var(--size-2-3) var(--size-4-3);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+  box-shadow: var(--shadow-s);
+}
+.kvs-bulk-count {
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.kvs-bulk-count-num {
+  font-weight: var(--font-bold);
+  color: var(--text-normal);
+  margin-right: 0.25em;
+}
+.kvs-bulk-set {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-2);
+  flex-wrap: wrap;
+  padding-left: var(--size-4-3);
+  border-left: 1px solid var(--background-modifier-border);
+}
+.kvs-bulk-label {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+.kvs-bulk-field {
+  max-width: 12rem;
+  min-width: 6rem;
+}
+.kvs-bulk-value input,
+.kvs-bulk-value select {
+  min-width: 6rem;
+}
+.kvs-bulk-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-2);
+  flex-wrap: wrap;
+}
+
+/* ================================================================
+   Phase 20 — layout fix: views fill the pane and scroll internally
+   (fixes the "half page" virtual box and restores full-height views).
+   Scoped to the dashboard so embedded views still flow inside notes.
+   ================================================================ */
+.kvs-dashboard-body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.kvs-dashboard .kvs-view-host {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Table: the view root is a flex column; the scroll region fills and scrolls,
+   which is what the row virtualizer measures. No fixed 60vh cap here. */
+.kvs-dashboard .kvs-table-view {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.kvs-dashboard .kvs-table-view .kvs-table-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.kvs-dashboard .kvs-table-view .kvs-virtual-scroll,
+.kvs-dashboard .kvs-table-view .kvs-frozen-header-scroll {
+  max-height: none;
+}
+
+/* Other views fill the pane and scroll as a whole. */
+.kvs-dashboard .kvs-cards-view,
+.kvs-dashboard .kvs-kanban-view,
+.kvs-dashboard .kvs-calendar-view,
+.kvs-dashboard .kvs-pivot-view,
+.kvs-dashboard .kvs-gallery-view {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* ---- Wide table mode: columns get room; the table scrolls horizontally ---- */
+.kvs-table.kvs-wide {
+  width: max-content;
+  min-width: 100%;
+}
+.kvs-table.kvs-wide:not(.kvs-rows-compact).kvs-fixed .kvs-td {
+  /* Wrap within the wider column rather than truncating with an ellipsis.
+     Compact stays single-line (keeps the default ellipsis) so cells never bleed. */
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Properties popover: per-column show/hide eye */
+.kvs-prop-eye {
+  flex: 0 0 auto;
+}
+.kvs-prop-eye.kvs-col-hidden {
+  color: var(--text-faint);
+  opacity: 0.6;
+}
+
+/* ================= Export modal — wide layout, large live preview ================= */
+.kvs-export-modal-el {
+  width: min(1000px, 94vw);
+  max-width: min(1000px, 94vw);
+}
+.kvs-export-modal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-3);
+}
+.kvs-export-head {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-3);
+  flex-wrap: wrap;
+}
+.kvs-export-head-label {
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.kvs-export-formats {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-m);
+  background: var(--background-modifier-border);
+}
+.kvs-export-fmt {
+  padding: 4px 14px;
+  border: none;
+  border-radius: var(--radius-s);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  cursor: pointer;
+  box-shadow: none;
+}
+.kvs-export-fmt:hover {
+  color: var(--text-normal);
+}
+.kvs-export-fmt.is-active {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-weight: var(--font-medium);
+  box-shadow: var(--shadow-s);
+}
+.kvs-export-body {
+  display: flex;
+  gap: var(--size-4-4);
+  align-items: flex-start;
+  min-height: 420px;
+}
+.kvs-export-preview {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--size-4-2);
+  position: sticky;
+  top: 0;
+}
+.kvs-export-stage {
+  width: 100%;
+  max-height: 560px;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  padding: var(--size-4-2);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+}
+.kvs-export-page {
+  width: 100%;
+  max-width: 640px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  background: #fff;
+  box-shadow: var(--shadow-l);
+}
+.kvs-export-text {
+  width: 100%;
+  margin: 0;
+  padding: var(--size-4-3);
+  background: var(--background-primary);
+  border-radius: var(--radius-s);
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+  white-space: pre;
+  overflow: auto;
+}
+.kvs-export-cap {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+.kvs-export-preview-empty {
+  padding: var(--size-4-6);
+  color: var(--text-faint);
+  font-size: var(--font-ui-small);
+}
+.kvs-export-settings {
+  flex: 0 0 320px;
+  max-height: 560px;
+  overflow-y: auto;
+  padding-right: var(--size-4-2);
+}
+.kvs-export-section {
+  margin-bottom: var(--size-4-3);
+}
+.kvs-export-section-title {
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  padding: 4px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+  margin-bottom: 2px;
+}
+.kvs-export-section-body .setting-item {
+  padding: 8px 0;
+  border: none;
+}
+.kvs-export-num {
+  width: 4rem;
+}
+.kvs-export-footer {
+  border-top: 1px solid var(--background-modifier-border);
+  padding-top: var(--size-4-2);
+}
+.kvs-export-footer .setting-item {
+  border: none;
+  padding: 0;
+}
+
+/* Spreadsheet-like grid preview for Excel exports */
+.kvs-export-grid {
+  border-collapse: collapse;
+  font-size: var(--font-ui-smaller);
+  background: #fff;
+  color: #111;
+}
+.kvs-export-grid th,
+.kvs-export-grid td {
+  border: 1px solid #d0d3d9;
+  padding: 3px 8px;
+  text-align: left;
+  white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kvs-export-grid th {
+  background: #eef0f4;
+  font-weight: normal;
+  position: sticky;
+  top: 0;
+}
+.kvs-export-grid th.is-bold {
+  font-weight: 700;
+}
+.kvs-export-grid-corner,
+.kvs-export-grid-num {
+  background: #eef0f4 !important;
+  color: #888;
+  text-align: center !important;
+  font-variant-numeric: tabular-nums;
+}
+.kvs-export-grid-filter {
+  float: right;
+  color: #888;
+  margin-left: 6px;
+}
+.kvs-export-grid tr.is-zebra td {
+  background: #f2f4f8;
+}
+.kvs-export-grid.is-frozen thead th {
+  box-shadow: inset 0 -2px 0 #b8c0cc;
+}
+
+@media (max-width: 720px) {
+  .kvs-export-body {
+    flex-direction: column;
+  }
+  .kvs-export-settings {
+    flex-basis: auto;
+    width: 100%;
+  }
+}
+
+/* Properties popover helper line */
+.kvs-popover-hint {
+  padding: 0 var(--size-4-2) var(--size-4-1);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+/* ---- View quick-switcher ---- */
+.kvs-switch-item {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+}
+.kvs-switch-icon {
+  display: inline-flex;
+  color: var(--text-muted);
+}
+.kvs-switch-name {
+  flex: 1;
+}
+.kvs-switch-group {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  background: var(--background-modifier-hover);
+  padding: 0 var(--size-4-1);
+  border-radius: var(--radius-s);
+}
+.kvs-switch-current {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-accent);
+}
+
+/* Properties popover: leading meta-column toggles (source note, row selection) */
+.kvs-prop-meta {
+  margin-bottom: var(--size-4-1);
+}
+.kvs-prop-meta-label {
+  color: var(--text-muted);
+  cursor: default;
+}
+.kvs-grip-fixed {
+  visibility: hidden; /* keeps eye/label aligned with draggable rows below */
+}
+.kvs-prop-divider {
+  height: 1px;
+  margin: var(--size-4-1) var(--size-4-2);
+  background: var(--background-modifier-border);
+}
+
+/* ===================== View settings editor (two-pane, sectioned) ===================== */
+.kvs-editor-modal {
+  width: min(940px, 94vw);
+  max-width: min(940px, 94vw);
+}
+.kvs-editor-modal .modal-title {
+  display: none; /* we render a richer header inside the content */
+}
+.kvs-editor-modal .modal-content.kvs-editor {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  max-height: 82vh;
+  min-height: 460px;
+}
+
+/* Header */
+.kvs-editor-header {
+  padding: var(--size-4-4) var(--size-4-5) var(--size-4-3);
+  padding-right: 2.75rem; /* clear the modal close button */
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.kvs-editor-eyebrow {
+  font-size: var(--font-ui-smaller);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+}
+.kvs-editor-title {
+  font-size: var(--font-ui-large);
+  font-weight: var(--font-bold);
+  margin-top: 2px;
+  line-height: 1.2;
+}
+
+/* Body: nav + panels */
+.kvs-editor-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.kvs-editor-nav {
+  flex: 0 0 208px;
+  border-right: 1px solid var(--background-modifier-border);
+  padding: var(--size-4-2);
+  overflow-y: auto;
+  background: var(--background-secondary);
+}
+.kvs-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-4-2);
+  border-radius: var(--radius-m);
+  cursor: pointer;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+.kvs-nav-item:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+.kvs-nav-item.is-active {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+  box-shadow: inset 2px 0 0 var(--interactive-accent);
+}
+.kvs-nav-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--text-muted);
+}
+.kvs-nav-item.is-active .kvs-nav-icon {
+  color: var(--interactive-accent);
+}
+.kvs-nav-label {
+  font-weight: var(--font-medium);
+  font-size: var(--font-ui-small);
+  line-height: 1.25;
+}
+.kvs-nav-desc {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+  line-height: 1.2;
+}
+
+/* Panels */
+.kvs-editor-panels {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: var(--size-4-4) var(--size-4-5);
+}
+.kvs-editor-panel {
+  display: none;
+}
+.kvs-editor-panel.is-active {
+  display: block;
+  animation: kvs-editor-fade 130ms ease;
+}
+@keyframes kvs-editor-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The leading heading of each panel reads as the panel title */
+.kvs-editor-panel .setting-item-heading:first-child {
+  padding-top: 0;
+  margin-bottom: var(--size-4-2);
+}
+.kvs-editor-panel .setting-item-heading .setting-item-name {
+  font-size: var(--font-ui-medium);
+  font-weight: var(--font-bold);
+}
+
+/* Footer */
+.kvs-editor-footer {
+  padding: var(--size-4-3) var(--size-4-5);
+  border-top: 1px solid var(--background-modifier-border);
+  display: flex;
+  justify-content: flex-end;
+}
+.kvs-editor-footer .setting-item {
+  border: none;
+  padding: 0;
+  width: auto;
+}
+
+/* Mobile: nav collapses above the panels */
+@media (max-width: 620px) {
+  .kvs-editor-body {
+    flex-direction: column;
+  }
+  .kvs-editor-nav {
+    flex: 0 0 auto;
+    display: flex;
+    gap: var(--size-4-1);
+    overflow-x: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--background-modifier-border);
+  }
+  .kvs-nav-desc {
+    display: none;
+  }
+}
+
+/* ===================== In-place cell editing ===================== */
+.kvs-td.kvs-editing {
+  /* An inset ring drawn inside the cell — never clipped by horizontal scroll, and never a
+     floating box, so a row taller than the screen just edits as a tall cell. */
+  box-shadow: inset 0 0 0 2px var(--interactive-accent);
+  background: var(--background-primary);
+  position: relative;
+  z-index: 1;
+}
+/* The control fills the cell and is borderless — the cell itself is the frame. */
+.kvs-td.kvs-editing .kvs-cell-input,
+.kvs-td.kvs-editing .kvs-tags-input {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  box-shadow: none;
+  outline: none;
+}
+.kvs-td.kvs-editing .kvs-cell-textarea {
+  resize: none; /* auto-grows to fit its content */
+  overflow: hidden;
+  line-height: inherit;
+  display: block;
+}
+.kvs-td.kvs-editing select.kvs-cell-input {
+  font: inherit;
+  cursor: pointer;
+}
+.kvs-td.kvs-editing .kvs-tags-editor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+.kvs-td.kvs-editing .kvs-tags-input {
+  flex: 1;
+  min-width: 60px;
+}
+
+/* Star rating editor */
+.kvs-rating-editor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.kvs-rating-star {
+  cursor: pointer;
+  font-size: 1.5em;
+  line-height: 1;
+  color: var(--text-faint);
+  transition: color 80ms ease;
+}
+.kvs-rating-star.is-on {
+  color: var(--text-accent);
+}
+.kvs-rating-clear {
+  margin-left: auto;
+  font-size: var(--font-ui-smaller);
+  padding: 2px 8px;
+}
+
+/* ===================== View switcher panel (top-left) ===================== */
+.kvs-popover.kvs-viewmenu {
+  min-width: 264px;
+  max-width: 320px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 12px;
+  border-color: var(--background-modifier-border);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 12px 32px rgba(0, 0, 0, 0.22);
+  animation: kvs-viewmenu-in 120ms cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+/* The header stays put; everything below scrolls when the menu is tall. */
+.kvs-viewmenu-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+@keyframes kvs-viewmenu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.kvs-viewmenu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px var(--size-4-3) 8px;
+}
+.kvs-viewmenu-title {
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-faint);
+}
+.kvs-viewmenu-head-actions {
+  display: flex;
+  gap: 2px;
+}
+.kvs-viewmenu-head-actions .clickable-icon {
+  padding: 4px;
+  border-radius: 6px;
+  color: var(--text-muted);
+}
+.kvs-viewmenu-head-actions .clickable-icon:hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+.kvs-viewmenu-list {
+  padding: 2px var(--size-4-2) var(--size-4-2);
+  max-height: 240px;
+  overflow-y: auto;
+}
+.kvs-viewmenu-empty {
+  padding: var(--size-4-2);
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+.kvs-viewmenu-cat {
+  padding: 8px var(--size-4-2) 3px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.kvs-viewmenu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px var(--size-4-2);
+  border-radius: 7px;
+  cursor: pointer;
+  color: var(--text-normal);
+  transition:
+    background 90ms ease,
+    color 90ms ease;
+}
+.kvs-viewmenu-item:hover {
+  background: var(--background-modifier-hover);
+}
+.kvs-viewmenu-item.is-active {
+  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+  color: var(--text-normal);
+}
+.kvs-viewmenu-item-icon {
+  display: inline-flex;
+  color: var(--text-muted);
+}
+.kvs-viewmenu-item-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.kvs-viewmenu-item.is-active .kvs-viewmenu-item-icon {
+  color: var(--interactive-accent);
+}
+.kvs-viewmenu-item-name {
+  flex: 1;
+  font-size: var(--font-ui-small);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kvs-viewmenu-item-check {
+  display: inline-flex;
+  color: var(--interactive-accent);
+}
+.kvs-viewmenu-item-check svg {
+  width: 15px;
+  height: 15px;
+}
+.kvs-viewmenu-sec {
+  padding: 10px var(--size-4-3);
+  border-top: 1px solid var(--background-modifier-border);
+}
+.kvs-viewmenu-sec-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+/* Segmented control */
+.kvs-seg {
+  display: flex;
+  gap: 3px;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 9px;
+  padding: 3px;
+}
+.kvs-seg-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 100ms ease,
+    color 100ms ease,
+    box-shadow 100ms ease;
+}
+.kvs-seg-btn:hover {
+  color: var(--text-normal);
+}
+.kvs-seg-btn.is-on {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.12),
+    0 0 0 1px var(--background-modifier-border);
+}
+.kvs-seg-ic {
+  display: inline-flex;
+}
+.kvs-seg-ic svg {
+  width: 15px;
+  height: 15px;
+}
+/* Layout picker: a wrapping grid so every view type is visible at once */
+.kvs-layout-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+.kvs-layout-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 9px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-primary);
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+  transition:
+    background 100ms ease,
+    color 100ms ease,
+    border-color 100ms ease;
+}
+.kvs-layout-btn:hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+.kvs-layout-btn.is-on {
+  color: var(--text-normal);
+  border-color: var(--interactive-accent);
+  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+}
+.kvs-layout-ic {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--text-muted);
+}
+.kvs-layout-ic svg {
+  width: 15px;
+  height: 15px;
+}
+.kvs-layout-btn.is-on .kvs-layout-ic {
+  color: var(--interactive-accent);
+}
+.kvs-layout-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kvs-viewmenu-actions {
+  padding: var(--size-4-2);
+  border-top: 1px solid var(--background-modifier-border);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.kvs-viewmenu-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px var(--size-4-2);
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: var(--font-ui-small);
+  color: var(--text-normal);
+  transition: background 90ms ease;
+}
+.kvs-viewmenu-action:hover {
+  background: var(--background-modifier-hover);
+}
+.kvs-viewmenu-action-ic {
+  display: inline-flex;
+  color: var(--text-muted);
+}
+.kvs-viewmenu-action-ic svg {
+  width: 15px;
+  height: 15px;
+}
+.kvs-viewmenu-danger {
+  color: var(--text-error);
+}
+.kvs-viewmenu-danger:hover {
+  background: color-mix(in srgb, var(--text-error) 12%, transparent);
+}
+.kvs-viewmenu-danger .kvs-viewmenu-action-ic {
+  color: var(--text-error);
+}
+
+/* ===================== Settings editor polish ===================== */
+.kvs-editor-modal .modal-content.kvs-editor {
+  border-radius: 12px;
+}
+.kvs-editor-header {
+  padding-top: var(--size-4-5);
+}
+.kvs-editor-eyebrow {
+  font-weight: 600;
+  color: var(--text-accent);
+}
+.kvs-editor-nav {
+  padding: var(--size-4-3) var(--size-4-2);
+}
+.kvs-nav-item {
+  padding: 9px 10px;
+  border-radius: 8px;
+  margin-bottom: 3px;
+  transition:
+    background 90ms ease,
+    color 90ms ease;
+}
+.kvs-nav-item.is-active {
+  background: color-mix(in srgb, var(--interactive-accent) 13%, transparent);
+  color: var(--text-normal);
+  box-shadow: none;
+}
+.kvs-nav-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Panel title (first heading) vs sub-section headings (later headings) */
+.kvs-editor-panel .setting-item-heading {
+  border-top: none;
+  margin-top: var(--size-4-4);
+  margin-bottom: var(--size-4-1);
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.kvs-editor-panel .setting-item-heading .setting-item-name {
+  font-size: var(--font-ui-smaller);
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.kvs-editor-panel .setting-item-heading:first-child {
+  margin-top: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+  margin-bottom: var(--size-4-3);
+}
+.kvs-editor-panel .setting-item-heading:first-child .setting-item-name {
+  font-size: var(--font-ui-large);
+  font-weight: var(--font-bold);
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--text-normal);
+}
+.kvs-editor-panel .setting-item {
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+.kvs-editor-panel .setting-item-name {
+  font-weight: 500;
+}
+.kvs-editor-footer button {
+  padding: 6px 22px;
+  font-weight: 550;
+}
+
+/* ===================== Rendered Markdown inside table cells ===================== */
+/* Tighten Obsidian's default block spacing so nested lists / paragraphs sit neatly in a cell. */
+.kvs-td p {
+  margin: 0.12em 0;
+}
+.kvs-td > p:first-child,
+.kvs-td .markdown-rendered > :first-child {
+  margin-top: 0;
+}
+.kvs-td > p:last-child,
+.kvs-td .markdown-rendered > :last-child {
+  margin-bottom: 0;
+}
+.kvs-td ul,
+.kvs-td ol {
+  margin: 0.15em 0;
+  padding-left: 1.35em;
+}
+.kvs-td li {
+  margin: 0.05em 0;
+}
+.kvs-td li > ul,
+.kvs-td li > ol {
+  margin: 0.05em 0;
+}
+.kvs-td li > p {
+  margin: 0;
+}
+/* Task list checkboxes rendered by Obsidian */
+.kvs-td ul.contains-task-list,
+.kvs-td ul .task-list-item {
+  list-style: none;
+}
+.kvs-td blockquote {
+  margin: 0.2em 0;
+  padding-left: 0.7em;
+  border-left: 2px solid var(--background-modifier-border);
+  color: var(--text-muted);
+}
+.kvs-td pre {
+  margin: 0.2em 0;
+  padding: 0.35em 0.5em;
+  border-radius: 4px;
+}
+.kvs-td h1,
+.kvs-td h2,
+.kvs-td h3,
+.kvs-td h4,
+.kvs-td h5,
+.kvs-td h6 {
+  margin: 0.25em 0 0.1em;
+  line-height: 1.2;
+}
+
+/* ===================== View file tabs (multiple views per .kvsview) ===================== */
+/* The tab strip lives inside the toolbar's left area — one row shared with the controls. */
+.kvs-view-tabs {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.kvs-view-tabs::-webkit-scrollbar {
+  height: 0;
+}
+.kvs-view-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  white-space: nowrap;
+  border: 1px solid transparent;
+  transition:
+    background 90ms ease,
+    color 90ms ease,
+    border-color 90ms ease;
+}
+.kvs-view-tab:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+.kvs-view-tab.is-active {
+  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--interactive-accent) 40%, transparent);
+  color: var(--text-normal);
+  font-weight: 550;
+}
+.kvs-view-tab-ic {
+  display: inline-flex;
+  color: var(--text-muted);
+}
+.kvs-view-tab-ic svg {
+  width: 15px;
+  height: 15px;
+}
+.kvs-view-tab.is-active .kvs-view-tab-ic {
+  color: var(--interactive-accent);
+}
+.kvs-view-tab-name {
+  line-height: 1.2;
+}
+.kvs-view-tab-caret {
+  display: inline-flex;
+  margin-left: 2px;
+  border-radius: 4px;
+  opacity: 0.7;
+}
+.kvs-view-tab-caret:hover {
+  opacity: 1;
+  background: var(--background-modifier-hover);
+}
+.kvs-view-tab-caret svg {
+  width: 14px;
+  height: 14px;
+}
+.kvs-view-tab-input {
+  border: none;
+  background: transparent;
+  color: var(--text-normal);
+  font: inherit;
+  font-weight: 550;
+  padding: 0;
+  margin: 0;
+  width: 9ch;
+  min-width: 6ch;
+  outline: none;
+}
+.kvs-view-tab-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  cursor: pointer;
+  color: var(--text-muted);
+  flex: 0 0 auto;
+}
+.kvs-view-tab-add:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+.kvs-view-tab-add svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ===================== Backup package viewer (.kvspack) ===================== */
+.kvs-backup {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--size-4-4) var(--size-4-5);
+  gap: var(--size-4-3);
+  overflow: hidden;
+}
+.kvs-backup-card {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 12px;
+  padding: var(--size-4-4);
+  background: var(--background-secondary);
+}
+.kvs-backup-head {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-3);
+}
+.kvs-backup-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+  color: var(--interactive-accent);
+  flex: 0 0 auto;
+}
+.kvs-backup-icon svg {
+  width: 22px;
+  height: 22px;
+}
+.kvs-backup-titles {
+  min-width: 0;
+}
+.kvs-backup-eyebrow {
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-accent);
+}
+.kvs-backup-title {
+  font-size: var(--font-ui-large);
+  font-weight: var(--font-bold);
+  line-height: 1.2;
+}
+.kvs-backup-meta {
+  margin-top: var(--size-4-2);
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+.kvs-backup-actions {
+  display: flex;
+  gap: var(--size-4-2);
+  margin-top: var(--size-4-4);
+}
+.kvs-backup-actions button {
+  padding: 6px 16px;
+}
+.kvs-backup-preview-label {
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+}
+.kvs-backup-preview {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.kvs-backup-preview-host {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Integrity verification result (archive viewer) */
+.kvs-backup-verify {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--size-4-3);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: var(--font-ui-small);
+}
+.kvs-backup-verify.is-ok,
+.kvs-backup-verify.is-bad {
+  display: flex;
+}
+.kvs-backup-verify.is-ok {
+  background: color-mix(in srgb, var(--color-green, #2e7d32) 14%, transparent);
+  color: var(--text-normal);
+}
+.kvs-backup-verify.is-bad {
+  background: color-mix(in srgb, var(--text-error) 14%, transparent);
+  color: var(--text-normal);
+}
+.kvs-verify-ic {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+.kvs-backup-verify.is-ok .kvs-verify-ic {
+  color: var(--color-green, #2e7d32);
+}
+.kvs-backup-verify.is-bad .kvs-verify-ic {
+  color: var(--text-error);
+}
+
+/* ===================== Backup export modal + encryption lock ===================== */
+.kvs-export-modal .kvs-export-title {
+  margin: 0 0 var(--size-4-3);
+}
+.kvs-export-hint {
+  margin: -6px 0 var(--size-4-3);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+.kvs-export-pw {
+  border-left: 2px solid var(--interactive-accent);
+  padding-left: var(--size-4-3);
+  margin: 0 0 var(--size-4-2);
+}
+.kvs-export-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--size-4-2);
+  margin-top: var(--size-4-4);
+}
+.kvs-export-foot button {
+  padding: 6px 18px;
+}
+.kvs-lock-row {
+  display: flex;
+  gap: var(--size-4-2);
+  margin-top: var(--size-4-3);
+}
+.kvs-lock-row input {
+  flex: 1;
+}
+.kvs-lock-err {
+  margin-top: var(--size-4-2);
+  color: var(--text-error);
+  font-size: var(--font-ui-small);
+  min-height: 1em;
+}
+
+/* Advanced filter expression inside the Filter popover */
+.kvs-filter-advanced { margin-bottom: 6px; }
+.kvs-adv-query {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--font-monospace);
+  font-size: 12px;
+  resize: vertical;
+  min-height: 44px;
+}
+.kvs-adv-query.kvs-invalid { border-color: var(--text-error); }
+.kvs-adv-error {
+  color: var(--text-error);
+  font-size: 11px;
+  min-height: 0;
+  margin-top: 2px;
+}
+.kvs-adv-error:empty { display: none; }
+
+/* Self-diagnosing empty state (teaches instead of dead-ending) */
+.kvs-empty-card {
+  max-width: 34em;
+  margin: 2em auto;
+  padding: 1.25em 1.5em;
+  border: 1px solid var(--kvs-border, var(--background-modifier-border));
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+  text-align: left;
+}
+.kvs-empty-title {
+  font-weight: var(--font-semibold);
+  font-size: var(--font-ui-medium);
+  margin-bottom: 0.35em;
+  color: var(--text-normal);
+}
+.kvs-empty-desc {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  margin-bottom: 0.75em;
+}
+.kvs-empty-example {
+  font-family: var(--font-monospace);
+  font-size: 12px;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  padding: 0.6em 0.75em;
+  overflow-x: auto;
+  margin: 0 0 0.85em;
+  white-space: pre;
+}
+.kvs-empty-actions {
+  display: flex;
+  gap: 0.5em;
+  flex-wrap: wrap;
+}
+
+/* First-run welcome */
+.kvs-welcome-lead { color: var(--text-normal); line-height: 1.5; }
+.kvs-welcome-sub { color: var(--text-muted); font-size: var(--font-ui-small); margin: 0.5em 0 0.75em; }
+.kvs-welcome-card {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  padding: 0.85em 1em;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  margin-bottom: 0.6em;
+}
+.kvs-welcome-card-text { flex: 1; }
+.kvs-welcome-card-title { font-weight: var(--font-semibold); }
+.kvs-welcome-card-desc { color: var(--text-muted); font-size: var(--font-ui-smaller); margin-top: 0.15em; }
+.kvs-welcome-card button { white-space: nowrap; }
+.kvs-welcome-tip { color: var(--text-faint); font-size: var(--font-ui-smaller); margin-top: 0.75em; }
+
+/* Collapsible advanced settings in the view editor */
+.kvs-advanced-group { margin: 0.4em 0 0.8em; }
+.kvs-advanced-summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  padding: 0.35em 0;
+  user-select: none;
+}
+.kvs-advanced-summary:hover { color: var(--text-normal); }
+.kvs-advanced-body { padding-left: 0.25em; border-left: 2px solid var(--background-modifier-border); margin-left: 0.15em; }
+
+.kvs-welcome-card-icon { color: var(--text-accent); flex: 0 0 auto; display: flex; align-items: center; }
+.kvs-welcome-card-icon svg { width: 20px; height: 20px; }
+
+/* One-time contextual hint bar */
+.kvs-hint-host:empty { display: none; }
+.kvs-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.45em 0.85em;
+  margin: 0.35em 0.5em 0;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+  font-size: var(--font-ui-small);
+}
+.kvs-hint-icon { color: var(--text-accent); display: flex; }
+.kvs-hint-icon svg { width: 15px; height: 15px; }
+.kvs-hint-text { flex: 1; color: var(--text-muted); }
+.kvs-hint-action {
+  padding: 0.15em 0.6em;
+  font-size: var(--font-ui-smaller);
+  cursor: pointer;
+}
+.kvs-hint-dismiss { flex: 0 0 auto; }
+
+/* Collapsible advanced group in the settings tab */
+.kvs-settings-advanced { margin: 0.5em 0 1em; }
+.kvs-settings-advanced-summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-weight: var(--font-semibold);
+  font-size: var(--font-ui-small);
+  padding: 0.4em 0;
+  user-select: none;
+}
+.kvs-settings-advanced-summary:hover { color: var(--text-normal); }
+.kvs-tag-token { white-space: nowrap; }
+
+/* Saved-view browser suggestions */
+.kvs-view-suggestion-name { font-weight: var(--font-medium); }
+.kvs-view-suggestion-path { color: var(--text-muted); font-size: var(--font-ui-smaller); }
+
+/* Folder multi-select (view scope) */
+.kvs-folder-setting .setting-item-control { flex-direction: column; align-items: stretch; }
+.kvs-folder-chip-x:hover { color: var(--text-normal); background: var(--background-modifier-border); }
+.kvs-folder-chip-x svg { width: 13px; height: 13px; }
+.kvs-folder-input { width: 100%; }
+.kvs-folder-menu-item:hover { background: var(--background-modifier-hover); }
+
+.kvs-bulk-copy { cursor: pointer; }
+.kvs-bulk-copyas { cursor: pointer; }
+
+/* Layout tabs — a view's shared data shown several ways, inline in the toolbar */
+.kvs-toolbar-sep {
+  width: 1px;
+  align-self: stretch;
+  min-height: 20px;
+  margin: 0 2px;
+  background: var(--background-modifier-border);
+}
+.kvs-layout-tabs-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+.kvs-layout-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.kvs-layout-tab:hover { color: var(--text-normal); background: var(--background-modifier-hover); }
+.kvs-layout-tab.is-active {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+  border-color: var(--background-modifier-border);
+  font-weight: var(--font-medium);
+}
+.kvs-layout-tab-ic { display: inline-flex; }
+.kvs-layout-tab-ic svg { width: 15px; height: 15px; }
+.kvs-layout-tab-input { font-size: var(--font-ui-small); width: 8em; }
+.kvs-layout-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.kvs-layout-add:hover { color: var(--text-normal); background: var(--background-modifier-hover); }
+.kvs-layout-add svg { width: 15px; height: 15px; }
+
+/* Editor nav: Data vs Layout groups */
+.kvs-nav-group {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 10px 10px 3px;
+  margin-top: 2px;
+}
+.kvs-nav-group:first-child { margin-top: 0; }
+.kvs-nav-group-label {
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.kvs-nav-group-hint {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+}
+
+/* ================================================================
+   Polish — subtle transitions for a smooth, snappy feel, plus
+   reduced-motion support. Only cheap, compositor-friendly
+   properties are transitioned (color/background/border/shadow),
+   never layout, so hovering never causes reflow jank.
+   ================================================================ */
+.kvs-layout-tab,
+.kvs-layout-add,
+.kvs-view-tab,
+.kvs-view-switcher,
+.kvs-tb-btn,
+.kvs-nav-item,
+.kvs-viewmenu-action,
+.kvs-viewmenu-item,
+.kvs-layout-btn,
+.kvs-seg-btn,
+.kvs-hint-action,
+.kvs-hint-dismiss,
+.kvs-results,
+.kvs-bulk-copy,
+.kvs-bulk-copyas,
+.kvs-pill,
+.kvs-tags .kvs-tag {
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+/* Clear keyboard focus rings on the interactive controls that are plain divs. */
+.kvs-layout-tab:focus-visible,
+.kvs-view-tab:focus-visible,
+.kvs-view-switcher:focus-visible,
+.kvs-nav-item:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Combined leading "gutter": selection checkbox + source link in one adjustable column */
+.kvs-table {
+  --kvs-gutter-w: 0px;
+}
+.kvs-gutter-cell {
+  text-align: center;
+  padding-left: 2px;
+  padding-right: 2px;
+}
+.kvs-gutter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 0;
+  overflow: hidden;
+}
+.kvs-gutter .kvs-checkbox {
+  margin: 0;
+  flex: none;
+}
+.kvs-gutter .kvs-source-link {
+  padding: 2px;
+  flex: none;
+}
+.kvs-gutter .kvs-source-link svg,
+.kvs-gutter .kvs-promoted-link svg {
+  width: 15px;
+  height: 15px;
+}
+.kvs-gutter .kvs-promoted-link {
+  padding: 2px;
+  flex: none;
+  color: var(--text-accent);
+}
+.kvs-gutter .kvs-promoted-link:hover {
+  color: var(--text-accent-hover);
+}
+
+/* View-menu checkbox row (e.g. hide empty columns) */
+.kvs-viewmenu-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  cursor: pointer;
+}
+.kvs-viewmenu-check label {
+  font-size: var(--font-ui-small);
+  cursor: pointer;
+}
+
+/* Focus mode — maximize the data area; a floating control exits it */
+.kvs-dashboard {
+  position: relative;
+}
+.kvs-dashboard.kvs-focus .kvs-hint-host {
+  display: none;
+}
+.kvs-focus-exit {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  z-index: 20;
+}
+.kvs-focus-exit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--font-ui-small);
+  opacity: 0.55;
+  box-shadow: var(--shadow-s);
+}
+.kvs-focus-exit-btn:hover {
+  opacity: 1;
+}
+.kvs-focus-exit-ic {
+  display: inline-flex;
+}
+.kvs-focus-exit-ic svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* Column suggestions — nudge dot, banner, and in-list badge */
+.kvs-tb-icon.kvs-tb-dot {
+  position: relative;
+}
+.kvs-tb-icon.kvs-tb-dot::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--interactive-accent);
+  box-shadow: 0 0 0 1.5px var(--background-primary);
+}
+.kvs-prop-suggest {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+}
+.kvs-prop-suggest-text {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+.kvs-prop-suggest-add {
+  flex: none;
+  padding: 3px 10px;
+  font-size: var(--font-ui-smaller);
+}
+.kvs-prop-badge {
+  flex: none;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: var(--radius-s);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-accent);
+  background: var(--background-modifier-hover);
+  white-space: nowrap;
+}
+
+/* View-menu "Display" disclosure — collapsed by default to keep the menu compact */
+.kvs-viewmenu-disc {
+  border-top: 1px solid var(--background-modifier-border);
+}
+.kvs-viewmenu-disc-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px var(--size-4-3);
+  cursor: pointer;
+  user-select: none;
+}
+.kvs-viewmenu-disc-head:hover {
+  background: var(--background-modifier-hover);
+}
+.kvs-viewmenu-disc-chev {
+  display: inline-flex;
+  color: var(--text-muted);
+}
+.kvs-viewmenu-disc-chev svg {
+  width: 15px;
+  height: 15px;
+}
+.kvs-viewmenu-disc-label {
+  font-size: var(--font-ui-small);
+  font-weight: var(--font-medium);
+}
+.kvs-viewmenu-disc-sum {
+  margin-left: auto;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+  text-transform: capitalize;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 55%;
+}
+.kvs-viewmenu-disc-body {
+  padding-bottom: var(--size-4-2);
+}
+
+/* List column — items shown as wrapped pills (multi-word items stay whole) */
+.kvs-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-2-1);
+}
+.kvs-list-item {
+  background: var(--background-modifier-hover);
+}
+
+/* Excel formula cells — shown but read-only (a computed value we won't clobber) */
+.kvs-formula-cell {
+  cursor: default;
+  position: relative;
+}
+.kvs-formula-cell::after {
+  content: "=";
+  position: absolute;
+  top: 1px;
+  right: 3px;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--text-faint);
+  opacity: 0.7;
+}
+
+/* Right-align numeric / currency / percent cells (spreadsheet convention) */
+.kvs-td.kvs-num-cell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Quiet background-save indicator in the toolbar */
+.kvs-save-status {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-s);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  background: var(--background-modifier-hover);
+  white-space: nowrap;
+}
+.kvs-save-status.is-visible {
+  display: inline-flex;
+}
+.kvs-save-status.is-error {
+  color: var(--text-error);
+}
+.kvs-save-ic {
+  display: inline-flex;
+}
+.kvs-save-ic svg {
+  width: 13px;
+  height: 13px;
+}
+.kvs-save-status:not(.is-error) .kvs-save-ic svg.lucide-loader {
+  animation: kvs-spin 0.9s linear infinite;
+}
+@keyframes kvs-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ===================== Academic Research kit ===================== */
+/* Reference cell affordances (available to any view; primarily used by kit views) */
+.kvs-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.kvs-ref-link {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kvs-citekey-text {
+  font-family: var(--font-monospace);
+  font-size: 0.92em;
+  color: var(--text-accent);
+}
+.kvs-authors {
+  font-style: italic;
+}
+.kvs-copy-btn {
+  opacity: 0;
+  flex: none;
+  padding: 1px;
+}
+.kvs-td:hover .kvs-copy-btn,
+.kvs-copy-btn:focus-visible {
+  opacity: 0.65;
+}
+.kvs-copy-btn:hover {
+  opacity: 1 !important;
+}
+.kvs-copy-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Refined, reading-optimized styling for kit-enabled views */
+.kvs-kit-academic .kvs-table {
+  --kvs-academic-accent: var(--text-accent);
+}
+.kvs-kit-academic .kvs-th {
+  font-variant: small-caps;
+  letter-spacing: 0.02em;
+  font-weight: var(--font-semibold);
+}
+.kvs-kit-academic .kvs-table th,
+.kvs-kit-academic .kvs-table td {
+  padding-top: 7px;
+  padding-bottom: 7px;
+  line-height: 1.5;
+}
+.kvs-kit-academic .kvs-row:hover {
+  background: var(--background-modifier-hover);
+}
+.kvs-kit-academic .kvs-cards-card,
+.kvs-kit-academic .kvs-kanban-card {
+  border-left: 2px solid var(--kvs-academic-accent, var(--interactive-accent));
+}
+
+/* Import references modal */
+.kvs-import-refs .kvs-import-sub {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+.kvs-import-textarea {
+  width: 100%;
+  min-height: 220px;
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+  resize: vertical;
+}
+.kvs-import-status {
+  margin: 6px 0;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+/* Editable paper card */
+.kvs-card-input,
+.kvs-card-textarea {
+  width: 100%;
+  font-size: var(--font-ui-small);
+}
+.kvs-card-textarea {
+  min-height: 3em;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.5;
+}
+.kvs-card-rating {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  cursor: pointer;
+}
+.kvs-card-star {
+  color: var(--text-faint);
+}
+.kvs-card-star.is-on {
+  color: var(--text-accent);
+}
+.kvs-card-star svg {
+  width: 16px;
+  height: 16px;
+}
+.kvs-themes-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.kvs-themes-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.kvs-theme-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--background-modifier-hover);
+}
+.kvs-theme-x {
+  display: inline-flex;
+  cursor: pointer;
+  opacity: 0.6;
+}
+.kvs-theme-x:hover {
+  opacity: 1;
+}
+.kvs-theme-x svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* Rich markdown cells in the table: block layout, clamped so rows stay scannable (full text + images
+   live in the paper card). The card's own preview is never clamped. */
+.kvs-md-cell p {
+  display: block;
+  margin: 0 0 4px;
+}
+.kvs-md-cell img,
+.kvs-card-value img,
+.kvs-rich-preview img {
+  max-width: 100%;
+  border-radius: var(--radius-s);
+}
+.kvs-md-cell img {
+  max-height: 140px;
+}
+
+/* Rich field editor in the paper card */
+.kvs-rich-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.kvs-rich-bar {
+  display: flex;
+  gap: 8px;
+}
+.kvs-rich-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.kvs-rich-btn:hover {
+  color: var(--text-normal);
+}
+.kvs-rich-ic {
+  display: inline-flex;
+}
+.kvs-rich-ic svg {
+  width: 13px;
+  height: 13px;
+}
+.kvs-rich-textarea {
+  min-height: 48px;
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+}
+.kvs-rich-preview {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  padding: 6px 10px;
+  background: var(--background-primary-alt);
+  min-height: 1.5em;
+}
+.kvs-rich-empty {
+  color: var(--text-faint);
+  font-size: var(--font-ui-smaller);
+}
+
+/* Citation / relation links in a cell */
+.kvs-relations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+/* Toolbar "Add row" button */
+.kvs-toolbar-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 2px 10px;
+  font-size: var(--font-ui-smaller);
+  cursor: pointer;
+}
+.kvs-toolbar-add-ic {
+  display: inline-flex;
+}
+.kvs-toolbar-add-ic svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Date editor */
+.kvs-date-editor {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.kvs-date-today {
+  font-size: var(--font-ui-smaller);
+  padding: 1px 8px;
+  cursor: pointer;
+}
+
+/* "Add row" button in the dashboard toolbar */
+.kvs-add-row-btn {
+  color: var(--text-accent);
+}
+.kvs-add-row-btn:hover {
+  background: var(--background-modifier-hover);
+}
+
+/* Shortened nested tag: full path shows on hover (kept clean, like the basetag plugin) */
+.kvs-tag-nested {
+  font-style: normal;
+}
+
+/* DOI fetch button in the paper card */
+.kvs-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+.kvs-card-fetch {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 12px;
+  font-size: var(--font-ui-smaller);
+  cursor: pointer;
+}
+.kvs-card-fetch-ic {
+  display: inline-flex;
+}
+.kvs-card-fetch-ic svg {
+  width: 14px;
+  height: 14px;
+}
+
+
+/* Promoted-note template editor */
+.kvs-template-textarea {
+  width: 100%;
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+}
+
+/* Duplicate-DOI resolver */
+.kvs-dedup-group {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 8px 0;
+}
+.kvs-dedup-doi {
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.kvs-dedup-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  cursor: pointer;
+}
+.kvs-dedup-radio {
+  flex: none;
+  margin: 0;
+}
+.kvs-dedup-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kvs-dedup-suggested {
+  flex: none;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-accent);
+  background: var(--background-modifier-hover);
+  border-radius: 4px;
+  padding: 0 6px;
+}
+
+/* ===== Paper attachment shelf (kvs-paper) ===== */
+.kvs-attach {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 4px 0;
+}
+.kvs-attach-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.kvs-attach-title {
+  font-weight: var(--font-semibold);
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+.kvs-attach-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  font-size: var(--font-ui-smaller);
+  cursor: pointer;
+}
+.kvs-attach-add-ic {
+  display: inline-flex;
+}
+.kvs-attach-add-ic svg {
+  width: 13px;
+  height: 13px;
+}
+.kvs-attach-empty {
+  color: var(--text-faint);
+  font-size: var(--font-ui-smaller);
+  padding: 6px 2px;
+}
+.kvs-attach-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+.kvs-attach-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-secondary);
+  cursor: pointer;
+  overflow: hidden;
+}
+.kvs-attach-card:hover {
+  background: var(--background-modifier-hover);
+  border-color: var(--interactive-accent);
+}
+.kvs-attach-thumb {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--background-primary);
+  overflow: hidden;
+}
+.kvs-attach-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.kvs-attach-badge {
+  font-size: 10px;
+  font-weight: var(--font-bold);
+  letter-spacing: 0.04em;
+  color: var(--text-on-accent);
+  background: var(--interactive-accent);
+  border-radius: 3px;
+  padding: 2px 4px;
+}
+.kvs-attach-pdf .kvs-attach-badge { background: #d64545; }
+.kvs-attach-image .kvs-attach-badge { background: #3aa675; }
+.kvs-attach-excel .kvs-attach-badge { background: #1e7a46; }
+.kvs-attach-word .kvs-attach-badge { background: #2b6cb0; }
+.kvs-attach-powerpoint .kvs-attach-badge { background: #c05621; }
+.kvs-attach-epub .kvs-attach-badge { background: #6b46c1; }
+.kvs-attach-web .kvs-attach-badge { background: var(--text-muted); }
+.kvs-attach-body {
+  min-width: 0;
+  flex: 1;
+}
+.kvs-attach-name {
+  font-size: var(--font-ui-small);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kvs-attach-sub {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kvs-attach-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 2px;
+  opacity: 0;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+}
+.kvs-attach-card:hover .kvs-attach-remove {
+  opacity: 0.6;
+}
+.kvs-attach-remove:hover {
+  opacity: 1;
+}
+.kvs-attach-remove svg {
+  width: 13px;
+  height: 13px;
+}
+
+.kvs-attach-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.kvs-attach-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-accent);
+  cursor: pointer;
+}
+.kvs-attach-sync .kvs-attach-add-ic svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Drag-to-attach highlight */
+.kvs-attach-drag {
+  outline: 2px dashed var(--interactive-accent);
+  outline-offset: -4px;
+  background: var(--background-modifier-hover);
+}
+
+/* Per-annotation callout hover tools */
+.callout:has(.kvs-anno-tools) { position: relative; }
+.kvs-anno-tools {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.callout:hover .kvs-anno-tools { opacity: 0.85; }
+.kvs-anno-tool {
+  padding: 2px;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: none;
+}
+.kvs-anno-tool:hover { background: var(--background-modifier-hover); }
+.kvs-anno-tool svg { width: 13px; height: 13px; }
+
+/* Floating PDF highlight toolbar */
+.kvs-hl-bar {
+  position: fixed;
+  z-index: var(--layer-popover);
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-s);
+}
+.kvs-hl-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid var(--background-modifier-border);
+  transition: transform 0.08s ease;
+}
+.kvs-hl-swatch:hover {
+  transform: scale(1.15);
+  border-color: var(--text-normal);
+}
+
+.kvs-hl-erase {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-muted);
+  border: 1px solid var(--background-modifier-border);
+  font-size: 14px;
+}
+.kvs-hl-erase:hover {
+  background: var(--background-modifier-error);
+  color: var(--text-on-accent);
+}
+
+/* Instant highlight feedback overlay (bridges the save/reload) */
+.kvs-hl-flash-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: var(--layer-popover);
+}
+.kvs-hl-flash {
+  position: fixed;
+  opacity: 0.4;
+  border-radius: 2px;
+  mix-blend-mode: multiply;
+}
+
+/* Live pending-highlight overlays on the pdf.js page */
+.kvs-ov-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+.kvs-ov-hl {
+  position: absolute;
+  opacity: 0.4;
+  border-radius: 2px;
+  mix-blend-mode: multiply;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: opacity 0.1s ease;
+}
+.kvs-ov-hl:hover {
+  opacity: 0.6;
+  outline: 1px solid var(--background-modifier-border);
+}
+
+/* Pending-deletion marker (highlight will be removed on leave) */
+.kvs-ov-del {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 2px;
+  border: 1px dashed rgba(220, 50, 50, 0.75);
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(220, 50, 50, 0.28),
+    rgba(220, 50, 50, 0.28) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+}
+
+/* ============================================================
+   Dedicated search view — chrome built from the dashboard's
+   design system (kvs-seg segmented controls, toolbar tokens).
+   ============================================================ */
+.kvs-searchview { display: flex; flex-direction: column; height: 100%; background: var(--background-primary); }
+
+/* Both bars are the dashboard's kvs-toolbar-bar; these are light overrides so search feels like a
+   complementary cousin rather than a different component. */
+.kvs-sv-bar { gap: var(--size-2-3); }
+.kvs-sv-bar.kvs-toolbar-bar { position: static; flex: 0 0 auto; }
+/* Native Obsidian search field (SearchComponent) — grows to fill; no custom chrome, so it's seamless. */
+.kvs-sv-search { flex: 1 1 auto; min-width: 8rem; }
+.kvs-sv-tools { flex: 0 0 auto; }
+.kvs-sv-search input { width: 100%; }
+.kvs-sv-viewseg { padding: 2px; }
+.kvs-sv-viewseg .kvs-seg-btn { padding: 4px 9px; font-size: var(--font-ui-smaller); }
+.kvs-sv-count { color: var(--text-muted); font-size: var(--font-ui-smaller); font-variant-numeric: tabular-nums; white-space: nowrap; padding: 0 var(--size-2-2); text-align: right; }
+
+/* Secondary bar: modes + filters. Slightly recessed surface, wraps gracefully. */
+.kvs-sv-filterbar.kvs-toolbar-bar {
+  background: var(--background-secondary);
+  padding: var(--size-2-3) var(--size-4-3);
+  position: static; flex: 0 0 auto;
+  row-gap: var(--size-2-2);
+}
+.kvs-sv-filterlabel { font-size: var(--font-ui-smaller); color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; margin-right: 1px; }
+.kvs-sv-filterbar .kvs-seg { padding: 2px; }
+.kvs-sv-filterbar .kvs-seg-btn { padding: 3px 11px; font-size: var(--font-ui-smaller); }
+/* Filter popovers (type + folders) — rows, matching the dashboard's popover language. */
+.kvs-sv-pop { min-width: 200px; padding: 4px; }
+.kvs-sv-pophead {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 4px 8px 6px; font-size: var(--font-ui-smaller); color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.kvs-sv-poplink { font-size: var(--font-ui-smaller); padding: 2px 8px; border-radius: var(--radius-s); }
+.kvs-sv-poprow {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  padding: 5px 8px; border-radius: var(--radius-s); font-size: var(--font-ui-small);
+}
+.kvs-sv-poprow:hover { background: var(--background-modifier-hover); }
+.kvs-sv-popcheck { display: inline-flex; width: 16px; flex: 0 0 auto; color: var(--text-accent); }
+.kvs-sv-popcheck svg { width: 14px; height: 14px; }
+.kvs-sv-scopedot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.kvs-sv-poprow:not(.is-on) .kvs-sv-scopedot { opacity: 0.35; }
+.kvs-sv-poplabel { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kvs-sv-popcount { font-variant-numeric: tabular-nums; color: var(--text-faint); font-size: var(--font-ui-smaller); }
+.kvs-sv-poponly {
+  opacity: 0; font-size: var(--font-ui-smaller); color: var(--text-muted);
+  padding: 1px 6px; border-radius: var(--radius-s); box-shadow: none; background: transparent;
+}
+.kvs-sv-poprow:hover .kvs-sv-poponly { opacity: 1; }
+.kvs-sv-poponly:hover { color: var(--text-normal); background: var(--background-modifier-hover); }
+.kvs-sv-popmuted { padding: 4px 8px 8px; font-size: var(--font-ui-smaller); color: var(--text-faint); }
+.kvs-sv-popadd {
+  display: flex; align-items: center; gap: 6px; width: 100%; margin-top: 2px;
+  padding: 6px 8px; border-radius: var(--radius-s); color: var(--text-accent);
+  font-size: var(--font-ui-small); box-shadow: none; background: transparent; justify-content: flex-start;
+}
+.kvs-sv-popadd:hover { background: var(--background-modifier-hover); }
+.kvs-sv-popaddic { display: inline-flex; }
+.kvs-sv-popaddic svg { width: 14px; height: 14px; }
+
+/* ---- Results ---- */
+.kvs-sv-results { flex: 1 1 auto; overflow-y: auto; padding: var(--size-4-2) var(--size-4-2); }
+.kvs-sv-empty { color: var(--text-muted); font-size: var(--font-ui-small); padding: 40px 16px; text-align: center; line-height: 1.6; }
+
+.kvs-sv-hit {
+  position: relative; padding: 9px 12px 9px 14px; border-radius: 8px; cursor: pointer;
+  border: 1px solid transparent; margin-bottom: 3px;
+}
+.kvs-sv-hit::before {
+  content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px;
+  border-radius: 3px; background: var(--kvs-src-color, transparent); opacity: 0.55;
+}
+.kvs-sv-hit:hover { background: var(--background-modifier-hover); }
+.kvs-sv-hit:hover::before { opacity: 1; }
+.kvs-sv-hit.is-active { background: var(--background-modifier-hover); border-color: var(--interactive-accent); }
+.kvs-sv-hithead { display: flex; align-items: baseline; gap: 8px; }
+.kvs-sv-badge {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px;
+  font-size: var(--font-ui-smaller); padding: 1px 7px 1px 5px; border-radius: 5px;
+  background: var(--background-modifier-hover);
+  background: color-mix(in srgb, var(--kvs-src-color) 14%, transparent);
+  color: var(--text-muted);
+  color: color-mix(in srgb, var(--kvs-src-color) 72%, var(--text-normal));
+}
+.kvs-sv-badgeic { display: inline-flex; }
+.kvs-sv-badgeic svg { width: 12px; height: 12px; }
+.kvs-sv-loc { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--font-medium); font-size: var(--font-ui-small); color: var(--text-normal); }
+.kvs-sv-snippet {
+  margin-top: 3px; font-size: var(--font-ui-smaller); color: var(--text-muted);
+  line-height: 1.55; overflow-wrap: anywhere; max-height: calc(1.55em * 3); overflow: hidden;
+}
+.kvs-sv-snippet mark { background: var(--text-highlight-bg); color: inherit; border-radius: 2px; padding: 0 1px; }
+.kvs-sv-hit.is-compact { padding: 4px 12px 4px 14px; margin-bottom: 0; }
+.kvs-sv-hit.is-compact::before { top: 4px; bottom: 4px; }
+
+/* Collapsible groups */
+.kvs-sv-group { margin-bottom: 10px; }
+.kvs-sv-grouphead {
+  display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;
+  padding: 5px 8px; border-radius: 6px; position: sticky; top: -8px;
+  background: var(--background-primary); z-index: 1;
+}
+.kvs-sv-grouphead:hover { background: var(--background-modifier-hover); }
+.kvs-sv-groupchev { display: inline-flex; color: var(--text-faint); }
+.kvs-sv-groupchev svg { width: 14px; height: 14px; }
+.kvs-sv-groupic { display: inline-flex; }
+.kvs-sv-groupic svg { width: 14px; height: 14px; }
+.kvs-sv-groupname { font-size: var(--font-ui-smaller); font-weight: var(--font-semibold); text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+.kvs-sv-groupcount { font-size: var(--font-ui-smaller); color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.kvs-sv-groupbody { padding-left: 2px; }
+
+/* Semantic build prompt */
+.kvs-sv-buildbtn { margin-top: 12px; }
+.kvs-sv-empty > div { margin-bottom: 4px; }
+
+/* Extractive Q&A (Ask mode) */
+.kvs-sv-answerhint { font-size: var(--font-ui-smaller); color: var(--text-faint); padding: 2px 4px 10px; }
+.kvs-sv-passage {
+  position: relative; padding: 11px 13px 9px 15px; margin-bottom: 8px; cursor: pointer;
+  border: 1px solid var(--background-modifier-border); border-radius: 8px;
+  background: var(--background-primary);
+}
+.kvs-sv-passage::before {
+  content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px;
+  border-radius: 3px; background: var(--kvs-src-color, var(--interactive-accent)); opacity: 0.7;
+}
+.kvs-sv-passage:hover { background: var(--background-modifier-hover); border-color: var(--background-modifier-border-hover); }
+.kvs-sv-passagetext { font-size: var(--font-ui-small); line-height: 1.6; color: var(--text-normal); }
+.kvs-sv-passagetext mark { background: var(--text-highlight-bg); color: inherit; border-radius: 2px; padding: 0 1px; }
+.kvs-sv-passagesrc { display: flex; align-items: center; gap: 5px; margin-top: 7px; font-size: var(--font-ui-smaller); color: var(--text-muted); }
+.kvs-sv-passagesrclabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ============ Gallery view (image wall) ============ */
+.kvs-gallery-view { padding: 0; }
+.kvs-gallery-group { margin-bottom: var(--size-4-3); }
+.kvs-gallery-group .kvs-cards-group-header { padding: var(--size-2-3) var(--size-4-3) 0; }
+.kvs-gallery-grid {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(var(--kvs-gallery-size, 180px), 1fr));
+  padding: var(--size-2-3) var(--size-4-3) var(--size-4-3);
+}
+
+.kvs-gallery-card {
+  display: flex; flex-direction: column; cursor: pointer; overflow: hidden;
+  border: 1px solid var(--background-modifier-border); border-radius: 8px;
+  background: var(--background-primary);
+  transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+}
+.kvs-gallery-card:hover {
+  border-color: var(--interactive-accent);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+  transform: translateY(-1px);
+}
+.kvs-gallery-frame {
+  position: relative; aspect-ratio: var(--kvs-gallery-aspect, 1); overflow: hidden;
+  background: var(--background-secondary);
+  display: flex; align-items: center; justify-content: center;
+}
+.kvs-gallery-frame p { margin: 0; width: 100%; height: 100%; }
+.kvs-gallery-frame .internal-embed,
+.kvs-gallery-frame .image-embed { display: block; width: 100%; height: 100%; }
+.kvs-gallery-frame img {
+  width: 100%; height: 100%; object-fit: var(--kvs-gallery-fit, cover); display: block; cursor: zoom-in;
+}
+.kvs-gallery-caption { padding: 6px 8px; min-width: 0; }
+.kvs-gallery-cap-title {
+  display: block; font-size: var(--font-ui-smaller); font-weight: var(--font-medium);
+  color: var(--text-normal); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.kvs-gallery-cap-col {
+  display: block; font-size: var(--font-ui-smaller); color: var(--text-faint);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.kvs-gallery-empty { padding: 44px 16px; text-align: center; }
+.kvs-gallery-empty-title { color: var(--text-muted); font-size: var(--font-ui-medium); margin-bottom: 4px; }
+.kvs-gallery-empty-sub { color: var(--text-faint); font-size: var(--font-ui-small); }
+
+/* Gallery in-view controls (Bases-style card size / aspect / fit) — a pinned control strip so the
+   sliders stay reachable while scrolling the image wall. */
+.kvs-gallery-count { color: var(--text-muted); font-size: var(--font-ui-smaller); flex: 0 0 auto; }
+.kvs-gallery-toolbar {
+  display: flex; align-items: center; gap: var(--size-2-3); flex-wrap: wrap;
+  position: sticky; top: 0; z-index: 2;
+  padding: var(--size-2-3) var(--size-4-3);
+  background: var(--background-secondary);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.kvs-gallery-controls { display: flex; align-items: center; gap: var(--size-4-2); flex: 0 0 auto; flex-wrap: wrap; }
+.kvs-gallery-ctl-label,
+.kvs-gallery-slider-label { font-size: var(--font-ui-smaller); color: var(--text-muted); }
+.kvs-gallery-fitseg { padding: 2px; }
+.kvs-gallery-fitseg .kvs-seg-btn { padding: 3px 12px; font-size: var(--font-ui-smaller); }
+.kvs-gallery-slider { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); }
+.kvs-gallery-slider-ic { display: inline-flex; }
+.kvs-gallery-slider-ic svg { width: 15px; height: 15px; }
+.kvs-gallery-range { width: 100px; accent-color: var(--interactive-accent); cursor: pointer; vertical-align: middle; }
+
+/* ============ Settings tab: sectioned navigation ============ */
+.kvs-settings-head { padding: 2px 0 10px; }
+.kvs-settings-search {
+  display: flex; align-items: center; gap: 8px;
+  height: 32px; padding: 0 10px;
+  border: 1px solid var(--background-modifier-border); border-radius: 6px;
+  background: var(--background-primary);
+}
+.kvs-settings-search:focus-within { border-color: var(--interactive-accent); }
+.kvs-settings-search-ic { display: inline-flex; color: var(--text-muted); flex: 0 0 auto; }
+.kvs-settings-search-ic svg { width: 15px; height: 15px; }
+.kvs-settings-search input {
+  flex: 1 1 auto; min-width: 0; height: 100%;
+  border: none; background: transparent; box-shadow: none; padding: 0;
+}
+.kvs-settings-search input:focus { box-shadow: none; border: none; }
+
+.kvs-settings-nav {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  position: sticky; top: 0; z-index: 2;
+  padding: 6px 0 8px;
+  margin-bottom: 6px;
+  background: var(--background-primary);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.kvs-settings-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 11px; border-radius: 6px; cursor: pointer;
+  font-size: var(--font-ui-small); color: var(--text-muted);
+  background: transparent; border: 1px solid transparent; box-shadow: none;
+}
+.kvs-settings-tab:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.kvs-settings-tab.is-on {
+  background: var(--background-modifier-hover); color: var(--text-normal);
+  border-color: var(--background-modifier-border); font-weight: var(--font-medium);
+}
+.kvs-settings-tab-ic { display: inline-flex; }
+.kvs-settings-tab-ic svg { width: 15px; height: 15px; }
+
+.kvs-settings-intro {
+  color: var(--text-muted); font-size: var(--font-ui-small);
+  line-height: 1.5; margin: 2px 0 14px;
+}
+.kvs-settings-hint {
+  color: var(--text-faint); font-size: var(--font-ui-smaller);
+  line-height: 1.5; padding: 6px 0 2px;
+}
+.kvs-settings-section:empty { display: none; }
+
+/* ---- View settings modal: header filter + filtering mode ---- */
+.kvs-editor-header { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--size-4-3); flex-wrap: wrap; }
+.kvs-editor-heading { min-width: 0; }
+.kvs-editor-search {
+  display: flex; align-items: center; gap: 8px;
+  flex: 0 1 260px; height: 30px; padding: 0 10px;
+  border: 1px solid var(--background-modifier-border); border-radius: 6px;
+  background: var(--background-primary);
+}
+.kvs-editor-search:focus-within { border-color: var(--interactive-accent); }
+.kvs-editor-search-ic { display: inline-flex; color: var(--text-muted); flex: 0 0 auto; }
+.kvs-editor-search-ic svg { width: 14px; height: 14px; }
+.kvs-editor-search input {
+  flex: 1 1 auto; min-width: 0; height: 100%;
+  border: none; background: transparent; box-shadow: none; padding: 0;
+  font-size: var(--font-ui-small);
+}
+.kvs-editor-search input:focus { box-shadow: none; border: none; }
+
+/* While filtering, show every section that has a match (instead of one panel at a time). */
+.kvs-editor-panels.is-filtering .kvs-editor-panel { display: none; }
+.kvs-editor-panels.is-filtering .kvs-editor-panel.is-match { display: block; }
+.kvs-editor-panels.is-filtering .kvs-editor-panel.is-match + .kvs-editor-panel.is-match {
+  margin-top: var(--size-4-4);
+  border-top: 1px solid var(--background-modifier-border);
+  padding-top: var(--size-4-2);
+}
+
+.kvs-editor-hint {
+  color: var(--text-faint); font-size: var(--font-ui-smaller);
+  line-height: 1.5; padding: 8px 0 2px;
+}
+
+/* ================================================================
+   View settings editor — design kit
+   Obsidian's Setting row stays for scalar options; these primitives
+   cover the shapes it was never meant for.
+   ================================================================ */
+
+/* ---- Panel header ---- */
+.kvs-ph {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: var(--size-4-3);
+  padding-bottom: var(--size-4-2);
+  margin-bottom: var(--size-4-2);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.kvs-ph-text { min-width: 0; }
+.kvs-ph-title { font-size: var(--font-ui-large); font-weight: var(--font-semibold); color: var(--text-normal); line-height: 1.3; }
+.kvs-ph-desc { font-size: var(--font-ui-smaller); color: var(--text-muted); line-height: 1.5; margin-top: 2px; }
+.kvs-ph-actions { display: flex; align-items: center; gap: var(--size-2-3); flex: 0 0 auto; }
+.kvs-ph-actions button { font-size: var(--font-ui-smaller); }
+
+/* ---- Group divider ---- */
+.kvs-gh {
+  display: flex; align-items: baseline; gap: 8px;
+  margin: var(--size-4-4) 0 var(--size-2-3);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--background-modifier-border-hover);
+}
+.kvs-gh:first-child { margin-top: 0; }
+.kvs-gh-title {
+  font-size: var(--font-ui-smaller); font-weight: var(--font-semibold);
+  text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);
+}
+.kvs-gh-desc { font-size: var(--font-ui-smaller); color: var(--text-faint); }
+
+.kvs-hint { font-size: var(--font-ui-smaller); color: var(--text-faint); line-height: 1.5; padding: 6px 2px 2px; }
+
+/* ---- Empty state ---- */
+.kvs-es {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  padding: var(--size-4-6) var(--size-4-4);
+  border: 1px dashed var(--background-modifier-border);
+  border-radius: 10px;
+  background: var(--background-primary-alt);
+}
+.kvs-es-icon { color: var(--text-faint); margin-bottom: 8px; display: inline-flex; }
+.kvs-es-icon svg { width: 24px; height: 24px; }
+.kvs-es-title { font-size: var(--font-ui-small); font-weight: var(--font-medium); color: var(--text-muted); }
+.kvs-es-desc { font-size: var(--font-ui-smaller); color: var(--text-faint); line-height: 1.5; margin-top: 4px; max-width: 34em; }
+
+.kvs-ib { padding: 4px; }
+.kvs-ib svg { width: 15px; height: 15px; }
+
+/* ---- Option cards (what becomes a row) ---- */
+.kvs-oc-grid {
+  display: grid; gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  margin-bottom: var(--size-2-3);
+}
+.kvs-oc {
+  position: relative; display: flex; align-items: flex-start; gap: 10px;
+  padding: 11px 12px 11px 11px; cursor: pointer;
+  border: 1px solid var(--background-modifier-border); border-radius: 8px;
+  background: var(--background-primary);
+  transition: border-color 110ms ease, background 110ms ease;
+}
+.kvs-oc:hover { border-color: var(--background-modifier-border-hover); background: var(--background-modifier-hover); }
+.kvs-oc.is-on { border-color: var(--interactive-accent); background: var(--background-primary); }
+.kvs-oc.is-on::after {
+  content: ""; position: absolute; inset: 0; border-radius: 8px; pointer-events: none;
+  box-shadow: inset 0 0 0 1px var(--interactive-accent);
+}
+.kvs-oc-check {
+  position: absolute; top: 8px; right: 8px;
+  width: 16px; height: 16px; border-radius: 4px;
+  border: 1px solid var(--background-modifier-border-hover);
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-on-accent);
+}
+.kvs-oc.is-on .kvs-oc-check { background: var(--interactive-accent); border-color: var(--interactive-accent); }
+.kvs-oc-check svg { width: 12px; height: 12px; }
+.kvs-oc-icon { display: inline-flex; color: var(--text-muted); flex: 0 0 auto; margin-top: 1px; }
+.kvs-oc.is-on .kvs-oc-icon { color: var(--text-accent); }
+.kvs-oc-icon svg { width: 17px; height: 17px; }
+.kvs-oc-text { min-width: 0; padding-right: 18px; }
+.kvs-oc-title { font-size: var(--font-ui-small); font-weight: var(--font-medium); color: var(--text-normal); }
+.kvs-oc-desc { font-size: var(--font-ui-smaller); color: var(--text-muted); line-height: 1.45; margin-top: 2px; }
+
+/* ---- Chip field (folder scope) ---- */
+.kvs-chips { margin-bottom: var(--size-2-3); }
+.kvs-chips-box {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  min-height: 38px; padding: 6px 8px; cursor: text;
+  border: 1px solid var(--background-modifier-border); border-radius: 8px;
+  background: var(--background-primary);
+}
+.kvs-chips-box:focus-within { border-color: var(--interactive-accent); box-shadow: 0 0 0 2px var(--background-modifier-border-focus); }
+.kvs-chips-empty { display: inline-flex; align-items: center; gap: 6px; color: var(--text-faint); font-size: var(--font-ui-smaller); padding-left: 2px; }
+.kvs-chips-empty-ic { display: inline-flex; }
+.kvs-chips-empty-ic svg { width: 14px; height: 14px; }
+.kvs-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 5px 3px 7px; border-radius: 6px;
+  background: var(--background-modifier-hover);
+  border: 1px solid var(--background-modifier-border);
+  font-size: var(--font-ui-smaller); color: var(--text-normal);
+  max-width: 22em;
+}
+.kvs-chip-ic { display: inline-flex; color: var(--text-muted); }
+.kvs-chip-ic svg { width: 13px; height: 13px; }
+.kvs-chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kvs-chip-x { display: inline-flex; cursor: pointer; color: var(--text-faint); border-radius: 3px; }
+.kvs-chip-x:hover { color: var(--text-error); background: var(--background-modifier-hover); }
+.kvs-chip-x svg { width: 13px; height: 13px; }
+.kvs-chips-input-wrap { position: relative; flex: 1 1 8em; min-width: 8em; }
+.kvs-chips-input {
+  width: 100%; border: none; background: transparent; box-shadow: none;
+  padding: 2px 0; height: 24px; font-size: var(--font-ui-smaller);
+}
+.kvs-chips-input:focus { box-shadow: none; border: none; }
+.kvs-chips-menu {
+  position: absolute; top: calc(100% + 6px); left: -8px; right: -8px; z-index: 20;
+  max-height: 220px; overflow-y: auto; padding: 4px;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border); border-radius: 8px;
+  box-shadow: var(--shadow-s);
+}
+.kvs-chips-menu-item {
+  display: flex; align-items: center; gap: 7px;
+  padding: 5px 8px; border-radius: 5px; cursor: pointer;
+  font-size: var(--font-ui-smaller); color: var(--text-normal);
+}
+.kvs-chips-menu-item:hover { background: var(--background-modifier-hover); }
+.kvs-chips-menu-ic { display: inline-flex; color: var(--text-muted); }
+.kvs-chips-menu-ic svg { width: 13px; height: 13px; }
+
+/* ---- Record cards (columns, rollups) ---- */
+.kvs-rec {
+  border: 1px solid var(--background-modifier-border); border-radius: 10px;
+  background: var(--background-primary);
+  margin-bottom: 8px; overflow: hidden;
+}
+.kvs-rec:hover { border-color: var(--background-modifier-border-hover); }
+.kvs-rec.is-hidden-col { opacity: 0.62; }
+.kvs-rec-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 8px 8px 10px;
+  background: var(--background-secondary);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.kvs-rec-badge {
+  flex: 0 0 auto; min-width: 20px; height: 20px; padding: 0 5px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 5px; background: var(--background-modifier-border);
+  color: var(--text-muted); font-size: var(--font-ui-smaller);
+  font-variant-numeric: tabular-nums;
+}
+.kvs-rec-title { flex: 1 1 auto; min-width: 0; }
+.kvs-rec-name {
+  width: 100%; height: 26px; padding: 0 8px;
+  font-size: var(--font-ui-small); font-weight: var(--font-medium);
+  background: var(--background-primary);
+  border: 1px solid transparent; border-radius: 6px; box-shadow: none;
+}
+.kvs-rec-name:hover { border-color: var(--background-modifier-border); }
+.kvs-rec-name:focus { border-color: var(--interactive-accent); box-shadow: none; }
+.kvs-rec-actions { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+
+.kvs-rec-grid {
+  display: grid; gap: 10px 12px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  padding: 12px;
+}
+.kvs-mf { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.kvs-mf.is-wide { grid-column: 1 / -1; }
+.kvs-mf-label {
+  font-size: var(--font-ui-smaller); color: var(--text-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.kvs-mf-ctl { min-width: 0; }
+.kvs-mf-ctl input[type="text"],
+.kvs-mf-ctl select {
+  width: 100%; height: 28px; font-size: var(--font-ui-smaller);
+}
+.kvs-mf-ctl select { padding-right: 22px; }
+
+/* Inline action under a hint (e.g. "Add a Source column") */
+.kvs-inline-action { padding: 4px 2px 2px; }
+.kvs-inline-action button { font-size: var(--font-ui-smaller); }
+.kvs-inline-action .kvs-hint { padding-top: 6px; }
+
+/* A mini-field whose value needs a decision (e.g. a header found in several sources) */
+.kvs-mf-ctl.is-warn select { border-color: var(--text-warning); }
+.kvs-mf .kvs-mf-label { transition: color 100ms ease; }
+
+/* ---- Getting-started guide (stepped) ---- */
+.kvs-welcome-body { min-height: 300px; }
+.kvs-welcome-step {
+  font-size: var(--font-ui-smaller); color: var(--text-faint);
+  text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;
+}
+.kvs-welcome-title { margin: 0 0 6px; font-size: var(--font-ui-large); }
+.kvs-welcome .kvs-welcome-lead { color: var(--text-muted); line-height: 1.55; margin: 0 0 14px; font-size: var(--font-ui-small); }
+
+.kvs-welcome-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
+.kvs-welcome-line { display: flex; align-items: flex-start; gap: 10px; padding: 7px 8px; border-radius: 6px; }
+.kvs-welcome-line:hover { background: var(--background-modifier-hover); }
+.kvs-welcome-line-icon { display: inline-flex; color: var(--text-accent); flex: 0 0 auto; margin-top: 1px; }
+.kvs-welcome-line-icon svg { width: 16px; height: 16px; }
+.kvs-welcome-line-text { min-width: 0; font-size: var(--font-ui-small); line-height: 1.5; }
+.kvs-welcome-line-name { font-weight: var(--font-medium); color: var(--text-normal); margin-right: 6px; }
+.kvs-welcome-line-desc { color: var(--text-muted); }
+.kvs-welcome .kvs-welcome-tip {
+  font-size: var(--font-ui-smaller); color: var(--text-faint);
+  line-height: 1.55; margin: 10px 0 0; padding: 8px 10px;
+  background: var(--background-primary-alt); border-radius: 6px;
+}
+
+.kvs-welcome-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 18px; padding-top: 12px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+.kvs-welcome-dots { display: flex; gap: 6px; }
+.kvs-welcome-dot {
+  width: 7px; height: 7px; border-radius: 50%; cursor: pointer;
+  background: var(--background-modifier-border);
+}
+.kvs-welcome-dot.is-on { background: var(--interactive-accent); }
+.kvs-welcome-nav { display: flex; gap: 8px; }
+
+/* Search: the "index your attachments" offer in the idle state */
+.kvs-sv-offer {
+  margin-top: 18px; padding: 14px 16px; text-align: center;
+  border: 1px dashed var(--background-modifier-border); border-radius: 10px;
+  background: var(--background-primary-alt);
+  font-size: var(--font-ui-smaller); color: var(--text-muted); line-height: 1.55;
+}
+.kvs-sv-offer button { margin-top: 10px; }

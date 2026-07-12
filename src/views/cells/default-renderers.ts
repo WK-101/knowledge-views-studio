@@ -1,0 +1,211 @@
+import { MarkdownRenderer, Notice, setIcon, setTooltip } from "obsidian";
+import { CellRendererRegistry, type CellRenderContext, type CellRenderer } from "./cell-renderer";
+import { splitTags } from "../../domain/columns/types/tags";
+import { splitList } from "../../domain/columns/types/list";
+import { formatAuthorsShort, splitAuthors, doiUrl, arxivUrl, pmidUrl } from "../../domain/columns/types/academic";
+import { linkTarget } from "../../domain/columns/types/link";
+import { toBoolean } from "../../domain/columns/types/checkbox";
+import { toRating, RATING_MAX } from "../../domain/columns/types/rating";
+import { extractImageEmbeds } from "../../util/markdown";
+
+const MARKDOWN_HINT = /[*_`~$[\]<>]|!\[|^\s*[-*+]\s|^\s*\d+[.)]\s|^\s*#{1,6}\s|^\s*>/m;
+
+function renderMarkdown(ctx: CellRenderContext, markdown: string): void {
+  // Table cells store line breaks as <br>; convert them back to newlines so Obsidian renders
+  // block structure — nested/sub bullets, numbered lists, task lists, quotes, code, headings —
+  // natively in the dashboard, matching what exports produce.
+  const normalized = markdown.replace(/<br\s*\/?>/gi, "\n");
+  void MarkdownRenderer.render(ctx.app, normalized, ctx.el, ctx.sourcePath, ctx.component);
+}
+
+/** Plain text when possible (fast); Markdown only when the value looks like it. */
+function renderInline(ctx: CellRenderContext): void {
+  const value = ctx.value.trim();
+  if (value === "") return;
+  if (MARKDOWN_HINT.test(value)) renderMarkdown(ctx, value);
+  else ctx.el.setText(value);
+}
+
+function renderPlain(ctx: CellRenderContext): void {
+  ctx.el.setText(ctx.value.trim());
+}
+
+function renderLink(ctx: CellRenderContext): void {
+  const value = ctx.value.trim();
+  if (value === "") return;
+  const inner = value.startsWith("[[") ? value.slice(2).replace(/\]\]$/, "") : linkTarget(value);
+  const [rawTarget, alias] = inner.split("|");
+  const target = (rawTarget ?? value).trim();
+  const anchor = ctx.el.createEl("a", { text: (alias ?? target).trim(), cls: "internal-link kvs-internal-link" });
+  anchor.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void ctx.app.workspace.openLinkText(target, ctx.sourcePath, event.ctrlKey || event.metaKey);
+  });
+}
+
+/** Relations hold one or more `[[links]]`; render each as a clickable internal link. */
+function renderRelation(ctx: CellRenderContext): void {
+  const value = ctx.value.trim();
+  if (value === "") return;
+  const wrap = ctx.el.createDiv({ cls: "kvs-relations" });
+  const matches = [...value.matchAll(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g)];
+  if (matches.length === 0) {
+    wrap.setText(value);
+    return;
+  }
+  for (const m of matches) {
+    const target = (m[1] ?? "").trim();
+    const anchor = wrap.createEl("a", { text: (m[2] ?? target).trim(), cls: "internal-link kvs-internal-link" });
+    anchor.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      void ctx.app.workspace.openLinkText(target, ctx.sourcePath, event.ctrlKey || event.metaKey);
+    });
+  }
+}
+
+function renderUrl(ctx: CellRenderContext): void {
+  const value = ctx.value.trim();
+  if (value === "") return;
+  const anchor = ctx.el.createEl("a", { text: value, href: value, cls: "kvs-url" });
+  anchor.setAttr("target", "_blank");
+  anchor.setAttr("rel", "noopener");
+}
+
+function renderImage(ctx: CellRenderContext): void {
+  const value = ctx.value.trim();
+  if (value === "") return;
+  const markdown = extractImageEmbeds(value).length > 0 ? value : `![[${value}]]`;
+  ctx.el.addClass("kvs-cell-image");
+  renderMarkdown(ctx, markdown);
+}
+
+function renderCheckbox(ctx: CellRenderContext): void {
+  const input = ctx.el.createEl("input", { cls: "kvs-checkbox" });
+  input.type = "checkbox";
+  input.checked = toBoolean(ctx.value);
+  input.disabled = true; // inline editing arrives in the write-back phase
+}
+
+function renderRating(ctx: CellRenderContext): void {
+  if (ctx.value.trim() === "") return;
+  const score = Math.min(RATING_MAX, Math.max(0, Math.round(toRating(ctx.value))));
+  const span = ctx.el.createSpan({ cls: "kvs-rating" });
+  span.setText("★".repeat(score) + "☆".repeat(RATING_MAX - score));
+}
+
+function searchForTag(app: CellRenderContext["app"], tag: string): void {
+  const plugins = (
+    app as unknown as {
+      internalPlugins?: {
+        getPluginById(id: string): { instance?: { openGlobalSearch(query: string): void } } | null;
+      };
+    }
+  ).internalPlugins;
+  plugins?.getPluginById("global-search")?.instance?.openGlobalSearch(`tag:#${tag}`);
+}
+
+function renderTags(ctx: CellRenderContext): void {
+  const tags = splitTags(ctx.value);
+  if (tags.length === 0) return;
+  // A flex-wrap row of pills: chips wrap between tags but each tag stays whole (see CSS nowrap),
+  // so a single multi-word tag never splits across lines. Build the links directly so every tag
+  // renders — including emoji and other Unicode Obsidian's inline tag parser would drop.
+  const wrap = ctx.el.createDiv({ cls: "kvs-tags" });
+  for (const raw of tags) {
+    const name = raw.replace(/^#+/, "").trim();
+    if (name === "") continue;
+    // Optionally show only the last segment of a nested tag (#a/b/c → "c"), like the basetag plugin.
+    // The full path is kept for the link, search, and tooltip so graph/search behaviour is unchanged.
+    const nested = ctx.shortenTags && name.includes("/");
+    const label = nested ? (name.split("/").pop() ?? name) : name;
+    const link = wrap.createEl("a", { cls: nested ? "tag kvs-tag-link kvs-tag-nested" : "tag kvs-tag-link", text: `#${label}` });
+    link.setAttr("href", `#${name}`);
+    if (nested) setTooltip(link, `#${name}`);
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      searchForTag(ctx.app, name);
+    });
+  }
+}
+
+function renderSelect(ctx: CellRenderContext): void {
+  const value = ctx.value.trim();
+  if (value !== "") ctx.el.createSpan({ cls: "kvs-pill", text: value });
+}
+
+function renderList(ctx: CellRenderContext): void {
+  const items = splitList(ctx.value);
+  if (items.length === 0) return;
+  const wrap = ctx.el.createDiv({ cls: "kvs-list" });
+  for (const item of items) wrap.createSpan({ cls: "kvs-pill kvs-list-item", text: item });
+}
+
+// ---- Academic kit renderers -------------------------------------------------
+
+/** A small copy-to-clipboard button appended to a cell. */
+function addCopyButton(ctx: CellRenderContext, text: string, tooltip: string): void {
+  const btn = ctx.el.createEl("a", { cls: "clickable-icon kvs-copy-btn" });
+  setIcon(btn, "copy");
+  setTooltip(btn, tooltip);
+  btn.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void navigator.clipboard.writeText(text).then(() => new Notice("Copied"));
+  });
+}
+
+function renderExternalId(ctx: CellRenderContext, url: (v: string) => string, label: string): void {
+  const value = ctx.value.trim();
+  if (value === "") return;
+  const wrap = ctx.el.createDiv({ cls: "kvs-ref" });
+  const anchor = wrap.createEl("a", { text: value, href: url(value), cls: "kvs-ref-link" });
+  anchor.setAttr("target", "_blank");
+  anchor.setAttr("rel", "noopener");
+  setTooltip(anchor, `Open ${label}`);
+}
+
+function renderCiteKey(ctx: CellRenderContext): void {
+  const value = ctx.value.trim();
+  if (value === "") return;
+  const key = value.replace(/^@/, "");
+  const wrap = ctx.el.createDiv({ cls: "kvs-ref kvs-citekey" });
+  wrap.createSpan({ cls: "kvs-citekey-text", text: `@${key}` });
+  addCopyButton(ctx, `[@${key}]`, "Copy Pandoc citation [@key]");
+}
+
+function renderAuthors(ctx: CellRenderContext): void {
+  const value = ctx.value.trim();
+  if (value === "") return;
+  const short = formatAuthorsShort(value);
+  const span = ctx.el.createSpan({ cls: "kvs-authors", text: short });
+  const full = splitAuthors(value).join("; ");
+  if (full !== short) setTooltip(span, full);
+}
+
+/** Build a registry wired with a renderer for every built-in column type. */
+export function createDefaultCellRendererRegistry(): CellRendererRegistry {
+  const registry = new CellRendererRegistry();
+  const text: CellRenderer = { typeId: "text", render: renderInline };
+  registry.register(text, true); // fallback for unknown types
+  registry.register({ typeId: "markdown", render: (ctx) => renderMarkdown(ctx, ctx.value.trim()) });
+  registry.register({ typeId: "number", render: renderPlain });
+  registry.register({ typeId: "date", render: renderPlain });
+  registry.register({ typeId: "link", render: renderLink });
+  registry.register({ typeId: "relation", render: renderRelation });
+  registry.register({ typeId: "url", render: renderUrl });
+  registry.register({ typeId: "image", render: renderImage });
+  registry.register({ typeId: "checkbox", render: renderCheckbox });
+  registry.register({ typeId: "rating", render: renderRating });
+  registry.register({ typeId: "tags", render: renderTags });
+  registry.register({ typeId: "list", render: renderList });
+  registry.register({ typeId: "citekey", render: renderCiteKey });
+  registry.register({ typeId: "authors", render: renderAuthors });
+  registry.register({ typeId: "doi", render: (ctx) => renderExternalId(ctx, doiUrl, "DOI") });
+  registry.register({ typeId: "arxiv", render: (ctx) => renderExternalId(ctx, arxivUrl, "arXiv") });
+  registry.register({ typeId: "pmid", render: (ctx) => renderExternalId(ctx, pmidUrl, "PubMed") });
+  registry.register({ typeId: "select", render: renderSelect });
+  return registry;
+}

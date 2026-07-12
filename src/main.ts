@@ -1,0 +1,641 @@
+import { Notice, Plugin, TFile, type Editor } from "obsidian";
+import { SearchIndexer } from "./workspace/search-indexer";
+import { SEARCH_VIEW_TYPE, SearchView, openSearchView } from "./workspace/search-view";
+import {
+  ExtractorRegistry,
+  TABLE_EXTRACTOR_ID,
+  parseMarkdownTables,
+  createDefaultColumnTypeRegistry,
+  tableExtractor,
+  frontmatterExtractor,
+  taskExtractor,
+  inlineFieldExtractor,
+} from "./domain/index";
+import { referencesToNote, type ImportedRef, DataService, ARCHIVE_EXTENSION, KVS_PACK_EXTENSION, KVS_VIEW_EXTENSION, ProfileStore, UndoManager, WriterService, createProfile, migrateData, xlsxExtractor } from "./services/index";
+import { ObsidianVaultGateway } from "./obsidian/index";
+import {
+  createDefaultCellEditorRegistry,
+  createDefaultCellRendererRegistry,
+  createDefaultViewRegistry,
+  parseKvsMarker,
+  rebuildMarkdownTable,
+  type RenderProfileDeps,
+} from "./views/index";
+import { ViewBlockController, type ProcessorDeps } from "./codeblock/processor";
+import { registerKvsBasesViews } from "./obsidian/bases/register";
+import { DashboardView, DASHBOARD_VIEW_TYPE } from "./workspace/dashboard-view";
+import { registerAttachmentPanel } from "./workspace/attachment-panel";
+import { registerAnnotationDecorator } from "./workspace/annotation-decorator";
+import { syncPaperAnnotations } from "./workspace/annotation-sync";
+import { buildHighlightSynthesis } from "./workspace/synthesis";
+import { registerPdfAnnotatorToolbar, PdfOverlayManager, HIGHLIGHT_COLORS } from "./workspace/pdf-annotator";
+import { WelcomeModal } from "./workspace/welcome-modal";
+import { TemplatePickerModal } from "./workspace/template-picker-modal";
+import { ViewBrowserModal } from "./workspace/view-browser-modal";
+import { ImportReferencesModal } from "./workspace/import-references-modal";
+import { AddByDoiModal } from "./workspace/add-by-doi-modal";
+import type { StarterTemplate } from "./workspace/templates";
+import { availableTemplates } from "./workspace/templates";
+import { BackupPackView, BACKUP_VIEW_TYPE } from "./workspace/backup-pack-view";
+import { ArchiveView, ARCHIVE_VIEW_TYPE } from "./workspace/archive-view";
+import { BackupExportModal, type BackupExportOptions } from "./workspace/backup-export-modal";
+import { backupAllViews } from "./workspace/backup-runner";
+import { ImportModal } from "./workspace/import-modal";
+import { KnowledgeViewsSettingTab } from "./settings/settings-tab";
+
+const INSERT_TEMPLATE = ["```knowledge-view", "view: table", "folder: ", "limit: 25", "```", ""].join("\n");
+
+/**
+ * Composition root. Phase 4 adds the visible layer on top of the Phase 3
+ * services: a live code-block processor, a workspace pane, a settings tab, a
+ * ribbon icon, and commands — all driven by the cached DataService and the
+ * pluggable view + cell-renderer registries.
+ */
+export default class KnowledgeViewsStudioPlugin extends Plugin {
+  private pdfOverlayManager?: PdfOverlayManager;
+  private searchIndexer?: SearchIndexer;
+  private profileStore?: ProfileStore;
+  private dataService?: DataService;
+
+  override async onload(): Promise<void> {
+    const { data, warnings } = migrateData(await this.loadData());
+    if (warnings.length > 0) {
+      console.warn(`[Knowledge Views Studio] Migrated saved data with notes:\n- ${warnings.join("\n- ")}`);
+    }
+
+    const registry = createDefaultColumnTypeRegistry();
+    const extractors = new ExtractorRegistry().register(tableExtractor).register(frontmatterExtractor).register(taskExtractor).register(inlineFieldExtractor).register(xlsxExtractor);
+    const store = new ProfileStore({ data, persist: (snapshot) => this.saveData(snapshot) });
+    const gateway = new ObsidianVaultGateway(this.app, (ref) => this.registerEvent(ref), () =>
+      store.getSettings().enableExcelSources ? ["md", "xlsx"] : ["md"],
+    );
+
+    const applyImageVars = (): void => {
+      const s = store.getSettings();
+      document.body.style.setProperty("--kvs-img-max-h", s.imageMaxHeight > 0 ? `${s.imageMaxHeight}px` : "none");
+      document.body.style.setProperty("--kvs-img-max-w", s.imageMaxWidth > 0 ? `${s.imageMaxWidth}px` : "100%");
+    };
+    applyImageVars();
+    this.register(store.onChange(applyImageVars));
+    const warnedSources = new Set<string>();
+    const dataService = new DataService({
+      gateway,
+      registry,
+      extractors,
+      getSettings: () => store.getSettings(),
+      onSourceWarning: (path, error) => {
+        console.warn(`[KVS] Skipped unreadable source ${path}:`, error);
+        if (warnedSources.has(path)) return;
+        warnedSources.add(path);
+        const name = path.split("/").pop() ?? path;
+        const reason = error instanceof Error ? error.message : "could not be read";
+        new Notice(`Knowledge Views: skipped "${name}" — ${reason}.`, 7000);
+      },
+    });
+    this.profileStore = store;
+    this.dataService = dataService;
+
+    const undo = new UndoManager();
+    const renderDeps: RenderProfileDeps = {
+      app: this.app,
+      dataService,
+      views: createDefaultViewRegistry(),
+      cellRenderers: createDefaultCellRendererRegistry(),
+      cellEditors: createDefaultCellEditorRegistry(),
+      registry,
+      writer: new WriterService(gateway, { excelBackup: () => store.getSettings().enableExcelBackup }),
+      undo,
+    };
+    const deps: ProcessorDeps = { ...renderDeps, store };
+
+    this.registerMarkdownCodeBlockProcessor("knowledge-view", (source, el, ctx) => {
+      ctx.addChild(new ViewBlockController(el, source, ctx.sourcePath, deps));
+    });
+
+    this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new DashboardView(leaf, deps));
+    // Saved view files (.kvsview) open in this same view, file-backed — KVS's take on .base
+    // files: a complete, self-contained dashboard that can be opened in its own pane.
+    this.registerExtensions([KVS_VIEW_EXTENSION], DASHBOARD_VIEW_TYPE);
+
+    // Backup packages (.kvspack): a frozen snapshot of a view's settings + all its data, opened
+    // in a viewer that can restore them to the vault.
+    this.registerView(BACKUP_VIEW_TYPE, (leaf) => new BackupPackView(leaf, deps));
+    this.registerExtensions([KVS_PACK_EXTENSION], BACKUP_VIEW_TYPE);
+
+    // Archival packages (.kvsarchive): a ZIP preservation master, opened in a viewer that can
+    // verify checksums and restore the data + attachments.
+    this.registerView(ARCHIVE_VIEW_TYPE, (leaf) => new ArchiveView(leaf, deps));
+    this.registerExtensions([ARCHIVE_EXTENSION], ARCHIVE_VIEW_TYPE);
+
+    // Lend KVS's Board, Calendar, and Summary views to Obsidian Bases when available.
+    const basesViews = registerKvsBasesViews(this, { cellRenderers: renderDeps.cellRenderers });
+    if (basesViews > 0) {
+      console.info(`[Knowledge Views Studio] Registered ${basesViews} Bases view(s).`);
+    }
+
+    this.addRibbonIcon("layout-grid", "Open Knowledge Views", () => void this.activateDashboard());
+
+    const annotationSyncOpts = () => ({ zotero: { enabled: store.getSettings().zoteroApiEnabled, base: store.getSettings().zoteroApiBase }, themeSpec: store.getSettings().annotationThemes });
+    const overlayManager = new PdfOverlayManager(this.app, annotationSyncOpts);
+    this.pdfOverlayManager = overlayManager;
+    registerAnnotationDecorator(this, (sourcePath, blockId) => void overlayManager.queueDelete(sourcePath, blockId), (sourcePath, blockId) => void overlayManager.editAnnotation(sourcePath, blockId));
+    registerPdfAnnotatorToolbar(this, overlayManager);
+    this.registerEvent(this.app.workspace.on("active-leaf-change", () => overlayManager.onLeafChange()));
+    this.registerDomEvent(window, "blur", () => void overlayManager.flushAll());
+
+    // ---- full-text search index ----
+    const searchIndexer = new SearchIndexer(this.app, () => {
+      const st = store.getSettings();
+      return { attachments: st.indexAttachments, excel: st.enableExcelSources };
+    });
+    this.searchIndexer = searchIndexer;
+    searchIndexer.register(this);
+    searchIndexer.setEnableAttachments(() => store.updateSettings({ indexAttachments: true }));
+    this.registerView(SEARCH_VIEW_TYPE, (leaf) => new SearchView(leaf, searchIndexer));
+    this.addRibbonIcon("search", "Search vault (KVS)", () => void openSearchView(this.app));
+    this.app.workspace.onLayoutReady(() => {
+      // Search is a feature, not a tax: if it's switched off, KVS never reads the vault for it.
+      if (!store.getSettings().enableSearch) return;
+      void searchIndexer.load().then(() => {
+        // Only announce indexing when there is real work — on a warm start almost nothing changes, and
+        // a progress notice that flashes on every launch is just noise.
+        let notice: Notice | undefined;
+        return searchIndexer
+          .buildAll((done, total) => {
+            if (!notice && total > 25 && done < total) notice = new Notice("KVS: building search index…", 0);
+            notice?.setMessage(`KVS: indexing ${done}/${total}…`);
+          })
+          .then(() => {
+            notice?.hide();
+            const st = searchIndexer.status();
+            if (notice && st.docCount > 0) new Notice(`KVS search index ready: ${st.docCount} items from ${st.fileCount} files.`, 4000);
+          });
+      });
+    });
+    this.addCommand({
+      id: "kvs-rebuild-search-index",
+      name: "Rebuild search index",
+      callback: () => {
+        const notice = new Notice("KVS: rebuilding search index…", 0);
+        void searchIndexer.rebuild((done, total) => notice.setMessage(`KVS: indexing ${done}/${total}…`)).then(() => {
+          notice.hide();
+          new Notice(`KVS search index rebuilt: ${searchIndexer.status().docCount} items.`, 4000);
+        });
+      },
+    });
+    this.addCommand({
+      id: "kvs-search-vault",
+      name: "Search vault",
+      callback: () => void openSearchView(this.app),
+    });
+    this.addCommand({
+      id: "kvs-build-semantic-index",
+      name: "Build semantic search index (offline)",
+      callback: () => {
+        const notice = new Notice("KVS: building semantic index…", 0);
+        void searchIndexer.buildSemantic((done, total) => notice.setMessage(`KVS: semantic ${done}/${total}…`)).then(() => {
+          notice.hide();
+          new Notice("KVS semantic index ready. Toggle Semantic mode in search.", 5000);
+        });
+      },
+    });
+    this.registerDomEvent(window, "scroll", () => overlayManager.captureActiveScroll(), true);
+    registerAttachmentPanel(this, () => ({ zotero: { enabled: store.getSettings().zoteroApiEnabled, base: store.getSettings().zoteroApiBase }, themeSpec: store.getSettings().annotationThemes }));
+    this.addCommand({
+      id: "open-dashboard",
+      name: "Open dashboard",
+      callback: () => void this.activateDashboard(),
+    });
+    this.addCommand({
+      id: "insert-view-block",
+      name: "Insert Knowledge View block",
+      editorCallback: (editor: Editor) => editor.replaceSelection(INSERT_TEMPLATE),
+    });
+    this.addCommand({
+      id: "undo-last-change",
+      name: "Undo last change",
+      callback: () =>
+        void (async () => {
+          const label = await undo.undo();
+          new Notice(label ? `Undone: ${label}` : "Nothing to undo.");
+        })(),
+    });
+    this.addCommand({
+      id: "import-table",
+      name: "Import table to a new note (CSV, Markdown, Excel)",
+      callback: () => new ImportModal(this.app).open(),
+    });
+    this.addCommand({
+      id: "create-view-from-note",
+      name: "Create view from the table in the current note",
+      callback: () => void this.createViewFromActiveNote(),
+    });
+    this.addCommand({
+      id: "getting-started",
+      name: "Getting started",
+      callback: () => this.showWelcome(),
+    });
+    this.addCommand({
+      id: "create-from-template",
+      name: "Create a view from a starter template",
+      callback: () => new TemplatePickerModal(this.app, (t) => void this.createFromTemplate(t), availableTemplates(store.getSettings().enableAcademicKit)).open(),
+    });
+    this.addCommand({
+      id: "browse-saved-views",
+      name: "Browse saved views (.kvsview files)",
+      callback: () => new ViewBrowserModal(this.app).open(),
+    });
+    this.addCommand({
+      id: "paste-rows-as-view",
+      name: "Paste rows as a new view",
+      callback: () => void this.pasteRowsAsView(),
+    });
+    this.addCommand({
+      id: "toggle-focus-mode",
+      name: "Toggle focus mode (maximize the view)",
+      callback: () => {
+        const view = this.app.workspace.getActiveViewOfType(DashboardView);
+        if (view) view.toggleFocusMode();
+        else new Notice("Open a Knowledge View to use focus mode.");
+      },
+    });
+    this.addCommand({
+      id: "import-references",
+      name: "Import references (BibTeX / CSV)",
+      callback: () => {
+        if (!store.getSettings().enableAcademicKit) {
+          new Notice("Enable the Academic Research kit in settings to import references.");
+          return;
+        }
+        const active = this.app.workspace.getActiveViewOfType(DashboardView);
+        new ImportReferencesModal(this.app, (refs, viewName) => {
+          if (active && active.hasImportTarget()) void active.importReferences(refs);
+          else void this.createFromReferences(refs, viewName);
+        }).open();
+      },
+    });
+    this.addCommand({
+      id: "add-papers-by-doi",
+      name: "Add papers by DOI (current view)",
+      callback: () => {
+        const view = this.app.workspace.getActiveViewOfType(DashboardView);
+        if (!view) {
+          new Notice("Open a Knowledge View first.");
+          return;
+        }
+        new AddByDoiModal(this.app, (dois) => void view.captureByDoi(dois)).open();
+      },
+    });
+    this.addCommand({
+      id: "fill-missing-from-doi",
+      name: "Fill missing metadata from DOI (current view)",
+      callback: () => {
+        const view = this.app.workspace.getActiveViewOfType(DashboardView);
+        if (!view) {
+          new Notice("Open a Knowledge View first.");
+          return;
+        }
+        void view.bulkFillFromDoi();
+      },
+    });
+    this.addCommand({
+      id: "highlight-pdf-selection",
+      name: "Highlight selection in PDF",
+      callback: () => void overlayManager.addHighlightFromSelection(HIGHLIGHT_COLORS[0]!.hex),
+    });
+    this.addCommand({
+      id: "build-highlight-synthesis",
+      name: "Build highlight synthesis (group all highlights by theme)",
+      callback: () => void buildHighlightSynthesis(this.app),
+    });
+    this.addCommand({
+      id: "sync-paper-annotations",
+      name: "Sync PDF annotations into this note",
+      checkCallback: (checking) => {
+        const file = this.app.workspace.getActiveFile();
+        if (!file || file.extension !== "md") return false;
+        if (!checking) void syncPaperAnnotations(this.app, file, { zotero: { enabled: store.getSettings().zoteroApiEnabled, base: store.getSettings().zoteroApiBase }, themeSpec: store.getSettings().annotationThemes });
+        return true;
+      },
+    });
+    this.addCommand({
+      id: "insert-attachment-panel",
+      name: "Insert paper attachment panel",
+      editorCallback: (editor) => {
+        editor.replaceSelection("\n## Attachments\n\n```kvs-paper\n```\n");
+      },
+    });
+    this.addCommand({
+      id: "find-duplicate-dois",
+      name: "Find duplicate DOIs in my library",
+      callback: () => {
+        const view = this.app.workspace.getActiveViewOfType(DashboardView);
+        if (!view) {
+          new Notice("Open a Knowledge View first.");
+          return;
+        }
+        void view.findDuplicateDois();
+      },
+    });
+    this.addCommand({
+      id: "find-citation-links",
+      name: "Find citation links in my library (OpenAlex)",
+      callback: () => {
+        const view = this.app.workspace.getActiveViewOfType(DashboardView);
+        if (!view) {
+          new Notice("Open a Knowledge View first.");
+          return;
+        }
+        void view.findCitationLinks();
+      },
+    });
+    this.addCommand({
+      id: "shard-library",
+      name: "Shard this library into multiple files",
+      callback: () => {
+        const view = this.app.workspace.getActiveViewOfType(DashboardView);
+        if (!view) {
+          new Notice("Open a Knowledge View first.");
+          return;
+        }
+        void view.openShardModal();
+      },
+    });
+
+    // First run only: greet the user and offer the two fastest paths to a working view.
+    this.app.workspace.onLayoutReady(() => {
+      if (!store.getSettings().onboardingSeen) {
+        store.updateSettings({ onboardingSeen: true });
+        this.showWelcome();
+      }
+    });
+
+    // Right-click a note → build a view from its table, a low-friction entry point for new users.
+    this.registerEvent(
+      this.app.workspace.on("file-menu", (menu, file) => {
+        if (!(file instanceof TFile) || file.extension !== "md") return;
+        menu.addItem((item) =>
+          item
+            .setTitle("Create Knowledge View from table")
+            .setIcon("layout-grid")
+            .onClick(() => void this.createViewFromActiveNote(file)),
+        );
+      }),
+    );
+    this.addCommand({
+      id: "backup-all-views",
+      name: "Back up all views",
+      callback: () => {
+        const profiles = store.listProfiles();
+        if (profiles.length === 0) {
+          new Notice("There are no saved views to back up.");
+          return;
+        }
+        const defaults: BackupExportOptions = {
+          format: "pack",
+          scope: "all",
+          includeAttachments: true,
+          includeExternal: true,
+          encrypt: false,
+          password: "",
+          dateStamp: false,
+          folder: "KVS Backups",
+          filename: "",
+        };
+        new BackupExportModal(
+          this.app,
+          defaults,
+          false,
+          (options) =>
+            void (async () => {
+              new Notice(`Backing up ${profiles.length} view(s)…`);
+              const report = await backupAllViews(this.app, deps, options, (m) => new Notice(m));
+              new Notice(
+                report.failed.length === 0
+                  ? `Backed up ${report.ok} view(s) to ${report.folder}`
+                  : `Backed up ${report.ok}, failed ${report.failed.length}: ${report.failed.join(", ")}`,
+              );
+            })(),
+          true,
+        ).open();
+      },
+    });
+
+    this.addSettingTab(
+      new KnowledgeViewsSettingTab(this.app, this, {
+        store,
+        views: renderDeps.views,
+        registry,
+        dataService,
+        onGettingStarted: () => this.showWelcome(),
+        searchIndexer,
+      }),
+    );
+  }
+
+  override onunload(): void {
+    void this.pdfOverlayManager?.flushAll();
+    void this.searchIndexer?.persist();
+    void this.profileStore?.flush();
+    this.profileStore?.dispose();
+    this.dataService?.dispose();
+  }
+
+  private async activateDashboard(): Promise<void> {
+    const { workspace } = this.app;
+    let leaf = workspace.getLeavesOfType(DASHBOARD_VIEW_TYPE)[0];
+    if (!leaf) {
+      const created = workspace.getLeaf(true);
+      await created.setViewState({ type: DASHBOARD_VIEW_TYPE, active: true });
+      leaf = created;
+    }
+    if (leaf) void workspace.revealLeaf(leaf);
+  }
+
+  /**
+   * Build a ready-to-use view from the table in a note — the fastest way for a new user to see the
+   * plugin work on their own data. Discovery mode means no column setup: the table's own headers
+   * become the columns. Scopes to the note's folder so the view keeps working as more notes are added.
+   */
+  private async createViewFromActiveNote(target?: TFile): Promise<void> {
+    const store = this.profileStore;
+    if (!store) return;
+    const file = target ?? this.app.workspace.getActiveFile();
+    if (!file || file.extension !== "md") {
+      new Notice("Open a note that contains a table first.");
+      return;
+    }
+    const content = await this.app.vault.cachedRead(file);
+    if (parseMarkdownTables(content).length === 0) {
+      new Notice(`No Markdown table found in “${file.basename}”.`);
+      return;
+    }
+    const folder = file.parent && file.parent.path !== "/" ? file.parent.path : "";
+    const profile = createProfile({
+      name: `${file.basename} table`,
+      scope: folder
+        ? { mode: "folders", folders: [folder], includeSubfolders: false }
+        : { mode: "vault", folders: [], includeSubfolders: true },
+      extractors: [TABLE_EXTRACTOR_ID], // discovery mode (no columns) → the table's headers become columns
+    });
+    store.addProfile(profile);
+    store.setActiveProfile(profile.id);
+    await this.activateDashboard();
+    new Notice(`Created a view from “${file.basename}”.`);
+  }
+
+  /** Open the first-run welcome (also reachable via the "Getting started" command). */
+  private showWelcome(): void {
+    new WelcomeModal(this.app, {
+      onUseNote: () => void this.createViewFromActiveNote(),
+      onTemplate: () => new TemplatePickerModal(this.app, (t) => void this.createFromTemplate(t), availableTemplates(this.profileStore?.getSettings().enableAcademicKit ?? false)).open(),
+      onBlank: () => void this.createBlankView(),
+      onSearch: () => void openSearchView(this.app),
+      academicKit: this.profileStore?.getSettings().enableAcademicKit ?? false,
+    }).open();
+  }
+
+  /** Materialise a starter template: a demo note (its own folder, so the view is isolated) + a
+   *  matching view, then open it. Each is fully editable and deletable like any other note/view. */
+  private async createFromTemplate(template: StarterTemplate): Promise<void> {
+    const store = this.profileStore;
+    if (!store) return;
+    const { vault } = this.app;
+    try {
+      await this.ensureFolder("KVS Examples");
+
+      let folder = `KVS Examples/${template.folderName}`;
+      for (let n = 2; vault.getAbstractFileByPath(folder); n++) folder = `KVS Examples/${template.folderName} ${n}`;
+      await vault.createFolder(folder);
+      const notePath = `${folder}/${template.noteName}.md`;
+      await vault.create(notePath, template.content());
+
+      const profile = createProfile({
+        name: template.viewName,
+        scope: { mode: "folders", folders: [folder], includeSubfolders: false },
+        extractors: [TABLE_EXTRACTOR_ID],
+        view: { type: template.viewType, options: { ...template.viewOptions } },
+        ...(template.columns ? { columns: template.columns.map((c) => ({ name: c.name, type: c.type })) } : {}),
+        ...(template.academicKit ? { academicKit: true } : {}),
+        ...(template.group ? { group: { field: template.group.field } } : {}),
+        ...(template.layouts
+          ? { layouts: template.layouts.map((l) => ({ name: l.name, view: { type: l.type, options: { ...(l.options ?? {}) } } })) }
+          : {}),
+      });
+      store.addProfile(profile);
+      store.setActiveProfile(profile.id);
+      await this.activateDashboard();
+      new Notice(`Created the “${template.label}” example.`);
+    } catch (error) {
+      console.error("[KVS] Could not create template:", error);
+      new Notice("Couldn't create the example (check that the vault is writable).");
+    }
+  }
+
+  private async ensureFolder(path: string): Promise<void> {
+    if (!this.app.vault.getAbstractFileByPath(path)) await this.app.vault.createFolder(path);
+  }
+
+  /** Create a papers note from imported references + a matching academic view. */
+  private async createFromReferences(refs: readonly ImportedRef[], viewName: string): Promise<void> {
+    const store = this.profileStore;
+    if (!store) return;
+    const { vault } = this.app;
+    try {
+      await this.ensureFolder("KVS Examples");
+      let folder = `KVS Examples/${viewName}`;
+      for (let n = 2; vault.getAbstractFileByPath(folder); n++) folder = `KVS Examples/${viewName} ${n}`;
+      await vault.createFolder(folder);
+      await vault.create(`${folder}/${viewName}.md`, referencesToNote(refs));
+
+      const profile = createProfile({
+        name: viewName,
+        scope: { mode: "folders", folders: [folder], includeSubfolders: false },
+        extractors: [TABLE_EXTRACTOR_ID],
+        view: { type: "table", options: {} },
+        academicKit: true,
+        columns: [
+          { name: "Cite key", type: "citekey" },
+          { name: "Authors", type: "authors" },
+          { name: "Year", type: "number" },
+          { name: "Title", type: "text" },
+          { name: "Venue", type: "text" },
+          { name: "Tags", type: "tags" },
+          { name: "Summary", type: "markdown" },
+          { name: "DOI", type: "doi" },
+        ],
+      });
+      store.addProfile(profile);
+      store.setActiveProfile(profile.id);
+      await this.activateDashboard();
+      new Notice(`Imported ${refs.length} reference${refs.length === 1 ? "" : "s"}.`);
+    } catch (error) {
+      console.error("[KVS] Could not import references:", error);
+      new Notice("Couldn't import references (check that the vault is writable).");
+    }
+  }
+
+  /** Create an empty (discovery-mode) view over the whole vault and open it. */
+  private async createBlankView(): Promise<void> {
+    const store = this.profileStore;
+    if (!store) return;
+    const profile = createProfile({ name: "New view", extractors: [TABLE_EXTRACTOR_ID] });
+    store.addProfile(profile);
+    store.setActiveProfile(profile.id);
+    await this.activateDashboard();
+  }
+
+  /**
+   * Reconstruct rows copied from a view into a fresh view. If the clipboard carries a KVS type
+   * marker (from "Copy as → KVS rows"), the columns are rebuilt with their original types; otherwise
+   * types are inferred from the pasted table. Either way you get a real, typed view — not dead text.
+   */
+  private async pasteRowsAsView(): Promise<void> {
+    const store = this.profileStore;
+    if (!store) return;
+    let text = "";
+    try {
+      text = await navigator.clipboard.readText();
+    } catch {
+      text = "";
+    }
+    if (!text.trim()) {
+      new Notice("The clipboard is empty or unavailable.");
+      return;
+    }
+    const table = parseMarkdownTables(text)[0];
+    if (!table) {
+      new Notice("No table found on the clipboard to paste.");
+      return;
+    }
+    const meta = parseKvsMarker(text); // original column types, if present
+    const markdown = rebuildMarkdownTable(
+      table.headers,
+      table.rows.map((r) => r.cells),
+    );
+
+    try {
+      await this.ensureFolder("KVS Examples");
+      let folder = "KVS Examples/Pasted rows";
+      for (let n = 2; this.app.vault.getAbstractFileByPath(folder); n++) folder = `KVS Examples/Pasted rows ${n}`;
+      await this.app.vault.createFolder(folder);
+      await this.app.vault.create(`${folder}/Pasted rows.md`, `# Pasted rows\n\n${markdown}\n`);
+
+      const typeByName = new Map((meta ?? []).map((c) => [c.name.toLowerCase(), c.type]));
+      const columns = meta ? table.headers.map((h) => ({ name: h, type: typeByName.get(h.toLowerCase()) ?? "text" })) : [];
+      const profile = createProfile({
+        name: "Pasted rows",
+        scope: { mode: "folders", folders: [folder], includeSubfolders: false },
+        extractors: [TABLE_EXTRACTOR_ID],
+        columns, // empty ⇒ discovery mode (types inferred)
+      });
+      store.addProfile(profile);
+      store.setActiveProfile(profile.id);
+      await this.activateDashboard();
+      new Notice(meta ? "Pasted rows as a new view (types preserved)." : "Pasted rows as a new view.");
+    } catch (error) {
+      console.error("[KVS] Paste rows failed:", error);
+      new Notice("Couldn't create the view (is the vault writable?).");
+    }
+  }
+}

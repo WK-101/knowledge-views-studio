@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+main.js
+*.js.map
+data.json
+.DS_Store
+.hotreload
+src/services/annotations/pdf.worker.txt
