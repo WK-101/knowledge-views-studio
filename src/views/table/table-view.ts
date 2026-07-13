@@ -74,7 +74,7 @@ function enterEditMode(td: HTMLElement, row: Row, column: ResolvedColumn, ctx: V
     if (activeCellEdit === forceCommit) activeCellEdit = null;
     document.removeEventListener("keydown", onKey, true);
     td.removeClass("kvs-editing");
-    td.style.minHeight = "";
+    td.setCssStyles({ minHeight: "" });
   };
   const commit = (next: string): void => {
     teardown();
@@ -568,7 +568,7 @@ function buildTableItems(ctx: ViewRenderContext): TableItem[] {
     }
     return items;
   }
-  return ctx.result.rows.map((row) => ({ kind: "row", row }) as TableItem);
+  return ctx.result.rows.map((row) => ({ kind: "row", row }));
 }
 
 function renderItem(
@@ -618,7 +618,7 @@ function renderTable(ctx: ViewRenderContext): void {
       if (target?.closest("input, textarea, [contenteditable='true']")) return;
       const textSel = window.getSelection();
       if (textSel && !textSel.isCollapsed && textSel.toString().trim() !== "") return;
-      const rows = allRows.filter((r) => selection!.has(tokenOf(r)));
+      const rows = allRows.filter((r) => selection.has(tokenOf(r)));
       if (rows.length === 0) return;
       event.preventDefault();
       ctx.onCopyRows?.(rows);
@@ -642,7 +642,7 @@ function renderTable(ctx: ViewRenderContext): void {
   const bulkBarHost = root.createDiv({ cls: "kvs-bulk-host" });
   const refreshSelectionUI = (): void => {
     if (!selection) return;
-    const sel = allRows.filter((r) => selection!.has(tokenOf(r)));
+    const sel = allRows.filter((r) => selection.has(tokenOf(r)));
     bulkBarHost.empty();
     if (sel.length > 0) renderBulkBar(bulkBarHost, ctx, sel, selection, repaint);
   };
@@ -677,7 +677,7 @@ function renderTable(ctx: ViewRenderContext): void {
       scrollStore.set(ctx.viewKey, scroll.scrollTop);
       capViewState(scrollStore);
     });
-    requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
       const saved = scrollStore.get(ctx.viewKey) ?? 0;
       if (saved > 0) scroll.scrollTop = saved;
     });
@@ -795,14 +795,14 @@ function renderTable(ctx: ViewRenderContext): void {
     }
     if (scheduled) return;
     scheduled = true;
-    requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
       scheduled = false;
       renderWindow(false);
     });
   });
 
   renderWindow(true);
-  requestAnimationFrame(() => {
+  window.requestAnimationFrame(() => {
     // Correct the window once layout is known (real viewport height) and restore scroll. This
     // recycles rather than force-rebuilding, so it's a no-op when the window hasn't changed.
     const saved = scrollStore.get(ctx.viewKey) ?? 0;

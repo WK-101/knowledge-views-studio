@@ -40,7 +40,7 @@ function firstString(v: unknown): string {
 function crossrefYear(message: Record<string, unknown>): string {
   for (const key of ["issued", "published", "published-print", "published-online"]) {
     const block = asRecord(message[key]);
-    const parts = block ? (block["date-parts"] as unknown) : undefined;
+    const parts = block ? (block["date-parts"]) : undefined;
     if (Array.isArray(parts) && Array.isArray(parts[0]) && typeof parts[0][0] === "number") {
       return String(parts[0][0]);
     }
@@ -74,7 +74,7 @@ export function parseCrossref(json: unknown): DoiMetadata | null {
     title,
     year: crossrefYear(message),
     venue: firstString(message["container-title"]) || firstString(message["publisher"]),
-    doi: typeof message["DOI"] === "string" ? (message["DOI"] as string) : "",
+    doi: typeof message["DOI"] === "string" ? (message["DOI"]) : "",
   };
 }
 

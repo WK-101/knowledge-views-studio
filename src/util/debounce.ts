@@ -14,7 +14,7 @@ export function debounce<A extends unknown[]>(
   fn: (...args: A) => void,
   waitMs: number,
 ): Debounced<A> {
-  let timer: ReturnType<typeof setTimeout> | null = null;
+  let timer: number | null = null;
   let lastArgs: A | null = null;
 
   const invoke = (): void => {
@@ -26,19 +26,19 @@ export function debounce<A extends unknown[]>(
 
   const debounced = ((...args: A): void => {
     lastArgs = args;
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(invoke, waitMs);
+    if (timer) window.clearTimeout(timer);
+    timer = window.setTimeout(invoke, waitMs);
   }) as Debounced<A>;
 
   debounced.cancel = (): void => {
-    if (timer) clearTimeout(timer);
+    if (timer) window.clearTimeout(timer);
     timer = null;
     lastArgs = null;
   };
 
   debounced.flush = (): void => {
     if (timer) {
-      clearTimeout(timer);
+      window.clearTimeout(timer);
       invoke();
     }
   };

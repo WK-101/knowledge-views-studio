@@ -1,5 +1,6 @@
 import { normalizeDoi } from "./doi-lookup";
 import type { UrlFetcher } from "./doi-lookup";
+import { asString } from "../../util/coerce";
 
 /**
  * Find real citation edges among papers you own, via OpenAlex. Given a paper's DOI, OpenAlex returns
@@ -44,8 +45,8 @@ export function parseWorksList(json: unknown): { id: string; doi: string }[] {
     for (const r of results) {
       const rec = asRecord(r);
       if (!rec) continue;
-      const id = shortOpenAlexId(String(rec["id"] ?? ""));
-      const doi = rec["doi"] ? normalizeDoi(String(rec["doi"])).toLowerCase() : "";
+      const id = shortOpenAlexId(asString(rec["id"]));
+      const doi = rec["doi"] ? normalizeDoi(asString(rec["doi"])).toLowerCase() : "";
       if (id && doi) out.push({ id, doi });
     }
   }

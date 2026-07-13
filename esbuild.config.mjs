@@ -1,6 +1,6 @@
 import esbuild from "esbuild";
 import process from "node:process";
-import builtins from "builtin-modules";
+import { builtinModules as builtins } from "node:module";
 import { readFileSync, copyFileSync } from "node:fs";
 
 const manifest = JSON.parse(readFileSync("manifest.json", "utf8"));

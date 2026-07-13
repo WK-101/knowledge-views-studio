@@ -98,7 +98,7 @@ async function getItem(base: string, key: string, fetcher: JsonFetcher): Promise
   const res = await fetcher(`${base}/items/${key}?format=json`);
   if (res.status !== 200) return null;
   const payload = res.json ?? (res.text ? (JSON.parse(res.text) as unknown) : null);
-  return payload && typeof payload === "object" && !Array.isArray(payload) ? (payload as ZoteroItem) : null;
+  return payload && typeof payload === "object" && !Array.isArray(payload) ? (payload) : null;
 }
 
 async function getChildren(base: string, key: string, fetcher: JsonFetcher): Promise<ZoteroItem[]> {

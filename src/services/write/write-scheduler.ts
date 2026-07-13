@@ -29,7 +29,7 @@ interface PendingEdit {
  */
 export class WriteScheduler {
   private readonly pending = new Map<string, PendingEdit>();
-  private timer: ReturnType<typeof setTimeout> | null = null;
+  private timer: number | null = null;
   private flushing = false;
 
   constructor(private readonly deps: WriteSchedulerDeps) {}
@@ -64,15 +64,15 @@ export class WriteScheduler {
   }
 
   private schedule(): void {
-    if (this.timer !== null) clearTimeout(this.timer);
-    this.timer = setTimeout(() => void this.flush(), this.deps.delayMs ?? 600);
+    if (this.timer !== null) window.clearTimeout(this.timer);
+    this.timer = window.setTimeout(() => void this.flush(), this.deps.delayMs ?? 600);
   }
 
   /** Write all currently-pending edits as one batch. Edits queued during the flush are kept. */
   async flush(): Promise<void> {
     if (this.flushing) return;
     if (this.timer !== null) {
-      clearTimeout(this.timer);
+      window.clearTimeout(this.timer);
       this.timer = null;
     }
     if (this.pending.size === 0) return;
@@ -120,7 +120,7 @@ export class WriteScheduler {
 
   /** Flush synchronously, waiting for any in-flight write (e.g. when the view closes). */
   async flushNow(): Promise<void> {
-    while (this.flushing) await new Promise((r) => setTimeout(r, 15));
+    while (this.flushing) await new Promise((r) => window.setTimeout(r, 15));
     await this.flush();
   }
 }

@@ -52,7 +52,7 @@ export function parseViewDoc(text: string): ViewFileDoc | null {
 
   // v1: a single profile.
   if (typeof obj.profile === "object" && obj.profile !== null) {
-    const profile = createProfile(obj.profile as Partial<Profile>);
+    const profile = createProfile(obj.profile);
     return { views: [profile], activeView: profile.id };
   }
 

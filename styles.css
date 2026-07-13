@@ -3408,7 +3408,7 @@
 }
 
 /* Per-annotation callout hover tools */
-.callout:has(.kvs-anno-tools) { position: relative; }
+.callout.kvs-has-anno { position: relative; }
 .kvs-anno-tools {
   position: absolute;
   top: 4px;
@@ -3604,9 +3604,7 @@
 .kvs-sv-badge {
   flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px;
   font-size: var(--font-ui-smaller); padding: 1px 7px 1px 5px; border-radius: 5px;
-  background: var(--background-modifier-hover);
   background: color-mix(in srgb, var(--kvs-src-color) 14%, transparent);
-  color: var(--text-muted);
   color: color-mix(in srgb, var(--kvs-src-color) 72%, var(--text-normal));
 }
 .kvs-sv-badgeic { display: inline-flex; }
@@ -4041,3 +4039,9 @@
   font-size: var(--font-ui-smaller); color: var(--text-muted); line-height: 1.55;
 }
 .kvs-sv-offer button { margin-top: 10px; }
+
+/* Obsidian lint: styles belong in CSS, not in element.style */
+.kvs-input-full { width: 100%; }
+.kvs-hl-bar-inline { position: static; box-shadow: none; border: none; }
+.kvs-hl-swatch { background: var(--kvs-swatch, transparent); }
+.kvs-hl-swatch.is-selected { outline: 2px solid var(--text-normal); }

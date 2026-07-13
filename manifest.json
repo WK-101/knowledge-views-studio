@@ -1,10 +1,10 @@
 {
   "id": "knowledge-views-studio",
   "name": "Knowledge Views Studio",
-  "version": "0.105.1",
-  "minAppVersion": "1.5.0",
-  "description": "Turn Markdown tables, note properties, tasks and Excel rows scattered across your vault into live, editable dashboards \u2014 table, board, calendar, cards, gallery or pivot \u2014 with annotation tools and offline full-text, semantic and question-answering search.",
+  "version": "0.106.0",
+  "minAppVersion": "1.10.0",
+  "description": "Turn the tables, note properties, tasks, inline fields and Excel rows scattered across your vault into live, editable dashboards - table, board, calendar, cards, gallery or pivot - with offline full-text, semantic and question-answering search.",
   "author": "W A Khan",
   "isDesktopOnly": false,
-  "authorUrl": "https://github.com/wakhan-dev"
+  "authorUrl": "https://github.com/WK-101"
 }

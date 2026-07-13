@@ -1,6 +1,7 @@
 import { getField, type Row } from "../../domain/index";
 import type { Profile } from "../../services/index";
 import type { ResolvedColumn } from "../view-model";
+import { asString } from "../../util/coerce";
 
 export type LinkHandling = "keep" | "text" | "path";
 
@@ -246,7 +247,7 @@ export function buildViewBlock(profile: Profile): string {
   if (profile.sort.length > 0) lines.push(`sort: ${profile.sort.map((s) => `${s.field} ${s.direction}`).join(", ")}`);
   if (profile.pageSize && profile.pageSize > 0) lines.push(`limit: ${profile.pageSize}`);
   for (const [key, value] of Object.entries(profile.view.options)) {
-    const text = value === null || value === undefined ? "" : String(value);
+    const text = asString(value);
     if (text !== "") lines.push(`option.${key}: ${text}`);
   }
   return ["```knowledge-view", ...lines, "```"].join("\n");

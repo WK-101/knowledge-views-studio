@@ -79,7 +79,7 @@ function lex(input: string): Tok[] {
     const fm = /^([\p{L}\p{N}_]+):/u.exec(input.slice(i));
     if (fm) {
       field = fm[1]!.toLowerCase();
-      j = i + fm[0]!.length;
+      j = i + fm[0].length;
     }
     if (input[j] === '"') {
       const end = input.indexOf('"', j + 1);

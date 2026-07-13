@@ -1,5 +1,6 @@
 import type { Row, SourceFileMeta } from "../domain/index";
 import { createProfile, type Profile } from "./profile/profile";
+import { asString } from "../util/coerce";
 
 /**
  * A backup package (extension `.kvspack`) — a frozen, self-contained snapshot of a view. Unlike
@@ -100,16 +101,16 @@ export function parseBackupPack(text: string): BackupPack | null {
   if (typeof obj.profile !== "object" || obj.profile === null) return null;
   if (!Array.isArray(obj.rows) || !Array.isArray(obj.columns)) return null;
 
-  const profile = createProfile(obj.profile as Partial<Profile>);
+  const profile = createProfile(obj.profile);
   const columns: PackColumn[] = obj.columns
     .filter((c): c is Record<string, unknown> => typeof c === "object" && c !== null && typeof (c as { name?: unknown }).name === "string")
-    .map((c) => ({ name: String(c.name), label: String(c.label ?? c.name), typeId: String(c.typeId ?? "text") }));
+    .map((c) => ({ name: asString(c.name), label: asString(c.label, asString(c.name)), typeId: asString(c.typeId, "text") }));
   const rows: PackRow[] = obj.rows
     .filter((r): r is Record<string, unknown> => typeof r === "object" && r !== null)
     .map((r) => {
       const cellsRaw = (r.cells ?? {}) as Record<string, unknown>;
       const cells: Record<string, string> = {};
-      for (const [k, v] of Object.entries(cellsRaw)) cells[k] = String(v ?? "");
+      for (const [k, v] of Object.entries(cellsRaw)) cells[k] = asString(v);
       return { cells, file: coerceFile(r.file) };
     });
 
@@ -119,18 +120,18 @@ export function parseBackupPack(text: string): BackupPack | null {
     ? obj.assets
         .filter((a): a is Record<string, unknown> => typeof a === "object" && a !== null && typeof (a as { data?: unknown }).data === "string")
         .map((a) => ({
-          ref: String(a.ref ?? ""),
+          ref: asString(a.ref),
           kind: a.kind === "external" ? "external" : "internal",
-          name: String(a.name ?? "asset"),
-          mime: String(a.mime ?? "application/octet-stream"),
-          data: String(a.data ?? ""),
+          name: asString(a.name, "asset"),
+          mime: asString(a.mime, "application/octet-stream"),
+          data: asString(a.data),
         }))
     : [];
   return {
     kvsPack: typeof obj.kvsPack === "number" ? obj.kvsPack : 1,
     exportedAt: typeof obj.exportedAt === "string" ? obj.exportedAt : "",
     generator: typeof obj.generator === "string" ? obj.generator : "",
-    view: { name: String(view.name ?? profile.name), type: String(view.type ?? profile.view.type) },
+    view: { name: asString(view.name, profile.name), type: asString(view.type, profile.view.type) },
     source: {
       folders: Array.isArray(source.folders) ? source.folders.map(String) : [],
       extractors: Array.isArray(source.extractors) ? source.extractors.map(String) : [],

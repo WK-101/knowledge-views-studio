@@ -169,7 +169,7 @@ export function extractOfficeText(bytes: ArrayBuffer, kind: "word" | "excel" | "
     .filter((m): m is RegExpExecArray => m !== null)
     .sort((a, b) => Number(a[1]) - Number(b[1]));
   for (const m of slides) {
-    const text = joinTag(dec.decode(files[m[0]]!), "a:t");
+    const text = joinTag(dec.decode(files[m[0]]), "a:t");
     if (text !== "") out.push({ location: `Slide ${m[1]}`, text });
   }
   return out;
@@ -190,7 +190,7 @@ export function extractEpubText(bytes: ArrayBuffer): { location: string; text: s
     .sort();
   let n = 0;
   for (const name of names) {
-    const raw = dec.decode(files[name]!).replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, " ");
+    const raw = dec.decode(files[name]).replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, " ");
     const text = decodeXml(raw);
     if (text !== "") out.push({ location: `Section ${++n}`, text });
   }

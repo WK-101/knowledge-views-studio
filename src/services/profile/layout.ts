@@ -94,5 +94,5 @@ export function splitViewPatch(patch: Partial<Profile>): { data: Partial<Profile
   for (const [key, value] of Object.entries(patch)) {
     (LAYOUT_FIELD_KEYS.has(key) ? layout : data)[key] = value;
   }
-  return { data: data as Partial<Profile>, layout: layout as Partial<Layout> };
+  return { data: data, layout: layout };
 }

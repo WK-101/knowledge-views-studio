@@ -43,8 +43,8 @@ function decodeXml(s: string): string {
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCodePoint(parseInt(h, 16)))
-    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_: string, h: string) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_: string, d: string) => String.fromCodePoint(parseInt(d, 10)))
     .replace(/&amp;/g, "&");
 }
 
@@ -269,7 +269,7 @@ function makeWorkbook(pkg: OfficePackage, parsed: Parsed): XlsxWorkbook {
         text = formatPercent(n);
         valueKind = "number";
       } else if (styleIndex >= 0 && parsed.styleCurrency[styleIndex] && Number.isFinite(n)) {
-        text = formatCurrency(n, parsed.styleCurrency[styleIndex]!);
+        text = formatCurrency(n, parsed.styleCurrency[styleIndex]);
         valueKind = "number";
       } else {
         text = v;

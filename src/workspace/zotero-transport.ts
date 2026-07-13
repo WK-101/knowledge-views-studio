@@ -12,7 +12,7 @@ interface NodeHttp {
 }
 
 function nodeHttp(): NodeHttp | null {
-  const req = (globalThis as unknown as { require?: (m: string) => unknown }).require;
+  const req = (window as unknown as { require?: (m: string) => unknown }).require;
   try {
     return req ? (req("http") as NodeHttp) : null;
   } catch {

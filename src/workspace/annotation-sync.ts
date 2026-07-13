@@ -124,7 +124,7 @@ function reportCoverage(total: number, missing: number, checked: string[], skipp
 /** DOI from the note's frontmatter (cache first, then parse the content in case the cache is stale). */
 function readDoi(app: App, file: TFile, content: string): string {
   const fm = app.metadataCache.getFileCache(file)?.frontmatter;
-  const cached = fm?.doi ?? fm?.DOI;
+  const cached: unknown = fm?.doi ?? fm?.DOI; // Obsidian types frontmatter as `any`
   if (typeof cached === "string" && cached.trim() !== "") return cached.trim();
   const m = /^doi:\s*["']?([^"'\n]+)["']?\s*$/im.exec(content.split(/^---\s*$/m)[1] ?? "");
   return m ? (m[1] ?? "").trim() : "";

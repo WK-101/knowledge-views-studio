@@ -71,7 +71,7 @@ function collectTags(app: App, file: TFile): string {
   const cache = app.metadataCache.getFileCache(file);
   const set = new Set<string>();
   for (const t of cache?.tags ?? []) set.add(t.tag.replace(/^#/, "").toLowerCase());
-  const fm = cache?.frontmatter?.["tags"] ?? cache?.frontmatter?.["tag"];
+  const fm: unknown = cache?.frontmatter?.["tags"] ?? cache?.frontmatter?.["tag"]; // frontmatter is `any`
   if (Array.isArray(fm)) for (const t of fm) set.add(String(t).replace(/^#/, "").toLowerCase());
   else if (typeof fm === "string") for (const t of fm.split(/[,\s]+/)) if (t) set.add(t.replace(/^#/, "").toLowerCase());
   return [...set].join(" ");

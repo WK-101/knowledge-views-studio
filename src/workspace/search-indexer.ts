@@ -84,7 +84,7 @@ function idbBatch(db: IDBDatabase, store: string, puts: [string, unknown][], del
   });
 }
 
-const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+const sleep = (ms: number): Promise<void> => new Promise((r) => window.setTimeout(r, ms));
 
 /** Sources whose text we persist for snippets (notes/rows are re-read cheaply instead). */
 const ATTACHMENT_SOURCES = new Set(["pdf", "docx", "xlsx", "pptx", "epub"]);
@@ -183,7 +183,7 @@ export class SearchIndexer {
     const scored: AnswerPassage[] = [];
     const noteCache = new Map<string, string>();
     for (const r of [...cand.values()].slice(0, 50)) {
-      const path = typeof r.meta?.["path"] === "string" ? (r.meta["path"] as string) : undefined;
+      const path = typeof r.meta?.["path"] === "string" ? (r.meta["path"]) : undefined;
       if (!path) continue;
       const text = await this.docText(r.id, r.source, path, noteCache);
       if (text === "") continue;

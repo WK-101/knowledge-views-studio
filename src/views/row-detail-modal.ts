@@ -170,8 +170,8 @@ export class RowDetailModal extends Modal {
     const preview = wrap.createDiv({ cls: "kvs-rich-preview" });
 
     const grow = (): void => {
-      ta.style.height = "auto";
-      ta.style.height = `${Math.max(48, ta.scrollHeight)}px`;
+      ta.setCssStyles({ height: "auto" });
+      ta.setCssStyles({ height: `${Math.max(48, ta.scrollHeight)}px` });
     };
     const renderPreview = (): void => {
       preview.empty();

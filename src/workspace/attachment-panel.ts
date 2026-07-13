@@ -168,7 +168,7 @@ async function importFileToVault(app: App, file: File): Promise<string | null> {
 
 /** Open a native file picker; import each chosen file into the vault. */
 function pickComputerFiles(app: App, onImported: (paths: string[]) => void): void {
-  const input = document.createElement("input");
+  const input = createEl("input");
   input.type = "file";
   input.multiple = true;
   input.addEventListener("change", () => {
@@ -236,7 +236,7 @@ class LinkPromptModal extends Modal {
     this.setTitle("Attach a link");
     new Setting(this.contentEl).setName("URL or zotero:// link").addText((t) => {
       t.setPlaceholder("https://…  or  zotero://open-pdf/…").onChange((v) => (this.url = v));
-      t.inputEl.style.width = "100%";
+      t.inputEl.addClass("kvs-input-full");
     });
     new Setting(this.contentEl).setName("Label (optional)").addText((t) => t.onChange((v) => (this.label = v)));
     new Setting(this.contentEl).addButton((b) =>

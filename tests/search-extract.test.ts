@@ -72,18 +72,18 @@ describe("Office full-text extraction", () => {
   it("Word: pulls all body text", () => {
     const doc = `<w:document><w:body><w:p><w:r><w:t>Hello </w:t></w:r><w:r><w:t>world of search</w:t></w:r></w:p></w:body></w:document>`;
     const zip = zipSync({ "word/document.xml": strToU8(doc) });
-    expect(extractOfficeText(zip.buffer as ArrayBuffer, "word")[0]!.text).toBe("Hello world of search");
+    expect(extractOfficeText(zip.buffer, "word")[0]!.text).toBe("Hello world of search");
   });
   it("Excel: pulls shared-string text", () => {
     const sst = `<sst><si><t>Revenue</t></si><si><t>Q4 target exceeded</t></si></sst>`;
     const zip = zipSync({ "xl/sharedStrings.xml": strToU8(sst) });
-    expect(extractOfficeText(zip.buffer as ArrayBuffer, "excel")[0]!.text).toBe("Revenue Q4 target exceeded");
+    expect(extractOfficeText(zip.buffer, "excel")[0]!.text).toBe("Revenue Q4 target exceeded");
   });
   it("PowerPoint: one section per slide", () => {
     const s1 = `<p:sld><a:p><a:r><a:t>Slide one title</a:t></a:r></a:p></p:sld>`;
     const s2 = `<p:sld><a:p><a:r><a:t>Slide two content</a:t></a:r></a:p></p:sld>`;
     const zip = zipSync({ "ppt/slides/slide1.xml": strToU8(s1), "ppt/slides/slide2.xml": strToU8(s2) });
-    const secs = extractOfficeText(zip.buffer as ArrayBuffer, "powerpoint");
+    const secs = extractOfficeText(zip.buffer, "powerpoint");
     expect(secs).toHaveLength(2);
     expect(secs[0]).toMatchObject({ location: "Slide 1", text: "Slide one title" });
     expect(secs[1]).toMatchObject({ location: "Slide 2", text: "Slide two content" });
@@ -94,7 +94,7 @@ describe("EPUB full-text extraction", () => {
   it("extracts text per chapter, stripping tags/scripts", () => {
     const ch1 = `<html><head><style>.x{}</style></head><body><h1>Chapter 1</h1><p>It was a dark night.</p><script>bad()</script></body></html>`;
     const zip = zipSync({ "OEBPS/chapter1.xhtml": strToU8(ch1), "META-INF/container.xml": strToU8("<x/>") });
-    const secs = extractEpubText(zip.buffer as ArrayBuffer);
+    const secs = extractEpubText(zip.buffer);
     expect(secs).toHaveLength(1);
     expect(secs[0]!.text).toContain("Chapter 1");
     expect(secs[0]!.text).toContain("dark night");

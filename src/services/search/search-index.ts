@@ -363,7 +363,7 @@ export class SearchIndex {
     const idx = lowerBound(p.docs, ref);
     if (idx >= p.docs.length || p.docs[idx] !== ref) return [];
     const offs = this.ensureOffsets(p);
-    return p.pos.slice(offs[idx]!, offs[idx + 1]!);
+    return p.pos.slice(offs[idx], offs[idx + 1]);
   }
 
   /** Docs where `terms` occur consecutively (position p, p+1, …). */

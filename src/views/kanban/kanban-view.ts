@@ -104,13 +104,13 @@ function renderColumn(
     list.addEventListener("scroll", () => {
       if (scheduled) return;
       scheduled = true;
-      requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
         scheduled = false;
         renderWindow();
       });
     });
     renderWindow();
-    requestAnimationFrame(renderWindow);
+    window.requestAnimationFrame(renderWindow);
   } else {
     for (const row of rows) renderOne(row);
   }

@@ -467,10 +467,10 @@ export class ExportOptionsModal extends Modal {
       const fonts = await query();
       const families = [...new Set(fonts.map((f) => f.family))].sort((a, b) => a.localeCompare(b));
       if (families.length === 0) return;
-      const group = document.createElement("optgroup");
+      const group = createEl("optgroup");
       group.label = "Installed fonts";
       for (const family of families) {
-        const option = document.createElement("option");
+        const option = createEl("option");
         option.value = family;
         option.text = family;
         group.appendChild(option);

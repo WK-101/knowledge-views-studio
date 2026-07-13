@@ -188,3 +188,48 @@ npm run lint
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+## Phase 106 — Obsidian community-directory review: every issue fixed
+
+The plugin was pulled from the directory listing pending fixes. All of them are resolved, and Obsidian's
+own linter (`eslint-plugin-obsidianmd`) is now **part of the four gates**, so this class of problem
+cannot recur.
+
+### Errors (these were the blockers)
+- **34 × `no-unsupported-api`** — one root cause: the **Bases API requires Obsidian 1.10.0**, but the
+  manifest declared `minAppVersion: 1.5.0`. The plugin genuinely needs those APIs, so the honest fix was
+  to raise the floor. `minAppVersion` is now **1.10.0**.
+- **11 × `no-static-styles-assignment`** — inline `element.style.x = y`. Static values moved to CSS
+  classes; genuinely dynamic ones (auto-growing textareas) use `setCssStyles`, and the dynamic highlight
+  colour uses `setCssProps` with a CSS variable.
+
+### Manifest
+- Description trimmed **255 → 244** characters (limit 250).
+- `authorUrl` corrected to a live URL (it pointed at a placeholder that did not exist).
+
+### Warnings
+- `document.write()` → `srcdoc` on the print iframe.
+- `Vault.delete()` → `FileManager.trashFile()`, respecting the user's deletion preference.
+- `globalThis` removed; `console` logging on startup removed.
+- `builtin-modules` dependency dropped for Node's own `node:module`.
+- `window.setTimeout` / `clearTimeout` / `requestAnimationFrame` throughout, for popout-window safety.
+  Two modules run under Node in the test suite, which has no `window` — so the tests now shim it, rather
+  than the source telling a lie about where it runs.
+- `String(unknown)` in the backup, restore, export and OpenAlex parsers could have written
+  `"[object Object]"` into a user's data. Replaced with a safe coercion (`asString`) that returns the
+  fallback instead. **This was a real latent bug, not just lint noise.**
+- Unnecessary type assertions removed; untyped frontmatter narrowed to `unknown`.
+
+### CSS
+- Duplicate `background` / `color` declarations removed — they were hand-rolled `color-mix` fallbacks,
+  redundant now that the floor is Obsidian 1.10 (a modern Chromium).
+- `:has()` replaced with a class the annotation decorator sets itself — cheaper, and Obsidian discourages
+  the selector.
+
+### One deliberate non-fix
+`setWarning()` is deprecated in favour of `setDestructive()` — but **`setDestructive` requires Obsidian
+1.13**, and we support 1.10. Obsidian lists this only as a *recommendation*, so breaking compatibility
+for it would be the wrong trade. The linter caught this the moment it was attempted; the deprecated call
+stays, with the reason recorded in the source.
+
+**535 tests. Typecheck, tests, build, and lint (now including Obsidian's reviewer rules) all clean.**

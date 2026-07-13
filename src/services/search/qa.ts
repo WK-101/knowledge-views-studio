@@ -39,7 +39,7 @@ export function splitPassages(text: string, minLen = 50, maxLen = 320): Passage[
     start = -1;
   };
   while ((m = re.exec(text)) !== null) {
-    const seg = m[0]!;
+    const seg = m[0];
     if (seg.trim() === "") continue;
     if (start < 0) start = m.index;
     end = m.index + seg.length;

@@ -38,7 +38,7 @@ export function readEmbeddedView(text: string): Partial<EmbeddedView> | null {
   if (!match) return null;
   try {
     const data: unknown = JSON.parse(fromBase64(match[1] ?? ""));
-    return data && typeof data === "object" ? (data as Partial<EmbeddedView>) : null;
+    return data && typeof data === "object" ? (data) : null;
   } catch {
     return null;
   }

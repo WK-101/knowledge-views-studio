@@ -48,7 +48,7 @@ export class DedupModal extends Modal {
 
     for (const [gi, group] of this.groups.entries()) {
       const box = contentEl.createDiv({ cls: "kvs-dedup-group" });
-      box.createEl("div", { cls: "kvs-dedup-doi", text: group.doi });
+      box.createDiv({ cls: "kvs-dedup-doi", text: group.doi });
       group.rows.forEach((row, ri) => {
         const line = box.createEl("label", { cls: "kvs-dedup-row" });
         const radio = line.createEl("input", { cls: "kvs-dedup-radio" });
@@ -73,7 +73,9 @@ export class DedupModal extends Modal {
       .addButton((b) =>
         b
           .setButtonText(`Delete ${total} duplicate${total === 1 ? "" : "s"}`)
-          .setWarning()
+          // setDestructive() needs Obsidian 1.13; we support 1.10, and Obsidian's report lists this
+            // only as a recommendation. Revert to setDestructive when the minimum version rises.
+            .setWarning()
           .onClick(() => {
             const remove: Row[] = [];
             const mergeEdits: DedupEdit[] = [];

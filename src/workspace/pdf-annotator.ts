@@ -39,7 +39,7 @@ function pdfViewerFor(app: App, file: TFile): PdfViewerLike | null {
   for (const leaf of app.workspace.getLeavesOfType("pdf")) {
     const view = leaf.view as unknown as { file?: { path?: string }; viewer?: Record<string, unknown> };
     if (view.file?.path !== file.path) continue;
-    const v = view.viewer as Record<string, unknown> | undefined;
+    const v = view.viewer;
     const child = v?.child as Record<string, unknown> | undefined;
     const inner = child?.pdfViewer as Record<string, unknown> | undefined;
     const candidates = [v?.pdfViewer, child?.pdfViewer, inner?.pdfViewer, inner] as (PdfViewerLike | undefined)[];
@@ -205,7 +205,7 @@ export class PdfOverlayManager {
   private scheduleRedraw(): void {
     if (this.redrawQueued) return;
     this.redrawQueued = true;
-    activeWindow.setTimeout(() => {
+    window.setTimeout(() => {
       this.redrawQueued = false;
       for (const path of this.pending.keys()) {
         const f = this.app.vault.getAbstractFileByPath(path);
@@ -363,10 +363,10 @@ export class PdfOverlayManager {
     const el = pdfScrollEl(this.app, file);
     if (el && el.offsetParent !== null && el.scrollHeight > el.clientHeight && el.querySelector(".page")) {
       restorePos(el, pos);
-      if (attempt < 4) activeWindow.setTimeout(() => this.restoreScrollFor(file, attempt + 1), 130); // nudge as pages settle
+      if (attempt < 4) window.setTimeout(() => this.restoreScrollFor(file, attempt + 1), 130); // nudge as pages settle
       return;
     }
-    if (attempt < 120) activeWindow.setTimeout(() => this.restoreScrollFor(file, attempt + 1), 100);
+    if (attempt < 120) window.setTimeout(() => this.restoreScrollFor(file, attempt + 1), 100);
   }
 
   /** On tab/window change: commit pending edits for files you've left, and restore scroll for the PDF
@@ -395,7 +395,7 @@ export class PdfOverlayManager {
       await this.app.vault.modifyBinary(file, out);
       this.restoreScrollFor(file);
       void this.syncOptions;
-      activeWindow.setTimeout(() => {
+      window.setTimeout(() => {
         if (this.pending.get(filePath) === adds) this.pending.delete(filePath);
         if (this.pendingRemovals.get(filePath) === removals) this.pendingRemovals.delete(filePath);
         this.clearOverlays(file);
@@ -427,7 +427,7 @@ export function registerPdfAnnotatorToolbar(plugin: Plugin, manager: PdfOverlayM
     bar = document.body.createDiv({ cls: "kvs-hl-bar" });
     for (const c of HIGHLIGHT_COLORS) {
       const sw = bar.createDiv({ cls: "kvs-hl-swatch" });
-      sw.style.background = c.hex;
+      sw.setCssProps({ "--kvs-swatch": c.hex });
       sw.setAttr("aria-label", `Highlight ${c.name}`);
       sw.addEventListener("mousedown", (e) => {
         e.preventDefault();
@@ -451,7 +451,7 @@ export function registerPdfAnnotatorToolbar(plugin: Plugin, manager: PdfOverlayM
   };
   plugin.registerDomEvent(document, "mouseup", (e) => {
     if (bar && bar.contains(e.target as Node)) return;
-    activeWindow.setTimeout(() => {
+    window.setTimeout(() => {
       const sel = activeWindow.getSelection();
       if (!sel || sel.rangeCount === 0 || sel.toString().trim() === "" || !anchorPage(sel)) {
         hide();
@@ -619,15 +619,13 @@ class EditHighlightModal extends Modal {
     this.setTitle("Edit highlight");
     const swatches = new Setting(this.contentEl).setName("Colour");
     const row = swatches.controlEl.createDiv({ cls: "kvs-hl-bar" });
-    row.style.position = "static";
-    row.style.boxShadow = "none";
-    row.style.border = "none";
+    row.addClass("kvs-hl-bar-inline");
     for (const c of HIGHLIGHT_COLORS) {
       const sw = row.createDiv({ cls: "kvs-hl-swatch" });
-      sw.style.background = c.hex;
+      sw.setCssProps({ "--kvs-swatch": c.hex });
       const mark = (): void => {
-        row.querySelectorAll(".kvs-hl-swatch").forEach((e) => ((e as HTMLElement).style.outline = ""));
-        sw.style.outline = "2px solid var(--text-normal)";
+        row.querySelectorAll(".kvs-hl-swatch").forEach((e) => e.removeClass("is-selected"));
+        sw.addClass("is-selected");
         this.color = c.hex;
       };
       if (c.hex.toLowerCase() === this.color.toLowerCase()) mark();
@@ -636,7 +634,7 @@ class EditHighlightModal extends Modal {
     new Setting(this.contentEl).setName("Comment").addTextArea((t) => {
       t.setValue(this.comment).onChange((v) => (this.comment = v));
       t.inputEl.rows = 3;
-      t.inputEl.style.width = "100%";
+      t.inputEl.addClass("kvs-input-full");
     });
     new Setting(this.contentEl).addButton((b) =>
       b

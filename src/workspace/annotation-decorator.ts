@@ -23,6 +23,7 @@ function decorate(callout: HTMLElement, ctx: MarkdownPostProcessorContext, onDel
   const note = baseName(ctx.sourcePath);
   const source = calloutSourceLabel(title); // "PDF" | "Zotero" | "Note"
 
+  callout.addClass("kvs-has-anno"); // cheaper than :has(), which Obsidian discourages
   const tools = callout.createDiv({ cls: "kvs-anno-tools" });
   addBtn(tools, "copy", "Copy highlight text", async () => {
     if (text === "") return;
@@ -50,14 +51,14 @@ function decorate(callout: HTMLElement, ctx: MarkdownPostProcessorContext, onDel
   }
 }
 
-function addBtn(parent: HTMLElement, icon: string, tip: string, onClick: () => void): void {
+function addBtn(parent: HTMLElement, icon: string, tip: string, onClick: () => void | Promise<void>): void {
   const b = parent.createEl("button", { cls: "kvs-anno-tool" });
   setIcon(b, icon);
   setTooltip(b, tip);
   b.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    onClick();
+    void onClick();
   });
 }
 

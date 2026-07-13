@@ -225,13 +225,13 @@ export function readOfficeComments(bytes: ArrayBuffer, kind: AttachmentKind): Of
     out.push(...parseDocxComments(text("word/comments.xml")));
   } else if (kind === "excel") {
     for (const name of Object.keys(files)) {
-      if (/^xl\/comments\d*\.xml$/.test(name)) out.push(...parseXlsxComments(dec.decode(files[name]!)));
-      else if (/^xl\/threadedComments\/threadedComment\d*\.xml$/.test(name)) out.push(...parseXlsxThreadedComments(dec.decode(files[name]!)));
+      if (/^xl\/comments\d*\.xml$/.test(name)) out.push(...parseXlsxComments(dec.decode(files[name])));
+      else if (/^xl\/threadedComments\/threadedComment\d*\.xml$/.test(name)) out.push(...parseXlsxThreadedComments(dec.decode(files[name])));
     }
   } else if (kind === "powerpoint") {
     const authors = parsePptxAuthors(text("ppt/commentAuthors.xml"));
     for (const name of Object.keys(files)) {
-      if (/^ppt\/comments\/.*\.xml$/.test(name)) out.push(...parsePptxComments(dec.decode(files[name]!), authors));
+      if (/^ppt\/comments\/.*\.xml$/.test(name)) out.push(...parsePptxComments(dec.decode(files[name]), authors));
     }
   }
   return out;
@@ -275,7 +275,7 @@ export function readOfficeAnnotations(bytes: ArrayBuffer, attachment: string, ki
       .sort((a, b) => Number(a[1]) - Number(b[1]));
     for (const m of slides) {
       const slide = Number(m[1]);
-      parsePptxHighlights(dec.decode(files[m[0]]!)).forEach((h, i) => out.push(highlightAnn(attachment, "pptx", h.text, h.color, `s${slide}#${i}`, `Slide ${slide}`)));
+      parsePptxHighlights(dec.decode(files[m[0]])).forEach((h, i) => out.push(highlightAnn(attachment, "pptx", h.text, h.color, `s${slide}#${i}`, `Slide ${slide}`)));
     }
   } else if (kind === "excel") {
     const styles = text("xl/styles.xml");
@@ -284,7 +284,7 @@ export function readOfficeAnnotations(bytes: ArrayBuffer, attachment: string, ki
     const strings = parseSharedStrings(text("xl/sharedStrings.xml"));
     for (const name of Object.keys(files)) {
       if (!/^xl\/worksheets\/sheet\d+\.xml$/.test(name)) continue;
-      for (const c of parseXlsxHighlightCells(dec.decode(files[name]!), fills, cellFillIds, strings)) {
+      for (const c of parseXlsxHighlightCells(dec.decode(files[name]), fills, cellFillIds, strings)) {
         out.push(highlightAnn(attachment, "xlsx", c.text, c.color, c.ref, c.ref));
       }
     }

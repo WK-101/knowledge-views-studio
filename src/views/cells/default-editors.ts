@@ -69,8 +69,8 @@ function markdownEditor(ctx: CellEditContext): void {
   area.value = decodeCellText(ctx.value);
   area.rows = 1;
   const autoGrow = (): void => {
-    area.style.height = "auto";
-    area.style.height = `${area.scrollHeight}px`;
+    area.setCssStyles({ height: "auto" });
+    area.setCssStyles({ height: `${area.scrollHeight}px` });
   };
   window.setTimeout(() => {
     area.focus();
@@ -118,8 +118,8 @@ function wrappingTextEditor(ctx: CellEditContext): void {
   area.value = decodeCellText(ctx.value);
   area.rows = 1;
   const autoGrow = (): void => {
-    area.style.height = "auto";
-    area.style.height = `${area.scrollHeight}px`;
+    area.setCssStyles({ height: "auto" });
+    area.setCssStyles({ height: `${area.scrollHeight}px` });
   };
   window.setTimeout(() => {
     area.focus();

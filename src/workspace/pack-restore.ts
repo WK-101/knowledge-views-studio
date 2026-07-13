@@ -14,6 +14,7 @@ import {
   type PackAsset,
 } from "../services/index";
 import type { Row } from "../domain/index";
+import { asString } from "../util/coerce";
 
 export function base64ToBytes(b64: string): ArrayBuffer {
   const binary = atob(b64);
@@ -56,9 +57,9 @@ export function archiveToPack(contents: ArchiveContents): BackupPack | null {
         return {
           cells: rr.cells ?? {},
           file: {
-            filePath: String(f.filePath ?? ""),
-            fileName: String(f.fileName ?? ""),
-            folderPath: String(f.folderPath ?? ""),
+            filePath: asString(f.filePath),
+            fileName: asString(f.fileName),
+            folderPath: asString(f.folderPath),
             createdMs: Number(f.createdMs ?? 0),
             modifiedMs: Number(f.modifiedMs ?? 0),
             sizeBytes: Number(f.sizeBytes ?? 0),

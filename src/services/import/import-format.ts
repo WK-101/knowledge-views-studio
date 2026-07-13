@@ -189,7 +189,7 @@ function parseSheet(xml: string, shared: readonly string[]): string[][] {
 
 export function parseXlsx(bytes: Uint8Array): ExportTable {
   const files = unzipSync(bytes);
-  const read = (name: string): string | null => (files[name] ? strFromU8(files[name]!) : null);
+  const read = (name: string): string | null => (files[name] ? strFromU8(files[name]) : null);
   const shared = parseSharedStrings(read("xl/sharedStrings.xml"));
   const sheetName =
     Object.keys(files)

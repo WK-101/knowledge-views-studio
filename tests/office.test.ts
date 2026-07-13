@@ -33,7 +33,7 @@ describe("readOfficeAnnotations (real zip)", () => {
     const zip = zipSync({
       "word/comments.xml": strToU8(`<w:comments><w:comment w:id="1" w:author="A"><w:p><w:r><w:t>first</w:t></w:r></w:p></w:comment><w:comment w:id="2"><w:p><w:r><w:t>second</w:t></w:r></w:p></w:comment></w:comments>`),
     });
-    const anns = readOfficeAnnotations(zip.buffer as ArrayBuffer, "notes.docx", "word");
+    const anns = readOfficeAnnotations(zip.buffer, "notes.docx", "word");
     expect(anns).toHaveLength(2);
     expect(anns[0]!.source).toBe("docx");
     expect(anns[0]!.comment).toBe("first");
@@ -41,7 +41,7 @@ describe("readOfficeAnnotations (real zip)", () => {
   });
 
   it("returns [] for non-zip bytes without throwing", () => {
-    expect(readOfficeAnnotations(strToU8("not a zip").buffer as ArrayBuffer, "x.docx", "word")).toEqual([]);
+    expect(readOfficeAnnotations(strToU8("not a zip").buffer, "x.docx", "word")).toEqual([]);
   });
 });
 
@@ -72,7 +72,7 @@ describe("Word highlighted-text extraction", () => {
   it("reads highlights from a real .docx as highlight annotations", () => {
     const doc = `<w:document><w:body><w:p><w:r><w:rPr><w:highlight w:val="red"/></w:rPr><w:t>important claim</w:t></w:r></w:p></w:body></w:document>`;
     const zip = zipSync({ "word/document.xml": strToU8(doc) });
-    const anns = readOfficeAnnotations(zip.buffer as ArrayBuffer, "notes.docx", "word");
+    const anns = readOfficeAnnotations(zip.buffer, "notes.docx", "word");
     expect(anns).toHaveLength(1);
     expect(anns[0]).toMatchObject({ kind: "highlight", text: "important claim", color: "#ff0000", source: "docx" });
   });
@@ -84,7 +84,7 @@ describe("repeated highlights get distinct ids (dedup fix)", () => {
   it("keeps every identical-text highlight as a separate annotation", () => {
     const runs = ["yellow", "green", "yellow"].map((c) => `<w:r><w:rPr><w:highlight w:val="${c}"/></w:rPr><w:t>TEST</w:t></w:r><w:r><w:t> x </w:t></w:r>`).join("");
     const zip = zipSync({ "word/document.xml": strToU8(`<w:document><w:body><w:p>${runs}</w:p></w:body></w:document>`) });
-    const anns = readOfficeAnnotations(zip.buffer as ArrayBuffer, "d.docx", "word");
+    const anns = readOfficeAnnotations(zip.buffer, "d.docx", "word");
     expect(anns).toHaveLength(3);
     expect(new Set(anns.map((a) => a.id)).size).toBe(3); // all distinct despite identical text
     expect(anns.map((a) => a.color)).toEqual(["#ffff00", "#00ff00", "#ffff00"]);
@@ -95,7 +95,7 @@ describe("PowerPoint highlighted text", () => {
   it("extracts a:highlight runs with their colour", () => {
     const slide = `<p:sld><a:p><a:r><a:rPr><a:highlight><a:srgbClr val="00B0F0"/></a:highlight></a:rPr><a:t>key point</a:t></a:r></a:p></p:sld>`;
     const zip = zipSync({ "ppt/slides/slide1.xml": strToU8(slide) });
-    const anns = readOfficeAnnotations(zip.buffer as ArrayBuffer, "deck.pptx", "powerpoint");
+    const anns = readOfficeAnnotations(zip.buffer, "deck.pptx", "powerpoint");
     expect(anns).toHaveLength(1);
     expect(anns[0]).toMatchObject({ kind: "highlight", text: "key point", color: "#00b0f0", source: "pptx", pageLabel: "Slide 1" });
   });
@@ -107,7 +107,7 @@ describe("Excel highlighted cells", () => {
     const shared = `<sst><si><t>flagged value</t></si></sst>`;
     const sheet = `<worksheet><sheetData><row><c r="A1" s="0"><v>1</v></c><c r="B2" s="1" t="s"><v>0</v></c></row></sheetData></worksheet>`;
     const zip = zipSync({ "xl/styles.xml": strToU8(styles), "xl/sharedStrings.xml": strToU8(shared), "xl/worksheets/sheet1.xml": strToU8(sheet) });
-    const anns = readOfficeAnnotations(zip.buffer as ArrayBuffer, "book.xlsx", "excel");
+    const anns = readOfficeAnnotations(zip.buffer, "book.xlsx", "excel");
     expect(anns).toHaveLength(1); // only B2 (fillId 2, has value); A1 has no fill
     expect(anns[0]).toMatchObject({ kind: "highlight", text: "flagged value", color: "#ffff00", pageLabel: "B2", source: "xlsx" });
   });

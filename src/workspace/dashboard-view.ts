@@ -338,7 +338,7 @@ export class DashboardView extends TextFileView {
         lastReason = res.reason;
       }
       notice.setMessage(`Filling from DOI… ${i + 1}/${targets.length}`);
-      if (i < targets.length - 1) await new Promise((r) => setTimeout(r, delay));
+      if (i < targets.length - 1) await new Promise((r) => window.setTimeout(r, delay));
     }
     notice.hide();
     if (allEdits.length > 0) {
@@ -393,7 +393,7 @@ export class DashboardView extends TextFileView {
         failed++;
       }
       notice.setMessage(`Capturing… ${i + 1}/${dois.length}`);
-      if (i < dois.length - 1) await new Promise((r) => setTimeout(r, delay));
+      if (i < dois.length - 1) await new Promise((r) => window.setTimeout(r, delay));
     }
     notice.hide();
     this.deps.dataService.invalidate(reference.filePath);
@@ -644,7 +644,7 @@ export class DashboardView extends TextFileView {
       // Stamp when this paper was checked, so an empty Cites reads as "checked, none found" not "unchecked".
       if (checkedCol) edits.push({ provenance: target.provenance, column: checkedCol.name, value: today });
       notice.setMessage(`Finding citations… ${i + 1}/${withDoi.length}`);
-      if (i < withDoi.length - 1) await new Promise((r) => setTimeout(r, delay));
+      if (i < withDoi.length - 1) await new Promise((r) => window.setTimeout(r, delay));
     }
     notice.hide();
 
@@ -807,7 +807,7 @@ export class DashboardView extends TextFileView {
     const removeShards = async (): Promise<void> => {
       for (const shard of createdShards) {
         const f = this.app.vault.getAbstractFileByPath(shard);
-        if (f) await this.app.vault.delete(f);
+        if (f) await this.app.fileManager.trashFile(f);
       }
     };
     try {
@@ -2412,35 +2412,39 @@ export class DashboardView extends TextFileView {
 
   private printTable(html: string): void {
     const frame = document.body.createEl("iframe", { cls: "kvs-print-frame" });
-    const win = frame.contentWindow;
-    const doc = win?.document;
-    if (!win || !doc) {
-      frame.remove();
-      new Notice("Couldn't open the print view.");
-      return;
-    }
-    doc.open();
-    doc.write(html);
-    doc.close();
-    win.addEventListener("afterprint", () => window.setTimeout(() => frame.remove(), 1000));
 
-    // The print document paginates itself (for page numbers); wait until it signals
-    // ready — or a safety timeout — before invoking the print dialog.
-    let printed = false;
-    const fire = (): void => {
-      if (printed) return;
-      printed = true;
-      win.focus();
-      win.print();
-    };
-    const started = Date.now();
-    const poll = (): void => {
-      if (printed) return;
-      const ready = doc.body?.getAttribute("data-ready") === "1";
-      if (ready || Date.now() - started > 1500) fire();
-      else window.setTimeout(poll, 50);
-    };
-    window.setTimeout(poll, 150);
+    // `srcdoc` rather than `document.write()`, which is deprecated and flagged by Obsidian's linter.
+    // It loads asynchronously, so everything that touches the frame's document has to hang off `load`.
+    frame.addEventListener("load", () => {
+      const win = frame.contentWindow;
+      const doc = win?.document;
+      if (!win || !doc) {
+        frame.remove();
+        new Notice("Couldn't open the print view.");
+        return;
+      }
+      win.addEventListener("afterprint", () => window.setTimeout(() => frame.remove(), 1000));
+
+      // The print document paginates itself (for page numbers); wait until it signals
+      // ready — or a safety timeout — before invoking the print dialog.
+      let printed = false;
+      const fire = (): void => {
+        if (printed) return;
+        printed = true;
+        win.focus();
+        win.print();
+      };
+      const started = Date.now();
+      const poll = (): void => {
+        if (printed) return;
+        const ready = doc.body?.getAttribute("data-ready") === "1";
+        if (ready || Date.now() - started > 1500) fire();
+        else window.setTimeout(poll, 50);
+      };
+      window.setTimeout(poll, 150);
+    });
+
+    frame.setAttr("srcdoc", html);
   }
 
   // ---- Properties popover ----
@@ -2604,7 +2608,7 @@ export class DashboardView extends TextFileView {
 
     const persist = (): void => {
       const empty = root.conditions.length === 0 && root.groups.length === 0;
-      this.patchActive({ filter: empty ? null : (root as FilterGroup) });
+      this.patchActive({ filter: empty ? null : (root) });
     };
 
     openPopover(anchor, (content, handle) => {

@@ -228,7 +228,7 @@ export function readArchive(zipBytes: Uint8Array): ArchiveContents | null {
   } catch {
     return null;
   }
-  const text = (path: string): string => (unzipped[path] ? strFromU8(unzipped[path]!) : "");
+  const text = (path: string): string => (unzipped[path] ? strFromU8(unzipped[path]) : "");
   let manifest: ArchiveManifest | null = null;
   try {
     const raw = text("manifest.json");
@@ -267,7 +267,7 @@ export async function verifyArchive(zipBytes: Uint8Array): Promise<VerifyReport>
   } catch {
     return { ok: false, checked: 0, mismatched: [], missing: [], unlisted: [] };
   }
-  const listed = parseChecksumsFile(unzipped["checksums-sha256.txt"] ? strFromU8(unzipped["checksums-sha256.txt"]!) : "");
+  const listed = parseChecksumsFile(unzipped["checksums-sha256.txt"] ? strFromU8(unzipped["checksums-sha256.txt"]) : "");
   const listedPaths = new Set(listed.map((e) => e.path));
   const mismatched: string[] = [];
   const missing: string[] = [];

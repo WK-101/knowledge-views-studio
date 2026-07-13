@@ -128,10 +128,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     this.registerExtensions([ARCHIVE_EXTENSION], ARCHIVE_VIEW_TYPE);
 
     // Lend KVS's Board, Calendar, and Summary views to Obsidian Bases when available.
-    const basesViews = registerKvsBasesViews(this, { cellRenderers: renderDeps.cellRenderers });
-    if (basesViews > 0) {
-      console.info(`[Knowledge Views Studio] Registered ${basesViews} Bases view(s).`);
-    }
+      registerKvsBasesViews(this, { cellRenderers: renderDeps.cellRenderers });
 
     this.addRibbonIcon("layout-grid", "Open Knowledge Views", () => void this.activateDashboard());
 
