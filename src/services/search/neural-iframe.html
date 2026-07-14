@@ -1,0 +1,55 @@
+<!doctype html>
+<!--
+  The neural embedding sandbox.
+
+  This runs a sentence-transformer entirely inside an iframe, isolated from Obsidian and from your
+  vault. It receives a string, returns a vector, and can do nothing else -- it has no access to your
+  files, your notes, or the plugin's state.
+
+  It is OFF by default. When you switch it on, the model weights (~25 MB, Xenova/all-MiniLM-L6-v2) are
+  downloaded once from Hugging Face and then cached on your device. After that it never needs the
+  network again. Your notes are never sent anywhere: the text is embedded locally, in this frame.
+-->
+<html>
+  <head><meta charset="utf-8" /></head>
+  <body>
+    <script type="module">
+      import { pipeline, env } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.0";
+
+      // Only fetch the model; never look for anything else on the network.
+      env.allowLocalModels = false;
+
+      let embed = null;
+      let loading = null;
+
+      async function ready() {
+        if (embed) return embed;
+        if (!loading) {
+          loading = pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2", { dtype: "q8" })
+            .then((p) => { embed = p; return p; });
+        }
+        return loading;
+      }
+
+      window.addEventListener("message", async (event) => {
+        const { id, type, text } = event.data ?? {};
+        try {
+          if (type === "load") {
+            await ready();
+            event.source.postMessage({ id, ok: true }, event.origin);
+            return;
+          }
+          if (type === "embed") {
+            const p = await ready();
+            const out = await p(text, { pooling: "mean", normalize: true });
+            event.source.postMessage({ id, ok: true, vector: Array.from(out.data) }, event.origin);
+            return;
+          }
+        } catch (err) {
+          event.source.postMessage({ id, ok: false, error: String(err) }, event.origin);
+        }
+      });
+      window.parent.postMessage({ type: "iframe-ready" }, "*");
+    </script>
+  </body>
+</html>

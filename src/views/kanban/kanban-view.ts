@@ -1,6 +1,9 @@
 import { setTooltip } from "obsidian";
 import { findColumnByRole } from "../view-model";
-import { getField, isVirtualField, type Row } from "../../domain/index";
+import { getField, isVirtualField, type Row,
+  limitRows,
+  moreLabel,
+} from "../../domain/index";
 import type { ResolvedColumn } from "../view-model";
 import type { KnowledgeView, ViewRenderContext } from "../view";
 import { optString } from "../view-options";
@@ -75,7 +78,10 @@ function renderColumn(
   header.createSpan({ cls: "kvs-kanban-column-count", text: String(column.rows.length) });
 
   const list = col.createDiv({ cls: "kvs-kanban-list" });
-  const rows = column.rows;
+  // Draw only the first N cards of a column, with an honest "Show N more". The header count below
+  // still reports the true total -- a column that says 12 when it holds 500 would be lying.
+  const limited = limitRows(column.rows, ctx.profile.groupLimit);
+  const rows = limited.rows;
   const renderOne = (row: Row): void =>
     renderCard(list, row, titleColumn, secondary, field, draggable, ctx, onDragStart);
 
@@ -113,6 +119,14 @@ function renderColumn(
     window.requestAnimationFrame(renderWindow);
   } else {
     for (const row of rows) renderOne(row);
+  }
+
+  if (limited.hidden > 0) {
+    const more = col.createEl("button", { cls: "kvs-show-more", text: moreLabel(limited.hidden) });
+    more.addEventListener("click", () => {
+      more.remove();
+      for (const row of column.rows.slice(rows.length)) renderOne(row);
+    });
   }
 
   if (draggable) {

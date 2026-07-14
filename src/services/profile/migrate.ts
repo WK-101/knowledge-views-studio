@@ -15,6 +15,7 @@ import {
   type PluginData,
   type Profile,
 } from "./profile";
+import { normalizeWeights } from "../search/relevance";
 
 export interface MigrationOutcome {
   readonly data: PluginData;
@@ -175,6 +176,10 @@ function normalizeSettings(raw: unknown): GlobalSettings {
     enableExcelSources: asBool(raw.enableExcelSources, DEFAULT_SETTINGS.enableExcelSources),
     enableSearch: asBool(raw.enableSearch, DEFAULT_SETTINGS.enableSearch),
     indexAttachments: asBool(raw.indexAttachments, DEFAULT_SETTINGS.indexAttachments),
+    semanticEngine: raw.semanticEngine === "neural" ? "neural" : "builtin",
+    indexLocation: raw.indexLocation === "vault" ? "vault" : "local",
+    indexFolder: asString(raw.indexFolder, DEFAULT_SETTINGS.indexFolder),
+    relevance: normalizeWeights(isRecord(raw.relevance) ? (raw.relevance) : undefined),
     enableExcelBackup: asBool(raw.enableExcelBackup, DEFAULT_SETTINGS.enableExcelBackup),
     enableAcademicKit: asBool(raw.enableAcademicKit, DEFAULT_SETTINGS.enableAcademicKit),
     researchLookupEnabled: asBool(raw.researchLookupEnabled, DEFAULT_SETTINGS.researchLookupEnabled),

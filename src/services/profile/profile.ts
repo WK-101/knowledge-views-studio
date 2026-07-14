@@ -1,4 +1,5 @@
 import { DEFAULT_THEME_SPEC } from "../annotations/themes";
+import { DEFAULT_RELEVANCE, type RelevanceWeights } from "../search/relevance";
 import type { ColumnMatchMode, RowMerge } from "../../domain/index";
 import {
   DEFAULT_SCOPE,
@@ -50,6 +51,8 @@ export interface Profile {
   readonly advancedQuery: string | null;
   /** Header-matching strictness for aggregation (loose | contains | exact). */
   readonly columnMatch: ColumnMatchMode;
+  /** Max rows drawn per group before a 'Show N more' control. 0 = unlimited. */
+  readonly groupLimit: number;
   /** Freeze the first data column (and leading cells) while scrolling horizontally. */
   readonly frozenFirstColumn: boolean;
   /** Keep the header row visible while scrolling the table vertically. */
@@ -147,6 +150,28 @@ export interface GlobalSettings {
    * it before asking for it.
    */
   readonly indexAttachments: boolean;
+  /**
+   * Which engine produces the semantic vectors.
+   *   "builtin" — learns from your vault. Downloads nothing, ever. Weaker at synonyms it has never
+   *               seen you use.
+   *   "neural"  — a real sentence-transformer. Much better at meaning, but fetches a ~25 MB model
+   *               once. Your notes are still never sent anywhere.
+   */
+  readonly semanticEngine: "builtin" | "neural";
+  /**
+   * The numbers that decide which result you see first. Exposed rather than buried: they were guesses,
+   * and a guess someone can disagree with is better than a guess they cannot see.
+   */
+  readonly relevance: RelevanceWeights;
+  /**
+   * Where the search index lives.
+   *   "local" — IndexedDB. Fast, invisible, and confined to this device.
+   *   "vault" — a file in your vault, so whatever syncs your notes syncs your index too. This is what
+   *             makes search work on mobile without re-indexing there.
+   */
+  readonly indexLocation: "local" | "vault";
+  /** The folder the in-vault index is written to. */
+  readonly indexFolder: string;
   /** Back up an Excel workbook (once per file per day) before KVS's first edit to it that day. */
   readonly enableExcelBackup: boolean;
   /** Opt-in: make the Academic Research kit available (academic column types, actions, styling,
@@ -205,6 +230,10 @@ export const DEFAULT_SETTINGS: GlobalSettings = {
   enableExcelSources: false,
   enableSearch: true,
   indexAttachments: false,
+  semanticEngine: "builtin",
+  relevance: DEFAULT_RELEVANCE,
+  indexLocation: "local",
+  indexFolder: "KVS Index",
   enableExcelBackup: true,
   enableAcademicKit: false,
   researchLookupEnabled: true,
@@ -306,6 +335,7 @@ export function createProfile(partial: ProfileInput = {}): Profile {
     filter: partial.filter ?? null,
     advancedQuery: partial.advancedQuery ?? null,
     columnMatch: partial.columnMatch ?? "loose",
+    groupLimit: typeof partial.groupLimit === "number" && partial.groupLimit >= 0 ? Math.floor(partial.groupLimit) : 0,
     frozenFirstColumn: partial.frozenFirstColumn ?? false,
     frozenHeader: partial.frozenHeader ?? false,
     rowHeight: partial.rowHeight ?? "normal",

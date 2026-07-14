@@ -17,3 +17,6 @@ export * from "./extract/inline-field-extractor";
 export * from "./query/index";
 export * from "./transform/index";
 export * from "./annotations/index";
+export * from "./transform/summary";
+export * from "./transform/limit";
+export * from "./query/formula-help";

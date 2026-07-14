@@ -27,7 +27,7 @@ const context = await esbuild.context({
   treeShaking: true,
   minify: production,
   outfile: "main.js",
-  loader: { ".txt": "text" },
+  loader: { ".txt": "text", ".html": "text" },
   banner: { js: banner },
   external: [
     "obsidian",

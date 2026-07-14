@@ -41,3 +41,6 @@ export * from "./search/extract-pdf";
 export * from "./search/snippet";
 export * from "./search/semantic";
 export * from "./search/qa";
+export * from "./search/vectors";
+export * from "./search/relevance";
+export * from "./search/index-codec";

@@ -22,6 +22,8 @@ import {
   type RowMerge,
   sourceLabel,
   discoverHeaderSources,
+  type ComputedColumn,
+  type Row,
 } from "../domain/index";
 import {
   XLSX_EXTRACTOR_ID,
@@ -67,6 +69,7 @@ import {
   textInput,
   toggle as uiToggle,
 } from "./editor-ui";
+import { FormulaEditorModal, copyFormulaPrompt } from "./formula-editor-modal";
 
 export interface ProfileEditorDeps {
   readonly store: ProfileStore;
@@ -119,6 +122,7 @@ export class ProfileEditorModal extends Modal {
   private viewOptionsEl!: HTMLElement;
   private columnsEl!: HTMLElement;
   private rollupsEl!: HTMLElement;
+  private formulasEl!: HTMLElement;
   private filterEl!: HTMLElement;
   private sortEl!: HTMLElement;
   private activeIndex = 0;
@@ -184,6 +188,7 @@ export class ProfileEditorModal extends Modal {
     this.viewOptionsEl = panels.createDiv({ cls: "kvs-editor-panel" });
     this.columnsEl = panels.createDiv({ cls: "kvs-editor-panel" });
     this.rollupsEl = panels.createDiv({ cls: "kvs-editor-panel" });
+    this.formulasEl = panels.createDiv({ cls: "kvs-editor-panel" });
     this.filterEl = panels.createDiv({ cls: "kvs-editor-panel" });
     this.researchEl = panels.createDiv({ cls: "kvs-editor-panel" });
     this.sortEl = panels.createDiv({ cls: "kvs-editor-panel" });
@@ -193,6 +198,7 @@ export class ProfileEditorModal extends Modal {
     this.renderViewOptions();
     this.renderColumns();
     this.renderRollups();
+    this.renderFormulas();
     this.renderFilter();
     this.renderResearch();
     this.renderSort();
@@ -203,6 +209,7 @@ export class ProfileEditorModal extends Modal {
       { el: this.sourcesEl, label: "Sources", icon: "folder-tree", desc: "Where rows come from", group: "data" },
       { el: this.columnsEl, label: "Columns", icon: "table-2", desc: "Fields, types & widths", group: "data" },
       { el: this.rollupsEl, label: "Rollups", icon: "sigma", desc: "Aggregate related rows", group: "data" },
+      { el: this.formulasEl, label: "Formulas", icon: "function-square", desc: "Columns computed from others", group: "data" },
       { el: this.filterEl, label: "Filter", icon: "filter", desc: "Which rows appear", group: "data" },
       ...(kitOn
         ? [{ el: this.researchEl, label: "Research", icon: "graduation-cap", desc: "Academic kit for this view", group: "data" }]
@@ -811,6 +818,16 @@ export class ProfileEditorModal extends Modal {
       .addToggle((t) => t.setValue(this.edited().frozenHeader).onChange((v) => this.patch({ frozenHeader: v })));
 
     new Setting(el)
+      .setName("Rows per group")
+      .setDesc("When grouped, draw at most this many rows per group, with a “Show N more” control. 0 = draw them all. The group's count always reports the true total.")
+      .addText((t) =>
+        t.setValue(String(this.edited().groupLimit ?? 0)).onChange((v) => {
+          const n = Number(v);
+          if (Number.isFinite(n) && n >= 0) this.patch({ groupLimit: Math.floor(n) });
+        }),
+      );
+
+    new Setting(el)
       .setName("Header matching")
       .setDesc("How strictly a table's headers must match these columns before its rows are aggregated.")
       .addDropdown((d) => {
@@ -914,6 +931,31 @@ export class ProfileEditorModal extends Modal {
         this.patchColumn(index, { label: v.trim() === "" ? undefined : v }),
       );
 
+      if (column.type === "number") {
+        const dispCtl = miniField(card.grid, "Show as", { hint: "Draw the number as a bar or ring instead of plain text." });
+        uiSelect(
+          dispCtl,
+          [
+            { value: "plain", label: "Plain number" },
+            { value: "bar", label: "Progress bar" },
+            { value: "ring", label: "Ring" },
+          ],
+          column.display ?? "plain",
+          (v) => {
+            this.patchColumn(index, { display: v === "plain" ? undefined : v });
+            this.renderColumns();
+            this.refilter();
+          },
+        );
+        if ((column.display ?? "plain") !== "plain") {
+          const maxCtl = miniField(card.grid, "Full at", { hint: "The value that counts as 100%." });
+          textInput(maxCtl, column.displayMax ? String(column.displayMax) : "", "100", (v) => {
+            const n = Number(v);
+            this.patchColumn(index, { displayMax: Number.isFinite(n) && n > 0 ? n : undefined });
+          });
+        }
+      }
+
       const widthCtl = miniField(card.grid, "Width");
       textInput(widthCtl, column.width ? String(column.width) : "", "auto", (v) => {
         const n = Number(v);
@@ -999,6 +1041,103 @@ export class ProfileEditorModal extends Modal {
   }
 
   // ---- Filter ----
+
+  private renderFormulas(): void {
+    const el = this.formulasEl;
+    el.empty();
+    panelHead(el, {
+      title: "Formulas",
+      desc: "Columns computed from the others — a duration, a status, a flag. They are derived on the fly, never stored, unless you ask for them to be written back.",
+      actions: (bar) => {
+        button(bar, "Add formula", true).addEventListener("click", () => {
+          const computed: ComputedColumn = { name: "New formula", expression: "" };
+          this.patch({ computed: [...this.profile.computed, computed] });
+          this.renderFormulas();
+          this.refilter();
+        });
+      },
+    });
+
+    if (this.profile.computed.length === 0) {
+      emptyState(
+        el,
+        "function-square",
+        "No formulas yet",
+        'Add one to derive a column from the others — for example days([Start], [Due]) for a duration, or if([Hours] > 8, "Long", "Short") for a flag.',
+      );
+      return;
+    }
+
+    const typeChoices = [
+      { value: "", label: "Auto" },
+      ...BUILT_IN_COLUMN_TYPES.map((t) => ({ value: t.id, label: t.label })),
+    ];
+
+    this.profile.computed.forEach((computed, index) => {
+      const card = recordCard(el, {
+        badge: String(index + 1),
+        actions: (bar) => {
+          iconButton(bar, "sparkles", "Copy context for an assistant", () =>
+            copyFormulaPrompt(computed, this.fieldNames()),
+          );
+          iconButton(bar, "trash-2", "Remove formula", () => {
+            this.patch({ computed: this.profile.computed.filter((_, i) => i !== index) });
+            this.renderFormulas();
+            this.refilter();
+          });
+        },
+      });
+
+      const nameInput = textInput(card.title, computed.name, "Formula name", (v) =>
+        this.patchComputed(index, { name: v }),
+      );
+      nameInput.addClass("kvs-rec-name");
+
+      // The expression is not a text field -- it opens the editor, which can actually explain itself.
+      const exprCtl = miniField(card.grid, "Expression", { wide: true });
+      const open = exprCtl.createEl("button", { cls: "kvs-fx-open" });
+      open.createSpan({ cls: "kvs-fx-open-code", text: computed.expression || "Click to write a formula…" });
+      if (!computed.expression) open.addClass("is-empty");
+      open.addEventListener("click", () => void this.openFormulaEditor(index, computed));
+
+      const typeCtl = miniField(card.grid, "Result type", { hint: "How the computed value is displayed and sorted." });
+      uiSelect(typeCtl, typeChoices, computed.type ?? "", (v) => this.patchComputed(index, { type: v === "" ? undefined : v }));
+
+      const matCtl = miniField(card.grid, "Write to source column", {
+        hint: 'An existing source column to materialize this value into, via "Write rollups to source".',
+      });
+      textInput(matCtl, computed.materializeTo ?? "", "(off)", (v) =>
+        this.patchComputed(index, { materializeTo: v.trim() === "" ? undefined : v.trim() }),
+      );
+    });
+  }
+
+  private patchComputed(index: number, patch: Partial<ComputedColumn>): void {
+    this.patch({
+      computed: this.profile.computed.map((c, i) => (i === index ? { ...c, ...patch } : c)),
+    });
+  }
+
+  private fieldNames(): string[] {
+    return fieldOptions(this.profile.columns).map((f) => f.name);
+  }
+
+  /** Open the formula editor against real rows from this view, so the preview means something. */
+  private async openFormulaEditor(index: number, computed: ComputedColumn): Promise<void> {
+    let sample: Row[] = [];
+    try {
+      const result = await this.deps.dataService.query(this.profile);
+      sample = result.rows.slice(0, 25);
+    } catch {
+      sample = [];
+    }
+    new FormulaEditorModal(this.app, computed, this.fieldNames(), sample, (expression) => {
+      this.patchComputed(index, { expression });
+      this.renderFormulas();
+      this.refilter();
+    }).open();
+  }
+
   private patchRollup(index: number, patch: Partial<RollupColumn>): void {
     const rollups = this.profile.rollups.map((r, i) => (i === index ? { ...r, ...patch } : r));
     this.patch({ rollups });
@@ -1015,6 +1154,7 @@ export class ProfileEditorModal extends Modal {
           const rollup: RollupColumn = { name: "Rollup", relationField: "", targetField: "", aggregate: "count" };
           this.patch({ rollups: [...this.profile.rollups, rollup] });
           this.renderRollups();
+    this.renderFormulas();
           this.refilter();
         });
       },
@@ -1064,6 +1204,7 @@ export class ProfileEditorModal extends Modal {
           iconButton(bar, "trash-2", "Remove rollup", () => {
             this.patch({ rollups: this.profile.rollups.filter((_, i) => i !== index) });
             this.renderRollups();
+    this.renderFormulas();
             this.refilter();
           });
         },
@@ -1083,6 +1224,7 @@ export class ProfileEditorModal extends Modal {
         (v) => {
           this.patchRollup(index, { aggregate: v as RollupAggregate });
           this.renderRollups();
+    this.renderFormulas();
           this.refilter();
         },
       );

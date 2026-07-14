@@ -38,6 +38,12 @@ export interface ColumnConfig {
    * source, which disambiguates a header that several sources define. Unset = any source (the default).
    */
   readonly source?: string;
+  /** Footer aggregation for this column (Sum, Average, Count, Unique...). Unset = no summary. */
+  readonly summary?: string;
+  /** How a number is drawn: plain text, a horizontal bar, or a ring. Unset = plain. */
+  readonly display?: string;
+  /** The value that counts as "full" for a bar or ring. Unset = 100. */
+  readonly displayMax?: number;
 }
 
 /**

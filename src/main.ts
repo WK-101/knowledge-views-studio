@@ -1,6 +1,8 @@
 import { Notice, Plugin, TFile, type Editor } from "obsidian";
 import { SearchIndexer } from "./workspace/search-indexer";
 import { SEARCH_VIEW_TYPE, SearchView, openSearchView } from "./workspace/search-view";
+import { RELATED_VIEW_TYPE, RelatedNotesView, openRelatedView } from "./workspace/related-notes-view";
+import { LocalIndexBackend, VaultIndexBackend, type IndexBackend } from "./workspace/index-backend";
 import {
   ExtractorRegistry,
   TABLE_EXTRACTOR_ID,
@@ -141,14 +143,26 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     this.registerDomEvent(window, "blur", () => void overlayManager.flushAll());
 
     // ---- full-text search index ----
+    const makeBackend = (): IndexBackend => {
+      const st = store.getSettings();
+      return st.indexLocation === "vault"
+        ? new VaultIndexBackend(this.app, st.indexFolder)
+        : new LocalIndexBackend(`kvs-search-${this.app.vault.getName()}`);
+    };
     const searchIndexer = new SearchIndexer(this.app, () => {
       const st = store.getSettings();
-      return { attachments: st.indexAttachments, excel: st.enableExcelSources };
-    });
+      return { attachments: st.indexAttachments, excel: st.enableExcelSources, semanticEngine: st.semanticEngine, relevance: st.relevance };
+    }, makeBackend());
     this.searchIndexer = searchIndexer;
     searchIndexer.register(this);
     searchIndexer.setEnableAttachments(() => store.updateSettings({ indexAttachments: true }));
     this.registerView(SEARCH_VIEW_TYPE, (leaf) => new SearchView(leaf, searchIndexer));
+    this.registerView(RELATED_VIEW_TYPE, (leaf) => new RelatedNotesView(leaf, searchIndexer));
+    this.addCommand({
+      id: "kvs-related-notes",
+      name: "Show related notes",
+      callback: () => void openRelatedView(this.app),
+    });
     this.addRibbonIcon("search", "Search vault (KVS)", () => void openSearchView(this.app));
     this.app.workspace.onLayoutReady(() => {
       // Search is a feature, not a tax: if it's switched off, KVS never reads the vault for it.

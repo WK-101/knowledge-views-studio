@@ -191,7 +191,7 @@ export function createDefaultCellRendererRegistry(): CellRendererRegistry {
   const text: CellRenderer = { typeId: "text", render: renderInline };
   registry.register(text, true); // fallback for unknown types
   registry.register({ typeId: "markdown", render: (ctx) => renderMarkdown(ctx, ctx.value.trim()) });
-  registry.register({ typeId: "number", render: renderPlain });
+  registry.register({ typeId: "number", render: renderNumberStyled });
   registry.register({ typeId: "date", render: renderPlain });
   registry.register({ typeId: "link", render: renderLink });
   registry.register({ typeId: "relation", render: renderRelation });
@@ -208,4 +208,45 @@ export function createDefaultCellRendererRegistry(): CellRendererRegistry {
   registry.register({ typeId: "pmid", render: (ctx) => renderExternalId(ctx, pmidUrl, "PubMed") });
   registry.register({ typeId: "select", render: renderSelect });
   return registry;
+}
+
+/**
+ * A number, drawn as a bar or a ring rather than a bare figure.
+ *
+ * A column of "62", "18", "94" is a column of numbers. The same column as bars is a column you can *see*
+ * — which of these is nearly done, which has barely started — without reading a single digit. That is the
+ * whole point, so a value we cannot parse falls back to showing the raw text rather than a misleading
+ * empty bar.
+ */
+function renderNumberStyled(ctx: CellRenderContext): void {
+  const style = ctx.column.display ?? "plain";
+  const raw = ctx.value.trim();
+  if (style === "plain" || raw === "") {
+    renderPlain(ctx);
+    return;
+  }
+  const n = Number(raw.replace(/[,\s%]/g, ""));
+  if (!Number.isFinite(n)) {
+    renderPlain(ctx);
+    return;
+  }
+  const max = ctx.column.displayMax && ctx.column.displayMax > 0 ? ctx.column.displayMax : 100;
+  const pct = Math.max(0, Math.min(1, n / max));
+
+  if (style === "ring") {
+    const wrap = ctx.el.createDiv({ cls: "kvs-num-ring" });
+    wrap.setCssProps({ "--kvs-pct": String(pct) });
+    wrap.createDiv({ cls: "kvs-num-ring-track" });
+    wrap.createSpan({ cls: "kvs-num-ring-text", text: String(n) });
+    setTooltip(wrap, `${n} of ${max}`);
+    return;
+  }
+
+  // bar
+  const wrap = ctx.el.createDiv({ cls: "kvs-num-bar" });
+  const track = wrap.createDiv({ cls: "kvs-num-bar-track" });
+  const fill = track.createDiv({ cls: "kvs-num-bar-fill" });
+  fill.setCssProps({ "--kvs-pct": `${Math.round(pct * 100)}%` });
+  wrap.createSpan({ cls: "kvs-num-bar-text", text: String(n) });
+  setTooltip(wrap, `${n} of ${max}`);
 }

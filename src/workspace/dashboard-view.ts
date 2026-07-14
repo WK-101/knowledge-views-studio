@@ -2972,6 +2972,14 @@ export class DashboardView extends TextFileView {
         this.renderPager(page);
       },
       onSortChange: (keys) => this.patchActive({ sort: keys }),
+      onSetColumnSummary: (column, fn) => {
+        const cols = this.currentProfile()?.columns ?? [];
+        this.patchActive({
+          columns: cols.map((c) =>
+            c.name === column ? { ...c, ...(fn === "none" ? { summary: undefined } : { summary: fn }) } : c,
+          ),
+        });
+      },
       onSetViewOption: (key, value) => {
         const p = this.renderedProfile();
         if (p) this.patchActive({ view: { type: p.view.type, options: { ...p.view.options, [key]: value } } });

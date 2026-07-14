@@ -35,6 +35,7 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
+    "chart.js": "^4.5.1",
     "fflate": "^0.8.2",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^4.10.38"

@@ -3,6 +3,11 @@ import type { Profile } from "../services/index";
 
 /** A column resolved for display, including whether it can be edited in place. */
 export interface ResolvedColumn {
+  /** Footer aggregation chosen for this column. */
+  readonly summary?: string;
+  /** How a number is drawn: plain | bar | ring. */
+  readonly display?: string;
+  readonly displayMax?: number;
   readonly name: string;
   readonly label: string;
   readonly typeId: string;

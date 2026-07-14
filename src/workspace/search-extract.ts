@@ -1,10 +1,15 @@
 import { TFile, type App } from "obsidian";
 import { extractEpubText, extractOfficeText, extractPdfText, noteToDocs, rowsToDocs, sectionsToDocs, type IndexDoc } from "../services/index";
+import type { RelevanceWeights } from "../services/search/relevance";
 
 /** Every file extension the search indexer knows how to read. */
 export const INDEXABLE_EXTENSIONS = new Set(["md", "pdf", "docx", "xlsx", "pptx", "epub"]);
 
 export interface IndexScope {
+  /** The tunable relevance weights -- what counts, and how much. */
+  readonly relevance?: RelevanceWeights;
+  /** Which engine produces semantic vectors: the built-in one, or the optional neural model. */
+  readonly semanticEngine?: "builtin" | "neural";
   /** Read the full text of attachments (PDF/Word/PowerPoint/EPUB), not just notes. */
   readonly attachments: boolean;
   /** Whether Excel is enabled as a data source. When it isn't, .xlsx files are ignored entirely —

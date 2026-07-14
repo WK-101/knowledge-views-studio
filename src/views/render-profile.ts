@@ -43,6 +43,7 @@ export interface RenderProfileOptions {
   readonly viewKey: string;
   readonly onSortChange: (keys: SortKey[]) => void;
   readonly onSetViewOption?: (key: string, value: unknown) => void;
+  readonly onSetColumnSummary?: (column: string, fn: string) => void;
   /** Safety cap on rows handed to a view (0 = no cap). */
   readonly maxRows?: number;
   /** Transient free-text search applied after the profile's own filter. */
@@ -153,6 +154,7 @@ export async function renderProfile(options: RenderProfileOptions): Promise<void
       currentSort: [...profile.sort],
       onSortChange,
       ...(options.onSetViewOption ? { onSetViewOption: options.onSetViewOption } : {}),
+      ...(options.onSetColumnSummary ? { onSetColumnSummary: options.onSetColumnSummary } : {}),
       ...(options.onResizeColumn ? { onResizeColumn: options.onResizeColumn } : {}),
       ...(options.onResetColumnWidth ? { onResetColumnWidth: options.onResetColumnWidth } : {}),
       ...(options.onResetAllColumnWidths ? { onResetAllColumnWidths: options.onResetAllColumnWidths } : {}),

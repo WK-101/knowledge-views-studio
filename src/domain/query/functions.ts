@@ -135,6 +135,51 @@ export const BUILT_IN_FUNCTIONS: Readonly<Record<string, QueryFunction>> = {
     const ms = parseDateValue(arg(a, 0));
     return ms === null ? null : Math.floor((ctx.now - ms) / 86_400_000);
   },
+  floor: (a) => {
+    const n = toNumber(arg(a, 0));
+    return n === null ? null : Math.floor(n);
+  },
+  ceiling: (a) => {
+    const n = toNumber(arg(a, 0));
+    return n === null ? null : Math.ceil(n);
+  },
+  today: (_a, ctx) => {
+    const d = new Date(ctx.now);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  },
+  now: (_a, ctx) => new Date(ctx.now).toISOString(),
+  /** Whole days from start to end. Negative when end is before start — the sign carries meaning. */
+  days: (a) => {
+    const from = parseDateValue(arg(a, 0));
+    const to = parseDateValue(arg(a, 1));
+    if (from === null || to === null) return null;
+    return Math.round((to - from) / 86_400_000);
+  },
+  daysfromnow: (a, ctx) => {
+    const d = parseDateValue(arg(a, 0));
+    return d === null ? null : Math.round((d - ctx.now) / 86_400_000);
+  },
+  adddays: (a) => {
+    const d = parseDateValue(arg(a, 0));
+    const n = toNumber(arg(a, 1));
+    if (d === null || n === null) return null;
+    return new Date(d + n * 86_400_000).toISOString().slice(0, 10);
+  },
+  /** Shift a date by days, weeks, months or years. Month/year arithmetic goes through Date so that
+   *  adding a month to 31 January behaves the way a calendar does, not the way milliseconds do. */
+  dateadd: (a) => {
+    const ms = parseDateValue(arg(a, 0));
+    const n = toNumber(arg(a, 1));
+    const unit = toStringValue(arg(a, 2)).toLowerCase() || "days";
+    if (ms === null || n === null) return null;
+    const d = new Date(ms);
+    if (unit.startsWith("day")) d.setDate(d.getDate() + n);
+    else if (unit.startsWith("week")) d.setDate(d.getDate() + n * 7);
+    else if (unit.startsWith("month")) d.setMonth(d.getMonth() + n);
+    else if (unit.startsWith("year")) d.setFullYear(d.getFullYear() + n);
+    else return null;
+    return d.toISOString().slice(0, 10);
+  },
   replace: (a) => {
     try {
       return toStringValue(arg(a, 0)).replace(

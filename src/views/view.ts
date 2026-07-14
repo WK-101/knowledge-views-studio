@@ -71,6 +71,8 @@ export interface ViewRenderContext {
   /** Persist a view-option value (presentation tuning like gallery size/ratio/fit). Wired in the
    *  dashboard pane; absent in read-only hosts. */
   readonly onSetViewOption?: (key: string, value: unknown) => void;
+  /** Persist a column's footer summary (Sum, Average, Count...). Absent in read-only hosts. */
+  readonly onSetColumnSummary?: (column: string, fn: string) => void;
 
   /** Optional context that lets an empty view diagnose itself and offer one-tap remedies.
    *  Provided by the dashboard pane; absent in read-only hosts (e.g. code blocks). */

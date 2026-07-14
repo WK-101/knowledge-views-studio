@@ -1,4 +1,7 @@
-import { getField, type Row } from "../../domain/index";
+import { getField, type Row,
+  limitRows,
+  moreLabel,
+} from "../../domain/index";
 import { renderEmptyState } from "../empty-state";
 import { findColumnByRole, type ResolvedColumn } from "../view-model";
 import { openRowDetail } from "../row-detail-modal";
@@ -64,9 +67,22 @@ function renderCards(ctx: ViewRenderContext): void {
       const section = root.createDiv({ cls: "kvs-cards-group" });
       const heading = section.createDiv({ cls: "kvs-cards-group-header" });
       heading.createSpan({ cls: "kvs-group-key", text: group.key });
+      // The count is always the true one, even when only a few cards are drawn.
       heading.createSpan({ cls: "kvs-group-count", text: ` · ${group.rows.length}` });
       const grid = section.createDiv({ cls: "kvs-cards-grid" });
-      for (const row of group.rows) renderCard(grid, row, ctx);
+      const drawGroup = (expanded: boolean): void => {
+        grid.empty();
+        const { rows, hidden } = limitRows(group.rows, ctx.profile.groupLimit, expanded);
+        for (const row of rows) renderCard(grid, row, ctx);
+        if (hidden > 0) {
+          const more = section.createEl("button", { cls: "kvs-show-more", text: moreLabel(hidden) });
+          more.addEventListener("click", () => {
+            more.remove();
+            drawGroup(true);
+          });
+        }
+      };
+      drawGroup(false);
     }
   } else {
     const grid = root.createDiv({ cls: "kvs-cards-grid" });

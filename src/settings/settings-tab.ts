@@ -12,8 +12,11 @@ import {
   type DataService,
   type Profile,
   type ProfileStore,
+  DEFAULT_RELEVANCE,
+  formatBytes,
 } from "../services/index";
 import type { SearchIndexer } from "../workspace/search-indexer";
+import { LocalIndexBackend, VaultIndexBackend } from "../workspace/index-backend";
 import type { ViewRegistry } from "../views/index";
 import { ProfileEditorModal } from "./profile-editor-modal";
 import { ImportProfileModal } from "./import-modal";
@@ -404,6 +407,62 @@ export class KnowledgeViewsSettingTab extends PluginSettingTab {
 
     new Setting(el).setName("Index").setHeading();
 
+    new Setting(el)
+      .setName("Where the index lives")
+      .setDesc(
+        settings.indexLocation === "vault"
+          ? "In your vault — so whatever already syncs your notes syncs the index too, and search works on your phone without re-indexing there."
+          : "On this device only (IndexedDB). Fast and invisible — but index on your laptop and your phone starts from nothing.",
+      )
+      .addDropdown((d) => {
+        d.addOption("local", "This device only (default)");
+        d.addOption("vault", "In my vault — syncs across devices");
+        d.setValue(settings.indexLocation).onChange((v) => {
+          const next = v === "vault" ? "vault" : "local";
+          store.updateSettings({ indexLocation: next });
+          const notice = new Notice("KVS: moving the search index…", 0);
+          void indexer
+            .relocate(
+              next === "vault"
+                ? new VaultIndexBackend(this.app, store.getSettings().indexFolder)
+                : new LocalIndexBackend(`kvs-search-${this.app.vault.getName()}`),
+            )
+            .then(() => {
+              notice.hide();
+              new Notice(next === "vault" ? "Search index moved into your vault." : "Search index moved back to this device.", 4000);
+              this.display();
+            });
+        });
+      });
+
+    if (settings.indexLocation === "vault") {
+      new Setting(el)
+        .setName("Index folder")
+        .setDesc("Where in your vault the index file is written. It is one file — a partial sync can never leave you with half an index.")
+        .addText((t) =>
+          t.setValue(settings.indexFolder).onChange((v) => {
+            const folder = v.trim() || "KVS Index";
+            store.updateSettings({ indexFolder: folder });
+          }),
+        );
+
+      const box = el.createDiv({ cls: "kvs-settings-disclosure" });
+      box.createDiv({ cls: "kvs-settings-disclosure-title", text: "What this costs you" });
+      const ul = box.createEl("ul");
+      ul.createEl("li", { text: "The index becomes a real file in your vault, so your sync service will carry it. On a large vault with attachments indexed, that can be tens of megabytes — it is compressed, but it is not free." });
+      ul.createEl("li", { text: "If you index on two devices at once, your sync service may create a conflict file. Harmless: the index self-corrects on load by re-checking every file against what it recorded. Nothing is lost, but you may see a duplicate file." });
+      ul.createEl("li", { text: "A stale index is not a broken one. Whatever changed since it was written is re-indexed on load, so an index synced from another device saves most of the work even when it is out of date." });
+      ul.createEl("li", { text: "If you do not sync your vault, this setting buys you nothing. Leave it on “this device only”." });
+
+      void indexer.size().then((bytes) => {
+        if (bytes === undefined) return;
+        box.createDiv({
+          cls: "kvs-settings-hint",
+          text: `Current index file: ${formatBytes(bytes)}.`,
+        });
+      });
+    }
+
     const status = indexer.status();
     new Setting(el)
       .setName("Keyword index")
@@ -425,12 +484,143 @@ export class KnowledgeViewsSettingTab extends PluginSettingTab {
         }),
       );
 
+    new Setting(el).setName("Relevance").setHeading();
+    el.createDiv({
+      cls: "kvs-settings-hint",
+      text:
+        "What counts, and how much. These were constants buried in the code until now — reasonable guesses, but guesses. " +
+        "They are here so you can disagree with them. If you make a mess, Reset puts them back.",
+    });
+
+    const rel = settings.relevance;
+    const pct = (v: number): string => `${Math.round(v * 100)}%`;
+
     new Setting(el)
-      .setName("Semantic index (offline)")
+      .setName("Semantic weight (Hybrid mode)")
+      .setDesc(
+        `${pct(rel.semanticWeight)} meaning, ${pct(1 - rel.semanticWeight)} exact words. ` +
+          "Turn it down when you know roughly what you wrote; turn it up when you only remember the idea. " +
+          "Only affects Hybrid — Keyword and Semantic modes are unaffected.",
+      )
+      .addSlider((sl) =>
+        sl
+          .setLimits(0, 100, 5)
+          .setValue(Math.round(rel.semanticWeight * 100))
+          .setDynamicTooltip()
+          .onChange((v) => {
+            store.updateSettings({ relevance: { ...rel, semanticWeight: v / 100 } });
+            this.display();
+          }),
+      );
+
+    new Setting(el)
+      .setName("Recency bonus")
+      .setDesc(
+        rel.recencyWeight === 0
+          ? "Off. Recently-edited notes get no advantage."
+          : `A note edited today ranks up to ${pct(rel.recencyWeight)} higher than an identical old one. It breaks ties — it will not drag a weak match above a strong one.`,
+      )
+      .addSlider((sl) =>
+        sl
+          .setLimits(0, 50, 5)
+          .setValue(Math.round(rel.recencyWeight * 100))
+          .setDynamicTooltip()
+          .onChange((v) => {
+            store.updateSettings({ relevance: { ...rel, recencyWeight: v / 100 } });
+            this.display();
+          }),
+      );
+
+    if (rel.recencyWeight > 0) {
+      new Setting(el)
+        .setName("Recency half-life")
+        .setDesc(
+          `A note's freshness bonus halves every ${rel.recencyHalfLifeDays} days, then halves again — it decays, ` +
+            "it does not expire. (180 days is the figure Obsidian Seek settled on after measuring relevance across a large query set; " +
+            "it is a better starting point than one I would have invented.)",
+        )
+        .addText((t) =>
+          t.setValue(String(rel.recencyHalfLifeDays)).onChange((v) => {
+            const n = Number(v);
+            if (Number.isFinite(n) && n >= 1) store.updateSettings({ relevance: { ...rel, recencyHalfLifeDays: Math.floor(n) } });
+          }),
+        );
+    }
+
+    new Setting(el)
+      .setName("Title match bonus")
+      .setDesc(`A match in a note's title counts ${rel.titleBoost}× a match in its body.`)
+      .addSlider((sl) =>
+        sl
+          .setLimits(1, 10, 0.5)
+          .setValue(rel.titleBoost)
+          .setDynamicTooltip()
+          .onChange((v) => {
+            store.updateSettings({ relevance: { ...rel, titleBoost: v } });
+            this.display();
+          }),
+      );
+
+    new Setting(el)
+      .setName("Heading match bonus")
+      .setDesc(`A match in a heading counts ${rel.headingBoost}× a match in the body beneath it.`)
+      .addSlider((sl) =>
+        sl
+          .setLimits(1, 10, 0.5)
+          .setValue(rel.headingBoost)
+          .setDynamicTooltip()
+          .onChange((v) => {
+            store.updateSettings({ relevance: { ...rel, headingBoost: v } });
+            this.display();
+          }),
+      );
+
+    new Setting(el)
+      .setName("Reset relevance to defaults")
+      .setDesc("Put every weight above back where it started.")
+      .addButton((b) =>
+        b.setButtonText("Reset").onClick(() => {
+          store.updateSettings({ relevance: DEFAULT_RELEVANCE });
+          new Notice("Relevance weights reset.", 3000);
+          this.display();
+        }),
+      );
+
+    new Setting(el).setName("Semantic search").setHeading();
+
+    new Setting(el)
+      .setName("Semantic engine")
+      .setDesc(
+        settings.semanticEngine === "neural"
+          ? "Neural model — much better at meaning. Downloads a ~25 MB model once (see below)."
+          : "Built-in — learns from your own vault. Downloads nothing, ever. Weaker at words your notes have never used together (it cannot know that “car” and “automobile” mean the same thing unless you taught it).",
+      )
+      .addDropdown((d) => {
+        d.addOption("builtin", "Built-in (no download, fully offline)");
+        d.addOption("neural", "Neural model (better, downloads once)");
+        d.setValue(settings.semanticEngine).onChange((v) => {
+          store.updateSettings({ semanticEngine: v === "neural" ? "neural" : "builtin" });
+          this.display();
+        });
+      });
+
+    if (settings.semanticEngine === "neural") {
+      const box = el.createDiv({ cls: "kvs-settings-disclosure" });
+      box.createDiv({ cls: "kvs-settings-disclosure-title", text: "What this downloads, and what it does not send" });
+      const ul = box.createEl("ul");
+      ul.createEl("li", { text: "The first time you build the index, it fetches the sentence-transformer model (all-MiniLM-L6-v2, ~25 MB) from Hugging Face, and its runtime from jsDelivr. Both are cached afterwards." });
+      ul.createEl("li", { text: "Nothing else is fetched, and no network is needed once it is cached." });
+      ul.createEl("li", { text: "Your notes are never sent anywhere. The model runs on your machine, inside a sandbox that can do nothing but turn text into numbers." });
+      ul.createEl("li", { text: "Indexing is much slower than the built-in engine — it is running a real model over every document." });
+      ul.createEl("li", { text: "If you would rather download nothing at all, use the built-in engine. It is the default for exactly that reason." });
+    }
+
+    new Setting(el)
+      .setName("Semantic index")
       .setDesc(
         indexer.hasSemantic
-          ? "Built. Semantic and Hybrid search modes are available, and Ask mode has better recall. Rebuild after adding a lot of new material."
-          : "Not built. Build it to enable Semantic and Hybrid search, and to improve Ask mode. Runs entirely on your device — no model download, no network.",
+          ? "Built. Semantic and Hybrid search work, Ask has better recall, and the Related notes panel is live. Rebuild after adding a lot of new material — or after changing the engine above."
+          : "Not built. Build it to enable Semantic and Hybrid search, Ask, and the Related notes panel.",
       )
       .addButton((b) =>
         b
@@ -445,6 +635,10 @@ export class KnowledgeViewsSettingTab extends PluginSettingTab {
                 notice.hide();
                 new Notice("KVS semantic index ready.", 4000);
                 this.display();
+              })
+              .catch((error: unknown) => {
+                notice.hide();
+                new Notice(`KVS: ${error instanceof Error ? error.message : String(error)}`, 8000);
               });
           }),
       );

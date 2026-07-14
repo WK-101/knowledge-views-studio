@@ -1,5 +1,9 @@
 import { Menu, setIcon, setTooltip } from "obsidian";
-import { getField, type Row } from "../../domain/index";
+import { getField, type Row,
+  summarizeColumn,
+  SUMMARY_FUNCTIONS,
+  type SummaryFn,
+} from "../../domain/index";
 import { toBoolean } from "../../domain/columns/types/checkbox";
 import { defaultWideWidth, type ResolvedColumn } from "../view-model";
 import { renderEmptyState } from "../empty-state";
@@ -670,6 +674,7 @@ function renderTable(ctx: ViewRenderContext): void {
 
   const tbody = table.createEl("tbody");
   const span = ctx.columns.length + (selection ? 1 : 0) + 1;
+  renderSummaryFooter(table, ctx, allRows, selection !== null);
 
   if (!virtualize) {
     for (const item of items) renderItem(tbody, item, ctx, selection, refreshSelectionUI, span, frozen);
@@ -817,3 +822,57 @@ export const tableView: KnowledgeView = {
   icon: "table",
   render: renderTable,
 };
+
+/**
+ * The summary footer: one aggregation per column, over the rows currently shown.
+ *
+ * It deliberately summarises the *filtered* rows rather than the whole vault, because the question
+ * anyone actually has is "what does what I am looking at add up to?" Every column offers the choice;
+ * the footer only appears once at least one column has made one, so a plain table stays plain.
+ */
+function renderSummaryFooter(
+  table: HTMLElement,
+  ctx: ViewRenderContext,
+  rows: readonly Row[],
+  selection: boolean,
+): void {
+  const editable = ctx.onSetColumnSummary !== undefined;
+  const anyChosen = ctx.columns.some((c) => c.summary && c.summary !== "none");
+  if (!anyChosen && !editable) return;
+
+  const tr = table.createEl("tfoot", { cls: "kvs-tfoot" }).createEl("tr", { cls: "kvs-summary-row" });
+  if (selection) tr.createEl("td", { cls: "kvs-summary-cell kvs-gutter" });
+  tr.createEl("td", { cls: "kvs-summary-cell kvs-gutter" });
+
+  for (const column of ctx.columns) {
+    const td = tr.createEl("td", { cls: "kvs-summary-cell" });
+    const fn = (column.summary ?? "none") as SummaryFn;
+    const value = summarizeColumn(rows, column, fn);
+    const label = SUMMARY_FUNCTIONS.find((f) => f.id === fn)?.label ?? "";
+
+    const btn = td.createDiv({ cls: "kvs-summary-btn" });
+    if (fn === "none" || value === "") {
+      btn.addClass("is-empty");
+      btn.setText(editable ? "\u2014" : "");
+      if (editable) setTooltip(btn, `Summarise ${column.label}`);
+    } else {
+      btn.createSpan({ cls: "kvs-summary-label", text: label });
+      btn.createSpan({ cls: "kvs-summary-value", text: value });
+      setTooltip(btn, `${label} of ${column.label}, over the ${rows.length} row${rows.length === 1 ? "" : "s"} shown`);
+    }
+    if (!editable) continue;
+
+    btn.addEventListener("click", (event) => {
+      const menu = new Menu();
+      for (const f of SUMMARY_FUNCTIONS) {
+        menu.addItem((item) =>
+          item
+            .setTitle(f.label)
+            .setChecked(f.id === fn)
+            .onClick(() => ctx.onSetColumnSummary?.(column.name, f.id)),
+        );
+      }
+      menu.showAtMouseEvent(event);
+    });
+  }
+}

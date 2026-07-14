@@ -576,22 +576,13 @@ export class SearchView extends ItemView {
     });
   }
 
-  /** Blend keyword + semantic rankings (each normalised to its own max), keyword-leaning. */
+  /** Hybrid ranking now lives in the indexer, where the user's relevance weights are. */
   private hybrid(q: string): SearchResult[] {
-    const kw = this.indexer.search(q, { matchMode: this.matchMode, limit: FACET_LIMIT, fuzzy: this.fuzzy });
-    const sem = this.indexer.semanticSearch(q, FACET_LIMIT);
-    const norm = (arr: SearchResult[]): Map<string, number> => {
-      const max = arr.reduce((m, r) => Math.max(m, r.score), 0) || 1;
-      return new Map(arr.map((r) => [r.id, r.score / max]));
-    };
-    const kwN = norm(kw);
-    const semN = norm(sem);
-    const byId = new Map<string, SearchResult>();
-    for (const r of kw) byId.set(r.id, r);
-    for (const r of sem) if (!byId.has(r.id)) byId.set(r.id, r);
-    const blended = [...byId.values()].map((r) => ({ ...r, score: 0.6 * (kwN.get(r.id) ?? 0) + 0.4 * (semN.get(r.id) ?? 0) }));
-    blended.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
-    return blended;
+    return this.indexer.hybridSearch(q, {
+      matchMode: this.matchMode,
+      limit: FACET_LIMIT,
+      fuzzy: this.fuzzy,
+    });
   }
 
   /** Ask mode: retrieve + rank passages for the question and present them as the answer. */

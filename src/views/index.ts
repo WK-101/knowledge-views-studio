@@ -5,6 +5,7 @@ import { kanbanView } from "./kanban/kanban-view";
 import { calendarView } from "./calendar/calendar-view";
 import { pivotView } from "./pivot/pivot-view";
 import { galleryView } from "./gallery/gallery-view";
+import { chartView } from "./chart/chart-view";
 
 export * from "./view";
 export * from "./view-model";
@@ -31,6 +32,7 @@ export function createDefaultViewRegistry(): ViewRegistry {
   registry.register(calendarView);
   registry.register(pivotView);
   registry.register(galleryView);
+  registry.register(chartView);
   return registry;
 }
 export * from "./view-state";

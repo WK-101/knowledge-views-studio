@@ -1,6 +1,14 @@
 import { TFile, type App, type Plugin } from "obsidian";
-import { SearchIndex, SemanticModel, noteToDocs, questionTerms, rowsToDocs, scorePassageKeyword, splitPassages, tokenize, type IndexSnapshot, type SearchOptions, type SearchResult, type SemanticSnapshot } from "../services/index";
+import { SearchIndex, SemanticModel, noteToDocs, questionTerms, rowsToDocs, scorePassageKeyword, splitPassages, tokenize, type IndexSnapshot, type SearchOptions, type SearchResult, type SemanticSnapshot,
+  VectorIndex,
+  normalizeWeights,
+  applyRecency,
+  fuseRankings,
+  type RelevanceWeights,
+} from "../services/index";
 import { fileToSearchDocs, indexableExtensions, indexableFiles, type IndexScope } from "./search-extract";
+import { NeuralEmbedder } from "./neural-embedder";
+import { LocalIndexBackend, type IndexBackend, type IndexPayload } from "./index-backend";
 
 /** A cheap change signature — mtime+size avoids reading/hashing large PDFs just to detect a change. */
 function signature(file: TFile): string {
@@ -34,56 +42,6 @@ export interface IndexStatus {
 
 // ---- minimal promise wrapper over IndexedDB (Electron renderer has it) ----
 
-function idbOpen(name: string): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(name, 1);
-    req.onupgradeneeded = (): void => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains("kv")) db.createObjectStore("kv");
-      if (!db.objectStoreNames.contains("text")) db.createObjectStore("text");
-    };
-    req.onsuccess = (): void => resolve(req.result);
-    req.onerror = (): void => reject(req.error ?? new Error("indexedDB open failed"));
-  });
-}
-
-function idbGet<T>(db: IDBDatabase, key: string): Promise<T | undefined> {
-  return new Promise((resolve, reject) => {
-    const req = db.transaction("kv", "readonly").objectStore("kv").get(key);
-    req.onsuccess = (): void => resolve(req.result as T | undefined);
-    req.onerror = (): void => reject(req.error ?? new Error("indexedDB get failed"));
-  });
-}
-
-function idbPut(db: IDBDatabase, key: string, value: unknown): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("kv", "readwrite");
-    tx.objectStore("kv").put(value, key);
-    tx.oncomplete = (): void => resolve();
-    tx.onerror = (): void => reject(tx.error ?? new Error("indexedDB put failed"));
-  });
-}
-
-function idbGetFrom<T>(db: IDBDatabase, store: string, key: string): Promise<T | undefined> {
-  return new Promise((resolve, reject) => {
-    const req = db.transaction(store, "readonly").objectStore(store).get(key);
-    req.onsuccess = (): void => resolve(req.result as T | undefined);
-    req.onerror = (): void => reject(req.error ?? new Error("indexedDB get failed"));
-  });
-}
-
-/** Batch many writes/deletes into one transaction — far cheaper than one transaction per doc. */
-function idbBatch(db: IDBDatabase, store: string, puts: [string, unknown][], deletes: string[]): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(store, "readwrite");
-    const os = tx.objectStore(store);
-    for (const [k, v] of puts) os.put(v, k);
-    for (const k of deletes) os.delete(k);
-    tx.oncomplete = (): void => resolve();
-    tx.onerror = (): void => reject(tx.error ?? new Error("indexedDB batch failed"));
-  });
-}
-
 const sleep = (ms: number): Promise<void> => new Promise((r) => window.setTimeout(r, ms));
 
 /** Sources whose text we persist for snippets (notes/rows are re-read cheaply instead). */
@@ -108,26 +66,54 @@ export class SearchIndexer {
   private index = new SearchIndex();
   private readonly sigs = new Map<string, string>();
   private readonly idsByPath = new Map<string, string[]>();
-  private db: IDBDatabase | null = null;
+  /** Where the index is kept. Swappable, because the choice is the user's. */
+  private backend!: IndexBackend;
+  /** Attachment text, held in memory and written out with the rest of the index as one unit. */
+  private textMap = new Map<string, string>();
   private building = false;
   private dirty = false;
   private loaded = false;
   private progress: { done: number; total: number } | undefined;
   private persistTimer: number | undefined;
   private readonly pendingReindex = new Map<string, number>();
-  private textPuts: [string, string][] = [];
-  private textDeletes: string[] = [];
   private semanticModel: SemanticModel | null = null;
+  private neural: VectorIndex | null = null;
+  private embedder: NeuralEmbedder | null = null;
   private buildingSemantic = false;
 
   constructor(
     private readonly app: App,
     private readonly getScope: () => IndexScope,
-  ) {}
+    backend?: IndexBackend,
+  ) {
+    this.backend = backend ?? new LocalIndexBackend(`kvs-search-${app.vault.getName()}`);
+  }
 
   /** What this indexer is currently allowed to read. */
   private scope(): IndexScope {
     return this.getScope();
+  }
+
+  /** The relevance weights in force. Clamped, so a hand-edited config cannot produce nonsense. */
+  get weights(): RelevanceWeights {
+    return normalizeWeights(this.scope().relevance);
+  }
+
+  /**
+   * Apply the recency bonus to a set of results.
+   *
+   * Recency is orthogonal to *how* a result was found, so it is applied to every mode -- keyword,
+   * semantic, hybrid and Ask -- rather than being a quirk of one of them.
+   */
+  private withRecency(results: SearchResult[], w: RelevanceWeights): SearchResult[] {
+    if (w.recencyWeight <= 0) return results;
+    const now = Date.now();
+    const out = results.map((r) => ({
+      ...r,
+      score: applyRecency(r.score, typeof r.meta?.["mtime"] === "number" ? (r.meta["mtime"]) : undefined, now, w),
+    }));
+    out.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
+    return out;
   }
 
   /** Whether attachment full text is currently in the index. */
@@ -149,21 +135,100 @@ export class SearchIndexer {
   }
 
   get hasSemantic(): boolean {
+    if (this.scope().semanticEngine === "neural") return this.neural !== null && this.neural.size > 0;
     return this.semanticModel !== null && this.semanticModel.size > 0;
   }
   get semanticBuilding(): boolean {
     return this.buildingSemantic;
   }
 
-  /** Semantic search (offline distributional vectors). Empty until buildSemantic() has run. */
+  /**
+   * Semantic search. Empty until buildSemantic() has run.
+   *
+   * If the query uses words the vault has never contained, the semantic model has nothing to say about
+   * it — every vector component is zero, and it can only return an empty list. That is worse than
+   * useless: it tells the user "there is nothing here" when keyword search would have found the note.
+   * So in that case we fall back to keyword rather than pretend.
+   */
   semanticSearch(query: string, limit = 100): SearchResult[] {
+    // The neural engine embeds asynchronously, so its query path is neuralSearch(); this is the
+    // built-in engine's synchronous path.
     if (!this.semanticModel) return [];
+    const tokens = tokenize(query);
+    if (!this.semanticModel.canAnswer(tokens)) {
+      return this.index.search(query, { limit, matchMode: "any", fuzzy: true });
+    }
     const out: SearchResult[] = [];
-    for (const h of this.semanticModel.search(tokenize(query), limit)) {
+    for (const h of this.semanticModel.search(tokens, limit)) {
       const r = this.index.resultFor(h.id, h.score);
       if (r) out.push(r);
     }
     return out;
+  }
+
+  /** Semantic search with the neural engine (async, because embedding the query is a model call). */
+  async neuralSearch(query: string, limit = 100): Promise<SearchResult[]> {
+    if (!this.neural || !this.embedder) return [];
+    const vec = await this.embedder.embed(query);
+    const out: SearchResult[] = [];
+    for (const h of this.neural.search(vec, limit)) {
+      const r = this.index.resultFor(h.id, h.score);
+      if (r) out.push(r);
+    }
+    return out;
+  }
+
+  /** Notes most like the given one, for the Related notes panel. Excludes the note itself. */
+  relatedTo(path: string, limit = 12): SearchResult[] {
+    if (this.neural && this.scope().semanticEngine === "neural") return this.relatedNeural(path, limit);
+    if (!this.semanticModel) return [];
+    // A note is several docs (one per heading). Score every other note against each of them and keep
+    // that note's best match, so a long note isn't unfairly diluted by its weakest section.
+    const own = (this.idsByPath.get(path) ?? []).filter((id) => id.startsWith("note:"));
+    if (own.length === 0) return [];
+    const best = new Map<string, { score: number; id: string }>();
+    for (const id of own) {
+      for (const hit of this.semanticModel.similarTo(id, 200)) {
+        const otherPath = this.pathOfDoc(hit.id);
+        if (!otherPath || otherPath === path) continue;
+        const prev = best.get(otherPath);
+        if (!prev || hit.score > prev.score) best.set(otherPath, { score: hit.score, id: hit.id });
+      }
+    }
+    const ranked = [...best.values()].sort((a, b) => b.score - a.score).slice(0, limit);
+    const out: SearchResult[] = [];
+    for (const r of ranked) {
+      const res = this.index.resultFor(r.id, r.score);
+      if (res) out.push(res);
+    }
+    return out;
+  }
+
+  private relatedNeural(path: string, limit: number): SearchResult[] {
+    const neural = this.neural;
+    if (!neural) return [];
+    const own = (this.idsByPath.get(path) ?? []).filter((id) => id.startsWith("note:"));
+    if (own.length === 0) return [];
+    const best = new Map<string, { score: number; id: string }>();
+    for (const id of own) {
+      for (const hit of neural.similarTo(id, 200)) {
+        const otherPath = this.pathOfDoc(hit.id);
+        if (!otherPath || otherPath === path) continue;
+        const prev = best.get(otherPath);
+        if (!prev || hit.score > prev.score) best.set(otherPath, { score: hit.score, id: hit.id });
+      }
+    }
+    const out: SearchResult[] = [];
+    for (const r of [...best.values()].sort((a, b) => b.score - a.score).slice(0, limit)) {
+      const res = this.index.resultFor(r.id, r.score);
+      if (res) out.push(res);
+    }
+    return out;
+  }
+
+  private pathOfDoc(docId: string): string | undefined {
+    const meta = this.index.resultFor(docId, 0)?.meta?.["path"];
+    return typeof meta === "string" ? meta : undefined;
   }
 
   /**
@@ -234,58 +299,80 @@ export class SearchIndexer {
     return (await this.getText(id)) ?? "";
   }
 
-  /** Build the semantic vector index from every indexable file (two passes: co-occurrence, then vectors). */
+  /** Build the semantic index with whichever engine the user chose. */
   async buildSemantic(onProgress?: (done: number, total: number) => void): Promise<void> {
     if (this.buildingSemantic) return;
     this.buildingSemantic = true;
     try {
-      const files = indexableFiles(this.app, this.scope());
-      const model = new SemanticModel();
-      const collected: { id: string; tokens: string[] }[] = [];
-      let done = 0;
-      for (const file of files) {
-        try {
-          for (const d of await fileToSearchDocs(this.app, file)) {
-            const toks = tokenize(d.text);
-            if (toks.length === 0) continue;
-            collected.push({ id: d.id, tokens: toks });
-            model.observe(toks);
-          }
-        } catch (error) {
-          console.error(`[KVS semantic] failed on ${file.path}:`, error);
-        }
-        if (++done % 20 === 0) {
-          onProgress?.(done, files.length);
-          await sleep(0);
-        }
-      }
-      for (const c of collected) model.addDocVector(c.id, c.tokens);
-      this.semanticModel = model;
-      onProgress?.(files.length, files.length);
-      await this.persistSemantic();
+      if (this.scope().semanticEngine === "neural") await this.buildNeural(onProgress);
+      else await this.buildBuiltin(onProgress);
     } finally {
       this.buildingSemantic = false;
     }
   }
 
-  private async persistSemantic(): Promise<void> {
-    if (!this.db || !this.semanticModel) return;
-    try {
-      await idbPut(this.db, "semantic", this.semanticModel.toSnapshot());
-    } catch (error) {
-      console.error("[KVS semantic] persist failed:", error);
+  /**
+   * The neural engine: embed every document with the sentence-transformer.
+   *
+   * This is much slower than the built-in engine — it is running a real model over every document —
+   * so it reports progress honestly and yields to keep Obsidian responsive.
+   */
+  private async buildNeural(onProgress?: (done: number, total: number) => void): Promise<void> {
+    this.embedder ??= new NeuralEmbedder();
+    await this.embedder.load();
+
+    const files = indexableFiles(this.app, this.scope());
+    const index = new VectorIndex();
+    let done = 0;
+    for (const file of files) {
+      try {
+        for (const doc of await fileToSearchDocs(this.app, file)) {
+          const text = doc.text.trim();
+          if (text === "") continue;
+          const vec = await this.embedder.embed(text);
+          if (vec.length > 0) index.add(doc.id, vec);
+        }
+      } catch (error) {
+        console.error(`[KVS neural] failed on ${file.path}:`, error);
+      }
+      onProgress?.(++done, files.length);
+      await sleep(0);
     }
+    this.neural = index;
+    await this.persistSemantic();
   }
 
-  private async loadSemantic(): Promise<void> {
-    if (!this.db) return;
-    try {
-      const snap = await idbGet<SemanticSnapshot>(this.db, "semantic");
-      if (snap && snap.version === 1) this.semanticModel = SemanticModel.fromSnapshot(snap);
-    } catch (error) {
-      console.error("[KVS semantic] load failed:", error);
+  private async buildBuiltin(onProgress?: (done: number, total: number) => void): Promise<void> {
+    const files = indexableFiles(this.app, this.scope());
+    const model = new SemanticModel();
+    const collected: { id: string; tokens: string[] }[] = [];
+    let done = 0;
+    for (const file of files) {
+      try {
+        for (const d of await fileToSearchDocs(this.app, file)) {
+          const toks = tokenize(d.text);
+          if (toks.length === 0) continue;
+          collected.push({ id: d.id, tokens: toks });
+          model.observe(toks);
+        }
+      } catch (error) {
+        console.error(`[KVS semantic] failed on ${file.path}:`, error);
+      }
+      if (++done % 20 === 0) {
+        onProgress?.(done, files.length);
+        await sleep(0);
+      }
     }
+    for (const c of collected) model.addDocVector(c.id, c.tokens);
+    this.semanticModel = model;
+    onProgress?.(files.length, files.length);
+    await this.persistSemantic();
   }
+
+  private async persistSemantic(): Promise<void> {
+    await this.persist();
+  }
+
 
   status(): IndexStatus {
     return {
@@ -298,7 +385,33 @@ export class SearchIndexer {
   }
 
   search(query: string, options?: SearchOptions): SearchResult[] {
-    return this.index.search(query, options);
+    const w = this.weights;
+    return this.withRecency(
+      this.index.search(query, {
+        ...options,
+        fieldBoosts: { title: w.titleBoost, heading: w.headingBoost, tag: w.tagBoost },
+      }),
+      w,
+    );
+  }
+
+  /** Blend keyword and semantic rankings using the user's weight, then apply recency. */
+  hybridSearch(query: string, options?: SearchOptions): SearchResult[] {
+    const w = this.weights;
+    const keyword = this.index.search(query, {
+      ...options,
+      fieldBoosts: { title: w.titleBoost, heading: w.headingBoost, tag: w.tagBoost },
+    });
+    const semantic = this.semanticSearch(query, options?.limit ?? 100);
+    const fused = fuseRankings(keyword, semantic, w);
+    const byId = new Map<string, SearchResult>();
+    for (const r of [...keyword, ...semantic]) if (!byId.has(r.id)) byId.set(r.id, r);
+    const out: SearchResult[] = [];
+    for (const f of fused) {
+      const base = byId.get(f.id);
+      if (base) out.push({ ...base, score: f.score });
+    }
+    return this.withRecency(out, w);
   }
 
   /** Wire vault events for incremental maintenance. */
@@ -314,17 +427,30 @@ export class SearchIndexer {
     );
   }
 
-  /** Load a saved index from IndexedDB (fast startup); safe if none exists. */
+  /** Load a saved index. Missing, foreign, or corrupt: we start clean rather than guess. */
   async load(): Promise<void> {
     try {
-      this.db = await idbOpen(`kvs-search-${this.app.vault.getName()}`);
-      const rec = await idbGet<PersistRecord>(this.db, "main");
-      if (rec?.snapshot) {
-        this.index = SearchIndex.fromSnapshot(rec.snapshot);
-        for (const [k, v] of rec.sigs) this.sigs.set(k, v);
-        for (const [k, v] of rec.idsByPath) this.idsByPath.set(k, v);
+      const payload = await this.backend.load();
+      if (payload?.main) {
+        const rec = payload.main as PersistRecord;
+        if (rec.snapshot) {
+          this.index = SearchIndex.fromSnapshot(rec.snapshot);
+          for (const [k, v] of rec.sigs) this.sigs.set(k, v);
+          for (const [k, v] of rec.idsByPath) this.idsByPath.set(k, v);
+        }
       }
-      await this.loadSemantic();
+      if (payload?.text) for (const [k, v] of Object.entries(payload.text)) this.textMap.set(k, v);
+      if (payload?.semantic) {
+        const snap = payload.semantic as SemanticSnapshot;
+        if (snap.version === 1) this.semanticModel = SemanticModel.fromSnapshot(snap);
+      }
+      if (payload?.neural) {
+        const n = payload.neural as { ids: string[]; vecs: Float32Array[] };
+        if (n.ids?.length) {
+          this.neural = VectorIndex.fromSnapshot(n);
+          if (this.scope().semanticEngine === "neural") this.embedder ??= new NeuralEmbedder();
+        }
+      }
     } catch (error) {
       console.error("[KVS search] load failed:", error);
     } finally {
@@ -354,12 +480,10 @@ export class SearchIndexer {
         this.progress = { done, total };
         if (done % 20 === 0) {
           onProgress?.(done, total);
-          await this.flushText();
           await sleep(0); // yield to keep the UI responsive on large vaults
         }
       }
       onProgress?.(total, total);
-      await this.flushText();
       this.dirty = true;
       await this.persist();
     } catch (error) {
@@ -393,14 +517,8 @@ export class SearchIndexer {
 
   /** Text of an indexed doc, for snippets: buffered writes first, then the IndexedDB text store. Notes
    *  and rows aren't stored (re-read them via the vault instead). */
-  async getText(docId: string): Promise<string | undefined> {
-    for (let i = this.textPuts.length - 1; i >= 0; i--) if (this.textPuts[i]![0] === docId) return this.textPuts[i]![1];
-    if (!this.db) return undefined;
-    try {
-      return await idbGetFrom<string>(this.db, "text", docId);
-    } catch {
-      return undefined;
-    }
+  getText(docId: string): Promise<string | undefined> {
+    return Promise.resolve(this.textMap.get(docId));
   }
 
   private async reindexFile(file: TFile): Promise<void> {
@@ -411,7 +529,7 @@ export class SearchIndexer {
       for (const doc of docs) {
         this.index.add(doc);
         ids.push(doc.id);
-        if (ATTACHMENT_SOURCES.has(doc.source)) this.textPuts.push([doc.id, doc.text]);
+        if (ATTACHMENT_SOURCES.has(doc.source)) this.textMap.set(doc.id, doc.text);
       }
       if (ids.length > 0) this.idsByPath.set(file.path, ids);
       this.sigs.set(file.path, signature(file));
@@ -425,23 +543,11 @@ export class SearchIndexer {
     const ids = this.idsByPath.get(path) ?? [];
     for (const id of ids) {
       this.index.remove(id);
-      this.textDeletes.push(id);
+      this.textMap.delete(id);
     }
     this.idsByPath.delete(path);
   }
 
-  private async flushText(): Promise<void> {
-    if (!this.db || (this.textPuts.length === 0 && this.textDeletes.length === 0)) return;
-    const puts = this.textPuts;
-    const dels = this.textDeletes;
-    this.textPuts = [];
-    this.textDeletes = [];
-    try {
-      await idbBatch(this.db, "text", puts, dels);
-    } catch (error) {
-      console.error("[KVS search] text persist failed:", error);
-    }
-  }
 
   private removeFile(path: string): void {
     this.dropDocs(path);
@@ -457,22 +563,46 @@ export class SearchIndexer {
   }
 
   /** Write the current index to IndexedDB (debounced via schedulePersist; also called after builds). */
+  /**
+   * Write the whole index out as one payload.
+   *
+   * One unit, deliberately: with an in-vault index, separate writes would sync separately, and an index
+   * whose postings had arrived but whose text had not would produce results with no snippets and no
+   * explanation. Either the new index lands, or the old one stays.
+   */
   async persist(): Promise<void> {
-    await this.flushText();
-    if (!this.dirty || !this.db) return;
-    this.dirty = false;
+    if (!this.dirty) return;
     try {
-      const record: PersistRecord = {
-        v: 1,
-        snapshot: this.index.toSnapshot(),
-        sigs: [...this.sigs],
-        idsByPath: [...this.idsByPath],
-        builtAt: Date.now(),
+      const payload: IndexPayload = {
+        main: {
+          v: 1,
+          snapshot: this.index.toSnapshot(),
+          sigs: [...this.sigs],
+          idsByPath: [...this.idsByPath],
+          builtAt: Date.now(),
+        } satisfies PersistRecord,
+        text: Object.fromEntries(this.textMap),
+        ...(this.semanticModel ? { semantic: this.semanticModel.toSnapshot() } : {}),
+        ...(this.neural ? { neural: this.neural.toSnapshot() } : {}),
       };
-      await idbPut(this.db, "main", record);
+      await this.backend.save(payload);
+      this.dirty = false;
     } catch (error) {
-      this.dirty = true;
       console.error("[KVS search] persist failed:", error);
     }
+  }
+
+  /** Bytes the index occupies, when that is knowable (i.e. when it is a file). */
+  size(): Promise<number | undefined> {
+    return this.backend.size();
+  }
+
+  /** Move the index between IndexedDB and the vault, carrying what we already have. */
+  async relocate(backend: IndexBackend): Promise<void> {
+    const old = this.backend;
+    this.backend = backend;
+    this.dirty = true;
+    await this.persist();
+    if (old.kind !== backend.kind) await old.clear();
   }
 }

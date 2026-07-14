@@ -141,6 +141,31 @@ export class SemanticModel {
     this.docs.push({ id, vec: this.vectorFor(tokens) });
   }
 
+  /**
+   * Whether these tokens carry any signal in this model. A query made entirely of words the vault has
+   * never used yields an all-zero vector and can only return nothing — the caller should fall back to
+   * keyword search rather than show an empty result and imply there is nothing to find.
+   */
+  canAnswer(tokens: readonly string[]): boolean {
+    for (const t of tokens) if (this.context.has(t)) return true;
+    return false;
+  }
+
+  /** Documents most like a given document -- the primitive behind "related notes". */
+  similarTo(id: string, limit = 10, exclude?: (other: string) => boolean): SemanticHit[] {
+    const target = this.docs.find((d) => d.id === id);
+    if (!target) return [];
+    const out: SemanticHit[] = [];
+    for (const d of this.docs) {
+      if (d.id === id || exclude?.(d.id)) continue;
+      let dot = 0;
+      for (let k = 0; k < target.vec.length; k++) dot += target.vec[k]! * d.vec[k]!;
+      if (dot > 0) out.push({ id: d.id, score: dot });
+    }
+    out.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
+    return out.slice(0, limit);
+  }
+
   /** Rank stored documents by cosine similarity to the query tokens. */
   search(tokens: readonly string[], limit = 50): SemanticHit[] {
     if (this.docs.length === 0) return [];
