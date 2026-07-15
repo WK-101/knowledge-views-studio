@@ -5,11 +5,12 @@ import { currentDevice } from "./util/device";
 import { SEARCH_VIEW_TYPE, SearchView, openSearchView } from "./workspace/search-view";
 import { RELATED_VIEW_TYPE, RelatedNotesView, openRelatedView } from "./workspace/related-notes-view";
 import { ZOTERO_LIBRARY_VIEW_TYPE, ZoteroLibraryView, openZoteroLibraryView } from "./workspace/zotero-library-view";
+import { openZoteroCollectionPicker } from "./workspace/zotero-collection-modal";
 import { LocalApiZoteroProvider } from "./services/zotero/local-api-provider";
 import type { ZoteroLibraryItem } from "./services/zotero/provider";
 import { createZoteroFetcher } from "./workspace/zotero-transport";
 import { ZOTERO_DOC_PREFIX, zoteroSearchDocs } from "./services/zotero/zotero-search-docs";
-import { createOrOpenLiteratureNote, indexLiteratureNotes } from "./services/notes/literature-note";
+import { createOrOpenLiteratureNote, indexLiteratureNotes, literatureNoteKey, refreshLiteratureNoteAnnotations } from "./services/notes/literature-note";
 import { fetchZoteroAnnotations } from "./services/annotations/zotero-client";
 import type { KvsAnnotation } from "./domain/index";
 import { LocalIndexBackend, VaultIndexBackend, type IndexBackend } from "./workspace/index-backend";
@@ -220,6 +221,27 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
       name: "Create Zotero library dashboard (all layouts)",
       callback: () => void this.createZoteroDashboard(),
     });
+    this.addCommand({
+      id: "kvs-create-zotero-collection-dashboard",
+      name: "Create Zotero dashboard from a collection…",
+      callback: () => {
+        const provider = new LocalApiZoteroProvider(store.getSettings().zoteroApiBase, createZoteroFetcher());
+        void openZoteroCollectionPicker(this.app, provider, (key, name) => {
+          void this.createZoteroDashboard(undefined, key, name);
+        });
+      },
+    });
+    this.addCommand({
+      id: "kvs-refresh-literature-note",
+      name: "Refresh literature note from Zotero",
+      checkCallback: (checking) => {
+        const file = this.app.workspace.getActiveFile();
+        const key = file ? literatureNoteKey(this.app, file) : "";
+        if (key === "" || !file) return false; // only offered on a note that carries a zotero-key
+        if (!checking) void this.refreshLiteratureNote(file, key);
+        return true;
+      },
+    });
     this.addRibbonIcon("search", "Search vault (KVS)", () => void openSearchView(this.app));
     this.app.workspace.onLayoutReady(() => {
       // Search is a feature, not a tax: if it's switched off, KVS never reads the vault for it.
@@ -249,6 +271,24 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
           notice.hide();
           new Notice(`KVS search index rebuilt: ${searchIndexer.status().docCount} items.`, 4000);
         });
+      },
+    });
+    this.addCommand({
+      id: "kvs-refresh-zotero-search",
+      name: "Refresh Zotero in search",
+      checkCallback: (checking) => {
+        if (!store.getSettings().indexZotero) return false; // only when Zotero search is enabled
+        if (!checking) {
+          const notice = new Notice("KVS: refreshing Zotero in search…", 0);
+          void searchIndexer.refreshExternalDocs().then((n) => {
+            notice.hide();
+            new Notice(`Zotero search refreshed: ${n} item${n === 1 ? "" : "s"} indexed.`, 4000);
+          }).catch(() => {
+            notice.hide();
+            new Notice("Couldn't refresh Zotero in search.");
+          });
+        }
+        return true;
       },
     });
     this.addCommand({
@@ -572,6 +612,34 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
    * with the paper's Zotero annotations pulled into a managed Annotations region. Idempotent by Zotero key,
    * so this never makes duplicates and re-running refreshes annotations in place. Opens the first note.
    */
+  /**
+   * Re-pull a literature note's annotations from Zotero and rewrite its Annotations region in place. Keeps
+   * the note current as you annotate more in Zotero, without touching your own writing. Best-effort:
+   * unreachable Zotero or a paper with no annotations just reports that, and never alters your prose.
+   */
+  private async refreshLiteratureNote(file: TFile, key: string): Promise<void> {
+    const store = this.profileStore;
+    if (!store) return;
+    const settings = store.getSettings();
+    const fetcher = createZoteroFetcher();
+    const notice = new Notice("Refreshing annotations from Zotero…", 0);
+    try {
+      const provider = new LocalApiZoteroProvider(settings.zoteroApiBase, fetcher);
+      if (!(await provider.ping())) {
+        notice.hide();
+        new Notice("Can't reach Zotero. Make sure it's running with the local API enabled.");
+        return;
+      }
+      const annotations = await fetchZoteroAnnotations(settings.zoteroApiBase, [key], fetcher);
+      await refreshLiteratureNoteAnnotations(this.app, file, annotations, settings.annotationThemes);
+      notice.hide();
+      new Notice(annotations.length > 0 ? `Refreshed ${annotations.length} annotation${annotations.length === 1 ? "" : "s"} from Zotero.` : "No annotations in Zotero for this paper yet.");
+    } catch (error) {
+      notice.hide();
+      new Notice(`Couldn't refresh from Zotero: ${error instanceof Error ? error.message : "unexpected error"}`);
+    }
+  }
+
   private async createLiteratureNotes(items: readonly ZoteroLibraryItem[]): Promise<void> {
     const store = this.profileStore;
     if (!store || items.length === 0) return;
@@ -607,16 +675,27 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     }
   }
 
-  private async createZoteroDashboard(selection?: readonly ZoteroLibraryItem[]): Promise<void> {
+  private async createZoteroDashboard(selection?: readonly ZoteroLibraryItem[], collectionKey?: string | null, collectionName?: string): Promise<void> {
     const store = this.profileStore;
     if (!store) return;
-    // When called from a selection in the library view, pin the dashboard to exactly those items; otherwise
-    // it spans the whole library. Either way it renders through the full engine (all layouts, filters).
+    // Scope precedence: an explicit item selection (from the library view) pins those keys; otherwise a
+    // collection key scopes to that collection; otherwise the whole library. Each renders through the full
+    // engine (all layouts, filters).
     const keys = selection && selection.length > 0 ? selection.map((i) => i.key) : undefined;
-    const name = keys ? `Zotero selection (${keys.length})` : "Zotero library";
+    const name = keys
+      ? `Zotero selection (${keys.length})`
+      : collectionKey
+        ? `Zotero — ${collectionName ?? "collection"}`
+        : "Zotero library";
     const profile = createProfile({
       name,
-      scope: { mode: "zotero", folders: [], includeSubfolders: false, ...(keys ? { zoteroItemKeys: keys } : {}) },
+      scope: {
+        mode: "zotero",
+        folders: [],
+        includeSubfolders: false,
+        ...(keys ? { zoteroItemKeys: keys } : {}),
+        ...(collectionKey ? { zoteroCollectionKey: collectionKey } : {}),
+      },
       extractors: ["zotero-library"],
       columns: [
         { name: "Title", type: "text", role: "title" },
@@ -635,7 +714,13 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     store.addProfile(profile);
     store.setActiveProfile(profile.id);
     await this.activateDashboard();
-    new Notice(keys ? `Created a dashboard from ${keys.length} Zotero item${keys.length === 1 ? "" : "s"}.` : "Created a live Zotero library view. It reads from Zotero's local API — make sure Zotero is running.");
+    new Notice(
+      keys
+        ? `Created a dashboard from ${keys.length} Zotero item${keys.length === 1 ? "" : "s"}.`
+        : collectionKey
+          ? `Created a dashboard for the “${collectionName ?? "collection"}” collection.`
+          : "Created a live Zotero library view. It reads from Zotero's local API — make sure Zotero is running.",
+    );
   }
 
   /** Open the first-run welcome (also reachable via the "Getting started" command). */

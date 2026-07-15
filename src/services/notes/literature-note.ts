@@ -210,6 +210,21 @@ async function refreshAnnotations(app: App, file: TFile, annotations: readonly K
   await app.vault.modify(file, upsertAnnotationsRegion(content, block));
 }
 
+/** The Zotero key recorded in a note's frontmatter, or "" if it isn't a literature note. */
+export function literatureNoteKey(app: App, file: TFile): string {
+  const key: unknown = app.metadataCache.getFileCache(file)?.frontmatter?.["zotero-key"];
+  return typeof key === "string" ? key : "";
+}
+
+/**
+ * Refresh the annotations region of an existing literature note in place. The caller supplies the freshly
+ * fetched annotations (it owns the Zotero transport); this rewrites only the managed Annotations region,
+ * leaving the reader's own writing untouched — the same upsert used on creation.
+ */
+export async function refreshLiteratureNoteAnnotations(app: App, file: TFile, annotations: readonly KvsAnnotation[], themeSpec?: string): Promise<void> {
+  await refreshAnnotations(app, file, annotations, themeSpec);
+}
+
 /** Parse a "color=Theme; …" spec into the map renderAnnotationsMarkdown expects; empty when unset. */
 function parseTheme(spec?: string): Record<string, string> {
   const out: Record<string, string> = {};

@@ -5,6 +5,42 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 127 — keeping Zotero fresh: note refresh, collection scoping, and incremental search
+
+Three smaller completions, each closing a "this goes stale / this is all-or-nothing" gap in the Zotero
+integration.
+
+### Refresh a literature note from Zotero
+
+A literature note is created with the paper's annotations at that moment — but you keep annotating in Zotero
+afterwards, and the note drifts. A new command, **"Refresh literature note from Zotero"**, re-pulls the
+paper's annotations and rewrites just the managed Annotations region, leaving your own writing untouched. It
+uses the note's own `zotero-key` frontmatter to know which paper it is, so it's only offered on an actual
+literature note (a `checkCallback` hides it elsewhere) and needs no argument.
+
+### Pick a collection to scope a dashboard
+
+The engine already understood collection scoping (`scope.zoteroCollectionKey`), but nothing surfaced it.
+Now **"Create Zotero dashboard from a collection…"** opens a fuzzy picker of your Zotero collections —
+shown as an indented tree with item counts, built from Zotero's flat parent-referenced list — and builds a
+dashboard scoped to the one you choose (or the whole library). So a dashboard can be "just my Thesis
+collection" across all seven layouts, not the entire library every time.
+
+### Refresh Zotero in search without a full rebuild
+
+Zotero items only entered the search index on a *full* rebuild, which also re-reads every vault file —
+expensive just to pick up a couple of new papers. **"Refresh Zotero in search"** re-runs only the external
+(Zotero) document pass and persists, leaving the file index alone. Because that pass already clears the
+prior Zotero batch before adding the current one, it's a clean swap: new items appear, removed items
+disappear, and your notes aren't reindexed. Offered only when Zotero search is enabled.
+
+None of these change default behaviour or add startup cost — they're on-demand commands. Each degrades with
+a clear notice when Zotero isn't reachable.
+
+Covered by tests (748 total, was 742): the collection tree-building (parents before children, sibling
+sorting, indentation, the whole-library option, key mapping preserved) and the collection mapping from the
+local API (parent and item count).
+
 ## Phase 126 — deeper Zotero: editable note templates, fill-from-Zotero, and Zotero-aware promotion
 
 Three changes, all pushing the Zotero connection further into features that already existed.

@@ -513,6 +513,19 @@ export class SearchIndexer {
     await this.buildAll(onProgress);
   }
 
+  /**
+   * Refresh only the external (Zotero) documents, leaving the file index untouched. Lets a user pull newly
+   * added Zotero items and annotations into search without the cost of a full rebuild — indexExternalDocs
+   * already clears the prior Zotero batch before adding the current one, so this is a clean swap. Returns
+   * the number of external docs now indexed.
+   */
+  async refreshExternalDocs(): Promise<number> {
+    await this.indexExternalDocs();
+    this.dirty = true;
+    await this.persist();
+    return this.externalIds.length;
+  }
+
   private onChanged(file: TFile): void {
     if (!indexableExtensions(this.scope()).has(file.extension.toLowerCase())) return;
     const existing = this.pendingReindex.get(file.path);

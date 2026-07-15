@@ -132,6 +132,18 @@ describe("LocalApiZoteroProvider — reads over the live API", () => {
     expect(await p.listCollections()).toEqual([]);
   });
 
+  it("maps collections, including parent and item count", async () => {
+    const envelope = [
+      { data: { key: "C1", name: "Thesis", parentCollection: false }, meta: { numItems: 12 } },
+      { data: { key: "C2", name: "Methods", parentCollection: "C1" }, meta: { numItems: 4 } },
+    ];
+    const p = new LocalApiZoteroProvider("http://x", fetcherReturning(envelope));
+    const cols = await p.listCollections();
+    expect(cols).toHaveLength(2);
+    expect(cols[0]).toMatchObject({ key: "C1", name: "Thesis", parentKey: null, itemCount: 12 });
+    expect(cols[1]).toMatchObject({ key: "C2", name: "Methods", parentKey: "C1", itemCount: 4 });
+  });
+
   it("paginates through the whole library, not just the first page", async () => {
     // Simulate a 250-item library across pages of 100. The fetcher reads `start` from the URL and returns
     // the matching slice, so listItems must make three requests (0, 100, 200) to get everything.

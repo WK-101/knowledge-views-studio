@@ -20,6 +20,16 @@ export class Modal {
   close(): void {}
 }
 
+export class FuzzySuggestModal<T> {
+  constructor(_app?: unknown) {}
+  setPlaceholder(_p: string): void {}
+  getItems(): T[] {
+    return [];
+  }
+  open(): void {}
+  close(): void {}
+}
+
 export function setIcon(): void {}
 export function setTooltip(): void {}
 export function normalizePath(p: string): string {
