@@ -2,7 +2,7 @@ import { fnv1a } from "../../util/hash";
 
 /** Standard PDF markup + note kinds we recognise (superset covers Zotero/EPUB later). */
 export type AnnotationKind = "highlight" | "underline" | "strikeout" | "note" | "square" | "freetext" | "ink" | "image";
-export type AnnotationSource = "pdf-embedded" | "zotero" | "manual" | "docx" | "xlsx" | "pptx";
+export type AnnotationSource = "pdf-embedded" | "zotero" | "zotflow" | "manual" | "docx" | "xlsx" | "pptx";
 
 /** An axis-aligned rectangle in PDF user space (origin bottom-left). */
 export interface AnnotationRect {

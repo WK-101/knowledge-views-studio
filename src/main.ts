@@ -136,7 +136,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
 
     this.addRibbonIcon("layout-grid", "Open Knowledge Views", () => void this.activateDashboard());
 
-    const annotationSyncOpts = () => ({ zotero: { enabled: store.getSettings().zoteroApiEnabled, base: store.getSettings().zoteroApiBase }, themeSpec: store.getSettings().annotationThemes });
+    const annotationSyncOpts = () => ({ zotero: { enabled: store.getSettings().zoteroApiEnabled, base: store.getSettings().zoteroApiBase }, zotflow: { enabled: store.getSettings().zotflowInteropEnabled }, themeSpec: store.getSettings().annotationThemes });
     const overlayManager = new PdfOverlayManager(this.app, annotationSyncOpts);
     this.pdfOverlayManager = overlayManager;
     registerAnnotationDecorator(this, (sourcePath, blockId) => void overlayManager.queueDelete(sourcePath, blockId), (sourcePath, blockId) => void overlayManager.editAnnotation(sourcePath, blockId));
@@ -225,7 +225,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
       },
     });
     this.registerDomEvent(window, "scroll", () => overlayManager.captureActiveScroll(), true);
-    registerAttachmentPanel(this, () => ({ zotero: { enabled: store.getSettings().zoteroApiEnabled, base: store.getSettings().zoteroApiBase }, themeSpec: store.getSettings().annotationThemes }));
+    registerAttachmentPanel(this, annotationSyncOpts);
     this.addCommand({
       id: "open-dashboard",
       name: "Open dashboard",
@@ -338,7 +338,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
       checkCallback: (checking) => {
         const file = this.app.workspace.getActiveFile();
         if (!file || file.extension !== "md") return false;
-        if (!checking) void syncPaperAnnotations(this.app, file, { zotero: { enabled: store.getSettings().zoteroApiEnabled, base: store.getSettings().zoteroApiBase }, themeSpec: store.getSettings().annotationThemes });
+        if (!checking) void syncPaperAnnotations(this.app, file, annotationSyncOpts());
         return true;
       },
     });

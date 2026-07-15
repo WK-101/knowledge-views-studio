@@ -5,6 +5,53 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 119 — optional interoperation with ZotFlow
+
+[ZotFlow](https://community.obsidian.md/plugins/zotflow) embeds Zotero's real PDF/EPUB reader — a far
+richer reading and annotation experience than our pdf.js annotator, and one we have no intention of
+reimplementing. This phase lets the two plugins *compose* instead of compete: if a user has ZotFlow
+installed, KVS can hand a file to its reader and collect the annotations they make there; if they don't,
+nothing changes and our own reader is used exactly as before. It is off by default and enabled with one
+toggle in settings.
+
+### What it does
+
+- **"Open in ZotFlow reader"** — a right-click option on PDF and EPUB attachment cards, shown only when
+  ZotFlow is detected. Our own reader stays the default (plain click); this is an addition, never a
+  replacement.
+- **Collects ZotFlow's annotations** — the "Sync annotations into this note" command now also reads
+  ZotFlow's co-located `.zf.json` sidecars, so highlights made in *either* reader land in the note
+  together, rendered as the same callouts. For EPUBs this is pure gain, since we have no EPUB reader of
+  our own.
+
+### The two rules it is built on
+
+ZotFlow exposes **no public API**, and ships very frequently, so the integration is deliberately
+conservative:
+
+1. **Public seams only.** It touches exactly three things ZotFlow exposed to the world, never its
+   internals: whether the plugin is enabled, its registered *view type* (opened through Obsidian's own
+   `setViewState`, the same call ZotFlow's own code uses), and its documented on-disk `.zf.json` format.
+   It never imports ZotFlow's modules, calls its worker, or depends on the shape of its internal classes —
+   those are not ours to reach into, and would break on any refactor.
+2. **Enhance, never break.** Every entry point degrades to "feature quietly unavailable" — never an
+   error — when ZotFlow is absent, disabled, or has renamed a seam. The right-click menu isn't shown; a
+   runtime failure opening the reader falls back to ours; a missing or corrupt sidecar yields no
+   annotations. Interop is a bonus that can vanish; it is never load-bearing.
+
+The one genuine fragility — ZotFlow's view-type string and sidecar name — is isolated in a single file and
+guarded, so if ZotFlow changes them, detection simply returns false and we fall back. That is the correct
+failure mode, and the reason the whole surface is wrapped rather than assumed.
+
+### Tested where it counts
+
+The parsing of ZotFlow's foreign file format is the part most likely to meet corrupt or version-changed
+input, so it is the part most thoroughly tested (13 cases): malformed JSON, missing fields, wrong-typed
+fields, and per-annotation validation all degrade to "no annotations" rather than throwing. Detection and
+file-opening need a live Obsidian and ZotFlow install, so they are guarded at their call sites instead.
+
+686 tests (was 673). Four gates green.
+
 ## Phase 118 — measuring search relevance (and the bug that fell out of it)
 
 For six phases the README carried the same admission: the search had never been evaluated for relevance.

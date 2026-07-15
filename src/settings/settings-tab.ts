@@ -1,6 +1,7 @@
 import { Menu, Notice, Platform, PluginSettingTab, Setting, setIcon, type App, type Plugin } from "obsidian";
 import type { ColumnTypeRegistry } from "../domain/index";
 import { createZoteroFetcher } from "../workspace/zotero-transport";
+import { isZotFlowAvailable } from "../services/annotations/zotflow-interop";
 import {
   createProfile,
   serializeViewDoc,
@@ -811,6 +812,15 @@ export class KnowledgeViewsSettingTab extends PluginSettingTab {
           b.setButtonText("Test").setDisabled(false);
         }),
       );
+
+    new Setting(el)
+      .setName("Work with ZotFlow, if installed")
+      .setDesc(
+        isZotFlowAvailable(this.app)
+          ? "ZotFlow is installed. Right-click a PDF or EPUB attachment to open it in ZotFlow's reader, and this note-sync will also collect any annotations you made there (from its .zf.json sidecar). Your own KVS reader stays the default."
+          : "When the ZotFlow plugin is installed, KVS can open PDFs and EPUBs in its richer reader and collect the annotations you make there. ZotFlow isn't detected right now, so this does nothing until it's installed and enabled.",
+      )
+      .addToggle((t) => t.setValue(settings.zotflowInteropEnabled).onChange((v) => store.updateSettings({ zotflowInteropEnabled: v })));
 
     new Setting(el).setName("Notes and highlights").setHeading();
 

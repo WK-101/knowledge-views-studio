@@ -18,6 +18,7 @@ export const DEFAULT_COLOR_CALLOUT: Readonly<Record<string, string>> = {
 const SOURCE_LABEL: Record<AnnotationSource, string> = {
   "pdf-embedded": "PDF",
   zotero: "Zotero",
+  zotflow: "ZotFlow",
   manual: "Note",
   docx: "Word",
   xlsx: "Excel",

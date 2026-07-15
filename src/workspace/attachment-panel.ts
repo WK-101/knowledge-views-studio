@@ -1,6 +1,7 @@
 import { FuzzySuggestModal, Menu, Modal, Notice, Setting, TFile, setIcon, type App, type MarkdownPostProcessorContext, type Plugin } from "obsidian";
 import { parseAttachments, serializeAttachments, attachmentName, type Attachment, type AttachmentKind } from "../services/index";
 import { syncPaperAnnotations, type AnnotationSyncOptions } from "./annotation-sync";
+import { isZotFlowAvailable, openInZotFlow } from "../services/annotations/zotflow-interop";
 
 const KIND_BADGE: Record<AttachmentKind, string> = {
   pdf: "PDF", epub: "EPUB", image: "IMG", word: "DOC", excel: "XLS", powerpoint: "PPT", web: "WEB", file: "FILE",
@@ -96,6 +97,38 @@ function renderCard(
     if ((e.target as HTMLElement).closest(".kvs-attach-remove")) return;
     open();
   });
+
+  // When ZotFlow is installed, offer its richer reader as a per-file choice on right-click. Our own
+  // reader stays the default (plain click); this is an addition, never a replacement — a user who wants
+  // the two plugins to work as one system gets that, and a user without ZotFlow never sees it.
+  if (att.isLink && (att.kind === "pdf" || att.kind === "epub") && isZotFlowAvailable(app)) {
+    card.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      const file = app.metadataCache.getFirstLinkpathDest(att.target, ctx.sourcePath);
+      const menu = new Menu();
+      menu.addItem((i) =>
+        i
+          .setTitle("Open in ZotFlow reader")
+          .setIcon("book-open")
+          .onClick(() => {
+            if (!(file instanceof TFile)) {
+              open(); // link didn't resolve to a vault file — fall back to our opener
+              return;
+            }
+            void openInZotFlow(app, file).then((ok) => {
+              if (!ok) open(); // ZotFlow declined (seam changed / load error) — fall back silently
+            });
+          }),
+      );
+      menu.addItem((i) =>
+        i
+          .setTitle("Open in KVS reader")
+          .setIcon("file-text")
+          .onClick(() => open()),
+      );
+      menu.showAtMouseEvent(e);
+    });
+  }
 
   const remove = card.createEl("button", { cls: "kvs-attach-remove", attr: { "aria-label": "Remove attachment" } });
   setIcon(remove, "x");

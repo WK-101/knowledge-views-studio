@@ -15,14 +15,21 @@ import {
 import type { Attachment } from "../services/index";
 import type { KvsAnnotation } from "../domain/index";
 import { createZoteroFetcher } from "./zotero-transport";
+import { collectZotFlowAnnotations } from "../services/annotations/zotflow-interop";
 
 export interface ZoteroSyncConfig {
   readonly enabled: boolean;
   readonly base: string;
 }
 
+/** Whether to also gather annotations from ZotFlow's `.zf.json` sidecars, when ZotFlow is installed. */
+export interface ZotFlowSyncConfig {
+  readonly enabled: boolean;
+}
+
 export interface AnnotationSyncOptions {
   readonly zotero?: ZoteroSyncConfig;
+  readonly zotflow?: ZotFlowSyncConfig;
   /** Colour → theme spec ("color=Theme; …") for the callout labels. */
   readonly themeSpec?: string;
 }
@@ -56,9 +63,27 @@ export async function syncPaperAnnotations(app: App, file: TFile, options: Annot
         const anns = att.kind === "pdf" ? await pdfAnnotationStore.read(bytes, att.target) : readOfficeAnnotations(bytes, att.target, att.kind);
         groups.push(anns);
         checked.push(`${att.target} (${anns.length})`);
-      } else {
+      } else if (!(options.zotflow?.enabled && att.kind === "epub")) {
+        // EPUB is handled by the ZotFlow block below (we have no EPUB reader of our own); everything else
+        // unreadable is skipped with a reason.
         const reason = skipReason(att);
         if (reason) skipped.push(`${att.target} — ${reason}`);
+      }
+
+      // ZotFlow interop, independent of our own reader: if ZotFlow is installed and the user annotated
+      // this file in its reader, those annotations live in a co-located `.zf.json` sidecar. We collect
+      // them for PDFs *and* EPUBs — the EPUB case is pure gain, since we cannot read EPUBs ourselves.
+      // Contributes nothing (and never errors) when ZotFlow is absent or the file has no sidecar.
+      if (options.zotflow?.enabled && (att.kind === "pdf" || att.kind === "epub")) {
+        const zf = await collectZotFlowAnnotations(app, att.target);
+        if (zf.length > 0) {
+          groups.push(zf);
+          checked.push(`ZotFlow (${zf.length})`);
+        } else if (att.kind === "epub") {
+          // An EPUB has no reader of ours to fall back on, so if ZotFlow has nothing for it, say so
+          // rather than dropping it silently from the coverage report.
+          skipped.push(`${att.target} — no ZotFlow annotations found (read it in ZotFlow to annotate)`);
+        }
       }
     }
     if (zoteroEnabled && zotero) {

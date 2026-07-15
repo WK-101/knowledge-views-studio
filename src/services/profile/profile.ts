@@ -196,6 +196,8 @@ export interface GlobalSettings {
   readonly zoteroApiBase: string;
   /** Highlight colour → research theme mapping ("color=Theme; …"). */
   readonly annotationThemes: string;
+  /** When ZotFlow is installed, offer its reader for PDFs/EPUBs and collect its `.zf.json` annotations. */
+  readonly zotflowInteropEnabled: boolean;
   /** Whether the first-run welcome has been shown (so it appears only once). */
   readonly onboardingSeen: boolean;
   /** Ids of one-time contextual hints the user has dismissed. */
@@ -248,6 +250,7 @@ export const DEFAULT_SETTINGS: GlobalSettings = {
   zoteroApiEnabled: false,
   zoteroApiBase: "http://127.0.0.1:23119/api/users/0",
   annotationThemes: DEFAULT_THEME_SPEC,
+  zotflowInteropEnabled: false,
   onboardingSeen: false,
   seenHints: [],
   enableRowCopy: false,
