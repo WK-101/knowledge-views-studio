@@ -2,6 +2,7 @@ import { Menu, Notice, Platform, PluginSettingTab, Setting, setIcon, type App, t
 import type { ColumnTypeRegistry } from "../domain/index";
 import { createZoteroFetcher } from "../workspace/zotero-transport";
 import { isZotFlowAvailable } from "../services/annotations/zotflow-interop";
+import { LITERATURE_PLACEHOLDERS } from "../services/notes/literature-note";
 import {
   createProfile,
   serializeViewDoc,
@@ -832,6 +833,17 @@ export class KnowledgeViewsSettingTab extends PluginSettingTab {
         "Where a new literature note is created when you click a paper in the Zotero library (or use \"Create notes\"). Each note carries the paper's metadata, abstract, annotations, and a link back to Zotero, and becomes a normal Obsidian note you can link and tag. Notes are matched by their Zotero key, so you never get duplicates.",
       )
       .addText((t) => t.setPlaceholder("Literature").setValue(settings.literatureNotesFolder).onChange((v) => store.updateSettings({ literatureNotesFolder: v.trim() || "Literature" })));
+
+    const litTmpl = new Setting(el)
+      .setName("Literature note template")
+      .setDesc(
+        `Template for a new literature note. Placeholders: ${LITERATURE_PLACEHOLDERS.map((p) => `{{${p}}}`).join(", ")}. Leave empty for the built-in default. Keep an "## Annotations" heading — collected annotations are inserted there. The note's zotero-key frontmatter is added automatically if your template omits it, so duplicate-matching keeps working.`,
+      );
+    litTmpl.addTextArea((t) => {
+      t.setPlaceholder("(built-in default)").setValue(settings.literatureNoteTemplate).onChange((v) => store.updateSettings({ literatureNoteTemplate: v }));
+      t.inputEl.rows = 10;
+      t.inputEl.addClass("kvs-lit-template");
+    });
 
     new Setting(el)
       .setName("Work with ZotFlow, if installed")

@@ -202,6 +202,8 @@ export interface GlobalSettings {
   readonly indexZotero: boolean;
   /** Folder where new literature notes (one per Zotero paper) are created. */
   readonly literatureNotesFolder: string;
+  /** Custom literature-note template with {{placeholders}}; empty means the built-in default. */
+  readonly literatureNoteTemplate: string;
   /** Whether the first-run welcome has been shown (so it appears only once). */
   readonly onboardingSeen: boolean;
   /** Ids of one-time contextual hints the user has dismissed. */
@@ -257,6 +259,7 @@ export const DEFAULT_SETTINGS: GlobalSettings = {
   zotflowInteropEnabled: false,
   indexZotero: false,
   literatureNotesFolder: "Literature",
+  literatureNoteTemplate: "",
   onboardingSeen: false,
   seenHints: [],
   enableRowCopy: false,

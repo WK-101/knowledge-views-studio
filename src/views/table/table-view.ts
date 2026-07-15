@@ -310,6 +310,9 @@ function attachRowMenu(tr: HTMLElement, row: Row, ctx: ViewRenderContext): void 
       const doiCol = ctx.columns.find((c) => c.typeId === "doi");
       if (doiCol && getField(row, doiCol.name).trim() !== "") {
         menu.addItem((i) => i.setTitle("Fill details from DOI").setIcon("download-cloud").onClick(() => ctx.onFetchDoi?.(row)));
+        if (ctx.onFetchZotero) {
+          menu.addItem((i) => i.setTitle("Fill details from Zotero").setIcon("library").onClick(() => ctx.onFetchZotero?.(row)));
+        }
       }
     }
     if (ctx.onPromote) {

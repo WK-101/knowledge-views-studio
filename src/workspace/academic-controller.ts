@@ -23,6 +23,13 @@ import type { Profile } from "../services/profile/profile";
 import type { ProcessorDeps } from "../codeblock/processor";
 import { DedupModal, type DedupResolution } from "./dedup-modal";
 import { ShardModal, type ShardField } from "./shard-modal";
+import { LocalApiZoteroProvider } from "../services/zotero/local-api-provider";
+import { findZoteroKeysByDoi, fetchZoteroAnnotations } from "../services/annotations/zotero-client";
+import type { ZoteroLibraryItem } from "../services/zotero/provider";
+import { buildLiteratureNote } from "../services/notes/literature-note";
+import { renderAnnotationsMarkdown, upsertAnnotationsRegion } from "../services/annotations/render";
+import { parseThemeMap } from "../services/annotations/themes";
+import type { KvsAnnotation } from "../domain/index";
 
 /**
  * What the academic controller needs from the dashboard it serves.
@@ -155,6 +162,112 @@ export class AcademicController {
     }
     await this.host.applyRowEdits(row.provenance.filePath, edits, `Fill ${edits.length} field(s) from DOI`);
     new Notice(`Filled ${edits.length} field(s) from DOI.`);
+  }
+
+  /** A JSON fetcher over Zotero's local API, built on Obsidian's requestUrl (same transport as DOI fill). */
+  private zoteroFetcher(): (url: string) => Promise<{ status: number; json?: unknown; text?: string }> {
+    return async (url: string) => {
+      try {
+        const res = await requestUrl({ url, headers: { Accept: "application/json" } });
+        return { status: res.status, json: res.json, text: res.text };
+      } catch {
+        return { status: 0 };
+      }
+    };
+  }
+
+  /** Turn a Zotero item's fields (including tags and cite key — richer than Crossref) into row edits. */
+  private zoteroEdits(row: Row, cols: readonly { name: string; type: string }[], item: ZoteroLibraryItem): { provenance: Row["provenance"]; column: string; value: string }[] {
+    const edits: { provenance: Row["provenance"]; column: string; value: string }[] = [];
+    const put = (field: AcademicField, value: string): void => {
+      if (value.trim() === "") return;
+      const col = this.fieldCol(cols, field);
+      if (col && getField(row, col.name).trim() === "") edits.push({ provenance: row.provenance, column: col.name, value });
+    };
+    put("authors", item.creators);
+    put("title", item.title);
+    put("year", item.year);
+    put("venue", item.publication);
+    // Zotero gives us things Crossref doesn't: the Better BibTeX cite key, and the paper's tags.
+    if (item.citeKey) put("citekey", item.citeKey);
+    if (item.tags.length > 0) put("tags", item.tags.join(", "));
+    return edits;
+  }
+
+  /**
+   * Fill a row's fields from Zotero, when its DOI matches an item in the local library. This is a richer
+   * sibling of "fill from DOI": instead of Crossref, it reads the paper you already have in Zotero — so it
+   * can bring across your cite key and tags, not just the bibliographic basics. Falls back with a clear
+   * notice when Zotero isn't reachable or the DOI isn't in the library.
+   */
+  async fillFromZotero(row: Row, profile: Profile): Promise<void> {
+    const cols = (this.host.renderedProfile() ?? profile).columns;
+    const doiCol = this.fieldCol(cols, "doi");
+    const doi = doiCol ? getField(row, doiCol.name).trim() : "";
+    if (doi === "") {
+      new Notice("This row has no DOI to look up in Zotero.");
+      return;
+    }
+    const base = this.host.deps.store.getSettings().zoteroApiBase;
+    const fetcher = this.zoteroFetcher();
+    new Notice("Looking up this DOI in Zotero…");
+    const provider = new LocalApiZoteroProvider(base, fetcher);
+    if (!(await provider.ping())) {
+      new Notice("Can't reach Zotero. Make sure it's running with the local API enabled.");
+      return;
+    }
+    const keys = await findZoteroKeysByDoi(base, doi, fetcher);
+    if (keys.length === 0) {
+      new Notice("That DOI isn't in your Zotero library.");
+      return;
+    }
+    const item = await provider.getItem(keys[0]!);
+    if (!item) {
+      new Notice("Found the item in Zotero but couldn't read it.");
+      return;
+    }
+    const edits = this.zoteroEdits(row, cols, item);
+    if (edits.length === 0) {
+      new Notice("Those fields are already filled.");
+      return;
+    }
+    await this.host.applyRowEdits(row.provenance.filePath, edits, `Fill ${edits.length} field(s) from Zotero`);
+    new Notice(`Filled ${edits.length} field(s) from Zotero.`);
+  }
+
+  /**
+   * If a DOI is in the Zotero library, return literature-note content for it — the paper's metadata plus its
+   * annotations, using the shared literature-note builder — so "promote to dedicated note" produces the same
+   * rich note as the Zotero library view. Returns null (silently) when Zotero is unreachable or the DOI
+   * isn't found, so the caller falls back to the plain template. Never throws.
+   */
+  async zoteroNoteContent(doi: string): Promise<string | null> {
+    try {
+      const settings = this.host.deps.store.getSettings();
+      const base = settings.zoteroApiBase;
+      const fetcher = this.zoteroFetcher();
+      const provider = new LocalApiZoteroProvider(base, fetcher);
+      if (!(await provider.ping())) return null;
+      const keys = await findZoteroKeysByDoi(base, doi, fetcher);
+      if (keys.length === 0) return null;
+      const item = await provider.getItem(keys[0]!);
+      if (!item) return null;
+      // Pull the paper's annotations too, so the promoted note is fully populated.
+      let annotations: KvsAnnotation[] = [];
+      try {
+        annotations = await fetchZoteroAnnotations(base, [item.key], fetcher);
+      } catch {
+        annotations = [];
+      }
+      let content = buildLiteratureNote(item, settings.literatureNoteTemplate);
+      if (annotations.length > 0) {
+        const block = renderAnnotationsMarkdown(annotations, { themeMap: parseThemeMap(settings.annotationThemes) });
+        content = upsertAnnotationsRegion(content, block);
+      }
+      return content;
+    } catch {
+      return null;
+    }
   }
 
   async bulkFillFromDoi(): Promise<void> {

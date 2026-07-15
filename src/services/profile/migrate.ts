@@ -194,6 +194,7 @@ function normalizeSettings(raw: unknown): GlobalSettings {
     zotflowInteropEnabled: asBool(raw.zotflowInteropEnabled, DEFAULT_SETTINGS.zotflowInteropEnabled),
     indexZotero: asBool(raw.indexZotero, DEFAULT_SETTINGS.indexZotero),
     literatureNotesFolder: asString(raw.literatureNotesFolder, DEFAULT_SETTINGS.literatureNotesFolder),
+    literatureNoteTemplate: asString(raw.literatureNoteTemplate, DEFAULT_SETTINGS.literatureNoteTemplate),
     onboardingSeen: asBool(raw.onboardingSeen, DEFAULT_SETTINGS.onboardingSeen),
     seenHints: Array.isArray(raw.seenHints) ? raw.seenHints.filter((h): h is string => typeof h === "string") : [],
     enableRowCopy: asBool(raw.enableRowCopy, DEFAULT_SETTINGS.enableRowCopy),

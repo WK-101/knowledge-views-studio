@@ -345,9 +345,19 @@ export class DashboardView extends TextFileView {
       let notePath = `${dir}/${base}.md`;
       for (let n = 2; this.app.vault.getAbstractFileByPath(notePath); n++) notePath = `${dir}/${base} ${n}.md`;
       const noteName = notePath.slice(dir.length + 1, -3);
-      // Template precedence: this view's template, then the global template, then the built-in default.
-      const template = (profile.promotedNoteTemplate ?? "").trim() || this.deps.store.getSettings().promotedNoteTemplate.trim() || DEFAULT_PROMOTED_TEMPLATE;
-      await this.app.vault.create(notePath, renderPromotedNote(template, { title, authors, year, venue, doi, citekey: key, tags }));
+
+      // If this paper's DOI is in Zotero, build the note from the live Zotero item — full metadata plus its
+      // annotations — the same rich note the library view produces. This makes "promote to note" and the
+      // Zotero literature-note workflow converge: a promoted paper that exists in Zotero becomes a proper
+      // literature note, not just a template fill. Falls back to the template when there's no DOI match.
+      const zoteroContent = doi !== "" ? await this.academic.zoteroNoteContent(doi) : null;
+      if (zoteroContent !== null) {
+        await this.app.vault.create(notePath, zoteroContent);
+      } else {
+        // Template precedence: this view's template, then the global template, then the built-in default.
+        const template = (profile.promotedNoteTemplate ?? "").trim() || this.deps.store.getSettings().promotedNoteTemplate.trim() || DEFAULT_PROMOTED_TEMPLATE;
+        await this.app.vault.create(notePath, renderPromotedNote(template, { title, authors, year, venue, doi, citekey: key, tags }));
+      }
 
       // Link the row back to its new note (fill the Note column if present).
       if (noteCol && getField(row, noteCol.name).trim() === "") {
@@ -2466,6 +2476,7 @@ export class DashboardView extends TextFileView {
       ...(profile.academicKit
         ? {
             onFetchDoi: (row: Row) => void this.academic.fillFromDoi(row, profile),
+            onFetchZotero: (row: Row) => void this.academic.fillFromZotero(row, profile),
             onPromote: (row: Row) => void this.promoteToNote(row, profile),
           }
         : {}),

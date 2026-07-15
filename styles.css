@@ -4546,3 +4546,6 @@ body.is-phone .kvs-col-resize {
 .kvs-zotero-ext { display: inline-flex; margin-left: var(--size-4-1); color: var(--text-faint); cursor: pointer; vertical-align: middle; opacity: 0; transition: opacity 0.1s; }
 .kvs-zotero-row:hover .kvs-zotero-ext { opacity: 1; }
 .kvs-zotero-ext:hover { color: var(--text-accent); }
+
+/* ---- Literature note template editor ---- */
+.kvs-lit-template { width: 100%; font-family: var(--font-monospace); font-size: var(--font-ui-smaller); }

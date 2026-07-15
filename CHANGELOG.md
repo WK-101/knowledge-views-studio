@@ -5,6 +5,48 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 126 — deeper Zotero: editable note templates, fill-from-Zotero, and Zotero-aware promotion
+
+Three changes, all pushing the Zotero connection further into features that already existed.
+
+### 1. Literature note templates are now editable
+
+The literature note had a fixed shape (frontmatter + abstract + annotations + notes). Now there's a
+template setting: write your own layout with `{{placeholders}}` (title, authors, year, journal, doi, url,
+citeKey, itemType, key, tags, abstract, zoteroLink), or leave it empty for the built-in default. The
+default and a custom template travel the *same* substitution path — the default is just the template we
+ship.
+
+The one invariant that can't be given up: a literature note **must** carry `zotero-key` in frontmatter, or
+find-or-create can't match it and duplicate protection silently breaks. So if a custom template omits the
+key, the builder injects it (into the existing frontmatter, or a minimal block if there's none). You get
+layout freedom without being able to accidentally disable the idempotency the whole workflow rests on.
+
+### 2. "Fill details from Zotero" — a richer sibling of fill-from-DOI
+
+The dashboard's "Fill details from DOI" reads Crossref. Now, right beside it, "Fill details from Zotero"
+looks the row's DOI up in your *local Zotero library* and fills from the paper you already have — which
+means it can bring across things Crossref doesn't: your Better BibTeX **cite key** and the paper's **tags**,
+as well as the usual author/title/year/venue. Same fill semantics (only empty fields are touched, undoable),
+with clear notices when Zotero isn't running or the DOI isn't in the library.
+
+### 3. "Promote to dedicated note" now builds from Zotero when it can
+
+Promoting a paper used to always render the plain template. Now, if the row's DOI is in Zotero, promotion
+builds the note from the live Zotero item instead — full metadata **and the paper's annotations** — using
+the same literature-note builder the library view uses. So the two paths converge: promoting a paper that
+exists in Zotero produces a proper literature note, not just a metadata fill. When there's no DOI match (or
+Zotero isn't reachable), it falls back to the template exactly as before — the enhancement never removes the
+original behaviour.
+
+Together these make Zotero the connective tissue across the academic kit: whether you start from the Zotero
+library, from a DOI in a dashboard, or from promoting a row, you land on the same rich, annotated,
+linkable note.
+
+Covered by expanded tests (742 total, was 735): custom-template substitution, and the guarantee that
+`zotero-key` is injected when a template omits it (in an existing frontmatter block, or a fresh one) and not
+duplicated when it's present.
+
 ## Phase 125 — literature notes: turn a Zotero paper into a note you can think with
 
 The Zotero features so far let you *view and search* papers inside Obsidian — but that was never the

@@ -30,6 +30,8 @@ import { renderAnnotationsMarkdown, upsertAnnotationsRegion } from "../annotatio
 export interface LiteratureNoteOptions {
   /** Folder for new literature notes (created if missing). Existing notes are found by key regardless. */
   readonly folder: string;
+  /** Custom note template with {{placeholders}}; falls back to the built-in default when empty. */
+  readonly template?: string;
   /** Rendered annotations to seed/refresh the note's Annotations region, if any were collected. */
   readonly annotations?: readonly KvsAnnotation[];
   /** Theme spec ("color=Theme; …") passed through to annotation rendering. */
@@ -70,45 +72,97 @@ function safeBaseName(item: ZoteroLibraryItem): string {
   return (cleaned || item.key).slice(0, 120);
 }
 
-/** Escape a value for a double-quoted YAML scalar. */
-function yamlStr(v: string): string {
-  return `"${v.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+/** Placeholders a user can use in a custom literature-note template. */
+export const LITERATURE_PLACEHOLDERS = [
+  "title", "authors", "year", "journal", "doi", "url", "citeKey", "itemType", "key", "tags", "abstract", "zoteroLink",
+] as const;
+
+/** The values each placeholder resolves to for a given item. `annotations` is filled separately. */
+function placeholderValues(item: ZoteroLibraryItem): Record<(typeof LITERATURE_PLACEHOLDERS)[number], string> {
+  return {
+    title: item.title,
+    authors: item.creators,
+    year: item.year,
+    journal: item.publication,
+    doi: item.doi,
+    url: item.url,
+    citeKey: item.citeKey,
+    itemType: item.itemType,
+    key: item.key,
+    tags: item.tags.join(", "),
+    abstract: item.extra["abstract"] ?? "",
+    zoteroLink: `zotero://select/library/items/${item.key}`,
+  };
 }
 
 /**
- * Build the initial content of a literature note: frontmatter that makes it a first-class, queryable note,
- * an info callout that links back to Zotero, the abstract, an Annotations region, and an empty Notes
- * section for the reader's own thinking.
+ * The built-in default note body. Kept as a real template string so the default and a user override travel
+ * the same substitution path — the default is just the template we ship. IMPORTANT: whatever a user writes,
+ * their template must still carry `zotero-key` in frontmatter, or find-or-create can't match the note; the
+ * builder injects it defensively if it's missing (see {@link buildLiteratureNote}).
  */
-export function buildLiteratureNote(item: ZoteroLibraryItem): string {
-  const abstract = item.extra["abstract"] ?? "";
-  const zoteroLink = `zotero://select/library/items/${item.key}`;
-  const doiLink = item.doi ? ` · [DOI](https://doi.org/${item.doi})` : "";
-  const tags = ["literature", ...item.tags.map((t) => t.replace(/\s+/g, "-"))];
+const DEFAULT_TEMPLATE = `---
+title: "{{title}}"
+authors: "{{authors}}"
+year: {{year}}
+journal: "{{journal}}"
+doi: "{{doi}}"
+url: "{{url}}"
+cite-key: "{{citeKey}}"
+item-type: "{{itemType}}"
+zotero-key: "{{key}}"
+tags: [literature, {{tags}}]
+---
 
-  const fm: string[] = ["---"];
-  fm.push(`title: ${yamlStr(item.title)}`);
-  if (item.creators) fm.push(`authors: ${yamlStr(item.creators)}`);
-  if (item.year) fm.push(`year: ${item.year}`);
-  if (item.publication) fm.push(`journal: ${yamlStr(item.publication)}`);
-  if (item.doi) fm.push(`doi: ${yamlStr(item.doi)}`);
-  if (item.url) fm.push(`url: ${yamlStr(item.url)}`);
-  if (item.citeKey) fm.push(`cite-key: ${yamlStr(item.citeKey)}`);
-  fm.push(`item-type: ${yamlStr(item.itemType)}`);
-  // The durable link back to Zotero — the field find-or-create matches on. Do not remove by hand.
-  fm.push(`zotero-key: ${yamlStr(item.key)}`);
-  fm.push(`tags: [${tags.join(", ")}]`);
-  fm.push("---");
+# {{title}}
 
-  const lines: string[] = [fm.join("\n"), ""];
-  lines.push(`# ${item.title || item.key}`, "");
-  lines.push("> [!info] Zotero");
-  const cite = [item.creators, item.year ? `(${item.year})` : "", item.publication ? `*${item.publication}*` : ""].filter((s) => s !== "").join(" ");
-  lines.push(`> ${cite}`.trimEnd());
-  lines.push(`> [Open in Zotero](${zoteroLink})${doiLink}`, "");
-  if (abstract) lines.push("## Abstract", "", abstract, "");
-  lines.push("## Annotations", "", "## Notes", "");
-  return lines.join("\n");
+> [!info] Zotero
+> {{authors}} ({{year}}) *{{journal}}*
+> [Open in Zotero]({{zoteroLink}})
+
+## Abstract
+
+{{abstract}}
+
+## Annotations
+
+## Notes
+`;
+
+/** Substitute {{placeholder}} tokens in a template with an item's values. Unknown tokens are left as-is. */
+function fillTemplate(template: string, item: ZoteroLibraryItem): string {
+  const values = placeholderValues(item);
+  return template.replace(/\{\{(\w+)\}\}/g, (match, name: string) => {
+    return name in values ? values[name as keyof typeof values] : match;
+  });
+}
+
+/**
+ * Build the content of a literature note. With no custom template, the shipped default is used; a user's
+ * template (from settings) travels the same path. Either way, the note is guaranteed to carry a
+ * `zotero-key` in frontmatter — if a custom template omitted it, it's injected — because that key is what
+ * makes find-or-create idempotent, and losing it would silently break duplicate protection.
+ */
+export function buildLiteratureNote(item: ZoteroLibraryItem, template?: string): string {
+  const chosen = template && template.trim() !== "" ? template : DEFAULT_TEMPLATE;
+  let out = fillTemplate(chosen, item);
+  out = ensureZoteroKey(out, item.key);
+  return out.endsWith("\n") ? out : out + "\n";
+}
+
+/**
+ * Guarantee the rendered note has `zotero-key` in its frontmatter. If the template already emitted one
+ * (the default does), this is a no-op. If a custom template dropped it, we insert it into the frontmatter
+ * block (or create a minimal frontmatter block if there is none), so idempotent matching never breaks.
+ */
+function ensureZoteroKey(note: string, key: string): string {
+  if (/^zotero-key:/m.test(note)) return note;
+  const fmMatch = /^---\n([\s\S]*?)\n---/.exec(note);
+  if (fmMatch) {
+    return note.replace(/^---\n/, `---\nzotero-key: "${key}"\n`);
+  }
+  // No frontmatter at all — prepend a minimal block so the note is still matchable.
+  return `---\nzotero-key: "${key}"\n---\n\n${note}`;
 }
 
 /**
@@ -141,7 +195,7 @@ export async function createOrOpenLiteratureNote(app: App, item: ZoteroLibraryIt
   let path = `${folder}/${base}.md`;
   for (let i = 2; app.vault.getAbstractFileByPath(path); i++) path = `${folder}/${base} (${i}).md`;
 
-  let content = buildLiteratureNote(item);
+  let content = buildLiteratureNote(item, options.template);
   if (options.annotations && options.annotations.length > 0) {
     const block = renderAnnotationsMarkdown(options.annotations, { themeMap: parseTheme(options.themeSpec) });
     content = upsertAnnotationsRegion(content, block);

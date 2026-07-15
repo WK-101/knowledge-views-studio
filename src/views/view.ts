@@ -34,6 +34,8 @@ export interface ViewRenderContext {
   readonly onCite?: (citeKey: string) => void;
   /** Fill a library row's empty metadata cells from its DOI (academic kit views). */
   readonly onFetchDoi?: (row: Row) => void;
+  /** Fill a row's fields from the matching Zotero item (by DOI) — richer than the Crossref DOI fill. */
+  readonly onFetchZotero?: (row: Row) => void;
   /** Promote a library row to a dedicated note, pre-seeded + linked back (academic kit views). */
   readonly onPromote?: (row: Row) => void;
   /** Distinct existing values for a column, for select/theme autocomplete. */

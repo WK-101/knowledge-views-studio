@@ -592,7 +592,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
         } catch {
           annotations = [];
         }
-        const result = await createOrOpenLiteratureNote(this.app, item, { folder, annotations, themeSpec: settings.annotationThemes });
+        const result = await createOrOpenLiteratureNote(this.app, item, { folder, template: settings.literatureNoteTemplate, annotations, themeSpec: settings.annotationThemes });
         if (result.created) created++;
         else opened++;
         if (!first) first = result.file;

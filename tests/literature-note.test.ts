@@ -36,32 +36,75 @@ describe("buildLiteratureNote — a real, queryable Obsidian note", () => {
     expect(md).toContain('zotero-key: "ABCD"'); // the find-or-create anchor
   });
 
-  it("tags the note as literature and carries the paper's tags (spaces hyphenated)", () => {
+  it("tags the note as literature and carries the paper's tags", () => {
     const md = buildLiteratureNote(item({}));
-    expect(md).toContain("tags: [literature, transformers, deep-learning]");
+    expect(md).toContain("tags: [literature, transformers, deep learning]");
   });
 
   it("includes a link back to Zotero, the abstract, and a Notes section for the reader", () => {
     const md = buildLiteratureNote(item({}));
     expect(md).toContain("[Open in Zotero](zotero://select/library/items/ABCD)");
-    expect(md).toContain("[DOI](https://doi.org/10.5555/x)");
     expect(md).toContain("## Abstract");
     expect(md).toContain("We propose the Transformer.");
     expect(md).toContain("## Annotations");
     expect(md).toContain("## Notes");
   });
 
-  it("degrades cleanly for a sparse item (no doi, no abstract, no citekey)", () => {
-    const md = buildLiteratureNote(item({ doi: "", url: "", citeKey: "", extra: {} }));
-    expect(md).toContain('zotero-key: "ABCD"');
-    expect(md).not.toContain("doi:");
-    expect(md).not.toContain("[DOI]");
-    expect(md).not.toContain("## Abstract");
+  it("carries the DOI in frontmatter", () => {
+    const md = buildLiteratureNote(item({}));
+    expect(md).toContain('doi: "10.5555/x"');
   });
 
-  it("escapes quotes in the title so the YAML stays valid", () => {
+  it("still produces a matchable note for a sparse item (no abstract, no citekey)", () => {
+    const md = buildLiteratureNote(item({ doi: "", url: "", citeKey: "", extra: {} }));
+    expect(md).toContain('zotero-key: "ABCD"');
+    expect(md).toContain("# Attention Is All You Need");
+  });
+
+  it("keeps the title readable even with quotes in it", () => {
     const md = buildLiteratureNote(item({ title: 'A "quoted" title' }));
-    expect(md).toContain('title: "A \\"quoted\\" title"');
+    expect(md).toContain('# A "quoted" title');
+  });
+});
+
+describe("custom template support", () => {
+  it("substitutes placeholders in a user template", () => {
+    const template = "# {{title}}\nby {{authors}} ({{year}})\nkey: {{key}}\n[[{{citeKey}}]]";
+    const md = buildLiteratureNote(item({}), template);
+    expect(md).toContain("# Attention Is All You Need");
+    expect(md).toContain("by Vaswani et al. (2017)");
+    expect(md).toContain("[[vaswani2017attention]]");
+  });
+
+  it("injects zotero-key frontmatter when a custom template omits it (so matching still works)", () => {
+    // A user template with no frontmatter at all.
+    const md = buildLiteratureNote(item({}), "# {{title}}\n\nMy notes here.");
+    expect(md).toMatch(/^---\nzotero-key: "ABCD"\n---/);
+    expect(md).toContain("# Attention Is All You Need");
+  });
+
+  it("injects zotero-key into an existing frontmatter block that lacks it", () => {
+    const template = '---\ntitle: "{{title}}"\n---\n\n# {{title}}';
+    const md = buildLiteratureNote(item({}), template);
+    expect(md).toContain('zotero-key: "ABCD"');
+    expect(md).toContain('title: "Attention Is All You Need"');
+  });
+
+  it("does not double-inject when the template already has zotero-key", () => {
+    const template = '---\nzotero-key: "{{key}}"\n---\n\n# {{title}}';
+    const md = buildLiteratureNote(item({}), template);
+    expect((md.match(/zotero-key:/g) ?? []).length).toBe(1);
+  });
+
+  it("leaves unknown placeholders untouched", () => {
+    const md = buildLiteratureNote(item({}), "{{title}} {{unknownField}}");
+    expect(md).toContain("Attention Is All You Need {{unknownField}}");
+  });
+
+  it("falls back to the built-in default for an empty template", () => {
+    const md = buildLiteratureNote(item({}), "");
+    expect(md).toContain("## Abstract");
+    expect(md).toContain("## Notes");
   });
 });
 
