@@ -115,5 +115,13 @@ export interface KnowledgeView {
   readonly paginates?: boolean;
   /** Optional view-specific settings, surfaced automatically in the editor modal. */
   readonly optionSpecs?: readonly ViewOptionSpec[];
+  /**
+   * Load anything expensive this view needs, before `render` runs. Called once per render, awaited by the
+   * host, and resolves instantly on the second call (the dep is cached by the module system). Exists so a
+   * view carrying a heavy library — the chart view and its ~190 KB of chart.js — can `import()` it on
+   * first use instead of at plugin startup, keeping that weight off every launch for the majority who
+   * never open that view. Views with no such cost simply leave it undefined.
+   */
+  prepare?(): Promise<void>;
   render(context: ViewRenderContext): void;
 }

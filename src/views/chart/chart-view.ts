@@ -1,4 +1,3 @@
-import { Chart, registerables } from "chart.js";
 import { setIcon, setTooltip } from "obsidian";
 import { renderEmptyState } from "../empty-state";
 import { optString } from "../view-options";
@@ -7,7 +6,42 @@ import { buildChartSeries, describeSeries, CHART_AGGREGATES } from "./chart-data
 import type { KnowledgeView, ViewRenderContext } from "../view";
 import type { SummaryFn } from "../../domain/index";
 
-Chart.register(...registerables);
+/**
+ * chart.js is ~190 KB and only this one view needs it, yet a static `import` would put it on the plugin's
+ * startup parse for everyone — including the majority who never open a chart. So it is loaded on first
+ * render via `prepare()` (below) and parked here. `ChartCtor` is the constructor; it is null until the
+ * first chart view renders, and the render path only runs after `prepare()` has resolved, so it is safe
+ * to assert non-null there.
+ *
+ * (Tree-shaking chart.js *smaller* is a dead end, incidentally: v4 ships as one pre-rolled `dist/chart.js`
+ * bundle with its internals already minified to single letters, so esbuild cannot drop the unused
+ * controllers within it. Registering only what we draw stops that code *executing*, but it still ships.
+ * Deferring the whole library off startup is the lever that actually moves; shrinking it is not.)
+ */
+type ChartModule = typeof import("chart.js");
+let ChartCtor: ChartModule["Chart"] | null = null;
+
+/** Load chart.js once and register exactly the components the six kinds draw (not `registerables`, which
+ *  pulls in radar, polar-area, bubble, scatter, and log/time scales this view cannot produce). */
+async function loadChart(): Promise<void> {
+  if (ChartCtor) return;
+  const m = await import("chart.js");
+  m.Chart.register(
+    m.BarController,
+    m.LineController,
+    m.DoughnutController,
+    m.CategoryScale, // x axis (bucket labels)
+    m.LinearScale, //   y axis (values)
+    m.BarElement, //    bar / hbar
+    m.LineElement, //   line / area strokes
+    m.PointElement, //  line / area vertices
+    m.ArcElement, //    donut segments
+    m.Legend, //        shown for donut
+    m.Tooltip, //       the "N rows — click to open" footer
+    m.Filler, //        shaded area under `fill: true`; silently no-ops without it
+  );
+  ChartCtor = m.Chart;
+}
 
 type ChartKind = "bar" | "hbar" | "line" | "area" | "donut" | "number";
 
@@ -98,6 +132,8 @@ function renderChart(ctx: ViewRenderContext): void {
   const grid = themeVar(root, "--background-modifier-border", "#ddd");
   const single = colors[0]!;
 
+  // Non-null: renderProfile awaits prepare() (which calls loadChart) before ever calling render().
+  const Chart = ChartCtor!;
   const chart = new Chart(canvas, {
     type: kind === "donut" ? "doughnut" : kind === "line" || kind === "area" ? "line" : "bar",
     data: {
@@ -177,5 +213,6 @@ export const chartView: KnowledgeView = {
       choices: KINDS.map((k) => ({ value: k.id, label: k.label })),
     },
   ],
+  prepare: loadChart, // pull in chart.js on first chart render, not at plugin startup
   render: renderChart,
 };

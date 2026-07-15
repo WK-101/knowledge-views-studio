@@ -5,6 +5,47 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 115 — chart.js off the startup path (and why shrinking it is a dead end)
+
+chart.js is ~190 KB of the bundle and exactly one of the seven layouts uses it — yet a static
+`import` put it on the parse-and-execute path of *every* plugin launch, including for the majority who
+never open a chart. This phase takes it off that path. The result is measured, and the measurement is not
+the one the plan assumed.
+
+### The obvious fix doesn't work, for a concrete reason
+
+The plan was to tree-shake chart.js smaller by registering only the components the six chart kinds draw
+(bar, line, doughnut controllers; category + linear scales; the matching elements; legend, tooltip,
+filler) instead of `registerables`, which pulls in radar, polar-area, bubble, scatter, and log/time
+scales this view cannot produce. That change is correct and was kept — but it saves **~7 KB, not the
+expected chunk**. The reason: chart.js v4 ships as a single pre-rolled `dist/chart.js` where the internals
+are already minified to single-letter names, so esbuild sees one opaque module and cannot drop the unused
+controllers *inside* it. v4 exposes only three import subpaths (`.`, `./auto`, `./helpers`) — no granular
+controller/scale entry points — so there is no shakeable seam to import through. Registering less stops
+that code *executing*; it does not stop it *shipping*.
+
+### The lever that actually moves: defer execution, not bytes
+
+So the win is not a smaller library — it is not running the library at startup at all. chart.js now loads
+via a dynamic `import()` inside a new optional `prepare()` hook on the view interface, called and awaited
+by `renderProfile` before a view draws. Only the chart view defines it; every other view leaves it
+undefined and is untouched.
+
+The subtlety worth recording: Obsidian requires a single CJS `main.js`, and code-splitting needs ESM
+output — so esbuild **inlines** the dynamically-imported chart.js rather than emitting a separate chunk.
+The bytes stay in the bundle (the total is in fact ~1.4 KB *larger*, from the lazy-init wrapper). It would
+be easy to conclude the deferral therefore did nothing. It didn't do nothing — verified empirically:
+esbuild wraps a dynamically-imported module in a lazy init function, so requiring the built bundle runs in
+~10 ms and chart.js's ~400 KB of module code executes only on the first `import()`, not at load. Bytes are
+downloaded once and cached; startup execution is paid on every single launch. Trading a 1.4 KB byte
+increase to remove ~190 KB of startup execution is the right side of that trade.
+
+A guard test locks it in: chart.js may be imported only via dynamic `import()` or a type-only import,
+never statically. That deferral is one stray `import { Chart } from "chart.js"` from silent reversal, and
+no other gate would catch it — it would still typecheck, test, build, and lint.
+
+639 tests (was 636). Four gates green.
+
 ## Phase 114 — container queries, and the CSS gate that was missing
 
 Obsidian is a tiling window manager. The same dashboard can be a full pane on a laptop, a 380px sidebar

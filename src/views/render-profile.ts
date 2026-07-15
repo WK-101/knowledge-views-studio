@@ -185,6 +185,9 @@ export async function renderProfile(options: RenderProfileOptions): Promise<void
       ...(options.onFetchDoiValues ? { onFetchDoiValues: options.onFetchDoiValues } : {}),
       ...(options.onFindCitations ? { onFindCitations: options.onFindCitations } : {}),
     };
+    // Load any heavy dependency this view defers (chart.js, today) before drawing. Awaited here so
+    // `render` stays synchronous; a no-op for every view that doesn't define it.
+    if (view.prepare) await view.prepare();
     view.render(context);
   } catch (error) {
     container.empty();
