@@ -5,6 +5,30 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 127.1 — fix: "Fill details from Zotero" never appeared (a dropped callback)
+
+A real bug, and an honest one to record. "Fill details from Zotero" (added in phase 126) was wired at both
+ends — the dashboard set the `onFetchZotero` callback, and the table view's row menu read it — but it never
+showed up. The cause was the layer *between* them: `renderProfile` takes a `RenderProfileOptions` bag and
+forwards a whitelisted set of callbacks into the view context, and `onFetchZotero` was never added to that
+whitelist. So the callback was set, passed to `renderProfile`, and silently dropped before the view ever
+saw it. `onPromote` was forwarded, which is why "Promote to dedicated note" (and its new Zotero-awareness)
+worked — the two were wired the same way at the ends but only one survived the middle.
+
+The lesson: verifying the endpoints ("dashboard sets it", "view reads it") wasn't enough — the passthrough
+layer was the gap, and only tracing the whole chain caught it. The fix declares and forwards
+`onFetchZotero` like the others, and a new guard test parses `render-profile.ts` and asserts that *every*
+row-action callback (fill-from-DOI, fill-from-Zotero, promote, cite, DOI-values) is both declared and
+forwarded — so a callback can't be added at the ends while being dropped in the middle again.
+
+Where these options live, for reference: right-click a row **in a table view that has the Academic Research
+kit enabled**. "Fill details from Zotero" sits directly under "Fill details from DOI", so the row needs a
+DOI column with a value. "Promote to dedicated note" is the same existing menu item — there is no separate
+button for the Zotero-awareness; it simply builds the note from Zotero when the row's DOI is in your library
+and Zotero is running, and falls back to the template otherwise.
+
+753 tests (was 748).
+
 ## Phase 127 — keeping Zotero fresh: note refresh, collection scoping, and incremental search
 
 Three smaller completions, each closing a "this goes stale / this is all-or-nothing" gap in the Zotero

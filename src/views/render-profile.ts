@@ -72,6 +72,7 @@ export interface RenderProfileOptions {
   /** Academic kit row actions + autocomplete, forwarded to the view context. */
   readonly onCite?: (citeKey: string) => void;
   readonly onFetchDoi?: (row: Row) => void;
+  readonly onFetchZotero?: (row: Row) => void;
   readonly onPromote?: (row: Row) => void;
   readonly columnValues?: (columnName: string) => readonly string[];
   readonly onAddRowTop?: () => void;
@@ -178,6 +179,7 @@ export async function renderProfile(options: RenderProfileOptions): Promise<void
         : {}),
       ...(options.onCite ? { onCite: options.onCite } : {}),
       ...(options.onFetchDoi ? { onFetchDoi: options.onFetchDoi } : {}),
+      ...(options.onFetchZotero ? { onFetchZotero: options.onFetchZotero } : {}),
       ...(options.onPromote ? { onPromote: options.onPromote } : {}),
       ...(options.columnValues ? { columnValues: options.columnValues } : {}),
       ...(options.onAddRowTop ? { onAddRowTop: options.onAddRowTop } : {}),
