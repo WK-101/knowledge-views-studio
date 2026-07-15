@@ -1017,7 +1017,11 @@ export class KnowledgeViewsSettingTab extends PluginSettingTab {
 
   private summarize(profile: Profile): string {
     const scope =
-      profile.scope.mode === "vault" ? "Whole vault" : profile.scope.folders.join(", ") || "Whole vault";
+      profile.scope.mode === "zotero"
+        ? "Zotero library"
+        : profile.scope.mode === "vault"
+          ? "Whole vault"
+          : profile.scope.folders.join(", ") || "Whole vault";
     const viewLabel = this.deps.views.get(profile.view.type)?.label ?? profile.view.type;
     const bits = [scope, viewLabel];
     const conditions = profile.filter?.conditions.length ?? 0;

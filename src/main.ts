@@ -91,6 +91,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
       registry,
       extractors,
       getSettings: () => store.getSettings(),
+      zoteroProvider: () => new LocalApiZoteroProvider(store.getSettings().zoteroApiBase, createZoteroFetcher()),
       onSourceWarning: (path, error) => {
         console.warn(`[KVS] Skipped unreadable source ${path}:`, error);
         if (warnedSources.has(path)) return;
@@ -193,6 +194,11 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
       id: "kvs-open-zotero-library",
       name: "Open Zotero library",
       callback: () => void openZoteroLibraryView(this.app),
+    });
+    this.addCommand({
+      id: "kvs-create-zotero-dashboard",
+      name: "Create Zotero library dashboard (all layouts)",
+      callback: () => void this.createZoteroDashboard(),
     });
     this.addRibbonIcon("search", "Search vault (KVS)", () => void openSearchView(this.app));
     this.app.workspace.onLayoutReady(() => {
@@ -532,6 +538,39 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     store.setActiveProfile(profile.id);
     await this.activateDashboard();
     new Notice(`Created a view from “${file.basename}”.`);
+  }
+
+  /**
+   * Create a live Zotero library view that renders through the full engine — every layout (table, cards,
+   * board, calendar, gallery, chart, pivot), filters, computed columns, and search over Zotero data, not a
+   * bespoke one-off table. Columns carry semantic roles so the non-table layouts have sensible defaults
+   * (title for cards, date for the calendar, tags for the board).
+   */
+  private async createZoteroDashboard(): Promise<void> {
+    const store = this.profileStore;
+    if (!store) return;
+    const profile = createProfile({
+      name: "Zotero library",
+      scope: { mode: "zotero", folders: [], includeSubfolders: false },
+      extractors: ["zotero-library"],
+      columns: [
+        { name: "Title", type: "text", role: "title" },
+        { name: "Creators", type: "text" },
+        { name: "Year", type: "text", role: "date" },
+        { name: "Type", type: "text", role: "status" },
+        { name: "Publication", type: "text" },
+        { name: "Cite Key", type: "text" },
+        { name: "DOI", type: "text" },
+        { name: "Tags", type: "tags", role: "tags" },
+        { name: "Collections", type: "tags" },
+        { name: "Added", type: "date" },
+        { name: "Modified", type: "date" },
+      ],
+    });
+    store.addProfile(profile);
+    store.setActiveProfile(profile.id);
+    await this.activateDashboard();
+    new Notice("Created a live Zotero library view. It reads from Zotero's local API — make sure Zotero is running.");
   }
 
   /** Open the first-run welcome (also reachable via the "Getting started" command). */

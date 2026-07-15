@@ -3,7 +3,7 @@
  * (full-vault / single-folder / multi-folder); a single folder is just a
  * folder list of length one, so this collapses to two modes.
  */
-export type ScopeMode = "vault" | "folders";
+export type ScopeMode = "vault" | "folders" | "zotero";
 
 export interface ScopeConfig {
   readonly mode: ScopeMode;

@@ -15,6 +15,8 @@ import {
   combineRows,
   type RowMerge,
 } from "../domain/index";
+import type { ZoteroProvider } from "./zotero/provider";
+import { zoteroItemsToRows } from "./zotero/zotero-rows";
 import { Emitter, type Unsubscribe } from "../util/emitter";
 import { debounce, type Debounced } from "../util/debounce";
 import {
@@ -36,6 +38,12 @@ export interface DataServiceOptions {
   readonly getSettings: () => GlobalSettings;
   /** Called when a single source can't be read/parsed, so it can be skipped without breaking the view. */
   readonly onSourceWarning?: (path: string, error: unknown) => void;
+  /**
+   * Supplies a Zotero provider on demand, for profiles scoped to a Zotero library. Optional: without it,
+   * a Zotero-scoped profile simply yields no rows (rather than erroring), so the data service has no hard
+   * dependency on Zotero being configured.
+   */
+  readonly zoteroProvider?: () => ZoteroProvider | null;
 }
 
 interface CachedFile {
@@ -140,6 +148,16 @@ export class DataService {
 
   /** Gather rows from every in-scope file using the profile's extractors. */
   async buildDataset(profile: Profile): Promise<Dataset> {
+    // A Zotero-scoped profile draws its rows from the live Zotero library rather than vault files. Once
+    // mapped to Rows, the entire downstream pipeline — compute, filter, search, sort, and every one of the
+    // seven layouts — treats them identically to file-derived rows. That is what makes the Zotero library a
+    // first-class source and not a bolted-on panel. We don't use the file cache here: Zotero is the source
+    // of truth and can change outside the vault, so each build fetches fresh (the query-level prepared
+    // cache still spares re-filtering on a plain re-render).
+    if (profile.scope.mode === "zotero") {
+      return this.buildZoteroDataset();
+    }
+
     const key = this.datasetKey(profile);
     const cached = this.assembled.get(key);
     if (cached && cached.epoch === this.epoch) return cached.rows;
@@ -171,6 +189,24 @@ export class DataService {
 
     this.assembled.set(key, { epoch: this.epoch, rows });
     return rows;
+  }
+
+  /**
+   * Fetch the live Zotero library and map it to rows. Degrades to an empty dataset — never throws — when
+   * no provider is configured or Zotero is unreachable, so a Zotero-scoped view on a machine without Zotero
+   * running simply shows nothing rather than breaking. The write backend is threaded through so the rows'
+   * read-only state reflects the current (today: read-only) write capability.
+   */
+  private async buildZoteroDataset(): Promise<Dataset> {
+    const provider = this.options.zoteroProvider?.() ?? null;
+    if (!provider) return [];
+    try {
+      const items = await provider.listItems({ limit: 1000 });
+      return zoteroItemsToRows(items, provider.writes);
+    } catch (error) {
+      this.options.onSourceWarning?.("zotero://library", error);
+      return [];
+    }
   }
 
   /** Non-md extensions this profile's active extractors need — only when the feature is enabled. */

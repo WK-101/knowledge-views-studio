@@ -5,6 +5,53 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 121 — Zotero as a first-class source across every layout
+
+The previous phase gave the Zotero library its own view. This phase makes it a *source* the whole engine
+understands, so a Zotero library renders through all seven layouts (table, cards, board, calendar, gallery,
+chart, pivot) with filters, computed columns, rollups, and search — exactly like a folder of notes or a
+spreadsheet. Not a bespoke panel; a real data source.
+
+### How it plugs in
+
+The impedance mismatch was real: the view engine is built around *files* (a `DataService` discovers notes
+and runs synchronous extractors), while Zotero is *async and not file-based*. The clean resolution was to
+branch at the one point where raw rows are produced — `buildDataset` — rather than force Zotero through the
+file-reading machinery:
+
+- A new scope mode, `"zotero"`. A profile scoped to Zotero draws its rows from the live provider instead of
+  the vault.
+- `buildDataset` branches on that mode: Zotero-scoped → fetch from the provider and map to rows; otherwise
+  the existing file path, untouched.
+- **Everything downstream is unchanged.** Once the items are `Row`s, the transform pipeline (compute →
+  filter → search → sort → paginate) and every layout treat them identically. That is the entire benefit of
+  having a single `Row` abstraction: adding a wholly new *kind* of source touched one method, not the seven
+  layouts, the filter engine, or the formula evaluator.
+
+The provider is injected optionally, so the engine has no hard dependency on Zotero: a Zotero-scoped view on
+a machine with no Zotero running yields an empty dataset (with a source warning), never an error.
+
+### The write seam survives the whole pipeline
+
+The read-only marking established last phase isn't lost when rows pass through the engine: a test drives a
+real `DataService` with a fake provider and asserts that the rows coming *out* of the full pipeline still
+carry `readOnlyFields` and their Zotero provenance. So when local write support arrives and the backend
+reports it can write, edits made in any layout — a card, a board cell, a table row — will route through the
+same seam. The bidirectional future is wired end to end, not just at the edges.
+
+### What ships
+
+A command, "Create Zotero library dashboard (all layouts)", builds a Zotero-scoped view with typed columns
+and semantic roles (title, date, tags) so the non-table layouts have sensible defaults out of the box —
+your library as a kanban board by item type, a calendar by date added, a gallery, a pivot. All read live
+from Zotero's local API, all read-only until Zotero permits otherwise.
+
+Proven by an end-to-end integration test (7 cases) that runs the real engine against a fake provider: rows
+produced, filters applied, sort applied, kanban grouping, the read-only seam intact, and graceful
+degradation when the provider is absent or throws.
+
+709 tests (was 702). Four gates green.
+
 ## Phase 120 — a live Zotero library view, built for eventual two-way editing
 
 The [zotero-lib-view](https://github.com/lebenswille/zotero-lib-view) plugin puts your Zotero library in a
