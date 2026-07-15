@@ -821,6 +821,11 @@ export class DashboardView extends TextFileView {
     this.propsBtn = this.iconBtn(right, "table-2", "Properties", (a) => this.openPropertiesPopover(a), !active);
     this.iconBtn(right, "maximize-2", "Focus mode (maximize the view)", () => this.toggleFocusMode(), !active);
     this.saveStatusEl = right.createDiv({ cls: "kvs-save-status" });
+    // A silent status pill is invisible to a screen reader — the user edits a cell and gets no signal it
+    // saved, or worse, no signal it failed. aria-live="polite" announces each transition without stealing
+    // focus; role="status" is its matching landmark. "Not saved" is the one that must never pass silently.
+    this.saveStatusEl.setAttribute("role", "status");
+    this.saveStatusEl.setAttribute("aria-live", "polite");
     this.renderSaveStatus();
     const view = rendered ? this.deps.views.get(rendered.view.type) : undefined;
     if (view?.optionSpecs && view.optionSpecs.length > 0) {

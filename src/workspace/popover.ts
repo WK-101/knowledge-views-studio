@@ -23,6 +23,15 @@ export function openPopover(
 ): void {
   closePopover();
   const el = document.body.createDiv({ cls: "kvs-popover" });
+  // A popover with no focus management strands a keyboard user: focus stays on the page behind it, Tab
+  // walks the wrong things, and on close there is nowhere sensible to land. So it is a labelled dialog,
+  // focus moves into it on open, and returns to whatever opened it on close.
+  el.setAttribute("role", "dialog");
+  el.setAttribute("aria-modal", "false");
+  el.tabIndex = -1;
+  // Remember where focus was so it can be restored — the anchor if it's focusable, else the live element.
+  const returnFocusTo =
+    document.activeElement instanceof HTMLElement ? document.activeElement : anchor;
 
   const place = (): void => {
     const rect = anchor.getBoundingClientRect();
@@ -65,11 +74,19 @@ export function openPopover(
       document.removeEventListener("mousedown", onDocPointerDown);
       document.removeEventListener("keydown", onKey);
       el.remove();
+      // Return focus where it was, so Escape or an outside click doesn't leave the keyboard nowhere.
+      // Guard against the anchor having been removed from the DOM while the popover was open.
+      if (returnFocusTo.isConnected) returnFocusTo.focus();
     },
   };
 
   build(el, handle);
   place();
+  // Move focus into the popover: the first focusable control if there is one, else the dialog itself.
+  const firstFocusable = el.querySelector<HTMLElement>(
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+  );
+  (firstFocusable ?? el).focus();
 }
 
 /**

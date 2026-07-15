@@ -157,6 +157,11 @@ export class SearchView extends ItemView {
     this.iconBtn(tools, "refresh-cw", "Rebuild search index", false, () => this.rebuildIndex());
     this.iconBtn(tools, "circle-help", "Search syntax", false, (e) => this.openHelpMenu(e));
     this.countEl = bar.createDiv({ cls: "kvs-sv-count kvs-results" });
+    // The result count is the one place a screen-reader user learns their search returned anything. As a
+    // live region, "12 results" / "No matches" / "5 passages" is announced when it changes, without
+    // moving focus off the search box they are still typing in.
+    this.countEl.setAttribute("role", "status");
+    this.countEl.setAttribute("aria-live", "polite");
 
     // ================= Bar 2: modes + filters (single compact row) =================
     const filter = root.createDiv({ cls: "kvs-toolbar-bar kvs-sv-filterbar" });

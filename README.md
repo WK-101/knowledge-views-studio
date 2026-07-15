@@ -213,13 +213,13 @@ Being honest about the edges:
   laptop's choices should not conscript a battery. It has been built carefully for touch, but it has not
   yet been through a long shakedown on many real devices, so treat rough edges as expected and report
   them.
-- **The search has never been evaluated for relevance.** There are 643 tests proving the code does what it
+- **The search has never been evaluated for relevance.** There are 650 tests proving the code does what it
   says; there is no query set, no measurement, and therefore no evidence that it returns *good* results.
   Those are different claims, and only the first is currently backed.
 
 ## Status
 
-**New, and looking for people to break it.** The logic is covered by **643 unit tests**, the code is
+**New, and looking for people to break it.** The logic is covered by **650 unit tests**, the code is
 TypeScript in strict mode, and every release must pass typecheck, tests, build, and lint — including
 Obsidian's own reviewer rules (`eslint-plugin-obsidianmd`), which run in CI on every push.
 

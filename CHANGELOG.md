@@ -5,6 +5,48 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 117 — command hygiene and accessibility
+
+Two kinds of polish that the compiler and the unit suite are both blind to.
+
+### Commands hide when they can't run, instead of scolding
+
+Seven commands — focus mode, and the DOI/dedup/citation/shard academic commands — used a plain
+`callback` that, when no Knowledge View was open, fired a Notice: "Open a Knowledge View first." Obsidian's
+convention is the opposite: a context-dependent command should be *absent* from the palette when its
+context is missing, via `checkCallback` returning `false`. Present-but-failing is a small papercut every
+time someone scrolls past a command they can't use. All seven now hide cleanly. (The reference-import
+command kept its structure: it works with or without a view, so it should stay visible; its one Notice is
+a settings-state message, not a missing-context one.)
+
+### Accessibility: four gaps a screen-reader user actually hits
+
+The table was already in good shape — real `<table>` semantics, `scope`, `role="columnheader"`,
+`aria-sort`, keyboard-activated sorting. The gaps were elsewhere:
+
+- **The virtualized table lied about its size.** With windowing, the DOM holds only a dozen rows, so a
+  screen reader counting `<tr>`s announced "row 5 of 8" for a 500-row table. Now `role="grid"` +
+  `aria-rowcount` (the true total) + `aria-rowindex` on every row (its true position) — so assistive tech
+  navigates the whole grid, not the window. One subtlety caught in review: group-header rows also receive
+  an index, so the count has to include them, or an index would exceed the stated total whenever grouping
+  is on.
+- **The save-status indicator was silent.** A sighted user sees "Saving… / Saved / Not saved"; a screen
+  reader got nothing — including no signal that a write *failed*. It is now an `aria-live="polite"`
+  `role="status"` region, so every transition is announced without stealing focus from the cell being
+  edited.
+- **Popovers stranded the keyboard.** Opening the view menu or properties popover left focus on the page
+  behind it, Tab walked the wrong things, and Escape had nowhere to return focus to. Popovers are now
+  `role="dialog"`; focus moves to the first control on open and returns to whatever opened it on close
+  (guarding against that trigger having been removed meanwhile).
+- **Search results weren't announced.** The result count ("12 results" / "No matches" / "5 passages") is
+  now a live region, so a screen-reader user learns their query returned something without leaving the
+  search box.
+
+Each is wired with a source-level guard test — presence, not runtime correctness, which is the honest
+limit of a static check, but enough to stop the wiring being silently dropped later.
+
+650 tests (was 643). Four gates green.
+
 ## Phase 116 — decomposing the god object: the academic kit moves out
 
 `DashboardView` was 3,130 lines. It built the toolbar, managed tabs, switched layouts, saved, rendered —

@@ -278,10 +278,13 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     this.addCommand({
       id: "toggle-focus-mode",
       name: "Toggle focus mode (maximize the view)",
-      callback: () => {
+      // checkCallback, not callback: a command that only works with a Knowledge View open should be
+      // absent from the palette otherwise, which is Obsidian's convention — not present-but-scolding.
+      checkCallback: (checking) => {
         const view = this.app.workspace.getActiveViewOfType(DashboardView);
-        if (view) view.toggleFocusMode();
-        else new Notice("Open a Knowledge View to use focus mode.");
+        if (!view) return false;
+        if (!checking) view.toggleFocusMode();
+        return true;
       },
     });
     this.addCommand({
@@ -302,25 +305,21 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     this.addCommand({
       id: "add-papers-by-doi",
       name: "Add papers by DOI (current view)",
-      callback: () => {
+      checkCallback: (checking) => {
         const view = this.app.workspace.getActiveViewOfType(DashboardView);
-        if (!view) {
-          new Notice("Open a Knowledge View first.");
-          return;
-        }
-        new AddByDoiModal(this.app, (dois) => void view.captureByDoi(dois)).open();
+        if (!view) return false;
+        if (!checking) new AddByDoiModal(this.app, (dois) => void view.captureByDoi(dois)).open();
+        return true;
       },
     });
     this.addCommand({
       id: "fill-missing-from-doi",
       name: "Fill missing metadata from DOI (current view)",
-      callback: () => {
+      checkCallback: (checking) => {
         const view = this.app.workspace.getActiveViewOfType(DashboardView);
-        if (!view) {
-          new Notice("Open a Knowledge View first.");
-          return;
-        }
-        void view.bulkFillFromDoi();
+        if (!view) return false;
+        if (!checking) void view.bulkFillFromDoi();
+        return true;
       },
     });
     this.addCommand({
@@ -353,37 +352,31 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     this.addCommand({
       id: "find-duplicate-dois",
       name: "Find duplicate DOIs in my library",
-      callback: () => {
+      checkCallback: (checking) => {
         const view = this.app.workspace.getActiveViewOfType(DashboardView);
-        if (!view) {
-          new Notice("Open a Knowledge View first.");
-          return;
-        }
-        void view.findDuplicateDois();
+        if (!view) return false;
+        if (!checking) void view.findDuplicateDois();
+        return true;
       },
     });
     this.addCommand({
       id: "find-citation-links",
       name: "Find citation links in my library (OpenAlex)",
-      callback: () => {
+      checkCallback: (checking) => {
         const view = this.app.workspace.getActiveViewOfType(DashboardView);
-        if (!view) {
-          new Notice("Open a Knowledge View first.");
-          return;
-        }
-        void view.findCitationLinks();
+        if (!view) return false;
+        if (!checking) void view.findCitationLinks();
+        return true;
       },
     });
     this.addCommand({
       id: "shard-library",
       name: "Shard this library into multiple files",
-      callback: () => {
+      checkCallback: (checking) => {
         const view = this.app.workspace.getActiveViewOfType(DashboardView);
-        if (!view) {
-          new Notice("Open a Knowledge View first.");
-          return;
-        }
-        void view.openShardModal();
+        if (!view) return false;
+        if (!checking) void view.openShardModal();
+        return true;
       },
     });
 

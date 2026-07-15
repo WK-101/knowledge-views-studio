@@ -335,8 +335,12 @@ function renderBodyRow(
   selection: Set<string> | null,
   repaint: () => void,
   frozen: boolean,
+  ariaRowIndex?: number,
 ): void {
   const tr = tbody.createEl("tr", { cls: "kvs-row" });
+  // The row's true position in the full dataset (not its position in the rendered window), so a
+  // screen reader reads "row 240 of 500" correctly even though only a dozen rows are in the DOM.
+  if (ariaRowIndex !== undefined) tr.setAttribute("aria-rowindex", String(ariaRowIndex));
   renderGutterCell(tr, row, ctx, selection, repaint);
   ctx.columns.forEach((column, index) => renderCell(tr, row, column, ctx, frozen && index === 0));
   attachRowMenu(tr, row, ctx);
@@ -461,6 +465,7 @@ function renderHeader(
   frozen: boolean,
 ): void {
   const headRow = table.createEl("thead").createEl("tr");
+  headRow.setAttribute("aria-rowindex", "1"); // the header is ARIA row 1; data rows follow at 2+
   const activeSort = ctx.currentSort[0];
 
   // One combined leading column for selection + source. Its width drives the frozen-column offset.
@@ -583,14 +588,16 @@ function renderItem(
   repaint: () => void,
   span: number,
   frozen: boolean,
+  ariaRowIndex?: number,
 ): void {
   if (item.kind === "header") {
     const tr = tbody.createEl("tr", { cls: "kvs-group-row" });
+    if (ariaRowIndex !== undefined) tr.setAttribute("aria-rowindex", String(ariaRowIndex));
     const cell = tr.createEl("td", { cls: "kvs-group-cell", attr: { colspan: String(span) } });
     cell.createSpan({ cls: "kvs-group-key", text: item.key });
     cell.createSpan({ cls: "kvs-group-count", text: ` · ${item.count}` });
   } else {
-    renderBodyRow(tbody, item.row, ctx, selection, repaint, frozen);
+    renderBodyRow(tbody, item.row, ctx, selection, repaint, frozen, ariaRowIndex);
   }
 }
 
@@ -670,6 +677,15 @@ function renderTable(ctx: ViewRenderContext): void {
     .filter(Boolean)
     .join(" ");
   const table = scroll.createEl("table", { cls: tableCls });
+  // With virtualization the DOM holds only a slice of rows, so a screen reader counting <tr>s would
+  // report the wrong total ("row 5 of 8" when there are 500). aria-rowcount states the real total, and
+  // each row carries its true aria-rowindex below — so assistive tech navigates the whole grid, not the
+  // window. +1 for the header row, which counts in the ARIA row numbering.
+  // Every item becomes a row with an aria-rowindex (data rows and group-header rows alike), so the count
+  // must include both — plus 1 for the column header. Counting only data rows here would let an index
+  // exceed the stated total whenever groups are present, which is an ARIA contradiction.
+  table.setAttribute("role", "grid");
+  table.setAttribute("aria-rowcount", String(items.length + 1));
   renderHeader(table, ctx, selection, allRows, repaint, frozen);
 
   const tbody = table.createEl("tbody");
@@ -677,7 +693,7 @@ function renderTable(ctx: ViewRenderContext): void {
   renderSummaryFooter(table, ctx, allRows, selection !== null);
 
   if (!virtualize) {
-    for (const item of items) renderItem(tbody, item, ctx, selection, refreshSelectionUI, span, frozen);
+    items.forEach((item, i) => renderItem(tbody, item, ctx, selection, refreshSelectionUI, span, frozen, i + 2));
     scroll.addEventListener("scroll", () => {
       scrollStore.set(ctx.viewKey, scroll.scrollTop);
       capViewState(scrollStore);
@@ -738,7 +754,7 @@ function renderTable(ctx: ViewRenderContext): void {
       if (rendered.has(i)) continue;
       const item = items[i];
       if (!item) continue;
-      renderItem(tbody, item, ctx, selection, refreshSelectionUI, span, frozen);
+      renderItem(tbody, item, ctx, selection, refreshSelectionUI, span, frozen, i + 2);
       const el = tbody.lastElementChild;
       if (el instanceof HTMLElement) {
         rendered.set(i, el);
