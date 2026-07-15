@@ -5,6 +5,47 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 116 — decomposing the god object: the academic kit moves out
+
+`DashboardView` was 3,130 lines. It built the toolbar, managed tabs, switched layouts, saved, rendered —
+and, incongruously, knew how to talk to Crossref. Roughly 540 of those lines were the academic-research
+kit: DOI capture and fill, duplicate detection, citation-graph linking, library sharding, and BibTeX/CSV
+reference import. A view class reaching out to academic metadata APIs is exactly the layering violation
+the rest of this codebase is careful to avoid, and it made every future change to either concern more
+expensive.
+
+The kit now lives in its own `AcademicController` (639 lines), reached through a deliberately narrow
+`AcademicHost` interface. The controller owns everything academic — the DOI clients, the dedup detector,
+the shard writer, and the one piece of state that logic carries (the citation-key index). The host
+supplies only the live view state the kit cannot know on its own: the current and rendered profiles, the
+on-screen rows, the search string, the shared write-with-undo path, and a redraw callback. `DashboardView`
+dropped to **2,587 lines** — a 17% cut — and its public academic commands became one-line delegations, so
+`main.ts` still calls them on the view and nothing downstream changed.
+
+### Behaviour is provably unchanged
+
+A refactor this size is only worth doing if it changes nothing, so that was checked rather than assumed.
+The moved method bodies were compared, normalised, against their originals from git: every difference is
+exactly the mechanical `this.search` → `this.host.search()` and `this.lastRows` → `this.host.lastRows()`
+indirection the extraction deliberately introduced — no logic drift anywhere. That, plus the full suite
+staying green, is the evidence.
+
+### The boundary is a tested invariant, not a hope
+
+The entire value of the split is the boundary holding. If the controller ever imports the view, or
+reaches into `TextFileView`/`WorkspaceLeaf`/`contentEl`, or the view's delegators grow back into real
+implementations, the god object quietly reassembles. So a guard test enforces all of it: the dependency
+points one way only, the controller talks solely through `this.host`, and each public command is a genuine
+delegation. Four assertions that make regression a failing test rather than a slow slide.
+
+Which methods stayed on the view was a judgment call, not a line-count cut: `promoteToNote`,
+`addRowAndEdit`, and `forceRefresh` touch academic state but are not academic features, and the BibTeX
+*export* branch is cohesive with the export flow, not the kit — so those stayed, and the shared
+`applyRowEdits`/`appendTargetFor` write helpers stayed on the view with the kit calling into them, rather
+than the kit owning a second copy.
+
+643 tests (was 639). Four gates green.
+
 ## Phase 115 — chart.js off the startup path (and why shrinking it is a dead end)
 
 chart.js is ~190 KB of the bundle and exactly one of the seven layouts uses it — yet a static
