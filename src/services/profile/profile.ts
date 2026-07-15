@@ -200,6 +200,8 @@ export interface GlobalSettings {
   readonly zotflowInteropEnabled: boolean;
   /** Include the Zotero library and its annotations in vault search (reads Zotero's local API). */
   readonly indexZotero: boolean;
+  /** Folder where new literature notes (one per Zotero paper) are created. */
+  readonly literatureNotesFolder: string;
   /** Whether the first-run welcome has been shown (so it appears only once). */
   readonly onboardingSeen: boolean;
   /** Ids of one-time contextual hints the user has dismissed. */
@@ -254,6 +256,7 @@ export const DEFAULT_SETTINGS: GlobalSettings = {
   annotationThemes: DEFAULT_THEME_SPEC,
   zotflowInteropEnabled: false,
   indexZotero: false,
+  literatureNotesFolder: "Literature",
   onboardingSeen: false,
   seenHints: [],
   enableRowCopy: false,

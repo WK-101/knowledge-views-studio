@@ -827,6 +827,13 @@ export class KnowledgeViewsSettingTab extends PluginSettingTab {
       .addToggle((t) => t.setValue(settings.indexZotero).onChange((v) => store.updateSettings({ indexZotero: v })));
 
     new Setting(el)
+      .setName("Literature notes folder")
+      .setDesc(
+        "Where a new literature note is created when you click a paper in the Zotero library (or use \"Create notes\"). Each note carries the paper's metadata, abstract, annotations, and a link back to Zotero, and becomes a normal Obsidian note you can link and tag. Notes are matched by their Zotero key, so you never get duplicates.",
+      )
+      .addText((t) => t.setPlaceholder("Literature").setValue(settings.literatureNotesFolder).onChange((v) => store.updateSettings({ literatureNotesFolder: v.trim() || "Literature" })));
+
+    new Setting(el)
       .setName("Work with ZotFlow, if installed")
       .setDesc(
         isZotFlowAvailable(this.app)

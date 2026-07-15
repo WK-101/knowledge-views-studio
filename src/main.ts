@@ -9,6 +9,9 @@ import { LocalApiZoteroProvider } from "./services/zotero/local-api-provider";
 import type { ZoteroLibraryItem } from "./services/zotero/provider";
 import { createZoteroFetcher } from "./workspace/zotero-transport";
 import { ZOTERO_DOC_PREFIX, zoteroSearchDocs } from "./services/zotero/zotero-search-docs";
+import { createOrOpenLiteratureNote, indexLiteratureNotes } from "./services/notes/literature-note";
+import { fetchZoteroAnnotations } from "./services/annotations/zotero-client";
+import type { KvsAnnotation } from "./domain/index";
 import { LocalIndexBackend, VaultIndexBackend, type IndexBackend } from "./workspace/index-backend";
 import {
   ExtractorRegistry,
@@ -198,7 +201,14 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     // write seam already in place for when that changes.
     this.registerView(ZOTERO_LIBRARY_VIEW_TYPE, (leaf) => {
       const provider = new LocalApiZoteroProvider(store.getSettings().zoteroApiBase, createZoteroFetcher());
-      return new ZoteroLibraryView(leaf, provider, (item) => void this.openZoteroItem(item), (items) => void this.createZoteroDashboard(items));
+      return new ZoteroLibraryView(
+        leaf,
+        provider,
+        (item) => void this.openZoteroItem(item),
+        (items) => void this.createZoteroDashboard(items),
+        (items) => this.createLiteratureNotes(items),
+        () => new Set(indexLiteratureNotes(this.app).keys()),
+      );
     });
     this.addCommand({
       id: "kvs-open-zotero-library",
@@ -556,6 +566,47 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
    * bespoke one-off table. Columns carry semantic roles so the non-table layouts have sensible defaults
    * (title for cards, date for the calendar, tags for the board).
    */
+  /**
+   * Create — or open, if they already exist — literature notes for a set of Zotero items. Each note is a
+   * first-class Obsidian note (metadata frontmatter, abstract, a durable Zotero link, and a Notes section),
+   * with the paper's Zotero annotations pulled into a managed Annotations region. Idempotent by Zotero key,
+   * so this never makes duplicates and re-running refreshes annotations in place. Opens the first note.
+   */
+  private async createLiteratureNotes(items: readonly ZoteroLibraryItem[]): Promise<void> {
+    const store = this.profileStore;
+    if (!store || items.length === 0) return;
+    const settings = store.getSettings();
+    const folder = settings.literatureNotesFolder || "Literature";
+    const fetcher = createZoteroFetcher();
+    const notice = new Notice(items.length === 1 ? "Preparing literature note…" : `Preparing ${items.length} literature notes…`, 0);
+    let created = 0;
+    let opened = 0;
+    let first: TFile | null = null;
+    try {
+      for (const item of items) {
+        // Pull this paper's annotations from Zotero so the note is populated on creation. Best-effort:
+        // a paper with none, or an unreachable Zotero, simply yields an empty Annotations region.
+        let annotations: KvsAnnotation[] = [];
+        try {
+          annotations = await fetchZoteroAnnotations(settings.zoteroApiBase, [item.key], fetcher);
+        } catch {
+          annotations = [];
+        }
+        const result = await createOrOpenLiteratureNote(this.app, item, { folder, annotations, themeSpec: settings.annotationThemes });
+        if (result.created) created++;
+        else opened++;
+        if (!first) first = result.file;
+      }
+      notice.hide();
+      if (first) await this.app.workspace.getLeaf(true).openFile(first);
+      const bits = [created > 0 ? `Created ${created}` : "", opened > 0 ? `opened ${opened}` : ""].filter((s) => s !== "");
+      new Notice(`${bits.join(", ")} literature note${created + opened === 1 ? "" : "s"}.`);
+    } catch (error) {
+      notice.hide();
+      new Notice(`Couldn't create literature notes: ${error instanceof Error ? error.message : "unexpected error"}`);
+    }
+  }
+
   private async createZoteroDashboard(selection?: readonly ZoteroLibraryItem[]): Promise<void> {
     const store = this.profileStore;
     if (!store) return;

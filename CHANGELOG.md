@@ -5,6 +5,45 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 125 — literature notes: turn a Zotero paper into a note you can think with
+
+The Zotero features so far let you *view and search* papers inside Obsidian — but that was never the
+researcher's endpoint. The reason people bridge Zotero and Obsidian at all is that a paper needs to become a
+*note you can think with*: linkable from concept notes, taggable into your own system, a node in the graph,
+with room for your own synthesis. Zotero can't do that. Until now our library could show you a paper, but
+clicking it opened the paper's *web page* — the opposite of what you want, which is to stay in Obsidian and
+get a note.
+
+This phase closes that gap. Clicking a paper in the Zotero library now creates — or opens, if it already
+exists — a **literature note**: a real Obsidian note carrying the paper's metadata as frontmatter, its
+abstract, its Zotero annotations, a durable link back to Zotero, and an empty Notes section for your own
+writing.
+
+### Why it actually reduces friction (and doesn't become a chore)
+
+- **Idempotent by a durable key.** Every literature note records the paper's Zotero key in frontmatter
+  (`zotero-key`), and creating a note first looks that key up across the whole vault. So a paper never gets
+  two notes, renaming its title never forks it, and clicking a paper you've already noted just opens the
+  existing note. Re-running refreshes the annotations region in place — via the same upsert the annotation
+  sync uses — without touching your own writing below it.
+- **A real note, not a data dump.** Metadata lands in frontmatter (authors, year, journal, doi, tags, the
+  key), which makes the paper a proper Obsidian citizen — wikilinkable, taggable, and *queryable by KVS's
+  own note-properties source*. So your literature notes can themselves become a dashboard, closing the loop:
+  Zotero → notes → dashboard, all native.
+- **Annotations arrive with the note.** On creation, the paper's Zotero annotations are pulled in and
+  rendered into a managed Annotations region, reusing the existing annotation-collection machinery.
+- **Reading progress at a glance.** Each row in the library shows a dot — filled when the paper already has
+  a literature note, hollow when it doesn't — so "which papers have I written up?" is answerable without
+  leaving the view. Select many and "Create notes" makes them in one go.
+
+The title click is the primary action (create/open the note); a small external-link icon still jumps to the
+paper in Zotero when you want the source.
+
+Covered by tests (735 total, was 725): the note content (frontmatter fields, the Zotero link, YAML escaping,
+graceful handling of sparse items), and — the load-bearing property — idempotent find-or-create, proven by a
+test that creates a note, then "creates" it again with a changed title and a different folder and asserts the
+existing note is reused with no duplicate.
+
 ## Phase 124 — the whole library, and a bridge from it to a dashboard
 
 Two things: a correctness fix, and the feature that removes the friction between the Zotero library and a

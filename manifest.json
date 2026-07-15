@@ -1,7 +1,7 @@
 {
   "id": "knowledge-views-studio",
   "name": "Knowledge Views Studio",
-  "version": "0.124.0",
+  "version": "0.125.0",
   "minAppVersion": "1.10.0",
   "description": "Turn the tables, note properties, tasks, inline fields and Excel rows scattered across your vault into live, editable dashboards - table, board, calendar, cards, gallery, chart, pivot - with offline full-text, semantic and question-answering search.",
   "author": "W A Khan",

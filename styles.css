@@ -4539,3 +4539,10 @@ body.is-phone .kvs-col-resize {
 .kvs-zotero-actclear { margin-left: auto; padding: var(--size-4-1) var(--size-4-2); color: var(--text-muted); }
 .kvs-zotero-checkcol { width: 2.2em; text-align: center; }
 .kvs-zotero-row.is-selected { background: var(--background-modifier-hover); }
+
+/* ---- Zotero library: literature-note indicators ---- */
+.kvs-zotero-noted { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: var(--size-4-2); border: 1.5px solid var(--text-faint); vertical-align: middle; }
+.kvs-zotero-noted.is-noted { background: var(--interactive-accent); border-color: var(--interactive-accent); }
+.kvs-zotero-ext { display: inline-flex; margin-left: var(--size-4-1); color: var(--text-faint); cursor: pointer; vertical-align: middle; opacity: 0; transition: opacity 0.1s; }
+.kvs-zotero-row:hover .kvs-zotero-ext { opacity: 1; }
+.kvs-zotero-ext:hover { color: var(--text-accent); }

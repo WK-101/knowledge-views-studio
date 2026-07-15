@@ -50,6 +50,8 @@ export class ZoteroLibraryView extends ItemView {
   private actionBar!: HTMLElement;
   /** Keys of items the user has ticked. Actions operate on these, or on the filtered view when none. */
   private readonly selected = new Set<string>();
+  /** Zotero keys that already have a literature note in the vault — for the reading-progress indicator. */
+  private notedKeys = new Set<string>();
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -57,6 +59,10 @@ export class ZoteroLibraryView extends ItemView {
     private readonly onOpenItem: (item: ZoteroLibraryItem) => void,
     /** Build a KVS dashboard from these Zotero items (a selection, or the whole filtered view). */
     private readonly onSendToDashboard: (items: ZoteroLibraryItem[]) => void,
+    /** Create-or-open a literature note for these items (one, or a selection). Returns after all are done. */
+    private readonly onLiteratureNotes: (items: ZoteroLibraryItem[]) => Promise<void>,
+    /** Report the set of Zotero keys that currently have a literature note, for the status indicator. */
+    private readonly notedKeysProvider: () => Set<string>,
   ) {
     super(leaf);
   }
@@ -116,6 +122,7 @@ export class ZoteroLibraryView extends ItemView {
       return;
     }
     try {
+      this.notedKeys = this.notedKeysProvider();
       this.items = await this.provider.listItems();
       this.applyFilter();
       this.renderTable();
@@ -213,10 +220,28 @@ export class ZoteroLibraryView extends ItemView {
         const td = tr.createEl("td", { cls: "kvs-zotero-td" });
         const value = COLUMN_VALUE[col](item);
         if (col === "Title") {
-          // The title is the click target — opens the item (its note, or its attachment via the caller).
+          // A note dot shows reading progress at a glance: filled when this paper already has a literature
+          // note in the vault, hollow when it doesn't.
+          const hasNote = this.notedKeys.has(item.key);
+          const dot = td.createSpan({ cls: hasNote ? "kvs-zotero-noted is-noted" : "kvs-zotero-noted" });
+          setTooltip(dot, hasNote ? "Has a literature note" : "No literature note yet");
+          // Clicking the title creates the literature note (or opens it if it exists) — the researcher's
+          // actual endpoint: a first-class Obsidian note to think in, not the paper's web page.
           const link = td.createEl("a", { cls: "kvs-zotero-title", text: value || "(untitled)", href: "#" });
+          setTooltip(link, hasNote ? "Open literature note" : "Create literature note");
           link.addEventListener("click", (e) => {
             e.preventDefault();
+            void this.onLiteratureNotes([item]).then(() => {
+              this.notedKeys = this.notedKeysProvider();
+              this.renderTable();
+            });
+          });
+          // Secondary: jump to the item in Zotero itself.
+          const ext = td.createSpan({ cls: "kvs-zotero-ext" });
+          setIcon(ext, "external-link");
+          setTooltip(ext, "Open in Zotero");
+          ext.addEventListener("click", (e) => {
+            e.stopPropagation();
             this.onOpenItem(item);
           });
         } else {
@@ -260,6 +285,12 @@ export class ZoteroLibraryView extends ItemView {
 
     mkBtn("Open as dashboard", "layout-dashboard", `Build a KVS dashboard (all layouts) from ${scopeLabel}`, () => {
       this.onSendToDashboard(this.targetItems().items);
+    });
+    mkBtn("Create notes", "file-plus", `Create (or open) a literature note for each of ${scopeLabel}`, () => {
+      void this.onLiteratureNotes(this.targetItems().items).then(() => {
+        this.notedKeys = this.notedKeysProvider();
+        this.renderTable();
+      });
     });
     mkBtn("Copy as table", "table", `Copy ${scopeLabel} as a Markdown table`, () => void this.copyAsTable());
     mkBtn("Copy citations", "quote", `Copy cite keys for ${scopeLabel}`, () => void this.copyCitations());
