@@ -1,5 +1,5 @@
 import { TFile, type App, type Plugin } from "obsidian";
-import { SearchIndex, SemanticModel, noteToDocs, questionTerms, rowsToDocs, scorePassageKeyword, splitPassages, tokenize, type IndexSnapshot, type SearchOptions, type SearchResult, type SemanticSnapshot,
+import { SearchIndex, SemanticModel, noteToDocs, questionTerms, rowsToDocs, scorePassageKeyword, splitPassages, tokenize, type IndexDoc, type IndexSnapshot, type SearchOptions, type SearchResult, type SemanticSnapshot,
   VectorIndex,
   normalizeWeights,
   applyRecency,
@@ -66,6 +66,8 @@ export class SearchIndexer {
   private index = new SearchIndex();
   private readonly sigs = new Map<string, string>();
   private readonly idsByPath = new Map<string, string[]>();
+  /** Ids of documents from the external (Zotero) source, so they can be cleared and rebuilt as a group. */
+  private externalIds: string[] = [];
   /** Where the index is kept. Swappable, because the choice is the user's. */
   private backend!: IndexBackend;
   /** Attachment text, held in memory and written out with the rest of the index as one unit. */
@@ -85,6 +87,14 @@ export class SearchIndexer {
     private readonly app: App,
     private readonly getScope: () => IndexScope,
     backend?: IndexBackend,
+    /**
+     * An optional source of extra documents that don't come from vault files — currently the Zotero
+     * library and its annotations. Kept as an opaque async callback so the indexer has no Zotero-specific
+     * knowledge: it just asks for "extra docs, with the id prefix that identifies them" and folds them into
+     * the same index. Returns null/empty to contribute nothing (e.g. when the feature is off or Zotero is
+     * unreachable), so this never blocks or breaks a build.
+     */
+    private readonly externalDocs?: () => Promise<{ prefix: string; docs: IndexDoc[] } | null>,
   ) {
     this.backend = backend ?? new LocalIndexBackend(`kvs-search-${app.vault.getName()}`);
   }
@@ -484,6 +494,7 @@ export class SearchIndexer {
         }
       }
       onProgress?.(total, total);
+      await this.indexExternalDocs();
       this.dirty = true;
       await this.persist();
     } catch (error) {
@@ -536,6 +547,33 @@ export class SearchIndexer {
       this.dirty = true;
     } catch (error) {
       console.error(`[KVS search] failed to index ${file.path}:`, error);
+    }
+  }
+
+  /**
+   * Fold in documents from the external source (Zotero library + annotations), if one is configured. Clears
+   * the previous batch first so a rebuild reflects the current library. Wrapped so that Zotero being off,
+   * absent, or unreachable contributes nothing and never fails the build — vault search stands alone.
+   */
+  private async indexExternalDocs(): Promise<void> {
+    if (!this.externalDocs) return;
+    let result: { prefix: string; docs: IndexDoc[] } | null = null;
+    try {
+      result = await this.externalDocs();
+    } catch (error) {
+      console.warn("[KVS search] external (Zotero) indexing skipped:", error);
+      return;
+    }
+    // Clear the prior external batch regardless — if the source is now off, its docs should disappear.
+    for (const id of this.externalIds) {
+      this.index.remove(id);
+      this.textMap.delete(id);
+    }
+    this.externalIds = [];
+    if (!result || result.docs.length === 0) return;
+    for (const doc of result.docs) {
+      this.index.add(doc);
+      this.externalIds.push(doc.id);
     }
   }
 

@@ -27,6 +27,7 @@ function fakeProvider(items: ZoteroLibraryItem[]): ZoteroProvider {
     ping: () => Promise.resolve(true),
     listCollections: () => Promise.resolve([]),
     listItems: () => Promise.resolve(items),
+    listAllAnnotations: () => Promise.resolve([]),
     getItem: (k) => Promise.resolve(items.find((i) => i.key === k) ?? null),
     writes: new ReadOnlyZoteroBackend(),
   };
@@ -124,6 +125,7 @@ describe("Zotero library flows through the full view engine", () => {
       ping: () => Promise.resolve(true),
       listCollections: () => Promise.resolve([]),
       listItems: () => Promise.reject(new Error("Zotero unreachable")),
+      listAllAnnotations: () => Promise.resolve([]),
       getItem: () => Promise.resolve(null),
       writes: new ReadOnlyZoteroBackend(),
     };

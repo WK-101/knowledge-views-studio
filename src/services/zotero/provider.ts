@@ -64,6 +64,20 @@ export interface ZoteroCollection {
   readonly itemCount: number;
 }
 
+/**
+ * A Zotero annotation, flattened for search indexing. Deliberately light: search needs the words (the
+ * quoted text and the user's comment) and enough to point back at the source, not the full geometry.
+ */
+export interface ZoteroAnnotationRecord {
+  readonly key: string;
+  /** The attachment/item this annotation hangs off, so a search hit can name its source. */
+  readonly parentKey: string;
+  readonly type: string; // highlight | note | underline | image | ink
+  readonly text: string; // the quoted passage
+  readonly comment: string; // the reader's note
+  readonly pageLabel: string;
+}
+
 /** Options for listing items — scope to a collection, cap the count, etc. */
 export interface ZoteroListOptions {
   readonly collectionKey?: string;
@@ -140,6 +154,8 @@ export interface ZoteroProvider {
   listCollections(): Promise<ZoteroCollection[]>;
   listItems(options?: ZoteroListOptions): Promise<ZoteroLibraryItem[]>;
   getItem(key: string): Promise<ZoteroLibraryItem | null>;
+  /** Every annotation in the library, in one shot — for bulk search indexing. */
+  listAllAnnotations(): Promise<ZoteroAnnotationRecord[]>;
   /** The write backend — consult `.canWrite()` before offering edits; route edits through `.applyEdit()`. */
   readonly writes: ZoteroWriteBackend;
 }

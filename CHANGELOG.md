@@ -5,6 +5,45 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 122 — search that reaches into Zotero, too
+
+With Zotero integrated as a data source, the search should reach it as well. This phase indexes your Zotero
+library and its annotations into the *same* search index as your notes — so one query finds a paper in your
+Zotero library, or a passage you highlighted in it, ranked alongside your vault, by the same relevance
+model. Not a second search box; the same one, made wider.
+
+### One index, two new document kinds
+
+The design principle throughout has been: don't build a parallel search path. Zotero content becomes
+ordinary `IndexDoc`s fed to the existing `SearchIndex`, so BM25 ranking, the semantic layer, field boosts,
+scope filters, and the relevance harness all apply with no special-casing:
+
+- `source: "zotero"` — one document per library item (title, creators, abstract, tags, publication), with
+  title and tags in the *boosted* fields, so a title match outranks an abstract match exactly as it does
+  for a note.
+- `source: "zotero-annotation"` — one document per annotation: the quoted text plus your comment. This is
+  the payoff of integrating annotations — the words you highlighted in a paper become findable from the
+  same box you search your notes with.
+
+Both are tagged so they appear as their own filter chips ("Zotero", "Zotero notes") and, when clicked, open
+the item in Zotero via its `zotero://select` protocol rather than trying to open a nonexistent vault file.
+
+### Decoupled, and safe to have off
+
+The indexer gained a single, opaque hook — "an optional source of extra documents" — so it has no
+Zotero-specific knowledge; it just folds in whatever the hook returns. That keeps the search engine general
+and the Zotero specifics in one place. The whole feature is off by default and guarded end to end: disabled,
+or Zotero not running, or the API unreachable → it contributes nothing and never fails a build. And turning
+it off doesn't leave stale results — the next rebuild clears the Zotero documents, because the indexer clears
+the prior external batch before adding the current one.
+
+Verified two ways: unit tests for the document building (right text, boosted fields, defensive annotation
+parsing), and an end-to-end test that adds Zotero documents to a real `SearchIndex` and confirms a query
+finds an item by its title and an annotation by its words — with the title-boost ranking holding. The P6
+relevance regression gate still passes unchanged, since vault ranking is untouched.
+
+717 tests (was 709). Four gates green.
+
 ## Phase 121 — Zotero as a first-class source across every layout
 
 The previous phase gave the Zotero library its own view. This phase makes it a *source* the whole engine

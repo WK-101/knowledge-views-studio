@@ -20,6 +20,8 @@ const SOURCES: readonly SourceMeta[] = [
   { id: "pptx", label: "PowerPoint", icon: "presentation", color: "var(--color-orange)" },
   { id: "xlsx", label: "Excel", icon: "sheet", color: "var(--color-green)" },
   { id: "epub", label: "EPUB", icon: "book-open", color: "var(--color-purple)" },
+  { id: "zotero", label: "Zotero", icon: "library", color: "var(--color-pink)" },
+  { id: "zotero-annotation", label: "Zotero notes", icon: "highlighter", color: "var(--color-pink)" },
 ];
 const SOURCE = new Map(SOURCES.map((s) => [s.id, s]));
 const FACET_LIMIT = 3000;
@@ -715,6 +717,15 @@ export class SearchView extends ItemView {
   }
 
   private jump(r: SearchResult): void {
+    // Zotero hits are not vault files — open them in Zotero itself via its select protocol. The key is the
+    // item for a library hit, or the annotation's parent for an annotation hit.
+    if (r.source === "zotero" || r.source === "zotero-annotation") {
+      const key = r.source === "zotero" ? r.meta?.["zoteroKey"] : r.meta?.["parentKey"];
+      if (typeof key === "string" && key !== "") {
+        window.open(`zotero://select/library/items/${key}`, "_blank");
+      }
+      return;
+    }
     const path = r.meta?.["path"];
     if (typeof path !== "string") return;
     const section = String(r.meta?.["section"] ?? "");

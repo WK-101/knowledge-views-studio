@@ -8,6 +8,7 @@ import { ZOTERO_LIBRARY_VIEW_TYPE, ZoteroLibraryView, openZoteroLibraryView } fr
 import { LocalApiZoteroProvider } from "./services/zotero/local-api-provider";
 import type { ZoteroLibraryItem } from "./services/zotero/provider";
 import { createZoteroFetcher } from "./workspace/zotero-transport";
+import { ZOTERO_DOC_PREFIX, zoteroSearchDocs } from "./services/zotero/zotero-search-docs";
 import { LocalIndexBackend, VaultIndexBackend, type IndexBackend } from "./workspace/index-backend";
 import {
   ExtractorRegistry,
@@ -171,7 +172,16 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
         },
         device,
       );
-    }, makeBackend());
+    }, makeBackend(), async () => {
+      // Zotero search integration: when enabled, feed the live library and its annotations into the same
+      // index as vault files. Guarded end to end — off by default, and any failure (Zotero not running,
+      // API off) contributes nothing rather than breaking the build.
+      if (!store.getSettings().indexZotero) return null;
+      const provider = new LocalApiZoteroProvider(store.getSettings().zoteroApiBase, createZoteroFetcher());
+      if (!(await provider.ping())) return null;
+      const [items, annotations] = await Promise.all([provider.listItems({ limit: 2000 }), provider.listAllAnnotations()]);
+      return { prefix: ZOTERO_DOC_PREFIX, docs: zoteroSearchDocs(items, annotations) };
+    });
     this.searchIndexer = searchIndexer;
     searchIndexer.register(this);
     searchIndexer.setEnableAttachments(() => store.updateSettings({ indexAttachments: true }));

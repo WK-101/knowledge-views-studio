@@ -1,5 +1,6 @@
 import {
   ReadOnlyZoteroBackend,
+  type ZoteroAnnotationRecord,
   type ZoteroCollection,
   type ZoteroFetcher,
   type ZoteroLibraryItem,
@@ -65,6 +66,14 @@ export class LocalApiZoteroProvider implements ZoteroProvider {
     if (res.status < 200 || res.status >= 300) return null;
     return mapItem(res.json);
   }
+
+  async listAllAnnotations(): Promise<ZoteroAnnotationRecord[]> {
+    // The local API returns every annotation in the library in one query — far cheaper than resolving
+    // attachments per item, which is what we want for bulk indexing.
+    const res = await this.fetcher(`${this.base}/items?itemType=annotation&format=json&limit=2000`);
+    if (res.status < 200 || res.status >= 300 || !Array.isArray(res.json)) return [];
+    return (res.json as unknown[]).map((a) => mapAnnotation(a)).filter((a): a is ZoteroAnnotationRecord => a !== null);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -126,6 +135,27 @@ function mapCollection(raw: unknown): ZoteroCollection | null {
     name: asString(data["name"]),
     parentKey: typeof parent === "string" && parent !== "" ? parent : null,
     itemCount: typeof meta["numItems"] === "number" ? meta["numItems"] : 0,
+  };
+}
+
+/** Flatten a Zotero annotation item (child item, itemType "annotation") for search indexing. */
+export function mapAnnotation(raw: unknown): ZoteroAnnotationRecord | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const rec = raw as Record<string, unknown>;
+  const data = (rec["data"] as Record<string, unknown> | undefined) ?? {};
+  const key = asString(data["key"]);
+  if (!key || asString(data["itemType"]) !== "annotation") return null;
+  const text = asString(data["annotationText"]);
+  const comment = asString(data["annotationComment"]);
+  // An annotation with neither quoted text nor a comment has nothing to search; skip it.
+  if (text === "" && comment === "") return null;
+  return {
+    key,
+    parentKey: asString(data["parentItem"]),
+    type: asString(data["annotationType"]) || "highlight",
+    text,
+    comment,
+    pageLabel: asString(data["annotationPageLabel"]),
   };
 }
 

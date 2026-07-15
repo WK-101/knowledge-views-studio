@@ -820,6 +820,13 @@ export class KnowledgeViewsSettingTab extends PluginSettingTab {
       );
 
     new Setting(el)
+      .setName("Include Zotero in search")
+      .setDesc(
+        "Also index your Zotero library and its annotations, so one search finds a paper or a highlight from Zotero alongside your notes. Reads Zotero's local API on each rebuild; results open the item in Zotero. Rebuild the search index after turning this on.",
+      )
+      .addToggle((t) => t.setValue(settings.indexZotero).onChange((v) => store.updateSettings({ indexZotero: v })));
+
+    new Setting(el)
       .setName("Work with ZotFlow, if installed")
       .setDesc(
         isZotFlowAvailable(this.app)
