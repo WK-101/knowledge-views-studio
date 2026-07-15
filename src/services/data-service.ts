@@ -155,7 +155,7 @@ export class DataService {
     // of truth and can change outside the vault, so each build fetches fresh (the query-level prepared
     // cache still spares re-filtering on a plain re-render).
     if (profile.scope.mode === "zotero") {
-      return this.buildZoteroDataset();
+      return this.buildZoteroDataset(profile.scope);
     }
 
     const key = this.datasetKey(profile);
@@ -197,12 +197,16 @@ export class DataService {
    * running simply shows nothing rather than breaking. The write backend is threaded through so the rows'
    * read-only state reflects the current (today: read-only) write capability.
    */
-  private async buildZoteroDataset(): Promise<Dataset> {
+  private async buildZoteroDataset(scope: ScopeConfig): Promise<Dataset> {
     const provider = this.options.zoteroProvider?.() ?? null;
     if (!provider) return [];
     try {
-      const items = await provider.listItems({ limit: 1000 });
-      return zoteroItemsToRows(items, provider.writes);
+      // Scope to a collection when set; otherwise the whole library. Then, if the profile pins a specific
+      // set of item keys (a dashboard built from a selection in the library view), keep only those.
+      const items = await provider.listItems(scope.zoteroCollectionKey ? { collectionKey: scope.zoteroCollectionKey } : {});
+      const keySet = scope.zoteroItemKeys && scope.zoteroItemKeys.length > 0 ? new Set(scope.zoteroItemKeys) : null;
+      const scoped = keySet ? items.filter((it) => keySet.has(it.key)) : items;
+      return zoteroItemsToRows(scoped, provider.writes);
     } catch (error) {
       this.options.onSourceWarning?.("zotero://library", error);
       return [];

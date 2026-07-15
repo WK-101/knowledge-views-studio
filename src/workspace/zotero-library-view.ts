@@ -1,4 +1,4 @@
-import { ItemView, setIcon, setTooltip, type App, type WorkspaceLeaf } from "obsidian";
+import { ItemView, Notice, setIcon, setTooltip, type App, type WorkspaceLeaf } from "obsidian";
 import type { ZoteroLibraryItem, ZoteroProvider } from "../services/zotero/provider";
 import { ZOTERO_COLUMNS } from "../services/zotero/zotero-rows";
 
@@ -47,11 +47,16 @@ export class ZoteroLibraryView extends ItemView {
   private sortDir: "asc" | "desc" = "desc";
   private tableWrap!: HTMLElement;
   private statusEl!: HTMLElement;
+  private actionBar!: HTMLElement;
+  /** Keys of items the user has ticked. Actions operate on these, or on the filtered view when none. */
+  private readonly selected = new Set<string>();
 
   constructor(
     leaf: WorkspaceLeaf,
     private readonly provider: ZoteroProvider,
     private readonly onOpenItem: (item: ZoteroLibraryItem) => void,
+    /** Build a KVS dashboard from these Zotero items (a selection, or the whole filtered view). */
+    private readonly onSendToDashboard: (items: ZoteroLibraryItem[]) => void,
   ) {
     super(leaf);
   }
@@ -87,6 +92,11 @@ export class ZoteroLibraryView extends ItemView {
     const note = root.createDiv({ cls: "kvs-zotero-note", attr: { role: "status" } });
     note.setText(this.provider.writes.capabilityNote());
 
+    // The action bar: send a selection (or the whole filtered view) straight to a dashboard, or copy it.
+    // This is the friction-remover — the library and the dashboard stop being two disconnected worlds.
+    this.actionBar = root.createDiv({ cls: "kvs-zotero-actions" });
+    this.renderActionBar();
+
     this.statusEl = root.createDiv({ cls: "kvs-zotero-status", attr: { role: "status", "aria-live": "polite" } });
     this.tableWrap = root.createDiv({ cls: "kvs-zotero-table-wrap" });
 
@@ -106,7 +116,7 @@ export class ZoteroLibraryView extends ItemView {
       return;
     }
     try {
-      this.items = await this.provider.listItems({ limit: 1000 });
+      this.items = await this.provider.listItems();
       this.applyFilter();
       this.renderTable();
     } catch {
@@ -147,6 +157,17 @@ export class ZoteroLibraryView extends ItemView {
 
     const headRow = table.createEl("thead").createEl("tr");
     headRow.setAttribute("aria-rowindex", "1");
+    // Leading select-all checkbox.
+    const selAllTh = headRow.createEl("th", { cls: "kvs-zotero-th kvs-zotero-checkcol" });
+    selAllTh.setAttribute("scope", "col");
+    const selAll = selAllTh.createEl("input", { attr: { type: "checkbox", "aria-label": "Select all shown" } });
+    selAll.checked = this.filtered.length > 0 && this.filtered.every((i) => this.selected.has(i.key));
+    selAll.addEventListener("change", () => {
+      if (selAll.checked) for (const i of this.filtered) this.selected.add(i.key);
+      else for (const i of this.filtered) this.selected.delete(i.key);
+      this.renderActionBar();
+      this.renderTable();
+    });
     for (const col of ZOTERO_COLUMNS) {
       const th = headRow.createEl("th", { text: col, cls: "kvs-zotero-th" });
       th.setAttribute("scope", "col");
@@ -177,6 +198,17 @@ export class ZoteroLibraryView extends ItemView {
     this.filtered.forEach((item, idx) => {
       const tr = tbody.createEl("tr", { cls: "kvs-zotero-row" });
       tr.setAttribute("aria-rowindex", String(idx + 2));
+      // Leading selection checkbox.
+      const checkTd = tr.createEl("td", { cls: "kvs-zotero-td kvs-zotero-checkcol" });
+      const check = checkTd.createEl("input", { attr: { type: "checkbox", "aria-label": `Select ${item.title || item.key}` } });
+      check.checked = this.selected.has(item.key);
+      if (check.checked) tr.addClass("is-selected");
+      check.addEventListener("change", () => {
+        if (check.checked) this.selected.add(item.key);
+        else this.selected.delete(item.key);
+        tr.toggleClass("is-selected", check.checked);
+        this.renderActionBar();
+      });
       for (const col of ZOTERO_COLUMNS) {
         const td = tr.createEl("td", { cls: "kvs-zotero-td" });
         const value = COLUMN_VALUE[col](item);
@@ -192,5 +224,85 @@ export class ZoteroLibraryView extends ItemView {
         }
       }
     });
+  }
+
+  /** The items an action applies to: the ticked ones, or — when none are ticked — the whole filtered view. */
+  private targetItems(): { items: ZoteroLibraryItem[]; usingSelection: boolean } {
+    if (this.selected.size > 0) {
+      const items = this.items.filter((i) => this.selected.has(i.key));
+      return { items, usingSelection: true };
+    }
+    return { items: [...this.filtered], usingSelection: false };
+  }
+
+  /**
+   * Render the action bar. It always reflects what an action would act on right now — the selection if
+   * there is one, otherwise everything currently shown — so "Send to dashboard" is never ambiguous.
+   */
+  private renderActionBar(): void {
+    if (!this.actionBar) return;
+    this.actionBar.empty();
+    const { items, usingSelection } = this.targetItems();
+    const n = items.length;
+    const scopeLabel = usingSelection ? `${n} selected` : `all ${n} shown`;
+
+    const label = this.actionBar.createSpan({ cls: "kvs-zotero-actlabel" });
+    label.setText(usingSelection ? `${n} selected` : "No selection");
+
+    const mkBtn = (text: string, icon: string, tip: string, onClick: () => void): void => {
+      const b = this.actionBar.createEl("button", { cls: "kvs-zotero-actbtn" });
+      setIcon(b.createSpan({ cls: "kvs-zotero-actbtn-ic" }), icon);
+      b.createSpan({ text });
+      setTooltip(b, tip);
+      b.disabled = n === 0;
+      b.addEventListener("click", onClick);
+    };
+
+    mkBtn("Open as dashboard", "layout-dashboard", `Build a KVS dashboard (all layouts) from ${scopeLabel}`, () => {
+      this.onSendToDashboard(this.targetItems().items);
+    });
+    mkBtn("Copy as table", "table", `Copy ${scopeLabel} as a Markdown table`, () => void this.copyAsTable());
+    mkBtn("Copy citations", "quote", `Copy cite keys for ${scopeLabel}`, () => void this.copyCitations());
+
+    if (usingSelection) {
+      const clear = this.actionBar.createEl("button", { cls: "kvs-zotero-actclear", text: "Clear" });
+      setTooltip(clear, "Clear selection");
+      clear.addEventListener("click", () => {
+        this.selected.clear();
+        this.renderActionBar();
+        this.renderTable();
+      });
+    }
+  }
+
+  /** Copy the target items as a Markdown table — which, pasted into a note, KVS's own table source re-reads. */
+  private async copyAsTable(): Promise<void> {
+    const { items } = this.targetItems();
+    if (items.length === 0) return;
+    const cols = ["Title", "Creators", "Year", "Type", "Publication", "Cite Key", "DOI"] as const;
+    const esc = (s: string): string => s.replace(/\|/g, "\\|").replace(/\n/g, " ");
+    const header = `| ${cols.join(" | ")} |`;
+    const rule = `| ${cols.map(() => "---").join(" | ")} |`;
+    const body = items
+      .map((i) => `| ${[i.title, i.creators, i.year, i.itemType, i.publication, i.citeKey, i.doi].map((v) => esc(v ?? "")).join(" | ")} |`)
+      .join("\n");
+    await this.copyText(`${header}\n${rule}\n${body}\n`, `Copied ${items.length} item${items.length === 1 ? "" : "s"} as a Markdown table`);
+  }
+
+  /** Copy the target items' cite keys (falling back to a compact reference when a key is missing). */
+  private async copyCitations(): Promise<void> {
+    const { items } = this.targetItems();
+    if (items.length === 0) return;
+    const lines = items.map((i) => (i.citeKey ? `[@${i.citeKey}]` : `${i.creators}${i.year ? ` (${i.year})` : ""}. ${i.title}.`));
+    await this.copyText(lines.join("\n") + "\n", `Copied ${items.length} citation${items.length === 1 ? "" : "s"}`);
+  }
+
+  private async copyText(text: string, okMessage: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(text);
+      new Notice(okMessage);
+    } catch {
+      new Notice("Couldn't access the clipboard.");
+    }
   }
 }

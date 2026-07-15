@@ -9,6 +9,13 @@ export interface ScopeConfig {
   readonly mode: ScopeMode;
   readonly folders: readonly string[];
   readonly includeSubfolders: boolean;
+  /** When mode is "zotero": limit to a Zotero collection (folder). Omitted means the whole library. */
+  readonly zoteroCollectionKey?: string;
+  /**
+   * When mode is "zotero": limit to exactly these item keys — used when a dashboard is built from a
+   * selection in the library view. Omitted means no key filter (all items, or the whole collection).
+   */
+  readonly zoteroItemKeys?: readonly string[];
 }
 
 export const DEFAULT_SCOPE: ScopeConfig = {

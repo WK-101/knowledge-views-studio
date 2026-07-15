@@ -5,6 +5,45 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 124 — the whole library, and a bridge from it to a dashboard
+
+Two things: a correctness fix, and the feature that removes the friction between the Zotero library and a
+KVS dashboard.
+
+### The library view showed only part of a large library
+
+It capped at the first page of results — a real library of thousands of items was silently truncated. The
+root cause was two-fold: our own request asked for a fixed number, and Zotero's API caps any single request
+at 100 items regardless. The fix is proper **pagination**: the provider now walks the library page by page
+(requesting `start=0, 100, 200, …`) until a short page signals the end, so the entire library loads no
+matter its size. The same applies to annotation fetching for search. A hard safety ceiling guards against a
+misbehaving server, and an optional overall cap is still honoured where one is wanted (search indexing).
+Proven by tests that simulate a 250-item library across three pages and assert all of it comes back.
+
+### From library to dashboard, without friction
+
+The library view was a good place to *browse* Zotero, but getting what you found into a KVS dashboard meant
+starting over. Now the view has a selection model and an action bar:
+
+- **Tick items** (with a select-all), and the action bar shows what your next action will act on — the
+  ticked items, or, when nothing is ticked, everything currently shown (so you can filter/search the
+  library and act on the result).
+- **Open as dashboard** — builds a full KVS dashboard (all seven layouts, filters, formulas) from exactly
+  those items. This is powered by a new, precise scoping option: a Zotero-scoped profile can now pin itself
+  to a specific set of item keys (or to a Zotero collection), so "these twelve papers I selected" becomes a
+  living dashboard, not a copy.
+- **Copy as table** — copies the selection as a Markdown table. Pasted into a note, KVS's *own* table
+  source reads it straight back — a tidy closed loop from Zotero to a native KVS table.
+- **Copy citations** — copies cite keys (`[@key]`), falling back to a compact reference when an item has no
+  key.
+
+The scoping is the load-bearing idea: rather than duplicating Zotero data into the vault, a selection
+becomes a *filter* on the live library, so the dashboard stays current and read-only-honest like every other
+Zotero view. Tested end to end — a selection-scoped profile returns exactly the pinned items through the
+real engine, and an empty selection correctly means "the whole library," not "nothing."
+
+725 tests (was 720). Four gates green.
+
 ## Phase 123 — Zotero search results now show a name and a preview
 
 The Zotero search integration worked, but its results displayed poorly: a hit's header showed only the bare

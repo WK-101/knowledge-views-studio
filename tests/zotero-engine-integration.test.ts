@@ -113,6 +113,28 @@ describe("Zotero library flows through the full view engine", () => {
     service.dispose();
   });
 
+  it("a selection-scoped profile returns only the pinned item keys", async () => {
+    const service = serviceWith(LIBRARY);
+    const profile = zoteroProfile({
+      scope: { mode: "zotero", folders: [], includeSubfolders: false, zoteroItemKeys: ["A1", "C3"] },
+    });
+    const { rows } = await service.query(profile);
+    expect(rows).toHaveLength(2);
+    const titles = rows.map((r) => getField(r, "Title")).sort();
+    expect(titles).toEqual(["Attention Is All You Need", "Old Paper"]);
+    service.dispose();
+  });
+
+  it("an empty item-key list is treated as no filter (whole library), not zero items", async () => {
+    const service = serviceWith(LIBRARY);
+    const profile = zoteroProfile({
+      scope: { mode: "zotero", folders: [], includeSubfolders: false, zoteroItemKeys: [] },
+    });
+    const { rows } = await service.query(profile);
+    expect(rows).toHaveLength(3);
+    service.dispose();
+  });
+
   it("degrades to an empty dataset when no provider is configured — never throws", async () => {
     const service = serviceWith([], null);
     const { rows } = await service.query(zoteroProfile());

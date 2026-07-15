@@ -131,6 +131,44 @@ describe("LocalApiZoteroProvider — reads over the live API", () => {
     expect(await p.listItems()).toEqual([]);
     expect(await p.listCollections()).toEqual([]);
   });
+
+  it("paginates through the whole library, not just the first page", async () => {
+    // Simulate a 250-item library across pages of 100. The fetcher reads `start` from the URL and returns
+    // the matching slice, so listItems must make three requests (0, 100, 200) to get everything.
+    const all = Array.from({ length: 250 }, (_, i) => ({ key: `K${i}`, data: { key: `K${i}`, itemType: "book", title: `Item ${i}` } }));
+    let calls = 0;
+    const paging: ZoteroFetcher = vi.fn(async (url: string) => {
+      calls++;
+      const start = Number(new URL(url).searchParams.get("start") ?? "0");
+      const limit = Number(new URL(url).searchParams.get("limit") ?? "100");
+      return { status: 200, json: all.slice(start, start + limit) };
+    });
+    const items = await new LocalApiZoteroProvider("http://x", paging).listItems();
+    expect(items).toHaveLength(250);
+    expect(calls).toBe(3); // 100 + 100 + 50(short → stop)
+    expect(items[0]!.title).toBe("Item 0");
+    expect(items[249]!.title).toBe("Item 249");
+  });
+
+  it("honors an overall cap when one is given (e.g. search indexing bound)", async () => {
+    const all = Array.from({ length: 500 }, (_, i) => ({ key: `K${i}`, data: { key: `K${i}`, itemType: "book" } }));
+    const paging: ZoteroFetcher = vi.fn(async (url: string) => {
+      const start = Number(new URL(url).searchParams.get("start") ?? "0");
+      return { status: 200, json: all.slice(start, start + 100) };
+    });
+    const items = await new LocalApiZoteroProvider("http://x", paging).listItems({ limit: 150 });
+    expect(items).toHaveLength(150);
+  });
+
+  it("paginates annotations too", async () => {
+    const all = Array.from({ length: 180 }, (_, i) => ({ key: `A${i}`, data: { key: `A${i}`, itemType: "annotation", annotationText: `note ${i}`, parentItem: "P" } }));
+    const paging: ZoteroFetcher = vi.fn(async (url: string) => {
+      const start = Number(new URL(url).searchParams.get("start") ?? "0");
+      return { status: 200, json: all.slice(start, start + 100) };
+    });
+    const anns = await new LocalApiZoteroProvider("http://x", paging).listAllAnnotations();
+    expect(anns).toHaveLength(180);
+  });
 });
 
 describe("the write seam — read-only today, ready for tomorrow", () => {

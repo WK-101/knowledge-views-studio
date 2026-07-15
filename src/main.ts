@@ -179,7 +179,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
       if (!store.getSettings().indexZotero) return null;
       const provider = new LocalApiZoteroProvider(store.getSettings().zoteroApiBase, createZoteroFetcher());
       if (!(await provider.ping())) return null;
-      const [items, annotations] = await Promise.all([provider.listItems({ limit: 2000 }), provider.listAllAnnotations()]);
+      const [items, annotations] = await Promise.all([provider.listItems(), provider.listAllAnnotations()]);
       return { prefix: ZOTERO_DOC_PREFIX, docs: zoteroSearchDocs(items, annotations) };
     });
     this.searchIndexer = searchIndexer;
@@ -198,7 +198,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     // write seam already in place for when that changes.
     this.registerView(ZOTERO_LIBRARY_VIEW_TYPE, (leaf) => {
       const provider = new LocalApiZoteroProvider(store.getSettings().zoteroApiBase, createZoteroFetcher());
-      return new ZoteroLibraryView(leaf, provider, (item) => void this.openZoteroItem(item));
+      return new ZoteroLibraryView(leaf, provider, (item) => void this.openZoteroItem(item), (items) => void this.createZoteroDashboard(items));
     });
     this.addCommand({
       id: "kvs-open-zotero-library",
@@ -556,12 +556,16 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
    * bespoke one-off table. Columns carry semantic roles so the non-table layouts have sensible defaults
    * (title for cards, date for the calendar, tags for the board).
    */
-  private async createZoteroDashboard(): Promise<void> {
+  private async createZoteroDashboard(selection?: readonly ZoteroLibraryItem[]): Promise<void> {
     const store = this.profileStore;
     if (!store) return;
+    // When called from a selection in the library view, pin the dashboard to exactly those items; otherwise
+    // it spans the whole library. Either way it renders through the full engine (all layouts, filters).
+    const keys = selection && selection.length > 0 ? selection.map((i) => i.key) : undefined;
+    const name = keys ? `Zotero selection (${keys.length})` : "Zotero library";
     const profile = createProfile({
-      name: "Zotero library",
-      scope: { mode: "zotero", folders: [], includeSubfolders: false },
+      name,
+      scope: { mode: "zotero", folders: [], includeSubfolders: false, ...(keys ? { zoteroItemKeys: keys } : {}) },
       extractors: ["zotero-library"],
       columns: [
         { name: "Title", type: "text", role: "title" },
@@ -580,7 +584,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     store.addProfile(profile);
     store.setActiveProfile(profile.id);
     await this.activateDashboard();
-    new Notice("Created a live Zotero library view. It reads from Zotero's local API — make sure Zotero is running.");
+    new Notice(keys ? `Created a dashboard from ${keys.length} Zotero item${keys.length === 1 ? "" : "s"}.` : "Created a live Zotero library view. It reads from Zotero's local API — make sure Zotero is running.");
   }
 
   /** Open the first-run welcome (also reachable via the "Getting started" command). */

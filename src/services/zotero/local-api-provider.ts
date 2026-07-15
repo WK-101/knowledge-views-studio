@@ -43,6 +43,26 @@ export class LocalApiZoteroProvider implements ZoteroProvider {
     }
   }
 
+  /**
+   * Fetch every page of a paginated Zotero endpoint. Zotero's API caps a single request at 100 items, so a
+   * library of any real size must be walked page by page. We don't have the `Total-Results` header here (the
+   * fetcher exposes only the body), so we page by size: keep requesting `start=0, 100, 200, …` until a page
+   * comes back shorter than the page size, which means it's the last one. A hard item cap guards against a
+   * misbehaving server looping forever.
+   */
+  private async fetchAllPages(buildUrl: (start: number, pageSize: number) => string, maxItems: number): Promise<unknown[]> {
+    const pageSize = 100; // Zotero's per-request maximum
+    const out: unknown[] = [];
+    for (let start = 0; out.length < maxItems; start += pageSize) {
+      const res = await this.fetcher(buildUrl(start, pageSize));
+      if (res.status < 200 || res.status >= 300 || !Array.isArray(res.json)) break;
+      const page = res.json as unknown[];
+      out.push(...page);
+      if (page.length < pageSize) break; // a short page is the last page
+    }
+    return out.length > maxItems ? out.slice(0, maxItems) : out;
+  }
+
   async listCollections(): Promise<ZoteroCollection[]> {
     const res = await this.fetcher(`${this.base}/collections?format=json&limit=200`);
     if (res.status < 200 || res.status >= 300 || !Array.isArray(res.json)) return [];
@@ -50,15 +70,18 @@ export class LocalApiZoteroProvider implements ZoteroProvider {
   }
 
   async listItems(options: ZoteroListOptions = {}): Promise<ZoteroLibraryItem[]> {
-    const limit = options.limit ?? 200;
-    const params = new URLSearchParams({ format: "json", limit: String(limit), itemType: "-attachment || note || annotation" });
-    if (options.query) params.set("q", options.query);
-    const path = options.collectionKey
+    // No cap by default: the library view wants the whole library. `options.limit`, when given, is an
+    // overall ceiling (e.g. search indexing bounds it), not a per-request size.
+    const maxItems = options.limit ?? Number.MAX_SAFE_INTEGER;
+    const basePath = options.collectionKey
       ? `${this.base}/collections/${encodeURIComponent(options.collectionKey)}/items/top`
       : `${this.base}/items/top`;
-    const res = await this.fetcher(`${path}?${params.toString()}`);
-    if (res.status < 200 || res.status >= 300 || !Array.isArray(res.json)) return [];
-    return (res.json as unknown[]).map((it) => mapItem(it)).filter((it): it is ZoteroLibraryItem => it !== null);
+    const raw = await this.fetchAllPages((start, pageSize) => {
+      const params = new URLSearchParams({ format: "json", limit: String(pageSize), start: String(start), itemType: "-attachment || note || annotation" });
+      if (options.query) params.set("q", options.query);
+      return `${basePath}?${params.toString()}`;
+    }, maxItems);
+    return raw.map((it) => mapItem(it)).filter((it): it is ZoteroLibraryItem => it !== null);
   }
 
   async getItem(key: string): Promise<ZoteroLibraryItem | null> {
@@ -68,11 +91,12 @@ export class LocalApiZoteroProvider implements ZoteroProvider {
   }
 
   async listAllAnnotations(): Promise<ZoteroAnnotationRecord[]> {
-    // The local API returns every annotation in the library in one query — far cheaper than resolving
-    // attachments per item, which is what we want for bulk indexing.
-    const res = await this.fetcher(`${this.base}/items?itemType=annotation&format=json&limit=2000`);
-    if (res.status < 200 || res.status >= 300 || !Array.isArray(res.json)) return [];
-    return (res.json as unknown[]).map((a) => mapAnnotation(a)).filter((a): a is ZoteroAnnotationRecord => a !== null);
+    // Walk every page of annotations — a heavily-annotated library easily exceeds one page.
+    const raw = await this.fetchAllPages(
+      (start, pageSize) => `${this.base}/items?itemType=annotation&format=json&limit=${pageSize}&start=${start}`,
+      Number.MAX_SAFE_INTEGER,
+    );
+    return raw.map((a) => mapAnnotation(a)).filter((a): a is ZoteroAnnotationRecord => a !== null);
   }
 }
 
