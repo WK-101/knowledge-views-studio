@@ -5,6 +5,30 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 123 — Zotero search results now show a name and a preview
+
+The Zotero search integration worked, but its results displayed poorly: a hit's header showed only the bare
+item type ("journalArticle") instead of the paper's name, and there was no content preview under it — unlike
+a note or PDF hit, which shows its title and a snippet. Two concrete bugs, both fixed:
+
+- **The header now names the paper.** A Zotero item hit reads "Attention Is All You Need · Journal article"
+  (name first, then a readable type label), mirroring how a file hit reads "<file> · <section>". An
+  annotation hit names the paper it belongs to when that can be resolved — "Deep Learning · p. 9" — instead
+  of a bare page number. The item type is humanised too ("journalArticle" → "Journal article").
+- **The preview snippet now appears.** The results list shows a content snippet for a Zotero hit — the
+  item's creators/abstract, or the annotation's highlighted text — the same way it does for attachments.
+  Previously the snippet was always empty: the search view only knew how to fetch preview text for vault
+  files (via a path), and Zotero hits have no path, so it bailed out before retrieving anything. Now the
+  view routes Zotero hits to the retained document text, and the indexer keeps that text (and persists it)
+  the same way it does for PDFs and Office files.
+
+Both were failures of *display*, not of search — the items were found and ranked correctly all along; they
+just rendered without the context that makes a result useful. Result rendering now reads the same for Zotero
+as for everything else.
+
+Covered by expanded tests (720 total, was 717): the header/name format for items and annotations, the
+humanised type label, parent-paper resolution for annotations, and the page-label fallback.
+
 ## Phase 122 — search that reaches into Zotero, too
 
 With Zotero integrated as a data source, the search should reach it as well. This phase indexes your Zotero

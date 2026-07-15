@@ -695,6 +695,10 @@ export class SearchView extends ItemView {
   }
 
   private async textFor(r: SearchResult): Promise<string> {
+    // Zotero hits have no vault path; their body text is retained in the indexer, like an attachment's.
+    if (r.source === "zotero" || r.source === "zotero-annotation") {
+      return (await this.indexer.getText(r.id)) ?? "";
+    }
     const path = r.meta?.["path"];
     if (typeof path !== "string") return "";
     if (r.source === "note" || r.source === "annotation" || r.source === "row") {

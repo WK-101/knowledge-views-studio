@@ -574,6 +574,9 @@ export class SearchIndexer {
     for (const doc of result.docs) {
       this.index.add(doc);
       this.externalIds.push(doc.id);
+      // Retain the body text so the results list can show a content snippet for Zotero hits, the same way
+      // it does for attachments. Without this, getText() returns nothing and the hit shows no preview.
+      if (doc.text !== "") this.textMap.set(doc.id, doc.text);
     }
   }
 

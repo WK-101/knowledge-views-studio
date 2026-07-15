@@ -38,6 +38,9 @@ describe("itemToSearchDoc", () => {
     expect(doc.text).toContain("Transformer");
     // The key is retrievable for opening the item in Zotero.
     expect(doc.meta?.["zoteroKey"]).toBe("A1");
+    // The header names the paper (the bug fix): title first, then a readable type — not a bare type.
+    expect(doc.location).toBe("Attention Is All You Need · Journal article");
+    expect(doc.meta?.["title"]).toBe("Attention Is All You Need");
   });
 
   it("carries the modified time as the recency signal", () => {
@@ -53,9 +56,22 @@ describe("annotationToSearchDoc", () => {
     expect(doc.source).toBe("zotero-annotation");
     expect(doc.text).toContain("the key insight");
     expect(doc.text).toContain("important for chapter 3");
-    expect(doc.location).toBe("p. 12");
+    // With no resolved parent, the header still names the page, prefixed generically (not a bare number).
+    expect(doc.location).toBe("Annotation · p. 12");
     // The parent key lets a hit open the underlying item in Zotero.
     expect(doc.meta?.["parentKey"]).toBe("ATT1");
+  });
+
+  it("names the source paper in the header when the parent title is known", () => {
+    const a: ZoteroAnnotationRecord = { key: "AN2", parentKey: "P1", type: "highlight", text: "quoted", comment: "", pageLabel: "5" };
+    const doc = annotationToSearchDoc(a, "Attention Is All You Need");
+    expect(doc.location).toBe("Attention Is All You Need · p. 5");
+    expect(doc.meta?.["title"]).toBe("Attention Is All You Need");
+  });
+
+  it("falls back to a readable type label when there's no page number", () => {
+    const a: ZoteroAnnotationRecord = { key: "AN3", parentKey: "P1", type: "underline", text: "x", comment: "", pageLabel: "" };
+    expect(annotationToSearchDoc(a).location).toBe("Annotation · Underline");
   });
 });
 
@@ -112,5 +128,14 @@ describe("Zotero documents are findable through the real search index", () => {
     )) index.add(doc);
     const results = index.search("bandit", { matchMode: "any", fieldBoosts: { title: 3, tag: 1.6 } });
     expect(results[0]!.meta?.["zoteroKey"]).toBe("TITLE");
+  });
+
+  it("zoteroSearchDocs names an annotation's parent paper when the parent is a fetched item", () => {
+    const docs = zoteroSearchDocs(
+      [item({ key: "P1", title: "Deep Learning" })],
+      [{ key: "AN1", parentKey: "P1", type: "highlight", text: "backprop", comment: "", pageLabel: "9" }],
+    );
+    const ann = docs.find((d) => d.source === "zotero-annotation");
+    expect(ann?.location).toBe("Deep Learning · p. 9");
   });
 });
