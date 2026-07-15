@@ -207,16 +207,19 @@ Being honest about the edges:
 - **Not a Bases replacement.** Obsidian's own Bases works on note properties and ships with the app.
 - **No OCR.** Text inside scanned images isn't searchable (yet).
 - **No AI generation.** "Ask" retrieves real passages; it does not write prose. That is a deliberate choice, not a missing feature — offline and honest beats fluent and wrong.
-- **Mobile is lightly tested.** It uses no desktop-only APIs, and the index can now live in your vault so a
-  phone does not have to re-index — but nobody has put it through its paces on a phone. PDF annotation in
-  particular is built for desktop.
-- **The search has never been evaluated for relevance.** There are 606 tests proving the code does what it
+- **Mobile works, but is newly supported.** Every touch interaction has a real pointer-based path —
+  board cards, column resizing, sort reordering, PDF highlighting — and the heavy jobs (full-text
+  attachment indexing, the neural engine) are held back on phones by default, because settings sync and a
+  laptop's choices should not conscript a battery. It has been built carefully for touch, but it has not
+  yet been through a long shakedown on many real devices, so treat rough edges as expected and report
+  them.
+- **The search has never been evaluated for relevance.** There are 633 tests proving the code does what it
   says; there is no query set, no measurement, and therefore no evidence that it returns *good* results.
   Those are different claims, and only the first is currently backed.
 
 ## Status
 
-**New, and looking for people to break it.** The logic is covered by **606 unit tests**, the code is
+**New, and looking for people to break it.** The logic is covered by **633 unit tests**, the code is
 TypeScript in strict mode, and every release must pass typecheck, tests, build, and lint — including
 Obsidian's own reviewer rules (`eslint-plugin-obsidianmd`), which run in CI on every push.
 

@@ -150,6 +150,9 @@ export interface GlobalSettings {
    * it before asking for it.
    */
   readonly indexAttachments: boolean;
+  /** Index attachments on phones and tablets too. Separate from the above on purpose: settings sync,
+   *  and "read every PDF" is a very different promise on a laptop than on a battery. */
+  readonly indexAttachmentsOnMobile: boolean;
   /**
    * Which engine produces the semantic vectors.
    *   "builtin" — learns from your vault. Downloads nothing, ever. Weaker at synonyms it has never
@@ -230,6 +233,7 @@ export const DEFAULT_SETTINGS: GlobalSettings = {
   enableExcelSources: false,
   enableSearch: true,
   indexAttachments: false,
+  indexAttachmentsOnMobile: false,
   semanticEngine: "builtin",
   relevance: DEFAULT_RELEVANCE,
   indexLocation: "local",

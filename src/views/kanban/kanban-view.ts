@@ -1,4 +1,11 @@
-import { setTooltip } from "obsidian";
+import { Menu, setIcon, setTooltip } from "obsidian";
+import {
+  dropTargetAt,
+  enableLongPressDrag,
+  hideDragGhost,
+  moveDragGhost,
+  showDragGhost,
+} from "../../util/pointer-drag";
 import { findColumnByRole } from "../view-model";
 import { getField, isVirtualField, type Row,
   limitRows,
@@ -14,6 +21,66 @@ const KANBAN_VIRTUAL_THRESHOLD = 50;
 const KANBAN_CARD_H = 120;
 const KANBAN_OVERSCAN = 5;
 
+/**
+ * Moving a card *is* writing a value: dropping it on the "Done" column sets that row's status field to
+ * "Done" and writes it back to the note. There are now three ways to say that — drag it, right-click it,
+ * tap its menu — so the controller owns the meaning once, and the gestures merely call it.
+ */
+class KanbanDrag {
+  private row: Row | null = null;
+  private hovered: HTMLElement | null = null;
+
+  constructor(
+    private readonly field: string,
+    private readonly ctx: ViewRenderContext,
+    private readonly columns: readonly KanbanColumn[],
+  ) {}
+
+  begin(row: Row): void {
+    this.row = row;
+  }
+
+  hover(list: HTMLElement | null): void {
+    if (list === this.hovered) return;
+    this.hovered?.removeClass("kvs-drop-target");
+    this.hovered = list;
+    list?.addClass("kvs-drop-target");
+  }
+
+  drop(list: HTMLElement | null): void {
+    const row = this.row;
+    const key = list?.dataset.kvsColumn;
+    this.cancel();
+    if (!row || key === undefined) return;
+    this.move(row, key);
+  }
+
+  cancel(): void {
+    this.hovered?.removeClass("kvs-drop-target");
+    this.hovered = null;
+    this.row = null;
+  }
+
+  openMoveMenu(row: Row, x: number, y: number): void {
+    const current = getField(row, this.field).trim();
+    const menu = new Menu();
+    for (const column of this.columns) {
+      menu.addItem((item) =>
+        item
+          .setTitle(column.label)
+          .setChecked(column.key === current)
+          .onClick(() => this.move(row, column.key)),
+      );
+    }
+    menu.showAtPosition({ x, y });
+  }
+
+  private move(row: Row, key: string): void {
+    if (getField(row, this.field).trim() === key) return; // no-op move: don't dirty the note for nothing
+    this.ctx.onEditCell?.(row, this.field, key);
+  }
+}
+
 function paintValue(el: HTMLElement, value: string, column: ResolvedColumn, ctx: ViewRenderContext): void {
   const renderer = ctx.cellRenderers.get(column.typeId);
   if (renderer) {
@@ -28,10 +95,9 @@ function renderCard(
   row: Row,
   titleColumn: ResolvedColumn | undefined,
   secondary: readonly ResolvedColumn[],
-  field: string,
   draggable: boolean,
   ctx: ViewRenderContext,
-  onDragStart: (row: Row) => void,
+  drag: KanbanDrag,
 ): void {
   const card = list.createDiv({ cls: "kvs-kanban-card" });
 
@@ -49,28 +115,55 @@ function renderCard(
     paintValue(line.createSpan({ cls: "kvs-kanban-card-value" }), value, column, ctx);
   }
 
-  if (draggable && row.provenance.extractor === "table") {
-    card.draggable = true;
-    card.addClass("kvs-draggable");
-    card.addEventListener("dragstart", (event) => {
-      onDragStart(row);
-      event.dataTransfer?.setData("text/plain", getField(row, field));
-      if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
-    });
-  }
+  if (!draggable || row.provenance.extractor !== "table") return;
+  card.addClass("kvs-draggable");
+
+  // Dragging is the gesture people reach for, so it stays the headline — but it is also the gesture that
+  // a keyboard cannot perform and a screen reader cannot see. The menu is the same move, spelled out:
+  // it works with a right-click, a tap, or the keyboard, and it is the reason the board is not
+  // drag-or-nothing.
+  const menuBtn = card.createEl("button", { cls: "kvs-kanban-card-menu", attr: { "aria-label": "Move this card" } });
+  setIcon(menuBtn, "ellipsis-vertical");
+  setTooltip(menuBtn, "Move to…");
+  const openMenu = (x: number, y: number): void => drag.openMoveMenu(row, x, y);
+  menuBtn.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const box = menuBtn.getBoundingClientRect();
+    openMenu(box.left, box.bottom);
+  });
+  card.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    openMenu(event.clientX, event.clientY);
+  });
+
+  enableLongPressDrag(card, {
+    onStart: (x, y) => {
+      drag.begin(row);
+      showDragGhost(card, x, y);
+    },
+    onMove: (x, y) => {
+      moveDragGhost(x, y);
+      drag.hover(dropTargetAt(x, y, ".kvs-kanban-list"));
+    },
+    onDrop: (x, y) => {
+      hideDragGhost();
+      drag.drop(dropTargetAt(x, y, ".kvs-kanban-list"));
+    },
+    onCancel: () => {
+      hideDragGhost();
+      drag.cancel();
+    },
+  });
 }
 
 function renderColumn(
   board: HTMLElement,
   column: KanbanColumn,
-  field: string,
   titleColumn: ResolvedColumn | undefined,
   secondary: readonly ResolvedColumn[],
   draggable: boolean,
   ctx: ViewRenderContext,
-  getDragged: () => Row | null,
-  onDragStart: (row: Row) => void,
-  clearDragged: () => void,
+  drag: KanbanDrag,
 ): void {
   const col = board.createDiv({ cls: "kvs-kanban-column" });
   const header = col.createDiv({ cls: "kvs-kanban-column-header" });
@@ -78,12 +171,14 @@ function renderColumn(
   header.createSpan({ cls: "kvs-kanban-column-count", text: String(column.rows.length) });
 
   const list = col.createDiv({ cls: "kvs-kanban-list" });
+  // The drop target is found by hit-testing the pointer, not by a listener per list, so the list has to
+  // be able to say which column it *is*.
+  list.dataset.kvsColumn = column.key;
   // Draw only the first N cards of a column, with an honest "Show N more". The header count below
   // still reports the true total -- a column that says 12 when it holds 500 would be lying.
   const limited = limitRows(column.rows, ctx.profile.groupLimit);
   const rows = limited.rows;
-  const renderOne = (row: Row): void =>
-    renderCard(list, row, titleColumn, secondary, field, draggable, ctx, onDragStart);
+  const renderOne = (row: Row): void => renderCard(list, row, titleColumn, secondary, draggable, ctx, drag);
 
   if (rows.length > KANBAN_VIRTUAL_THRESHOLD) {
     // Windowed virtualization for very tall columns (fixed card height while virtual).
@@ -129,22 +224,6 @@ function renderColumn(
     });
   }
 
-  if (draggable) {
-    list.addEventListener("dragover", (event) => {
-      event.preventDefault();
-      list.addClass("kvs-drop-target");
-    });
-    list.addEventListener("dragleave", () => list.removeClass("kvs-drop-target"));
-    list.addEventListener("drop", (event) => {
-      event.preventDefault();
-      list.removeClass("kvs-drop-target");
-      const row = getDragged();
-      clearDragged();
-      if (!row) return;
-      if (getField(row, field).trim() === column.key) return; // no-op move
-      ctx.onEditCell?.(row, field, column.key);
-    });
-  }
 }
 
 function renderKanban(ctx: ViewRenderContext): void {
@@ -172,20 +251,9 @@ function renderKanban(ctx: ViewRenderContext): void {
   const draggable = Boolean(ctx.onEditCell) && !isVirtualField(field);
 
   const lane = root.createDiv({ cls: "kvs-kanban-board" });
-  let dragged: Row | null = null;
+  const drag = new KanbanDrag(field, ctx, board.columns);
   for (const column of board.columns) {
-    renderColumn(
-      lane,
-      column,
-      field,
-      titleColumn,
-      secondary,
-      draggable,
-      ctx,
-      () => dragged,
-      (row) => (dragged = row),
-      () => (dragged = null),
-    );
+    renderColumn(lane, column, titleColumn, secondary, draggable, ctx, drag);
   }
 }
 

@@ -422,6 +422,26 @@ export function registerPdfAnnotatorToolbar(plugin: Plugin, manager: PdfOverlayM
     bar?.remove();
     bar = null;
   };
+  /**
+   * Pressing a swatch must not disturb the selection it is about to highlight — hence `preventDefault`
+   * on the *press*, not a click handler.
+   *
+   * On touch that press is `touchstart`. The compatibility `mousedown` a browser synthesizes for a tap
+   * arrives *after* `touchend`, by which point the selection it was supposed to protect is already gone.
+   * Preventing the default on `touchstart` also suppresses those synthesized mouse events, so this binds
+   * both without the action ever firing twice.
+   */
+  const onPress = (el: HTMLElement, action: () => void): void => {
+    const handler = (e: Event): void => {
+      e.preventDefault();
+      e.stopPropagation();
+      action();
+      hide();
+    };
+    el.addEventListener("mousedown", handler);
+    el.addEventListener("touchstart", handler);
+  };
+
   const show = (rect: DOMRect): void => {
     hide();
     bar = document.body.createDiv({ cls: "kvs-hl-bar" });
@@ -429,27 +449,22 @@ export function registerPdfAnnotatorToolbar(plugin: Plugin, manager: PdfOverlayM
       const sw = bar.createDiv({ cls: "kvs-hl-swatch" });
       sw.setCssProps({ "--kvs-swatch": c.hex });
       sw.setAttr("aria-label", `Highlight ${c.name}`);
-      sw.addEventListener("mousedown", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        void manager.addHighlightFromSelection(c.hex);
-        hide();
-      });
+      onPress(sw, () => void manager.addHighlightFromSelection(c.hex));
     }
     const eraser = bar.createDiv({ cls: "kvs-hl-erase" });
     eraser.setText("⌫");
     eraser.setAttr("aria-label", "Remove highlight under selection");
-    eraser.addEventListener("mousedown", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      void manager.queueEraseAtSelection();
-      hide();
-    });
+    onPress(eraser, () => void manager.queueEraseAtSelection());
     const top = rect.top - 42 < 8 ? rect.bottom + 8 : rect.top - 42;
     bar.style.left = `${Math.max(8, Math.min(window.innerWidth - 240, rect.left))}px`;
     bar.style.top = `${top}px`;
   };
-  plugin.registerDomEvent(document, "mouseup", (e) => {
+
+  // `mouseup` alone meant the bar never appeared on a phone: a touch selection is made by long-press and
+  // then adjusted with drag handles, and each of those ends in `touchend`, not `mouseup`. Binding both
+  // means the bar also follows the selection as the handles are dragged, which is the behaviour you want
+  // anyway. `show()` begins with `hide()`, so a device that fires both events simply redraws.
+  const syncBar = (e: Event): void => {
     if (bar && bar.contains(e.target as Node)) return;
     window.setTimeout(() => {
       const sel = activeWindow.getSelection();
@@ -459,7 +474,9 @@ export function registerPdfAnnotatorToolbar(plugin: Plugin, manager: PdfOverlayM
       }
       show(sel.getRangeAt(0).getBoundingClientRect());
     }, 0);
-  });
+  };
+  plugin.registerDomEvent(document, "mouseup", syncBar);
+  plugin.registerDomEvent(document, "touchend", syncBar);
   plugin.registerDomEvent(document, "keydown", (e) => e.key === "Escape" && hide());
   plugin.registerDomEvent(document, "scroll", hide, true);
 }

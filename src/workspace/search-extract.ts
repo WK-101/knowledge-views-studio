@@ -1,6 +1,7 @@
 import { TFile, type App } from "obsidian";
 import { extractEpubText, extractOfficeText, extractPdfText, noteToDocs, rowsToDocs, sectionsToDocs, type IndexDoc } from "../services/index";
 import type { RelevanceWeights } from "../services/search/relevance";
+import type { DeviceProfile } from "../util/device";
 
 /** Every file extension the search indexer knows how to read. */
 export const INDEXABLE_EXTENSIONS = new Set(["md", "pdf", "docx", "xlsx", "pptx", "epub"]);
@@ -12,9 +13,39 @@ export interface IndexScope {
   readonly semanticEngine?: "builtin" | "neural";
   /** Read the full text of attachments (PDF/Word/PowerPoint/EPUB), not just notes. */
   readonly attachments: boolean;
+  /** Do that on a phone or tablet too — off by default, and deliberately a separate answer. */
+  readonly attachmentsOnMobile?: boolean;
   /** Whether Excel is enabled as a data source. When it isn't, .xlsx files are ignored entirely —
    *  including by search, which is what that setting promises. */
   readonly excel: boolean;
+}
+
+/**
+ * What a phone is actually allowed to do.
+ *
+ * Settings live in `data.json`, and `data.json` syncs. So a choice made on a laptop — "yes, index the
+ * full text of every PDF"; "yes, use the neural engine" — arrives on the phone as a decision the phone
+ * never made and cannot afford: pdf.js over a library of books, or downloading and running a
+ * sentence-transformer, on a battery, in a webview with a fraction of the memory.
+ *
+ * The device therefore gets a veto, applied here, in one pure place, rather than trusted to a scattering
+ * of `if (isMobile)` at the call sites that someone will one day forget to add:
+ *
+ *   - **Attachments** are indexed on mobile only if the user said so *for mobile*, as a separate answer.
+ *     Notes are always indexed: they are cheap, and they are the reason search exists.
+ *   - **The neural engine** never runs on mobile. The built-in engine downloads nothing and costs little,
+ *     so semantic search still works — it falls back to the engine a phone can carry.
+ *
+ * Neither degrades silently: the settings panel says both in words, so a phone behaving differently is a
+ * documented difference rather than a mysterious one.
+ */
+export function applyDevicePolicy(scope: IndexScope, device: DeviceProfile): IndexScope {
+  if (!device.mobile) return scope;
+  return {
+    ...scope,
+    attachments: scope.attachments && scope.attachmentsOnMobile === true,
+    semanticEngine: "builtin",
+  };
 }
 
 /**

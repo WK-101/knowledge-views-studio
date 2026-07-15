@@ -1,3 +1,5 @@
+import { enableHandleDrag } from "../util/pointer-drag";
+
 /** Minimal popover used by the dashboard toolbar menus. One open at a time. */
 export interface PopoverHandle {
   /** Close the popover. */
@@ -81,20 +83,36 @@ export function enableRowDrag(
   index: number,
   onReorder: (from: number, to: number) => void,
 ): void {
-  handle.draggable = true;
-  handle.addEventListener("dragstart", (event) => {
-    event.dataTransfer?.setData("text/plain", String(index));
-    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
-    row.addClass("kvs-dragging");
-  });
-  handle.addEventListener("dragend", () => row.removeClass("kvs-dragging"));
-  row.addEventListener("dragover", (event) => {
-    event.preventDefault();
-    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-  });
-  row.addEventListener("drop", (event) => {
-    event.preventDefault();
-    const from = Number(event.dataTransfer?.getData("text/plain"));
-    if (!Number.isNaN(from) && from !== index) onReorder(from, index);
+  // The grip carries its own index, so the row under the pointer can be asked where it wants to land
+  // without a `dataTransfer` — which is just as well, since `dataTransfer` does not exist on touch.
+  row.dataset.kvsIndex = String(index);
+  let target: HTMLElement | null = null;
+
+  const rowUnder = (event: PointerEvent): HTMLElement | null => {
+    const el = document.elementFromPoint(event.clientX, event.clientY);
+    return el instanceof HTMLElement ? el.closest<HTMLElement>("[data-kvs-index]") : null;
+  };
+  const clearTarget = (): void => {
+    target?.removeClass("kvs-drop-target");
+    target = null;
+  };
+
+  enableHandleDrag(handle, {
+    onStart: () => row.addClass("kvs-dragging"),
+    onMove: (event) => {
+      const over = rowUnder(event);
+      if (over === target) return;
+      clearTarget();
+      if (over && over !== row) {
+        target = over;
+        target.addClass("kvs-drop-target");
+      }
+    },
+    onEnd: () => {
+      const to = target ? Number(target.dataset.kvsIndex) : NaN;
+      clearTarget();
+      row.removeClass("kvs-dragging");
+      if (!Number.isNaN(to) && to !== index) onReorder(index, to);
+    },
   });
 }

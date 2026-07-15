@@ -5,6 +5,72 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 113 — mobile: making `isDesktopOnly: false` true instead of just claimed
+
+The manifest said the plugin runs on mobile. The code disagreed in three places, and one of them was
+the same *shape* of untruth as the `minAppVersion: 1.5.0` from Phase 106 — a compatibility claim we had
+not earned. This phase earns it.
+
+### The interactions that were not "degraded on touch" — they were impossible
+
+Moving a board card, reordering a sort key, and resizing a table column all used **HTML5 drag-and-drop**
+(`draggable`, `dragstart`, `drop`). Those events **do not fire on touch at all**. Not badly — never. So
+on a phone, a kanban board silently could not be rearranged, and a column silently could not be resized.
+No error, no hint; the gesture simply did nothing.
+
+Replaced wholesale with **Pointer Events**, which are the one input API that covers mouse, touch and pen
+on a single code path (`src/util/pointer-drag.ts`). The hard part is not the plumbing, it is one
+question: *when does a press become a drag?*
+
+- A **handle** (a resize grip, a reorder grip) is only ever a drag, so it activates immediately.
+- A **card** is also something you scroll past and tap, so on touch its drag begins only after a **long
+  press** — and a finger that moves first is scrolling, and is left alone.
+
+That decision is a pure state machine (`pressStart`/`pressMove`/`pressHold`/`pressCancel`), tested in
+isolation, because "did this finger mean to scroll or to drag" is impossible to eyeball and easy to get
+subtly wrong. A second test file drives the DOM bindings through a lightweight element double — proving
+the listeners actually fire from a `pointerType: "touch"` event, which is the exact regression that would
+bring the whole bug back. 13 + 6 new tests.
+
+Because a drag can no longer be the *only* way to move a card (a keyboard cannot perform one, a screen
+reader cannot see one), every board card now also has a **"Move to…" menu** — the same write, reachable
+by tap, right-click, or keyboard. The board stopped being drag-or-nothing.
+
+### The settings that synced from a laptop and punished a phone
+
+`data.json` syncs. So "index the full text of every PDF" and "use the neural engine", chosen on a
+desktop, arrived on the phone as decisions it never made and could not afford — pdf.js over a library of
+books, or downloading and running a sentence-transformer, on a battery and a fraction of the memory.
+
+The worst part: the settings panel already *warned* about this, in words, and then let the phone do it
+anyway. **Advice a program declines to act on is not a safeguard.** So the device now gets a veto,
+applied in one pure place (`applyDevicePolicy`, tested with 12 cases):
+
+- Attachments are indexed on mobile only if you asked *for mobile*, as a **separate toggle**. Notes are
+  always indexed — they are cheap, and they are the point.
+- The neural engine **never** runs on mobile; semantic search falls back to the built-in engine (which
+  downloads nothing), rather than failing. The engine dropdown now says so plainly when you are on a
+  phone, instead of claiming an engine that isn't the one running.
+
+### The rest of the touch surface
+
+- **PDF highlighting worked only via `mouseup`**, which a touch selection does not reliably produce —
+  a phone selection is a long-press adjusted with drag handles, and each ends in `touchend`. The swatch
+  bar now binds `touchend` (so it appears at all) and `touchstart` on the swatches (a tap's synthesized
+  `mousedown` arrives *after* the selection is already gone). Additive: desktop behaviour is unchanged.
+- **Six affordances were revealed only on `:hover`** — the copy button, the attachment remove, the
+  annotation tools, and others. A touchscreen has no hover, so these were not hard to find, they were
+  invisible. Now forced visible under `@media (hover: none)` — which correctly leaves a tablet-with-mouse
+  alone, unlike a width guess would.
+- **Touch targets**: the toolbar's ~26px icon buttons are a coin-toss for a fingertip. Restored to the
+  44px floor Apple and Google both specify — but only under `body.is-phone`, a class Obsidian sets for us
+  and the plugin had never once used. Toolbars scroll horizontally rather than wrapping; board columns
+  widen to nearly fill a phone screen; the 4px column divider gets a 20px *hit* area without a wider
+  *line*.
+
+633 tests (was 606). Four gates green. Bundle unchanged at 2.9 MB — this is all behaviour, not weight.
+The load-time diet (chart.js tree-shaking) and container-query responsiveness are still ahead (P2/P3).
+
 ## Phase 106 — Obsidian community-directory review: every issue fixed
 
 The plugin was pulled from the directory listing pending fixes. All of them are resolved, and Obsidian's

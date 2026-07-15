@@ -1,5 +1,7 @@
 import { Notice, Plugin, TFile, type Editor } from "obsidian";
 import { SearchIndexer } from "./workspace/search-indexer";
+import { applyDevicePolicy } from "./workspace/search-extract";
+import { currentDevice } from "./util/device";
 import { SEARCH_VIEW_TYPE, SearchView, openSearchView } from "./workspace/search-view";
 import { RELATED_VIEW_TYPE, RelatedNotesView, openRelatedView } from "./workspace/related-notes-view";
 import { LocalIndexBackend, VaultIndexBackend, type IndexBackend } from "./workspace/index-backend";
@@ -149,9 +151,21 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
         ? new VaultIndexBackend(this.app, st.indexFolder)
         : new LocalIndexBackend(`kvs-search-${this.app.vault.getName()}`);
     };
+    // The phone's veto (see applyDevicePolicy): a laptop's "index every PDF" and "use the neural engine"
+    // sync to a device that cannot afford either, and it never agreed to them.
+    const device = currentDevice();
     const searchIndexer = new SearchIndexer(this.app, () => {
       const st = store.getSettings();
-      return { attachments: st.indexAttachments, excel: st.enableExcelSources, semanticEngine: st.semanticEngine, relevance: st.relevance };
+      return applyDevicePolicy(
+        {
+          attachments: st.indexAttachments,
+          attachmentsOnMobile: st.indexAttachmentsOnMobile,
+          excel: st.enableExcelSources,
+          semanticEngine: st.semanticEngine,
+          relevance: st.relevance,
+        },
+        device,
+      );
     }, makeBackend());
     this.searchIndexer = searchIndexer;
     searchIndexer.register(this);

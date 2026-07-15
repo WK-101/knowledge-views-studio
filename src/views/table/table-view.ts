@@ -12,6 +12,7 @@ import { openSourceNote } from "../open-source";
 import { openRowDetail } from "../row-detail-modal";
 import type { KnowledgeView, ViewRenderContext } from "../view";
 import { buildPrefix, totalHeight, findRowAt, computeWindow, anchorShift } from "./virtual-window";
+import { enableHandleDrag } from "../../util/pointer-drag";
 
 import { selectionStore, bulkDraftStore, scrollStore, capViewState } from "../view-state";
 import { noteLinkColumnName, wikilinkTarget, citeKeyColumnName } from "../promoted-detect";
@@ -170,23 +171,22 @@ function attachResizeHandle(
       reset();
     });
   }
-  handle.addEventListener("mousedown", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const startX = event.clientX;
-    const startWidth = th.getBoundingClientRect().width;
-    table.addClass("kvs-fixed");
-    const widthAt = (clientX: number): number => Math.max(min, Math.round(startWidth + clientX - startX));
-    const onMove = (move: MouseEvent): void => {
-      th.style.width = `${widthAt(move.clientX)}px`;
-    };
-    const onUp = (up: MouseEvent): void => {
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-      commit(widthAt(up.clientX));
-    };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
+  // A pointer drag, not a mouse drag: a 4px-wide divider is exactly the kind of thing a finger could
+  // never grab before, because `mousemove` is not delivered while a touch is in progress. The pointer is
+  // captured, so the drag survives the cursor leaving those few pixels — which it does immediately.
+  let startX = 0;
+  let startWidth = 0;
+  const widthAt = (clientX: number): number => Math.max(min, Math.round(startWidth + clientX - startX));
+  enableHandleDrag(handle, {
+    onStart: (event) => {
+      startX = event.clientX;
+      startWidth = th.getBoundingClientRect().width;
+      table.addClass("kvs-fixed");
+    },
+    onMove: (event) => {
+      th.style.width = `${widthAt(event.clientX)}px`;
+    },
+    onEnd: (event) => commit(widthAt(event.clientX)),
   });
 }
 

@@ -4282,3 +4282,143 @@
   .kvs-fx { grid-template-columns: 1fr; }
   .kvs-fx-side { border-left: none; padding-left: 0; border-top: 1px solid var(--background-modifier-border); padding-top: var(--size-4-3); }
 }
+
+/* ==========================================================================
+   Phase 113 — mobile: the parts of the UI a finger could not reach
+   ========================================================================== */
+
+/* ---- Drag: the visuals HTML5 drag-and-drop used to draw for us ---- */
+
+/* A grip exists only to be dragged, so the browser must not pan the pane when a finger lands on it.
+   Without this, dragging a resize handle or a reorder grip on a phone scrolls the view instead. */
+.kvs-col-resize,
+.kvs-grip {
+  touch-action: none;
+}
+
+/* The card following the pointer. `pointer-events: none` is load-bearing, not cosmetic: the drop target
+   is found by hit-testing the point under the finger, and the ghost sits exactly there — if it could be
+   hit, every drop would land on the card being dragged. */
+.kvs-drag-ghost {
+  position: fixed;
+  z-index: var(--layer-notice);
+  margin: 0;
+  padding: var(--size-4-2);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-primary);
+  box-shadow: var(--shadow-s);
+  opacity: 0.85;
+  pointer-events: none;
+  transform: translate(-50%, -50%) rotate(1.5deg);
+}
+
+.kvs-kanban-card.kvs-dragging {
+  opacity: 0.4;
+}
+
+.kvs-drag-live {
+  color: var(--text-accent);
+}
+
+/* ---- The board's non-drag path ---- */
+
+.kvs-kanban-card {
+  position: relative;
+}
+.kvs-kanban-card-menu {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  color: var(--text-faint);
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  cursor: pointer;
+  opacity: 0;
+}
+.kvs-kanban-card:hover .kvs-kanban-card-menu,
+.kvs-kanban-card-menu:focus-visible {
+  opacity: 1;
+}
+.kvs-kanban-card-menu:hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+.kvs-kanban-card-menu svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ---- Affordances that only appeared on hover ----
+   A device with no pointer has no hover, so these controls were not merely hard to find — they were
+   invisible and unreachable. `hover: none` is the honest test (a touchscreen), rather than a guess at
+   screen width: a tablet with a mouse keeps the tidy hover behaviour, a small laptop is untouched. */
+@media (hover: none) {
+  .kvs-copy-btn,
+  .kvs-attach-remove,
+  .kvs-anno-tools,
+  .kvs-related-link,
+  .kvs-summary-btn.is-empty,
+  .kvs-fx-fn-use,
+  .kvs-kanban-card-menu {
+    opacity: 1;
+  }
+}
+
+/* ---- Touch targets ----
+   Obsidian puts `is-phone` on <body> and the plugin had never once looked at it. The toolbar's icon
+   buttons are ~26px tall: comfortable for a cursor, which is a point, and a coin-toss for a fingertip,
+   which is not. Apple and Google both put the floor at 44px; that is what these restore. Only on a
+   phone — a desktop toolbar has no business growing to accommodate a finger that isn't there. */
+body.is-phone .kvs-icon-btn,
+body.is-phone .kvs-tb-btn,
+body.is-phone .kvs-tab,
+body.is-phone .kvs-layout-tab {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Toolbars carry more controls than a phone is wide. Scrolling them beats truncating them, and beats a
+   three-line wrap that pushes the actual data below the fold. */
+body.is-phone .kvs-toolbar,
+body.is-phone .kvs-tabs,
+body.is-phone .kvs-layout-tabs {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+body.is-phone .kvs-toolbar::-webkit-scrollbar,
+body.is-phone .kvs-tabs::-webkit-scrollbar,
+body.is-phone .kvs-layout-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+/* A board column sized for a desktop lane leaves a phone showing a sliver of the next one. Near-full
+   width, and let the board pan horizontally — one column at a time is how a phone kanban actually reads. */
+body.is-phone .kvs-kanban-column {
+  min-width: 82vw;
+}
+
+/* Menus and popovers are reached with a thumb, so their rows need the same floor as the toolbar. */
+body.is-phone .kvs-viewmenu-disc-head,
+body.is-phone .kvs-pop-row,
+body.is-phone .kvs-chips-menu-item {
+  min-height: 44px;
+}
+
+/* A 4px column divider is not a touch target. Widen the *hit area* without widening the *line*: the
+   handle grows, its visible rule does not. */
+body.is-phone .kvs-col-resize {
+  width: 20px;
+  margin-right: -8px;
+}

@@ -396,12 +396,40 @@ export class KnowledgeViewsSettingTab extends PluginSettingTab {
         }),
       );
 
+    // This used to be a hint: it *told* you attachment indexing would be slow on a phone, and then let
+    // the phone do it anyway, because settings sync and the phone inherits whatever the laptop chose.
+    // Advice a program declines to act on is not a safeguard. It is now a real answer, asked separately.
+    if (settings.indexAttachments) {
+      new Setting(el)
+        .setName("…on phones and tablets too")
+        .setDesc(
+          "Off by default, and asked separately on purpose: your settings sync, so switching attachment indexing on at your desk " +
+            "would otherwise hand a phone a job it never agreed to — pdf.js across every book in the vault, on a battery. " +
+            "Leave this off and index on a desktop instead: with the index stored in your vault, the phone gets the finished result " +
+            "for free. Notes are always indexed on mobile; they cost almost nothing.",
+        )
+        .addToggle((t) =>
+          t.setValue(settings.indexAttachmentsOnMobile).onChange((v) => {
+            store.updateSettings({ indexAttachmentsOnMobile: v });
+            if (Platform.isMobile) {
+              const notice = new Notice(v ? "KVS: indexing attachments…" : "KVS: dropping attachments from the index…", 0);
+              void indexer
+                .rebuild((done, total) => notice.setMessage(`KVS: indexing ${done}/${total}…`))
+                .then(() => {
+                  notice.hide();
+                  new Notice("KVS search index updated.", 3000);
+                });
+            }
+          }),
+        );
+    }
+
     if (Platform.isMobile) {
       el.createDiv({
         cls: "kvs-settings-hint",
         text:
-          "On mobile, reading attachments is slower and uses battery — index them on a desktop and the result syncs with your vault, " +
-          "or leave this off. PDF annotation is designed for desktop and may be limited here.",
+          "On this device: the neural engine is never used — it would mean downloading and running a sentence-transformer on a phone — " +
+          "so semantic search falls back to the built-in engine, which downloads nothing. Everything else works.",
       });
     }
 
@@ -591,9 +619,12 @@ export class KnowledgeViewsSettingTab extends PluginSettingTab {
     new Setting(el)
       .setName("Semantic engine")
       .setDesc(
-        settings.semanticEngine === "neural"
-          ? "Neural model — much better at meaning. Downloads a ~25 MB model once (see below)."
-          : "Built-in — learns from your own vault. Downloads nothing, ever. Weaker at words your notes have never used together (it cannot know that “car” and “automobile” mean the same thing unless you taught it).",
+        settings.semanticEngine === "neural" && Platform.isMobile
+          ? "Neural model — but not on this device: running a sentence-transformer on a phone is not a reasonable thing to ask of it, " +
+              "so the built-in engine is used here instead. Your desktop still uses the neural one."
+          : settings.semanticEngine === "neural"
+            ? "Neural model — much better at meaning. Downloads a ~25 MB model once (see below)."
+            : "Built-in — learns from your own vault. Downloads nothing, ever. Weaker at words your notes have never used together (it cannot know that “car” and “automobile” mean the same thing unless you taught it).",
       )
       .addDropdown((d) => {
         d.addOption("builtin", "Built-in (no download, fully offline)");
