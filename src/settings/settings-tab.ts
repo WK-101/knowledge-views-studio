@@ -814,6 +814,12 @@ export class KnowledgeViewsSettingTab extends PluginSettingTab {
       );
 
     new Setting(el)
+      .setName("Live Zotero library view")
+      .setDesc(
+        "Browse your Zotero library live inside Obsidian (command: \"Open Zotero library\"), read straight from Zotero's local API so it's always current — no manual export. It's read-only for now, because Zotero's local API is; editing back into Zotero will light up automatically if Zotero adds local write support. Uses the same local API base URL as the annotation setting above.",
+      );
+
+    new Setting(el)
       .setName("Work with ZotFlow, if installed")
       .setDesc(
         isZotFlowAvailable(this.app)

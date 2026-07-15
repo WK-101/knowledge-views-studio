@@ -4,6 +4,10 @@ import { applyDevicePolicy } from "./workspace/search-extract";
 import { currentDevice } from "./util/device";
 import { SEARCH_VIEW_TYPE, SearchView, openSearchView } from "./workspace/search-view";
 import { RELATED_VIEW_TYPE, RelatedNotesView, openRelatedView } from "./workspace/related-notes-view";
+import { ZOTERO_LIBRARY_VIEW_TYPE, ZoteroLibraryView, openZoteroLibraryView } from "./workspace/zotero-library-view";
+import { LocalApiZoteroProvider } from "./services/zotero/local-api-provider";
+import type { ZoteroLibraryItem } from "./services/zotero/provider";
+import { createZoteroFetcher } from "./workspace/zotero-transport";
 import { LocalIndexBackend, VaultIndexBackend, type IndexBackend } from "./workspace/index-backend";
 import {
   ExtractorRegistry,
@@ -176,6 +180,19 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
       id: "kvs-related-notes",
       name: "Show related notes",
       callback: () => void openRelatedView(this.app),
+    });
+
+    // Live Zotero library view — reads Zotero's local API (always current, unlike a static export). The
+    // provider is built per-open from settings; it is read-only today (Zotero's local API is), with the
+    // write seam already in place for when that changes.
+    this.registerView(ZOTERO_LIBRARY_VIEW_TYPE, (leaf) => {
+      const provider = new LocalApiZoteroProvider(store.getSettings().zoteroApiBase, createZoteroFetcher());
+      return new ZoteroLibraryView(leaf, provider, (item) => void this.openZoteroItem(item));
+    });
+    this.addCommand({
+      id: "kvs-open-zotero-library",
+      name: "Open Zotero library",
+      callback: () => void openZoteroLibraryView(this.app),
     });
     this.addRibbonIcon("search", "Search vault (KVS)", () => void openSearchView(this.app));
     this.app.workspace.onLayoutReady(() => {
@@ -468,6 +485,21 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
       leaf = created;
     }
     if (leaf) void workspace.revealLeaf(leaf);
+  }
+
+  /**
+   * Open a Zotero library item the sensible way, given what we have. A future version can create/open a
+   * literature note (as zotero-lib-view does) or hand a PDF attachment to ZotFlow's reader (as our
+   * attachment panel already does); for now we open the item's canonical web location — its URL, or its
+   * DOI resolver — which always works and never guesses at a note path the user didn't ask for.
+   */
+  private openZoteroItem(item: ZoteroLibraryItem): void {
+    const url = item.url || (item.doi ? `https://doi.org/${item.doi}` : "");
+    if (url) {
+      window.open(url, "_blank");
+    } else {
+      new Notice(`No link available for "${item.title || item.key}".`);
+    }
   }
 
   /**

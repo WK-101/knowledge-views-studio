@@ -5,6 +5,58 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 120 — a live Zotero library view, built for eventual two-way editing
+
+The [zotero-lib-view](https://github.com/lebenswille/zotero-lib-view) plugin puts your Zotero library in a
+table inside Obsidian — but it reads a *static Better BibTeX JSON export*, so the data is only as fresh as
+your last manual export, and it is inherently view-only (a file export has nothing to write back to). This
+phase does the same job, live: it reads Zotero's **local HTTP API** (the same current source ZotFlow
+uses), so the library is always up to date with no export step.
+
+### Why this is designed the way it is
+
+The obvious question is "can it edit back into Zotero, so the two feel like one system?" The honest answer,
+verified against Zotero's own documentation and developer statements: **not yet — Zotero's local API is
+read-only.** Write support is planned upstream but unbuilt; every local endpoint is GET. (Even ZotFlow's
+bidirectional sync goes through Zotero's *cloud* Web API, not locally.) So local write-back cannot exist
+today through supported means, and reaching into Zotero's SQLite directly — the only alternative — corrupts
+libraries and is not something worth shipping.
+
+Rather than build a read-only feature that would need ripping apart later, this is built so that turning on
+editing, when Zotero allows it, is a *swap and not a rewrite*:
+
+- **A transport-agnostic provider** (`ZoteroProvider`) separates *what a library looks like* from *how it's
+  fetched* and *how it's written*. Reads run live against the local API now.
+- **The write path exists today, as a seam.** `ZoteroWriteBackend` is a real interface with a real
+  implementation — `ReadOnlyZoteroBackend`, which reports `canWrite() === false` with an honest reason
+  (Zotero's limitation, not ours). Every would-be edit already routes through it. The day a working backend
+  exists — local writes, or an opt-in to the cloud Web API — it implements the same three methods and
+  nothing else changes.
+- **Rows already carry their write address.** Each Zotero item becomes a normal KVS row (so it renders in
+  the table/cards/board/etc. like any other source), and its provenance stores the item key and *version*
+  — exactly what Zotero's `If-Unmodified-Since-Version` / 412 conflict protocol needs. The write path has
+  its address the moment it becomes usable.
+- **The lock is the existing mechanism, parameterised.** Today every Zotero field is marked
+  `readOnlyFields` — the same guard that stops someone overwriting an Excel formula cell. When the backend
+  reports it can write, the editable metadata fields simply drop out of that list. There is no Zotero-
+  specific write-block to unwind; the machinery is already general.
+
+That seam is not decoration — it is tested. A test swaps in a hypothetical write-capable backend and
+asserts the *same row mapper* produces editable rows (title, DOI, tags unlock; identity and timestamps stay
+locked), proving the future path works before it is needed.
+
+### What ships now
+
+A live, searchable, sortable Zotero library view (command: "Open Zotero library"), read straight from the
+local API. Full-record search (title, creators, tags, abstract, DOI), click-to-open, and the same
+accessibility standard as the rest of the plugin — semantic `<table>`, `aria-sort`, keyboard sorting,
+live-region status. It states plainly that it is read-only and why, rather than pretending. Together with
+the ZotFlow reader bridge and annotation collection from the previous phase, the arc is: browse your live
+Zotero library → open a paper in ZotFlow's Zotero-grade reader → pull the annotations you make into your
+notes — three plugins composing into something that feels native, on supported seams only.
+
+702 tests (was 686). Four gates green.
+
 ## Phase 119 — optional interoperation with ZotFlow
 
 [ZotFlow](https://community.obsidian.md/plugins/zotflow) embeds Zotero's real PDF/EPUB reader — a far
