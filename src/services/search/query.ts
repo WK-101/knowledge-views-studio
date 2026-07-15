@@ -93,16 +93,20 @@ function lex(input: string): Tok[] {
     const word = input.slice(j, k);
     i = k;
     if (!field) {
-      const up = word.toUpperCase();
-      if (up === "AND") {
+      // Boolean operators must be UPPERCASE — the standard search convention (Google, Lucene default).
+      // Lowercase "and"/"or"/"not" are ordinary words: a query like "extraction and flavour" or "cats and
+      // dogs" means to search for those words, not to AND them, and treating a bare "and" as an operator
+      // silently collapsed such queries to the handful of docs containing every term. Only the explicit,
+      // capitalised form is an operator now.
+      if (word === "AND") {
         toks.push({ t: "and" });
         continue;
       }
-      if (up === "OR") {
+      if (word === "OR") {
         toks.push({ t: "or" });
         continue;
       }
-      if (up === "NOT") {
+      if (word === "NOT") {
         toks.push({ t: "not" });
         continue;
       }

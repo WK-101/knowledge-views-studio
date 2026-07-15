@@ -5,6 +5,52 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 118 — measuring search relevance (and the bug that fell out of it)
+
+For six phases the README carried the same admission: the search had never been evaluated for relevance.
+650 tests proved the code did what it *said*; none proved it returned what a person actually *wanted*.
+Those are different claims, and only the first was backed. This phase backs the second.
+
+### The instrument
+
+Three pieces, built in the order that keeps them honest:
+
+1. **Metrics** (`eval-metrics.ts`) — precision@k, recall@k, MRR, nDCG@k, textbook definitions implemented
+   plainly and checked against hand-computed values (16 tests). A metric that is subtly wrong flatters or
+   damns the ranker for no reason, so the measuring instrument is itself measured first.
+2. **A judged corpus** (`fixtures/eval-corpus.ts`) — twelve documents on a coffee knowledge base, chosen
+   for natural vocabulary overlap (brewing/extraction, grind/burr) that separates keyword matching from
+   meaning, plus ten queries whose relevant answers were decided *by reading and judging*, before the
+   search was ever run. The whole exercise's integrity rests on that ordering: a corpus reverse-engineered
+   from what the ranker already does would always score well and prove nothing. Each judgement carries a
+   written rationale so a reader can check it rather than trust it.
+3. **A harness** (`eval-harness.ts`) that indexes the corpus, runs the queries through the real
+   `SearchIndex`, and reduces the results to those metrics.
+
+### What it found
+
+Running it exposed a genuine bug the unit tests never could. The query *"extraction and flavour"* returned
+a single result where three documents were relevant — because the parser treated the lowercase word
+**"and"** as the boolean AND operator, collapsing a broad query to the one document containing every term.
+The convention everywhere else (Google, Lucene's default) is that only UPPERCASE `AND`/`OR`/`NOT` are
+operators; lowercase are ordinary words. Fixed. The evaluation measured the effect: that query went from
+recall 0.33 / nDCG 0.47 to 0.67 / 0.84, and the corpus aggregate nDCG@10 rose from 0.873 to **0.910**.
+This is the loop the harness exists for — measure, find a real defect, fix, measure the gain.
+
+### What it declined to do
+
+A weight sweep across the field boosts moved the aggregate nDCG by less than 0.01 in either direction, and
+pushing the title boost higher actively *hurt*. The disciplined conclusion is not to hunt a marginally
+better number on twelve documents and call it tuning — that is overfitting, and dishonest. So the shipped
+defaults are unchanged; what changed is that they are now *tested to be non-harmful* rather than asserted,
+and the far larger relevance win came from the parser fix, not from the weights.
+
+The eval now runs on every build as a regression gate, with thresholds set just below the measured
+baseline — floors to defend and ratchet upward, not targets that happen to pass today. The honest caveat
+that replaces the old one: this is twelve documents, not vault scale.
+
+673 tests (was 650). Four gates green.
+
 ## Phase 117 — command hygiene and accessibility
 
 Two kinds of polish that the compiler and the unit suite are both blind to.

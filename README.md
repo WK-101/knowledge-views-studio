@@ -213,13 +213,18 @@ Being honest about the edges:
   laptop's choices should not conscript a battery. It has been built carefully for touch, but it has not
   yet been through a long shakedown on many real devices, so treat rough edges as expected and report
   them.
-- **The search has never been evaluated for relevance.** There are 650 tests proving the code does what it
-  says; there is no query set, no measurement, and therefore no evidence that it returns *good* results.
-  Those are different claims, and only the first is currently backed.
+- **Search relevance is now measured, on a small corpus.** There is a human-judged query set (a coffee
+  knowledge base with per-query relevance decided by meaning, not by the ranker) and a metrics harness
+  (precision, recall, MRR, nDCG) that runs on every build as a regression gate. On that corpus the engine
+  scores MRR 0.95 and nDCG@10 0.91 — a relevant result is almost always at or near the top. The honest
+  limit: it is twelve documents and ten queries, enough to catch a ranking regression and enough to have
+  already caught a real parser bug, but not a substitute for evaluation at vault scale. The weights are
+  now *tested to be non-harmful* rather than merely asserted; no alternative beat them meaningfully on
+  this corpus.
 
 ## Status
 
-**New, and looking for people to break it.** The logic is covered by **650 unit tests**, the code is
+**New, and looking for people to break it.** The logic is covered by **673 unit tests**, the code is
 TypeScript in strict mode, and every release must pass typecheck, tests, build, and lint — including
 Obsidian's own reviewer rules (`eslint-plugin-obsidianmd`), which run in CI on every push.
 
