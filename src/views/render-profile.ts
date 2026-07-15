@@ -138,7 +138,10 @@ export async function renderProfile(options: RenderProfileOptions): Promise<void
             : rawViewResult.groups,
         }
       : rawViewResult;
-    const viewHost = container.createDiv({ cls: "kvs-view-host" });
+    // A view embedded in a note lives at whatever width the note column gives it — narrow in a split
+    // editor, wide in a full pane. The host is its own container context so each layout (board columns,
+    // gallery cards, the table toolbar) reads that width directly, independent of the window.
+    const viewHost = container.createDiv({ cls: "kvs-view-host kvs-cq-view" });
     options.onResult?.({ rows: viewResult.rows, total: result.total, page: result.page });
 
     const context: ViewRenderContext = {

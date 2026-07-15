@@ -38,6 +38,9 @@ export default tseslint.config(
     rules: {
       "obsidianmd/no-global-this": "off",
       "obsidianmd/prefer-window-timers": "off",
+      // A test reading styles.css or walking src/ needs node:fs — and cannot run on mobile because it
+      // does not run in the plugin at all. The rule guards runtime code; here it is a false positive.
+      "obsidianmd/no-nodejs-modules": "off",
       "@typescript-eslint/no-unsafe-assignment": "off",
       "@typescript-eslint/no-unsafe-argument": "off",
       "@typescript-eslint/no-unsafe-member-access": "off",

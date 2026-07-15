@@ -1011,6 +1011,12 @@ export class DashboardView extends TextFileView {
 
   override async onOpen(): Promise<void> {
     const root = this.contentEl;
+    // The dashboard is a *pane*, and a pane is not the window: a 4K monitor can hold this view in a 380px
+    // sidebar split, and a phone can hold it full-bleed. Window media queries answer the wrong question.
+    // Naming the root a container query context lets the toolbar and layouts respond to the width they
+    // actually have — which fixes splits and pop-outs on desktop, not only phones. Fully supported since
+    // the plugin's floor (Obsidian 1.10 / its Chromium) ships container queries.
+    root.addClass("kvs-cq-root");
     root.empty();
     root.addClass("kvs-dashboard");
 

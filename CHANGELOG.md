@@ -5,6 +5,52 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 114 — container queries, and the CSS gate that was missing
+
+Obsidian is a tiling window manager. The same dashboard can be a full pane on a laptop, a 380px sidebar
+split on a 4K monitor, or a small pop-out — all at the *same window width*. So the handful of
+`@media (max-width: …)` rules were answering the wrong question: they measure the window, and the window
+is not the pane. A dashboard crammed into a narrow split still got the wide-pane layout, because the
+monitor was wide.
+
+The fix is **container queries**. Two elements are now named containment contexts — the dashboard root
+(`kvs-cq-root`) and the shared per-layout host (`kvs-cq-view`, which also wraps views embedded in notes)
+— and the width-dependent rules key off `@container`, not `@media`. The same view now adapts the same way
+whether it is narrow on a phone or narrow in a split on a big screen. That desktop case is the one the old
+rules never caught, and the reason this is not just a mobile fix. (Supported since the plugin's floor,
+Obsidian 1.10 / its Chromium.)
+
+What actually changed behaviourally:
+
+- **The dashboard toolbar gained a narrow-pane path it never had.** There was *no* toolbar
+  responsiveness before — it simply wrapped to a second row, pushing the data below the fold. Now, below
+  ~600px of pane it scrolls sideways and tightens; below ~420px the view-switcher drops its label to an
+  icon, the layout tabs shrink to icons, and the search field becomes a flexible remainder.
+- **Boards and the formula editor fold on their host width**, so an embedded board in a narrow note
+  column behaves like a narrow board, independent of the window.
+- **Search fields stopped being sized to the monitor.** They were `max-width: 40vw` — nearly half a 4K
+  screen while sitting in a sidebar. Now `cqi` (a fraction of their container).
+
+### The gate that let this class of bug exist
+
+Fixing the above surfaced something worse: **CSS is the one layer no gate tests.** `tsc` cannot see it,
+`vitest` does not render it, `eslint` lints TypeScript. Proof that this matters — the Phase 113 mobile CSS
+itself shipped selectors for `.kvs-toolbar`, `.kvs-tabs`, `.kvs-tab`, `.kvs-layout-tabs`: **none of which
+the dashboard emits.** Those touch-target and scroll rules were dead on arrival and every gate stayed
+green. Converting to container queries forced a DOM re-audit, which is how it was caught and corrected
+(the real classes are `.kvs-toolbar-bar`, `.kvs-view-tabs`, `.kvs-layout-tabs-inline`, `.kvs-view-tab`,
+`.kvs-tb-icon`).
+
+So there is now a **stylesheet guard test**: it parses every `.kvs-…` class the stylesheet targets and
+asserts each corresponds to a class the source actually puts on an element (accounting for classes built
+at runtime like `kvs-attach-${kind}`). It cannot prove a rule looks right, but it proves a rule can match
+*something* — the exact failure that bit us twice this session. Running it also turned up **19 genuinely
+dead selectors inherited from earlier phases**; those are captured in an explicit, itemised debt list
+that the guard forbids from growing, so old rot is visible and new rot is impossible. Deleting that list
+to empty is a deliberate follow-up, kept out of this change so it stays reviewable.
+
+636 tests (was 633). Four gates green. Bundle unchanged at 2.9 MB.
+
 ## Phase 113 — mobile: making `isDesktopOnly: false` true instead of just claimed
 
 The manifest said the plugin runs on mobile. The code disagreed in three places, and one of them was

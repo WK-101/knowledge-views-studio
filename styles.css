@@ -1,6 +1,20 @@
 /* Knowledge Views Studio — styles use Obsidian theme variables so views match
    the active light/dark theme automatically. All classes are namespaced `kvs-`. */
 
+/* The two query-container contexts (Phase 114). `inline-size` means "measure width, let height grow
+   freely" — exactly right for a scrolling dashboard. `kvs-cq-root` is the whole dashboard pane; its
+   `min-width: 0` frees it to actually shrink inside a flex split (a flex item defaults to its content
+   width, which would otherwise pin the pane wide and defeat the entire exercise). `kvs-cq-view` is the
+   per-layout host, so a view embedded in a note responds to its column, not the window. Both are named
+   so a rule can target one without accidentally matching the other nested inside it. */
+.kvs-cq-root {
+  container: kvs-pane / inline-size;
+  min-width: 0;
+}
+.kvs-cq-view {
+  container: kvs-view / inline-size;
+}
+
 .kvs-view {
   --kvs-border: var(--background-modifier-border);
   font-size: var(--font-ui-small);
@@ -537,7 +551,9 @@
 }
 .kvs-search {
   width: 12rem;
-  max-width: 40vw;
+  /* cqi = 1% of the query container's width, so the field is a fraction of the *pane*, not the monitor.
+     A search box that was 40vw wide filled almost half a 4K screen while sitting in a narrow split. */
+  max-width: 40cqi;
 }
 .kvs-results {
   color: var(--text-muted);
@@ -688,7 +704,7 @@
 /* Compact search field */
 .kvs-search-wrap {
   width: 12rem;
-  max-width: 38vw;
+  max-width: 38cqi;
 }
 .kvs-search {
   width: 100%;
@@ -4278,11 +4294,6 @@
 .kvs-fx-open-code { font-family: var(--font-monospace); font-size: var(--font-ui-smaller); color: var(--text-normal); }
 .kvs-fx-open.is-empty .kvs-fx-open-code { color: var(--text-faint); font-family: var(--font-interface); }
 
-@media (max-width: 760px) {
-  .kvs-fx { grid-template-columns: 1fr; }
-  .kvs-fx-side { border-left: none; padding-left: 0; border-top: 1px solid var(--background-modifier-border); padding-top: var(--size-4-3); }
-}
-
 /* ==========================================================================
    Phase 113 — mobile: the parts of the UI a finger could not reach
    ========================================================================== */
@@ -4377,9 +4388,9 @@
    buttons are ~26px tall: comfortable for a cursor, which is a point, and a coin-toss for a fingertip,
    which is not. Apple and Google both put the floor at 44px; that is what these restore. Only on a
    phone — a desktop toolbar has no business growing to accommodate a finger that isn't there. */
-body.is-phone .kvs-icon-btn,
+body.is-phone .kvs-tb-icon,
 body.is-phone .kvs-tb-btn,
-body.is-phone .kvs-tab,
+body.is-phone .kvs-view-tab,
 body.is-phone .kvs-layout-tab {
   min-height: 44px;
   min-width: 44px;
@@ -4390,28 +4401,29 @@ body.is-phone .kvs-layout-tab {
 
 /* Toolbars carry more controls than a phone is wide. Scrolling them beats truncating them, and beats a
    three-line wrap that pushes the actual data below the fold. */
-body.is-phone .kvs-toolbar,
-body.is-phone .kvs-tabs,
-body.is-phone .kvs-layout-tabs {
+body.is-phone .kvs-toolbar-bar,
+body.is-phone .kvs-view-tabs,
+body.is-phone .kvs-layout-tabs-inline {
   flex-wrap: nowrap;
   overflow-x: auto;
   scrollbar-width: none;
 }
-body.is-phone .kvs-toolbar::-webkit-scrollbar,
-body.is-phone .kvs-tabs::-webkit-scrollbar,
-body.is-phone .kvs-layout-tabs::-webkit-scrollbar {
+body.is-phone .kvs-toolbar-bar::-webkit-scrollbar,
+body.is-phone .kvs-view-tabs::-webkit-scrollbar,
+body.is-phone .kvs-layout-tabs-inline::-webkit-scrollbar {
   display: none;
 }
 
 /* A board column sized for a desktop lane leaves a phone showing a sliver of the next one. Near-full
-   width, and let the board pan horizontally — one column at a time is how a phone kanban actually reads. */
+   width, and let the board pan horizontally — one column at a time is how a phone kanban actually reads.
+   `cqi` (not `vw`) so this is correct in a narrow *pane* too, not only a narrow window. */
 body.is-phone .kvs-kanban-column {
-  min-width: 82vw;
+  min-width: 84cqi;
 }
 
 /* Menus and popovers are reached with a thumb, so their rows need the same floor as the toolbar. */
 body.is-phone .kvs-viewmenu-disc-head,
-body.is-phone .kvs-pop-row,
+body.is-phone .kvs-prop-row,
 body.is-phone .kvs-chips-menu-item {
   min-height: 44px;
 }
@@ -4421,4 +4433,79 @@ body.is-phone .kvs-chips-menu-item {
 body.is-phone .kvs-col-resize {
   width: 20px;
   margin-right: -8px;
+}
+
+/* ==========================================================================
+   Phase 114 — container queries: respond to the pane, not the window
+   ==========================================================================
+
+   Every rule below keys off the *container's* width via `@container`. The same dashboard now adapts the
+   same way whether it is narrow because it's on a phone, or narrow because it's a sidebar split or a
+   small pop-out on a big monitor. That second case is the one window media queries never caught, and the
+   reason this phase exists at desktop scale, not only mobile. */
+
+/* ---- The dashboard toolbar: a real narrow-pane path, where before there was none ---- */
+
+/* Tier 1 (< 600px of pane): the toolbar stops wrapping to a second row — which pushed the data below the
+   fold — and scrolls sideways instead. Gaps tighten. The view-switcher name truncates rather than
+   shoving the controls off the row. */
+@container kvs-pane (max-width: 600px) {
+  .kvs-toolbar-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .kvs-toolbar-bar::-webkit-scrollbar {
+    display: none;
+  }
+  .kvs-view-name {
+    max-width: 8rem;
+  }
+  .kvs-search-wrap,
+  .kvs-search {
+    max-width: 30cqi;
+  }
+}
+
+/* Tier 2 (< 420px): space is genuinely scarce. The view-switcher keeps its icon and chevron but drops
+   the label; the layout tabs shrink to icons. The search field gives up its inline width and becomes a
+   flexible remainder so it never crowds the buttons off the row. */
+@container kvs-pane (max-width: 420px) {
+  .kvs-view-switcher .kvs-view-name {
+    display: none;
+  }
+  .kvs-layout-tab-name {
+    display: none;
+  }
+  .kvs-search-wrap {
+    width: auto;
+    flex: 1 1 6rem;
+    min-width: 5rem;
+  }
+}
+
+/* ---- Layouts respond to the host width (works for views embedded in notes too) ---- */
+
+/* A board sized for a wide pane shows slivers of adjacent columns when the pane is narrow. Below 560px of
+   *host* width, columns widen toward full and the board pans one column at a time — the reading model a
+   narrow board actually wants, on desktop splits as much as on phones. */
+@container kvs-view (max-width: 560px) {
+  .kvs-kanban-column {
+    min-width: min(20rem, 84cqi);
+  }
+}
+
+/* The formula editor's two-pane grid collapses to one column when its host is narrow. This used to be a
+   `@media (max-width: 760px)` rule — wrong axis: the editor is embedded, so it should fold when *it* is
+   narrow, not when the window is. */
+@container kvs-view (max-width: 620px) {
+  .kvs-fx {
+    grid-template-columns: 1fr;
+  }
+  .kvs-fx-side {
+    border-left: none;
+    padding-left: 0;
+    border-top: 1px solid var(--background-modifier-border);
+    padding-top: var(--size-4-3);
+  }
 }
