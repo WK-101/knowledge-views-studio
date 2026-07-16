@@ -393,6 +393,20 @@ export class ProfileEditorModal extends Modal {
     return out.sort((a, b) => a.localeCompare(b));
   }
 
+  /** Frontmatter property names used across the vault, most common first, for the dedicated-note dropdown. */
+  private frontmatterKeys(): string[] {
+    const counts = new Map<string, number>();
+    for (const file of this.app.vault.getMarkdownFiles()) {
+      const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
+      if (!fm) continue;
+      for (const key of Object.keys(fm)) {
+        if (key === "position") continue; // Obsidian's internal frontmatter position marker
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([k]) => k);
+  }
+
   private allMarkdownFiles(): string[] {
     return this.app.vault
       .getMarkdownFiles()
@@ -440,17 +454,24 @@ export class ProfileEditorModal extends Modal {
     input.addEventListener("blur", commit);
 
     // How a row is linked to its dedicated note. Matching on a frontmatter field (the DOI, for academic
-    // views) finds the note wherever it lives and stops "promote" ever making a duplicate.
-    const matchSetting = new Setting(el)
+    // views) finds the note wherever it lives and stops "promote" ever making a duplicate. Presented as a
+    // dropdown of the frontmatter properties actually used in the vault, so any view — academic or not — can
+    // pick the property that identifies its notes.
+    const academic = this.profile.academicKit === true;
+    const current = this.profile.dedicatedNoteKey ?? "";
+    // Curated identifiers first, then whatever the vault actually uses, de-duplicated; keep the current
+    // value even if no note carries it yet.
+    const curated = ["doi", "isbn", "url", "zotero-key", "uid", "id"];
+    const keyOptions = [...new Set([...(current ? [current] : []), ...curated, ...this.frontmatterKeys()])];
+    new Setting(el)
       .setName("Match dedicated notes by")
-      .setDesc("Frontmatter field that ties a row to its note, so promote recognises an existing note anywhere in the vault. Empty = default (“doi” for academic views; otherwise match by the row's note link only).");
-    const matchInput = matchSetting.controlEl.createEl("input", { cls: "kvs-folder-input" });
-    matchInput.type = "text";
-    matchInput.placeholder = "e.g. doi";
-    matchInput.value = this.profile.dedicatedNoteKey ?? "";
-    const commitMatch = (): void => this.patch({ dedicatedNoteKey: matchInput.value.trim() });
-    matchInput.addEventListener("change", commitMatch);
-    matchInput.addEventListener("blur", commitMatch);
+      .setDesc("Frontmatter property that ties a row to its note, so “Promote to note” recognises an existing note anywhere in the vault (not just by folder or filename). Default matches by DOI for academic views.")
+      .addDropdown((dd) => {
+        dd.addOption("", academic ? "Default (DOI)" : "Default (match by note link only)");
+        for (const k of keyOptions) dd.addOption(k, k);
+        dd.setValue(current);
+        dd.onChange((v) => this.patch({ dedicatedNoteKey: v }));
+      });
 
     const tmpl = new Setting(el)
       .setName("Promoted note template (this view)")

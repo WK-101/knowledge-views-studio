@@ -12,6 +12,7 @@ import { createZoteroFetcher } from "./workspace/zotero-transport";
 import { ZOTERO_DOC_PREFIX, zoteroSearchDocs } from "./services/zotero/zotero-search-docs";
 import { createOrOpenLiteratureNote, indexLiteratureNotes, literatureNoteKey, refreshLiteratureNoteAnnotations } from "./services/notes/literature-note";
 import { ZoteroLibraryCache } from "./services/zotero/zotero-library-cache";
+import { invalidateDedicatedNoteIndex } from "./services/notes/dedicated-note";
 import { fetchZoteroAnnotations } from "./services/annotations/zotero-client";
 import type { KvsAnnotation } from "./domain/index";
 import { LocalIndexBackend, VaultIndexBackend, type IndexBackend } from "./workspace/index-backend";
@@ -158,6 +159,13 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     this.registerEvent(this.app.workspace.on("active-leaf-change", () => overlayManager.onLeafChange()));
     this.registerDomEvent(window, "blur", () => void overlayManager.flushAll());
 
+    // Keep the dedicated-note frontmatter index fresh: invalidate only when a note's metadata actually
+    // changes (or a file is renamed/removed), so it's rebuilt lazily on the next render rather than rescanned
+    // on every render. Searching/sorting/scrolling don't fire these, so those stay off the vault-scan path.
+    this.registerEvent(this.app.metadataCache.on("changed", () => invalidateDedicatedNoteIndex()));
+    this.registerEvent(this.app.metadataCache.on("deleted", () => invalidateDedicatedNoteIndex()));
+    this.registerEvent(this.app.vault.on("rename", () => invalidateDedicatedNoteIndex()));
+
     // ---- full-text search index ----
     const makeBackend = (): IndexBackend => {
       const st = store.getSettings();
@@ -187,7 +195,9 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
       if (!store.getSettings().indexZotero) return null;
       const provider = new LocalApiZoteroProvider(store.getSettings().zoteroApiBase, createZoteroFetcher());
       if (!(await provider.ping())) return null;
-      const [items, annotations] = await Promise.all([provider.listItems(), provider.listAllAnnotations()]);
+      // Items come from the shared cache (so a recent fill/promote/library-view fetch is reused); annotations
+      // aren't cached, so fetch those directly. Both in parallel.
+      const [items, annotations] = await Promise.all([zoteroLibraryCache.getItems(provider), provider.listAllAnnotations()]);
       return { prefix: ZOTERO_DOC_PREFIX, docs: zoteroSearchDocs(items, annotations) };
     });
     this.searchIndexer = searchIndexer;
@@ -213,6 +223,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
         (items) => void this.createZoteroDashboard(items),
         (items) => this.createLiteratureNotes(items),
         () => new Set(indexLiteratureNotes(this.app).keys()),
+        zoteroLibraryCache,
       );
     });
     this.addCommand({

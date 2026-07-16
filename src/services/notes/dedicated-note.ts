@@ -60,5 +60,29 @@ export function findInIndex(index: Map<string, TFile>, key: string, value: strin
 /** One-shot lookup (builds the index, then queries) for callers that don't need to reuse it. */
 export function findDedicatedNote(app: App, key: string, value: string): TFile | null {
   if (key.trim() === "" || (value ?? "").trim() === "") return null;
-  return findInIndex(indexNotesByFrontmatter(app, key), key, value);
+  return findInIndex(getDedicatedNoteIndex(app, key), key, value);
+}
+
+/**
+ * A process-wide cache of the frontmatter index, so a view's note-indicator and "promote" don't rescan the
+ * whole vault on every render. Rebuilding is O(all markdown files); doing it per render made typing in the
+ * search box and sorting feel laggy on large vaults. The cache is keyed by the frontmatter field and a
+ * generation counter: it's reused until the vault's metadata actually changes (which the plugin signals via
+ * {@link invalidateDedicatedNoteIndex} from metadata-cache events). Crucially, actions that DON'T touch files
+ * — searching, sorting, scrolling, paging — never bump the generation, so they hit the cache every time.
+ */
+let indexCache: { key: string; index: Map<string, TFile>; generation: number } | null = null;
+let indexGeneration = 0;
+
+/** Signal that vault metadata changed, so the next index read rebuilds. Cheap — just bumps a counter. */
+export function invalidateDedicatedNoteIndex(): void {
+  indexGeneration++;
+}
+
+/** The frontmatter index for a field, from cache when the vault hasn't changed since it was built. */
+export function getDedicatedNoteIndex(app: App, key: string): Map<string, TFile> {
+  if (indexCache && indexCache.key === key && indexCache.generation === indexGeneration) return indexCache.index;
+  const index = indexNotesByFrontmatter(app, key);
+  indexCache = { key, index, generation: indexGeneration };
+  return index;
 }

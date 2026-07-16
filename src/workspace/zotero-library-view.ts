@@ -1,5 +1,6 @@
 import { ItemView, Notice, setIcon, setTooltip, type App, type WorkspaceLeaf } from "obsidian";
 import type { ZoteroLibraryItem, ZoteroProvider } from "../services/zotero/provider";
+import type { ZoteroLibraryCache } from "../services/zotero/zotero-library-cache";
 import { ZOTERO_COLUMNS } from "../services/zotero/zotero-rows";
 
 export const ZOTERO_LIBRARY_VIEW_TYPE = "kvs-zotero-library";
@@ -63,6 +64,9 @@ export class ZoteroLibraryView extends ItemView {
     private readonly onLiteratureNotes: (items: ZoteroLibraryItem[]) => Promise<void>,
     /** Report the set of Zotero keys that currently have a literature note, for the status indicator. */
     private readonly notedKeysProvider: () => Set<string>,
+    /** Shared library cache, so opening this view reuses a recent fetch (from fill/promote/search) instead
+     *  of re-reading the whole library every time. Absent = always fetch directly. */
+    private readonly libraryCache?: ZoteroLibraryCache,
   ) {
     super(leaf);
   }
@@ -92,7 +96,7 @@ export class ZoteroLibraryView extends ItemView {
     const refresh = bar.createEl("button", { cls: "kvs-zotero-refresh", attr: { "aria-label": "Refresh from Zotero" } });
     setIcon(refresh, "refresh-cw");
     setTooltip(refresh, "Reload from Zotero");
-    refresh.addEventListener("click", () => void this.reload());
+    refresh.addEventListener("click", () => void this.reload(true));
 
     // The honest capability line: read-only, and why. Announced to assistive tech as a status.
     const note = root.createDiv({ cls: "kvs-zotero-note", attr: { role: "status" } });
@@ -110,10 +114,20 @@ export class ZoteroLibraryView extends ItemView {
     return undefined;
   }
 
-  private async reload(): Promise<void> {
+  private async reload(force = false): Promise<void> {
     this.statusEl.setText("Loading from Zotero…");
-    const reachable = await this.provider.ping();
-    if (!reachable) {
+    if (force) this.libraryCache?.invalidate();
+    this.notedKeys = this.notedKeysProvider();
+    // Reuse the shared cache when present, so opening this view right after a fill/promote (or reopening it)
+    // is instant instead of re-reading the whole library.
+    try {
+      this.items = this.libraryCache ? await this.libraryCache.getItems(this.provider) : await this.provider.listItems();
+    } catch {
+      this.items = [];
+    }
+    // An empty result is ambiguous — unreachable Zotero, or a genuinely empty library. Only then pay for a
+    // reachability probe to show the right message; a non-empty library needs no extra round-trip.
+    if (this.items.length === 0 && !(await this.provider.ping())) {
       this.statusEl.setText("");
       this.tableWrap.empty();
       const empty = this.tableWrap.createDiv({ cls: "kvs-zotero-empty" });
@@ -121,14 +135,8 @@ export class ZoteroLibraryView extends ItemView {
       empty.createEl("p", { cls: "kvs-zotero-empty-sub", text: "Make sure Zotero is running and its local API is enabled (Zotero → Settings → Advanced → \"Allow other applications on this computer to communicate with Zotero\")." });
       return;
     }
-    try {
-      this.notedKeys = this.notedKeysProvider();
-      this.items = await this.provider.listItems();
-      this.applyFilter();
-      this.renderTable();
-    } catch {
-      this.statusEl.setText("Couldn't read the library from Zotero.");
-    }
+    this.applyFilter();
+    this.renderTable();
   }
 
   private applyFilter(): void {

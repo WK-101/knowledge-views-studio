@@ -1,6 +1,10 @@
-import { describe, it, expect } from "vitest";
-import { dedicatedNoteKeyFor, normalizeIdentifier, indexNotesByFrontmatter, findInIndex, findDedicatedNote } from "../src/services/notes/dedicated-note";
+import { describe, it, expect, beforeEach } from "vitest";
+import { dedicatedNoteKeyFor, normalizeIdentifier, indexNotesByFrontmatter, findInIndex, findDedicatedNote, getDedicatedNoteIndex, invalidateDedicatedNoteIndex } from "../src/services/notes/dedicated-note";
 import type { App } from "obsidian";
+
+// The frontmatter index is a process-wide cache keyed by (field, generation); reset it before each test so
+// one test's fake vault can't be served to another (production has a single app, invalidated by events).
+beforeEach(() => invalidateDedicatedNoteIndex());
 
 describe("dedicatedNoteKeyFor — which frontmatter field links a row to its note", () => {
   it("defaults to 'doi' for academic-kit views", () => {
@@ -86,5 +90,47 @@ describe("indexNotesByFrontmatter + findInIndex — match a row to its note by f
       { path: "B/copy.md", basename: "copy", frontmatter: { doi: "10.1/x" } },
     ]);
     expect(findDedicatedNote(dup, "doi", "10.1/x")?.basename).toBe("original");
+  });
+});
+
+describe("getDedicatedNoteIndex — process cache that only rebuilds when the vault changes", () => {
+  // A fake whose file list can change between builds, to prove caching vs. rebuild.
+  function mutableApp(getFiles: () => { path: string; basename: string; frontmatter: Record<string, unknown> }[]): App {
+    return {
+      vault: { getMarkdownFiles: () => getFiles().map((f) => ({ path: f.path, basename: f.basename })) },
+      metadataCache: {
+        getFileCache: (file: { path: string }) => ({ frontmatter: getFiles().find((f) => f.path === file.path)?.frontmatter }),
+      },
+    } as unknown as App;
+  }
+
+  it("returns the same index object on repeated reads (no rescan) until invalidated", () => {
+    let files = [{ path: "A.md", basename: "A", frontmatter: { doi: "10.1/a" } }];
+    const app = mutableApp(() => files);
+    invalidateDedicatedNoteIndex();
+    const first = getDedicatedNoteIndex(app, "doi");
+    const second = getDedicatedNoteIndex(app, "doi");
+    expect(second).toBe(first); // identical reference = served from cache, vault not rescanned
+
+    // Change the vault, but WITHOUT invalidating — the stale cache is still returned (that's the point:
+    // search/sort/scroll re-renders don't rescan).
+    files = [{ path: "A.md", basename: "A", frontmatter: { doi: "10.1/a" } }, { path: "B.md", basename: "B", frontmatter: { doi: "10.2/b" } }];
+    expect(getDedicatedNoteIndex(app, "doi")).toBe(first);
+    expect(findInIndex(getDedicatedNoteIndex(app, "doi"), "doi", "10.2/b")).toBeNull();
+
+    // After invalidation (what a metadata-change event triggers), the next read rebuilds and sees B.
+    invalidateDedicatedNoteIndex();
+    const rebuilt = getDedicatedNoteIndex(app, "doi");
+    expect(rebuilt).not.toBe(first);
+    expect(findInIndex(rebuilt, "doi", "10.2/b")?.basename).toBe("B");
+  });
+
+  it("rebuilds when the requested key changes", () => {
+    const app = mutableApp(() => [{ path: "A.md", basename: "A", frontmatter: { doi: "10.1/a", isbn: "978-x" } }]);
+    invalidateDedicatedNoteIndex();
+    const byDoi = getDedicatedNoteIndex(app, "doi");
+    const byIsbn = getDedicatedNoteIndex(app, "isbn");
+    expect(byIsbn).not.toBe(byDoi);
+    expect(findInIndex(byIsbn, "isbn", "978-x")?.basename).toBe("A");
   });
 });

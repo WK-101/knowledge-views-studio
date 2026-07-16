@@ -5,6 +5,43 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 130 — a speed pass on the Academic Dashboard and Zotero, and a per-view note-match dropdown
+
+### The dashboard is snappy again
+
+Two things had crept in that made large academic dashboards feel baggy, and both are fixed by doing work
+once instead of repeatedly.
+
+- **The dedicated-note index no longer rescans the vault on every render.** v0.129.0 built the "which notes
+  exist for these rows" index (a whole-vault frontmatter scan) once per render — which meant every search
+  keystroke, sort, and filter rescanned every note. It's now a process-wide cache that rebuilds only when a
+  note's metadata actually changes (the plugin listens for that). Searching, sorting, scrolling, and paging
+  never touch the vault scan now, so they're instant regardless of vault size. Row lookups against the index
+  are O(1).
+
+- **All Zotero library access shares one cached fetch.** Previously the library view, "Fill from Zotero",
+  "Promote", and search each read the whole library independently — opening the library right after a fill
+  re-read everything. They now share the same 60-second cache: the first read pays the cost, and the rest
+  (across all four features) are instant until it expires or you hit refresh. The library view also skips its
+  separate reachability round-trip whenever the library isn't empty, shaving a request off every open.
+
+Together with the parallel pagination and the earlier cache, a Zotero-heavy workflow — open library, send to
+dashboard, fill, promote, search — now fetches the library about once rather than once per action.
+
+### "Match dedicated notes by" is now a per-view dropdown
+
+Matching promoted notes by a frontmatter field (added in v0.129.0) is now a proper selectable option in each
+view's editor, not a text box. It's a dropdown of the frontmatter properties actually used in your vault
+(plus common identifiers like `doi`, `isbn`, `url`, `zotero-key`), so:
+
+- **Academic views** default to matching by **DOI** — unchanged, but now visibly selectable.
+- **Any other view** can pick whichever frontmatter property identifies its notes (an `id`, a `slug`, a
+  project key…), so the "does this row have a dedicated note?" indicator and duplicate-proof promote work for
+  non-academic dashboards too.
+
+790 tests (was 788): the frontmatter index cache serving repeated reads without rescanning, holding until
+invalidated, and rebuilding on invalidation or a key change.
+
 ## Phase 129 — cite keys that match Better BibTeX, and dedicated notes linked by DOI
 
 ### Our cite keys now match Better BibTex exactly
