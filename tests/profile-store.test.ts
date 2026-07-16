@@ -75,3 +75,21 @@ describe("leading meta-column flags", () => {
     expect(createProfile({ sourceColumn: false, rowSelection: false }).rowSelection).toBe(false);
   });
 });
+
+describe("createProfile — persists per-view display/matching fields (regression)", () => {
+  it("round-trips dedicatedNoteKey and showSummaryRow through createProfile", () => {
+    // These optional fields were being dropped by createProfile, so the per-view note-match dropdown and the
+    // summary-row toggle silently reset on reload. They must survive a create/deserialize round-trip.
+    const p = createProfile({ dedicatedNoteKey: "isbn", showSummaryRow: false });
+    expect(p.dedicatedNoteKey).toBe("isbn");
+    expect(p.showSummaryRow).toBe(false);
+  });
+
+  it("keeps showSummaryRow: false rather than folding it to the shown default", () => {
+    // The whole point of the toggle is `false`; truthiness-based carrying would drop it. Must be preserved.
+    expect(createProfile({ showSummaryRow: false }).showSummaryRow).toBe(false);
+    expect(createProfile({ showSummaryRow: true }).showSummaryRow).toBe(true);
+    // Unset stays unset (treated as shown by the renderer).
+    expect(createProfile({}).showSummaryRow).toBeUndefined();
+  });
+});

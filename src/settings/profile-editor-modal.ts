@@ -852,6 +852,11 @@ export class ProfileEditorModal extends Modal {
       .addToggle((t) => t.setValue(this.edited().frozenHeader).onChange((v) => this.patch({ frozenHeader: v })));
 
     new Setting(el)
+      .setName("Summary row")
+      .setDesc("Show the aggregation footer (Sum, Count, Average…) beneath the table. Turn off to reclaim the space when you don't need it.")
+      .addToggle((t) => t.setValue(this.edited().showSummaryRow !== false).onChange((v) => this.patch({ showSummaryRow: v })));
+
+    new Setting(el)
       .setName("Rows per group")
       .setDesc("When grouped, draw at most this many rows per group, with a “Show N more” control. 0 = draw them all. The group's count always reports the true total.")
       .addText((t) =>

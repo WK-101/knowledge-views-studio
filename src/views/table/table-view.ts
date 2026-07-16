@@ -882,6 +882,7 @@ function renderSummaryFooter(
 ): void {
   const editable = ctx.onSetColumnSummary !== undefined;
   const anyChosen = ctx.columns.some((c) => c.summary && c.summary !== "none");
+  if (ctx.profile.showSummaryRow === false) return; // turned off for this view
   if (!anyChosen && !editable) return;
 
   const tr = table.createEl("tfoot", { cls: "kvs-tfoot" }).createEl("tr", { cls: "kvs-summary-row" });

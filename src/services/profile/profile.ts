@@ -79,6 +79,8 @@ export interface Profile {
   /** Frontmatter field that links a row to its dedicated note (so promote finds an existing note anywhere,
    *  not just by folder/name). Empty = default ("doi" for academic-kit views, otherwise no field match). */
   readonly dedicatedNoteKey?: string;
+  /** Show the table's summary/aggregation footer row. Unset = shown (default); false = hidden for this view. */
+  readonly showSummaryRow?: boolean;
   /** Template for this view's promoted notes. Empty = fall back to the global template, then default. */
   readonly promotedNoteTemplate?: string;
   /** File whose table receives new rows (toolbar "Add row" / "Add row below"). Empty = the row's own
@@ -367,6 +369,8 @@ export function createProfile(partial: ProfileInput = {}): Profile {
     ...(partial.fieldMap ? { fieldMap: { ...partial.fieldMap } } : {}),
     ...(partial.promotedNotesFolder ? { promotedNotesFolder: partial.promotedNotesFolder } : {}),
     ...(partial.promotedNoteTemplate ? { promotedNoteTemplate: partial.promotedNoteTemplate } : {}),
+    ...(partial.dedicatedNoteKey ? { dedicatedNoteKey: partial.dedicatedNoteKey } : {}),
+    ...(partial.showSummaryRow !== undefined ? { showSummaryRow: partial.showSummaryRow } : {}),
     ...(partial.newRowFile ? { newRowFile: partial.newRowFile } : {}),
     ...(partial.category !== undefined && partial.category !== "" ? { category: partial.category } : {}),
     sort: partial.sort ?? [],

@@ -5,6 +5,27 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 133 — summary row: smaller, and switchable per view
+
+Two follow-ups now that the summary picker works.
+
+- **It's more compact.** The footer was taller than it needed to be (a 28px minimum plus generous padding);
+  it's now trimmed to sit closer to header density, so it takes noticeably less vertical space while staying
+  readable. The empty per-column pickers were already hidden until you hover the row, so only your chosen
+  summaries show.
+
+- **It's a per-view toggle.** Each view's editor now has a **Summary row** switch (next to "Freeze header
+  row"). Leave it on (the default) to keep the aggregation footer; turn it off to reclaim the space entirely
+  on views that don't need it.
+
+While wiring the toggle, a latent persistence bug surfaced and is fixed: the profile builder wasn't carrying
+`showSummaryRow` **or** `dedicatedNoteKey` through a save/reload, so the summary toggle would have reset — and
+the per-view note-match field (from v0.130) had silently not been persisting either. Both now round-trip
+correctly, and `false` is preserved for the toggle rather than being folded back to the shown default.
+
+798 tests (was 796): both fields surviving a create/deserialize round-trip, and `showSummaryRow: false` being
+kept rather than dropped.
+
 ## Phase 132 — fix (the real cause): the summary picker now takes effect
 
 The summary row was still stuck on "none" no matter what you picked, and my previous alignment fix — a real
