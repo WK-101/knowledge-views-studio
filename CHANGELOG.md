@@ -5,6 +5,23 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 136 — getting-started guide: import, export, rich copy, and sharing a view
+
+The revised guide still under-sold one of the plugin's strongest areas — getting data in and out — reducing it
+to a single line. It now has a dedicated **"Take your data anywhere"** step covering:
+- **Import**: tables from CSV, Markdown or Excel (and references from BibTeX), each becoming a note and a view.
+- **Export**: a view to Word, Excel, PDF, CSV or Markdown — with images embedded and links kept as real
+  hyperlinks, and a live preview while you choose options.
+- **Rich copy** ("Copy as ▾"): Markdown/CSV/JSON/bullets or re-importable KVS rows, emitting both plain text
+  and rich HTML so a paste into Word, Docs or Excel lands as a real table rather than text.
+- **Embed a view**: "Copy as live view" gives a block you paste into any note to render the view live.
+- **Archive a view**: the self-contained `.kvspack` — settings, data and every image/attachment bundled in,
+  optionally encrypted, openable read-only anywhere without importing, and restorable even if the source notes
+  are gone — alongside the lighter, settings-only `.kvsview`.
+The closing step's one-line "copy & export" mention was removed now that it has a proper home.
+
+Still 819 tests (a UI/onboarding change).
+
 ## Phase 135 — getting-started guide, brought up to date
 
 The guided first run had fallen behind the plugin: it still said "six" layouts (there are seven — Chart

@@ -28,7 +28,7 @@ interface Step {
  *
  * The plugin has grown a great deal (seven layouts, five row sources, write-back, a summary row, full-text +
  * semantic + ask search with image OCR and searchable links, a quick launcher, live Zotero, metadata fill,
- * literature notes, PDF/Office annotation). Two failure modes to avoid: being out of date, and dumping all of
+ * literature notes, PDF/Office annotation, and import/export/copy/share of whole views). Two failure modes to avoid: being out of date, and dumping all of
  * that on someone's first minute. So the guide steps through it — one idea per screen, every step skippable —
  * and pushes the optional/advanced surface to the end ("a few more things when you want them") rather than the
  * front, so newcomers are pointed at everything without being overwhelmed by it.
@@ -220,6 +220,19 @@ export class WelcomeModal extends Modal {
           ]);
         },
       },
+      {
+        title: "Take your data anywhere",
+        lead: "Nothing here is locked in. Bring data in, send a view out in whatever format you need, copy rows that paste as real tables, or share a whole view — from the dashboard toolbar (and, for copy, select rows first).",
+        render: (el) => {
+          this.list(el, [
+            { icon: "file-input", name: "Import", desc: "bring tables in from CSV, Markdown or Excel (or references from BibTeX) — each becomes a note and a view." },
+            { icon: "file-output", name: "Export", desc: "send a view to Word, Excel, PDF, CSV or Markdown — images embedded and links kept live, with a preview as you go." },
+            { icon: "copy", name: "Copy as ▾", desc: "copy rows as a Markdown table, CSV, JSON, bullets — or re-importable KVS rows. Paste into Word, Docs or Excel and you get a real table, not text." },
+            { icon: "code", name: "Embed a view", desc: "“Copy as live view” gives you a block to paste into any note — the view renders there, live." },
+            { icon: "package", name: "Archive a view", desc: "save a self-contained .kvspack — settings, data and every image/attachment bundled in, optionally encrypted. It opens read-only anywhere (no importing needed) and restores even if the original notes are gone. A lighter .kvsview saves just the settings." },
+          ]);
+        },
+      },
     ];
 
     if (this.actions.academicKit) {
@@ -243,7 +256,6 @@ export class WelcomeModal extends Modal {
       render: (el) => {
         this.list(el, [
           { icon: "sigma", name: "Summary row", desc: "totals, averages and counts at the foot of a table — toggle it per view." },
-          { icon: "copy", name: "Copy & export", desc: "copy rows as a table or as citations, print a view, or save a backup." },
           { icon: "settings-2", name: "View settings", desc: "each view's own sources, columns, filters and layouts — from the dashboard toolbar." },
           { icon: "settings", name: "Plugin settings", desc: "grouped into sections; the search box there finds any setting." },
           { icon: "life-buoy", name: "This guide", desc: 'reopen it any time with the "Getting started" command.' },
