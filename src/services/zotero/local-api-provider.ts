@@ -169,34 +169,22 @@ function yearFromDate(date: string): string {
 }
 
 /**
- * The paper's cite key. Better BibTeX exposes this in more than one way depending on version and config, so
- * we check each: a dedicated `citationKey`/`citekey` field the newer BBT API injects, then the older
- * "Citation Key: xyz" line in `extra`. When none is present (no BBT, or an item BBT hasn't keyed), we
- * generate a reasonable one from the first author's surname + year + first title word — so a cite key always
- * comes through, which is what the "Fill from Zotero" flow needs.
+ * The paper's *pinned* cite key, if Better BibTeX has written one into the standard API. Newer BBT injects a
+ * `citationKey`/`citekey` field; pinned keys also appear as "Citation Key: xyz" in `extra`. When neither is
+ * present the key is dynamic and only BBT's JSON-RPC endpoint knows it — so we return "" here and let the
+ * caller fetch the exact key from BBT. We deliberately do NOT generate a key from author+year: our formula
+ * would drift from BBT's configured one, and a wrong-but-plausible key is worse than none.
  */
-function resolveCiteKey(data: Record<string, unknown>, creators: string, year: string, title: string): string {
+function resolveCiteKey(data: Record<string, unknown>): string {
   const field = asString(data["citationKey"]) || asString(data["citekey"]) || asString(data["citation-key"]);
   if (field) return field;
-  const fromExtra = citeKeyFromExtra(asString(data["extra"]));
-  if (fromExtra) return fromExtra;
-  return generateCiteKey(creators, year, title);
+  return citeKeyFromExtra(asString(data["extra"]));
 }
 
-/** The cite key Better BibTeX stashes in `extra` as "Citation Key: xyz", if present. */
+/** The cite key Better BibTeX stashes in `extra` as "Citation Key: xyz" when pinned, if present. */
 function citeKeyFromExtra(extra: string): string {
   const m = /Citation Key:\s*(\S+)/i.exec(extra);
   return m ? m[1]! : "";
-}
-
-/** Fallback cite key: firstAuthorSurname + year + firstTitleWord, lowercased and ASCII-cleaned. */
-function generateCiteKey(creators: string, year: string, title: string): string {
-  const clean = (s: string): string => s.normalize("NFKD").replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
-  // "Smith, Jones, and Lee" → "smith"; "The Transformer Team" → "the".
-  const firstAuthor = clean((creators.split(/,| and /)[0] ?? "").trim().split(/\s+/).pop() ?? "");
-  const firstTitleWord = clean((title.split(/\s+/).find((w) => w.length > 2) ?? "").trim());
-  const key = `${firstAuthor}${year}${firstTitleWord}`;
-  return key || "";
 }
 
 function mapCollection(raw: unknown): ZoteroCollection | null {
@@ -289,7 +277,7 @@ export function mapItem(raw: unknown): ZoteroLibraryItem | null {
     collections,
     dateAdded: asString(data["dateAdded"]),
     dateModified: asString(data["dateModified"]),
-    citeKey: resolveCiteKey(data, formatCreators(data["creators"]), yearFromDate(date), asString(data["title"])),
+    citeKey: resolveCiteKey(data),
     attachmentKeys: [], // filled by a follow-up children fetch only when a reader needs them
     extra,
   };

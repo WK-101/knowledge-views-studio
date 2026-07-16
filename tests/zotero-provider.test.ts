@@ -95,16 +95,17 @@ describe("mapItem — defensive mapping of the local API JSON", () => {
     expect(item.citeKey).toBe("smith2021deep");
   });
 
-  it("generates a cite key (author+year+titleword) when Zotero has none", () => {
+  it("leaves the cite key empty when Zotero has no pinned key (never fabricates one)", () => {
+    // BBT's key is often dynamic and absent from the standard API; a generated author+year key would drift
+    // from BBT's configured formula, so we return "" and let the fill path fetch the exact key from BBT.
     const item = mapItem({
       key: "K",
       data: { key: "K", itemType: "journalArticle", title: "Learning Representations", date: "2019-05-01", creators: [{ creatorType: "author", lastName: "Bengio", firstName: "Yoshua" }] },
     })!;
-    // firstAuthorSurname + year + firstTitleWord(len>2)
-    expect(item.citeKey).toBe("bengio2019learning");
+    expect(item.citeKey).toBe("");
   });
 
-  it("prefers the BBT field over a generated key", () => {
+  it("prefers the BBT field over anything else", () => {
     const item = mapItem({
       key: "K",
       data: { key: "K", itemType: "journalArticle", citationKey: "explicit2020", title: "Something", date: "2020", creators: [{ lastName: "Doe" }] },

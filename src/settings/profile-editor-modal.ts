@@ -439,6 +439,19 @@ export class ProfileEditorModal extends Modal {
     input.addEventListener("change", commit);
     input.addEventListener("blur", commit);
 
+    // How a row is linked to its dedicated note. Matching on a frontmatter field (the DOI, for academic
+    // views) finds the note wherever it lives and stops "promote" ever making a duplicate.
+    const matchSetting = new Setting(el)
+      .setName("Match dedicated notes by")
+      .setDesc("Frontmatter field that ties a row to its note, so promote recognises an existing note anywhere in the vault. Empty = default (“doi” for academic views; otherwise match by the row's note link only).");
+    const matchInput = matchSetting.controlEl.createEl("input", { cls: "kvs-folder-input" });
+    matchInput.type = "text";
+    matchInput.placeholder = "e.g. doi";
+    matchInput.value = this.profile.dedicatedNoteKey ?? "";
+    const commitMatch = (): void => this.patch({ dedicatedNoteKey: matchInput.value.trim() });
+    matchInput.addEventListener("change", commitMatch);
+    matchInput.addEventListener("blur", commitMatch);
+
     const tmpl = new Setting(el)
       .setName("Promoted note template (this view)")
       .setDesc("Overrides the global template for this view. Placeholders: {{title}}, {{authors}}, {{year}}, {{venue}}, {{doi}}, {{citekey}}, {{cite}}, {{tags}}, {{date}}. Empty = use the global template.");

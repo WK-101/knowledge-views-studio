@@ -24,7 +24,8 @@ import type { ProcessorDeps } from "../codeblock/processor";
 import { DedupModal, type DedupResolution } from "./dedup-modal";
 import { ShardModal, type ShardField } from "./shard-modal";
 import { LocalApiZoteroProvider } from "../services/zotero/local-api-provider";
-import { createZoteroFetcher } from "./zotero-transport";
+import { createZoteroFetcher, createZoteroPoster } from "./zotero-transport";
+import { bbtEndpointFromApiBase, fetchBbtCiteKey } from "../services/zotero/bbt-citekey";
 import { fetchZoteroAnnotations } from "../services/annotations/zotero-client";
 import type { ZoteroLibraryItem } from "../services/zotero/provider";
 import { renderAnnotationsMarkdown } from "../services/annotations/render";
@@ -164,7 +165,7 @@ export class AcademicController {
   }
 
   /** Turn a Zotero item's fields (including tags and cite key — richer than Crossref) into row edits. */
-  private zoteroEdits(row: Row, cols: readonly { name: string; type: string }[], item: ZoteroLibraryItem): { provenance: Row["provenance"]; column: string; value: string }[] {
+  private zoteroEdits(row: Row, cols: readonly { name: string; type: string }[], item: ZoteroLibraryItem, exactCiteKey: string): { provenance: Row["provenance"]; column: string; value: string }[] {
     const edits: { provenance: Row["provenance"]; column: string; value: string }[] = [];
     const put = (field: AcademicField, value: string): void => {
       if (value.trim() === "") return;
@@ -175,9 +176,15 @@ export class AcademicController {
     put("title", item.title);
     put("year", item.year);
     put("venue", item.publication);
-    // Zotero gives us things Crossref doesn't: the Better BibTeX cite key, and the paper's tags.
-    if (item.citeKey) put("citekey", item.citeKey);
     if (item.tags.length > 0) put("tags", item.tags.join(", "));
+    // The cite key is Better BibTeX's to own, so it's authoritative: we write BBT's exact key even if the
+    // cell already holds something (e.g. a value from before the paper was in Zotero) — but only when it
+    // actually differs, and only if the column exists. This is the one field we overwrite; everything above
+    // is fill-empty-only so we never clobber a user's edits.
+    const citeCol = this.fieldCol(cols, "citekey");
+    if (citeCol && exactCiteKey.trim() !== "" && getField(row, citeCol.name).trim() !== exactCiteKey.trim()) {
+      edits.push({ provenance: row.provenance, column: citeCol.name, value: exactCiteKey.trim() });
+    }
     return edits;
   }
 
@@ -227,7 +234,11 @@ export class AcademicController {
       new Notice("Reached Zotero, but that DOI isn't in your library.");
       return;
     }
-    const edits = this.zoteroEdits(row, cols, item);
+    // Ask Better BibTeX for this item's exact citation key (its formula is user-configured and its key is
+    // often not in the standard API). This guarantees the cite key we write matches BBT byte-for-byte. If
+    // BBT isn't reachable, fall back to the pinned key the item already carries, else leave it blank.
+    const exactCiteKey = (await fetchBbtCiteKey(bbtEndpointFromApiBase(base), item.key, createZoteroPoster())) || item.citeKey;
+    const edits = this.zoteroEdits(row, cols, item, exactCiteKey);
     if (edits.length === 0) {
       new Notice("Those fields are already filled.");
       return;
@@ -243,7 +254,7 @@ export class AcademicController {
    * promoted note is then rendered from the SAME template as a non-Zotero promotion — these fields just fill
    * the Abstract/Annotations sections and the zotero-key — so promoted notes look identical either way.
    */
-  async zoteroPromoteEnrichment(doi: string): Promise<{ item: ZoteroLibraryItem; abstract: string; annotations: string; zoteroKey: string } | null> {
+  async zoteroPromoteEnrichment(doi: string): Promise<{ item: ZoteroLibraryItem; abstract: string; annotations: string; zoteroKey: string; citeKey: string } | null> {
     try {
       const settings = this.host.deps.store.getSettings();
       const base = settings.zoteroApiBase;
@@ -256,6 +267,7 @@ export class AcademicController {
         ? await cache.findByDoi(provider, target, (s) => normalizeDoi(s))
         : (await provider.listItems()).find((it) => normalizeDoi(it.doi) === target) ?? null;
       if (!item) return null;
+      const citeKey = (await fetchBbtCiteKey(bbtEndpointFromApiBase(base), item.key, createZoteroPoster())) || item.citeKey;
       let annotationsMd = "";
       try {
         const annotations = await fetchZoteroAnnotations(base, [item.key], fetcher);
@@ -263,7 +275,7 @@ export class AcademicController {
       } catch {
         annotationsMd = "";
       }
-      return { item, abstract: item.extra["abstract"] ?? "", annotations: annotationsMd, zoteroKey: item.key };
+      return { item, abstract: item.extra["abstract"] ?? "", annotations: annotationsMd, zoteroKey: item.key, citeKey };
     } catch {
       return null;
     }

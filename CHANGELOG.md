@@ -5,6 +5,52 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 129 — cite keys that match Better BibTeX, and dedicated notes linked by DOI
+
+### Our cite keys now match Better BibTex exactly
+
+The previous version generated a fallback cite key (author + year + title word) when Zotero didn't hand one
+over. That was the bug: BBT's key formula is user-configured, so any key *we* invent will eventually disagree
+with BBT's — and once we'd written our guess into a row, it stuck. The scenario that exposed it: add a paper
+to a dashboard before it's in Zotero (we'd invent a key), later add it to Zotero (BBT assigns a different
+one), and now the two disagree forever.
+
+The fix is to only ever use BBT's own key, never a guess:
+
+- **We no longer fabricate cite keys.** The generator is gone. A cite key comes only from Better BibTeX.
+- **We fetch the exact key from BBT's JSON-RPC endpoint.** BBT's key usually isn't in the standard Zotero
+  API unless it's been *pinned*, so reading the API alone missed it. When filling from Zotero we now ask BBT
+  directly (its `item.citationkey` method) for the paper's exact key — byte-for-byte what BBT would emit.
+  If BBT isn't reachable we fall back to a pinned key if the item carries one, and otherwise leave the cell
+  empty. Never a guess.
+- **The cite key is authoritative from Zotero.** Because it's BBT's to own, "Fill from Zotero" now *updates*
+  the cite key even if the cell already holds something — so the "added to Zotero later" case reconciles to
+  BBT's real key the next time you fill. (Every other field stays fill-empty-only, so your edits are safe.)
+
+The upshot: whether a paper is in Zotero now or added later, its cite key ends up identical to Better
+BibTeX's, with no drift.
+
+### Dedicated notes are matched by DOI, not by folder or filename
+
+"Promote to dedicated note" used to recognise a paper's note only by a `[[wikilink]]` stored in the row, or
+by a note that happened to be *named* after the cite key. Both broke when a note was renamed or moved, and
+both created duplicates when the link was missing — promoting the same paper twice made two notes.
+
+Now a note is matched by a stable identifier in its **frontmatter** — the DOI, for academic views:
+
+- **Promote finds an existing note anywhere in the vault** by matching the row's DOI against notes'
+  frontmatter `doi`, regardless of folder or filename, and opens it instead of making a duplicate. (New
+  promoted notes already write `doi` into frontmatter, so they're found next time.)
+- **The ↗ "has a note" indicator uses the same match**, so a row shows its note even when there's no
+  wikilink — as long as a note somewhere carries the matching DOI.
+- **The match field is configurable** per view ("Match dedicated notes by" in the view editor), defaulting
+  to `doi` for academic views. Different forms of the same DOI (a `https://doi.org/` prefix, casing) are
+  normalized so they still match.
+
+788 tests (was 767): BBT endpoint derivation and the `item.citationkey` request/parse (including unreachable
+and empty-key paths); cite-key resolution now returning empty rather than a fabricated key; and dedicated-note
+identifier normalization, index building, and lookup (url/bare DOI equivalence, missing keys, duplicates).
+
 ## Phase 128 — after it worked: cite keys, speed, and one promote template
 
 Four refinements once "Fill from Zotero" was working.

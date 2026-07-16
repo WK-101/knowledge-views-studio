@@ -58,6 +58,7 @@ import {
   WriteScheduler,
   type SaveStatus,
 } from "../services/index";
+import { dedicatedNoteKeyFor, findDedicatedNote } from "../services/notes/dedicated-note";
 import { exportViewBackup } from "./backup-runner";
 import {
   buildClipboardFor,
@@ -323,7 +324,33 @@ export class DashboardView extends TextFileView {
     const dir = configured !== "" ? configured : scopeFolder ? `${scopeFolder}/Papers` : "Papers";
     const noteCol = cols.find((c) => c.type === "link" || /^note$/i.test(c.name));
 
-    // Already promoted? Open the linked note instead of making a duplicate.
+    // Already promoted? Look for the dedicated note two ways, most robust first:
+    //  1. By a stable identifier in the note's frontmatter (the DOI for academic views) — finds the note
+    //     wherever it lives and whatever it's called, and stops "promote" making duplicates.
+    //  2. By a [[wikilink]] recorded in the row's Note column (the older behaviour, kept as a fallback).
+    const matchKey = dedicatedNoteKeyFor(profile);
+    const matchValue =
+      matchKey === "doi"
+        ? doi
+        : matchKey !== ""
+          ? (() => {
+              const c = cols.find((col) => col.name.toLowerCase() === matchKey.toLowerCase());
+              return c ? getField(row, c.name).trim() : "";
+            })()
+          : "";
+    if (matchKey !== "" && matchValue !== "") {
+      const existing = findDedicatedNote(this.app, matchKey, matchValue);
+      if (existing) {
+        await this.app.workspace.getLeaf(true).openFile(existing);
+        // Backfill the row's link column if it's empty, so the ↗ indicator and future opens are instant.
+        if (noteCol && getField(row, noteCol.name).trim() === "") {
+          const nm = existing.path.replace(/\.md$/, "").split("/").pop() ?? existing.basename;
+          await this.applyRowEdits(row.provenance.filePath, [{ provenance: row.provenance, column: noteCol.name, value: `[[${nm}]]` }], "Link paper note");
+        }
+        return;
+      }
+    }
+
     const existingLink = noteCol ? getField(row, noteCol.name).trim() : "";
     const linkTarget = /\[\[([^\]|]+)/.exec(existingLink)?.[1]?.trim();
     if (linkTarget) {
@@ -357,7 +384,7 @@ export class DashboardView extends TextFileView {
         year: enrich?.item.year || year,
         venue: enrich?.item.publication || venue,
         doi: enrich?.item.doi || doi,
-        citekey: enrich?.item.citeKey || key,
+        citekey: enrich?.citeKey || key,
         tags: enrich && enrich.item.tags.length > 0 ? enrich.item.tags : tags,
         abstract: enrich?.abstract ?? "",
         annotations: enrich?.annotations ?? "",

@@ -16,6 +16,8 @@ import { enableHandleDrag } from "../../util/pointer-drag";
 
 import { selectionStore, bulkDraftStore, scrollStore, capViewState } from "../view-state";
 import { noteLinkColumnName, wikilinkTarget, citeKeyColumnName } from "../promoted-detect";
+import { dedicatedNoteKeyFor, indexNotesByFrontmatter, normalizeIdentifier } from "../../services/notes/dedicated-note";
+import { resolveFieldColumn } from "../../domain/columns/academic-fields";
 
 const VIRTUAL_THRESHOLD = 100;
 const OVERSCAN = 8;
@@ -224,9 +226,41 @@ function noteLinkColumn(ctx: ViewRenderContext): string | null {
   return noteLinkColumnName(columnPool(ctx));
 }
 
-/** The dedicated-note target for a row: the Note column's `[[link]]`, or — as a fallback — the paper's
- *  cite key if a note by that name actually exists in the vault (robust to a missing/failed link). */
+/**
+ * The dedicated-note index for this render, keyed on the render context so it's built once per render (a
+ * fresh ctx per render → a fresh index reflecting the current vault). Maps a normalized identifier value to
+ * the target note's basename, so a row can be matched to its note by frontmatter (DOI for academic views)
+ * regardless of where the note lives or what it's linked as.
+ */
+const dedicatedIndexByCtx = new WeakMap<ViewRenderContext, { key: string; index: Map<string, string> }>();
+function dedicatedIndexFor(ctx: ViewRenderContext): { key: string; index: Map<string, string> } {
+  const cached = dedicatedIndexByCtx.get(ctx);
+  if (cached) return cached;
+  const key = dedicatedNoteKeyFor(ctx.profile);
+  const index = new Map<string, string>();
+  if (key !== "") {
+    for (const [value, file] of indexNotesByFrontmatter(ctx.app, key)) index.set(value, file.basename);
+  }
+  const entry = { key, index };
+  dedicatedIndexByCtx.set(ctx, entry);
+  return entry;
+}
+
+/** This row's value for the dedicated-note match key (its DOI for academic views), or "". */
+function matchValueFor(row: Row, ctx: ViewRenderContext, key: string): string {
+  const col = key === "doi" ? resolveFieldColumn(columnPool(ctx), "doi", ctx.profile.fieldMap) : columnPool(ctx).find((c) => c.name.toLowerCase() === key.toLowerCase());
+  return col ? getField(row, col.name).trim() : "";
+}
+
+/** The dedicated-note target for a row: a frontmatter-identifier match (most robust — survives rename/move),
+ *  else the Note column's `[[link]]`, else the paper's cite key if a note by that name exists in the vault. */
 function promotedNoteFor(row: Row, ctx: ViewRenderContext): string | null {
+  const { key: matchKey, index } = dedicatedIndexFor(ctx);
+  if (matchKey !== "") {
+    const value = matchValueFor(row, ctx, matchKey);
+    const basename = value !== "" ? index.get(normalizeIdentifier(matchKey, value)) ?? null : null;
+    if (basename) return basename;
+  }
   const noteCol = noteLinkColumn(ctx);
   const linked = noteCol ? wikilinkTarget(getField(row, noteCol)) : null;
   if (linked) return linked;
@@ -236,10 +270,11 @@ function promotedNoteFor(row: Row, ctx: ViewRenderContext): string | null {
   return null;
 }
 
-/** Whether this view can carry a promoted-note indicator (has a note-link or cite-key column). */
+/** Whether this view can carry a promoted-note indicator (a note-link/cite-key column, or a frontmatter
+ *  identifier match such as DOI for academic views). */
 function hasPromoteIndicator(ctx: ViewRenderContext): boolean {
   const pool = columnPool(ctx);
-  return noteLinkColumnName(pool) !== null || citeKeyColumnName(pool) !== null;
+  return noteLinkColumnName(pool) !== null || citeKeyColumnName(pool) !== null || dedicatedNoteKeyFor(ctx.profile) !== "";
 }
 
 function renderGutterCell(

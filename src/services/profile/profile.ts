@@ -76,6 +76,9 @@ export interface Profile {
   readonly fieldMap?: Readonly<Record<string, string>>;
   /** Folder for promoted paper notes. Empty = default ("{first scope folder}/Papers"). */
   readonly promotedNotesFolder?: string;
+  /** Frontmatter field that links a row to its dedicated note (so promote finds an existing note anywhere,
+   *  not just by folder/name). Empty = default ("doi" for academic-kit views, otherwise no field match). */
+  readonly dedicatedNoteKey?: string;
   /** Template for this view's promoted notes. Empty = fall back to the global template, then default. */
   readonly promotedNoteTemplate?: string;
   /** File whose table receives new rows (toolbar "Add row" / "Add row below"). Empty = the row's own
