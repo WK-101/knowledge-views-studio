@@ -8,7 +8,7 @@ interface NodeHttp {
   request(
     options: { hostname: string; port: number; path: string; method: string; headers: Record<string, string> },
     cb: (res: { statusCode?: number; setEncoding(e: string): void; on(ev: string, fn: (chunk: string) => void): void }) => void,
-  ): { on(ev: string, fn: () => void): void; setTimeout(ms: number, fn: () => void): void; destroy(): void; end(): void };
+  ): { on(ev: string, fn: (err?: unknown) => void): void; setTimeout(ms: number, fn: () => void): void; destroy(): void; end(): void };
 }
 
 function nodeHttp(): NodeHttp | null {
@@ -20,12 +20,12 @@ function nodeHttp(): NodeHttp | null {
   }
 }
 
-export function createZoteroFetcher(): (url: string) => Promise<{ status: number; json?: unknown; text?: string }> {
+export function createZoteroFetcher(timeoutMs = 15000): (url: string) => Promise<{ status: number; json?: unknown; text?: string; reason?: string }> {
   return (url: string) =>
     new Promise((resolve) => {
       const http = nodeHttp();
       if (!http) {
-        resolve({ status: 0 });
+        resolve({ status: 0, reason: "no-node-http" });
         return;
       }
       try {
@@ -53,14 +53,24 @@ export function createZoteroFetcher(): (url: string) => Promise<{ status: number
             });
           },
         );
-        request.on("error", () => resolve({ status: 0 }));
-        request.setTimeout(5000, () => {
+        // Surface the underlying network error (ECONNREFUSED, EHOSTUNREACH, …) instead of a bare status 0,
+        // and distinguish a timeout from a refused connection — the two mean very different things.
+        request.on("error", (err) => resolve({ status: 0, reason: `error: ${errText(err)}` }));
+        request.setTimeout(timeoutMs, () => {
           request.destroy();
-          resolve({ status: 0 });
+          resolve({ status: 0, reason: `timeout after ${timeoutMs}ms` });
         });
         request.end();
-      } catch {
-        resolve({ status: 0 });
+      } catch (err) {
+        resolve({ status: 0, reason: `threw: ${errText(err)}` });
       }
     });
+}
+
+function errText(err: unknown): string {
+  if (err && typeof err === "object") {
+    const e = err as { code?: string; message?: string };
+    return e.code || e.message || "unknown";
+  }
+  return String(err);
 }

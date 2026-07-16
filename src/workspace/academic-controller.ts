@@ -25,7 +25,7 @@ import { DedupModal, type DedupResolution } from "./dedup-modal";
 import { ShardModal, type ShardField } from "./shard-modal";
 import { LocalApiZoteroProvider } from "../services/zotero/local-api-provider";
 import { createZoteroFetcher } from "./zotero-transport";
-import { zoteroDoiLookup, fetchZoteroAnnotations } from "../services/annotations/zotero-client";
+import { fetchZoteroAnnotations } from "../services/annotations/zotero-client";
 import type { ZoteroLibraryItem } from "../services/zotero/provider";
 import { buildLiteratureNote } from "../services/notes/literature-note";
 import { renderAnnotationsMarkdown, upsertAnnotationsRegion } from "../services/annotations/render";
@@ -200,26 +200,29 @@ export class AcademicController {
     const base = this.host.deps.store.getSettings().zoteroApiBase;
     const fetcher = createZoteroFetcher();
     new Notice("Looking up this DOI in Zotero…");
-    // Do the real DOI query and decide from ITS status — no separate reachability probe to a different
-    // endpoint (that mismatch is what made this wrongly report Zotero unreachable). status 0 = genuinely
-    // couldn't connect; non-200 = reached but the API errored; 200 + no keys = reached, DOI not in library.
-    const { status, keys } = await zoteroDoiLookup(base, doi, fetcher);
-    if (status === 0) {
-      new Notice(`Couldn't connect to Zotero at ${base}. Make sure it's running with the local API enabled (the same URL your Zotero library view uses).`);
+    // Reachability, using the EXACT request the settings "Test" button uses and succeeds with. A failure
+    // here means Zotero genuinely can't be reached, and we report the real reason (ECONNREFUSED, timeout…).
+    const probe = await fetcher(`${base.replace(/\/+$/, "")}/items?limit=1&format=json`);
+    if (probe.status === 0) {
+      new Notice(`Couldn't connect to Zotero at ${base} (${probe.reason ?? "no response"}). This is the same URL the settings "Test" button uses — if Test works but this doesn't, please report this exact message.`);
       return;
     }
-    if (status !== 200) {
-      new Notice(`Zotero returned status ${status} for that lookup. Check the base URL in settings (${base}).`);
-      return;
-    }
-    if (keys.length === 0) {
-      new Notice("Reached Zotero, but that DOI isn't in your library.");
-      return;
-    }
+    // Match the DOI against the library items from listItems() — the SAME endpoint (/items/top) the Zotero
+    // library view uses successfully. Earlier this used a /items?q=…&qmode=everything full-text search,
+    // which fails or times out on some libraries even when listing works; matching against the proven
+    // endpoint is reliable wherever the library view is.
     const provider = new LocalApiZoteroProvider(base, fetcher);
-    const item = await provider.getItem(keys[0]!);
+    let item: ZoteroLibraryItem | null;
+    try {
+      const items = await provider.listItems();
+      const target = normalizeDoi(doi);
+      item = items.find((it) => normalizeDoi(it.doi) === target && target !== "") ?? null;
+    } catch {
+      new Notice("Reached Zotero, but couldn't read the library to match the DOI.");
+      return;
+    }
     if (!item) {
-      new Notice("Found the item in Zotero but couldn't read it.");
+      new Notice("Reached Zotero, but that DOI isn't in your library.");
       return;
     }
     const edits = this.zoteroEdits(row, cols, item);
@@ -242,11 +245,12 @@ export class AcademicController {
       const settings = this.host.deps.store.getSettings();
       const base = settings.zoteroApiBase;
       const fetcher = createZoteroFetcher();
-      // Same status-aware query as fill, no separate probe: only proceed on a real 200 with a match.
-      const { status, keys } = await zoteroDoiLookup(base, doi, fetcher);
-      if (status !== 200 || keys.length === 0) return null;
+      // Match against listItems() (the working /items/top endpoint), same as fill — not the fragile search.
       const provider = new LocalApiZoteroProvider(base, fetcher);
-      const item = await provider.getItem(keys[0]!);
+      const items = await provider.listItems();
+      const target = normalizeDoi(doi);
+      if (target === "") return null;
+      const item = items.find((it) => normalizeDoi(it.doi) === target) ?? null;
       if (!item) return null;
       // Pull the paper's annotations too, so the promoted note is fully populated.
       let annotations: KvsAnnotation[] = [];

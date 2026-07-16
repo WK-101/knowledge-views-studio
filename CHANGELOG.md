@@ -5,6 +5,36 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 127.4 — fix: match the DOI against the endpoint that actually works, and report why when it doesn't
+
+The error message from 127.3 gave the decisive clue: "status 0" (a network-layer failure) at
+`127.0.0.1:23119` — while the settings Test button, using the *same* transport and the *same* host, returned
+"Connected." A refused connection can't be true for one and false for the other. The real difference was the
+URL: Test and the library view hit `/items…` and `/items/top`, which work; "Fill from Zotero" used a
+*different* request — `/items?q=<doi>&qmode=everything`, a full-text search — which fails or times out on some
+libraries even when plain listing works.
+
+Two changes:
+
+1. **Fill and Zotero-aware promote now find the item by matching the DOI against `provider.listItems()`** —
+   the exact `/items/top` call the Zotero library view uses successfully. If your library view can list your
+   papers, fill can now find them, because it's the same request. The fragile full-text search endpoint is
+   gone from this path.
+
+2. **The transport now reports *why* a request failed** instead of collapsing everything to status 0:
+   `ECONNREFUSED`, a timeout (with the duration), or the thrown error's message. Fill's reachability check
+   uses the identical request the Test button succeeds with and, on failure, shows that reason — so a
+   genuine connection problem is now named, not blank. The request timeout was also raised from 5s to 15s.
+
+Root-cause honesty, three tries in: 127.1 fixed a dropped callback, 127.2 fixed the transport, 127.3 removed
+a mismatched probe — each real, none the whole story, because I kept reasoning about the code instead of
+starting from the one fact that mattered (the library view works, so *use what it uses*). Matching against
+the proven `listItems` call is that fix. Trade-off: fill now fetches the library to match one DOI rather than
+issuing a targeted search; correctness on every setup is worth more than the round-trip, and it can be
+cached later.
+
+761 tests. Four gates green.
+
 ## Phase 127.3 — fix (for real this time): "Fill from Zotero" reachability check hit the wrong endpoint
 
 Two prior attempts didn't fix this, so this time I traced the whole path instead of pattern-matching. The

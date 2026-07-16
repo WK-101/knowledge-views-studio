@@ -31,10 +31,16 @@ describe("academic controller Zotero transport", () => {
     }
   });
 
-  it("decides reachability from the real DOI query status, not a separate ping probe", () => {
-    // The fill/promote paths must use the status-aware lookup and must NOT gate on a separate ping() to a
-    // different endpoint — that endpoint mismatch is what falsely reported Zotero unreachable.
-    expect(controllerSrc).toContain("zoteroDoiLookup");
+  it("matches the DOI against the working listItems endpoint, not a fragile search or a ping probe", () => {
+    // Fill/promote must find the item by matching the DOI against provider.listItems() (the /items/top
+    // endpoint the library view uses successfully), and must NOT gate on provider.ping() (a different
+    // endpoint that can fail independently) — both were causes of the false "can't reach Zotero".
+    expect(controllerSrc).toContain("provider.listItems()");
     expect(controllerSrc).not.toContain("provider.ping()");
+  });
+
+  it("surfaces the real failure reason so a connection problem is diagnosable, not a blank error", () => {
+    // The connection probe reports probe.reason (ECONNREFUSED / timeout / …) rather than a bare failure.
+    expect(controllerSrc).toContain("probe.reason");
   });
 });

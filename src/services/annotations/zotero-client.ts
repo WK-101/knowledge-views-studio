@@ -1,7 +1,7 @@
 import type { KvsAnnotation } from "../../domain/index";
 import { normalizeDoiValue, parseZoteroAnnotation, type ZoteroItem } from "./zotero";
 
-export type JsonFetcher = (url: string) => Promise<{ status: number; json?: unknown; text?: string }>;
+export type JsonFetcher = (url: string) => Promise<{ status: number; json?: unknown; text?: string; reason?: string }>;
 export type Debug = (msg: string) => void;
 
 function asItems(payload: unknown): ZoteroItem[] {
@@ -22,14 +22,14 @@ export async function findZoteroKeysByDoi(baseUrl: string, doi: string, fetcher:
  * This uses the same `/items?q=…` search endpoint as the actual fill, so its status reflects the real
  * operation — not a separate probe endpoint that could succeed or fail independently.
  */
-export async function zoteroDoiLookup(baseUrl: string, doi: string, fetcher: JsonFetcher, debug?: Debug): Promise<{ status: number; keys: string[] }> {
+export async function zoteroDoiLookup(baseUrl: string, doi: string, fetcher: JsonFetcher, debug?: Debug): Promise<{ status: number; keys: string[]; reason?: string }> {
   const base = baseUrl.replace(/\/+$/, "");
   const target = normalizeDoiValue(doi);
   if (target === "") return { status: 200, keys: [] };
   const url = `${base}/items?q=${encodeURIComponent(target)}&qmode=everything&format=json&limit=50`;
   const res = await fetcher(url);
-  debug?.(`DOI query "${target}" → status ${res.status}`);
-  if (res.status !== 200) return { status: res.status, keys: [] };
+  debug?.(`DOI query "${target}" → status ${res.status}${res.reason ? ` (${res.reason})` : ""}`);
+  if (res.status !== 200) return { status: res.status, keys: [], ...(res.reason ? { reason: res.reason } : {}) };
   const items = asItems(res.json ?? (res.text ? (JSON.parse(res.text) as unknown) : []));
   debug?.(`DOI query returned ${items.length} item(s); DOIs: ${items.map((i) => i.data?.DOI ?? "(none)").join(", ") || "—"}`);
   const match = (d: string): boolean => {
