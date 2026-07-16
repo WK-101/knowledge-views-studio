@@ -24,6 +24,7 @@ import type { ProcessorDeps } from "../codeblock/processor";
 import { DedupModal, type DedupResolution } from "./dedup-modal";
 import { ShardModal, type ShardField } from "./shard-modal";
 import { LocalApiZoteroProvider } from "../services/zotero/local-api-provider";
+import { createZoteroFetcher } from "./zotero-transport";
 import { findZoteroKeysByDoi, fetchZoteroAnnotations } from "../services/annotations/zotero-client";
 import type { ZoteroLibraryItem } from "../services/zotero/provider";
 import { buildLiteratureNote } from "../services/notes/literature-note";
@@ -164,16 +165,14 @@ export class AcademicController {
     new Notice(`Filled ${edits.length} field(s) from DOI.`);
   }
 
-  /** A JSON fetcher over Zotero's local API, built on Obsidian's requestUrl (same transport as DOI fill). */
+  /**
+   * The Zotero transport. Must be the *same* one the Zotero library view uses (Node http via
+   * createZoteroFetcher), not Obsidian's requestUrl — requestUrl rejects the local API's responses, which
+   * made "Fill from Zotero" report the server unreachable even when it was running fine. Sharing the proven
+   * transport keeps the two code paths from disagreeing about whether Zotero is reachable.
+   */
   private zoteroFetcher(): (url: string) => Promise<{ status: number; json?: unknown; text?: string }> {
-    return async (url: string) => {
-      try {
-        const res = await requestUrl({ url, headers: { Accept: "application/json" } });
-        return { status: res.status, json: res.json, text: res.text };
-      } catch {
-        return { status: 0 };
-      }
-    };
+    return createZoteroFetcher();
   }
 
   /** Turn a Zotero item's fields (including tags and cite key — richer than Crossref) into row edits. */

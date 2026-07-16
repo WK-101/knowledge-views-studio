@@ -5,6 +5,31 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 127.2 — fix: "Fill details from Zotero" said Zotero was unreachable when it wasn't
+
+Once the option appeared (127.1), it still failed: clicking it reported "Can't reach Zotero," even though
+Zotero was running, the settings Test button passed, and the Zotero library view showed everything. The tell
+was that the *library view* worked while *fill* didn't — meaning they weren't talking to Zotero the same way.
+
+They weren't. The library view (and all the other Zotero features) reach the local API through
+`createZoteroFetcher`, which uses Node's `http` module. "Fill details from Zotero" — and the Zotero-aware
+promote — instead used a fetcher built on Obsidian's `requestUrl`. `requestUrl` rejects the Zotero *local*
+API's responses, so the request threw, the fetcher returned status 0, and `ping()` read that as
+unreachable. Two code paths, two transports, and the one added later was the wrong one.
+
+The fix routes the controller's Zotero access through the same `createZoteroFetcher` the rest of the plugin
+uses, so there is now a single transport for the Zotero local API everywhere. An audit confirmed every other
+Zotero call already used it; the academic controller was the only offender. (`requestUrl` stays for the
+Crossref DOI lookup, which is a normal HTTPS endpoint it handles fine.) A guard test pins the controller's
+Zotero fetcher to `createZoteroFetcher` and asserts no `requestUrl` wrapper is used for the local API, so
+the transports can't diverge again.
+
+Root-cause pattern worth noting: the same feature was built twice against Zotero (library view vs. academic
+kit) and the second build quietly reinvented the transport instead of reusing the proven one. Sharing the
+one fetcher is both the fix and the prevention.
+
+755 tests (was 753).
+
 ## Phase 127.1 — fix: "Fill details from Zotero" never appeared (a dropped callback)
 
 A real bug, and an honest one to record. "Fill details from Zotero" (added in phase 126) was wired at both
