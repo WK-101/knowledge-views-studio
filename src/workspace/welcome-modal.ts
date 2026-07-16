@@ -9,6 +9,8 @@ export interface WelcomeActions {
   readonly onBlank: () => void;
   /** Open the search view. */
   readonly onSearch: () => void;
+  /** Open the quick-launcher modal (jump to a note). */
+  readonly onQuickSearch: () => void;
   /** Whether the Academic Research kit is switched on (its step is only shown then). */
   readonly academicKit: boolean;
 }
@@ -21,12 +23,15 @@ interface Step {
 
 /**
  * A guided first run: one idea per screen, in the order a new person actually meets them — get a view on
- * screen, then look at it differently, then tell it what a row is, then find things.
+ * screen, then look at it differently, then tell it what a row is, then find things (and, for research, the
+ * academic workflow).
  *
- * The plugin has grown a lot (layouts, sources, annotations, full-text and semantic search), and the old
- * single-screen welcome had two failure modes: it was out of date, and listing everything at once is how
- * you overwhelm someone on their first minute. Stepping through it keeps each screen to one idea, and
- * every step can be skipped.
+ * The plugin has grown a great deal (seven layouts, five row sources, write-back, a summary row, full-text +
+ * semantic + ask search with image OCR and searchable links, a quick launcher, live Zotero, metadata fill,
+ * literature notes, PDF/Office annotation). Two failure modes to avoid: being out of date, and dumping all of
+ * that on someone's first minute. So the guide steps through it — one idea per screen, every step skippable —
+ * and pushes the optional/advanced surface to the end ("a few more things when you want them") rather than the
+ * front, so newcomers are pointed at everything without being overwhelmed by it.
  */
 export class WelcomeModal extends Modal {
   private index = 0;
@@ -151,20 +156,21 @@ export class WelcomeModal extends Modal {
           ]),
       },
       {
-        title: "The same rows, shown six ways",
+        title: "The same rows, shown seven ways",
         lead: "A view holds your data once. Layouts are just different ways of looking at it — switching layout never changes the data, the filter, or the source notes.",
         render: (el) => {
           this.list(el, [
-            { icon: "table-2", name: "Table", desc: "the spreadsheet view — sort, resize, edit in place." },
+            { icon: "table-2", name: "Table", desc: "the spreadsheet view — sort, resize, edit in place, total at the foot." },
             { icon: "layout-grid", name: "Cards", desc: "one card per row, good for browsing." },
             { icon: "columns-3", name: "Board", desc: "kanban columns by any field; drag to change it." },
             { icon: "calendar", name: "Calendar", desc: "rows on their date; drag to reschedule." },
-            { icon: "images", name: "Gallery", desc: "every image in your rows as its own card." },
+            { icon: "images", name: "Gallery", desc: "your images as cards, with live size, shape and fit controls." },
+            { icon: "bar-chart-3", name: "Chart", desc: "count or sum your rows into a bar or line chart." },
             { icon: "sigma", name: "Pivot", desc: "cross-tabulate and total." },
           ]);
           el.createEl("p", {
             cls: "kvs-welcome-tip",
-            text: "Add as many layouts to one view as you like — the switcher at the top-left of the dashboard moves between them.",
+            text: "Add as many layouts to one view as you like — the switcher at the top-left of the dashboard moves between them. Three of them (Board, Calendar, Pivot) also work inside Obsidian's own Bases.",
           });
         },
       },
@@ -186,23 +192,31 @@ export class WelcomeModal extends Modal {
         },
       },
       {
-        title: "Find anything you've written or read",
-        lead: "The search view goes well beyond note titles: it reads the full text of your notes, your table rows, your annotations, and your attachments — PDFs, Word, PowerPoint, Excel and EPUB — with no companion plugin.",
+        title: "Find it — and jump straight to it",
+        lead: "Two ways in: a quick launcher to jump to the note you meant, and a full search view to explore. Both read far more than titles — the text of your notes, rows, annotations, attachments (PDF, Word, PowerPoint, Excel, EPUB), the links you've saved, and even text inside images. No companion plugin.",
         render: (el) => {
+          this.cards(el, [
+            {
+              icon: "navigation",
+              title: "Jump to a note",
+              desc: "Type a few letters; the note you meant is at the top — an exact title or alias match always leads, never the notes that merely mention it. Enter opens it. (Bind a hotkey to “Quick search”.)",
+              cta: "Open quick search",
+              primary: true,
+              run: () => this.actions.onQuickSearch(),
+            },
+            {
+              icon: "text-search",
+              title: "Search everything",
+              desc: "Results jump to the exact page of a PDF, the exact heading of a note, or the exact row.",
+              cta: "Open search",
+              run: () => this.actions.onSearch(),
+            },
+          ]);
           this.list(el, [
             { icon: "search", name: "Keyword", desc: '"exact phrases", -exclude, tag:x, /regex/, and typo tolerance.' },
             { icon: "sparkles", name: "Semantic", desc: "finds notes by meaning, even when the words differ. Fully offline." },
             { icon: "message-square", name: "Ask", desc: "ask a question; get the passages that answer it, with sources." },
-          ]);
-          this.cards(el, [
-            {
-              icon: "text-search",
-              title: "Try it now",
-              desc: "Results jump to the exact page of a PDF, the exact heading of a note, or the exact row.",
-              cta: "Open search",
-              primary: true,
-              run: () => this.actions.onSearch(),
-            },
+            { icon: "scan-text", name: "Image text (OCR)", desc: "make screenshots searchable — turn it on in settings; runs offline." },
           ]);
         },
       },
@@ -210,22 +224,26 @@ export class WelcomeModal extends Modal {
 
     if (this.actions.academicKit) {
       steps.push({
-        title: "For research work",
-        lead: "The Academic Research kit is on, so a few extras are available once you enable it on a view (its settings → Research).",
+        title: "Your research workflow",
+        lead: "The Academic Research kit is on. Turn it on for a view (its settings → Research) and these become available — all optional, use only what you need:",
         render: (el) =>
           this.list(el, [
-            { icon: "highlighter", name: "Annotate PDFs", desc: "highlight in Obsidian; highlights sync into the note as callouts." },
-            { icon: "graduation-cap", name: "Academic columns", desc: "citation key, authors, DOI, arXiv — with one-click lookups." },
-            { icon: "sigma", name: "Rollups", desc: "aggregate findings across every paper note." },
+            { icon: "library", name: "Your Zotero library", desc: "browse it live (no export), and send papers straight to a dashboard." },
+            { icon: "download", name: "Fill in the details", desc: "right-click a row → fill metadata from a DOI or from Zotero, with exact Better BibTeX cite keys." },
+            { icon: "sticky-note", name: "One note per paper", desc: "promote a row to a dedicated note, matched by DOI so it's never duplicated." },
+            { icon: "highlighter", name: "Annotate", desc: "highlight PDFs (they sync into the note as callouts); collect Word/Excel/PowerPoint comments too." },
+            { icon: "graduation-cap", name: "Academic columns & rollups", desc: "citation key, authors, DOI, arXiv — with lookups — and totals across every paper note." },
           ]),
       });
     }
 
     steps.push({
-      title: "You're set",
-      lead: "That's everything you need. A few things worth knowing, whenever you want them:",
+      title: "You're set — a few more things when you want them",
+      lead: "That's everything you need to start. These are here whenever you reach for them:",
       render: (el) => {
         this.list(el, [
+          { icon: "sigma", name: "Summary row", desc: "totals, averages and counts at the foot of a table — toggle it per view." },
+          { icon: "copy", name: "Copy & export", desc: "copy rows as a table or as citations, print a view, or save a backup." },
           { icon: "settings-2", name: "View settings", desc: "each view's own sources, columns, filters and layouts — from the dashboard toolbar." },
           { icon: "settings", name: "Plugin settings", desc: "grouped into sections; the search box there finds any setting." },
           { icon: "life-buoy", name: "This guide", desc: 'reopen it any time with the "Getting started" command.' },

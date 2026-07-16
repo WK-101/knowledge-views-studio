@@ -776,6 +776,9 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
       onTemplate: () => new TemplatePickerModal(this.app, (t) => void this.createFromTemplate(t), availableTemplates(this.profileStore?.getSettings().enableAcademicKit ?? false)).open(),
       onBlank: () => void this.createBlankView(),
       onSearch: () => void openSearchView(this.app),
+      onQuickSearch: () => {
+        if (this.searchIndexer) openQuickSearch(this.app, this.searchIndexer);
+      },
       academicKit: this.profileStore?.getSettings().enableAcademicKit ?? false,
     }).open();
   }

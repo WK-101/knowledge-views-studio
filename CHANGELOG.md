@@ -5,6 +5,25 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 135 — getting-started guide, brought up to date
+
+The guided first run had fallen behind the plugin: it still said "six" layouts (there are seven — Chart
+joined), and its search and research steps predated the quick launcher, image OCR, searchable links, the live
+Zotero library, DOI/Zotero metadata fill, literature notes, Office annotation, and the summary row. So a new
+user was pointed at a fraction of what's here.
+
+It's revised to cover everything, without piling it on: same stepped, one-idea-per-screen, fully-skippable
+shape, but the essentials still come first and the optional surface is pushed to a final "a few more things
+when you want them" screen rather than the front. Specifically: the layouts step now lists all seven (and
+notes that Board/Calendar/Pivot also work inside Obsidian's Bases); the search step leads with the new quick
+launcher (with a button to open it) alongside the full search view, and mentions title-first ranking, image
+OCR, and searchable links; the research step (shown when the Academic kit is on) now covers the live Zotero
+library, metadata fill with exact Better BibTeX keys, DOI-matched literature notes, and PDF/Office annotation;
+and the closing step surfaces the summary row and copy/export. The guide gained a "jump to a note" action wired
+to the launcher.
+
+Still 819 tests (a UI/onboarding change).
+
 ## Phase 134 — search: title-first ranking, a quick launcher, image OCR, and searchable links
 
 Four search improvements, studied from the focused launcher plugin Searchosaurus and adapted to KVS's index.
