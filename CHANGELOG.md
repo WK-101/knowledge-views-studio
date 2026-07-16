@@ -5,6 +5,36 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 131 — fix: the summary row, and the edit-time slowdown
+
+### The summary row lines up and works again
+
+The table's summary footer was emitting the wrong number of leading cells — one or two keyed only on whether
+selection was on — while the header and every body row emit exactly one combined gutter cell (or none). So
+every summary landed one column to the left of its data, the rightmost column had no cell at all, and the
+whole row looked broken and unclickable. (v0.130.0's change to when the promote indicator shows shifted which
+views hit the mismatch, which is why it surfaced now.) The footer now uses the *same* single predicate as the
+header and body — extracted into one shared function so the three can't drift apart again — so every summary
+sits under its own column and the picker works.
+
+### Editing is fast again on academic dashboards
+
+v0.129.0 added a "which notes already exist for these rows" index (a scan of every note's frontmatter, used
+for the DOI note-indicator). v0.130.0 cached it across renders but rebuilt it whenever any note's metadata
+changed — and editing a cell *is* a metadata change, so every edit on an academic dashboard rescanned the
+whole vault before repainting. That's the slowdown.
+
+The index is now **maintained incrementally**: built once, then updated one file at a time from the metadata
+events (a note changed, was deleted, or renamed). Editing a cell now costs a single map update instead of a
+full-vault scan, so the dashboard stays responsive no matter how large the vault. Non-academic dashboards
+never build the index at all, and searching, sorting, and scrolling touch no files, so none of them pay any
+scan cost. (The data query was already cached per-file, and duplicate renders are already de-duplicated by the
+render-sequence guard, so this was the remaining hot-path cost.)
+
+794 tests (was 790): the summary footer's leading-cell count matching the header/body across selection,
+source-column, and promote-indicator combinations; and the incremental index applying edits, additions, and
+deletions to a single file without rebuilding, plus staying safe when an event arrives before the first build.
+
 ## Phase 130 — a speed pass on the Academic Dashboard and Zotero, and a per-view note-match dropdown
 
 ### The dashboard is snappy again

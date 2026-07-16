@@ -260,6 +260,13 @@ function hasPromoteIndicator(ctx: ViewRenderContext): boolean {
   return noteLinkColumnName(pool) !== null || citeKeyColumnName(pool) !== null || dedicatedNoteKeyFor(ctx.profile) !== "";
 }
 
+/** Whether the table has a single combined leading gutter column (selection / source / promote indicator).
+ *  The header, every body row, and the summary footer MUST agree on this or their columns misalign — hence
+ *  one shared predicate rather than three copies of the condition. */
+function hasGutterColumn(ctx: ViewRenderContext, hasSelection: boolean): boolean {
+  return hasSelection || ctx.profile.sourceColumn === true || hasPromoteIndicator(ctx);
+}
+
 function renderGutterCell(
   tr: HTMLElement,
   row: Row,
@@ -269,7 +276,7 @@ function renderGutterCell(
 ): void {
   const showSource = ctx.profile.sourceColumn;
   const promoted = promotedNoteFor(row, ctx);
-  if (!selection && !showSource && !hasPromoteIndicator(ctx)) return;
+  if (!hasGutterColumn(ctx, Boolean(selection))) return;
   const td = tr.createEl("td", { cls: "kvs-td kvs-gutter-cell" });
   td.style.width = `${effectiveGutterWidth(ctx, Boolean(selection))}px`;
   const inner = td.createDiv({ cls: "kvs-gutter" });
@@ -490,7 +497,7 @@ function renderHeader(
   const activeSort = ctx.currentSort[0];
 
   // One combined leading column for selection + source. Its width drives the frozen-column offset.
-  if (selection || ctx.profile.sourceColumn || hasPromoteIndicator(ctx)) {
+  if (hasGutterColumn(ctx, Boolean(selection))) {
     const gutterW = effectiveGutterWidth(ctx, Boolean(selection));
     table.style.setProperty("--kvs-gutter-w", `${gutterW}px`);
     const th = headRow.createEl("th", { cls: "kvs-th kvs-gutter-cell" });
@@ -878,8 +885,13 @@ function renderSummaryFooter(
   if (!anyChosen && !editable) return;
 
   const tr = table.createEl("tfoot", { cls: "kvs-tfoot" }).createEl("tr", { cls: "kvs-summary-row" });
-  if (selection) tr.createEl("td", { cls: "kvs-summary-cell kvs-gutter" });
-  tr.createEl("td", { cls: "kvs-summary-cell kvs-gutter" });
+  // Exactly one combined leading gutter cell when the header/body have one — same condition as renderHeader
+  // and renderGutterCell — so every summary lines up under its own column. (Previously this emitted one or
+  // two cells keyed only on selection, which shifted every value one column over and dropped the last
+  // column's summary — the "summary row shows nothing / can't click" bug.)
+  if (hasGutterColumn(ctx, selection)) {
+    tr.createEl("td", { cls: "kvs-summary-cell kvs-gutter" });
+  }
 
   for (const column of ctx.columns) {
     const td = tr.createEl("td", { cls: "kvs-summary-cell" });

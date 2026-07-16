@@ -64,25 +64,77 @@ export function findDedicatedNote(app: App, key: string, value: string): TFile |
 }
 
 /**
- * A process-wide cache of the frontmatter index, so a view's note-indicator and "promote" don't rescan the
- * whole vault on every render. Rebuilding is O(all markdown files); doing it per render made typing in the
- * search box and sorting feel laggy on large vaults. The cache is keyed by the frontmatter field and a
- * generation counter: it's reused until the vault's metadata actually changes (which the plugin signals via
- * {@link invalidateDedicatedNoteIndex} from metadata-cache events). Crucially, actions that DON'T touch files
- * — searching, sorting, scrolling, paging — never bump the generation, so they hit the cache every time.
+ * A process-wide, incrementally-maintained index of notes by a frontmatter field, so a view's note-indicator
+ * and "promote" never rescan the whole vault on the render path. It's built once (lazily, on first read),
+ * then kept current by applying single-file updates from the plugin's metadata-cache events — so editing a
+ * cell, which changes one file's metadata, costs one map update instead of an O(all-notes) rescan. This was
+ * the cause of the dashboard feeling slow after editing: every edit invalidated the index and the next render
+ * rebuilt it from scratch.
+ *
+ * We keep a reverse `byPath` map (path → the value that file contributed) so an update can remove a file's
+ * old entry precisely. Duplicate values (two notes with the same DOI) resolve first-writer-wins; that's fine
+ * for an indicator, and DOIs are effectively unique in practice.
  */
-let indexCache: { key: string; index: Map<string, TFile>; generation: number } | null = null;
-let indexGeneration = 0;
+interface FrontmatterIndex {
+  key: string;
+  byValue: Map<string, TFile>;
+  byPath: Map<string, string>;
+}
+let fmIndex: FrontmatterIndex | null = null;
 
-/** Signal that vault metadata changed, so the next index read rebuilds. Cheap — just bumps a counter. */
-export function invalidateDedicatedNoteIndex(): void {
-  indexGeneration++;
+/** Read and normalize a file's value for the index key, or "" if absent. */
+function readIndexValue(app: App, file: TFile, key: string): string {
+  const raw: unknown = app.metadataCache.getFileCache(file)?.frontmatter?.[key];
+  if (typeof raw !== "string" && typeof raw !== "number") return "";
+  return normalizeIdentifier(key, String(raw));
 }
 
-/** The frontmatter index for a field, from cache when the vault hasn't changed since it was built. */
+/** The frontmatter index for a field. Built once per key; thereafter served from memory and kept current by
+ *  the incremental update hooks below (so reads never trigger a vault scan). */
 export function getDedicatedNoteIndex(app: App, key: string): Map<string, TFile> {
-  if (indexCache && indexCache.key === key && indexCache.generation === indexGeneration) return indexCache.index;
-  const index = indexNotesByFrontmatter(app, key);
-  indexCache = { key, index, generation: indexGeneration };
-  return index;
+  if (fmIndex && fmIndex.key === key) return fmIndex.byValue;
+  const byValue = new Map<string, TFile>();
+  const byPath = new Map<string, string>();
+  if (key.trim() !== "") {
+    for (const file of app.vault.getMarkdownFiles()) {
+      const norm = readIndexValue(app, file, key);
+      if (norm === "") continue;
+      byPath.set(file.path, norm);
+      if (!byValue.has(norm)) byValue.set(norm, file);
+    }
+  }
+  fmIndex = { key, byValue, byPath };
+  return byValue;
+}
+
+/** Apply a single file's metadata change to the live index (from a metadata-cache "changed" event). Cheap:
+ *  one read plus at most two map writes. No-op until the index has been built. */
+export function updateDedicatedNoteIndex(app: App, file: TFile): void {
+  if (!fmIndex) return;
+  const { key, byValue, byPath } = fmIndex;
+  const oldNorm = byPath.get(file.path);
+  const newNorm = readIndexValue(app, file, key);
+  if (oldNorm === (newNorm === "" ? undefined : newNorm)) return; // unchanged
+  if (oldNorm !== undefined) {
+    byPath.delete(file.path);
+    if (byValue.get(oldNorm)?.path === file.path) byValue.delete(oldNorm);
+  }
+  if (newNorm !== "") {
+    byPath.set(file.path, newNorm);
+    if (!byValue.has(newNorm)) byValue.set(newNorm, file);
+  }
+}
+
+/** Remove a file from the live index (from a metadata-cache "deleted" event or a rename's old path). */
+export function removeFromDedicatedNoteIndex(path: string): void {
+  if (!fmIndex) return;
+  const oldNorm = fmIndex.byPath.get(path);
+  if (oldNorm === undefined) return;
+  fmIndex.byPath.delete(path);
+  if (fmIndex.byValue.get(oldNorm)?.path === path) fmIndex.byValue.delete(oldNorm);
+}
+
+/** Drop the whole index so the next read rebuilds (used only when the match key itself might change). */
+export function invalidateDedicatedNoteIndex(): void {
+  fmIndex = null;
 }

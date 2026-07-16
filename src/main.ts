@@ -12,7 +12,7 @@ import { createZoteroFetcher } from "./workspace/zotero-transport";
 import { ZOTERO_DOC_PREFIX, zoteroSearchDocs } from "./services/zotero/zotero-search-docs";
 import { createOrOpenLiteratureNote, indexLiteratureNotes, literatureNoteKey, refreshLiteratureNoteAnnotations } from "./services/notes/literature-note";
 import { ZoteroLibraryCache } from "./services/zotero/zotero-library-cache";
-import { invalidateDedicatedNoteIndex } from "./services/notes/dedicated-note";
+import { updateDedicatedNoteIndex, removeFromDedicatedNoteIndex } from "./services/notes/dedicated-note";
 import { fetchZoteroAnnotations } from "./services/annotations/zotero-client";
 import type { KvsAnnotation } from "./domain/index";
 import { LocalIndexBackend, VaultIndexBackend, type IndexBackend } from "./workspace/index-backend";
@@ -159,12 +159,17 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     this.registerEvent(this.app.workspace.on("active-leaf-change", () => overlayManager.onLeafChange()));
     this.registerDomEvent(window, "blur", () => void overlayManager.flushAll());
 
-    // Keep the dedicated-note frontmatter index fresh: invalidate only when a note's metadata actually
-    // changes (or a file is renamed/removed), so it's rebuilt lazily on the next render rather than rescanned
-    // on every render. Searching/sorting/scrolling don't fire these, so those stay off the vault-scan path.
-    this.registerEvent(this.app.metadataCache.on("changed", () => invalidateDedicatedNoteIndex()));
-    this.registerEvent(this.app.metadataCache.on("deleted", () => invalidateDedicatedNoteIndex()));
-    this.registerEvent(this.app.vault.on("rename", () => invalidateDedicatedNoteIndex()));
+    // Keep the dedicated-note frontmatter index current *incrementally* — apply each file's change to the
+    // index instead of rebuilding it, so editing a cell (which changes one file's metadata) doesn't rescan
+    // the whole vault on the next render. Searching/sorting/scrolling touch no files and so touch nothing here.
+    this.registerEvent(this.app.metadataCache.on("changed", (file) => updateDedicatedNoteIndex(this.app, file)));
+    this.registerEvent(this.app.metadataCache.on("deleted", (file) => removeFromDedicatedNoteIndex(file.path)));
+    this.registerEvent(
+      this.app.vault.on("rename", (file, oldPath) => {
+        removeFromDedicatedNoteIndex(oldPath);
+        if (file instanceof TFile) updateDedicatedNoteIndex(this.app, file);
+      }),
+    );
 
     // ---- full-text search index ----
     const makeBackend = (): IndexBackend => {

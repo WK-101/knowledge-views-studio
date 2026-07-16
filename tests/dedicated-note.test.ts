@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { dedicatedNoteKeyFor, normalizeIdentifier, indexNotesByFrontmatter, findInIndex, findDedicatedNote, getDedicatedNoteIndex, invalidateDedicatedNoteIndex } from "../src/services/notes/dedicated-note";
+import { dedicatedNoteKeyFor, normalizeIdentifier, indexNotesByFrontmatter, findInIndex, findDedicatedNote, getDedicatedNoteIndex, invalidateDedicatedNoteIndex, updateDedicatedNoteIndex, removeFromDedicatedNoteIndex } from "../src/services/notes/dedicated-note";
 import type { App } from "obsidian";
 
 // The frontmatter index is a process-wide cache keyed by (field, generation); reset it before each test so
@@ -134,3 +134,62 @@ describe("getDedicatedNoteIndex — process cache that only rebuilds when the va
     expect(findInIndex(byIsbn, "isbn", "978-x")?.basename).toBe("A");
   });
 });
+
+describe("incremental index maintenance — no vault rescan on a single change", () => {
+  // Mutable fake vault: files can be added/edited/removed, and metadataCache reflects current state.
+  function makeApp(store: Map<string, Record<string, unknown>>): App {
+    const fileFor = (path: string): { path: string; basename: string } => ({ path, basename: path.replace(/\.md$/, "").split("/").pop() ?? path });
+    return {
+      vault: { getMarkdownFiles: () => [...store.keys()].map(fileFor) },
+      metadataCache: { getFileCache: (file: { path: string }) => ({ frontmatter: store.get(file.path) }) },
+    } as unknown as App;
+  }
+
+  it("applies an edited file's new value without rebuilding", () => {
+    const store = new Map<string, Record<string, unknown>>([["A.md", { doi: "10.1/a" }]]);
+    const app = makeApp(store);
+    invalidateDedicatedNoteIndex();
+    const index = getDedicatedNoteIndex(app, "doi"); // build once
+    expect(findInIndex(index, "doi", "10.1/a")?.basename).toBe("A");
+
+    // Edit A's DOI; push the single-file update (what the metadata event does).
+    store.set("A.md", { doi: "10.9/z" });
+    updateDedicatedNoteIndex(app, { path: "A.md", basename: "A" } as never);
+
+    // Same map object (not rebuilt), but now reflects the change: old gone, new present.
+    expect(getDedicatedNoteIndex(app, "doi")).toBe(index);
+    expect(findInIndex(index, "doi", "10.1/a")).toBeNull();
+    expect(findInIndex(index, "doi", "10.9/z")?.basename).toBe("A");
+  });
+
+  it("adds a newly-created note incrementally", () => {
+    const store = new Map<string, Record<string, unknown>>([["A.md", { doi: "10.1/a" }]]);
+    const app = makeApp(store);
+    invalidateDedicatedNoteIndex();
+    getDedicatedNoteIndex(app, "doi");
+    store.set("B.md", { doi: "10.2/b" });
+    updateDedicatedNoteIndex(app, { path: "B.md", basename: "B" } as never);
+    expect(findDedicatedNote(app, "doi", "10.2/b")?.basename).toBe("B");
+  });
+
+  it("removes a deleted note incrementally", () => {
+    const store = new Map<string, Record<string, unknown>>([["A.md", { doi: "10.1/a" }], ["B.md", { doi: "10.2/b" }]]);
+    const app = makeApp(store);
+    invalidateDedicatedNoteIndex();
+    getDedicatedNoteIndex(app, "doi");
+    store.delete("A.md");
+    removeFromDedicatedNoteIndex("A.md");
+    expect(findDedicatedNote(app, "doi", "10.1/a")).toBeNull();
+    expect(findDedicatedNote(app, "doi", "10.2/b")?.basename).toBe("B");
+  });
+
+  it("update is a no-op before the index is built (safe ordering)", () => {
+    const store = new Map<string, Record<string, unknown>>([["A.md", { doi: "10.1/a" }]]);
+    const app = makeApp(store);
+    invalidateDedicatedNoteIndex();
+    // No getDedicatedNoteIndex yet; an early event must not throw and must not create a partial index.
+    expect(() => updateDedicatedNoteIndex(app, { path: "A.md", basename: "A" } as never)).not.toThrow();
+    // First read still builds the full, correct index.
+    expect(findDedicatedNote(app, "doi", "10.1/a")?.basename).toBe("A");
+  });
+})
