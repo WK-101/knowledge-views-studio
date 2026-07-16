@@ -3,7 +3,7 @@ import tseslint from "typescript-eslint";
 import obsidianmd from "eslint-plugin-obsidianmd";
 
 export default tseslint.config(
-  { ignores: ["main.js", "dist/**", "node_modules/**", "coverage/**", "*.mjs", "vitest.config.ts"] },
+  { ignores: ["main.js", "dist/**", "node_modules/**", "coverage/**", "**/*.mjs", "scripts/**", "vitest.config.ts"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
 

@@ -155,6 +155,10 @@ export interface GlobalSettings {
    * it before asking for it.
    */
   readonly indexAttachments: boolean;
+  /** Read text inside images via offline OCR (desktop only), making screenshots searchable. */
+  readonly ocrEnabled: boolean;
+  /** Tesseract language codes for OCR, e.g. ["eng"] or ["eng","deu"]. */
+  readonly ocrLanguages: readonly string[];
   /** Index attachments on phones and tablets too. Separate from the above on purpose: settings sync,
    *  and "read every PDF" is a very different promise on a laptop than on a battery. */
   readonly indexAttachmentsOnMobile: boolean;
@@ -246,6 +250,8 @@ export const DEFAULT_SETTINGS: GlobalSettings = {
   enableExcelSources: false,
   enableSearch: true,
   indexAttachments: false,
+  ocrEnabled: false,
+  ocrLanguages: ["eng"],
   indexAttachmentsOnMobile: false,
   semanticEngine: "builtin",
   relevance: DEFAULT_RELEVANCE,

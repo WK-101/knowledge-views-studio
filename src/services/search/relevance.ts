@@ -93,6 +93,95 @@ export interface Scored {
   readonly score: number;
 }
 
+/** Lowercase + strip diacritics + collapse whitespace, so "Café" matches "cafe". */
+export function fold(s: string): string {
+  return s
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Minimal shape the title-first pass needs off a result. */
+export interface TitleRankable {
+  readonly score: number;
+  readonly meta?: Readonly<Record<string, string | number>>;
+}
+
+/**
+ * Deterministic title-first re-ranking, ported from what makes a good vault launcher: BM25 with field
+ * boosts alone cannot guarantee that a note's *own* title beats notes that merely mention the word (a
+ * person's note buried under every journal entry that links to them). So on top of the engine score we layer
+ * hard tiers and sort tier-first:
+ *
+ *   tier 0 — the folded query IS the title, or one of its aliases
+ *   tier 1 — the title/alias starts with the query, or every query word prefix-matches a title word in order
+ *            ("mi ho" → "Mira Holt")
+ *   tier 2 — everything else, by the original relevance score
+ *
+ * Reads `meta.title` and (optional) `meta.aliases` (space- or comma-separated). A stable sort within each
+ * tier preserves the engine's ordering; within a title tier the shortest title wins (the most exact match).
+ * Purely a final ordering pass — it never changes which results appear, only their order.
+ */
+export function orderByTitleFirst<T extends TitleRankable>(results: readonly T[], queryText: string): T[] {
+  const q = fold(queryText);
+  if (q === "") return [...results];
+  const qWords = q.split(" ").filter((w) => w.length > 0);
+
+  const titleOf = (r: T): string => fold(String(r.meta?.["title"] ?? ""));
+  const aliasesOf = (r: T): string[] =>
+    String(r.meta?.["aliases"] ?? "")
+      .split(/[,\n]+/)
+      .map((a) => fold(a))
+      .filter((a) => a.length > 0);
+
+  const tierOf = (r: T): number => {
+    const title = titleOf(r);
+    if (title === q) return 0;
+    const aliases = aliasesOf(r);
+    if (aliases.includes(q)) return 0;
+    if (title.startsWith(q)) return 1;
+    if (aliases.some((a) => a.startsWith(q))) return 1;
+    if (qWords.length > 1 && wordsPrefixMatchInOrder(qWords, title.split(" "))) return 1;
+    return 2;
+  };
+
+  const tier = new Map<T, number>();
+  const idx = new Map<T, number>();
+  results.forEach((r, i) => {
+    tier.set(r, tierOf(r));
+    idx.set(r, i);
+  });
+
+  return [...results].sort((a, b) => {
+    const ta = tier.get(a) ?? 2;
+    const tb = tier.get(b) ?? 2;
+    if (ta !== tb) return ta - tb;
+    if (ta < 2) return titleOf(a).length - titleOf(b).length || (idx.get(a) ?? 0) - (idx.get(b) ?? 0);
+    // tier 2: keep the engine's order (already score-sorted), stable.
+    return (idx.get(a) ?? 0) - (idx.get(b) ?? 0);
+  });
+}
+
+/** Every query word prefix-matches a distinct title word, left to right. */
+function wordsPrefixMatchInOrder(queryWords: readonly string[], titleWords: readonly string[]): boolean {
+  let position = 0;
+  for (const queryWord of queryWords) {
+    let matched = false;
+    while (position < titleWords.length) {
+      const titleWord = titleWords[position];
+      position += 1;
+      if (titleWord !== undefined && titleWord.startsWith(queryWord)) {
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) return false;
+  }
+  return true;
+}
+
 /** Scale a ranking to 0..1 by its own maximum, so two rankings on different scales can be compared. */
 export function normalizeRanking(items: readonly Scored[]): Map<string, number> {
   const max = items.reduce((m, r) => Math.max(m, r.score), 0);

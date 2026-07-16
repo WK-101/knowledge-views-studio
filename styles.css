@@ -4549,3 +4549,8 @@ body.is-phone .kvs-col-resize {
 
 /* ---- Literature note template editor ---- */
 .kvs-lit-template { width: 100%; font-family: var(--font-monospace); font-size: var(--font-ui-smaller); }
+
+/* Quick-launcher modal (Spotlight-style jump-to-note) */
+.kvs-quick-suggestion { display: flex; flex-direction: column; gap: 1px; }
+.kvs-quick-title { font-weight: var(--font-medium); color: var(--text-normal); }
+.kvs-quick-sub { font-size: var(--font-ui-smaller); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

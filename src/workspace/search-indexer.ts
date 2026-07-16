@@ -9,6 +9,8 @@ import { SearchIndex, SemanticModel, noteToDocs, questionTerms, rowsToDocs, scor
 import { fileToSearchDocs, indexableExtensions, indexableFiles, type IndexScope } from "./search-extract";
 import { NeuralEmbedder } from "./neural-embedder";
 import { LocalIndexBackend, type IndexBackend, type IndexPayload } from "./index-backend";
+import type { OcrPipeline } from "../services/search/ocr/pipeline";
+import { imageToDoc } from "../services/index";
 
 /** A cheap change signature — mtime+size avoids reading/hashing large PDFs just to detect a change. */
 function signature(file: TFile): string {
@@ -45,7 +47,7 @@ export interface IndexStatus {
 const sleep = (ms: number): Promise<void> => new Promise((r) => window.setTimeout(r, ms));
 
 /** Sources whose text we persist for snippets (notes/rows are re-read cheaply instead). */
-const ATTACHMENT_SOURCES = new Set(["pdf", "docx", "xlsx", "pptx", "epub"]);
+const ATTACHMENT_SOURCES = new Set(["pdf", "docx", "xlsx", "pptx", "epub", "image"]);
 
 /**
  * Owns the live search index: loads it from IndexedDB on start, keeps it in sync with the vault
@@ -74,6 +76,7 @@ export class SearchIndexer {
   private textMap = new Map<string, string>();
   private building = false;
   private dirty = false;
+  private ocr?: OcrPipeline;
   private loaded = false;
   private progress: { done: number; total: number } | undefined;
   private persistTimer: number | undefined;
@@ -558,9 +561,27 @@ export class SearchIndexer {
       if (ids.length > 0) this.idsByPath.set(file.path, ids);
       this.sigs.set(file.path, signature(file));
       this.dirty = true;
+      // Images: kick off (or reuse cached) OCR so their text becomes searchable. No-op unless OCR is on.
+      if (this.ocr?.handles(file)) this.ocr.consider(file, "low");
     } catch (error) {
       console.error(`[KVS search] failed to index ${file.path}:`, error);
     }
+  }
+
+  /** Attach the OCR pipeline (owned by the plugin). Its recognised text arrives via {@link indexImageText}. */
+  setOcr(pipeline: OcrPipeline): void {
+    this.ocr = pipeline;
+  }
+
+  /** (Re)index an image's document with its OCR text — called by the OCR pipeline when recognition lands. */
+  indexImageText(file: TFile, text: string): void {
+    this.dropDocs(file.path);
+    const doc = imageToDoc(file.path, text);
+    this.index.add({ ...doc, meta: { ...(doc.meta ?? {}), mtime: file.stat.mtime } });
+    this.idsByPath.set(file.path, [doc.id]);
+    this.textMap.set(doc.id, text);
+    this.dirty = true;
+    this.schedulePersist();
   }
 
   /**

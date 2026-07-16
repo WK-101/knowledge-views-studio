@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { zipSync, strToU8 } from "fflate";
-import { noteToDocs, rowsToDocs, extractOfficeText, extractEpubText, sectionsToDocs } from "../src/services/search/extract";
+import { noteToDocs, rowsToDocs, extractOfficeText, extractEpubText, sectionsToDocs, extractExternalLinks } from "../src/services/search/extract";
 
 describe("note extraction (per-heading + annotations)", () => {
   it("splits into heading sections and a separate annotations doc; frontmatter → fields", () => {
@@ -108,5 +108,41 @@ describe("sectionsToDocs", () => {
     expect(docs[0]).toMatchObject({ id: "pdf:book.pdf#p.5", source: "pdf", format: "pdf" });
     expect(docs[0]!.location).toContain("p.5");
     expect(docs[0]!.meta).toMatchObject({ path: "book.pdf", section: "p.5" });
+  });
+});
+
+describe("extractExternalLinks + link docs", () => {
+  it("pulls markdown links with their text and URL", () => {
+    const links = extractExternalLinks("See [the paper](https://arxiv.org/abs/1706.03762) and [blog](https://ex.com/p).");
+    expect(links.map((l) => l.text)).toEqual(["the paper", "blog"]);
+    expect(links.map((l) => l.url)).toEqual(["https://arxiv.org/abs/1706.03762", "https://ex.com/p"]);
+  });
+
+  it("pulls bare URLs and trims trailing punctuation", () => {
+    const links = extractExternalLinks("ref https://example.com/x. done");
+    expect(links).toHaveLength(1);
+    expect(links[0]!.url).toBe("https://example.com/x");
+    expect(links[0]!.text).toBe("");
+  });
+
+  it("does not double-count a markdown link's target as a bare URL", () => {
+    const links = extractExternalLinks("[label](https://only-once.com/page)");
+    expect(links).toHaveLength(1);
+    expect(links[0]!.url).toBe("https://only-once.com/page");
+  });
+
+  it("noteToDocs emits a searchable link doc per external URL", () => {
+    const docs = noteToDocs("notes/reading.md", "# Reading\n\nGreat [write-up on tokenizers](https://blog.dev/tok).\n");
+    const link = docs.find((d) => d.source === "link");
+    expect(link).toBeDefined();
+    expect(link!.meta?.["url"]).toBe("https://blog.dev/tok");
+    expect(link!.text).toContain("write-up on tokenizers");
+    expect(link!.text).toContain("https://blog.dev/tok");
+  });
+
+  it("carries aliases into note-doc meta for alias-first ranking", () => {
+    const docs = noteToDocs("people/mira.md", "---\naliases: Miri, MH\n---\n\nBody.");
+    const note = docs.find((d) => d.source === "note");
+    expect(String(note!.meta?.["aliases"])).toContain("Miri");
   });
 });

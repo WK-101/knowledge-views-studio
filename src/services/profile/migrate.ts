@@ -176,6 +176,8 @@ function normalizeSettings(raw: unknown): GlobalSettings {
     enableExcelSources: asBool(raw.enableExcelSources, DEFAULT_SETTINGS.enableExcelSources),
     enableSearch: asBool(raw.enableSearch, DEFAULT_SETTINGS.enableSearch),
     indexAttachments: asBool(raw.indexAttachments, DEFAULT_SETTINGS.indexAttachments),
+    ocrEnabled: asBool(raw.ocrEnabled, DEFAULT_SETTINGS.ocrEnabled),
+    ocrLanguages: Array.isArray(raw.ocrLanguages) ? raw.ocrLanguages.filter((x): x is string => typeof x === "string") : [...DEFAULT_SETTINGS.ocrLanguages],
     indexAttachmentsOnMobile: asBool(raw.indexAttachmentsOnMobile, DEFAULT_SETTINGS.indexAttachmentsOnMobile),
     semanticEngine: raw.semanticEngine === "neural" ? "neural" : "builtin",
     indexLocation: raw.indexLocation === "vault" ? "vault" : "local",

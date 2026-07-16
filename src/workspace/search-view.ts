@@ -1,5 +1,6 @@
 import { FuzzySuggestModal, ItemView, Menu, Notice, SearchComponent, TFile, TFolder, setIcon, setTooltip, type App, type WorkspaceLeaf } from "obsidian";
-import { makeSnippet, noteToDocs, parseQuery, questionTerms, rowsToDocs, scoringTerms, type SearchResult, type Snippet } from "../services/index";
+import { makeSnippet, noteToDocs, orderByTitleFirst, parseQuery, questionTerms, rowsToDocs, scoringTerms, type SearchResult, type Snippet } from "../services/index";
+import { openSearchResult } from "./open-result";
 import type { AnswerPassage, SearchIndexer } from "./search-indexer";
 import { closePopover, openPopover } from "./popover";
 
@@ -527,6 +528,7 @@ export class SearchView extends ItemView {
     let hits = all.filter((r) => this.selected.has(r.source));
     if (this.sort === "modified") hits = hits.sort((a, b) => (Number(b.meta?.["mtime"]) || 0) - (Number(a.meta?.["mtime"]) || 0));
     else if (this.sort === "name") hits = hits.sort((a, b) => String(a.location ?? a.id).localeCompare(String(b.location ?? b.id)));
+    else hits = orderByTitleFirst(hits, q); // relevance: pin exact title/alias matches to the top
     this.hits = hits.slice(0, 300);
     const capped = all.length >= FACET_LIMIT ? "+" : "";
     this.countEl.setText(`${this.hits.length}${capped} result${this.hits.length === 1 ? "" : "s"}`);
@@ -721,33 +723,6 @@ export class SearchView extends ItemView {
   }
 
   private jump(r: SearchResult): void {
-    // Zotero hits are not vault files — open them in Zotero itself via its select protocol. The key is the
-    // item for a library hit, or the annotation's parent for an annotation hit.
-    if (r.source === "zotero" || r.source === "zotero-annotation") {
-      const key = r.source === "zotero" ? r.meta?.["zoteroKey"] : r.meta?.["parentKey"];
-      if (typeof key === "string" && key !== "") {
-        window.open(`zotero://select/library/items/${key}`, "_blank");
-      }
-      return;
-    }
-    const path = r.meta?.["path"];
-    if (typeof path !== "string") return;
-    const section = String(r.meta?.["section"] ?? "");
-    const heading = String(r.meta?.["heading"] ?? "");
-    if (r.source === "pdf") {
-      const page = /p\.(\d+)/.exec(section)?.[1];
-      void this.app.workspace.openLinkText(page ? `${path}#page=${page}` : path, "", false);
-      return;
-    }
-    if (r.source === "note" && heading !== "") {
-      void this.app.workspace.openLinkText(`${path}#${heading}`, "", false);
-      return;
-    }
-    if (r.source === "row" && typeof r.meta?.["line"] === "number") {
-      const f = this.app.vault.getAbstractFileByPath(path);
-      if (f instanceof TFile) void this.app.workspace.getLeaf(false).openFile(f, { eState: { line: r.meta["line"] } });
-      return;
-    }
-    void this.app.workspace.openLinkText(path, "", false);
+    openSearchResult(this.app, r);
   }
 }

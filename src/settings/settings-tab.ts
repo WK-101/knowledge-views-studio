@@ -1,4 +1,5 @@
 import { Menu, Notice, Platform, PluginSettingTab, Setting, setIcon, type App, type Plugin } from "obsidian";
+import { downloadAssets } from "../services/search/ocr/assets";
 import type { ColumnTypeRegistry } from "../domain/index";
 import { createZoteroFetcher } from "../workspace/zotero-transport";
 import { isZotFlowAvailable } from "../services/annotations/zotflow-interop";
@@ -56,10 +57,10 @@ export class KnowledgeViewsSettingTab extends PluginSettingTab {
 
   constructor(
     app: App,
-    plugin: Plugin,
+    private readonly ownPlugin: Plugin,
     private readonly deps: SettingsDeps,
   ) {
-    super(app, plugin);
+    super(app, ownPlugin);
   }
 
   override display(): void {
@@ -421,6 +422,64 @@ export class KnowledgeViewsSettingTab extends PluginSettingTab {
                   notice.hide();
                   new Notice("KVS search index updated.", 3000);
                 });
+            }
+          }),
+        );
+    }
+
+    // Offline OCR — text inside images (screenshots, photos) becomes searchable. Desktop only; the
+    // recognition assets are downloaded once, on request, and everything runs locally thereafter.
+    new Setting(el)
+      .setName("Search text inside images (OCR)")
+      .setDesc(
+        Platform.isDesktop
+          ? "Recognise text in your images with offline OCR, so screenshots and photos become findable. Runs in the background in idle time; results are cached and sync to your other devices. Requires a one-time asset download below."
+          : "OCR runs on desktop only. Recognise images on a desktop and the results (cached in your vault) are available here for free.",
+      )
+      .addToggle((t) =>
+        t
+          .setValue(settings.ocrEnabled)
+          .setDisabled(!Platform.isDesktop)
+          .onChange((v) => {
+            store.updateSettings({ ocrEnabled: v });
+            const notice = new Notice(v ? "KVS: enabling image OCR…" : "KVS: removing images from the index…", 0);
+            void indexer
+              .rebuild((done, total) => notice.setMessage(`KVS: indexing ${done}/${total}…`))
+              .then(() => {
+                notice.hide();
+                new Notice("KVS search index updated.", 3000);
+              });
+          }),
+      );
+
+    if (settings.ocrEnabled && Platform.isDesktop) {
+      new Setting(el)
+        .setName("OCR languages")
+        .setDesc("Tesseract language codes, space-separated (e.g. “eng deu”). Each language needs its model in the downloaded assets.")
+        .addText((t) =>
+          t.setValue(settings.ocrLanguages.join(" ")).onChange((v) => {
+            const langs = v.split(/\s+/).map((s) => s.trim().toLowerCase()).filter((s) => s.length > 0);
+            store.updateSettings({ ocrLanguages: langs.length > 0 ? langs : ["eng"] });
+          }),
+        );
+
+      new Setting(el)
+        .setName("OCR assets")
+        .setDesc("The recognition models and engine (downloaded once, verified, then fully offline). If OCR isn't finding text, (re)download them here.")
+        .addButton((b) =>
+          b.setButtonText("Download OCR assets").onClick(async () => {
+            b.setDisabled(true);
+            const notice = new Notice("KVS: downloading OCR assets…", 0);
+            try {
+              const dir = this.ownPlugin.manifest.dir ?? `${this.app.vault.configDir}/plugins/${this.ownPlugin.manifest.id}`;
+              await downloadAssets(this.app, dir);
+              notice.hide();
+              new Notice("KVS: OCR assets installed. Images will be recognised in the background.", 4000);
+            } catch (err) {
+              notice.hide();
+              new Notice(`KVS: OCR asset download failed — ${err instanceof Error ? err.message : "unknown error"}`, 8000);
+            } finally {
+              b.setDisabled(false);
             }
           }),
         );

@@ -1,5 +1,6 @@
 import { TFile, type App } from "obsidian";
-import { extractEpubText, extractOfficeText, extractPdfText, noteToDocs, rowsToDocs, sectionsToDocs, type IndexDoc } from "../services/index";
+import { extractEpubText, extractOfficeText, extractPdfText, imageToDoc, noteToDocs, rowsToDocs, sectionsToDocs, type IndexDoc } from "../services/index";
+import { OCR_IMAGE_EXTS } from "../services/search/ocr/pipeline";
 import type { RelevanceWeights } from "../services/search/relevance";
 import type { DeviceProfile } from "../util/device";
 
@@ -18,6 +19,8 @@ export interface IndexScope {
   /** Whether Excel is enabled as a data source. When it isn't, .xlsx files are ignored entirely —
    *  including by search, which is what that setting promises. */
   readonly excel: boolean;
+  /** Read text inside images via offline OCR (desktop only). Off by default. */
+  readonly ocr?: boolean;
 }
 
 /**
@@ -55,6 +58,7 @@ export function applyDevicePolicy(scope: IndexScope, device: DeviceProfile): Ind
  */
 export function indexableExtensions(scope: IndexScope): Set<string> {
   const exts = new Set<string>(["md"]);
+  if (scope.ocr) for (const ext of OCR_IMAGE_EXTS) exts.add(ext);
   if (!scope.attachments) return exts;
   for (const ext of ["pdf", "docx", "pptx", "epub"]) exts.add(ext);
   if (scope.excel) exts.add("xlsx");
@@ -84,6 +88,7 @@ async function extractDocs(app: App, file: TFile, ext: string): Promise<IndexDoc
     // Add accurate tags (from Obsidian's cache) as a `tag` field on every note section.
     return docs.map((d) => (d.source === "note" ? { ...d, fields: { ...(d.fields ?? {}), tag: tags } } : d));
   }
+  if (OCR_IMAGE_EXTS.has(ext)) return [imageToDoc(file.path, "")];
   if (!INDEXABLE_EXTENSIONS.has(ext)) return [];
   const bytes = await app.vault.readBinary(file);
   switch (ext) {

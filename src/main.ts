@@ -3,6 +3,8 @@ import { SearchIndexer } from "./workspace/search-indexer";
 import { applyDevicePolicy } from "./workspace/search-extract";
 import { currentDevice } from "./util/device";
 import { SEARCH_VIEW_TYPE, SearchView, openSearchView } from "./workspace/search-view";
+import { openQuickSearch } from "./workspace/quick-search-modal";
+import { OcrPipeline } from "./services/search/ocr/pipeline";
 import { RELATED_VIEW_TYPE, RelatedNotesView, openRelatedView } from "./workspace/related-notes-view";
 import { ZOTERO_LIBRARY_VIEW_TYPE, ZoteroLibraryView, openZoteroLibraryView } from "./workspace/zotero-library-view";
 import { openZoteroCollectionPicker } from "./workspace/zotero-collection-modal";
@@ -71,6 +73,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
   private searchIndexer?: SearchIndexer;
   private profileStore?: ProfileStore;
   private zoteroLibraryCache?: ZoteroLibraryCache;
+  private ocrPipeline?: OcrPipeline;
   private dataService?: DataService;
 
   override async onload(): Promise<void> {
@@ -188,6 +191,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
           attachments: st.indexAttachments,
           attachmentsOnMobile: st.indexAttachmentsOnMobile,
           excel: st.enableExcelSources,
+          ocr: st.ocrEnabled,
           semanticEngine: st.semanticEngine,
           relevance: st.relevance,
         },
@@ -207,6 +211,19 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     });
     this.searchIndexer = searchIndexer;
     searchIndexer.register(this);
+    // Offline OCR pipeline: recognizes text in images in idle time and folds it into the search index.
+    // Owned here, fed by the indexer's image hook, and desktop-gated internally.
+    const ocrDir = this.manifest.dir ?? `${this.app.vault.configDir}/plugins/${this.manifest.id}`;
+    const ocrPipeline = new OcrPipeline(
+      this.app,
+      ocrDir,
+      () => [...store.getSettings().ocrLanguages],
+      () => store.getSettings().ocrEnabled,
+      (file, text) => searchIndexer.indexImageText(file, text),
+    );
+    this.ocrPipeline = ocrPipeline;
+    searchIndexer.setOcr(ocrPipeline);
+    void ocrPipeline.init(this);
     searchIndexer.setEnableAttachments(() => store.updateSettings({ indexAttachments: true }));
     this.registerView(SEARCH_VIEW_TYPE, (leaf) => new SearchView(leaf, searchIndexer));
     this.registerView(RELATED_VIEW_TYPE, (leaf) => new RelatedNotesView(leaf, searchIndexer));
@@ -214,6 +231,12 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
       id: "kvs-related-notes",
       name: "Show related notes",
       callback: () => void openRelatedView(this.app),
+    });
+
+    this.addCommand({
+      id: "kvs-quick-search",
+      name: "Quick search (jump to note)",
+      callback: () => openQuickSearch(this.app, searchIndexer),
     });
 
     // Live Zotero library view — reads Zotero's local API (always current, unlike a static export). The
@@ -558,6 +581,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
   override onunload(): void {
     void this.pdfOverlayManager?.flushAll();
     void this.searchIndexer?.persist();
+    void this.ocrPipeline?.destroy();
     void this.profileStore?.flush();
     this.profileStore?.dispose();
     this.dataService?.dispose();

@@ -15,6 +15,29 @@ import type { IndexDoc } from "./search-index";
 
 const base = (path: string): string => path.split("/").pop()?.replace(/\.[^.]+$/, "") ?? path;
 
+/** Cap link docs per note (paste-dump protection). */
+const MAX_LINKS_PER_NOTE = 200;
+
+/** Every external URL in a note, as {text, url, offset}: markdown [text](url) links first, then bare URLs
+ *  not already captured. Offsets keep ids stable and distinct. */
+export function extractExternalLinks(body: string): { text: string; url: string; offset: number }[] {
+  const out: { text: string; url: string; offset: number }[] = [];
+  const seen = new Set<number>();
+  const mdRe = /\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g;
+  for (let m = mdRe.exec(body); m !== null; m = mdRe.exec(body)) {
+    out.push({ text: (m[1] ?? "").trim(), url: m[2] ?? "", offset: m.index });
+    seen.add(m.index);
+  }
+  const bareRe = /(?<!\]\()(?<![\w@])https?:\/\/[^\s<>()[\]"']+/g;
+  for (let m = bareRe.exec(body); m !== null; m = bareRe.exec(body)) {
+    const at = m.index;
+    // Skip URLs already captured as the target of a markdown link (their index falls inside a match).
+    if ([...seen].some((s) => at >= s && at <= s + 200)) continue;
+    out.push({ text: "", url: m[0].replace(/[.,;:]+$/, ""), offset: at });
+  }
+  return out.sort((a, b) => a.offset - b.offset);
+}
+
 function decodeXml(s: string): string {
   return s
     .replace(/<[^>]+>/g, " ")
@@ -58,11 +81,28 @@ export function noteToDocs(path: string, content: string): IndexDoc[] {
   const fields = fmBlock ? parseFrontmatter(fmBlock.body) : {};
   const body = fmBlock ? content.split(/\r?\n/).slice(fmBlock.end + 1).join("\n") : content;
   const title = fields["title"] ?? base(path);
+  const aliases = fields["aliases"] ?? fields["alias"] ?? "";
+  const titleMeta: Record<string, string> = aliases.trim() !== "" ? { title, aliases } : { title };
   const { annotations, rest } = splitAnnotations(body);
   const docs: IndexDoc[] = [];
 
   if (annotations.trim() !== "") {
-    docs.push({ id: `annotation:${path}`, text: annotations, source: "annotation", format: "md", location: `${title} · annotations`, meta: { path, title } });
+    docs.push({ id: `annotation:${path}`, text: annotations, source: "annotation", format: "md", location: `${title} · annotations`, meta: { path, ...titleMeta } });
+  }
+
+  // Saved links become their own searchable documents (by link text and URL), so "the article I linked
+  // about X" is findable even when the note it lives in is about something else.
+  for (const link of extractExternalLinks(rest).slice(0, MAX_LINKS_PER_NOTE)) {
+    const label = link.text !== "" ? link.text : link.url;
+    docs.push({
+      id: `link:${path}#${link.offset}`,
+      text: `${label} ${link.url}`,
+      fields: { url: link.url },
+      source: "link",
+      format: "url",
+      location: `${title} · ${label}`,
+      meta: { path, title, url: link.url, label },
+    });
   }
 
   // Split the remaining body by ATX headings; content before the first heading is the intro section.
@@ -82,7 +122,7 @@ export function noteToDocs(path: string, content: string): IndexDoc[] {
         source: "note",
         format: "md",
         location: heading === "" ? title : `${title} › ${heading}`,
-        meta: { path, title, ...(heading !== "" ? { heading } : {}) },
+        meta: { path, ...titleMeta, ...(heading !== "" ? { heading } : {}) },
       });
     }
   };
@@ -99,7 +139,7 @@ export function noteToDocs(path: string, content: string): IndexDoc[] {
   flush();
   if (docs.every((d) => d.source !== "note")) {
     // note had only an annotations region / was empty — still index the title so it's findable
-    docs.push({ id: `note:${path}#_intro`, text: title, fields, source: "note", format: "md", location: title, meta: { path, title } });
+    docs.push({ id: `note:${path}#_intro`, text: title, fields, source: "note", format: "md", location: title, meta: { path, ...titleMeta } });
   }
   return docs;
 }
@@ -128,6 +168,13 @@ export function rowsToDocs(path: string, content: string): IndexDoc[] {
     }
   }
   return out;
+}
+
+/** An image becomes one doc: findable by filename immediately, and by its OCR text once the OCR pipeline
+ *  fills it in (empty until then). */
+export function imageToDoc(path: string, ocrText: string): IndexDoc {
+  const title = base(path);
+  return { id: `image:${path}`, text: ocrText, fields: { title }, source: "image", format: "image", location: title, meta: { path, title } };
 }
 
 /** Wrap extracted sections (page/slide/chapter) into IndexDocs. */

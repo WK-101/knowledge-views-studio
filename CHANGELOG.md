@@ -5,6 +5,45 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 134 — search: title-first ranking, a quick launcher, image OCR, and searchable links
+
+Four search improvements, studied from the focused launcher plugin Searchosaurus and adapted to KVS's index.
+
+### The note you meant comes first
+
+Search now applies **deterministic title-first ranking**: an exact title (or alias) match is pinned to the
+top, a title prefix or word-prefix (`mi ho` → “Mira Holt”) comes next, and everything else follows by
+relevance. Field boosts alone couldn't guarantee that a person's own note beat the thirty notes that merely
+mention them; this does. It's a final ordering pass over results the engine already found — nothing new
+appears, the right thing just leads.
+
+### A Spotlight-style quick launcher
+
+A new command, **“Quick search (jump to note)”** (bind it to a hotkey), opens a launcher modal over the same
+index: type a few letters, the note you meant is at the top, Enter jumps to it (Cmd/Ctrl+Enter opens a new
+tab). It collapses a note's many section documents into one row so it reads like a note picker, and reuses the
+already-built index — no second index, no extra memory.
+
+### Text inside images is searchable (offline OCR)
+
+Turn on **“Search text inside images (OCR)”** in settings and KVS recognises the text in your screenshots and
+photos so they become findable. It's fully offline: the recognition engine and language models download once
+(from a release asset, checksum-verified), then everything runs locally. Recognition happens in the
+background in idle time, one image at a time, and every result is cached in a file that syncs to your other
+devices — so no image is ever recognised twice, anywhere. Desktop-only (mobile reads the synced results for
+free), off by default, and PDFs' text was already indexed. *Note: this ships behind an asset bundle you host
+on your own release — see the OCR section below and `scripts/build-ocr-assets.mjs`.*
+
+### Saved links are their own search results
+
+Every external URL in a note is now indexed as its own document, searchable by its link text and its URL — so
+“that article I linked about tokenizers” is findable even when the note it lives in is about something else.
+Choosing a link result opens the URL.
+
+819 tests (was 798): title-first tiers (exact/alias/prefix/word-prefix, diacritic folding, stable fallback);
+link extraction (markdown + bare URLs, de-duplication) and link-doc emission; and the OCR queue (priority,
+replace, drop, error isolation) and its signature-keyed synced cache.
+
 ## Phase 133 — summary row: smaller, and switchable per view
 
 Two follow-ups now that the summary picker works.
