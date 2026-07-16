@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { LocalApiZoteroProvider, mapItem } from "../src/services/zotero/local-api-provider";
+import { zoteroDoiLookup } from "../src/services/annotations/zotero-client";
 import {
   ReadOnlyZoteroBackend,
   type ZoteroFetcher,
@@ -180,6 +181,38 @@ describe("LocalApiZoteroProvider — reads over the live API", () => {
     });
     const anns = await new LocalApiZoteroProvider("http://x", paging).listAllAnnotations();
     expect(anns).toHaveLength(180);
+  });
+});
+
+describe("zoteroDoiLookup — distinguishes unreachable from not-found", () => {
+  const doiItem = { key: "K1", data: { key: "K1", itemType: "journalArticle", DOI: "10.1/abc" } };
+
+  it("status 0 (couldn't connect) is reported distinctly from an empty result", async () => {
+    const dead: ZoteroFetcher = vi.fn(async () => ({ status: 0 }));
+    const r = await zoteroDoiLookup("http://x", "10.1/abc", dead);
+    expect(r.status).toBe(0);
+    expect(r.keys).toEqual([]);
+  });
+
+  it("a non-200 status is surfaced, not swallowed as 'not found'", async () => {
+    const forbidden: ZoteroFetcher = vi.fn(async () => ({ status: 403 }));
+    const r = await zoteroDoiLookup("http://x", "10.1/abc", forbidden);
+    expect(r.status).toBe(403);
+    expect(r.keys).toEqual([]);
+  });
+
+  it("200 with a matching DOI returns the key", async () => {
+    const ok: ZoteroFetcher = vi.fn(async () => ({ status: 200, json: [doiItem] }));
+    const r = await zoteroDoiLookup("http://x", "10.1/abc", ok);
+    expect(r.status).toBe(200);
+    expect(r.keys).toEqual(["K1"]);
+  });
+
+  it("200 with no matching DOI is reachable-but-empty (status 200, no keys)", async () => {
+    const ok: ZoteroFetcher = vi.fn(async () => ({ status: 200, json: [] }));
+    const r = await zoteroDoiLookup("http://x", "10.1/zzz", ok);
+    expect(r.status).toBe(200);
+    expect(r.keys).toEqual([]);
   });
 });
 

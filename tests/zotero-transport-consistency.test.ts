@@ -21,17 +21,20 @@ const controllerSrc = readFileSync(resolve(here, "../src/workspace/academic-cont
 describe("academic controller Zotero transport", () => {
   it("uses the shared createZoteroFetcher for Zotero, matching the library view", () => {
     expect(controllerSrc).toContain("createZoteroFetcher");
-    // Isolate the zoteroFetcher method body and assert it returns the shared fetcher.
-    const body = /private zoteroFetcher\(\)[^{]*\{([\s\S]*?)\n {2}\}/.exec(controllerSrc)?.[1] ?? "";
-    expect(body).toContain("return createZoteroFetcher()");
-    expect(body).not.toContain("requestUrl");
   });
 
   it("keeps requestUrl only for the Crossref DOI lookup, not the Zotero local API", () => {
-    // requestUrl appears at most for the DOI (Crossref) call; the URL there is a doi resolver, not :23119.
+    // requestUrl appears at most for the DOI (Crossref) call; never against the local API (:23119).
     const requestUrlLines = controllerSrc.split("\n").filter((l) => l.includes("requestUrl(") && !l.includes("*"));
     for (const line of requestUrlLines) {
       expect(line).not.toContain("23119");
     }
+  });
+
+  it("decides reachability from the real DOI query status, not a separate ping probe", () => {
+    // The fill/promote paths must use the status-aware lookup and must NOT gate on a separate ping() to a
+    // different endpoint — that endpoint mismatch is what falsely reported Zotero unreachable.
+    expect(controllerSrc).toContain("zoteroDoiLookup");
+    expect(controllerSrc).not.toContain("provider.ping()");
   });
 });

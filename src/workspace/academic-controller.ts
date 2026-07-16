@@ -25,7 +25,7 @@ import { DedupModal, type DedupResolution } from "./dedup-modal";
 import { ShardModal, type ShardField } from "./shard-modal";
 import { LocalApiZoteroProvider } from "../services/zotero/local-api-provider";
 import { createZoteroFetcher } from "./zotero-transport";
-import { findZoteroKeysByDoi, fetchZoteroAnnotations } from "../services/annotations/zotero-client";
+import { zoteroDoiLookup, fetchZoteroAnnotations } from "../services/annotations/zotero-client";
 import type { ZoteroLibraryItem } from "../services/zotero/provider";
 import { buildLiteratureNote } from "../services/notes/literature-note";
 import { renderAnnotationsMarkdown, upsertAnnotationsRegion } from "../services/annotations/render";
@@ -165,16 +165,6 @@ export class AcademicController {
     new Notice(`Filled ${edits.length} field(s) from DOI.`);
   }
 
-  /**
-   * The Zotero transport. Must be the *same* one the Zotero library view uses (Node http via
-   * createZoteroFetcher), not Obsidian's requestUrl — requestUrl rejects the local API's responses, which
-   * made "Fill from Zotero" report the server unreachable even when it was running fine. Sharing the proven
-   * transport keeps the two code paths from disagreeing about whether Zotero is reachable.
-   */
-  private zoteroFetcher(): (url: string) => Promise<{ status: number; json?: unknown; text?: string }> {
-    return createZoteroFetcher();
-  }
-
   /** Turn a Zotero item's fields (including tags and cite key — richer than Crossref) into row edits. */
   private zoteroEdits(row: Row, cols: readonly { name: string; type: string }[], item: ZoteroLibraryItem): { provenance: Row["provenance"]; column: string; value: string }[] {
     const edits: { provenance: Row["provenance"]; column: string; value: string }[] = [];
@@ -208,18 +198,25 @@ export class AcademicController {
       return;
     }
     const base = this.host.deps.store.getSettings().zoteroApiBase;
-    const fetcher = this.zoteroFetcher();
+    const fetcher = createZoteroFetcher();
     new Notice("Looking up this DOI in Zotero…");
-    const provider = new LocalApiZoteroProvider(base, fetcher);
-    if (!(await provider.ping())) {
-      new Notice("Can't reach Zotero. Make sure it's running with the local API enabled.");
+    // Do the real DOI query and decide from ITS status — no separate reachability probe to a different
+    // endpoint (that mismatch is what made this wrongly report Zotero unreachable). status 0 = genuinely
+    // couldn't connect; non-200 = reached but the API errored; 200 + no keys = reached, DOI not in library.
+    const { status, keys } = await zoteroDoiLookup(base, doi, fetcher);
+    if (status === 0) {
+      new Notice(`Couldn't connect to Zotero at ${base}. Make sure it's running with the local API enabled (the same URL your Zotero library view uses).`);
       return;
     }
-    const keys = await findZoteroKeysByDoi(base, doi, fetcher);
+    if (status !== 200) {
+      new Notice(`Zotero returned status ${status} for that lookup. Check the base URL in settings (${base}).`);
+      return;
+    }
     if (keys.length === 0) {
-      new Notice("That DOI isn't in your Zotero library.");
+      new Notice("Reached Zotero, but that DOI isn't in your library.");
       return;
     }
+    const provider = new LocalApiZoteroProvider(base, fetcher);
     const item = await provider.getItem(keys[0]!);
     if (!item) {
       new Notice("Found the item in Zotero but couldn't read it.");
@@ -244,11 +241,11 @@ export class AcademicController {
     try {
       const settings = this.host.deps.store.getSettings();
       const base = settings.zoteroApiBase;
-      const fetcher = this.zoteroFetcher();
+      const fetcher = createZoteroFetcher();
+      // Same status-aware query as fill, no separate probe: only proceed on a real 200 with a match.
+      const { status, keys } = await zoteroDoiLookup(base, doi, fetcher);
+      if (status !== 200 || keys.length === 0) return null;
       const provider = new LocalApiZoteroProvider(base, fetcher);
-      if (!(await provider.ping())) return null;
-      const keys = await findZoteroKeysByDoi(base, doi, fetcher);
-      if (keys.length === 0) return null;
       const item = await provider.getItem(keys[0]!);
       if (!item) return null;
       // Pull the paper's annotations too, so the promoted note is fully populated.

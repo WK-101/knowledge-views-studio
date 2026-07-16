@@ -10,13 +10,26 @@ function asItems(payload: unknown): ZoteroItem[] {
 
 /** Find the Zotero item key(s) whose DOI matches — the seamless path (no manual zotero:// link). */
 export async function findZoteroKeysByDoi(baseUrl: string, doi: string, fetcher: JsonFetcher, debug?: Debug): Promise<string[]> {
+  return (await zoteroDoiLookup(baseUrl, doi, fetcher, debug)).keys;
+}
+
+/**
+ * Look up a DOI in Zotero and return both the HTTP status and any matching item keys. Surfacing the status
+ * matters: a caller can then tell "Zotero couldn't be reached" (status 0) from "reached, but this DOI isn't
+ * in the library" (200 with no keys) from "reached, but the API errored" (other status). Reporting the
+ * wrong one of these is what made "Fill from Zotero" confusingly claim Zotero was unreachable.
+ *
+ * This uses the same `/items?q=…` search endpoint as the actual fill, so its status reflects the real
+ * operation — not a separate probe endpoint that could succeed or fail independently.
+ */
+export async function zoteroDoiLookup(baseUrl: string, doi: string, fetcher: JsonFetcher, debug?: Debug): Promise<{ status: number; keys: string[] }> {
   const base = baseUrl.replace(/\/+$/, "");
   const target = normalizeDoiValue(doi);
-  if (target === "") return [];
+  if (target === "") return { status: 200, keys: [] };
   const url = `${base}/items?q=${encodeURIComponent(target)}&qmode=everything&format=json&limit=50`;
   const res = await fetcher(url);
   debug?.(`DOI query "${target}" → status ${res.status}`);
-  if (res.status !== 200) return [];
+  if (res.status !== 200) return { status: res.status, keys: [] };
   const items = asItems(res.json ?? (res.text ? (JSON.parse(res.text) as unknown) : []));
   debug?.(`DOI query returned ${items.length} item(s); DOIs: ${items.map((i) => i.data?.DOI ?? "(none)").join(", ") || "—"}`);
   const match = (d: string): boolean => {
@@ -29,7 +42,7 @@ export async function findZoteroKeysByDoi(baseUrl: string, doi: string, fetcher:
     keys = items.filter((it) => it.key && it.data && !it.data.parentItem && it.data.itemType !== "attachment" && it.data.itemType !== "annotation" && it.data.itemType !== "note").map((it) => it.key!);
     if (keys.length > 0) debug?.(`No exact DOI field match; falling back to ${keys.length} top-level result(s).`);
   }
-  return [...new Set(keys)];
+  return { status: 200, keys: [...new Set(keys)] };
 }
 
 /** Probe the Zotero local API and return a human-readable status for the settings test button. */

@@ -5,6 +5,38 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 127.3 — fix (for real this time): "Fill from Zotero" reachability check hit the wrong endpoint
+
+Two prior attempts didn't fix this, so this time I traced the whole path instead of pattern-matching. The
+transport fix in 127.2 was correct but insufficient, and the actual culprit was a separate one:
+
+**"Fill from Zotero" gated on a reachability probe (`provider.ping()`) that hit a *different* Zotero endpoint
+than the working code.** `ping()` requests `/items?limit=1`, but the library view — which works and shows
+the whole library — loads from `/items/top`. If a user's Zotero serves `/items/top` but the bare `/items`
+probe fails (which can happen with certain library or configuration setups), the probe reports "unreachable"
+even though every real operation would succeed. So the check that was *supposed* to give a friendly error was
+itself the thing failing.
+
+The fix removes the separate probe entirely. Fill and Zotero-aware promote now run the **real DOI query** and
+decide from *its* actual HTTP status — via a new `zoteroDoiLookup` that returns `{ status, keys }`. That lets
+the three outcomes be told apart honestly:
+
+- status 0 → genuinely couldn't connect → "Couldn't connect to Zotero at <url>" (and it names the URL).
+- non-200 → reached but the API errored → "Zotero returned status N" (names the status and URL).
+- 200 with no match → reached fine, the DOI just isn't in the library → "Reached Zotero, but that DOI isn't
+  in your library."
+
+Because the reachability verdict now comes from the same request that does the work, there's no second
+endpoint that can disagree with the first. And the error messages name the status and URL, so any remaining
+environment issue is diagnosable instead of a blank "can't reach."
+
+Root-cause honesty: the earlier "verified end to end" checks looked at whether callbacks were wired and
+which transport was used, but never questioned that the *reachability probe and the real query hit different
+URLs*. Removing the probe (rather than adding a third patch on top of it) is what actually resolves it.
+
+760 tests (was 755): `zoteroDoiLookup` distinguishing unreachable (0), API error (non-200), match (200+keys),
+and reachable-but-empty (200, no keys); plus a guard that the fill path no longer uses a separate ping probe.
+
 ## Phase 127.2 — fix: "Fill details from Zotero" said Zotero was unreachable when it wasn't
 
 Once the option appeared (127.1), it still failed: clicking it reported "Can't reach Zotero," even though
