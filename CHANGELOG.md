@@ -5,6 +5,22 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 132 — fix (the real cause): the summary picker now takes effect
+
+The summary row was still stuck on "none" no matter what you picked, and my previous alignment fix — a real
+but *separate* bug — didn't touch the cause. The actual problem was upstream of the footer: when a view's
+columns are resolved for rendering, the resolver was **dropping the column's `summary` setting** (and its
+number display mode). The footer reads the summary off the *resolved* column, so it always saw "none";
+choosing Sum/Count/Average updated the saved view but the footer never read it back, so it snapped straight to
+"none" again — exactly "stuck, can't change it."
+
+The column resolver now carries `summary` (and `display`/`displayMax`) through onto the resolved column, so
+the footer sees your choice and computes it, and the picker works. Number columns set to a bar or ring display
+were being ignored for the same reason and now render correctly too.
+
+796 tests (was 794): the resolver preserving a column's summary and display settings, and leaving them unset
+when not configured.
+
 ## Phase 131 — fix: the summary row, and the edit-time slowdown
 
 ### The summary row lines up and works again

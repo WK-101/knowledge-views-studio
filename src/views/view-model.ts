@@ -88,6 +88,12 @@ export function resolveColumns(profile: Profile, rows: readonly Row[]): Resolved
       typeId: c.type,
       editable: isVirtualField(c.name) || derived.has(c.name.trim().toLowerCase()) ? false : isEditable(c.name, c.editable),
       role: c.role ?? inferFieldRole(c.type, c.name),
+      // Carry through the fields the views read back off the resolved column. Without these the table footer's
+      // summary always read as "none" (so picking Sum/Count/etc. never took effect) and number display modes
+      // (bar/ring) were ignored — the values live on ColumnConfig but were being dropped here.
+      ...(c.summary !== undefined ? { summary: c.summary } : {}),
+      ...(c.display !== undefined ? { display: c.display } : {}),
+      ...(c.displayMax !== undefined ? { displayMax: c.displayMax } : {}),
     };
     const w = widthFor(c.name, c.width);
     const withWidth = w !== undefined ? { ...column, width: w } : column;

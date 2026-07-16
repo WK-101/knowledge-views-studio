@@ -117,4 +117,30 @@ describe("resolveColumns + hiddenColumns", () => {
     );
     expect(configured.map((c) => c.name)).toEqual(["Task"]);
   });
+
+  it("carries the column's summary onto the resolved column (footer reads this back)", () => {
+    // Regression: resolveColumns used to drop `summary`, so the table footer always saw "none" and picking
+    // Sum/Count/etc. never took effect.
+    const profile = createProfile({
+      columns: [
+        { name: "Item", type: "text" },
+        { name: "Price", type: "number", summary: "sum" },
+        { name: "Qty", type: "number", summary: "avg" },
+      ],
+    });
+    const cols = resolveColumns(profile, []);
+    expect(cols.find((c) => c.name === "Price")?.summary).toBe("sum");
+    expect(cols.find((c) => c.name === "Qty")?.summary).toBe("avg");
+    // A column with no summary configured stays unset.
+    expect(cols.find((c) => c.name === "Item")?.summary).toBeUndefined();
+  });
+
+  it("carries number display mode (bar/ring) and displayMax through", () => {
+    const profile = createProfile({
+      columns: [{ name: "Progress", type: "number", display: "bar", displayMax: 100 }],
+    });
+    const col = resolveColumns(profile, []).find((c) => c.name === "Progress");
+    expect(col?.display).toBe("bar");
+    expect(col?.displayMax).toBe(100);
+  });
 });
