@@ -1,4 +1,5 @@
 import { MarkdownRenderChild, Notice } from "obsidian";
+import type { ZoteroLibraryCache } from "../services/zotero/zotero-library-cache";
 import { createId } from "../util/id";
 import type { Row, SortKey } from "../domain/index";
 import { resolveRowDefaults } from "../domain/index";
@@ -18,6 +19,8 @@ import { resolveBlockProfile } from "./resolve";
 
 export interface ProcessorDeps extends RenderProfileDeps {
   readonly store: ProfileStore;
+  /** Shared, short-TTL cache of the Zotero library, so fill/promote don't each re-fetch it. */
+  readonly zoteroLibraryCache?: ZoteroLibraryCache;
 }
 
 function findReferenced(store: ProfileStore, ref: string): Profile | undefined {

@@ -90,6 +90,28 @@ describe("mapItem — defensive mapping of the local API JSON", () => {
     expect(item.citeKey).toBe("");
   });
 
+  it("reads the cite key from Better BibTeX's citationKey field when present", () => {
+    const item = mapItem({ key: "K", data: { key: "K", itemType: "journalArticle", citationKey: "smith2021deep", title: "Deep Nets" } })!;
+    expect(item.citeKey).toBe("smith2021deep");
+  });
+
+  it("generates a cite key (author+year+titleword) when Zotero has none", () => {
+    const item = mapItem({
+      key: "K",
+      data: { key: "K", itemType: "journalArticle", title: "Learning Representations", date: "2019-05-01", creators: [{ creatorType: "author", lastName: "Bengio", firstName: "Yoshua" }] },
+    })!;
+    // firstAuthorSurname + year + firstTitleWord(len>2)
+    expect(item.citeKey).toBe("bengio2019learning");
+  });
+
+  it("prefers the BBT field over a generated key", () => {
+    const item = mapItem({
+      key: "K",
+      data: { key: "K", itemType: "journalArticle", citationKey: "explicit2020", title: "Something", date: "2020", creators: [{ lastName: "Doe" }] },
+    })!;
+    expect(item.citeKey).toBe("explicit2020");
+  });
+
   it("picks publication title from whichever field the item type uses", () => {
     const book = mapItem({ key: "K", data: { key: "K", itemType: "book", publisher: "MIT Press" } })!;
     expect(book.publication).toBe("MIT Press");
@@ -147,20 +169,20 @@ describe("LocalApiZoteroProvider — reads over the live API", () => {
 
   it("paginates through the whole library, not just the first page", async () => {
     // Simulate a 250-item library across pages of 100. The fetcher reads `start` from the URL and returns
-    // the matching slice, so listItems must make three requests (0, 100, 200) to get everything.
+    // the matching slice. Pagination fetches the first page, then subsequent pages in concurrent batches,
+    // and must return everything regardless of how the batching lands.
     const all = Array.from({ length: 250 }, (_, i) => ({ key: `K${i}`, data: { key: `K${i}`, itemType: "book", title: `Item ${i}` } }));
-    let calls = 0;
     const paging: ZoteroFetcher = vi.fn(async (url: string) => {
-      calls++;
       const start = Number(new URL(url).searchParams.get("start") ?? "0");
       const limit = Number(new URL(url).searchParams.get("limit") ?? "100");
       return { status: 200, json: all.slice(start, start + limit) };
     });
     const items = await new LocalApiZoteroProvider("http://x", paging).listItems();
     expect(items).toHaveLength(250);
-    expect(calls).toBe(3); // 100 + 100 + 50(short → stop)
     expect(items[0]!.title).toBe("Item 0");
     expect(items[249]!.title).toBe("Item 249");
+    // No duplicates from overlapping batches.
+    expect(new Set(items.map((i) => i.key)).size).toBe(250);
   });
 
   it("honors an overall cap when one is given (e.g. search indexing bound)", async () => {

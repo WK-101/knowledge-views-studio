@@ -52,15 +52,43 @@ export class LocalApiZoteroProvider implements ZoteroProvider {
    */
   private async fetchAllPages(buildUrl: (start: number, pageSize: number) => string, maxItems: number): Promise<unknown[]> {
     const pageSize = 100; // Zotero's per-request maximum
+    const concurrency = 6; // fetch several pages at once — the big win for a large library
     const out: unknown[] = [];
-    for (let start = 0; out.length < maxItems; start += pageSize) {
-      const res = await this.fetcher(buildUrl(start, pageSize));
-      if (res.status < 200 || res.status >= 300 || !Array.isArray(res.json)) break;
-      const page = res.json as unknown[];
-      out.push(...page);
-      if (page.length < pageSize) break; // a short page is the last page
+    // Fetch the first page alone to learn whether there's more than one page at all (most libraries fit a
+    // few pages; this avoids firing a burst of requests for a tiny library).
+    const first = await this.fetchPage(buildUrl(0, pageSize));
+    if (first === null) return out;
+    out.push(...first);
+    if (first.length < pageSize) return out.slice(0, maxItems); // single page
+
+    // Then fetch subsequent pages in concurrent batches, stopping when a batch returns a short/empty page.
+    let start = pageSize;
+    let done = false;
+    while (!done && out.length < maxItems) {
+      const starts: number[] = [];
+      for (let i = 0; i < concurrency; i++) starts.push(start + i * pageSize);
+      const pages = await Promise.all(starts.map((s) => this.fetchPage(buildUrl(s, pageSize))));
+      for (const page of pages) {
+        if (page === null || page.length === 0) {
+          done = true;
+          break;
+        }
+        out.push(...page);
+        if (page.length < pageSize) {
+          done = true;
+          break;
+        }
+      }
+      start += concurrency * pageSize;
     }
     return out.length > maxItems ? out.slice(0, maxItems) : out;
+  }
+
+  /** Fetch one page; null on any failure (so the caller stops paginating). */
+  private async fetchPage(url: string): Promise<unknown[] | null> {
+    const res = await this.fetcher(url);
+    if (res.status < 200 || res.status >= 300 || !Array.isArray(res.json)) return null;
+    return res.json as unknown[];
   }
 
   async listCollections(): Promise<ZoteroCollection[]> {
@@ -140,10 +168,35 @@ function yearFromDate(date: string): string {
   return m ? m[1]! : "";
 }
 
+/**
+ * The paper's cite key. Better BibTeX exposes this in more than one way depending on version and config, so
+ * we check each: a dedicated `citationKey`/`citekey` field the newer BBT API injects, then the older
+ * "Citation Key: xyz" line in `extra`. When none is present (no BBT, or an item BBT hasn't keyed), we
+ * generate a reasonable one from the first author's surname + year + first title word — so a cite key always
+ * comes through, which is what the "Fill from Zotero" flow needs.
+ */
+function resolveCiteKey(data: Record<string, unknown>, creators: string, year: string, title: string): string {
+  const field = asString(data["citationKey"]) || asString(data["citekey"]) || asString(data["citation-key"]);
+  if (field) return field;
+  const fromExtra = citeKeyFromExtra(asString(data["extra"]));
+  if (fromExtra) return fromExtra;
+  return generateCiteKey(creators, year, title);
+}
+
 /** The cite key Better BibTeX stashes in `extra` as "Citation Key: xyz", if present. */
 function citeKeyFromExtra(extra: string): string {
   const m = /Citation Key:\s*(\S+)/i.exec(extra);
   return m ? m[1]! : "";
+}
+
+/** Fallback cite key: firstAuthorSurname + year + firstTitleWord, lowercased and ASCII-cleaned. */
+function generateCiteKey(creators: string, year: string, title: string): string {
+  const clean = (s: string): string => s.normalize("NFKD").replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+  // "Smith, Jones, and Lee" → "smith"; "The Transformer Team" → "the".
+  const firstAuthor = clean((creators.split(/,| and /)[0] ?? "").trim().split(/\s+/).pop() ?? "");
+  const firstTitleWord = clean((title.split(/\s+/).find((w) => w.length > 2) ?? "").trim());
+  const key = `${firstAuthor}${year}${firstTitleWord}`;
+  return key || "";
 }
 
 function mapCollection(raw: unknown): ZoteroCollection | null {
@@ -236,7 +289,7 @@ export function mapItem(raw: unknown): ZoteroLibraryItem | null {
     collections,
     dateAdded: asString(data["dateAdded"]),
     dateModified: asString(data["dateModified"]),
-    citeKey: citeKeyFromExtra(extraStr),
+    citeKey: resolveCiteKey(data, formatCreators(data["creators"]), yearFromDate(date), asString(data["title"])),
     attachmentKeys: [], // filled by a follow-up children fetch only when a reader needs them
     extra,
   };

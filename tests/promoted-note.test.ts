@@ -36,4 +36,30 @@ describe("promoted note template", () => {
     expect(renderPromotedNote('a:{{authorsList}}', fields)).toBe('a:\n  - "Vaswani, Ashish"\n  - "Shazeer, Noam"');
     expect(renderPromotedNote('a:{{authorsList}}', { ...fields, authors: '' })).toBe('a:');
   });
+
+  it("fills abstract, annotations, and zotero-key when the paper is in Zotero", () => {
+    const out = renderPromotedNote("A: {{abstract}} | N: {{annotations}} | K: {{zoteroKey}}", {
+      ...fields,
+      abstract: "We propose X.",
+      annotations: "- highlight one",
+      zoteroKey: "ZKEY1",
+    });
+    expect(out).toBe("A: We propose X. | N: - highlight one | K: ZKEY1");
+  });
+
+  it("leaves the same placeholders empty (not undefined) when the paper is not in Zotero — identical structure", () => {
+    // The whole point of unifying: a non-Zotero promotion uses the same template; the Zotero-only fields
+    // are simply empty, so both notes have the same sections.
+    const out = renderPromotedNote('abstract: {{abstract}}\nkey: "{{zoteroKey}}"\nnotes: {{annotations}}', fields);
+    expect(out).toBe('abstract: \nkey: ""\nnotes: ');
+  });
+
+  it("the default template carries the unified sections (Abstract, Annotations, zotero-key)", () => {
+    const out = renderPromotedNote(DEFAULT_PROMOTED_TEMPLATE, { ...fields, abstract: "Abs.", annotations: "- a", zoteroKey: "ZK" });
+    expect(out).toContain("## Abstract");
+    expect(out).toContain("Abs.");
+    expect(out).toContain("## Annotations");
+    expect(out).toContain("- a");
+    expect(out).toContain('zotero-key: "ZK"');
+  });
 });

@@ -5,6 +5,43 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 128 — after it worked: cite keys, speed, and one promote template
+
+Four refinements once "Fill from Zotero" was working.
+
+### Cite keys now always come through
+
+Filling from Zotero wasn't producing a cite key, because we only read it from the "Citation Key:" line in
+the item's `extra` field. Better BibTeX also exposes the key as a `citationKey` data field (newer versions),
+so we now check that first, then `extra` — and if a paper has no cite key at all, we generate a reasonable
+one (first author's surname + year + first title word). A cite key always fills now.
+
+### Filling and promoting from Zotero are much faster
+
+Both had to scan the library to find a paper by DOI (the search endpoint is unreliable, so we match against
+the same item list the library view uses). Two changes make that fast:
+
+- **Parallel pagination.** Listing the library fetched pages one at a time; a large library meant dozens of
+  sequential round-trips. Pages after the first are now fetched in concurrent batches, so a big library
+  loads several times faster.
+- **A shared, 60-second library cache.** Fill, promote, and search now share one cached fetch instead of
+  each re-reading the whole library. The first operation pays the cost; the rest are instant for a short
+  window. The "Refresh Zotero" commands clear it, and the live library *view* still fetches directly (its
+  whole point is being live). This is what took "promote a Zotero paper" from over a minute to quick.
+
+### One template for promoted notes, wherever they come from
+
+A promoted note looked completely different depending on whether the paper was in Zotero — the Zotero path
+built a literature note, the non-Zotero path used the promoted-note template. Now there is a single template.
+Promotion always renders it; when the paper is in Zotero, the extra fields (abstract, annotations, and the
+`zotero-key` link) fill in and Zotero's richer metadata is preferred, and when it isn't, those sections are
+simply empty. Same structure either way. The default template gained an Abstract section, an Annotations
+section, and a `zotero-key` frontmatter field, and `renderPromotedNote` gained the matching placeholders.
+
+767 tests (was 761): cite-key resolution (BBT field, extra, generated fallback, precedence); parallel
+pagination completeness with no duplicates; and the unified template filling or emptying its Zotero fields
+while keeping identical structure.
+
 ## Phase 127.4 — fix: match the DOI against the endpoint that actually works, and report why when it doesn't
 
 The error message from 127.3 gave the decisive clue: "status 0" (a network-layer failure) at

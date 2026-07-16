@@ -11,6 +11,7 @@ import type { ZoteroLibraryItem } from "./services/zotero/provider";
 import { createZoteroFetcher } from "./workspace/zotero-transport";
 import { ZOTERO_DOC_PREFIX, zoteroSearchDocs } from "./services/zotero/zotero-search-docs";
 import { createOrOpenLiteratureNote, indexLiteratureNotes, literatureNoteKey, refreshLiteratureNoteAnnotations } from "./services/notes/literature-note";
+import { ZoteroLibraryCache } from "./services/zotero/zotero-library-cache";
 import { fetchZoteroAnnotations } from "./services/annotations/zotero-client";
 import type { KvsAnnotation } from "./domain/index";
 import { LocalIndexBackend, VaultIndexBackend, type IndexBackend } from "./workspace/index-backend";
@@ -68,6 +69,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
   private pdfOverlayManager?: PdfOverlayManager;
   private searchIndexer?: SearchIndexer;
   private profileStore?: ProfileStore;
+  private zoteroLibraryCache?: ZoteroLibraryCache;
   private dataService?: DataService;
 
   override async onload(): Promise<void> {
@@ -79,6 +81,8 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     const registry = createDefaultColumnTypeRegistry();
     const extractors = new ExtractorRegistry().register(tableExtractor).register(frontmatterExtractor).register(taskExtractor).register(inlineFieldExtractor).register(xlsxExtractor);
     const store = new ProfileStore({ data, persist: (snapshot) => this.saveData(snapshot) });
+    const zoteroLibraryCache = new ZoteroLibraryCache();
+    this.zoteroLibraryCache = zoteroLibraryCache;
     const gateway = new ObsidianVaultGateway(this.app, (ref) => this.registerEvent(ref), () =>
       store.getSettings().enableExcelSources ? ["md", "xlsx"] : ["md"],
     );
@@ -120,7 +124,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
       writer: new WriterService(gateway, { excelBackup: () => store.getSettings().enableExcelBackup }),
       undo,
     };
-    const deps: ProcessorDeps = { ...renderDeps, store };
+    const deps: ProcessorDeps = { ...renderDeps, store, zoteroLibraryCache };
 
     this.registerMarkdownCodeBlockProcessor("knowledge-view", (source, el, ctx) => {
       ctx.addChild(new ViewBlockController(el, source, ctx.sourcePath, deps));
@@ -280,6 +284,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
         if (!store.getSettings().indexZotero) return false; // only when Zotero search is enabled
         if (!checking) {
           const notice = new Notice("KVS: refreshing Zotero in search…", 0);
+          this.zoteroLibraryCache?.invalidate();
           void searchIndexer.refreshExternalDocs().then((n) => {
             notice.hide();
             new Notice(`Zotero search refreshed: ${n} item${n === 1 ? "" : "s"} indexed.`, 4000);
@@ -624,6 +629,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     const fetcher = createZoteroFetcher();
     const notice = new Notice("Refreshing annotations from Zotero…", 0);
     try {
+      this.zoteroLibraryCache?.invalidate();
       const provider = new LocalApiZoteroProvider(settings.zoteroApiBase, fetcher);
       if (!(await provider.ping())) {
         notice.hide();

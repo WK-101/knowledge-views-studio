@@ -10,6 +10,9 @@ export interface PromotedNoteFields {
   doi: string;
   citekey: string;
   tags: readonly string[]; // tag names without '#'
+  abstract?: string; // filled when the paper is in Zotero
+  annotations?: string; // rendered annotations markdown, when the paper is in Zotero
+  zoteroKey?: string; // the Zotero item key, when the paper is in Zotero (links the note back)
 }
 
 export const DEFAULT_PROMOTED_TEMPLATE = [
@@ -20,6 +23,7 @@ export const DEFAULT_PROMOTED_TEMPLATE = [
   'venue: "{{venue}}"',
   'doi: "{{doi}}"',
   'citekey: "{{citekey}}"',
+  'zotero-key: "{{zoteroKey}}"',
   "tags: [{{tags}}]",
   "---",
   "",
@@ -29,10 +33,18 @@ export const DEFAULT_PROMOTED_TEMPLATE = [
   "**Year:** {{year}} · **Venue:** {{venue}}",
   "**DOI:** {{doi}} · **Cite:** {{cite}}",
   "",
+  "## Abstract",
+  "",
+  "{{abstract}}",
+  "",
   "## Attachments",
   "",
   "```kvs-paper",
   "```",
+  "",
+  "## Annotations",
+  "",
+  "{{annotations}}",
   "",
   "## Notes",
   "",
@@ -46,7 +58,7 @@ export const DEFAULT_PROMOTED_TEMPLATE = [
 ].join("\n");
 
 /** Placeholders shown in the settings help. */
-export const PROMOTED_PLACEHOLDERS = ["title", "authors", "authorsList", "year", "venue", "doi", "citekey", "cite", "tags", "date"] as const;
+export const PROMOTED_PLACEHOLDERS = ["title", "authors", "authorsList", "year", "venue", "doi", "citekey", "cite", "tags", "date", "abstract", "annotations", "zoteroKey"] as const;
 
 function splitAuthorsLite(raw: string): string[] {
   return raw
@@ -75,6 +87,9 @@ export function renderPromotedNote(template: string, f: PromotedNoteFields, toda
     cite: f.citekey.trim() === "" ? "" : `[@${f.citekey.replace(/^@/, "")}]`,
     tags: [...new Set(tagNames)].join(", "),
     date: today.toISOString().slice(0, 10),
+    abstract: f.abstract ?? "",
+    annotations: f.annotations ?? "",
+    zoterokey: f.zoteroKey ?? "",
   };
   return template.replace(/\{\{(\w+)\}\}/g, (_m, key: string) => values[key.toLowerCase()] ?? "");
 }

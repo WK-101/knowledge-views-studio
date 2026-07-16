@@ -27,10 +27,8 @@ import { LocalApiZoteroProvider } from "../services/zotero/local-api-provider";
 import { createZoteroFetcher } from "./zotero-transport";
 import { fetchZoteroAnnotations } from "../services/annotations/zotero-client";
 import type { ZoteroLibraryItem } from "../services/zotero/provider";
-import { buildLiteratureNote } from "../services/notes/literature-note";
-import { renderAnnotationsMarkdown, upsertAnnotationsRegion } from "../services/annotations/render";
+import { renderAnnotationsMarkdown } from "../services/annotations/render";
 import { parseThemeMap } from "../services/annotations/themes";
-import type { KvsAnnotation } from "../domain/index";
 
 /**
  * What the academic controller needs from the dashboard it serves.
@@ -214,9 +212,13 @@ export class AcademicController {
     const provider = new LocalApiZoteroProvider(base, fetcher);
     let item: ZoteroLibraryItem | null;
     try {
-      const items = await provider.listItems();
       const target = normalizeDoi(doi);
-      item = items.find((it) => normalizeDoi(it.doi) === target && target !== "") ?? null;
+      const cache = this.host.deps.zoteroLibraryCache;
+      // Match against the library via the shared cache when available (so repeated fills don't each
+      // re-fetch the whole library), else fetch directly. Either way uses the working /items/top list.
+      item = cache
+        ? await cache.findByDoi(provider, target, (s) => normalizeDoi(s))
+        : (await provider.listItems()).find((it) => normalizeDoi(it.doi) === target && target !== "") ?? null;
     } catch {
       new Notice("Reached Zotero, but couldn't read the library to match the DOI.");
       return;
@@ -235,36 +237,33 @@ export class AcademicController {
   }
 
   /**
-   * If a DOI is in the Zotero library, return literature-note content for it — the paper's metadata plus its
-   * annotations, using the shared literature-note builder — so "promote to dedicated note" produces the same
-   * rich note as the Zotero library view. Returns null (silently) when Zotero is unreachable or the DOI
-   * isn't found, so the caller falls back to the plain template. Never throws.
+   * If a DOI is in the Zotero library, return the extra fields that enrich a promoted note: the paper's
+   * abstract, its annotations rendered to markdown, its Zotero key, and the item itself (so the caller can
+   * prefer Zotero's richer metadata). Returns null when Zotero is unreachable or the DOI isn't found. The
+   * promoted note is then rendered from the SAME template as a non-Zotero promotion — these fields just fill
+   * the Abstract/Annotations sections and the zotero-key — so promoted notes look identical either way.
    */
-  async zoteroNoteContent(doi: string): Promise<string | null> {
+  async zoteroPromoteEnrichment(doi: string): Promise<{ item: ZoteroLibraryItem; abstract: string; annotations: string; zoteroKey: string } | null> {
     try {
       const settings = this.host.deps.store.getSettings();
       const base = settings.zoteroApiBase;
       const fetcher = createZoteroFetcher();
-      // Match against listItems() (the working /items/top endpoint), same as fill — not the fragile search.
       const provider = new LocalApiZoteroProvider(base, fetcher);
-      const items = await provider.listItems();
       const target = normalizeDoi(doi);
       if (target === "") return null;
-      const item = items.find((it) => normalizeDoi(it.doi) === target) ?? null;
+      const cache = this.host.deps.zoteroLibraryCache;
+      const item = cache
+        ? await cache.findByDoi(provider, target, (s) => normalizeDoi(s))
+        : (await provider.listItems()).find((it) => normalizeDoi(it.doi) === target) ?? null;
       if (!item) return null;
-      // Pull the paper's annotations too, so the promoted note is fully populated.
-      let annotations: KvsAnnotation[] = [];
+      let annotationsMd = "";
       try {
-        annotations = await fetchZoteroAnnotations(base, [item.key], fetcher);
+        const annotations = await fetchZoteroAnnotations(base, [item.key], fetcher);
+        if (annotations.length > 0) annotationsMd = renderAnnotationsMarkdown(annotations, { themeMap: parseThemeMap(settings.annotationThemes) });
       } catch {
-        annotations = [];
+        annotationsMd = "";
       }
-      let content = buildLiteratureNote(item, settings.literatureNoteTemplate);
-      if (annotations.length > 0) {
-        const block = renderAnnotationsMarkdown(annotations, { themeMap: parseThemeMap(settings.annotationThemes) });
-        content = upsertAnnotationsRegion(content, block);
-      }
-      return content;
+      return { item, abstract: item.extra["abstract"] ?? "", annotations: annotationsMd, zoteroKey: item.key };
     } catch {
       return null;
     }

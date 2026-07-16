@@ -346,18 +346,24 @@ export class DashboardView extends TextFileView {
       for (let n = 2; this.app.vault.getAbstractFileByPath(notePath); n++) notePath = `${dir}/${base} ${n}.md`;
       const noteName = notePath.slice(dir.length + 1, -3);
 
-      // If this paper's DOI is in Zotero, build the note from the live Zotero item — full metadata plus its
-      // annotations — the same rich note the library view produces. This makes "promote to note" and the
-      // Zotero literature-note workflow converge: a promoted paper that exists in Zotero becomes a proper
-      // literature note, not just a template fill. Falls back to the template when there's no DOI match.
-      const zoteroContent = doi !== "" ? await this.academic.zoteroNoteContent(doi) : null;
-      if (zoteroContent !== null) {
-        await this.app.vault.create(notePath, zoteroContent);
-      } else {
-        // Template precedence: this view's template, then the global template, then the built-in default.
-        const template = (profile.promotedNoteTemplate ?? "").trim() || this.deps.store.getSettings().promotedNoteTemplate.trim() || DEFAULT_PROMOTED_TEMPLATE;
-        await this.app.vault.create(notePath, renderPromotedNote(template, { title, authors, year, venue, doi, citekey: key, tags }));
-      }
+      // One template for every promoted note — whether or not the paper is in Zotero — so they look the
+      // same. When the DOI is in Zotero, we enrich: prefer its richer metadata and fill the Abstract,
+      // Annotations, and zotero-key. Otherwise those fields are empty and the structure is identical.
+      const enrich = doi !== "" ? await this.academic.zoteroPromoteEnrichment(doi) : null;
+      const template = (profile.promotedNoteTemplate ?? "").trim() || this.deps.store.getSettings().promotedNoteTemplate.trim() || DEFAULT_PROMOTED_TEMPLATE;
+      const fields = {
+        title: enrich?.item.title || title,
+        authors: enrich?.item.creators || authors,
+        year: enrich?.item.year || year,
+        venue: enrich?.item.publication || venue,
+        doi: enrich?.item.doi || doi,
+        citekey: enrich?.item.citeKey || key,
+        tags: enrich && enrich.item.tags.length > 0 ? enrich.item.tags : tags,
+        abstract: enrich?.abstract ?? "",
+        annotations: enrich?.annotations ?? "",
+        zoteroKey: enrich?.zoteroKey ?? "",
+      };
+      await this.app.vault.create(notePath, renderPromotedNote(template, fields));
 
       // Link the row back to its new note (fill the Note column if present).
       if (noteCol && getField(row, noteCol.name).trim() === "") {
