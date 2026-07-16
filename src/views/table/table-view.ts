@@ -150,8 +150,12 @@ const GUTTER_KEY = "\u0000gutter";
 function effectiveGutterWidth(ctx: ViewRenderContext, hasSelect: boolean): number {
   const explicit = ctx.profile.columnWidths?.[GUTTER_KEY];
   if (typeof explicit === "number" && explicit > 0) return explicit;
-  const controls = (hasSelect ? 1 : 0) + (ctx.profile.sourceColumn ? 1 : 0) + (hasPromoteIndicator(ctx) ? 1 : 0);
-  return Math.max(28, controls * 26 + 10);
+  // Row tools collapse into one actions button (source/promote/edit all live in its menu), so the column is
+  // just: checkbox (when selecting) + the actions button. The promoted flag sits in the corner and costs no
+  // width. Reserving the button's slot even while it's hover-hidden keeps the grid from shifting.
+  const hasActions = ctx.profile.sourceColumn || hasPromoteIndicator(ctx) || ctx.onDeleteRow !== undefined || ctx.onDuplicateRow !== undefined;
+  const w = 8 + (hasSelect ? 22 : 0) + (hasActions ? 24 : 0);
+  return Math.max(28, w);
 }
 
 /** A draggable width handle on a header cell. Shared by data columns and the gutter (different mins).
@@ -293,66 +297,83 @@ function renderGutterCell(
       repaint(); // lightweight: renderTable passes refreshSelectionUI here, so the grid isn't rebuilt
     });
   }
-  if (showSource) {
-    const link = inner.createEl("a", { cls: "clickable-icon kvs-source-link" });
-    setIcon(link, "file");
-    setTooltip(link, row.file.fileName || row.provenance.filePath);
-    link.addEventListener("click", (event) => {
-      event.preventDefault();
-      openSourceNote(ctx.app, row.provenance.filePath, ctx.sourcePath, event.ctrlKey || event.metaKey);
-    });
-  }
-  // A paper that's been promoted (its link column holds a [[note]]) gets a note icon that opens it.
-  if (promoted) {
-    const noteLink = inner.createEl("a", { cls: "clickable-icon kvs-promoted-link" });
-    setIcon(noteLink, "file-text");
-    if (!noteLink.querySelector("svg")) noteLink.setText("◆"); // fallback if the icon name isn't available
-    setTooltip(noteLink, `Open dedicated note: ${promoted}`);
-    noteLink.addEventListener("click", (event) => {
+
+  // A single, quiet "row actions" button opens the same menu as right-click — the one place row commands
+  // live, so the column stays compact and new commands never need new icons. It's revealed on row hover
+  // (kept in the layout so nothing shifts), and stays visible for a promoted row so its ◆ flag reads as a
+  // handle you can act on.
+  if (showSource || promoted || ctx.onDeleteRow || ctx.onDuplicateRow) {
+    const actions = inner.createEl("button", { cls: "kvs-row-actions clickable-icon" });
+    setIcon(actions, "more-vertical");
+    actions.setAttribute("aria-label", "Row actions");
+    setTooltip(actions, "Row actions");
+    actions.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      void ctx.app.workspace.openLinkText(promoted, ctx.sourcePath, event.ctrlKey || event.metaKey);
+      buildRowMenu(ctx, row, promoted).showAtMouseEvent(event);
     });
   }
+
+  // Promoted status: a small accent flag in the corner, always visible, costing no width. Pure state — the
+  // "open dedicated note" action lives in the row menu — so the column reads at a glance without clutter.
+  if (promoted) {
+    td.addClass("is-promoted");
+    const flag = inner.createSpan({ cls: "kvs-row-flag" });
+    flag.setAttribute("aria-hidden", "true");
+    setTooltip(flag, `Has a dedicated note: ${promoted}`);
+  }
+}
+
+/**
+ * Build the row's actions menu — the single source of truth for what you can do to a row, shared by the
+ * right-click context menu and the row-tools “⋯” button so the two never diverge. New row commands go here
+ * and appear in both places at once. `promoted` is the dedicated note this row links to, if any.
+ */
+function buildRowMenu(ctx: ViewRenderContext, row: Row, promoted: string | null): Menu {
+  const menu = new Menu();
+  if (ctx.profile.sourceColumn) {
+    menu.addItem((i) =>
+      i.setTitle("Open source note").setIcon("file").onClick(() => openSourceNote(ctx.app, row.provenance.filePath, ctx.sourcePath)),
+    );
+  }
+  if (promoted) {
+    menu.addItem((i) =>
+      i.setTitle("Open dedicated note").setIcon("file-text").onClick(() => void ctx.app.workspace.openLinkText(promoted, ctx.sourcePath, false)),
+    );
+  }
+  menu.addItem((i) => i.setTitle("View details").setIcon("maximize-2").onClick(() => openRowDetail(ctx, row)));
+  if (ctx.onCite) {
+    const keyCol = ctx.columns.find((c) => c.typeId === "citekey");
+    const key = keyCol ? getField(row, keyCol.name).trim() : "";
+    if (key !== "") {
+      menu.addItem((i) => i.setTitle("Insert citation into note").setIcon("quote").onClick(() => ctx.onCite?.(key)));
+    }
+  }
+  if (ctx.onFetchDoi) {
+    const doiCol = ctx.columns.find((c) => c.typeId === "doi");
+    if (doiCol && getField(row, doiCol.name).trim() !== "") {
+      menu.addItem((i) => i.setTitle("Fill details from DOI").setIcon("download-cloud").onClick(() => ctx.onFetchDoi?.(row)));
+      if (ctx.onFetchZotero) {
+        menu.addItem((i) => i.setTitle("Fill details from Zotero").setIcon("library").onClick(() => ctx.onFetchZotero?.(row)));
+      }
+    }
+  }
+  if (ctx.onPromote && !promoted) {
+    menu.addItem((i) => i.setTitle("Promote to dedicated note").setIcon("file-plus").onClick(() => ctx.onPromote?.(row)));
+  }
+  if (isWritableRow(row) && (ctx.onAddRow || ctx.onDuplicateRow || ctx.onDeleteRow)) {
+    menu.addSeparator();
+    if (ctx.onAddRow) menu.addItem((i) => i.setTitle("Add row below").setIcon("plus").onClick(() => ctx.onAddRow?.(row)));
+    if (ctx.onDuplicateRow) menu.addItem((i) => i.setTitle("Duplicate row").setIcon("copy").onClick(() => ctx.onDuplicateRow?.(row)));
+    if (ctx.onDeleteRow) menu.addItem((i) => i.setTitle("Delete row").setIcon("trash").onClick(() => ctx.onDeleteRow?.(row)));
+  }
+  return menu;
 }
 
 function attachRowMenu(tr: HTMLElement, row: Row, ctx: ViewRenderContext): void {
   tr.addEventListener("contextmenu", (event) => {
     event.preventDefault();
-    const menu = new Menu();
-    menu.addItem((i) =>
-      i.setTitle("Open source note").setIcon("file").onClick(() => openSourceNote(ctx.app, row.provenance.filePath, ctx.sourcePath)),
-    );
-    menu.addItem((i) => i.setTitle("View details").setIcon("maximize-2").onClick(() => openRowDetail(ctx, row)));
-    if (ctx.onCite) {
-      const keyCol = ctx.columns.find((c) => c.typeId === "citekey");
-      const key = keyCol ? getField(row, keyCol.name).trim() : "";
-      if (key !== "") {
-        menu.addItem((i) => i.setTitle("Insert citation into note").setIcon("quote").onClick(() => ctx.onCite?.(key)));
-      }
-    }
-    if (ctx.onFetchDoi) {
-      const doiCol = ctx.columns.find((c) => c.typeId === "doi");
-      if (doiCol && getField(row, doiCol.name).trim() !== "") {
-        menu.addItem((i) => i.setTitle("Fill details from DOI").setIcon("download-cloud").onClick(() => ctx.onFetchDoi?.(row)));
-        if (ctx.onFetchZotero) {
-          menu.addItem((i) => i.setTitle("Fill details from Zotero").setIcon("library").onClick(() => ctx.onFetchZotero?.(row)));
-        }
-      }
-    }
-    if (ctx.onPromote) {
-      menu.addItem((i) => i.setTitle("Promote to dedicated note").setIcon("file-plus").onClick(() => ctx.onPromote?.(row)));
-    }
-    if (isWritableRow(row) && ctx.onAddRow) {
-      menu.addItem((i) => i.setTitle("Add row below").setIcon("plus").onClick(() => ctx.onAddRow?.(row)));
-    }
-    if (isWritableRow(row) && ctx.onDuplicateRow) {
-      menu.addItem((i) => i.setTitle("Duplicate row").setIcon("copy").onClick(() => ctx.onDuplicateRow?.(row)));
-    }
-    if (isWritableRow(row) && ctx.onDeleteRow) {
-      menu.addItem((i) => i.setTitle("Delete row").setIcon("trash").onClick(() => ctx.onDeleteRow?.(row)));
-    }
-    menu.showAtMouseEvent(event);
+    buildRowMenu(ctx, row, promotedNoteFor(row, ctx)).showAtMouseEvent(event);
   });
 }
 

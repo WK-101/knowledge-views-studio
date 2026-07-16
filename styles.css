@@ -827,12 +827,6 @@
   width: 2rem;
   text-align: center;
 }
-.kvs-source-link {
-  color: var(--text-faint);
-}
-.kvs-source-link:hover {
-  color: var(--text-normal);
-}
 
 /* Click-to-open kanban card title */
 .kvs-kanban-card-open {
@@ -2721,33 +2715,67 @@
   padding-right: 2px;
 }
 .kvs-gutter {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1px;
+  gap: 2px;
   min-width: 0;
-  overflow: hidden;
+  height: 100%;
+  overflow: visible;
 }
 .kvs-gutter .kvs-checkbox {
   margin: 0;
   flex: none;
 }
-.kvs-gutter .kvs-source-link {
-  padding: 2px;
+
+/* Row actions "⋯" — one quiet, extensible handle. Reserved in the layout but revealed on row hover, so the
+   grid never shifts and a resting row stays clean. Sized to sit inside the compact gutter. */
+.kvs-row-actions {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: var(--radius-s);
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 120ms ease, background-color 120ms ease, color 120ms ease;
 }
-.kvs-gutter .kvs-source-link svg,
-.kvs-gutter .kvs-promoted-link svg {
+.kvs-row-actions svg {
   width: 15px;
   height: 15px;
 }
-.kvs-gutter .kvs-promoted-link {
-  padding: 2px;
-  flex: none;
-  color: var(--text-accent);
+.kvs-row:hover .kvs-row-actions,
+.kvs-row:hover .kvs-gutter-cell .kvs-row-actions,
+.kvs-row-actions:focus-visible {
+  opacity: 1;
 }
-.kvs-gutter .kvs-promoted-link:hover {
-  color: var(--text-accent-hover);
+.kvs-row-actions:hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+
+/* Promoted flag — a small accent diamond pinned to the corner. Pure status, no width cost; always visible so
+   promoted rows read at a glance. The action to open the note lives in the row menu. */
+.kvs-row-flag {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  background: var(--text-accent);
+  transform: rotate(45deg);
+  pointer-events: auto;
+}
+.kvs-gutter-cell.is-promoted .kvs-row-actions {
+  opacity: 0.55; /* a promoted row shows its handle faintly at rest, hinting there's an action */
+}
+.kvs-row:hover .kvs-gutter-cell.is-promoted .kvs-row-actions {
+  opacity: 1;
 }
 
 /* View-menu checkbox row (e.g. hide empty columns) */

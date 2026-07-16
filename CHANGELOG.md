@@ -5,6 +5,28 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 137 — a professional redesign of the row-tools column
+
+The first column (row tools) was functional but crowded and inconsistent: up to three mismatched controls
+side by side — a native checkbox, a faint source-link icon, and an accent promoted-note icon — which widened
+the column and left no clean way to add commands.
+
+Redesigned around one idea: a single quiet handle plus at-a-glance status.
+- **One actions button ("⋯")** replaces the separate source and note icons. It opens the *same* menu as
+  right-clicking a row — now the single source of truth for row commands (open source note, open dedicated
+  note, view details, cite, fill from DOI/Zotero, promote, duplicate, delete) — so new commands never need a
+  new icon, just a new menu item. It's revealed on row hover and kept in the layout so nothing shifts.
+- **A promoted flag** — a small accent diamond pinned to the cell corner — shows which rows have a dedicated
+  note at a glance, costing no width (the open action lives in the menu). A promoted row also shows its handle
+  faintly at rest, hinting it's actionable.
+- The column is now **noticeably more compact** (roughly half the old width in the common case) because source
+  and promote collapse into the one handle; the menu builder was extracted so right-click and the button can't
+  diverge.
+
+Still 819 tests (a UI/CSS change; the shared row-menu builder is exercised by the existing table paths, and
+the stylesheet-selectors gate confirms the retired `.kvs-source-link` / `.kvs-promoted-link` classes are gone
+and the new ones are real).
+
 ## Phase 136 — getting-started guide: import, export, rich copy, and sharing a view
 
 The revised guide still under-sold one of the plugin's strongest areas — getting data in and out — reducing it
