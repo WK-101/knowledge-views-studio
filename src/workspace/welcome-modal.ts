@@ -26,9 +26,10 @@ interface Step {
  * screen, then look at it differently, then tell it what a row is, then find things (and, for research, the
  * academic workflow).
  *
- * The plugin has grown a great deal (seven layouts, five row sources, write-back, a summary row, full-text +
- * semantic + ask search with image OCR and searchable links, a quick launcher, live Zotero, metadata fill,
- * literature notes, PDF/Office annotation, and import/export/copy/share of whole views). Two failure modes to avoid: being out of date, and dumping all of
+ * The plugin has grown a great deal (seven layouts, five row sources, write-back, filtering/sorting/grouping,
+ * computed columns, a summary row, full-text + semantic + ask search that also reaches the Zotero library and
+ * its annotations plus image OCR and saved links, a quick launcher, live Zotero, metadata fill, literature
+ * notes with an attachment shelf, PDF/Office annotation, and import/export/copy/share of whole views). Two failure modes to avoid: being out of date, and dumping all of
  * that on someone's first minute. So the guide steps through it — one idea per screen, every step skippable —
  * and pushes the optional/advanced surface to the end ("a few more things when you want them") rather than the
  * front, so newcomers are pointed at everything without being overwhelmed by it.
@@ -128,7 +129,7 @@ export class WelcomeModal extends Modal {
     const steps: Step[] = [
       {
         title: "Get your first view on screen",
-        lead: "Knowledge Views gathers table rows scattered across your notes into one live view. Edit a cell here and it writes straight back to the note it came from. Pick the quickest way in:",
+        lead: "Knowledge Views turns data scattered across your vault — the rows inside your tables, your note properties, tasks, inline fields, even Excel sheets — into live, editable dashboards. Edit a cell here and it writes straight back to the source note. Pick the quickest way in:",
         render: (el) =>
           this.cards(el, [
             {
@@ -170,7 +171,7 @@ export class WelcomeModal extends Modal {
           ]);
           el.createEl("p", {
             cls: "kvs-welcome-tip",
-            text: "Add as many layouts to one view as you like — the switcher at the top-left of the dashboard moves between them. Three of them (Board, Calendar, Pivot) also work inside Obsidian's own Bases.",
+            text: "Filter, sort and group your rows in any layout. Add as many layouts to one view as you like — the switcher at the top-left of the dashboard moves between them; three of them (Board, Calendar, Pivot) also work inside Obsidian's own Bases.",
           });
         },
       },
@@ -193,7 +194,7 @@ export class WelcomeModal extends Modal {
       },
       {
         title: "Find it — and jump straight to it",
-        lead: "Two ways in: a quick launcher to jump to the note you meant, and a full search view to explore. Both read far more than titles — the text of your notes, rows, annotations, attachments (PDF, Word, PowerPoint, Excel, EPUB), the links you've saved, and even text inside images. No companion plugin.",
+        lead: "Two ways in: a quick launcher to jump to the note you meant, and a full search view to explore. Both read far more than titles — the text of your notes, rows, annotations, attachments (PDF, Word, PowerPoint, Excel, EPUB), your Zotero library and its annotations, the links you've saved, and even text inside images. No companion plugin.",
         render: (el) => {
           this.cards(el, [
             {
@@ -216,8 +217,13 @@ export class WelcomeModal extends Modal {
             { icon: "search", name: "Keyword", desc: '"exact phrases", -exclude, tag:x, /regex/, and typo tolerance.' },
             { icon: "sparkles", name: "Semantic", desc: "finds notes by meaning, even when the words differ. Fully offline." },
             { icon: "message-square", name: "Ask", desc: "ask a question; get the passages that answer it, with sources." },
+            { icon: "library", name: "Zotero", desc: "search your Zotero library and its annotations right alongside your notes — turn it on in settings." },
             { icon: "scan-text", name: "Image text (OCR)", desc: "make screenshots searchable — turn it on in settings; runs offline." },
           ]);
+          el.createEl("p", {
+            cls: "kvs-welcome-tip",
+            text: "A Related notes panel can sit beside a note and surface the ones connected to it, drawn from the same index.",
+          });
         },
       },
       {
@@ -244,6 +250,7 @@ export class WelcomeModal extends Modal {
             { icon: "library", name: "Your Zotero library", desc: "browse it live (no export), and send papers straight to a dashboard." },
             { icon: "download", name: "Fill in the details", desc: "right-click a row → fill metadata from a DOI or from Zotero, with exact Better BibTeX cite keys." },
             { icon: "sticky-note", name: "One note per paper", desc: "promote a row to a dedicated note, matched by DOI so it's never duplicated." },
+            { icon: "paperclip", name: "Attach anything to it", desc: "each paper note has an attachment shelf — drop in PDFs, EPUBs, images, Word/Excel/PowerPoint files, or web links, all in one place." },
             { icon: "highlighter", name: "Annotate", desc: "highlight PDFs (they sync into the note as callouts); collect Word/Excel/PowerPoint comments too." },
             { icon: "graduation-cap", name: "Academic columns & rollups", desc: "citation key, authors, DOI, arXiv — with lookups — and totals across every paper note." },
           ]),
@@ -256,6 +263,7 @@ export class WelcomeModal extends Modal {
       render: (el) => {
         this.list(el, [
           { icon: "sigma", name: "Summary row", desc: "totals, averages and counts at the foot of a table — toggle it per view." },
+          { icon: "calculator", name: "Computed columns", desc: "derive a column with a formula — combine fields, do totals, or branch on a condition." },
           { icon: "settings-2", name: "View settings", desc: "each view's own sources, columns, filters and layouts — from the dashboard toolbar." },
           { icon: "settings", name: "Plugin settings", desc: "grouped into sections; the search box there finds any setting." },
           { icon: "life-buoy", name: "This guide", desc: 'reopen it any time with the "Getting started" command.' },

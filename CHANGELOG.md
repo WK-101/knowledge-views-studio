@@ -5,6 +5,25 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 141 — getting-started guide: broader opening, Zotero search, attachments, and the gaps
+
+An audit of the guide against the full feature set, plus the specific gaps you flagged:
+
+- **Step 1 no longer under-sells the plugin as just table rows.** It now opens on the real scope — the rows in
+  your tables, note properties, tasks, inline fields, *and* Excel sheets — turned into live, editable
+  dashboards, while keeping the one-idea-per-screen shape (the detail still unfolds in the next two steps).
+- **Search now says it reaches Zotero.** The search step lists your **Zotero library and its annotations** as
+  things it searches (opt-in, alongside notes/rows/attachments/links/images), with a dedicated “Zotero” entry,
+  and mentions the **Related notes** panel that surfaces connected notes from the same index.
+- **Promoted paper notes' attachment shelf is described.** The research step now covers the `kvs-paper`
+  attachment shelf on each paper note — drop in PDFs, EPUBs, images, Word/Excel/PowerPoint files, or web links,
+  all in one place.
+- **Filtering/sorting/grouping and computed columns are no longer invisible.** The layouts step now states you
+  can filter, sort and group in any layout, and the closing step lists computed (formula) columns — two core
+  capabilities the guide never actually named.
+
+Still 824 tests (an onboarding/UI change).
+
 ## Phase 140 — three more corrections: summary height, the "⋯" glyph, and typed column widths
 
 - **The summary footer is tighter still.** Its floor was the button's min-height and the text line-height; both
