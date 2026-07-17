@@ -229,13 +229,13 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     this.registerView(RELATED_VIEW_TYPE, (leaf) => new RelatedNotesView(leaf, searchIndexer));
     this.addCommand({
       id: "kvs-related-notes",
-      name: "Show related notes",
+      name: "Open related notes",
       callback: () => void openRelatedView(this.app),
     });
 
     this.addCommand({
       id: "kvs-quick-search",
-      name: "Quick search (jump to note)",
+      name: "Quick search (jump to a note)",
       callback: () => openQuickSearch(this.app, searchIndexer),
     });
 
@@ -318,7 +318,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     });
     this.addCommand({
       id: "kvs-refresh-zotero-search",
-      name: "Refresh Zotero in search",
+      name: "Refresh Zotero in search index",
       checkCallback: (checking) => {
         if (!store.getSettings().indexZotero) return false; // only when Zotero search is enabled
         if (!checking) {
@@ -379,17 +379,17 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     });
     this.addCommand({
       id: "create-view-from-note",
-      name: "Create view from the table in the current note",
+      name: "Create view from current note's table",
       callback: () => void this.createViewFromActiveNote(),
     });
     this.addCommand({
       id: "getting-started",
-      name: "Getting started",
+      name: "Open getting-started guide",
       callback: () => this.showWelcome(),
     });
     this.addCommand({
       id: "create-from-template",
-      name: "Create a view from a starter template",
+      name: "Create view from starter template",
       callback: () => new TemplatePickerModal(this.app, (t) => void this.createFromTemplate(t), availableTemplates(store.getSettings().enableAcademicKit)).open(),
     });
     this.addCommand({
@@ -399,7 +399,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     });
     this.addCommand({
       id: "paste-rows-as-view",
-      name: "Paste rows as a new view",
+      name: "Create view from pasted rows",
       callback: () => void this.pasteRowsAsView(),
     });
     this.addCommand({
@@ -416,7 +416,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     });
     this.addCommand({
       id: "import-references",
-      name: "Import references (BibTeX / CSV)",
+      name: "Import references (BibTeX, CSV)",
       callback: () => {
         if (!store.getSettings().enableAcademicKit) {
           new Notice("Enable the Academic Research kit in settings to import references.");
@@ -456,7 +456,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     });
     this.addCommand({
       id: "build-highlight-synthesis",
-      name: "Build highlight synthesis (group all highlights by theme)",
+      name: "Build highlight synthesis (group highlights by theme)",
       callback: () => void buildHighlightSynthesis(this.app),
     });
     this.addCommand({
@@ -478,7 +478,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     });
     this.addCommand({
       id: "find-duplicate-dois",
-      name: "Find duplicate DOIs in my library",
+      name: "Find duplicate DOIs across the library",
       checkCallback: (checking) => {
         const view = this.app.workspace.getActiveViewOfType(DashboardView);
         if (!view) return false;
@@ -488,7 +488,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     });
     this.addCommand({
       id: "find-citation-links",
-      name: "Find citation links in my library (OpenAlex)",
+      name: "Find citation links across the library (OpenAlex)",
       checkCallback: (checking) => {
         const view = this.app.workspace.getActiveViewOfType(DashboardView);
         if (!view) return false;
@@ -498,7 +498,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     });
     this.addCommand({
       id: "shard-library",
-      name: "Shard this library into multiple files",
+      name: "Split this library across multiple files",
       checkCallback: (checking) => {
         const view = this.app.workspace.getActiveViewOfType(DashboardView);
         if (!view) return false;

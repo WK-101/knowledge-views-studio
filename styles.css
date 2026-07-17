@@ -118,7 +118,9 @@
   background: var(--background-secondary);
 }
 .kvs-card-title {
+  font-size: var(--font-ui-small);
   font-weight: var(--font-semibold);
+  color: var(--text-normal);
   margin-bottom: var(--size-4-2);
 }
 .kvs-card-field {
@@ -4069,6 +4071,22 @@
 .kvs-mf-ctl input[type="text"],
 .kvs-mf-ctl select {
   width: 100%; height: 28px; font-size: var(--font-ui-smaller);
+  /* Pin to the same input anatomy Obsidian's native Settings use, so the compact editor fields and the
+     plugin-settings tab read as one design language across themes (border/background/radius), differing only
+     in the intentional density. */
+  border: var(--input-border-width, 1px) solid var(--background-modifier-border);
+  border-radius: var(--input-radius, var(--radius-s));
+  background: var(--background-modifier-form-field);
+  color: var(--text-normal);
+}
+.kvs-mf-ctl input[type="text"]:hover,
+.kvs-mf-ctl select:hover { border-color: var(--background-modifier-border-hover); }
+.kvs-mf-ctl input[type="text"]:focus,
+.kvs-mf-ctl select:focus { border-color: var(--background-modifier-border-focus); box-shadow: none; }
+.kvs-mf-ctl input[type="text"]:focus-visible,
+.kvs-mf-ctl select:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: -1px;
 }
 .kvs-mf-ctl select { padding-right: 22px; }
 
@@ -4627,3 +4645,16 @@ body.is-phone .kvs-col-resize {
 .kvs-quick-suggestion { display: flex; flex-direction: column; gap: 1px; }
 .kvs-quick-title { font-weight: var(--font-medium); color: var(--text-normal); }
 .kvs-quick-sub { font-size: var(--font-ui-smaller); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Focus-visible for custom interactive elements that aren't native buttons — extends keyboard-focus
+   indication to the reference chip, the summary control, and attachment cards (all now keyboard-operable),
+   matching the outline treatment used elsewhere. */
+.kvs-ref-chip:focus-visible,
+.kvs-summary-btn:focus-visible,
+.kvs-attach-card:focus-visible,
+.kvs-attach-add:focus-visible,
+.kvs-chip:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 1px;
+  border-radius: var(--radius-s);
+}

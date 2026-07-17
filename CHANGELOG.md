@@ -5,6 +5,29 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 142 — UI polish: command names, settings coherence, keyboard focus
+
+Three UI passes from the design audit (all display-only or CSS — no ids changed, so hotkey bindings are safe).
+
+**Command-palette naming.** Normalised the command list for consistency and discoverability: one verb per job
+(Show → Open), dropped stray articles, fixed punctuation (`BibTeX / CSV` → `BibTeX, CSV`), clearer wording
+(`Shard` → `Split`), and — the nicest win — the three view-creation commands now share a phrasing so they
+cluster: “Create view from current note's table”, “Create view from starter template”, “Create view from
+pasted rows”. 12 commands renamed; every command id is unchanged.
+
+**Settings-surface coherence.** The view-settings editor's compact custom fields now pin to the *same* input
+anatomy as Obsidian's native Settings — border, background, radius, and hover/focus colours from the same
+tokens — so the editor modal and the plugin-settings tab read as one design language across themes, differing
+only in the editor's intentional density. The editor's section titles were aligned to the native
+setting-heading type as well.
+
+**Keyboard focus (a11y).** Two controls that were mouse-only divs — the table's summary cell and the paper
+attachment cards — are now proper buttons: focusable (Tab), operable (Enter/Space), and labelled for screen
+readers. Focus-visible rings were extended to them and to the reference (DOI) chip and the editor's inputs,
+matching the outline treatment used elsewhere, so keyboard users get clear focus indication throughout.
+
+Still 824 tests (UI/CSS/interaction changes).
+
 ## Phase 141 — getting-started guide: broader opening, Zotero search, attachments, and the gaps
 
 An audit of the guide against the full feature set, plus the specific gaps you flagged:

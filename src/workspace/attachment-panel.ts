@@ -97,6 +97,15 @@ function renderCard(
     if ((e.target as HTMLElement).closest(".kvs-attach-remove")) return;
     open();
   });
+  card.setAttribute("tabindex", "0");
+  card.setAttribute("role", "button");
+  card.setAttribute("aria-label", `Open ${attachmentName(att)}`);
+  card.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      open();
+    }
+  });
 
   // When ZotFlow is installed, offer its richer reader as a per-file choice on right-click. Our own
   // reader stays the default (plain click); this is an addition, never a replacement — a user who wants

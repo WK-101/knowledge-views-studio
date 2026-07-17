@@ -932,7 +932,10 @@ function renderSummaryFooter(
     }
     if (!editable) continue;
 
-    btn.addEventListener("click", (event) => {
+    btn.setAttribute("tabindex", "0");
+    btn.setAttribute("role", "button");
+    btn.setAttribute("aria-label", `Summarise ${column.label}`);
+    const openSummaryMenu = (ev: MouseEvent | KeyboardEvent): void => {
       const menu = new Menu();
       for (const f of SUMMARY_FUNCTIONS) {
         menu.addItem((item) =>
@@ -942,7 +945,15 @@ function renderSummaryFooter(
             .onClick(() => ctx.onSetColumnSummary?.(column.name, f.id)),
         );
       }
-      menu.showAtMouseEvent(event);
+      if (ev instanceof MouseEvent) menu.showAtMouseEvent(ev);
+      else menu.showAtPosition({ x: btn.getBoundingClientRect().left, y: btn.getBoundingClientRect().bottom });
+    };
+    btn.addEventListener("click", openSummaryMenu);
+    btn.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openSummaryMenu(event);
+      }
     });
   }
 }
