@@ -5,6 +5,27 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 138 — DOI columns: a compact chip instead of an unreadable link
+
+A DOI is a link, not reading material — a column of `10.1145/3292500.3330701` is unreadable and eats the
+width, and on a dashboard you never actually read the digits. So reference columns (DOI, arXiv, PubMed) now
+render a **compact chip** by default: a small pill (“DOI ↗”) that opens the paper, copies on hover (the copy
+icon is revealed on cell hover), and keeps the full identifier one tooltip away. The column shrinks to fit the
+chip, and — a bonus — which rows *have* a DOI is now scannable at a glance instead of being a wall of
+identical-looking digits.
+
+Two other per-view modes on the column's “Show as” setting (same mechanism as the number bar/ring modes):
+- **Full identifier** — the whole string as before, for anyone who wants to eyeball it (now with a copy button).
+- **Publisher** (DOI only) — shows the registrant from an offline prefix map (`Nature ↗`, `ACM ↗`, `ACL ↗`,
+  …), falling back to the bare prefix for the long tail, so the column reads meaningfully. No network, no
+  favicons — a curated map covering the common CS/physics/biology/medicine/chemistry/generalist registrants.
+
+Compact is the default (unset `display`), so existing DOI columns become chips automatically; set “Full” to
+keep the old look. arXiv/PubMed get compact + full (publisher is DOI-specific).
+
+822 tests (was 819): the prefix extractor (resolver/`doi:` forms) and the publisher lookup (known prefixes,
+plus null for the long tail and non-DOIs so callers fall back cleanly).
+
 ## Phase 137 — a professional redesign of the row-tools column
 
 The first column (row tools) was functional but crowded and inconsistent: up to three mismatched controls

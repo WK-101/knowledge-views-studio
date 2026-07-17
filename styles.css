@@ -2992,6 +2992,43 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Compact reference chip — a DOI/arXiv/PubMed shown as a small "open" pill rather than an unreadable string.
+   Sized to sit on one line, ellipsising a long publisher name, with a trailing ↗ that reads as "opens". */
+.kvs-ref-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 0 7px;
+  height: 19px;
+  border: 0.5px solid var(--background-modifier-border);
+  border-radius: 10px;
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  font-size: var(--font-smaller);
+  line-height: 1;
+  text-decoration: none;
+}
+.kvs-ref-chip:hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+  border-color: var(--background-modifier-border-hover);
+}
+.kvs-ref-chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kvs-ref-chip-icon {
+  display: inline-flex;
+  flex: none;
+  opacity: 0.7;
+}
+.kvs-ref-chip-icon svg {
+  width: 11px;
+  height: 11px;
+}
 .kvs-citekey-text {
   font-family: var(--font-monospace);
   font-size: 0.92em;

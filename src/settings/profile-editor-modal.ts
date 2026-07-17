@@ -995,6 +995,25 @@ export class ProfileEditorModal extends Modal {
         }
       }
 
+      if (column.type === "doi" || column.type === "arxiv" || column.type === "pmid") {
+        const dispCtl = miniField(card.grid, "Show as", {
+          hint: "A DOI is a link, not reading material. Compact shows a small “open” chip; Full shows the whole identifier.",
+        });
+        uiSelect(
+          dispCtl,
+          [
+            { value: "compact", label: "Compact chip" },
+            { value: "full", label: "Full identifier" },
+            ...(column.type === "doi" ? [{ value: "publisher", label: "Publisher" }] : []),
+          ],
+          column.display ?? "compact",
+          (v) => {
+            this.patchColumn(index, { display: v === "compact" ? undefined : v });
+            this.renderColumns();
+          },
+        );
+      }
+
       const widthCtl = miniField(card.grid, "Width");
       textInput(widthCtl, column.width ? String(column.width) : "", "auto", (v) => {
         const n = Number(v);

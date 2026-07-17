@@ -2,7 +2,7 @@ import { MarkdownRenderer, Notice, setIcon, setTooltip } from "obsidian";
 import { CellRendererRegistry, type CellRenderContext, type CellRenderer } from "./cell-renderer";
 import { splitTags } from "../../domain/columns/types/tags";
 import { splitList } from "../../domain/columns/types/list";
-import { formatAuthorsShort, splitAuthors, doiUrl, arxivUrl, pmidUrl } from "../../domain/columns/types/academic";
+import { formatAuthorsShort, splitAuthors, doiUrl, arxivUrl, pmidUrl, doiRegistrant, doiPrefix } from "../../domain/columns/types/academic";
 import { linkTarget } from "../../domain/columns/types/link";
 import { toBoolean } from "../../domain/columns/types/checkbox";
 import { toRating, RATING_MAX } from "../../domain/columns/types/rating";
@@ -157,14 +157,42 @@ function addCopyButton(ctx: CellRenderContext, text: string, tooltip: string): v
   });
 }
 
+/**
+ * A reference identifier (DOI / arXiv / PubMed). A DOI is a *link*, not reading material — a cell full of
+ * "10.1145/3292500.3330701" is unreadable and eats the width. So the default is a compact chip ("DOI ↗") that
+ * opens the paper and copies on hover, with the full identifier one tooltip away. Two other per-view modes:
+ * "full" keeps the whole string (the old behaviour), and "publisher" shows the registrant ("Nature ↗",
+ * "ACM ↗") so the column reads meaningfully. The mode lives on `column.display`, defaulting to compact.
+ */
 function renderExternalId(ctx: CellRenderContext, url: (v: string) => string, label: string): void {
   const value = ctx.value.trim();
   if (value === "") return;
+  const mode = ctx.column.display ?? "compact";
+  const href = url(value);
   const wrap = ctx.el.createDiv({ cls: "kvs-ref" });
-  const anchor = wrap.createEl("a", { text: value, href: url(value), cls: "kvs-ref-link" });
-  anchor.setAttr("target", "_blank");
-  anchor.setAttr("rel", "noopener");
-  setTooltip(anchor, `Open ${label}`);
+
+  if (mode === "full") {
+    const anchor = wrap.createEl("a", { text: value, href, cls: "kvs-ref-link" });
+    anchor.setAttr("target", "_blank");
+    anchor.setAttr("rel", "noopener");
+    setTooltip(anchor, `Open ${label}`);
+    addCopyButton(ctx, value, `Copy ${label}`);
+    return;
+  }
+
+  // Compact chip (default) or publisher label. For a DOI in publisher mode, show the registrant (falling back
+  // to the bare prefix, then the generic label); arXiv/PubMed have no registrant, so they keep their label.
+  let text = label;
+  if (mode === "publisher" && ctx.column.typeId === "doi") {
+    text = doiRegistrant(value) ?? doiPrefix(value) ?? label;
+  }
+  const chip = wrap.createEl("a", { href, cls: "kvs-ref-chip" });
+  chip.setAttr("target", "_blank");
+  chip.setAttr("rel", "noopener");
+  chip.createSpan({ cls: "kvs-ref-chip-label", text });
+  setIcon(chip.createSpan({ cls: "kvs-ref-chip-icon" }), "external-link");
+  setTooltip(chip, `${value} — open ${label}`);
+  addCopyButton(ctx, value, `Copy ${label}`);
 }
 
 function renderCiteKey(ctx: CellRenderContext): void {

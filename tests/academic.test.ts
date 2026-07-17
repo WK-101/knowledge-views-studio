@@ -3,6 +3,8 @@ import {
   splitAuthors,
   formatAuthorsShort,
   doiUrl,
+  doiPrefix,
+  doiRegistrant,
   arxivUrl,
   pmidUrl,
   AUTHORS,
@@ -34,5 +36,27 @@ describe("academic kit helpers", () => {
     expect(AUTHORS.toPlainText("Smith; Jones")).toBe("Smith; Jones");
     expect(AUTHORS.isEmpty("")).toBe(true);
     expect(AUTHORS.isEmpty("Smith")).toBe(false);
+  });
+});
+
+describe("DOI prefix and publisher lookup (offline)", () => {
+  it("extracts the registrant prefix, tolerating resolver/doi: forms", () => {
+    expect(doiPrefix("10.1145/3292500.3330701")).toBe("10.1145");
+    expect(doiPrefix("doi: 10.1038/s41586-021-03819-2")).toBe("10.1038");
+    expect(doiPrefix("https://doi.org/10.1109/5.771073")).toBe("10.1109");
+    expect(doiPrefix("not-a-doi")).toBeNull();
+  });
+
+  it("maps common prefixes to publishers", () => {
+    expect(doiRegistrant("10.1145/3292500")).toBe("ACM");
+    expect(doiRegistrant("10.1038/nature12373")).toBe("Nature");
+    expect(doiRegistrant("10.18653/v1/2020.acl-main.1")).toBe("ACL");
+    expect(doiRegistrant("10.1109/5.771073")).toBe("IEEE");
+  });
+
+  it("returns null for a well-formed DOI whose prefix isn't in the map (long tail)", () => {
+    expect(doiRegistrant("10.9999/unknown.registrant")).toBeNull();
+    // …and null for non-DOIs, so callers can fall back to the prefix or generic label.
+    expect(doiRegistrant("arXiv:1706.03762")).toBeNull();
   });
 });
