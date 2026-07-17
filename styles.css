@@ -4208,7 +4208,7 @@
 }
 .kvs-summary-btn {
   display: flex; align-items: center; justify-content: flex-end; gap: 6px;
-  padding: 1px 8px; cursor: pointer; min-height: 19px;
+  padding: 0 8px; cursor: pointer; min-height: 16px; line-height: 1.1;
   font-size: var(--font-ui-smaller);
   border-radius: 4px;
 }

@@ -5,6 +5,22 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 140 — three more corrections: summary height, the "⋯" glyph, and typed column widths
+
+- **The summary footer is tighter still.** Its floor was the button's min-height and the text line-height; both
+  are reduced (no vertical padding, min-height 16px, line-height 1.1), so the totals line now takes about half
+  the vertical space of a normal row instead of sitting tall.
+- **Row-tools uses a horizontal "⋯", not a vertical "⋮".** The actions handle now uses the horizontal ellipsis,
+  which is shorter vertically — so, stacked beneath the checkbox, it adds almost no height.
+- **Typing a column width in view settings works again.** Drag-resize (and "freeze widths") store per-column
+  overrides in `columnWidths`, which take precedence in `widthFor` — so a width typed in settings was silently
+  ignored whenever an override existed for that column (and the freeze path can create one for every column,
+  which is why it looked broken across the board). The width field now clears that column's override as it
+  sets the value, in a single patch, so the typed width takes effect immediately.
+
+824 tests (was 822): the width precedence (an override wins; clearing it restores the typed/config width). The
+summary height and glyph are CSS/DOM.
+
 ## Phase 139 — three corrections: DOI double-click, the summary line, and row-tools alignment
 
 - **Double-click a DOI cell to edit — without copying twice.** Double-click enters edit mode, but each of its

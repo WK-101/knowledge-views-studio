@@ -144,3 +144,16 @@ describe("resolveColumns + hiddenColumns", () => {
     expect(col?.displayMax).toBe(100);
   });
 });
+
+describe("column width precedence (settings vs drag override)", () => {
+  it("a drag/frozen override in columnWidths wins over the config width…", () => {
+    const p = createProfile({ columns: [{ name: "Title", type: "text", width: 150 }], columnWidths: { title: 320 } });
+    expect(resolveColumns(p, []).find((c) => c.name === "Title")?.width).toBe(320);
+  });
+
+  it("…so clearing that override lets a typed settings width take effect (what the editor now does)", () => {
+    // Emulate the editor's width control: set config width and drop the column's override in columnWidths.
+    const p = createProfile({ columns: [{ name: "Title", type: "text", width: 210 }], columnWidths: { other: 99 } });
+    expect(resolveColumns(p, []).find((c) => c.name === "Title")?.width).toBe(210);
+  });
+});

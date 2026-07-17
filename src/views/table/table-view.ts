@@ -303,7 +303,7 @@ function renderGutterCell(
   // handle you can act on.
   if (showSource || promoted || ctx.onDeleteRow || ctx.onDuplicateRow) {
     const actions = inner.createEl("button", { cls: "kvs-row-actions clickable-icon" });
-    setIcon(actions, "more-vertical");
+    setIcon(actions, "more-horizontal");
     actions.setAttribute("aria-label", "Row actions");
     setTooltip(actions, "Row actions");
     actions.addEventListener("click", (event) => {

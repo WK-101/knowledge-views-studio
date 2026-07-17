@@ -1017,7 +1017,16 @@ export class ProfileEditorModal extends Modal {
       const widthCtl = miniField(card.grid, "Width");
       textInput(widthCtl, column.width ? String(column.width) : "", "auto", (v) => {
         const n = Number(v);
-        this.patchColumn(index, { width: Number.isFinite(n) && n > 0 ? Math.floor(n) : undefined });
+        const width = Number.isFinite(n) && n > 0 ? Math.floor(n) : undefined;
+        // A typed width must win. Drag-resize (and "freeze widths") store per-column overrides in
+        // `columnWidths`, which take precedence in widthFor — so without clearing this column's override, the
+        // number typed here would be silently ignored. Clear it, and set the config width, in one patch.
+        const key = column.name.trim().toLowerCase();
+        const widths = { ...(this.edited().columnWidths ?? {}) };
+        const hadOverride = key in widths;
+        delete widths[key];
+        const columns = this.profile.columns.map((c, i) => (i === index ? { ...c, width } : c));
+        this.patch(hadOverride ? { columns, columnWidths: widths } : { columns });
       });
 
       const defCtl = miniField(card.grid, "Default for new rows", {
