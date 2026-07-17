@@ -5,6 +5,26 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 139 — three corrections: DOI double-click, the summary line, and row-tools alignment
+
+- **Double-click a DOI cell to edit — without copying twice.** Double-click enters edit mode, but each of its
+  two clicks was also firing the cell's copy/open affordance ("copy twice, then edit"). The chip, the full-mode
+  link, and the copy button now disambiguate: a single click acts after a short beat, and a following second
+  click cancels it so the double-click just edits. Single-click copy/open still works (with an imperceptible
+  delay); double-click is clean.
+- **The summary footer now reads as a quiet totals line, not a heavy bar.** It was a solid secondary-coloured
+  block with a bold value. It now uses the pane's own background (still opaque, since the sticky footer must
+  occlude rows scrolling under it), set off by a single hairline like the header, with a lighter value and a
+  slightly shorter row — so it blends with the dashboard.
+- **Row-tools no longer looks off-centre.** The checkbox and the "⋯" button were in a horizontal row with the
+  (hover-hidden) "⋯" reserving space to the right, which pushed the checkbox left of centre. They now stack
+  vertically — checkbox centred on top, "⋯" centred directly beneath — in a narrower lane, with the gutter cell
+  un-padded so stacking doesn't inflate row height (only the transient selection mode is affected). The corner
+  promoted-flag is unchanged.
+
+Still 822 tests (interaction/CSS changes; the DOI disambiguation is DOM behaviour verified by hand, and the
+stylesheet-selectors gate stays green).
+
 ## Phase 138 — DOI columns: a compact chip instead of an unreadable link
 
 A DOI is a link, not reading material — a column of `10.1145/3292500.3330701` is unreadable and eats the

@@ -146,15 +146,42 @@ function renderList(ctx: CellRenderContext): void {
 // ---- Academic kit renderers -------------------------------------------------
 
 /** A small copy-to-clipboard button appended to a cell. */
+/**
+ * Fire `action` on a genuine single click, but cancel it if a second click (a double-click) follows within a
+ * short window. Cells enter edit mode on double-click, so without this the cell's own affordances — the copy
+ * button, the "open" chip — fired on each of the double-click's two clicks (hence "copy twice, then edit").
+ * The click is swallowed (preventDefault/stopPropagation) but the double-click is left to bubble so the cell
+ * still starts editing.
+ */
+function clickUnlessDblclick(el: HTMLElement, action: () => void): void {
+  let timer: number | null = null;
+  el.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (timer !== null) {
+      window.clearTimeout(timer);
+      timer = null;
+      return; // second click → this is a double-click; cancel the single-click action
+    }
+    timer = window.setTimeout(() => {
+      timer = null;
+      action();
+    }, 220);
+  });
+  el.addEventListener("dblclick", () => {
+    if (timer !== null) {
+      window.clearTimeout(timer);
+      timer = null;
+    }
+    // deliberately not stopping propagation: the cell's dblclick handler should still start editing
+  });
+}
+
 function addCopyButton(ctx: CellRenderContext, text: string, tooltip: string): void {
   const btn = ctx.el.createEl("a", { cls: "clickable-icon kvs-copy-btn" });
   setIcon(btn, "copy");
   setTooltip(btn, tooltip);
-  btn.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    void navigator.clipboard.writeText(text).then(() => new Notice("Copied"));
-  });
+  clickUnlessDblclick(btn, () => void navigator.clipboard.writeText(text).then(() => new Notice("Copied")));
 }
 
 /**
@@ -173,9 +200,9 @@ function renderExternalId(ctx: CellRenderContext, url: (v: string) => string, la
 
   if (mode === "full") {
     const anchor = wrap.createEl("a", { text: value, href, cls: "kvs-ref-link" });
-    anchor.setAttr("target", "_blank");
     anchor.setAttr("rel", "noopener");
     setTooltip(anchor, `Open ${label}`);
+    clickUnlessDblclick(anchor, () => window.open(href, "_blank"));
     addCopyButton(ctx, value, `Copy ${label}`);
     return;
   }
@@ -187,11 +214,11 @@ function renderExternalId(ctx: CellRenderContext, url: (v: string) => string, la
     text = doiRegistrant(value) ?? doiPrefix(value) ?? label;
   }
   const chip = wrap.createEl("a", { href, cls: "kvs-ref-chip" });
-  chip.setAttr("target", "_blank");
   chip.setAttr("rel", "noopener");
   chip.createSpan({ cls: "kvs-ref-chip-label", text });
   setIcon(chip.createSpan({ cls: "kvs-ref-chip-icon" }), "external-link");
   setTooltip(chip, `${value} — open ${label}`);
+  clickUnlessDblclick(chip, () => window.open(href, "_blank"));
   addCopyButton(ctx, value, `Copy ${label}`);
 }
 

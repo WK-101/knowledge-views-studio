@@ -2717,27 +2717,32 @@
 .kvs-gutter {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 1px;
   min-width: 0;
   height: 100%;
   overflow: visible;
 }
+/* The gutter is its own compact lane — no cell padding, so stacking the checkbox over the "⋯" doesn't inflate
+   the row (only a resting non-selection row shows just the hover "⋯", which never adds height). */
+.kvs-gutter-cell { padding: 2px 2px; vertical-align: middle; }
 .kvs-gutter .kvs-checkbox {
   margin: 0;
   flex: none;
 }
 
-/* Row actions "⋯" — one quiet, extensible handle. Reserved in the layout but revealed on row hover, so the
-   grid never shifts and a resting row stays clean. Sized to sit inside the compact gutter. */
+/* Row actions "⋯" — one quiet, extensible handle, stacked directly beneath the checkbox so both sit centered
+   in the narrow column instead of fighting for a horizontal row. Reserved in the layout but revealed on row
+   hover, so the grid never shifts and a resting row stays clean. */
 .kvs-row-actions {
   flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   padding: 0;
   border-radius: var(--radius-s);
   color: var(--text-muted);
@@ -2745,8 +2750,8 @@
   transition: opacity 120ms ease, background-color 120ms ease, color 120ms ease;
 }
 .kvs-row-actions svg {
-  width: 15px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
 }
 .kvs-row:hover .kvs-row-actions,
 .kvs-row:hover .kvs-gutter-cell .kvs-row-actions,
@@ -4191,16 +4196,19 @@
 .kvs-neural-frame { display: none; }
 
 /* ============ Summary footer ============ */
+/* A quiet totals line, not a heavy bar: it blends with the pane (an opaque background is still required so the
+   sticky footer occludes rows scrolling under it) and is set off by a single hairline, matching the header's
+   light chrome at the top of the table. */
 .kvs-tfoot { position: sticky; bottom: 0; z-index: 3; }
-.kvs-summary-row { background: var(--background-secondary); }
+.kvs-summary-row { background: var(--background-primary); }
 .kvs-summary-cell {
   border-top: 1px solid var(--background-modifier-border);
   padding: 0; vertical-align: middle;
-  background: var(--background-secondary);
+  background: var(--background-primary);
 }
 .kvs-summary-btn {
-  display: flex; align-items: baseline; justify-content: flex-end; gap: 6px;
-  padding: 2px 10px; cursor: pointer; min-height: 22px;
+  display: flex; align-items: center; justify-content: flex-end; gap: 6px;
+  padding: 1px 8px; cursor: pointer; min-height: 19px;
   font-size: var(--font-ui-smaller);
   border-radius: 4px;
 }
@@ -4208,7 +4216,7 @@
 .kvs-summary-btn.is-empty { color: var(--text-faint); justify-content: flex-end; opacity: 0; }
 .kvs-summary-row:hover .kvs-summary-btn.is-empty { opacity: 1; }
 .kvs-summary-label { color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.04em; font-size: var(--font-ui-smaller); }
-.kvs-summary-value { color: var(--text-normal); font-weight: var(--font-medium); font-variant-numeric: tabular-nums; }
+.kvs-summary-value { color: var(--text-normal); font-variant-numeric: tabular-nums; }
 
 /* ============ Chart view ============ */
 .kvs-chart-view { display: flex; flex-direction: column; height: 100%; padding: 0; }

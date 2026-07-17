@@ -150,12 +150,11 @@ const GUTTER_KEY = "\u0000gutter";
 function effectiveGutterWidth(ctx: ViewRenderContext, hasSelect: boolean): number {
   const explicit = ctx.profile.columnWidths?.[GUTTER_KEY];
   if (typeof explicit === "number" && explicit > 0) return explicit;
-  // Row tools collapse into one actions button (source/promote/edit all live in its menu), so the column is
-  // just: checkbox (when selecting) + the actions button. The promoted flag sits in the corner and costs no
-  // width. Reserving the button's slot even while it's hover-hidden keeps the grid from shifting.
-  const hasActions = ctx.profile.sourceColumn || hasPromoteIndicator(ctx) || ctx.onDeleteRow !== undefined || ctx.onDuplicateRow !== undefined;
-  const w = 8 + (hasSelect ? 22 : 0) + (hasActions ? 24 : 0);
-  return Math.max(28, w);
+  // Controls stack vertically (checkbox over the actions "⋯"), so the column only needs to be wide enough for
+  // one small control plus a little breathing room — a single narrow lane. The promoted flag sits in the
+  // corner and costs no width.
+  const hasAnything = hasSelect || ctx.profile.sourceColumn || hasPromoteIndicator(ctx) || ctx.onDeleteRow !== undefined || ctx.onDuplicateRow !== undefined;
+  return hasAnything ? 26 : 20;
 }
 
 /** A draggable width handle on a header cell. Shared by data columns and the gutter (different mins).
