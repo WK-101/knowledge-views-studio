@@ -115,6 +115,13 @@ export interface KnowledgeView {
   readonly icon?: string;
   /** When false, the view receives all filtered rows rather than a single page. */
   readonly paginates?: boolean;
+  /**
+   * True for views that summarise rows rather than drawing one element per row (chart, pivot). Their DOM is
+   * bounded by the number of distinct values, not the row count, so the safety row-cap saves them nothing —
+   * and applying it would silently make their numbers wrong, since an average or total over "the first 1000
+   * rows" isn't the average or total the reader is being shown. These views are therefore never capped.
+   */
+  readonly aggregates?: boolean;
   /** Optional view-specific settings, surfaced automatically in the editor modal. */
   readonly optionSpecs?: readonly ViewOptionSpec[];
   /**

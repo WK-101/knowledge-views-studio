@@ -64,3 +64,59 @@ describe("buildCalendarMonth", () => {
     expect(dayWithRow?.inMonth).toBe(true);
   });
 });
+
+describe("buildPivot — single-pass bucketing keeps the old semantics", () => {
+  it("returns an empty shape for no rows", () => {
+    const pivot = buildPivot([], "Team", null, { kind: "count" });
+    expect(pivot.rowKeys).toEqual([]);
+    expect(pivot.values).toEqual([]);
+    expect(pivot.rowTotals).toEqual([]);
+    expect(pivot.grandTotal).toBe(0);
+  });
+
+  it("keeps first-encounter key order, not sorted order", () => {
+    const rows = [makeRow({ Team: "Zeta" }), makeRow({ Team: "Alpha" }), makeRow({ Team: "Zeta" })];
+    expect(buildPivot(rows, "Team", null, { kind: "count" }).rowKeys).toEqual(["Zeta", "Alpha"]);
+  });
+
+  it("leaves sparse cells at the aggregate's empty value", () => {
+    const rows = [
+      makeRow({ Team: "Eng", Q: "Q1", Points: "3" }),
+      makeRow({ Team: "Design", Q: "Q2", Points: "7" }),
+    ];
+    const pivot = buildPivot(rows, "Team", "Q", { kind: "sum", field: "Points" });
+    // Eng has nothing in Q2, Design nothing in Q1 — those cells stay 0, not undefined.
+    expect(pivot.values).toEqual([
+      [3, 0],
+      [0, 7],
+    ]);
+  });
+
+  it("computes averages over the whole group rather than averaging the cells", () => {
+    // Eng: 2 and 4 in Q1, 12 in Q2. Averaging cells would give (3 + 12)/2 = 7.5; the true group avg is 6.
+    const rows = [
+      makeRow({ Team: "Eng", Q: "Q1", Points: "2" }),
+      makeRow({ Team: "Eng", Q: "Q1", Points: "4" }),
+      makeRow({ Team: "Eng", Q: "Q2", Points: "12" }),
+    ];
+    const pivot = buildPivot(rows, "Team", "Q", { kind: "avg", field: "Points" });
+    expect(pivot.rowTotals[0]).toBe(6);
+  });
+
+  it("groups blank values together under one empty key", () => {
+    const rows = [makeRow({ Team: "" }), makeRow({ Team: "  " }), makeRow({ Team: "Eng" })];
+    const pivot = buildPivot(rows, "Team", null, { kind: "count" });
+    expect(pivot.rowKeys).toEqual(["", "Eng"]);
+    expect(pivot.rowTotals).toEqual([2, 1]);
+  });
+
+  it("handles a high-cardinality pivot without quadratic blow-up", () => {
+    // Every row its own key — the shape that made the old re-filtering approach O(keys x rows).
+    const rows = Array.from({ length: 2000 }, (_, i) => makeRow({ Id: `k${i}`, N: "1" }));
+    const started = Date.now();
+    const pivot = buildPivot(rows, "Id", null, { kind: "sum", field: "N" });
+    expect(pivot.rowKeys).toHaveLength(2000);
+    expect(pivot.grandTotal).toBe(2000);
+    expect(Date.now() - started).toBeLessThan(2000); // generous, but quadratic would blow past it
+  });
+});

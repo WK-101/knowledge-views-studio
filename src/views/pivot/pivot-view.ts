@@ -74,6 +74,7 @@ export const pivotView: KnowledgeView = {
   type: "pivot",
   label: "Summary",
   paginates: false,
+  aggregates: true, // cells come from distinct keys, not rows — capping the input would misstate every total
   icon: "table-2",
   optionSpecs: [
     { key: "rowField", label: "Rows (group by)", kind: "field" },

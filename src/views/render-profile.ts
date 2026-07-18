@@ -124,11 +124,17 @@ export async function renderProfile(options: RenderProfileOptions): Promise<void
     // since grouping also bypasses pagination, a grouped view had nothing bounding it at all — no page, no
     // cap, and (outside the virtualized table) no windowing. That was the one combination that could try to
     // build a DOM node per row on a large vault.
+    //
+    // Aggregate views (chart, pivot) are exempt: they draw distinct values, not rows, so the cap frees no DOM
+    // — while quietly changing every number they show, because a total over "the first 1000 rows" is not the
+    // total the reader thinks they're reading.
     const shownRows = result.groups ? countGroupedRows(result.groups) : result.rows.length;
-    const truncated = maxRows > 0 && shownRows > maxRows;
+    const truncated = maxRows > 0 && view.aggregates !== true && shownRows > maxRows;
     if (truncated) {
-      // Grouped views ignore page size, so don't advise setting one — it wouldn't help.
-      const advice = result.groups ? "Add a filter, or group by a field with fewer rows, to see the rest." : "Add a filter or set a page size to see the rest.";
+      // Only suggest a page size where one would actually take effect: grouped results ignore paging, and so
+      // do the views that opt out of it entirely (gallery, board, calendar).
+      const canPage = view.paginates !== false && result.groups === null;
+      const advice = canPage ? "Add a filter or set a page size to see the rest." : "Add a filter to narrow it down, or group by a field with fewer rows.";
       container.createDiv({
         cls: "kvs-banner",
         text: `Showing the first ${maxRows} of ${result.total} rows. ${advice}`,

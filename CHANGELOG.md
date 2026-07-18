@@ -5,6 +5,39 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 145 — scaling: pivot in one pass, and the cap stops lying to aggregate views
+
+The last scaling step went looking for "turn pagination on by default" and found two better things instead.
+
+**Pivot no longer degrades quadratically.** `buildPivot` filtered the entire dataset once per cell — for every
+(row key × column key) pair — so its cost was rowKeys × columnKeys × rows. Pivoting a high-cardinality field
+(where nearly every row is its own key) was close to quadratic and could block the UI for seconds; the only
+reason this hadn't bitten was the 1000-row cap hiding it. It now visits each row once, dropping it into its
+cell, row and column buckets, then aggregates per bucket: O(rows + cells). Output is unchanged — keys still
+appear in first-encounter order, totals are still computed over whole groups rather than summed from cells
+(so averages stay correct), and sparse cells still read as the aggregate's empty value.
+
+**Charts and pivots are no longer capped.** The row cap exists to stop a view building a DOM node per row.
+Chart and pivot don't do that — a chart draws grouped series and a pivot draws distinct keys, so their DOM is
+bounded however many rows arrive. Capping them freed nothing and quietly falsified them: an average or total
+over "the first 1000 rows" is not the number the reader is being shown, and nothing on screen said so. Views
+now declare whether they aggregate, and aggregate views see every filtered row.
+
+**The truncation banner stopped giving impossible advice.** It suggested setting a page size even in views
+that ignore paging entirely (gallery, board, calendar) or when rows are grouped — advice that could not work.
+It now only suggests a page size where one would take effect, and otherwise suggests filtering or grouping by
+a field with fewer values.
+
+**What was deliberately not done:** turning pagination on by default. That was the original plan for this
+step, written before the card layouts rendered progressively. With the table virtualized, cards and gallery
+progressive, board columns limited, and aggregate views bounded by construction, every layout is already
+bounded — so defaulting pagination on would change how existing views behave in exchange for safety that is
+already there. It stays available as a per-view setting.
+
+842 tests (was 836): pivot equivalence across empty input, first-encounter key order, sparse cells,
+whole-group averages, blank keys grouping together, and a high-cardinality case that the old shape would have
+choked on.
+
 ## Phase 144 — scaling: the card layouts paint immediately
 
 Following the cap in the last phase, the card-shaped layouts no longer build their whole grid before the

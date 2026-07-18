@@ -184,6 +184,7 @@ export const chartView: KnowledgeView = {
   label: "Chart",
   icon: "bar-chart-3",
   paginates: false, // a chart summarises everything that passed the filter, not one page of it
+  aggregates: true, // bars come from grouped series, so the DOM doesn't grow with rows — and capping them would misstate the chart
   optionSpecs: [
     {
       key: "groupBy",
