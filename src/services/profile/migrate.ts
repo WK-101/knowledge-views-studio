@@ -162,9 +162,39 @@ function migrateLegacyProfile(raw: unknown): Profile | null {
 
 // ---- normalization of already-current data ---------------------------------
 
+/**
+ * Read the bridge settings from saved data.
+ *
+ * A vault that predates the bridge has nothing stored, and gets the defaults — which means *off*. Enabling a
+ * local server as a side effect of updating a plugin would be indefensible, so the absence of a setting is
+ * always read as "no".
+ */
+function normalizeBridge(raw: unknown): GlobalSettings["bridge"] {
+  const d = DEFAULT_SETTINGS.bridge;
+  if (!isRecord(raw)) return d;
+  const origins = Array.isArray(raw.allowedOrigins)
+    ? raw.allowedOrigins.filter((o): o is string => typeof o === "string")
+    : d.allowedOrigins;
+  const exposed = Array.isArray(raw.exposedViewIds)
+    ? raw.exposedViewIds.filter((o): o is string => typeof o === "string")
+    : null;
+  return {
+    enabled: asBool(raw.enabled, d.enabled),
+    port: asNumber(raw.port, d.port),
+    allowRead: asBool(raw.allowRead, d.allowRead),
+    allowWrite: asBool(raw.allowWrite, d.allowWrite),
+    exposedViewIds: exposed,
+    allowedOrigins: origins,
+    token: typeof raw.token === "string" && raw.token !== "" ? raw.token : null,
+    maxBodyBytes: asNumber(raw.maxBodyBytes, d.maxBodyBytes),
+    logRequests: asBool(raw.logRequests, d.logRequests),
+  };
+}
+
 function normalizeSettings(raw: unknown): GlobalSettings {
   if (!isRecord(raw)) return DEFAULT_SETTINGS;
   return {
+    bridge: normalizeBridge(raw.bridge),
     autoRefresh: asBool(raw.autoRefresh, DEFAULT_SETTINGS.autoRefresh),
     refreshDebounceMs: asNumber(raw.refreshDebounceMs, DEFAULT_SETTINGS.refreshDebounceMs),
     defaultPageSize: asNumber(raw.defaultPageSize, DEFAULT_SETTINGS.defaultPageSize),

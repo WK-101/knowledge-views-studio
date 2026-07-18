@@ -4673,3 +4673,36 @@ body.is-phone .kvs-col-resize {
 .kvs-hidden {
   display: none;
 }
+
+/* Browser bridge settings: connection status, the pairing code, and the activity record. */
+.kvs-bridge-status {
+  margin: var(--size-4-2) 0;
+  padding: var(--size-4-2) var(--size-4-3);
+  border-radius: var(--radius-s);
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+.kvs-bridge-code {
+  margin: var(--size-4-2) 0;
+  padding: var(--size-4-3);
+  border: 1px dashed var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-large);
+  letter-spacing: 0.3em;
+  text-align: center;
+  color: var(--text-normal);
+}
+.kvs-bridge-log {
+  margin: var(--size-4-2) 0;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+.kvs-bridge-log-row {
+  display: flex;
+  gap: var(--size-4-3);
+  justify-content: space-between;
+  padding: 2px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}

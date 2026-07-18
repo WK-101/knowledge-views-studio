@@ -5,6 +5,53 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 147 — the browser bridge
+
+Step 2 of capture: a small local server the browser companion will talk to. Off until you turn it on.
+
+**Nothing is assumed and nothing is fixed.** Installing this doesn't open anything — the bridge is disabled
+by default, and a vault that predates it reads the missing setting as "no", because enabling a server as a
+side effect of a plugin update would be indefensible. Once on, every part of it is a setting rather than a
+constant: the port, reading and writing as *separate* permissions, which views are visible at all, the
+largest request accepted, and whether activity is recorded. A shared laptop and a personal desktop want
+different answers, so the plugin doesn't presume one.
+
+**It listens on this computer only.** Bound to 127.0.0.1, never the network. Browsers also treat
+`http://127.0.0.1` as a secure context, which sidesteps the self-signed-certificate friction that comparable
+plugins hit. It's desktop-only: on mobile there's no server at all, and "your vault is reachable on a port"
+is a very different promise on a phone.
+
+**Pairing is a code you can see.** Settings generates a six-digit code, valid for five minutes and usable
+once; the extension exchanges it for a long token it keeps. Tokens are compared in constant time, so the
+comparison can't be used to recover one character by character. A paired client can be revoked at any point,
+and the activity list shows what the bridge has actually been asked to do.
+
+**Four endpoints, registered rather than hard-wired.** `/pair` trades a code for a token. `/schema` describes
+each view's columns, types and existing vocabulary — the endpoint that lets an extension build a correct,
+validating form for a view it has never seen, with no template written by hand. `/lookup` answers "is this
+already saved?" on identity alone. `/capture` commits, reporting a duplicate alongside a successful write
+rather than refusing. Routes declare the permission they need and the router enforces it, so a future
+endpoint can't ship without an access check — which is what makes adding search or annotations later a
+registration rather than a rewrite.
+
+Two things are deliberate and worth stating. A hidden view answers exactly as a non-existent one does, so the
+bridge can't be used to discover what you chose not to expose. And an internal error never reaches the
+caller — the message can carry vault paths, so it goes to the local activity record and the browser learns
+only that something failed. Both are pinned by tests.
+
+957 tests (was 901): token and code generation; constant-time comparison including the equal-prefix case;
+pairing success, wrong codes, expiry and single use; the full access ladder — disabled, origin, read and
+write separately, unpaired, wrong token; view exposure; CORS echoing a permitted origin rather than a
+wildcard; route matching across casing, trailing slashes and query strings; denial before disclosure of
+unknown paths; handler errors becoming a 500 that leaks nothing while still being reported locally; bearer
+parsing; body parsing; and each endpoint's behaviour including the hidden-view indistinguishability.
+
+**Lint baseline moves from 27 to 32 warnings, all accounted for.** Four more `no-deprecated` (`setCta`,
+`setWarning`, and two `display` calls) — the same three Obsidian APIs as the existing twenty-six, whose
+replacements need 1.13.0, above our declared `minAppVersion` of 1.10.0, so continuing to use them is the
+honest choice rather than a lapse. One `no-nodejs-modules` on the guarded `require("http")`: that rule can't
+be disabled, and what it prescribes — a require behind `Platform.isDesktop` — is exactly what's there.
+
 ## Phase 146 — capture: the pipeline that turns outside content into rows and notes
 
 The first step towards capturing from outside Obsidian, built plugin-side and useful on its own — no network,

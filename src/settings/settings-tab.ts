@@ -19,6 +19,7 @@ import {
   formatBytes,
 } from "../services/index";
 import type { SearchIndexer } from "../workspace/search-indexer";
+import type { BridgeService } from "../services/bridge/bridge-service";
 import { LocalIndexBackend, VaultIndexBackend } from "../workspace/index-backend";
 import type { ViewRegistry } from "../views/index";
 import { ProfileEditorModal } from "./profile-editor-modal";
@@ -34,6 +35,8 @@ export interface SettingsDeps {
   readonly onGettingStarted?: () => void;
   /** Search index, for the Search section's status + maintenance actions. */
   readonly searchIndexer?: SearchIndexer;
+  /** The local browser bridge, for its status, pairing and activity record. */
+  readonly bridge?: BridgeService;
 }
 
 interface Section {
@@ -203,6 +206,14 @@ export class KnowledgeViewsSettingTab extends PluginSettingTab {
         render: (el) => this.renderSearch(el),
       });
     }
+    list.push({
+      id: "bridge",
+      label: "Browser bridge",
+      icon: "plug",
+      intro:
+        "Lets a paired browser extension read this vault's views and capture into them. It's off until you turn it on, listens only on this computer, and reading and writing are separate permissions.",
+      render: (el) => this.renderBridge(el),
+    });
     list.push({
       id: "advanced",
       label: "Advanced",
@@ -734,6 +745,179 @@ export class KnowledgeViewsSettingTab extends PluginSettingTab {
               });
           }),
       );
+  }
+
+  /**
+   * The browser bridge.
+   *
+   * Every part of it is adjustable rather than fixed, because the right answer genuinely differs: a shared
+   * machine may want reading only, a locked-down one may want a single view exposed, and a busy port may
+   * need a different number. The one thing that isn't negotiable is the default — off, and staying off until
+   * someone deliberately turns it on.
+   */
+  private renderBridge(el: HTMLElement): void {
+    const { store, bridge } = this.deps;
+    const settings = store.getSettings().bridge;
+    const patch = (p: Partial<typeof settings>): void => {
+      store.updateSettings({ bridge: { ...store.getSettings().bridge, ...p } });
+      void bridge?.sync();
+    };
+
+    new Setting(el)
+      .setName("Enable the browser bridge")
+      .setDesc(
+        "Opens a small server on this computer only (127.0.0.1) so a paired extension can reach this vault. Desktop only. Nothing is exposed to your network.",
+      )
+      .addToggle((t) =>
+        t.setValue(settings.enabled).onChange((value) => {
+          patch({ enabled: value });
+          window.setTimeout(() => this.display(), 150);
+        }),
+      );
+
+    if (!settings.enabled) return;
+
+    const status = el.createDiv({ cls: "kvs-bridge-status" });
+    const error = bridge?.error() ?? null;
+    if (error !== null) {
+      status.createEl("strong", { text: "Not running: " });
+      status.createSpan({ text: error });
+    } else if (bridge?.isRunning() === true) {
+      status.createSpan({ text: `Running on http://127.0.0.1:${String(settings.port)}` });
+    } else {
+      status.createSpan({ text: "Starting…" });
+    }
+
+    new Setting(el).setName("Pairing").setHeading();
+
+    const paired = settings.token !== null;
+    const pairing = new Setting(el)
+      .setName(paired ? "Paired with an extension" : "Not paired yet")
+      .setDesc(
+        paired
+          ? "An extension holds a token for this vault. Revoke it to require pairing again."
+          : "Generate a code, then type it into the extension. The code lasts five minutes and works once.",
+      );
+
+    if (paired) {
+      pairing.addButton((b) =>
+        b.setButtonText("Revoke").setWarning().onClick(() => {
+          void bridge?.revoke().then(() => this.display());
+        }),
+      );
+    } else {
+      pairing.addButton((b) =>
+        b.setButtonText("Generate a pairing code").setCta().onClick(() => {
+          const code = bridge?.startPairing();
+          if (code === undefined) return;
+          codeEl.setText(code);
+          codeEl.removeClass("kvs-hidden");
+        }),
+      );
+    }
+    const codeEl = el.createDiv({ cls: "kvs-bridge-code kvs-hidden" });
+
+    new Setting(el).setName("Permissions").setHeading();
+
+    new Setting(el)
+      .setName("Allow reading")
+      .setDesc("Let a paired extension see this vault's views and check whether something is already saved.")
+      .addToggle((t) => t.setValue(settings.allowRead).onChange((v) => patch({ allowRead: v })));
+
+    new Setting(el)
+      .setName("Allow writing")
+      .setDesc("Let a paired extension capture into your views. Separate from reading, so you can grant one without the other.")
+      .addToggle((t) => t.setValue(settings.allowWrite).onChange((v) => patch({ allowWrite: v })));
+
+    const views = store.listProfiles();
+    new Setting(el)
+      .setName("Views the bridge can see")
+      .setDesc("Empty = every view. Otherwise list view names, one per line, to expose only those.")
+      .addTextArea((t) => {
+        const byId = new Map(views.map((v) => [v.id, v.name]));
+        const current = settings.exposedViewIds;
+        t.setValue(current === null ? "" : current.map((id) => byId.get(id) ?? id).join("\n"));
+        t.setPlaceholder("All views");
+        t.inputEl.rows = 3;
+        t.inputEl.addEventListener("blur", () => {
+          const names = t.getValue().split("\n").map((n) => n.trim()).filter((n) => n !== "");
+          if (names.length === 0) {
+            patch({ exposedViewIds: null });
+            return;
+          }
+          const ids = names
+            .map((n) => views.find((v) => v.name.toLowerCase() === n.toLowerCase())?.id)
+            .filter((id): id is string => id !== undefined);
+          patch({ exposedViewIds: ids });
+        });
+      });
+
+    new Setting(el).setName("Connection").setHeading();
+
+    new Setting(el)
+      .setName("Port")
+      .setDesc("Change this if something else on your computer already uses it.")
+      .addText((t) =>
+        t.setValue(String(settings.port)).onChange((value) => {
+          const n = Number(value);
+          if (Number.isFinite(n) && n >= 1024 && n <= 65535) patch({ port: Math.floor(n) });
+        }),
+      );
+
+    new Setting(el)
+      .setName("Allowed extension IDs")
+      .setDesc("Empty = any extension that has paired. Add IDs (one per line) to restrict it further.")
+      .addTextArea((t) => {
+        t.setValue(settings.allowedOrigins.join("\n"));
+        t.setPlaceholder("chrome-extension://…");
+        t.inputEl.rows = 2;
+        t.inputEl.addEventListener("blur", () => {
+          const origins = t.getValue().split("\n").map((o) => o.trim()).filter((o) => o !== "");
+          patch({ allowedOrigins: origins });
+        });
+      });
+
+    new Setting(el)
+      .setName("Largest request")
+      .setDesc("Reject anything bigger, in kilobytes. Raise it if you capture very long pages.")
+      .addText((t) =>
+        t.setValue(String(Math.round(settings.maxBodyBytes / 1000))).onChange((value) => {
+          const n = Number(value);
+          if (Number.isFinite(n) && n >= 10) patch({ maxBodyBytes: Math.floor(n) * 1000 });
+        }),
+      );
+
+    new Setting(el).setName("Activity").setHeading();
+
+    new Setting(el)
+      .setName("Record requests")
+      .setDesc("Keep a list of what the bridge was asked to do, so you can see it for yourself.")
+      .addToggle((t) => t.setValue(settings.logRequests).onChange((v) => patch({ logRequests: v })));
+
+    const entries = bridge?.activity() ?? [];
+    if (entries.length > 0) {
+      const list = el.createDiv({ cls: "kvs-bridge-log" });
+      for (const entry of entries.slice(0, 15)) {
+        const line = list.createDiv({ cls: "kvs-bridge-log-row" });
+        line.createSpan({ text: new Date(entry.at).toLocaleTimeString() });
+        line.createSpan({ text: `${entry.method} ${entry.path}` });
+        line.createSpan({ text: String(entry.status) });
+      }
+      new Setting(el).addButton((b) =>
+        b.setButtonText("Clear").onClick(() => {
+          bridge?.clearActivity();
+          this.display();
+        }),
+      );
+    } else {
+      el.createDiv({ cls: "kvs-bridge-log", text: "Nothing yet." });
+    }
+
+    const endpoints = bridge?.endpoints() ?? [];
+    if (endpoints.length > 0) {
+      const listed = endpoints.map((e) => `${e.method} ${e.path} (${e.permission})`).join(" · ");
+      el.createDiv({ cls: "kvs-setting-note", text: `Endpoints: ${listed}` });
+    }
   }
 
   private renderAdvanced(el: HTMLElement): void {

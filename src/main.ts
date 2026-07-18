@@ -3,7 +3,9 @@ import { SearchIndexer } from "./workspace/search-indexer";
 import { applyDevicePolicy } from "./workspace/search-extract";
 import { currentDevice } from "./util/device";
 import { SEARCH_VIEW_TYPE, SearchView, openSearchView } from "./workspace/search-view";
-import { captureFromClipboard } from "./workspace/capture-command";
+import { captureFromClipboard, captureColumnsFor } from "./workspace/capture-command";
+import { CaptureService } from "./services/capture/capture-service";
+import { BridgeService } from "./services/bridge/bridge-service";
 import { openQuickSearch } from "./workspace/quick-search-modal";
 import { OcrPipeline } from "./services/search/ocr/pipeline";
 import { RELATED_VIEW_TYPE, RelatedNotesView, openRelatedView } from "./workspace/related-notes-view";
@@ -71,6 +73,8 @@ const INSERT_TEMPLATE = ["```knowledge-view", "view: table", "folder: ", "limit:
  */
 export default class KnowledgeViewsStudioPlugin extends Plugin {
   private pdfOverlayManager?: PdfOverlayManager;
+  /** The local browser bridge. Present but inert unless switched on in settings. */
+  bridge?: BridgeService;
   private searchIndexer?: SearchIndexer;
   private profileStore?: ProfileStore;
   private zoteroLibraryCache?: ZoteroLibraryCache;
@@ -245,6 +249,29 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
       name: "Capture clipboard into a view",
       callback: () => void captureFromClipboard({ app: this.app, store, dataService }),
     });
+
+    // The local browser bridge. Constructed always, started only if switched on — so nothing about it costs
+    // anything until someone asks for it.
+    const captureService = new CaptureService(this.app);
+    this.bridge = new BridgeService({
+      app: this.app,
+      settings: () => store.getSettings().bridge,
+      saveSettings: (patch) => {
+        const current = store.getSettings().bridge;
+        store.updateSettings({ bridge: { ...current, ...patch } });
+      },
+      context: () => ({
+        listProfiles: () => store.listProfiles(),
+        viewData: async (profile) => {
+          const result = await dataService.query({ ...profile, pageSize: null }, {});
+          return { rows: result.rows, columns: captureColumnsFor(profile, result.rows) };
+        },
+        capture: captureService,
+        onCaptured: (path) => dataService.invalidate(path),
+      }),
+    });
+    void this.bridge.sync();
+    this.register(() => void this.bridge?.stop());
 
     // Live Zotero library view — reads Zotero's local API (always current, unlike a static export). The
     // provider is built per-open from settings; it is read-only today (Zotero's local API is), with the
@@ -581,6 +608,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
         dataService,
         onGettingStarted: () => this.showWelcome(),
         searchIndexer,
+        ...(this.bridge ? { bridge: this.bridge } : {}),
       }),
     );
   }

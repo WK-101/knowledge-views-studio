@@ -1,5 +1,6 @@
 import { DEFAULT_THEME_SPEC } from "../annotations/themes";
 import type { CaptureTarget } from "../capture/types";
+import { DEFAULT_BRIDGE_SETTINGS, type BridgeSettings } from "../bridge/types";
 import { DEFAULT_RELEVANCE, type RelevanceWeights } from "../search/relevance";
 import type { ColumnMatchMode, RowMerge } from "../../domain/index";
 import {
@@ -164,6 +165,13 @@ export interface GlobalSettings {
   readonly ocrEnabled: boolean;
   /** Tesseract language codes for OCR, e.g. ["eng"] or ["eng","deu"]. */
   readonly ocrLanguages: readonly string[];
+  /**
+   * The local browser bridge. Off until asked for: it opens a port on the machine, which is a real thing to
+   * request of someone, so nothing about it is implied by installing the plugin. Every part of it is a
+   * setting rather than a constant — port, read and write separately, which views are visible, payload
+   * limits, logging — because a shared laptop and a personal desktop want different answers.
+   */
+  readonly bridge: BridgeSettings;
   /** Index attachments on phones and tablets too. Separate from the above on purpose: settings sync,
    *  and "read every PDF" is a very different promise on a laptop than on a battery. */
   readonly indexAttachmentsOnMobile: boolean;
@@ -257,6 +265,7 @@ export const DEFAULT_SETTINGS: GlobalSettings = {
   indexAttachments: false,
   ocrEnabled: false,
   ocrLanguages: ["eng"],
+  bridge: DEFAULT_BRIDGE_SETTINGS,
   indexAttachmentsOnMobile: false,
   semanticEngine: "builtin",
   relevance: DEFAULT_RELEVANCE,

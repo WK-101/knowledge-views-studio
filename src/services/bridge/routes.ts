@@ -1,0 +1,233 @@
+import { getField, type Row } from "../../domain/index";
+import { asString } from "../../util/coerce";
+import type { Profile } from "../profile/profile";
+import { findDuplicate, prepareCapture, type CaptureService } from "../capture/capture-service";
+import { effectiveTarget } from "../capture/parse";
+import type { CaptureColumn, CapturePayload } from "../capture/types";
+import { isViewExposed } from "./policy";
+import type { Route } from "./router";
+import {
+  BRIDGE_PROTOCOL,
+  type BridgeSettings,
+  type CaptureRequest,
+  type CaptureResponse,
+  type LookupMatch,
+  type LookupRequest,
+  type SchemaColumn,
+  type SchemaResponse,
+  type SchemaView,
+} from "./types";
+
+/**
+ * What the bridge actually does.
+ *
+ * Each handler is a plain function over a context, so the whole set can be exercised with fakes — no server,
+ * no vault. Handlers are registered rather than hard-wired, which is what lets the endpoint list grow (search
+ * and annotations are the obvious next ones) without touching anything that already works.
+ */
+
+export interface BridgeContext {
+  readonly vaultName: string;
+  readonly settings: () => BridgeSettings;
+  readonly listProfiles: () => readonly Profile[];
+  /** Rows and resolved columns for a view — the same pair the in-app capture command uses. */
+  readonly viewData: (profile: Profile) => Promise<{ rows: readonly Row[]; columns: readonly CaptureColumn[] }>;
+  readonly capture: CaptureService;
+  readonly onCaptured: (path: string) => void;
+  /** Complete a pairing with a typed code. */
+  readonly pair: (code: string) => { ok: true; token: string } | { ok: false; reason: string };
+}
+
+function badRequest(reason: string): { status: number; body: unknown } {
+  return { status: 400, body: { error: reason } };
+}
+
+/** The views this caller is allowed to see, in the order the vault lists them. */
+function exposedProfiles(context: BridgeContext): readonly Profile[] {
+  const settings = context.settings();
+  return context.listProfiles().filter((p) => isViewExposed(p.id, settings));
+}
+
+function describeColumn(column: CaptureColumn): SchemaColumn {
+  return {
+    name: column.name,
+    typeId: column.typeId,
+    ...(column.role !== undefined && column.role !== "none" ? { role: column.role } : {}),
+    ...(column.options && column.options.length > 0
+      ? { options: column.options.map((o) => o.value) }
+      : {}),
+  };
+}
+
+/**
+ * `GET /schema` — what this vault's views look like.
+ *
+ * This is the endpoint that makes the companion different from a clipper. Sending the columns, their types
+ * and the vocabulary each choice column already uses means the extension can render a correct, validating
+ * form for a view it has never seen, with no template written by hand.
+ */
+export function schemaRoute(): Route<BridgeContext> {
+  return {
+    method: "GET",
+    path: "/schema",
+    permission: "read",
+    handler: async (_request, context) => {
+      const settings = context.settings();
+      const views: SchemaView[] = [];
+      for (const profile of exposedProfiles(context)) {
+        const { columns } = await context.viewData(profile);
+        const target = effectiveTarget(profile);
+        views.push({
+          id: profile.id,
+          name: profile.name,
+          columns: columns.map(describeColumn),
+          capture:
+            target === null
+              ? { writable: false, reason: "No capture target is set for this view." }
+              : settings.allowWrite
+                ? { writable: true, shape: target.shape }
+                : { writable: false, shape: target.shape, reason: "Writing through the bridge is turned off." },
+        });
+      }
+      const body: SchemaResponse = { vault: context.vaultName, protocol: BRIDGE_PROTOCOL, views };
+      return { status: 200, body };
+    },
+  };
+}
+
+/**
+ * `POST /lookup` — is this already in the vault?
+ *
+ * Matching is on identity only (a URL or a DOI), never a title, for the same reason capture works that way:
+ * two different things can share a name, and a false match is worse than a missed one.
+ */
+export function lookupRoute(): Route<BridgeContext> {
+  return {
+    method: "POST",
+    path: "/lookup",
+    permission: "read",
+    handler: async (request, context) => {
+      const body = (request.body ?? {}) as LookupRequest;
+      const url = (body.url ?? "").trim();
+      const doi = (body.doi ?? "").trim();
+      if (url === "" && doi === "") return badRequest("Provide a url or a doi to look up.");
+
+      const wanted = body.viewIds;
+      const matches: LookupMatch[] = [];
+      for (const profile of exposedProfiles(context)) {
+        if (wanted !== undefined && !wanted.includes(profile.id)) continue;
+        const { rows, columns } = await context.viewData(profile);
+        const probe: Record<string, string> = {};
+        for (const column of columns) {
+          const name = column.name.toLowerCase().replace(/[\s_-]+/g, "");
+          if (url !== "" && (name === "url" || column.typeId === "url")) probe[column.name] = url;
+          if (doi !== "" && (name === "doi" || column.typeId === "doi")) probe[column.name] = doi;
+        }
+        if (Object.keys(probe).length === 0) continue;
+
+        const hit = findDuplicate(probe, columns, rows);
+        if (hit !== null) {
+          const titleColumn = columns.find((c) => c.role === "title") ?? columns[0];
+          matches.push({
+            viewId: profile.id,
+            viewName: profile.name,
+            on: hit.on,
+            title: titleColumn ? getField(hit.row, titleColumn.name) : "",
+            filePath: hit.row.provenance.filePath,
+          });
+        }
+      }
+      return { status: 200, body: { matches } };
+    },
+  };
+}
+
+/**
+ * `POST /capture` — commit something to a view.
+ *
+ * Duplicates are reported alongside a successful write rather than blocking it, matching the in-app command:
+ * the caller is told what matched and can decide what to do, instead of the bridge quietly refusing.
+ */
+export function captureRoute(): Route<BridgeContext> {
+  return {
+    method: "POST",
+    path: "/capture",
+    permission: "write",
+    handler: async (request, context) => {
+      const body = (request.body ?? {}) as CaptureRequest;
+      const viewId = (body.viewId ?? "").trim();
+      if (viewId === "") return badRequest("Which view should this go to?");
+      const incoming: unknown = body.fields;
+      if (!Array.isArray(incoming)) return badRequest("Expected a list of fields.");
+
+      const profile = exposedProfiles(context).find((p) => p.id === viewId);
+      if (profile === undefined) {
+        // Same answer whether the view is hidden or absent, so the bridge can't be used to enumerate views
+        // that were deliberately not exposed.
+        return { status: 404, body: { error: "No such view." } };
+      }
+
+      const target = effectiveTarget(profile);
+      if (target === null) {
+        const failed: CaptureResponse = { ok: false, reason: "No capture target is set for this view." };
+        return { status: 409, body: failed };
+      }
+
+      const payload: CapturePayload = {
+        fields: (incoming as readonly { key?: unknown; value?: unknown }[]).map((f) => ({
+          key: asString(f.key),
+          value: asString(f.value),
+        })),
+        ...(typeof body.url === "string" && body.url.trim() !== "" ? { url: body.url.trim() } : {}),
+      };
+
+      const { rows, columns } = await context.viewData(profile);
+      const { values, unmapped } = prepareCapture(payload, columns);
+      if (Object.keys(values).length === 0) {
+        const failed: CaptureResponse = { ok: false, reason: "Nothing in that payload matched this view." };
+        return { status: 422, body: failed };
+      }
+
+      const duplicate = findDuplicate(values, columns, rows);
+      const written = await context.capture.commit(target, values, columns, payload);
+      if (!written.ok) {
+        const failed: CaptureResponse = { ok: false, reason: written.reason ?? "Could not write." };
+        return { status: 500, body: failed };
+      }
+      if (written.path !== undefined) context.onCaptured(written.path);
+
+      const response: CaptureResponse = {
+        ok: true,
+        ...(written.path !== undefined ? { path: written.path } : {}),
+        ...(written.createdTable === true ? { createdTable: true } : {}),
+        ...(duplicate !== null
+          ? { duplicate: { on: duplicate.on, filePath: duplicate.row.provenance.filePath } }
+          : {}),
+        ...(unmapped.length > 0 ? { unmapped: unmapped.map((f) => f.key) } : {}),
+      };
+      return { status: 200, body: response };
+    },
+  };
+}
+
+/** `POST /pair` — exchange a short code shown in settings for a lasting token. */
+export function pairRoute(): Route<BridgeContext> {
+  return {
+    method: "POST",
+    path: "/pair",
+    permission: "public",
+    handler: (request, context) => {
+      const body = (request.body ?? {}) as { code?: unknown };
+      const code = typeof body.code === "string" ? body.code : "";
+      if (code.trim() === "") return badRequest("A pairing code is required.");
+      const result = context.pair(code);
+      if (!result.ok) return { status: 401, body: { error: result.reason } };
+      return { status: 200, body: { token: result.token, vault: context.vaultName, protocol: BRIDGE_PROTOCOL } };
+    },
+  };
+}
+
+/** The endpoints the bridge ships with. Registering rather than hard-wiring keeps the list open. */
+export function defaultRoutes(): readonly Route<BridgeContext>[] {
+  return [pairRoute(), schemaRoute(), lookupRoute(), captureRoute()];
+}
