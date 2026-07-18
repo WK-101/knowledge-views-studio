@@ -3,6 +3,7 @@ import { SearchIndexer } from "./workspace/search-indexer";
 import { applyDevicePolicy } from "./workspace/search-extract";
 import { currentDevice } from "./util/device";
 import { SEARCH_VIEW_TYPE, SearchView, openSearchView } from "./workspace/search-view";
+import { captureFromClipboard } from "./workspace/capture-command";
 import { openQuickSearch } from "./workspace/quick-search-modal";
 import { OcrPipeline } from "./services/search/ocr/pipeline";
 import { RELATED_VIEW_TYPE, RelatedNotesView, openRelatedView } from "./workspace/related-notes-view";
@@ -237,6 +238,12 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
       id: "kvs-quick-search",
       name: "Quick search (jump to a note)",
       callback: () => openQuickSearch(this.app, searchIndexer),
+    });
+
+    this.addCommand({
+      id: "kvs-capture-clipboard",
+      name: "Capture clipboard into a view",
+      callback: () => void captureFromClipboard({ app: this.app, store, dataService }),
     });
 
     // Live Zotero library view — reads Zotero's local API (always current, unlike a static export). The

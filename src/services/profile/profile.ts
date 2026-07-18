@@ -1,4 +1,5 @@
 import { DEFAULT_THEME_SPEC } from "../annotations/themes";
+import type { CaptureTarget } from "../capture/types";
 import { DEFAULT_RELEVANCE, type RelevanceWeights } from "../search/relevance";
 import type { ColumnMatchMode, RowMerge } from "../../domain/index";
 import {
@@ -86,6 +87,10 @@ export interface Profile {
   /** File whose table receives new rows (toolbar "Add row" / "Add row below"). Empty = the row's own
    *  file, else the first row's file. The file must already contain a compatible table. */
   readonly newRowFile?: string;
+  /** Where captures from outside the vault land for this view. Unset = fall back to `newRowFile`.
+   *  Unlike `newRowFile` this can address an empty or not-yet-written table, which is what lets the
+   *  first captured item arrive before anyone has typed a table by hand. */
+  readonly captureTarget?: CaptureTarget;
   readonly sort: readonly SortKey[];
   readonly group: GroupSpec | null;
   readonly view: ViewConfig;
@@ -378,6 +383,7 @@ export function createProfile(partial: ProfileInput = {}): Profile {
     ...(partial.dedicatedNoteKey ? { dedicatedNoteKey: partial.dedicatedNoteKey } : {}),
     ...(partial.showSummaryRow !== undefined ? { showSummaryRow: partial.showSummaryRow } : {}),
     ...(partial.newRowFile ? { newRowFile: partial.newRowFile } : {}),
+    ...(partial.captureTarget ? { captureTarget: { ...partial.captureTarget } } : {}),
     ...(partial.category !== undefined && partial.category !== "" ? { category: partial.category } : {}),
     sort: partial.sort ?? [],
     group: partial.group ?? null,

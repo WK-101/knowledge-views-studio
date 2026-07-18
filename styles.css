@@ -4667,3 +4667,9 @@ body.is-phone .kvs-col-resize {
   padding: 0;
   pointer-events: none;
 }
+
+/* Utility: hide a settings sub-section whose parent choice doesn't apply (e.g. the row-target fields when
+   captures are set to become notes). Kept a plain toggle so the controls keep their state while hidden. */
+.kvs-hidden {
+  display: none;
+}

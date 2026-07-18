@@ -5,6 +5,51 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 146 — capture: the pipeline that turns outside content into rows and notes
+
+The first step towards capturing from outside Obsidian, built plugin-side and useful on its own — no network,
+no extension, nothing to install.
+
+**A view already knows the shape of its data, so capture doesn't have to be told.** Every other tool in this
+space asks you to declare a schema by hand: Web Clipper wants a template, Modal Forms wants JSON, QuickAdd
+wants a format string. They ask because they can't know. A view here already declares its columns, their
+types, their roles and the vocabulary each column already holds — so captured fields are matched to columns
+automatically. An exact column name wins first; failing that, fields are matched by meaning, so a title
+arriving as `og:title`, `schema:name` or `dc.title` all reach the Title column. Anything that matches no
+column is handed back rather than dropped, and a value going into a choice column is snapped onto the
+spelling that column already uses, so "in progress" doesn't become a second version of "In progress".
+
+**Values are normalised on the way in, and never guessed at.** Dates arrive in every national order: ISO,
+`2026年7月18日`, "18 July 2026", `18/07/2026`. All of those are read. But `03/07/2026` is the third of July in
+most of the world and the seventh of March in the United States, and nothing in the string says which — so it
+is left exactly as it came and surfaces for a person to settle. A wrong date that looks right is the worst
+kind of error. Numbers follow the same principle: `1,234.56` and `1.234,56` both resolve, because whichever
+separator comes last is the decimal point, and anything that isn't a number is passed through untouched
+rather than blanked. Text is composed to a canonical Unicode form, which is what makes duplicate detection
+and choice-matching work at all on non-Latin content.
+
+**Captures can land as a row or as a note with properties** — chosen per view, in the view's own settings,
+along with which note and heading receive rows. The row path addresses the table directly and will write the
+note, heading and header row on the first capture. That also fixes something that could bite you today: the
+existing "Add row" locates its table through an *existing* row, which is why a view with no rows yet reports
+"This view has no rows yet" and can't be added to. Capture has no such limitation.
+
+**Duplicates are reported, not blocked.** The check runs only on identity fields — url, DOI, ISBN — and never
+on a title, because two papers can share one and refusing a legitimate item is worse than allowing a
+duplicate. You're told what matched, and you decide.
+
+A new command, **"Capture clipboard into a view"**, drives the whole path: it reads a URL, `Key: value` lines,
+or a loose snippet, asks which view, maps, checks for duplicates and writes. It exists to be useful now, and
+to keep the pipeline honest — the browser companion will drive exactly this path, so any rough edge shows up
+here first.
+
+901 tests (was 842): Unicode composition and invisible characters (including joiners that must survive
+because they carry meaning in several scripts); international date and number reading, and the refusal to
+guess ambiguous ones; alias, role and type matching, precedence, and vocabulary snapping; table location by
+heading without reaching into a later section; table creation; pipe escaping and CRLF preservation; duplicate
+detection on identity fields only; YAML-safe note building; file-name sanitising that leaves non-Latin titles
+intact; and the capture target surviving a profile round trip.
+
 ## Phase 145 — scaling: pivot in one pass, and the cap stops lying to aggregate views
 
 The last scaling step went looking for "turn pagination on by default" and found two better things instead.

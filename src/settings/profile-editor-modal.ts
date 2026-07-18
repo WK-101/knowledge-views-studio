@@ -1,4 +1,5 @@
 import { Modal, Notice, Setting, TFolder, setIcon, type App } from "obsidian";
+import type { CaptureTarget } from "../services/capture/types";
 import {
   FIELD_ROLES,
   inferFieldRole,
@@ -692,6 +693,86 @@ export class ProfileEditorModal extends Modal {
     const nrCommit = (): void => this.patch({ newRowFile: nrInput.value.trim() });
     nrInput.addEventListener("change", nrCommit);
     nrInput.addEventListener("blur", nrCommit);
+
+    this.renderCaptureTarget(el);
+  }
+
+  /**
+   * Where this view's captures land.
+   *
+   * Kept separate from "New rows go to" on purpose. That setting can only append to a table that already
+   * has a row to anchor against, which is fine for a view you're already using but useless for capture,
+   * where the first item may well arrive before any table exists.
+   */
+  private renderCaptureTarget(el: HTMLElement): void {
+    const target = this.profile.captureTarget;
+    const shape = target?.shape ?? "row";
+    const patchTarget = (patch: Partial<CaptureTarget>): void => {
+      const current = this.profile.captureTarget ?? { shape: "row" as const };
+      this.patch({ captureTarget: { ...current, ...patch } });
+    };
+
+    groupHead(el, "Capture", "where captured items land");
+
+    new Setting(el)
+      .setName("Captured items become")
+      .setDesc("A row appended to a table, or a note whose properties this view can read back.")
+      .addDropdown((d) => {
+        d.addOption("row", "A row in a table");
+        d.addOption("note", "A note with properties");
+        d.setValue(shape);
+        d.onChange((value) => {
+          patchTarget({ shape: value === "note" ? "note" : "row" });
+          rowSection.toggleClass("kvs-hidden", value !== "row");
+          noteSection.toggleClass("kvs-hidden", value !== "note");
+        });
+      });
+
+    const rowSection = el.createDiv();
+    const noteSection = el.createDiv();
+    rowSection.toggleClass("kvs-hidden", shape !== "row");
+    noteSection.toggleClass("kvs-hidden", shape !== "note");
+
+    const ct = new Setting(rowSection)
+      .setName("Capture into")
+      .setDesc("The note holding the table that receives captured rows.");
+    const ctInput = ct.controlEl.createEl("input", { type: "text" });
+    ctInput.placeholder = "e.g. Research/Inbox.md";
+    ctInput.value = target?.notePath ?? "";
+    const ctList = ct.controlEl.createEl("datalist");
+    ctList.id = `kvs-ct-${Math.random().toString(36).slice(2)}`;
+    for (const f of this.allMarkdownFiles()) ctList.createEl("option", { value: f });
+    ctInput.setAttr("list", ctList.id);
+    const ctCommit = (): void => patchTarget({ notePath: ctInput.value.trim() });
+    ctInput.addEventListener("change", ctCommit);
+    ctInput.addEventListener("blur", ctCommit);
+
+    const hd = new Setting(rowSection)
+      .setName("Under heading")
+      .setDesc("Use the table below this heading. Empty = the note's first table.");
+    const hdInput = hd.controlEl.createEl("input", { type: "text" });
+    hdInput.placeholder = "e.g. Inbox";
+    hdInput.value = target?.heading ?? "";
+    const hdCommit = (): void => patchTarget({ heading: hdInput.value.trim() });
+    hdInput.addEventListener("change", hdCommit);
+    hdInput.addEventListener("blur", hdCommit);
+
+    new Setting(rowSection)
+      .setName("Create the table if it isn't there")
+      .setDesc("Write the note, heading and header row from this view's columns on the first capture.")
+      .addToggle((t) =>
+        t.setValue(target?.createIfMissing ?? true).onChange((v) => patchTarget({ createIfMissing: v })),
+      );
+
+    const fd = new Setting(noteSection)
+      .setName("Captured notes folder")
+      .setDesc("Where captured notes are created. Empty = the vault root.");
+    const fdInput = fd.controlEl.createEl("input", { type: "text" });
+    fdInput.placeholder = "e.g. Inbox";
+    fdInput.value = target?.folder ?? "";
+    const fdCommit = (): void => patchTarget({ folder: fdInput.value.trim() });
+    fdInput.addEventListener("change", fdCommit);
+    fdInput.addEventListener("blur", fdCommit);
   }
 
   // ---- View options ----

@@ -93,3 +93,36 @@ describe("createProfile — persists per-view display/matching fields (regressio
     expect(createProfile({}).showSummaryRow).toBeUndefined();
   });
 });
+
+describe("createProfile — the capture target survives a round trip", () => {
+  it("keeps a row target with all of its fields", () => {
+    // createProfile builds an explicit object, so an optional field that isn't listed there is silently
+    // dropped on load. That has bitten before, so the round trip is pinned here.
+    const p = createProfile({
+      name: "V",
+      captureTarget: { shape: "row", notePath: "Inbox.md", heading: "Captured", createIfMissing: true },
+    });
+    expect(p.captureTarget).toEqual({
+      shape: "row",
+      notePath: "Inbox.md",
+      heading: "Captured",
+      createIfMissing: true,
+    });
+  });
+
+  it("keeps a note target", () => {
+    const p = createProfile({ name: "V", captureTarget: { shape: "note", folder: "Inbox" } });
+    expect(p.captureTarget?.shape).toBe("note");
+    expect(p.captureTarget?.folder).toBe("Inbox");
+  });
+
+  it("copies the target rather than aliasing the caller's object", () => {
+    const target = { shape: "row" as const, notePath: "A.md" };
+    const p = createProfile({ name: "V", captureTarget: target });
+    expect(p.captureTarget).not.toBe(target);
+  });
+
+  it("leaves the target unset when none was given", () => {
+    expect(createProfile({ name: "V" }).captureTarget).toBeUndefined();
+  });
+});
