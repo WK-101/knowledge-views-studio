@@ -10,12 +10,14 @@ import { extractImageEmbeds } from "../../util/markdown";
 
 const MARKDOWN_HINT = /[*_`~$[\]<>]|!\[|^\s*[-*+]\s|^\s*\d+[.)]\s|^\s*#{1,6}\s|^\s*>/m;
 
-function renderMarkdown(ctx: CellRenderContext, markdown: string): void {
+function renderMarkdown(ctx: CellRenderContext, markdown: string, afterRender?: () => void): void {
   // Table cells store line breaks as <br>; convert them back to newlines so Obsidian renders
   // block structure — nested/sub bullets, numbered lists, task lists, quotes, code, headings —
   // natively in the dashboard, matching what exports produce.
   const normalized = markdown.replace(/<br\s*\/?>/gi, "\n");
-  void MarkdownRenderer.render(ctx.app, normalized, ctx.el, ctx.sourcePath, ctx.component);
+  const done = MarkdownRenderer.render(ctx.app, normalized, ctx.el, ctx.sourcePath, ctx.component);
+  if (afterRender) void done.then(afterRender).catch(() => undefined);
+  else void done;
 }
 
 /** Plain text when possible (fast); Markdown only when the value looks like it. */
@@ -78,7 +80,15 @@ function renderImage(ctx: CellRenderContext): void {
   if (value === "") return;
   const markdown = extractImageEmbeds(value).length > 0 ? value : `![[${value}]]`;
   ctx.el.addClass("kvs-cell-image");
-  renderMarkdown(ctx, markdown);
+  // Obsidian builds the <img> itself, so the loading hints go on afterwards. This matters most in a gallery:
+  // the browser then skips fetching and decoding every image that's scrolled off screen, which is the
+  // difference between a grid of images painting immediately and stalling on the whole set.
+  renderMarkdown(ctx, markdown, () => {
+    for (const img of Array.from(ctx.el.querySelectorAll("img"))) {
+      img.setAttribute("loading", "lazy");
+      img.setAttribute("decoding", "async");
+    }
+  });
 }
 
 function renderCheckbox(ctx: CellRenderContext): void {

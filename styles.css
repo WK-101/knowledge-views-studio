@@ -4658,3 +4658,12 @@ body.is-phone .kvs-col-resize {
   outline-offset: 1px;
   border-radius: var(--radius-s);
 }
+
+/* Sentinel for progressive card/gallery rendering: an invisible marker below the grid whose approach into
+   view triggers the next chunk. Needs a little height to be observable, and must not add visible space. */
+.kvs-more-sentinel {
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+}

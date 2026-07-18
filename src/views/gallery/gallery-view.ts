@@ -2,6 +2,7 @@ import { setIcon, setTooltip } from "obsidian";
 import { getField } from "../../domain/index";
 import { stripInlineMarkdown } from "../../util/markdown";
 import { renderEmptyState } from "../empty-state";
+import { renderProgressively } from "../progressive";
 import { optNumber, optString } from "../view-options";
 import { findColumnByRole, type ResolvedColumn } from "../view-model";
 import { openRowDetail } from "../row-detail-modal";
@@ -126,16 +127,27 @@ function renderGallery(ctx: ViewRenderContext): void {
 
   for (const section of sections) {
     let grid: HTMLElement;
+    // The sentinel must sit outside the grid, or the CSS grid would lay it out as another cell.
+    let host: HTMLElement;
     if (section.key !== null) {
       const sec = root.createDiv({ cls: "kvs-gallery-group" });
       const head = sec.createDiv({ cls: "kvs-cards-group-header" });
       head.createSpan({ cls: "kvs-group-key", text: section.key });
       head.createSpan({ cls: "kvs-group-count", text: ` · ${section.items.length}` });
       grid = sec.createDiv({ cls: "kvs-gallery-grid" });
+      host = sec;
     } else {
       grid = root.createDiv({ cls: "kvs-gallery-grid" });
+      host = root;
     }
-    for (const item of section.items) renderItem(grid, item, ctx, title);
+    // Galleries are the heaviest layout — every card carries an image — so they benefit most from drawing
+    // in chunks rather than building the whole grid before the first paint.
+    renderProgressively({
+      items: section.items,
+      renderItem: (item) => renderItem(grid, item, ctx, title),
+      sentinelHost: host,
+      component: ctx.component,
+    });
   }
 }
 

@@ -5,6 +5,41 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 144 — scaling: the card layouts paint immediately
+
+Following the cap in the last phase, the card-shaped layouts no longer build their whole grid before the
+first paint.
+
+**Why not the table's approach.** The table virtualizes with measured heights and a scroll window, which
+works because one row is one item of roughly known height. Cards don't fit that model: they sit in an
+`auto-fill` grid, so the column count changes with the pane width, and their heights genuinely vary — a card
+only draws the fields that aren't empty. Measured windowing there means tracking grid rows across resizes and
+continuously correcting estimates, and its failure mode is visible scroll jumping.
+
+**What we do instead.** The cost that actually hurts is the first paint — building hundreds of cards, each
+running cell renderers and markdown, blocks the main thread before anything appears. So Cards and Gallery now
+draw a first chunk immediately and grow on demand: a sentinel sits below the grid, and as it comes near the
+viewport the next chunk is drawn. Nothing is torn down or re-measured, so scrolling stays smooth and there is
+no jumping. This applies to ungrouped grids, to grouped sections, and to a group expanded with "show more"
+(which could otherwise draw hundreds of cards in one go).
+
+**Gallery images are lazy now too.** Obsidian builds the `<img>` elements, so the loading hints are applied
+once it has: images are marked `loading="lazy"` and `decoding="async"`, and the browser then skips fetching
+and decoding everything scrolled off screen — the difference between an image grid appearing at once and
+stalling on the whole set.
+
+Board columns and grouped card sections were already bounded (`limitRows` plus a "show more" button), so they
+needed no change beyond the above.
+
+**The trade-off, stated plainly:** the DOM grows as you scroll rather than staying fixed. It's bounded by the
+row cap from the previous phase, so the worst case is the cap rather than the whole dataset, and reaching it
+means scrolling through everything. If measurement ever shows the grown DOM is the bottleneck, the new
+`views/progressive.ts` is the seam where true windowing would go.
+
+836 tests (was 830): chunk scheduling — only chunking when a list exceeds one chunk, treating a non-positive
+size as "no chunking", advancing without overshooting the total, always progressing (no stall), tolerating a
+negative count, and a guard on the first-chunk size.
+
 ## Phase 143 — scaling: close the one unbounded rendering path
 
 A scaling audit found a single combination that could try to build a DOM node per row on a large vault:

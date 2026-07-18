@@ -3,6 +3,7 @@ import { getField, type Row,
   moreLabel,
 } from "../../domain/index";
 import { renderEmptyState } from "../empty-state";
+import { renderProgressively } from "../progressive";
 import { findColumnByRole, type ResolvedColumn } from "../view-model";
 import { openRowDetail } from "../row-detail-modal";
 import type { KnowledgeView, ViewRenderContext } from "../view";
@@ -73,7 +74,13 @@ function renderCards(ctx: ViewRenderContext): void {
       const drawGroup = (expanded: boolean): void => {
         grid.empty();
         const { rows, hidden } = limitRows(group.rows, ctx.profile.groupLimit, expanded);
-        for (const row of rows) renderCard(grid, row, ctx);
+        // Expanding a large group can mean hundreds of cards at once, so draw them progressively too.
+        renderProgressively({
+          items: rows,
+          renderItem: (row) => renderCard(grid, row, ctx),
+          sentinelHost: section,
+          component: ctx.component,
+        });
         if (hidden > 0) {
           const more = section.createEl("button", { cls: "kvs-show-more", text: moreLabel(hidden) });
           more.addEventListener("click", () => {
@@ -86,7 +93,12 @@ function renderCards(ctx: ViewRenderContext): void {
     }
   } else {
     const grid = root.createDiv({ cls: "kvs-cards-grid" });
-    for (const row of result.rows) renderCard(grid, row, ctx);
+    renderProgressively({
+      items: result.rows,
+      renderItem: (row) => renderCard(grid, row, ctx),
+      sentinelHost: root,
+      component: ctx.component,
+    });
   }
 }
 
