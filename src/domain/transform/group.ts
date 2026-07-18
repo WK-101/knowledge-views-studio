@@ -43,3 +43,37 @@ export function groupRows(
   });
   return groups;
 }
+
+/** Total rows across every group. */
+export function countGroupedRows(groups: readonly RowGroup[]): number {
+  let n = 0;
+  for (const g of groups) n += g.rows.length;
+  return n;
+}
+
+/**
+ * Cap a grouped result to at most `maxRows` rows in total.
+ *
+ * Grouping deliberately bypasses pagination (a page of groups is a confusing unit), which used to mean a
+ * grouped view had *nothing* bounding it — no page, no cap, and, outside the virtualized table, no windowing
+ * either. A grouped Gallery over a large vault would try to build a DOM node per row. This is the backstop:
+ * groups are kept whole while the budget lasts, the group that straddles the limit is trimmed, and the rest
+ * are dropped. Groups stay in their sorted order, so what you see is the start of the result, not a
+ * scattered sample.
+ */
+export function capGroups(groups: readonly RowGroup[], maxRows: number): RowGroup[] {
+  if (maxRows <= 0) return [...groups];
+  const out: RowGroup[] = [];
+  let budget = maxRows;
+  for (const group of groups) {
+    if (budget <= 0) break;
+    if (group.rows.length <= budget) {
+      out.push(group);
+      budget -= group.rows.length;
+    } else {
+      out.push({ key: group.key, rows: group.rows.slice(0, budget) });
+      budget = 0;
+    }
+  }
+  return out;
+}

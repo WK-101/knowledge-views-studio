@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { runTransform, type TransformSpec } from "../src/domain/transform/pipeline";
+import { capGroups, countGroupedRows, type RowGroup } from "../src/domain/transform/group";
 import { createDefaultColumnTypeRegistry } from "../src/domain/columns/index";
 import { makeRow, NOW } from "./_helpers";
 
@@ -102,5 +103,44 @@ describe("runTransform", () => {
     // Even paginated to 1/page, Rare counts as non-empty (full-result, page-independent).
     const result = runTransform(rows, { page: { size: 1, index: 0 } }, options);
     expect(new Set(result.nonEmptyFields ?? []).has("rare")).toBe(true);
+  });
+});
+describe("capGroups — the safety cap now covers grouped results", () => {
+  const g = (key: string, n: number): RowGroup => ({
+    key,
+    rows: Array.from({ length: n }, (_, i) => makeRow({ Title: `${key}-${i}` }, { fileName: `${key}-${i}` })),
+  });
+
+  it("counts rows across every group", () => {
+    expect(countGroupedRows([g("a", 3), g("b", 5)])).toBe(8);
+    expect(countGroupedRows([])).toBe(0);
+  });
+
+  it("keeps whole groups while the budget lasts and trims the one that straddles the limit", () => {
+    const capped = capGroups([g("a", 3), g("b", 5), g("c", 4)], 6);
+    expect(capped.map((x) => x.key)).toEqual(["a", "b"]); // "c" dropped entirely
+    expect(capped[0]!.rows).toHaveLength(3); // whole
+    expect(capped[1]!.rows).toHaveLength(3); // trimmed from 5 to fit the budget
+    expect(countGroupedRows(capped)).toBe(6);
+  });
+
+  it("preserves group order, so the cap shows the start of the result rather than a sample", () => {
+    const capped = capGroups([g("first", 2), g("second", 2), g("third", 2)], 3);
+    expect(capped.map((x) => x.key)).toEqual(["first", "second"]);
+  });
+
+  it("returns everything when the total already fits", () => {
+    const groups = [g("a", 2), g("b", 2)];
+    expect(countGroupedRows(capGroups(groups, 100))).toBe(4);
+  });
+
+  it("treats a non-positive cap as 'no cap' (matching the ungrouped path)", () => {
+    const groups = [g("a", 2), g("b", 2)];
+    expect(countGroupedRows(capGroups(groups, 0))).toBe(4);
+  });
+
+  it("never returns empty groups", () => {
+    const capped = capGroups([g("a", 3), g("b", 3)], 3);
+    expect(capped.every((x) => x.rows.length > 0)).toBe(true);
   });
 });

@@ -5,6 +5,29 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 143 — scaling: close the one unbounded rendering path
+
+A scaling audit found a single combination that could try to build a DOM node per row on a large vault:
+**grouped views were bounded by nothing.** Grouping deliberately bypasses pagination (a page of groups is a
+confusing unit), and the row safety cap was *also* skipped whenever results were grouped — so a grouped view
+had no page, no cap, and, outside the virtualized table, no windowing either. On a few thousand rows a grouped
+Gallery or Board would attempt to render all of them.
+
+The cap now covers grouped results. Groups are kept whole while the row budget lasts, the group that straddles
+the limit is trimmed, and the rest are dropped — in sorted order, so what you see is the start of the result
+rather than a scattered sample, and no empty groups are produced. The banner's advice is now
+context-appropriate too: grouped views ignore page size, so it suggests filtering or grouping by a
+lower-cardinality field instead of telling you to set a page size that wouldn't help. The reported total stays
+the honest unfiltered-by-cap count.
+
+This is a backstop, not a substitute for windowing: the table already virtualizes (above 100 rows, with
+per-row measured heights), and virtualizing the card-shaped layouts — Cards, Gallery, Board columns — is the
+next scaling step.
+
+830 tests (was 824): counting rows across groups; keeping whole groups within budget and trimming the
+straddling one; preserving group order; passing everything through when it already fits; treating a
+non-positive cap as no cap; and never emitting an empty group.
+
 ## Phase 142 — UI polish: command names, settings coherence, keyboard focus
 
 Three UI passes from the design audit (all display-only or CSS — no ids changed, so hotkey bindings are safe).

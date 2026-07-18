@@ -1,5 +1,6 @@
 import type { App, Component } from "obsidian";
 import type { ColumnTypeRegistry, PageInfo, Row, SortKey } from "../domain/index";
+import { capGroups, countGroupedRows } from "../domain/transform/group";
 import type { DataService, Profile, UndoManager, WriterService } from "../services/index";
 import type { ViewRegistry } from "./registry";
 import type { CellRendererRegistry } from "./cells/cell-renderer";
@@ -119,14 +120,27 @@ export async function renderProfile(options: RenderProfileOptions): Promise<void
       return;
     }
 
-    const truncated = maxRows > 0 && result.groups === null && result.rows.length > maxRows;
+    // The safety cap applies to grouped results too. It used to be skipped whenever rows were grouped, and
+    // since grouping also bypasses pagination, a grouped view had nothing bounding it at all — no page, no
+    // cap, and (outside the virtualized table) no windowing. That was the one combination that could try to
+    // build a DOM node per row on a large vault.
+    const shownRows = result.groups ? countGroupedRows(result.groups) : result.rows.length;
+    const truncated = maxRows > 0 && shownRows > maxRows;
     if (truncated) {
+      // Grouped views ignore page size, so don't advise setting one — it wouldn't help.
+      const advice = result.groups ? "Add a filter, or group by a field with fewer rows, to see the rest." : "Add a filter or set a page size to see the rest.";
       container.createDiv({
         cls: "kvs-banner",
-        text: `Showing the first ${maxRows} of ${result.total} rows. Add a filter or set a page size to see the rest.`,
+        text: `Showing the first ${maxRows} of ${result.total} rows. ${advice}`,
       });
     }
-    const rawViewResult = truncated ? { ...result, rows: result.rows.slice(0, maxRows) } : result;
+    const rawViewResult = truncated
+      ? {
+          ...result,
+          rows: result.rows.slice(0, maxRows),
+          groups: result.groups ? capGroups(result.groups, maxRows) : result.groups,
+        }
+      : result;
     // Optimistic overlay: reflect not-yet-saved edits so the grid (and virtualized re-renders on
     // scroll) show pending values immediately, without waiting for the write + re-read.
     const overlay = options.overlayRow;
