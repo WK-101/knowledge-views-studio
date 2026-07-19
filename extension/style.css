@@ -91,3 +91,28 @@ button.link { border: none; padding: 0; color: var(--muted); text-decoration: un
 .checkline { display: flex; gap: 8px; align-items: flex-start; }
 .checkline input { width: auto; margin-top: 3px; }
 .checkline span { color: var(--fg); font-size: 13px; }
+
+/* Multi-row capture: the preview of what's about to be imported, and the selection helper. */
+.preview-host { margin: 8px 0; overflow-x: auto; }
+table.preview { border-collapse: collapse; font-size: 11px; width: 100%; }
+table.preview th, table.preview td {
+  border: 1px solid var(--line);
+  padding: 3px 5px;
+  text-align: left;
+  vertical-align: top;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+table.preview th { color: var(--muted); font-weight: 600; }
+.with-action { display: flex; gap: 5px; align-items: flex-start; }
+.with-action > :first-child { flex: 1; }
+.mini {
+  flex: none;
+  font-size: 11px;
+  padding: 3px 6px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.mini:hover { color: var(--fg); border-color: var(--accent); }

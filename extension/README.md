@@ -53,6 +53,25 @@ either side at any time.
 
 If you changed the port in Obsidian, change it here too.
 
+## Capturing many rows at once
+
+When a page is *already* a set of rows — a journal's contents, a search result, a bibliography, a comparison
+table — a **Rows** tab appears offering to capture all of them together. It shows what it found and previews
+the first few before anything is written, because a wrong bulk import takes far longer to undo than a wrong
+single one.
+
+Two sources are trusted: real HTML tables, and JSON-LD lists (which is how most sites describe their own
+listings). Repeated `<div>` layouts are deliberately *not* guessed at — that guess is wrong often enough to
+produce confident nonsense.
+
+This is the thing a row-shaped tool can do that a note-shaped one can't. Every clipper is one-page-one-note,
+so a contents page becomes a single blob of prose.
+
+## Using your selection
+
+Select text before opening the popup and every field gains a **Use selection** button, so a highlighted
+abstract, price or author can go into the column you actually want it in rather than always the description.
+
 ## Searching your vault
 
 The popup's second tab searches the vault itself — notes, table rows, annotations, attachments and Zotero —

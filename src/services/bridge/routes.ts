@@ -165,8 +165,10 @@ export function captureRoute(): Route<BridgeContext> {
       const body = (request.body ?? {}) as CaptureRequest;
       const viewId = (body.viewId ?? "").trim();
       if (viewId === "") return badRequest("Which view should this go to?");
-      const incoming: unknown = body.fields;
-      if (!Array.isArray(incoming)) return badRequest("Expected a list of fields.");
+      const manyRows: unknown = body.rows;
+      const isMany = Array.isArray(manyRows) && manyRows.length > 0;
+      const incoming: unknown = isMany ? [] : body.fields;
+      if (!isMany && !Array.isArray(incoming)) return badRequest("Expected a list of fields.");
 
       const profile = exposedProfiles(context).find((p) => p.id === viewId);
       if (profile === undefined) {
@@ -179,6 +181,38 @@ export function captureRoute(): Route<BridgeContext> {
       if (target === null) {
         const failed: CaptureResponse = { ok: false, reason: "No capture target is set for this view." };
         return { status: 409, body: failed };
+      }
+
+      if (isMany) {
+        const { rows: existing, columns } = await context.viewData(profile);
+        const prepared = (manyRows as readonly (readonly { key?: unknown; value?: unknown }[])[])
+          .map((row) => ({
+            fields: row.map((f) => ({ key: asString(f.key), value: asString(f.value) })),
+          }))
+          .map((p) => prepareCapture(p, columns).values)
+          .filter((values) => Object.keys(values).length > 0);
+
+        if (prepared.length === 0) {
+          const failed: CaptureResponse = { ok: false, reason: "None of those rows matched this view." };
+          return { status: 422, body: failed };
+        }
+        // Duplicates are counted, not blocked: reviewing twenty rows one refusal at a time would be worse
+        // than importing a few things twice.
+        const already = prepared.filter((values) => findDuplicate(values, columns, existing) !== null).length;
+        const written = await context.capture.commitMany(target, prepared, columns);
+        if (!written.ok) {
+          const failed: CaptureResponse = { ok: false, reason: written.reason ?? "Could not write." };
+          return { status: 500, body: failed };
+        }
+        if (written.path !== undefined) context.onCaptured(written.path);
+        const manyResponse: CaptureResponse = {
+          ok: true,
+          written: prepared.length,
+          ...(written.path !== undefined ? { path: written.path } : {}),
+          ...(written.createdTable === true ? { createdTable: true } : {}),
+          ...(already > 0 ? { duplicate: { on: `${String(already)} already present`, filePath: written.path ?? "" } } : {}),
+        };
+        return { status: 200, body: manyResponse };
       }
 
       const payload: CapturePayload = {

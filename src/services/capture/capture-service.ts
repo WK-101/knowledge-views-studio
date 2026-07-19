@@ -2,7 +2,7 @@ import { normalizePath, TFile, type App } from "obsidian";
 import { getField, type Row } from "../../domain/index";
 import { normalizeText } from "./normalize";
 import { mapToColumns, applyDefaults } from "./map";
-import { appendCapturedRow } from "./capture-table";
+import { appendCapturedRow, appendCapturedRows } from "./capture-table";
 import type { CaptureColumn, CapturePayload, CaptureResult, CaptureTarget, MappedCapture } from "./types";
 
 /**
@@ -123,6 +123,45 @@ export class CaptureService {
     return target.shape === "note"
       ? this.commitNote(target, values, payload)
       : this.commitRow(target, values, columns);
+  }
+
+  /**
+   * Commit several rows at once.
+   *
+   * Only meaningful for the row shape — capturing twenty notes from one page would be twenty files, which is
+   * a different intention from filling in a table. When the target is note-shaped, this says so rather than
+   * quietly producing something the caller didn't ask for.
+   */
+  async commitMany(
+    target: CaptureTarget,
+    rows: readonly Readonly<Record<string, string>>[],
+    columns: readonly CaptureColumn[],
+  ): Promise<CaptureResult & { written?: number }> {
+    if (target.shape === "note") {
+      return { ok: false, reason: "This view captures to notes, so it takes one item at a time." };
+    }
+    if (rows.length === 0) return { ok: false, reason: "No rows to write." };
+
+    const path = normalizePath((target.notePath ?? "").trim());
+    if (path === "" || path === ".") return { ok: false, reason: "This view has no capture target set." };
+
+    let file = this.app.vault.getAbstractFileByPath(path);
+    if (file === null && target.createIfMissing === true) {
+      await this.ensureFolder(path);
+      file = await this.app.vault.create(path, "");
+    }
+    if (!(file instanceof TFile)) return { ok: false, reason: `Capture target not found: ${path}` };
+
+    const content = await this.app.vault.read(file);
+    const result = appendCapturedRows(content, rows, {
+      ...(target.heading !== undefined ? { heading: target.heading } : {}),
+      ...(target.createIfMissing !== undefined ? { createIfMissing: target.createIfMissing } : {}),
+      columns: columns.map((c) => c.name),
+    });
+    if (!result.ok) return { ok: false, reason: result.reason ?? "Couldn't write the rows." };
+
+    await this.app.vault.modify(file, result.content);
+    return { ok: true, path, createdTable: result.createdTable, written: rows.length };
   }
 
   private async commitRow(

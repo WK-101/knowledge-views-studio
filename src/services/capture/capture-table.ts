@@ -112,6 +112,24 @@ export function appendCapturedRow(
   values: Readonly<Record<string, string>>,
   options: AppendOptions = {},
 ): CaptureAppendResult {
+  return appendCapturedRows(content, [values], options);
+}
+
+/**
+ * Append several rows in one pass.
+ *
+ * Capturing a contents page or a search result means writing many rows at once, and doing that as repeated
+ * single appends would mean re-reading and re-writing the file for each one — slow, and worse, capable of
+ * leaving half a table behind if it fails partway. One read, one write, all rows or none.
+ */
+export function appendCapturedRows(
+  content: string,
+  values: readonly Readonly<Record<string, string>>[],
+  options: AppendOptions = {},
+): CaptureAppendResult {
+  if (values.length === 0) {
+    return { content, ok: false, createdTable: false, reason: "Nothing to write." };
+  }
   const nl = detectNewline(content);
   const tables = parseMarkdownTables(content);
   const heading = options.heading?.trim() ?? "";
@@ -121,7 +139,7 @@ export function appendCapturedRow(
   if (table) {
     const lines = content.split(/\r?\n/);
     const lastLine = table.rows.reduce((max, row) => Math.max(max, row.line), table.separatorLine);
-    lines.splice(lastLine + 1, 0, rowLine(table.headers, values));
+    lines.splice(lastLine + 1, 0, ...values.map((v) => rowLine(table.headers, v)));
     return { content: lines.join(nl), ok: true, createdTable: false };
   }
 
@@ -138,7 +156,7 @@ export function appendCapturedRow(
   const block = [
     `| ${headers.join(" | ")} |`,
     `| ${headers.map(() => "---").join(" | ")} |`,
-    rowLine(headers, values),
+    ...values.map((v) => rowLine(headers, v)),
   ];
 
   const lines = content.split(/\r?\n/);

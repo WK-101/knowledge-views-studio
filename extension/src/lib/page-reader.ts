@@ -1,4 +1,4 @@
-import type { PageSnapshot, RawMeta } from "../../../shared/extract";
+import type { PageSnapshot, RawMeta, RawTable } from "../../../shared/extract";
 
 /**
  * Reading the live page.
@@ -45,6 +45,27 @@ export function readPageSnapshot(): PageSnapshot {
     if (excerpt !== "") break;
   }
 
+  // Tables, for capturing many rows at once. Read generously and filtered later in shared code, where the
+  // rules about what counts as data rather than layout can be tested.
+  const tables: RawTable[] = [];
+  for (const table of Array.from(document.querySelectorAll("table")).slice(0, 12)) {
+    const rowNodes = Array.from(table.querySelectorAll("tr"));
+    if (rowNodes.length < 2) continue;
+
+    const cellsOf = (tr: Element): string[] =>
+      Array.from(tr.querySelectorAll("th, td")).map((c) => (c.textContent ?? "").replace(/\s+/g, " ").trim());
+
+    // A header row is the one made of <th>, or failing that the first row.
+    const headerRow = rowNodes.find((tr) => tr.querySelector("th") !== null) ?? rowNodes[0];
+    if (headerRow === undefined) continue;
+    const headers = cellsOf(headerRow);
+    if (headers.length === 0) continue;
+
+    const bodyRows = rowNodes.filter((tr) => tr !== headerRow).slice(0, 300).map(cellsOf);
+    const caption = (table.querySelector("caption")?.textContent ?? "").replace(/\s+/g, " ").trim();
+    tables.push({ headers, rows: bodyRows, ...(caption !== "" ? { caption } : {}) });
+  }
+
   const selection = (window.getSelection()?.toString() ?? "").replace(/\s+/g, " ").trim();
 
   return {
@@ -54,5 +75,6 @@ export function readPageSnapshot(): PageSnapshot {
     jsonLd,
     ...(selection !== "" ? { selection } : {}),
     ...(excerpt !== "" ? { excerpt } : {}),
+    ...(tables.length > 0 ? { tables } : {}),
   };
 }

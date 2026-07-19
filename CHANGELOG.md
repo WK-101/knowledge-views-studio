@@ -5,6 +5,41 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 150 — many rows at once, and your selection where you want it
+
+**Capturing a page that is already a set of rows.** A journal's contents page, a search result, a
+bibliography, a comparison table — these are rows already, and every clipper in existence flattens them into
+one note, because a note is the only thing it can make. A **Rows** tab now appears when a page holds a set
+like that, and captures all of them together in a single write.
+
+This is the clearest thing a row-shaped tool can do that a note-shaped one cannot, and it's why the data
+model was worth building on.
+
+Two sources are trusted, both because they carry their own structure rather than requiring it to be guessed
+from layout: real HTML tables, and JSON-LD lists (how most sites describe their own listings). Repeated
+`<div>` patterns are deliberately **not** inferred — that guess is wrong often enough to produce confident
+nonsense, and a wrong row is worse than a missing one because someone has to find it later. Layout tables are
+filtered out by the same reasoning: too few rows, one column, or headers that were never filled in.
+
+Nothing goes in unseen. The tab reports what it found and previews the first rows before writing, because
+bulk import is exactly where a wrong guess costs most — twenty bad rows take far longer to remove than one.
+The whole set is written in **one** file operation rather than one per row, so a failure partway can't leave
+half a table behind, and duplicates are counted and reported rather than blocking the import one refusal at
+a time.
+
+**Your selection, in the column you meant.** Selecting text before opening the popup used to mean it became
+the description, always. Now every field gains a *Use selection* button, so a highlighted abstract, price,
+author or date goes where it belongs. The popup can't watch the page's selection live — opening the popup
+ends it — so the selection is captured with the page snapshot and offered here, which is the honest version
+of the same idea rather than a promise the browser won't keep.
+
+1030 tests (was 997): header normalisation, including making duplicate headers distinct so one can't
+overwrite another; telling data tables from layout ones; row alignment, padding, empty-row removal and the
+cap on a runaway page; JSON-LD `ItemList` reading including `ListItem` unwrapping, object-valued authors, and
+only offering columns something actually fills; preferring a structured list over a table; finding nothing on
+an ordinary article; and batched writing — order, appending rather than replacing, creating the table exactly
+once for the whole set, refusing an empty batch, and escaping pipes in every row rather than only the first.
+
 ## Phase 149 — the read path: your vault, from the browser
 
 Step 4 turns the companion from something that only writes into something worth keeping open.

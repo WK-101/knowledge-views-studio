@@ -3,6 +3,7 @@ import type { CaptureRequest, SchemaResponse, SchemaView } from "../../shared/pr
 import { BridgeError, capture, fetchSchema, loadConnection, lookup } from "./lib/bridge-client";
 import { readPageSnapshot } from "./lib/page-reader";
 import { mountSearch } from "./lib/search-panel";
+import { mountRows } from "./lib/rows-panel";
 import { queueCapture } from "./lib/queue-store";
 
 /**
@@ -54,6 +55,8 @@ function el<K extends keyof HTMLElementTagNameMap>(
 let snapshot: PageSnapshot | null = null;
 let schema: SchemaResponse | null = null;
 let current: SchemaView | null = null;
+/** Whatever the reader had selected when they opened the popup. */
+let selectionText = "";
 
 /** Ask the active tab for its page snapshot. */
 async function readPage(): Promise<PageSnapshot> {
@@ -102,7 +105,22 @@ function renderForm(view: SchemaView, prefill: Record<string, string>, unmatched
             type: column.typeId === "number" ? "number" : column.typeId === "date" ? "date" : "text",
           });
       (input as HTMLInputElement | HTMLTextAreaElement).value = prefill[column.name] ?? "";
-      field.appendChild(input);
+
+      // Highlight-to-field: with text selected on the page, any column can take it with one click. The
+      // popup can't watch the page's selection live — opening the popup ends it — so the selection is
+      // captured with the snapshot and offered here, which is the honest version of the same idea.
+      if (selectionText !== "") {
+        const row = el("div", { class: "with-action" });
+        row.appendChild(input);
+        const use = el("button", { class: "mini", type: "button", title: "Use the text you selected" }, "Use selection");
+        use.addEventListener("click", () => {
+          (input as HTMLInputElement | HTMLTextAreaElement).value = selectionText;
+        });
+        row.appendChild(use);
+        field.appendChild(row);
+      } else {
+        field.appendChild(input);
+      }
     }
     form.appendChild(field);
   }
@@ -177,6 +195,7 @@ async function start(): Promise<void> {
   picker.replaceChildren();
   for (const view of writable) picker.appendChild(el("option", { value: view.id }, view.name));
 
+  selectionText = snapshot.selection ?? "";
   const fields = extractFields(snapshot);
   const draw = (): void => {
     current = writable.find((v) => v.id === picker.value) ?? writable[0] ?? null;
@@ -190,6 +209,20 @@ async function start(): Promise<void> {
   draw();
 
   document.getElementById("controls")?.classList.remove("hidden");
+
+  // The rows tab only appears when the page actually holds a set of rows, so it never advertises a
+  // capability this particular page can't offer.
+  const rowsHost = document.getElementById("tab-rows");
+  const rowsTab = document.querySelector('[data-tab="rows"]');
+  if (rowsHost !== null && rowsTab !== null) {
+    const found = mountRows(snapshot, {
+      host: rowsHost,
+      view: () => current,
+      setStatus: (message, kind) => show(message, kind),
+    });
+    rowsTab.classList.toggle("hidden", !found);
+  }
+
   show(`Capturing from ${new URL(snapshot.url).hostname}`);
   void warnIfAlreadySaved();
 }
@@ -253,6 +286,7 @@ function wireTabs(): void {
   const buttons = Array.from(document.querySelectorAll("[data-tab]"));
   const panels = new Map<string, HTMLElement>([
     ["capture", document.getElementById("tab-capture") as HTMLElement],
+    ["rows", document.getElementById("tab-rows") as HTMLElement],
     ["search", document.getElementById("tab-search") as HTMLElement],
   ]);
   let searchMounted = false;

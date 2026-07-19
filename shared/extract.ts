@@ -16,6 +16,14 @@ export interface RawMeta {
   readonly content: string;
 }
 
+/** A table lifted from the page: its headers and its cells, exactly as they appeared. */
+export interface RawTable {
+  readonly headers: readonly string[];
+  readonly rows: readonly (readonly string[])[];
+  /** A caption or nearby heading, useful for telling several tables apart. */
+  readonly caption?: string;
+}
+
 export interface PageSnapshot {
   readonly url: string;
   readonly title?: string;
@@ -26,6 +34,8 @@ export interface PageSnapshot {
   readonly selection?: string;
   /** First paragraph or summary, when the page offers one. */
   readonly excerpt?: string;
+  /** Tables found on the page, for capturing many rows at once. */
+  readonly tables?: readonly RawTable[];
 }
 
 export interface ExtractedField {

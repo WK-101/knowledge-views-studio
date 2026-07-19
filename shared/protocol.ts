@@ -46,10 +46,18 @@ export interface CaptureRequest {
   readonly viewId: string;
   readonly fields: readonly { readonly key: string; readonly value: string }[];
   readonly url?: string;
+  /**
+   * Several rows at once, for a page that lists many things — a contents page, a search result, a
+   * bibliography. When present, `fields` is ignored. Written in one file operation rather than one per row,
+   * so a partial failure can't leave half a table behind.
+   */
+  readonly rows?: readonly (readonly { readonly key: string; readonly value: string }[])[];
 }
 
 export interface CaptureResponse {
   readonly ok: boolean;
+  /** How many rows were written, when several were sent. */
+  readonly written?: number;
   readonly path?: string;
   readonly createdTable?: boolean;
   readonly duplicate?: { readonly on: string; readonly filePath: string };

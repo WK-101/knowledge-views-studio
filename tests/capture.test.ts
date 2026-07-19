@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { normalizeText, normalizeDate, normalizeNumber, normalizeForType } from "../src/services/capture/normalize";
 import { mapToColumns, applyDefaults } from "../src/services/capture/map";
-import { appendCapturedRow } from "../src/services/capture/capture-table";
+import { appendCapturedRow, appendCapturedRows } from "../src/services/capture/capture-table";
 import { findDuplicate, buildCapturedNote, safeFileName } from "../src/services/capture/capture-service";
 import type { Row } from "../src/domain/index";
 import { parseCaptureText, effectiveTarget } from "../src/services/capture/parse";
@@ -404,3 +404,64 @@ describe("capture · effectiveTarget", () => {
     expect(effectiveTarget(base)).toBeNull();
   });
 });
+
+describe("capture · appendCapturedRows (many at once)", () => {
+  const doc = ["| Title | Author |", "| --- | --- |", "| First | Ada |"].join("\n");
+
+  it("writes several rows in one pass, in order", () => {
+    const res = appendCapturedRows(doc, [
+      { Title: "Second", Author: "Grace" },
+      { Title: "Third", Author: "Katherine" },
+    ]);
+    expect(res.ok).toBe(true);
+    const lines = res.content.split("\n");
+    expect(lines.indexOf("| Second | Grace |")).toBeLessThan(lines.indexOf("| Third | Katherine |"));
+  });
+
+  it("appends after the existing rows rather than replacing them", () => {
+    const res = appendCapturedRows(doc, [{ Title: "Second", Author: "Grace" }]);
+    expect(res.content).toContain("| First | Ada |");
+    expect(res.content).toContain("| Second | Grace |");
+  });
+
+  it("creates the table once and writes every row into it", () => {
+    const res = appendCapturedRows(
+      "# Notes\n",
+      [{ Title: "A" }, { Title: "B" }, { Title: "C" }],
+      { createIfMissing: true, columns: ["Title"] },
+    );
+    expect(res.ok).toBe(true);
+    expect(res.createdTable).toBe(true);
+    // One header, one separator, three rows — not three tables.
+    expect(res.content.split("\n").filter((l) => l.startsWith("| Title |"))).toHaveLength(1);
+    for (const value of ["A", "B", "C"]) expect(res.content).toContain(`| ${value} |`);
+  });
+
+  it("refuses an empty batch rather than writing nothing quietly", () => {
+    const res = appendCapturedRows(doc, []);
+    expect(res.ok).toBe(false);
+    expect(res.content).toBe(doc);
+  });
+
+  it("escapes pipes in every row, not just the first", () => {
+    const res = appendCapturedRows(doc, [{ Title: "a | b" }, { Title: "c | d" }]);
+    expect(res.content).toContain("a \\| b");
+    expect(res.content).toContain("c \\| d");
+  });
+
+  it("leaves the file untouched when there's no table and creating wasn't allowed", () => {
+    const res = appendCapturedRows("# Notes\n", [{ Title: "x" }]);
+    expect(res.ok).toBe(false);
+    expect(res.content).toBe("# Notes\n");
+  });
+
+  it("fills only the headers the table has, across all rows", () => {
+    const res = appendCapturedRows(doc, [
+      { Title: "A", Author: "X", Extra: "dropped" },
+      { Title: "B", Author: "Y" },
+    ]);
+    expect(res.content).not.toContain("dropped");
+    expect(res.content).toContain("| A | X |");
+    expect(res.content).toContain("| B | Y |");
+  });
+})
