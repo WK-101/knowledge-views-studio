@@ -8,6 +8,8 @@ import type {
   UpdateRequest,
   UpdateResponse,
   KnownResponse,
+  RowsRequest,
+  RowsResponse,
 } from "../../../shared/protocol";
 import { DISCOVERY_PORTS, isBridgePing } from "../../../shared/protocol";
 
@@ -183,4 +185,9 @@ export async function update(connection: Connection, request: UpdateRequest): Pr
 /** Ask which of these pages are already saved. Answers with urls only — nothing about what's in the vault. */
 export async function known(connection: Connection, urls: readonly string[]): Promise<KnownResponse> {
   return call<KnownResponse>(connection, "/known", { method: "POST", body: JSON.stringify({ urls }) });
+}
+
+/** Read a view's rows, for showing a dashboard or what's already noted about a page. */
+export async function rows(connection: Connection, request: RowsRequest): Promise<RowsResponse> {
+  return call<RowsResponse>(connection, "/rows", { method: "POST", body: JSON.stringify(request) });
 }

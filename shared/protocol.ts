@@ -252,3 +252,58 @@ export interface UpdateResponse {
   readonly skipped?: readonly { readonly column: string; readonly reason: string }[];
   readonly reason?: string;
 }
+
+// ---- Reading a view, for showing a dashboard outside Obsidian ----
+
+/** One row as the companion sees it. */
+export interface RowsRow {
+  /** Opaque handle, so a row shown here can be edited without ever naming a path. */
+  readonly rowRef: string;
+  readonly cells: Readonly<Record<string, string>>;
+  /** Columns this row doesn't own — computed, or belonging to another source. */
+  readonly readOnly?: readonly string[];
+}
+
+export interface RowsRequest {
+  readonly viewId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+  /** Narrow to rows matching this text, using the view's own search. */
+  readonly query?: string;
+  /** Narrow to rows about one page, for showing what you've already noted about it. */
+  readonly url?: string;
+}
+
+export interface RowsResponse {
+  readonly ok: boolean;
+  readonly columns: readonly SchemaColumn[];
+  readonly rows: readonly RowsRow[];
+  readonly total: number;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly reason?: string;
+}
+
+// ---- Annotations: a highlight, and enough context to find it again ----
+
+/**
+ * Where a highlight sits in a page.
+ *
+ * Positions are useless for this — a page rerenders, an advert loads, a paragraph is edited, and an offset
+ * points at something else entirely. Quoting the text with a little of what surrounds it survives all of
+ * that, and when the passage really has gone, failing to find it is the correct outcome rather than
+ * silently highlighting the wrong sentence. This is the selector model the W3C annotation spec settled on
+ * for the same reasons.
+ */
+export interface TextAnchor {
+  readonly exact: string;
+  readonly prefix?: string;
+  readonly suffix?: string;
+}
+
+export interface Annotation {
+  readonly url: string;
+  readonly anchor: TextAnchor;
+  readonly note?: string;
+  readonly createdAt: string;
+}

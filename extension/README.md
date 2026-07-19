@@ -86,6 +86,26 @@ so a contents page becomes a single blob of prose.
 Select text before opening the popup and every field gains a **Use selection** button, so a highlighted
 abstract, price or author can go into the column you actually want it in rather than always the description.
 
+## Two surfaces
+
+**The popup** is a glance: capture what's in front of you, save a highlight, search. It comes in three sizes
+— small, medium and large — because a quick filing tool and a place to review before saving are different
+needs, and one compromise width serves neither.
+
+**The sidebar** stays open while you browse and does everything: capture, highlight, edit, search, and your
+**views** — a reading queue or paper list you can work through, changing a status without switching
+applications. Open it from your browser's sidebar control (Firefox: View → Sidebar → Knowledge Views).
+
+Both run the same code. What differs is how much room there is and which panels are worth showing.
+
+## Highlights
+
+Select text, save it. What's stored is the quoted passage plus a little of what surrounds it — never a
+position, which points at something else the moment a page rerenders. When a passage genuinely has gone, the
+highlight reports it rather than silently attaching to a neighbouring sentence.
+
+Highlights you've already saved from a page are listed when you return to it.
+
 ## Changing what you already have
 
 When a page is already in your vault, an **Update** tab appears. Mark it read, set a rating, move its status

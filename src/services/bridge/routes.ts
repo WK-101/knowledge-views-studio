@@ -16,6 +16,9 @@ import {
   type SchemaColumn,
   type KnownRequest,
   type KnownResponse,
+  type RowsRequest,
+  type RowsResponse,
+  type RowsRow,
   type PingResponse,
   type SchemaResponse,
   type SchemaView,
@@ -447,6 +450,72 @@ export function updateRoute(): Route<BridgeContext> {
   };
 }
 
+
+/**
+ * `POST /rows` — read a view.
+ *
+ * What makes a dashboard possible outside Obsidian. Everything before this could answer questions *about* a
+ * page; this hands back the view itself, so the companion can show a reading queue or a paper list in a
+ * sidebar and let someone work through it without switching applications.
+ *
+ * Every row carries the same opaque handle `/update` expects, and the columns it doesn't own, so the surface
+ * showing it knows what may be edited before anyone tries — rather than discovering it from a refusal.
+ */
+export function rowsRoute(): Route<BridgeContext> {
+  return {
+    method: "POST",
+    path: "/rows",
+    permission: "read",
+    handler: async (request, context) => {
+      const body = (request.body ?? {}) as RowsRequest;
+      const viewId = (body.viewId ?? "").trim();
+      if (viewId === "") return badRequest("Which view?");
+
+      const profile = exposedProfiles(context).find((p) => p.id === viewId);
+      if (profile === undefined) return { status: 404, body: { error: "No such view." } };
+
+      const { rows, columns } = await context.viewData(profile);
+
+      // Narrowing happens here rather than in the caller so a large view doesn't cross the wire first.
+      const query = (body.query ?? "").trim().toLowerCase();
+      const url = normalizeUrl((body.url ?? "").trim());
+      const filtered = rows.filter((row) => {
+        if (url !== "") {
+          const matchesUrl = columns.some((column) => normalizeUrl(getField(row, column.name)) === url);
+          if (!matchesUrl) return false;
+        }
+        if (query === "") return true;
+        return columns.some((column) => getField(row, column.name).toLowerCase().includes(query));
+      });
+
+      const pageSize = Math.min(Math.max(Number(body.pageSize ?? 50) || 50, 1), 200);
+      const page = Math.max(Number(body.page ?? 1) || 1, 1);
+      const start = (page - 1) * pageSize;
+
+      const shown: RowsRow[] = filtered.slice(start, start + pageSize).map((row) => {
+        const cells: Record<string, string> = {};
+        for (const column of columns) cells[column.name] = getField(row, column.name);
+        const readOnly = row.provenance.readOnlyFields ?? [];
+        return {
+          rowRef: rowRefOf(row.provenance),
+          cells,
+          ...(readOnly.length > 0 ? { readOnly: [...readOnly] } : {}),
+        };
+      });
+
+      const response: RowsResponse = {
+        ok: true,
+        columns: columns.map((column) => describeColumn(column)),
+        rows: shown,
+        total: filtered.length,
+        page,
+        pageSize,
+      };
+      return { status: 200, body: response };
+    },
+  };
+}
+
 /** `POST /pair` — exchange a short code shown in settings for a lasting token. */
 export function pairRoute(): Route<BridgeContext> {
   return {
@@ -472,6 +541,7 @@ export function defaultRoutes(): readonly Route<BridgeContext>[] {
     schemaRoute(),
     lookupRoute(),
     knownRoute(),
+    rowsRoute(),
     captureRoute(),
     updateRoute(),
     searchRoute(),

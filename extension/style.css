@@ -145,3 +145,58 @@ table.preview th { color: var(--muted); font-weight: 600; }
 .edit-head { display: flex; align-items: baseline; gap: 6px; margin-bottom: 2px; }
 .edit-head a { color: var(--fg); text-decoration: none; }
 .edit-head a:hover { text-decoration: underline; }
+
+/* ---- Surfaces ---------------------------------------------------------- */
+/* The popup is a fixed pane the browser sizes for us; three widths, because a glance and a working area
+   are different needs and one compromise size serves neither. */
+body.is-popup.size-small { width: 320px; font-size: 12px; }
+body.is-popup.size-medium { width: 380px; }
+body.is-popup.size-large { width: 460px; }
+body.is-popup.size-small .field { margin-bottom: 6px; }
+body.is-popup.size-small textarea { rows: 2; }
+body.is-popup.size-large .preview-note { max-height: 320px; }
+
+/* The sidebar fills whatever the browser gives it and stays open, so it can afford to breathe. */
+body.is-sidebar { width: auto; min-width: 280px; }
+body.is-sidebar #app { padding: 12px; }
+
+/* ---- Dashboard --------------------------------------------------------- */
+.dash-body { margin: 8px 0; max-height: 60vh; overflow-y: auto; }
+.dash-row {
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+}
+.dash-row:last-child { border-bottom: 0; }
+.dash-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg);
+  line-height: 1.35;
+}
+.dash-open { margin-left: 5px; color: var(--muted); text-decoration: none; }
+.dash-open:hover { color: var(--accent); }
+.dash-meta { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; align-items: center; }
+.dash-tag {
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.dash-tag.is-locked { opacity: 0.55; font-style: italic; }
+.dash-choice { width: auto; padding: 1px 4px; font-size: 10px; }
+.dash-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dash-foot button { padding: 2px 8px; font-size: 11px; }
+.dash-foot button[disabled] { opacity: 0.4; cursor: default; }
+
+/* ---- Annotations ------------------------------------------------------- */
+.annots { max-height: 220px; overflow-y: auto; }
+blockquote.annot {
+  margin: 5px 0;
+  padding: 5px 8px;
+  border-left: 2px solid var(--line);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+blockquote.annot.is-new { border-left-color: var(--accent); color: var(--fg); }

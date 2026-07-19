@@ -7,7 +7,8 @@
     "activeTab",
     "scripting",
     "storage",
-    "alarms"
+    "alarms",
+    "sidePanel"
   ],
   "host_permissions": [
     "http://127.0.0.1/*"
@@ -60,5 +61,18 @@
     "https://arxiv.org/*",
     "https://pubmed.ncbi.nlm.nih.gov/*",
     "https://www.semanticscholar.org/*"
-  ]
+  ],
+  "sidebar_action": {
+    "default_title": "Knowledge Views",
+    "default_panel": "sidebar.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "sidebar.html"
+  }
 }

@@ -5,6 +5,49 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 155 — two surfaces, and the vault in a sidebar
+
+**The sidebar.** A popup closes the moment you touch the page behind it, which is fine for filing something
+and actively unpleasant for working through a list. The sidebar stays open, and so it can hold what the
+popup can't: your **views**, browsable and editable while you read. A reading queue you tick off, a paper
+list you re-rank, a backlog you move along — without switching applications.
+
+Both surfaces run the same code. The popup and the sidebar are one implementation that differs in which
+panels are worth showing and how much room there is to show them, which is what keeps the same action from
+behaving subtly differently in the two places. Firefox and Chrome disagree about how a sidebar is declared
+(`sidebar_action` against `side_panel`), so both are declared.
+
+**Popup sizes.** Small, medium and large. Some people want a glance; others do most of their filing from it.
+One fixed width makes one of those groups unhappy, and the cost of offering three is a class name.
+
+**Dashboards needed a new endpoint.** Everything before this could answer questions *about* a page;
+`POST /rows` hands back the view itself, paged and filterable, with the same opaque handle `/update` expects
+on every row — so a status can be changed straight from the list, through exactly the path the popup uses
+and with exactly the same safeguards. Rows also declare the columns they don't own, so the panel greys them
+rather than discovering the refusal after someone tries. They're shown rather than hidden, because a value
+you can see but can't change is information, while one that silently vanished is confusing.
+
+In a narrow panel a twenty-column view is unreadable, so what's shown is chosen: whatever identifies the row,
+then what you act on, then dates — and prose left out entirely.
+
+**Highlights.** Select text and save it. What's stored is the quoted passage plus a little of what surrounds
+it, never a position — a page rerenders, an advert loads, a paragraph is edited, and an offset points at
+something else. When a passage genuinely has gone, reporting it missing is correct; a highlight silently
+reattached to the wrong sentence would never be noticed. Highlights already saved from a page are listed on
+return, since seeing what you previously thought is most of the value of having written it down.
+
+Writing the anchor tests found a real bug in the first implementation: it joined the quote to its context
+before searching, which loses the whitespace between them, so context matching never fired and a page with a
+repeated sentence resolved to the **wrong** occurrence — precisely the failure the design exists to prevent.
+It now scores each occurrence against its actual surroundings.
+
+1171 tests (was 1140): anchor building at the edges of a document, whitespace collapsing, and surviving
+reflow, one-sided edits and rewritten context; refusing to guess between duplicates with nothing to
+distinguish them; reporting a passage genuinely gone; reading a view including paging, an absurd page size,
+filtering by query and by page — including a URL written differently — declaring unowned columns, requiring
+read permission, and answering identically for hidden and non-existent views; and the dashboard's column
+choice, which puts identity first, then what you act on, and omits prose.
+
 ## Phase 154 — editing what you already have
 
 Last of the three phases, and the one that changes what this is. Until now the companion could only add:

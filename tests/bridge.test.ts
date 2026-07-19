@@ -508,6 +508,124 @@ describe("bridge · routes", () => {
     );
     expect(res.status).toBe(401);
   });
+
+  describe("reading a view for a dashboard", () => {
+    const routerWith = (): BridgeRouter<BridgeContext> =>
+      new BridgeRouter<BridgeContext>().registerAll(defaultRoutes());
+
+    const viewRows = (n: number, readOnly?: readonly string[]) =>
+      Array.from({ length: n }, (_, i) => ({
+        cells: { Title: `Row ${String(i)}`, Status: i % 2 === 0 ? "Read" : "To read", URL: `https://x/${String(i)}` },
+        provenance: {
+          filePath: "Library.md",
+          extractor: "table",
+          locator: { row: i },
+          fingerprint: `f${String(i)}`,
+          ...(readOnly !== undefined ? { readOnlyFields: [...readOnly] } : {}),
+        },
+      }));
+
+    const ctxFor = (n: number, readOnly?: readonly string[]) =>
+      makeContext({
+        viewData: () => Promise.resolve({ rows: viewRows(n, readOnly) as never, columns }),
+      }).context as unknown as BridgeContext;
+
+    it("returns a page of rows, each with a handle it can be edited by", async () => {
+      const res = await routerWith().dispatch(req({ method: "POST", path: "/rows", body: { viewId: "papers" } }), settings(), ctxFor(5));
+      expect(res.status).toBe(200);
+      const body = res.body as { rows: { rowRef: string }[]; total: number };
+      expect(body.total).toBe(5);
+      expect(body.rows).toHaveLength(5);
+      expect(body.rows.every((r) => typeof r.rowRef === "string" && r.rowRef.length > 0)).toBe(true);
+    });
+
+    it("pages a long view rather than sending all of it across the wire", async () => {
+      const res = await routerWith().dispatch(
+        req({ method: "POST", path: "/rows", body: { viewId: "papers", pageSize: 10, page: 2 } }),
+        settings(),
+        ctxFor(25),
+      );
+      const body = res.body as { rows: unknown[]; total: number; page: number };
+      expect(body.total).toBe(25);
+      expect(body.rows).toHaveLength(10);
+      expect(body.page).toBe(2);
+    });
+
+    it("caps an absurd page size instead of obeying it", async () => {
+      const res = await routerWith().dispatch(
+        req({ method: "POST", path: "/rows", body: { viewId: "papers", pageSize: 99999 } }),
+        settings(),
+        ctxFor(300),
+      );
+      expect((res.body as { pageSize: number }).pageSize).toBeLessThanOrEqual(200);
+    });
+
+    it("narrows to rows matching a query", async () => {
+      const res = await routerWith().dispatch(
+        req({ method: "POST", path: "/rows", body: { viewId: "papers", query: "Row 3" } }),
+        settings(),
+        ctxFor(10),
+      );
+      expect((res.body as { total: number }).total).toBe(1);
+    });
+
+    it("narrows to one page, for showing what's already noted about it", async () => {
+      const res = await routerWith().dispatch(
+        req({ method: "POST", path: "/rows", body: { viewId: "papers", url: "https://x/2" } }),
+        settings(),
+        ctxFor(6),
+      );
+      expect((res.body as { total: number }).total).toBe(1);
+    });
+
+    it("matches that page even when the url is written differently", async () => {
+      const res = await routerWith().dispatch(
+        req({ method: "POST", path: "/rows", body: { viewId: "papers", url: "https://www.x/2/?utm_source=q" } }),
+        settings(),
+        ctxFor(6),
+      );
+      expect((res.body as { total: number }).total).toBe(1);
+    });
+
+    it("says which columns a row doesn't own, so the panel knows before anyone tries", async () => {
+      const res = await routerWith().dispatch(
+        req({ method: "POST", path: "/rows", body: { viewId: "papers" } }),
+        settings(),
+        ctxFor(2, ["Status"]),
+      );
+      expect((res.body as { rows: { readOnly?: string[] }[] }).rows[0]?.readOnly).toEqual(["Status"]);
+    });
+
+    it("needs read permission", async () => {
+      const res = await routerWith().dispatch(
+        req({ method: "POST", path: "/rows", body: { viewId: "papers" } }),
+        settings({ allowRead: false }),
+        ctxFor(3),
+      );
+      expect(res.status).toBe(403);
+    });
+
+    it("answers for a hidden view exactly as for one that doesn't exist", async () => {
+      // The context carries the settings that decide exposure, so it must agree with the request's.
+      const ctx = makeContext({
+        settings: () => settings({ exposedViewIds: ["papers"] }),
+        viewData: () => Promise.resolve({ rows: viewRows(3) as never, columns }),
+      }).context as unknown as BridgeContext;
+
+      const hidden = await routerWith().dispatch(
+        req({ method: "POST", path: "/rows", body: { viewId: "private" } }),
+        settings({ exposedViewIds: ["papers"] }),
+        ctx,
+      );
+      const missing = await routerWith().dispatch(
+        req({ method: "POST", path: "/rows", body: { viewId: "no-such-view" } }),
+        settings({ exposedViewIds: ["papers"] }),
+        ctx,
+      );
+      expect(hidden.status).toBe(missing.status);
+      expect(hidden.body).toEqual(missing.body);
+    });
+  })
 })
 
 describe("bridge · search permission", () => {

@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Capture to Knowledge Views</title>
+    <title>Knowledge Views</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body class="popup">
@@ -16,7 +16,8 @@
       <button data-tab="note" class="tab hidden" type="button">Note</button>
       <button data-tab="edit" class="tab hidden" type="button">Update</button>
       <button data-tab="annotate" class="tab hidden" type="button">Highlight</button>
-      <button data-tab="search" class="tab" type="button">Search vault</button>
+      <button data-tab="search" class="tab" type="button">Search</button>
+      <button data-tab="dashboard" class="tab hidden" type="button">Views</button>
     </nav>
     <div id="status" class="status">Reading this page…</div>
     <div id="tab-rows" class="hidden"></div>
@@ -24,6 +25,7 @@
     <div id="tab-edit" class="hidden"></div>
     <div id="tab-annotate" class="hidden"></div>
     <div id="tab-search" class="hidden"></div>
+    <div id="tab-dashboard" class="hidden"></div>
     <div id="tab-capture">
     <div id="app"></div>
     <div id="controls" class="hidden">
@@ -35,6 +37,6 @@
       <button id="save" class="primary" type="button">Save to vault</button>
     </div>
     </div>
-    <script src="popup.js"></script>
+    <script src="sidebar.js"></script>
   </body>
 </html>

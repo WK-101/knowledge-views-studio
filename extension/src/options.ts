@@ -84,7 +84,9 @@ async function refresh(): Promise<void> {
   byId("paired").textContent = connection.token === null ? "Not connected" : "Connected to a vault";
   byId("unpair").toggleAttribute("hidden", connection.token === null);
 
-  const stored = await api().storage.local.get(["recallBadge", "serpMarks"]);
+  const stored = await api().storage.local.get(["recallBadge", "serpMarks", "popupSize"]);
+  byId<HTMLSelectElement>("popupSize").value =
+    typeof stored["popupSize"] === "string" ? stored["popupSize"] : "medium";
   byId<HTMLInputElement>("recallBadge").checked = stored["recallBadge"] === true;
   // Only shown as on when the access it needs is actually held, so the checkbox can't claim a feature
   // that silently isn't running.
@@ -154,6 +156,12 @@ document.addEventListener("DOMContentLoaded", () => {
       status("The toolbar will now mark pages already in your vault.", "ok");
     })();
   });
+  byId("popupSize").addEventListener("change", () => {
+    const size = byId<HTMLSelectElement>("popupSize").value;
+    void api().storage.local.set({ popupSize: size });
+    status("Popup size saved — it applies next time you open it.", "ok");
+  });
+
   byId("serpMarks").addEventListener("change", () => {
     void (async () => {
       const box = byId<HTMLInputElement>("serpMarks");
