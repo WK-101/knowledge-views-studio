@@ -5,6 +5,52 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 148 — the browser companion
+
+Step 3: the extension itself, for Chrome and Firefox, ready to load unpacked.
+
+**The form is built from your vault, not from a template you wrote.** This is the whole difference between
+this and a clipper. The companion asks `/schema` what a view looks like — its columns, their types, and the
+values each choice column already uses — and renders the right form from that. A choice column becomes a
+dropdown of the terms you already use. A date column gets a date field. A view created five minutes ago
+works immediately, with nothing configured: no template, no JSON, no mapping file. Every other tool in this
+space needs one, because none of them can see your schema.
+
+**It reads the live page, which is the reason to be in the browser at all.** A URL handed back to the plugin
+could only be re-fetched, and a re-fetch gets the markup a server sends a stranger. The companion reads what
+you are actually looking at: content rendered by script, sections you expanded, pages you are logged into,
+and whatever you selected — a selection becomes the description, since it's the most deliberate thing on the
+page. It reads OpenGraph, Dublin Core and academic citation tags, Schema.org JSON-LD (including `@graph`
+containers and authors published as objects or lists), and falls back to a representative opening paragraph
+when a page describes itself no other way.
+
+**Captures aren't lost because Obsidian was closed.** If the vault can't be reached the capture is held and
+retried in the background with a widening gap between attempts, and anything waiting is listed in the
+extension's settings. A capture tool that silently drops things in exactly the moment you needed it is worse
+than none, because the failure is invisible until you go looking for something that was never saved. Held
+captures are deduplicated, capped, and given up on after a week rather than surfacing as a surprise.
+
+**It also tells you what you already have.** Before you save, it checks `/lookup` and says if the page is
+already in that view and what it matched on — but never blocks the capture, and a failed check never gets in
+the way.
+
+Pairing is a six-digit code from Obsidian's settings, typed once. No account, no service, nothing leaving
+the machine.
+
+**`shared/` now holds the wire contract and the pure logic both halves use**, so a change to a shape is a
+compile error in whichever side hasn't kept up — the reason both live in one repository. The extension has
+its own tsconfig and build (`npm run ext:build`) and releases separately, so a store review can never hold
+up a plugin release.
+
+987 tests (was 957): meta-tag lifting including academic citation tags and case-insensitive keys; JSON-LD
+reading through `@graph`, with authors as strings, objects or lists, and surviving malformed blocks;
+precedence — a selection over a description, structured data over a generic tag, and never recording a key
+twice; DOI detection with trailing punctuation trimmed; and the queue's whole life — ordering, retry limits,
+backoff bounds, deduplication, the cap on a long offline stretch, and what it gives up on.
+
+Deliberately not yet built: multi-row capture from tables, highlight-to-field mapping, an already-saved
+badge, and vault search from the browser. The bridge already has the shape for all four.
+
 ## Phase 147 — the browser bridge
 
 Step 2 of capture: a small local server the browser companion will talk to. Off until you turn it on.

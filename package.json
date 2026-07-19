@@ -12,7 +12,10 @@
     "test:watch": "vitest",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
-    "version": "node version-bump.mjs && git add manifest.json versions.json"
+    "version": "node version-bump.mjs && git add manifest.json versions.json",
+    "ext:build": "node extension/build.mjs production",
+    "ext:dev": "node extension/build.mjs",
+    "ext:typecheck": "tsc --noEmit -p extension/tsconfig.json"
   },
   "keywords": [
     "obsidian",

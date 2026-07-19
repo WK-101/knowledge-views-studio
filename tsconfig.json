@@ -3,8 +3,13 @@
     "target": "ES2018",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "lib": ["DOM", "ES2020"],
-    "types": ["node"],
+    "lib": [
+      "DOM",
+      "ES2020"
+    ],
+    "types": [
+      "node"
+    ],
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -22,5 +27,9 @@
     "outDir": "dist",
     "allowJs": false
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "tests/**/*.ts",
+    "shared/**/*.ts"
+  ]
 }

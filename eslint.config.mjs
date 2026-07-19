@@ -3,7 +3,9 @@ import tseslint from "typescript-eslint";
 import obsidianmd from "eslint-plugin-obsidianmd";
 
 export default tseslint.config(
-  { ignores: ["main.js", "dist/**", "node_modules/**", "coverage/**", "**/*.mjs", "scripts/**", "vitest.config.ts"] },
+  // The extension is a browser add-on, not an Obsidian plugin: obsidianmd's rules don't apply to it, and
+  // it carries its own tsconfig and build. Its pure logic lives in shared/, which IS linted here.
+  { ignores: ["main.js", "dist/**", "node_modules/**", "coverage/**", "**/*.mjs", "scripts/**", "vitest.config.ts", "extension/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
 

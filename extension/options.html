@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Knowledge Views Companion — settings</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body class="options">
+    <h1>Knowledge Views Companion</h1>
+    <p class="lead">
+      This connects to Obsidian running on this computer. Nothing is sent anywhere else, and there is no
+      account. Your vault decides what it will show and whether it accepts captures at all.
+    </p>
+
+    <section>
+      <h2>Connection</h2>
+      <label class="field">
+        <span>Where your vault is listening</span>
+        <input id="baseUrl" type="text" placeholder="http://127.0.0.1:27180" />
+      </label>
+      <p class="hint">Change this only if you changed the port in Obsidian's settings.</p>
+    </section>
+
+    <section>
+      <h2>Pairing</h2>
+      <p id="paired" class="hint">Not paired</p>
+      <p class="hint">
+        In Obsidian, open <em>Settings → Browser bridge</em>, turn it on, and choose
+        <em>Generate a pairing code</em>. Type that code here. It works once and lasts five minutes.
+      </p>
+      <label class="field">
+        <span>Pairing code</span>
+        <input id="code" type="text" inputmode="numeric" placeholder="123456" />
+      </label>
+      <button id="pair" class="primary" type="button">Pair</button>
+      <button id="unpair" type="button" hidden>Forget this vault</button>
+    </section>
+
+    <section>
+      <h2>Waiting to send</h2>
+      <p id="queue" class="hint">Nothing waiting.</p>
+      <button id="clearQueue" type="button" hidden>Discard them</button>
+    </section>
+
+    <div id="status" class="status"></div>
+    <script src="options.js"></script>
+  </body>
+</html>
