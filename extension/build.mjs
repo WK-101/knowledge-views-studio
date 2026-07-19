@@ -33,5 +33,6 @@ await esbuild.build({
 for (const file of ["manifest.json", "popup.html", "options.html", "style.css"]) {
   cpSync(from(file), `${outdir}/${file}`);
 }
+cpSync(from("icons"), `${outdir}/icons`, { recursive: true });
 
 console.log(`Companion built into ${outdir} — load that folder unpacked.`);

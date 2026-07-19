@@ -10,3 +10,4 @@ src/services/annotations/pdf.worker.txt
 -e 
 # Companion extension build output
 extension/dist/
+extension/packages/

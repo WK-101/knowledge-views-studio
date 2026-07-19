@@ -5,6 +5,38 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 151 — store readiness
+
+Step 5: getting the companion to the point where submitting it is a form-filling exercise rather than an
+engineering one. Two real blockers were in the way.
+
+**No icons.** Both stores reject an extension without them, so there are now proper ones at 16, 32, 48 and
+128 pixels — a rows glyph, deliberately made of very few shapes, because anything more detailed turns to
+mush at the 16-pixel size that actually matters in a toolbar.
+
+**`tabs` was an install-time permission.** That's the permission that makes Chrome say *"read your browsing
+history"* on the install prompt — an appalling first impression for a tool whose entire argument is that
+nothing leaves your machine. It was only ever needed for the optional toolbar marker, so it's now an
+**optional** permission, requested at the moment someone turns that feature on and not before. The
+background worker checks whether it has been granted before attaching any navigation listener, and a refusal
+switches the setting back rather than leaving a feature that silently does nothing.
+
+That change is worth more than it looks. The difference between an install prompt that mentions browsing
+history and one that doesn't is, for a privacy-first tool, most of the argument.
+
+**Packaging** is now `npm run ext:package`, which produces both archives the stores want: the extension
+itself, and — for Firefox, which requires it whenever submitted code has been bundled — a source archive
+that reproduces the build. Missing that second one is the commonest reason a Firefox submission stalls.
+
+**PRIVACY.md** states plainly what is handled and where it goes, since both stores require a policy and the
+honest answers here happen to be the reassuring ones. **PUBLISHING.md** is a walkthrough for someone who
+hasn't submitted an extension before: account setup, both consoles, the listing copy ready to paste, a
+permission justification written for each entry, what screenshots to take, and the update process.
+
+No test count change — this phase is packaging, metadata and documentation, none of which is unit-testable.
+It's also where I stop being able to help directly: submission needs your own developer accounts (Chrome
+charges $5 once; Firefox is free), and the screenshots have to be taken from a running browser.
+
 ## Phase 150 — many rows at once, and your selection where you want it
 
 **Capturing a page that is already a set of rows.** A journal's contents page, a search result, a

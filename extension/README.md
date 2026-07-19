@@ -10,8 +10,22 @@ Everything stays on your computer. There is no account and no server beyond Obsi
 
 ## Status
 
-Early. Built to be loaded unpacked while the plugin side settles; not yet submitted to any store.
-Targets **Chrome and Firefox on Windows** first.
+Store-ready but not yet submitted. Targets **Chrome and Firefox on Windows** first.
+
+- [PUBLISHING.md](PUBLISHING.md) — step-by-step submission, with the listing copy ready to paste
+- [PRIVACY.md](PRIVACY.md) — the privacy policy both stores require
+
+`npm run ext:package` builds the archives to upload.
+
+## Permissions
+
+Kept as small as they can be. `activeTab` and `scripting` read the page you're capturing, at the moment you
+click; `storage` holds your settings and anything waiting to send; `alarms` retries a delayed capture; and
+`http://127.0.0.1/*` reaches Obsidian on your own machine.
+
+`tabs` is **optional** and requested only if you turn on the toolbar mark — so installing never asks to
+"read your browsing history", which would be a poor first impression for a tool whose whole argument is that
+nothing leaves your computer.
 
 ## Build it
 

@@ -11,6 +11,21 @@ import { readQueue, writeQueue } from "./lib/queue-store";
 
 const byId = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
+/** Ask for the optional `tabs` permission. Returns false if it isn't granted, including when refused. */
+async function requestTabsPermission(): Promise<boolean> {
+  const g = globalThis as unknown as {
+    browser?: { permissions?: { request(p: { permissions: string[] }): Promise<boolean> } };
+    chrome?: { permissions?: { request(p: { permissions: string[] }): Promise<boolean> } };
+  };
+  const permissions = g.browser?.permissions ?? g.chrome?.permissions;
+  if (permissions === undefined) return false;
+  try {
+    return await permissions.request({ permissions: ["tabs"] });
+  } catch {
+    return false;
+  }
+}
+
 function status(message: string, kind: "info" | "error" | "ok" = "info"): void {
   const el = byId("status");
   el.textContent = message;
@@ -63,8 +78,24 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
   byId("recallBadge").addEventListener("change", () => {
-    const on = byId<HTMLInputElement>("recallBadge").checked;
-    void api().storage.local.set({ recallBadge: on });
+    void (async () => {
+      const box = byId<HTMLInputElement>("recallBadge");
+      if (!box.checked) {
+        await api().storage.local.set({ recallBadge: false });
+        status("The toolbar mark is off.", "info");
+        return;
+      }
+      // Ask for the permission at the moment it's wanted, from this click — which is the only time a
+      // browser will allow the prompt, and the only time it makes sense to a person.
+      const granted = await requestTabsPermission();
+      if (!granted) {
+        box.checked = false;
+        status("That needs permission to see which page you're on. Nothing was changed.", "error");
+        return;
+      }
+      await api().storage.local.set({ recallBadge: true });
+      status("The toolbar will now mark pages already in your vault.", "ok");
+    })();
   });
   byId("clearQueue").addEventListener("click", () => {
     void writeQueue([]).then(() => {

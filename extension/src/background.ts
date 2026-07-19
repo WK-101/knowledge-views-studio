@@ -158,7 +158,41 @@ async function updateBadge(tabId: number, url: string): Promise<void> {
   });
 }
 
-tabs()?.onUpdated.addListener((tabId, info, tab) => {
-  if (info.status !== "complete" || tab.url === undefined) return;
-  void updateBadge(tabId, tab.url);
-});
+/**
+ * Watch navigation only once the `tabs` permission has actually been granted.
+ *
+ * The permission is optional and asked for at the moment someone enables the badge, so at install time the
+ * browser never says "read your browsing history" — a prompt that would undercut the one thing this tool is
+ * trying to be trusted about. Until then the listener simply isn't attached.
+ */
+function watchNavigation(): void {
+  const api = tabs();
+  if (api === null || navigationWatched) return;
+  navigationWatched = true;
+  api.onUpdated.addListener((tabId, info, tab) => {
+    if (info.status !== "complete" || tab.url === undefined) return;
+    void updateBadge(tabId, tab.url);
+  });
+}
+
+let navigationWatched = false;
+
+const permissionsApi = ((): { contains(p: { permissions: string[] }): Promise<boolean> } | null => {
+  const g = globalThis as unknown as {
+    browser?: { permissions?: { contains(p: { permissions: string[] }): Promise<boolean> } };
+    chrome?: { permissions?: { contains(p: { permissions: string[] }): Promise<boolean> } };
+  };
+  return g.browser?.permissions ?? g.chrome?.permissions ?? null;
+})();
+
+void (async () => {
+  if (permissionsApi === null) {
+    watchNavigation();
+    return;
+  }
+  try {
+    if (await permissionsApi.contains({ permissions: ["tabs"] })) watchNavigation();
+  } catch {
+    // Nothing granted, nothing to watch.
+  }
+})();
