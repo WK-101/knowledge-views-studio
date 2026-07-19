@@ -65,6 +65,14 @@ export interface CaptureRequest {
     /** Overrides the view's own template for this one capture. */
     readonly template?: string;
   };
+  /**
+   * Save as a note or a row, for this capture only.
+   *
+   * Without this, capturing a whole page was reachable only from a view someone had already configured as
+   * note-shaped in Obsidian — so anyone whose views were all row-shaped had no way to keep an article at
+   * all, which is the one thing every other clipper does.
+   */
+  readonly shape?: "row" | "note";
 }
 
 export interface CaptureResponse {

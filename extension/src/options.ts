@@ -339,22 +339,36 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   byId("serpMarks").addEventListener("change", () => {
-    void (async () => {
-      const box = byId<HTMLInputElement>("serpMarks");
-      if (!box.checked) {
-        await api().storage.local.set({ serpMarks: false });
+    const box = byId<HTMLInputElement>("serpMarks");
+
+    if (!box.checked) {
+      void (async () => {
+        await savePreferences({ serpMarks: false });
         await unregisterSearchScript();
         status("Search results will no longer be marked.", "info");
-        return;
-      }
-      // One prompt covering every search site, asked for at the moment it's wanted.
-      const granted = (await hasSearchAccess()) || (await requestSearchAccess());
+      })();
+      return;
+    }
+
+    // Asked for FIRST, before anything is awaited.
+    //
+    // A browser only allows a permission prompt while it can still see the click that led to it, and any
+    // await beforehand ends that. The previous version checked whether access was already held before
+    // asking for it, which meant the request always arrived one tick too late and was refused outright —
+    // so the box simply sprang back with an error and no prompt ever appeared.
+    const pending = requestSearchAccess();
+
+    void (async () => {
+      const granted = await pending;
       if (!granted) {
         box.checked = false;
-        status("That needs access to search sites. Nothing was changed.", "error");
+        status(
+          "Access to search sites wasn't granted, so nothing changed. If no prompt appeared, your browser may have blocked it — try again from a click.",
+          "error",
+        );
         return;
       }
-      await api().storage.local.set({ serpMarks: true });
+      await savePreferences({ serpMarks: true });
       await registerSearchScript();
       status("Search results will now show what you already have.", "ok");
     })();

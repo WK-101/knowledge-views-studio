@@ -60,7 +60,9 @@
     "https://search.brave.com/*",
     "https://arxiv.org/*",
     "https://pubmed.ncbi.nlm.nih.gov/*",
-    "https://www.semanticscholar.org/*"
+    "https://www.semanticscholar.org/*",
+    "http://*/*",
+    "https://*/*"
   ],
   "sidebar_action": {
     "default_title": "Knowledge Views",

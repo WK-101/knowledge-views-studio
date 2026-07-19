@@ -235,6 +235,7 @@ export function captureRoute(): Route<BridgeContext> {
           value: asString(f.value),
         })),
         ...(typeof body.url === "string" && body.url.trim() !== "" ? { url: body.url.trim() } : {}),
+        ...(body.shape === "row" || body.shape === "note" ? { shape: body.shape } : {}),
         ...(note !== undefined
           ? {
               note: {

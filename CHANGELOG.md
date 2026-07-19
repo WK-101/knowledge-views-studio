@@ -5,6 +5,50 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 157 — four bugs, four root causes
+
+All four reported problems traced to distinct causes. None was cosmetic.
+
+**Search didn't work from the popup.** The tab wiring registered a dashboard panel unconditionally, but only
+the sidebar has one — so the popup's panel map held a null. The first tab click threw as soon as the loop
+reached it, and because Search is registered *after* the dashboard, it was never shown and never mounted.
+Typechecking couldn't see this: the element was cast as present. A missing element is now absent from the
+map rather than stored as nothing, and there is a test that reads both pages and checks that every tab has
+its panel, every panel has its button, and both carry what the shared script reaches for.
+
+**The sidebar couldn't read pages the popup handled seconds earlier.** Not a bug in the reading — a
+permission the sidebar never had. `activeTab` is granted by *clicking the toolbar button*, for that tab, at
+that moment. A sidebar is never opened that way, so nothing was ever granted and every injection failed.
+There's no trick around it: a surface that stays open across everything you navigate to genuinely is asking
+for more than one that reads a single page on click. So it now asks, in plain words, with a button — and only
+when the sidebar is actually used. The install prompt is unchanged.
+
+**Turning on search-result marks failed without ever showing a prompt.** The handler checked whether access
+was already held before requesting it, and that check was awaited — which ends the browser's willingness to
+attribute a permission prompt to the click behind it. The request therefore always arrived a tick too late
+and was refused outright, so the box sprang back with an error and no prompt appeared. The request is now
+made first, before anything is awaited, and the helper returns its promise rather than awaiting inside.
+Nothing to do with Obsidian's own search setting, which was a red herring the error message invited.
+
+**There was no way to keep a whole page.** Note capture was reachable only from a view already configured as
+note-shaped in Obsidian, and the plugin refused a note into a row-shaped view — so anyone whose views were
+all row-shaped could not do the one thing every clipper does. A capture may now state its own shape: the
+**Whole page** tab appears whenever a page has an article, and writes a note regardless of how the view is
+set up, falling back to a `Captured` folder when the view has no note settings of its own.
+
+**And the sidebar layout was a popup with a width override.** Both pages are now generated from one
+structure — the accumulated scripted edits had left `#app` nested inside the capture panel and the header
+outside it, which no stylesheet was going to rescue. The sidebar is now a proper column: fixed header and
+tabs, one scrolling region sized to the real height, tabs that wrap when dragged narrow, a dashboard that
+fills the space rather than guessing at a fraction of the viewport, and labels that move beside their fields
+when there's room.
+
+1209 tests (was 1198): both pages carrying every element the shared script needs; tabs and panels matching
+each way round; the dashboard belonging to the sidebar alone without the popup pretending otherwise; the
+whole-page tab being on both; the tolerance for a panel that isn't on this page; and the shape override,
+including that a note asked of a row-shaped view still gets somewhere to live and that a note-shaped view
+keeps its own folder.
+
 ## Phase 156 — settings that are about your vault, not about sockets
 
 The last of the five phases. Until now the companion's settings were entirely plumbing — an address, a

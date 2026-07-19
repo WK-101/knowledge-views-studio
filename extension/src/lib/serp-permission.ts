@@ -51,14 +51,21 @@ export async function hasSearchAccess(): Promise<boolean> {
   }
 }
 
-/** Ask for every search host in one prompt. */
-export async function requestSearchAccess(): Promise<boolean> {
+/**
+ * Ask for every search host in one prompt.
+ *
+ * Deliberately **not** async up to the point of asking: the call to `request` has to happen on the same tick
+ * as the click that prompted it, because a browser will only show a permission prompt while it can still
+ * attribute one to a user action. Returning the promise rather than awaiting inside keeps that true for
+ * callers too.
+ */
+export function requestSearchAccess(): Promise<boolean> {
   const api = permissions();
-  if (api === null) return false;
+  if (api === null) return Promise.resolve(false);
   try {
-    return await api.request({ origins: [...SEARCH_ORIGINS] });
+    return api.request({ origins: [...SEARCH_ORIGINS] }).catch(() => false);
   } catch {
-    return false;
+    return Promise.resolve(false);
   }
 }
 

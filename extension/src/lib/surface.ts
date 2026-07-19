@@ -9,6 +9,7 @@ import { mountAnnotations } from "./annotations-panel";
 import { mountDashboard } from "./dashboard-panel";
 import { loadPreferences, savePreferences, type Preferences } from "./preferences";
 import { matchRule, mergeTags } from "../../../shared/rules";
+import { hasPageAccess, requestPageAccess } from "./page-access";
 import { queueCapture } from "./queue-store";
 
 /**
@@ -189,6 +190,35 @@ async function warnIfAlreadySaved(): Promise<void> {
   }
 }
 
+/**
+ * Explain what the sidebar needs, and offer it in one click.
+ *
+ * The button matters as much as the words: the request has to be made from a real click, so it can't be
+ * done automatically on open even if that would be more convenient.
+ */
+function offerPageAccess(): void {
+  show("The sidebar needs permission to read pages.", "error");
+  const explain = el(
+    "p",
+    { class: "hint" },
+    "The popup borrows this from the toolbar button each time you click it. The sidebar stays open across pages, so it has to ask once.",
+  );
+  const button = el("button", { class: "primary" }, "Allow reading pages");
+  button.addEventListener("click", () => {
+    const pending = requestPageAccess();
+    void pending.then((granted) => {
+      if (!granted) {
+        show("Permission wasn't granted, so the sidebar can't read this page.", "error");
+        return;
+      }
+      // Start over now that it can actually read anything.
+      root().replaceChildren();
+      void start();
+    });
+  });
+  root().append(explain, button);
+}
+
 async function start(): Promise<void> {
   const connection = await loadConnection();
   if (connection.token === null) {
@@ -201,8 +231,20 @@ async function start(): Promise<void> {
 
   try {
     snapshot = await readPage();
-  } catch {
-    show("Couldn't read this page. Some browser pages can't be captured.", "error");
+  } catch (error) {
+    // The sidebar has no `activeTab` to fall back on, so a failure here is usually a missing permission
+    // rather than an unreadable page. Saying so, with the way to fix it, beats a dead end.
+    if (mode === "sidebar" && !(await hasPageAccess())) {
+      offerPageAccess();
+      return;
+    }
+    const detail = error instanceof Error ? error.message : "";
+    show(
+      detail.includes("answer")
+        ? "This page didn't respond. Try reloading it, then reopen this."
+        : "Couldn't read this page. Some browser pages can't be captured.",
+      "error",
+    );
     return;
   }
 
@@ -266,16 +308,21 @@ async function start(): Promise<void> {
   const noteHost = document.getElementById("tab-note");
   const noteTab = document.querySelector('[data-tab="note"]');
   const syncShape = (): void => {
-    const isNote = current?.capture.shape === "note";
-    noteTab?.classList.toggle("hidden", !isNote);
-    document.getElementById("controls")?.classList.toggle("hidden", isNote);
-    if (isNote && noteHost !== null) {
+    const prefersNote = current?.capture.shape === "note";
+    // Offered whenever the page has an article to keep — not only for views someone already configured as
+    // note-shaped. Keeping a whole page is the thing every clipper does, and it was previously unreachable
+    // for anyone whose views were all row-shaped.
+    const canNote = (snapshot?.article?.markdown ?? "") !== "" || prefersNote;
+    noteTab?.classList.toggle("hidden", !canNote);
+    document.getElementById("controls")?.classList.toggle("hidden", prefersNote);
+    if (canNote && noteHost !== null) {
       mountNote(snapshot as PageSnapshot, {
         host: noteHost,
         view: () => current,
         setStatus: (message, kind) => show(message, kind),
       });
-      (noteTab as HTMLElement | null)?.click();
+      // Jump straight there only when the view is meant for notes; otherwise it's an option, not the plan.
+      if (prefersNote) (noteTab as HTMLElement | null)?.click();
     }
   };
   picker.addEventListener("change", syncShape);
@@ -392,26 +439,32 @@ async function submit(): Promise<void> {
  */
 function wireTabs(): void {
   const buttons = Array.from(document.querySelectorAll("[data-tab]"));
-  const panels = new Map<string, HTMLElement>([
-    ["capture", document.getElementById("tab-capture") as HTMLElement],
-    ["rows", document.getElementById("tab-rows") as HTMLElement],
-    ["note", document.getElementById("tab-note") as HTMLElement],
-    ["edit", document.getElementById("tab-edit") as HTMLElement],
-    ["annotate", document.getElementById("tab-annotate") as HTMLElement],
-    ["dashboard", document.getElementById("tab-dashboard") as HTMLElement],
-    ["search", document.getElementById("tab-search") as HTMLElement],
-  ]);
+
+  // Only panels that actually exist on this page.
+  //
+  // The popup has no dashboard, and registering one regardless put a null into this map — so the first tab
+  // click threw as soon as the loop reached it. Everything registered after that point, which included
+  // Search, was never shown and never mounted. A missing element must be absent from the map, not present
+  // as nothing.
+  const panels = new Map<string, HTMLElement>();
+  for (const name of ["capture", "rows", "note", "edit", "annotate", "dashboard", "search"]) {
+    const panel = document.getElementById(`tab-${name}`);
+    if (panel !== null) panels.set(name, panel);
+  }
   let searchMounted = false;
 
   for (const button of buttons) {
     button.addEventListener("click", () => {
       const wanted = button.getAttribute("data-tab") ?? "capture";
+      if (!panels.has(wanted)) return;
       for (const other of buttons) other.classList.toggle("active", other === button);
       for (const [name, panel] of panels) panel.classList.toggle("hidden", name !== wanted);
-      if (wanted === "search" && !searchMounted) {
+
+      const searchHost = panels.get("search");
+      if (wanted === "search" && !searchMounted && searchHost !== undefined) {
         searchMounted = true;
         mountSearch({
-          host: panels.get("search") as HTMLElement,
+          host: searchHost,
           vaultName: () => schema?.vault ?? "",
           setStatus: (message, kind) => show(message, kind),
         });

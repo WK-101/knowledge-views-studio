@@ -43,6 +43,8 @@ export interface CapturePayload {
     readonly body?: string;
     readonly template?: string;
   };
+  /** Save as this shape regardless of how the view is configured. */
+  readonly shape?: "row" | "note";
   /** The page or file this came from, if any. Used for provenance and duplicate detection. */
   readonly url?: string;
   readonly capturedAt?: string;

@@ -6,11 +6,10 @@ import { findDuplicate, buildCapturedNote, safeFileName } from "../src/services/
 import type { Row } from "../src/domain/index";
 import { parseCaptureText, effectiveTarget } from "../src/services/capture/parse";
 import type { TargetSource } from "../src/services/capture/parse";
-import type { CaptureColumn } from "../src/services/capture/types";
+import type { CaptureColumn, CaptureTarget, CapturePayload } from "../src/services/capture/types";
 import { noteVariables, DEFAULT_NOTE_TEMPLATE, DEFAULT_FILENAME_TEMPLATE } from "../shared/note";
 import { renderTemplate } from "../shared/template";
 import type { PageSnapshot } from "../shared/extract";
-import type { CapturePayload } from "../src/services/capture/types";
 
 const col = (name: string, typeId = "text", extra: Partial<CaptureColumn> = {}): CaptureColumn => ({
   name,
@@ -540,5 +539,34 @@ describe("capture · the default note template", () => {
   it("names the file from the title, trimmed and path-safe", () => {
     const values = noteVariables({ url: "https://x/", title: "A/B: a very long title" }, "");
     expect(renderTemplate(DEFAULT_FILENAME_TEMPLATE, values)).toBe("AB a very long title");
+  });
+})
+
+describe("capture · choosing the shape per capture", () => {
+  it("a request may ask for a note even when the view is set up for rows", () => {
+    // Otherwise keeping a whole page is only possible from a view somebody thought to configure for notes,
+    // which left anyone with row-shaped views unable to do the one thing every clipper does.
+    const target: CaptureTarget = { shape: "row", notePath: "Library.md" };
+    const payload: CapturePayload = { fields: [], shape: "note", note: { body: "Article." } };
+    expect(payload.shape ?? target.shape).toBe("note");
+  });
+
+  it("falls back to the view's own shape when the request doesn't say", () => {
+    const target: CaptureTarget = { shape: "row", notePath: "Library.md" };
+    const payload: CapturePayload = { fields: [] };
+    expect(payload.shape ?? target.shape).toBe("row");
+  });
+
+  it("a note asked of a row-shaped view still gets somewhere to live", () => {
+    const target: CaptureTarget = { shape: "row", notePath: "Library.md" };
+    const asNote: CaptureTarget = { ...target, shape: "note", folder: target.folder ?? "Captured" };
+    expect(asNote.folder).toBe("Captured");
+    expect(asNote.shape).toBe("note");
+  });
+
+  it("keeps a note-shaped view's own folder rather than overriding it", () => {
+    const target: CaptureTarget = { shape: "note", folder: "Reading" };
+    const asNote: CaptureTarget = target.shape === "note" ? target : { ...target, shape: "note" };
+    expect(asNote.folder).toBe("Reading");
   });
 })

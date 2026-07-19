@@ -82,7 +82,7 @@ export function mountNote(page: PageSnapshot, elements: Elements): void {
   previewToggle.appendChild(preview);
   host.appendChild(previewToggle);
 
-  const button = node("button", { class: "primary", type: "button" }, "Save note to vault");
+  const button = node("button", { class: "primary", type: "button" }, "Save whole page as a note");
   host.appendChild(button);
 
   const bodyFor = (choice: BodyChoice): string => {
@@ -140,6 +140,8 @@ export function mountNote(page: PageSnapshot, elements: Elements): void {
           .map(([key, value]) => ({ key, value })),
         url: page.url,
         note: { fileName: name, body: bodyFor(bodyChoice) },
+        // Stated outright, so a row-shaped view still writes a note when that's what was asked for.
+        shape: "note",
       };
 
       button.setAttribute("disabled", "");

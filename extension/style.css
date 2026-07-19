@@ -156,9 +156,72 @@ body.is-popup.size-small .field { margin-bottom: 6px; }
 body.is-popup.size-small textarea { rows: 2; }
 body.is-popup.size-large .preview-note { max-height: 320px; }
 
-/* The sidebar fills whatever the browser gives it and stays open, so it can afford to breathe. */
-body.is-sidebar { width: auto; min-width: 280px; }
-body.is-sidebar #app { padding: 12px; }
+/* ---- Surfaces ---------------------------------------------------------
+   Both pages share a structure: a fixed header and tab strip, then one scrolling region. The popup is a
+   pane the browser sizes for us; the sidebar is tall, narrow and resizable, so its content area has to be
+   fluid rather than a fixed width with an override bolted on. */
+#panels { display: block; }
+.panel.hidden { display: none; }
+
+body.is-popup.size-small { width: 320px; font-size: 12px; }
+body.is-popup.size-medium { width: 380px; }
+body.is-popup.size-large { width: 460px; }
+body.is-popup.size-large .preview-note { max-height: 320px; }
+
+body.is-sidebar {
+  width: auto;
+  min-width: 0;
+  height: 100vh;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+body.is-sidebar > header,
+body.is-sidebar > .tabs,
+body.is-sidebar > #status {
+  flex: none;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+body.is-sidebar > header { padding-top: 12px; }
+/* One scrolling region, sized to whatever height the sidebar actually has. */
+body.is-sidebar > #panels {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 10px 12px 14px;
+}
+/* Tabs wrap rather than overflow when the sidebar is dragged narrow. */
+body.is-sidebar .tabs { flex-wrap: wrap; row-gap: 2px; }
+/* A long title or url shouldn't force sideways scrolling in a narrow panel. */
+body.is-sidebar .dash-title,
+body.is-sidebar .hint,
+body.is-sidebar .status { overflow-wrap: anywhere; }
+
+/* The dashboard fills the panel instead of guessing at a fraction of the viewport. */
+body.is-sidebar #tab-dashboard { display: flex; flex-direction: column; height: 100%; }
+body.is-sidebar .dash-body { flex: 1 1 auto; min-height: 0; max-height: none; }
+body.is-sidebar .dash-foot { flex: none; padding-top: 6px; }
+body.is-sidebar .annots { max-height: none; }
+
+/* Given room, labels sit beside their fields instead of above them. Narrow sidebars must not try. */
+@media (min-width: 440px) {
+  body.is-sidebar .field {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    align-items: center;
+    gap: 8px;
+  }
+  body.is-sidebar .field > span { margin: 0; }
+  body.is-sidebar .field > textarea,
+  body.is-sidebar .field > .with-action { grid-column: 2; }
+}
+@media (max-width: 300px) {
+  body.is-sidebar .dash-meta { gap: 3px; }
+  body.is-sidebar .tabs .tab { padding: 3px 6px; font-size: 11px; }
+}
 
 /* ---- Dashboard --------------------------------------------------------- */
 .dash-body { margin: 8px 0; max-height: 60vh; overflow-y: auto; }

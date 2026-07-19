@@ -121,9 +121,15 @@ export class CaptureService {
     columns: readonly CaptureColumn[],
     payload: CapturePayload,
   ): Promise<CaptureResult> {
-    return target.shape === "note"
-      ? this.commitNote(target, values, payload)
-      : this.commitRow(target, values, columns);
+    // A capture may ask for a shape the view wasn't set up for. Honouring that is what makes keeping a whole
+    // page possible from any view, rather than only from one somebody thought to configure for notes.
+    const shape = payload.shape ?? target.shape;
+    if (shape === "note") {
+      const asNote: CaptureTarget =
+        target.shape === "note" ? target : { ...target, shape: "note", folder: target.folder ?? "Captured" };
+      return this.commitNote(asNote, values, payload);
+    }
+    return this.commitRow(target, values, columns);
   }
 
   /**

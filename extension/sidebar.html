@@ -2,41 +2,44 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Knowledge Views</title>
     <link rel="stylesheet" href="style.css" />
   </head>
-  <body class="popup">
+  <body>
     <header>
-      <strong>Capture</strong>
+      <strong>Knowledge Views</strong>
       <button id="settings" class="link" type="button">Settings</button>
     </header>
     <nav class="tabs">
       <button data-tab="capture" class="tab active" type="button">Capture</button>
       <button data-tab="rows" class="tab hidden" type="button">Rows</button>
-      <button data-tab="note" class="tab hidden" type="button">Note</button>
+      <button data-tab="note" class="tab hidden" type="button">Whole page</button>
       <button data-tab="edit" class="tab hidden" type="button">Update</button>
       <button data-tab="annotate" class="tab hidden" type="button">Highlight</button>
       <button data-tab="search" class="tab" type="button">Search</button>
       <button data-tab="dashboard" class="tab hidden" type="button">Views</button>
     </nav>
     <div id="status" class="status">Reading this page…</div>
-    <div id="tab-rows" class="hidden"></div>
-    <div id="tab-note" class="hidden"></div>
-    <div id="tab-edit" class="hidden"></div>
-    <div id="tab-annotate" class="hidden"></div>
-    <div id="tab-search" class="hidden"></div>
-    <div id="tab-dashboard" class="hidden"></div>
-    <div id="tab-capture">
-    <div id="app"></div>
-    <div id="controls" class="hidden">
-      <label class="field">
-        <span>Into view</span>
-        <select id="view"></select>
-      </label>
-      <div id="form"></div>
-      <button id="save" class="primary" type="button">Save to vault</button>
-    </div>
-    </div>
+    <main id="panels">
+      <div id="tab-capture" class="panel">
+        <div id="app"></div>
+        <div id="controls" class="hidden">
+          <label class="field">
+            <span>Into view</span>
+            <select id="view"></select>
+          </label>
+          <div id="form"></div>
+          <button id="save" class="primary" type="button">Save to vault</button>
+        </div>
+      </div>
+      <div id="tab-rows" class="panel hidden"></div>
+      <div id="tab-note" class="panel hidden"></div>
+      <div id="tab-edit" class="panel hidden"></div>
+      <div id="tab-annotate" class="panel hidden"></div>
+      <div id="tab-search" class="panel hidden"></div>
+      <div id="tab-dashboard" class="panel hidden"></div>
+    </main>
     <script src="sidebar.js"></script>
   </body>
 </html>
