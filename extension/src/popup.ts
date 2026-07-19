@@ -4,6 +4,7 @@ import { BridgeError, capture, fetchSchema, loadConnection, lookup } from "./lib
 import { mountSearch } from "./lib/search-panel";
 import { mountRows } from "./lib/rows-panel";
 import { mountNote } from "./lib/note-panel";
+import { mountEdit } from "./lib/edit-panel";
 import { queueCapture } from "./lib/queue-store";
 
 /**
@@ -158,10 +159,20 @@ async function warnIfAlreadySaved(): Promise<void> {
     const connection = await loadConnection();
     const doi = findDoi(snapshot, extractFields(snapshot));
     const result = await lookup(connection, { url: snapshot.url, ...(doi !== null ? { doi } : {}) });
-    if (result.matches.length > 0) {
-      const first = result.matches[0];
-      if (first !== undefined) {
-        show(`Already in “${first.viewName}” — matched on ${first.on}. You can still capture it.`, "info");
+    const first = result.matches[0];
+    if (first !== undefined) {
+      show(`Already in “${first.viewName}” — matched on ${first.on}. You can still capture it.`, "info");
+      // Revisiting something you have is the moment you want to change it, not file it again.
+      const editHost = document.getElementById("tab-edit");
+      const editTab = document.querySelector('[data-tab="edit"]');
+      if (editHost !== null && editTab !== null && first.rowRef !== undefined) {
+        mountEdit(first, {
+          host: editHost,
+          view: () => schema?.views.find((v) => v.id === first.viewId) ?? current,
+          vaultName: () => schema?.vault ?? "",
+          setStatus: (message, kind) => show(message, kind),
+        });
+        editTab.classList.remove("hidden");
       }
     }
   } catch {
@@ -317,6 +328,7 @@ function wireTabs(): void {
     ["capture", document.getElementById("tab-capture") as HTMLElement],
     ["rows", document.getElementById("tab-rows") as HTMLElement],
     ["note", document.getElementById("tab-note") as HTMLElement],
+    ["edit", document.getElementById("tab-edit") as HTMLElement],
     ["search", document.getElementById("tab-search") as HTMLElement],
   ]);
   let searchMounted = false;

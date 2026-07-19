@@ -140,3 +140,8 @@ table.preview th { color: var(--muted); font-weight: 600; }
   white-space: pre-wrap;
   color: var(--muted);
 }
+
+/* Editing a row you already have. */
+.edit-head { display: flex; align-items: baseline; gap: 6px; margin-bottom: 2px; }
+.edit-head a { color: var(--fg); text-decoration: none; }
+.edit-head a:hover { text-decoration: underline; }

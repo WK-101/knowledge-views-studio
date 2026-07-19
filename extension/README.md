@@ -86,6 +86,24 @@ so a contents page becomes a single blob of prose.
 Select text before opening the popup and every field gains a **Use selection** button, so a highlighted
 abstract, price or author can go into the column you actually want it in rather than always the description.
 
+## Changing what you already have
+
+When a page is already in your vault, an **Update** tab appears. Mark it read, set a rating, move its status
+— without leaving the page or hunting for the row in Obsidian.
+
+This is the half no general web clipper can offer, because a clipper has no idea what a row is. The vault
+decides what may be written: computed values and fields owned by another source are refused and reported
+rather than silently overwritten.
+
+## Marking search results
+
+The companion can show which search results you already have — the question worth asking *before* you click,
+rather than after. Off by default; turning it on asks for access to Google, Scholar, DuckDuckGo, Bing, Brave,
+arXiv, PubMed and Semantic Scholar in **one** prompt, not site by site.
+
+Only the addresses of results are checked, and the vault answers with nothing but which of them it
+recognised — no titles, no paths, no view names. The page-side script never holds your vault token.
+
 ## Searching your vault
 
 The popup's second tab searches the vault itself — notes, table rows, annotations, attachments and Zotero —

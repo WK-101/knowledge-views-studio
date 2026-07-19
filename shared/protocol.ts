@@ -37,6 +37,8 @@ export interface LookupRequest {
 export interface LookupMatch {
   readonly viewId: string;
   readonly viewName: string;
+  /** Opaque handle for editing this row. Meaningless outside the vault that issued it. */
+  readonly rowRef?: string;
   readonly on: string;
   readonly title: string;
   readonly filePath: string;
@@ -180,4 +182,73 @@ export function parsePairingInput(raw: string): PairingInput | null {
 /** The link Obsidian offers to copy, carrying both things the companion needs. */
 export function buildConnectionLink(port: number, code: string): string {
   return `kvs://pair?port=${String(port)}&code=${code}`;
+}
+
+// ---- Editing what you already have, and recognising it in search results ----
+
+/**
+ * Normalize a URL so the same page recognises itself.
+ *
+ * The link in a search result, the one in your address bar, and the one you saved last month are frequently
+ * different strings for one page — campaign parameters, a fragment, a trailing slash, a capitalised host.
+ * Comparing them raw means a page you definitely have looks new, which is precisely the moment recall is
+ * supposed to help.
+ *
+ * Deliberately conservative: only parameters that are demonstrably tracking are dropped. A query string is
+ * often load-bearing (`?id=`, `?q=`, `?v=`), and discarding one would merge two genuinely different pages.
+ */
+export function normalizeUrl(raw: string): string {
+  const text = raw.trim();
+  if (text === "") return "";
+  let url: URL;
+  try {
+    url = new URL(text);
+  } catch {
+    return text.toLowerCase();
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return text.toLowerCase();
+
+  const drop = /^(utm_|ga_|mc_|pk_|hsa_|vero_|_hs|icid$|igshid$|fbclid$|gclid$|dclid$|msclkid$|mkt_tok$|ref$|ref_src$|source$|spm$|scid$)/i;
+  const keep = [...url.searchParams.entries()].filter(([key]) => !drop.test(key));
+  url.search = "";
+  for (const [key, value] of keep.sort(([a], [b]) => a.localeCompare(b))) url.searchParams.append(key, value);
+
+  url.hash = "";
+  url.hostname = url.hostname.toLowerCase().replace(/^www\./, "");
+  url.protocol = "https:";
+  const path = url.pathname.replace(/\/+$/, "");
+  const query = url.search;
+  return `${url.protocol}//${url.host}${path === "" ? "" : path}${query}`;
+}
+
+/** Ask whether any of these pages are already in the vault. */
+export interface KnownRequest {
+  readonly urls: readonly string[];
+  readonly viewIds?: readonly string[];
+}
+
+/**
+ * The answer: which of them are present, and nothing else.
+ *
+ * Only the URLs come back — not titles, not paths, not which view. This endpoint is answered to a script
+ * running on a search results page, and that script has no business learning what your vault contains
+ * beyond the question it asked.
+ */
+export interface KnownResponse {
+  readonly known: readonly string[];
+}
+
+export interface UpdateRequest {
+  readonly viewId: string;
+  /** Opaque handle from a lookup result. Matched against the vault's own rows, never dereferenced. */
+  readonly rowRef: string;
+  readonly values: readonly { readonly key: string; readonly value: string }[];
+}
+
+export interface UpdateResponse {
+  readonly ok: boolean;
+  readonly updated?: readonly string[];
+  /** Columns that were asked for but couldn't be written, and why — rather than failing silently. */
+  readonly skipped?: readonly { readonly column: string; readonly reason: string }[];
+  readonly reason?: string;
 }

@@ -1,7 +1,8 @@
 import { next, retryDelayMs } from "../../shared/queue";
-import { BridgeError, capture, loadConnection, lookup } from "./lib/bridge-client";
+import { BridgeError, capture, known, loadConnection, lookup } from "./lib/bridge-client";
 import { api } from "./lib/bridge-client";
 import { dropFromQueue, pruneQueue, readQueue, recordFailure } from "./lib/queue-store";
+import { hasSearchAccess, registerSearchScript } from "./lib/serp-permission";
 
 /**
  * Draining what couldn't be delivered.
@@ -123,6 +124,12 @@ async function badgeEnabled(): Promise<boolean> {
   return stored["recallBadge"] === true;
 }
 
+/** The search-page marks are a separate choice from the toolbar badge; both are off until asked for. */
+async function serpEnabled(): Promise<boolean> {
+  const stored = await api().storage.local.get(["serpMarks"]);
+  return stored["serpMarks"] === true;
+}
+
 async function updateBadge(tabId: number, url: string): Promise<void> {
   const ui = action();
   if (ui === null) return;
@@ -194,5 +201,60 @@ void (async () => {
     if (await permissionsApi.contains({ permissions: ["tabs"] })) watchNavigation();
   } catch {
     // Nothing granted, nothing to watch.
+  }
+})();
+
+
+/**
+ * Answer the search-page script's question on its behalf.
+ *
+ * The content script runs inside a page it shares with whatever else that page loads, so it must never hold
+ * the vault token. It asks here; this asks the vault; only the list of recognised URLs goes back.
+ */
+interface RuntimeMessaging {
+  onMessage: {
+    addListener(
+      fn: (message: unknown, sender: unknown, sendResponse: (response: unknown) => void) => boolean,
+    ): void;
+  };
+}
+const runtimeMessaging = ((): RuntimeMessaging | null => {
+  const g = globalThis as unknown as {
+    browser?: { runtime?: RuntimeMessaging };
+    chrome?: { runtime?: RuntimeMessaging };
+  };
+  return g.browser?.runtime ?? g.chrome?.runtime ?? null;
+})();
+
+runtimeMessaging?.onMessage.addListener((message, _sender, sendResponse) => {
+  const request = message as { type?: string; urls?: unknown } | null;
+  if (request?.type !== "kvs-known") return false;
+  void (async () => {
+    try {
+      if (!(await serpEnabled())) {
+        sendResponse({ known: [] });
+        return;
+      }
+      const connection = await loadConnection();
+      if (connection.token === null || !Array.isArray(request.urls)) {
+        sendResponse({ known: [] });
+        return;
+      }
+      const result = await known(connection, request.urls as string[]);
+      sendResponse({ known: result.known });
+    } catch {
+      sendResponse({ known: [] });
+    }
+  })();
+  return true;
+});
+
+
+// Re-register the search-page marker after a browser restart, when the permission is already held.
+void (async () => {
+  try {
+    if ((await serpEnabled()) && (await hasSearchAccess())) await registerSearchScript();
+  } catch {
+    // Nothing to do; the feature stays off until enabled again.
   }
 })();

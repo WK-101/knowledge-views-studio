@@ -48,5 +48,17 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "homepage_url": "https://github.com/WK-101/knowledge-views-studio"
+  "homepage_url": "https://github.com/WK-101/knowledge-views-studio",
+  "optional_host_permissions": [
+    "https://www.google.com/*",
+    "https://google.com/*",
+    "https://scholar.google.com/*",
+    "https://duckduckgo.com/*",
+    "https://www.bing.com/*",
+    "https://bing.com/*",
+    "https://search.brave.com/*",
+    "https://arxiv.org/*",
+    "https://pubmed.ncbi.nlm.nih.gov/*",
+    "https://www.semanticscholar.org/*"
+  ]
 }

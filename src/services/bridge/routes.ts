@@ -14,13 +14,19 @@ import {
   type LookupMatch,
   type LookupRequest,
   type SchemaColumn,
+  type KnownRequest,
+  type KnownResponse,
   type PingResponse,
   type SchemaResponse,
   type SchemaView,
   type SearchMode,
   type SearchRequest,
   type SearchResponse,
+  type UpdateRequest,
+  type UpdateResponse,
 } from "./types";
+import { normalizeUrl } from "../../../shared/protocol";
+import { editableChanges, findRowByRef, rowRefOf } from "./row-ref";
 
 /**
  * What the bridge actually does.
@@ -37,6 +43,8 @@ export interface BridgeContext {
   /** Rows and resolved columns for a view — the same pair the in-app capture command uses. */
   readonly viewData: (profile: Profile) => Promise<{ rows: readonly Row[]; columns: readonly CaptureColumn[] }>;
   readonly capture: CaptureService;
+  /** Apply cell edits. Absent when writing back isn't available at all. */
+  readonly editCells?: (edits: readonly { provenance: Row["provenance"]; column: string; value: string }[]) => Promise<void>;
   readonly onCaptured: (path: string) => void;
   /** Complete a pairing with a typed code. */
   readonly pair: (code: string) => { ok: true; token: string } | { ok: false; reason: string };
@@ -140,6 +148,7 @@ export function lookupRoute(): Route<BridgeContext> {
           matches.push({
             viewId: profile.id,
             viewName: profile.name,
+            rowRef: rowRefOf(hit.row.provenance),
             on: hit.on,
             title: titleColumn ? getField(hit.row, titleColumn.name) : "",
             filePath: hit.row.provenance.filePath,
@@ -318,6 +327,126 @@ export function pingRoute(): Route<BridgeContext> {
   };
 }
 
+
+/**
+ * `POST /known` — which of these pages do I already have?
+ *
+ * Answers with the URLs and nothing else: no titles, no paths, no view names. This is called by a script
+ * running on a search results page, and such a script has no business learning what the vault contains
+ * beyond the question it asked. URLs are compared after normalisation, so a result carrying campaign
+ * parameters still recognises the page you saved without them.
+ */
+export function knownRoute(): Route<BridgeContext> {
+  return {
+    method: "POST",
+    path: "/known",
+    permission: "read",
+    handler: async (request, context) => {
+      const body = (request.body ?? {}) as KnownRequest;
+      const asked: unknown = body.urls;
+      if (!Array.isArray(asked) || asked.length === 0) return badRequest("Provide urls to check.");
+      const urls = (asked as readonly unknown[])
+        .map((u) => asString(u))
+        .filter((u) => u !== "")
+        .slice(0, 200);
+      if (urls.length === 0) return badRequest("Provide urls to check.");
+
+      const wanted = new Map<string, string>();
+      for (const url of urls) wanted.set(normalizeUrl(url), url);
+
+      const found = new Set<string>();
+      for (const profile of exposedProfiles(context)) {
+        if (body.viewIds !== undefined && !body.viewIds.includes(profile.id)) continue;
+        const { rows, columns } = await context.viewData(profile);
+        const urlColumns = columns.filter(
+          (c) => c.typeId === "url" || c.name.toLowerCase().replace(/[\s_-]+/g, "") === "url",
+        );
+        if (urlColumns.length === 0) continue;
+        for (const row of rows) {
+          for (const column of urlColumns) {
+            const value = normalizeUrl(getField(row, column.name));
+            if (value === "") continue;
+            const original = wanted.get(value);
+            if (original !== undefined) found.add(original);
+          }
+        }
+        if (found.size === wanted.size) break;
+      }
+      const response: KnownResponse = { known: [...found] };
+      return { status: 200, body: response };
+    },
+  };
+}
+
+/**
+ * `POST /update` — change a row you already have.
+ *
+ * The capability that makes this a companion rather than a collector. Marking something read, setting a
+ * rating, moving a status: all things you decide while looking at the page, and all previously impossible
+ * without switching to Obsidian and finding the row by hand.
+ *
+ * Two safeguards, both deliberate. The row reference is **matched** against rows the vault produced rather
+ * than dereferenced, so a forged or stale handle finds nothing and the edit is refused instead of writing
+ * somewhere nobody intended. And read-only fields are re-checked here, because in the app they're enforced
+ * by the editing surface — nothing below it would stop a computed value being overwritten with a literal.
+ */
+export function updateRoute(): Route<BridgeContext> {
+  return {
+    method: "POST",
+    path: "/update",
+    permission: "write",
+    handler: async (request, context) => {
+      const body = (request.body ?? {}) as UpdateRequest;
+      const viewId = (body.viewId ?? "").trim();
+      const rowRef = (body.rowRef ?? "").trim();
+      if (viewId === "" || rowRef === "") return badRequest("Which row, in which view?");
+      const asked: unknown = body.values;
+      if (!Array.isArray(asked) || asked.length === 0) return badRequest("Nothing to change.");
+      if (context.editCells === undefined) {
+        return { status: 503, body: { error: "Editing isn't available in this vault." } };
+      }
+
+      const profile = exposedProfiles(context).find((p) => p.id === viewId);
+      if (profile === undefined) return { status: 404, body: { error: "No such view." } };
+
+      const { rows, columns } = await context.viewData(profile);
+      const row = findRowByRef(rows, rowRef);
+      if (row === null) {
+        // Either it's gone or it changed since the caller last looked. Applying the edit to whatever now
+        // occupies that position would be worse than refusing.
+        const stale: UpdateResponse = { ok: false, reason: "That row has changed or is no longer there." };
+        return { status: 409, body: stale };
+      }
+
+      const values = (asked as readonly { key?: unknown; value?: unknown }[]).map((v) => ({
+        key: asString(v.key),
+        value: asString(v.value),
+      }));
+      const { allowed, skipped } = editableChanges(row, values, columns);
+      if (allowed.length === 0) {
+        const nothing: UpdateResponse = {
+          ok: false,
+          reason: "None of those columns can be written.",
+          ...(skipped.length > 0 ? { skipped } : {}),
+        };
+        return { status: 422, body: nothing };
+      }
+
+      await context.editCells(
+        allowed.map((change) => ({ provenance: row.provenance, column: change.column, value: change.value })),
+      );
+      context.onCaptured(row.provenance.filePath);
+
+      const response: UpdateResponse = {
+        ok: true,
+        updated: allowed.map((c) => c.column),
+        ...(skipped.length > 0 ? { skipped } : {}),
+      };
+      return { status: 200, body: response };
+    },
+  };
+}
+
 /** `POST /pair` — exchange a short code shown in settings for a lasting token. */
 export function pairRoute(): Route<BridgeContext> {
   return {
@@ -337,5 +466,14 @@ export function pairRoute(): Route<BridgeContext> {
 
 /** The endpoints the bridge ships with. Registering rather than hard-wiring keeps the list open. */
 export function defaultRoutes(): readonly Route<BridgeContext>[] {
-  return [pingRoute(), pairRoute(), schemaRoute(), lookupRoute(), captureRoute(), searchRoute()];
+  return [
+    pingRoute(),
+    pairRoute(),
+    schemaRoute(),
+    lookupRoute(),
+    knownRoute(),
+    captureRoute(),
+    updateRoute(),
+    searchRoute(),
+  ];
 }

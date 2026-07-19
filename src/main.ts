@@ -269,6 +269,11 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
         },
         capture: captureService,
         onCaptured: (path) => dataService.invalidate(path),
+        // Reuses the same writer the app itself edits through, so a change from the browser goes down
+        // exactly the path an in-app edit does — including its undo history.
+        editCells: async (edits) => {
+          await renderDeps.writer.editCells(edits);
+        },
         // Only offered when search exists at all; the endpoint then says so rather than returning an empty
         // list that would read as "nothing found".
         ...(searchIndexer

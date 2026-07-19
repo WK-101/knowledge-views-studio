@@ -8,6 +8,12 @@ import {
   saveConnection,
 } from "./lib/bridge-client";
 import { parsePairingInput } from "../../shared/protocol";
+import {
+  hasSearchAccess,
+  registerSearchScript,
+  requestSearchAccess,
+  unregisterSearchScript,
+} from "./lib/serp-permission";
 import { readQueue, writeQueue } from "./lib/queue-store";
 
 /**
@@ -78,8 +84,11 @@ async function refresh(): Promise<void> {
   byId("paired").textContent = connection.token === null ? "Not connected" : "Connected to a vault";
   byId("unpair").toggleAttribute("hidden", connection.token === null);
 
-  const stored = await api().storage.local.get(["recallBadge"]);
+  const stored = await api().storage.local.get(["recallBadge", "serpMarks"]);
   byId<HTMLInputElement>("recallBadge").checked = stored["recallBadge"] === true;
+  // Only shown as on when the access it needs is actually held, so the checkbox can't claim a feature
+  // that silently isn't running.
+  byId<HTMLInputElement>("serpMarks").checked = stored["serpMarks"] === true && (await hasSearchAccess());
 
   const queue = await readQueue();
   byId("queue").textContent =
@@ -143,6 +152,27 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       await api().storage.local.set({ recallBadge: true });
       status("The toolbar will now mark pages already in your vault.", "ok");
+    })();
+  });
+  byId("serpMarks").addEventListener("change", () => {
+    void (async () => {
+      const box = byId<HTMLInputElement>("serpMarks");
+      if (!box.checked) {
+        await api().storage.local.set({ serpMarks: false });
+        await unregisterSearchScript();
+        status("Search results will no longer be marked.", "info");
+        return;
+      }
+      // One prompt covering every search site, asked for at the moment it's wanted.
+      const granted = (await hasSearchAccess()) || (await requestSearchAccess());
+      if (!granted) {
+        box.checked = false;
+        status("That needs access to search sites. Nothing was changed.", "error");
+        return;
+      }
+      await api().storage.local.set({ serpMarks: true });
+      await registerSearchScript();
+      status("Search results will now show what you already have.", "ok");
     })();
   });
   byId("clearQueue").addEventListener("click", () => {

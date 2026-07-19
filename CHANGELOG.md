@@ -5,6 +5,63 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 154 — editing what you already have
+
+Last of the three phases, and the one that changes what this is. Until now the companion could only add:
+everything went one way, and the moment you wanted to mark a paper read or move its status you had to leave
+the page and find the row by hand. That is what made it feel like a filing tool.
+
+**A page already in your vault now gets an Update tab.** Change a status, set a rating, add tags, mark it
+read — from the page that prompted the thought. This is the capability the plugin was built around, since
+views here are editable dashboards that write back to the files beneath them, and it is the one thing a
+general web clipper structurally cannot offer: it has no idea what a row is.
+
+Two safeguards, both deliberate, both tested.
+
+*A row reference is matched, never dereferenced.* The obvious way to say "update this row" is to send back a
+file path and position — and a caller that can name a location can name **any** location, which turns an
+edit into a write to somewhere nobody intended. So the handle is opaque, derived from the row's own
+provenance, and on the way back in it is only ever compared against rows the vault itself produced. A forged
+handle matches nothing. So does a stale one: the handle includes the row's content fingerprint, so an edit
+made against an old view of the data is refused rather than applied to whatever now occupies that position.
+
+*Read-only fields are re-checked at the bridge.* In the app they're enforced by the editing surface, which
+means nothing below it would stop a computed value being overwritten with a literal — silent corruption of
+the worst kind, because the number still looks like a number. A refusal is reported with its reason rather
+than dropped, and the rest of the edit still applies.
+
+Edits are deliberately **not** queued when the vault is unreachable. A capture held for hours is still worth
+writing; an edit held for hours would be applied to a row that has since moved on, and quietly overwriting
+someone's later change is worse than asking again.
+
+**And the companion can now mark search results you already have.** The toolbar badge answers "do I have
+*this* page?", which helps once you're already somewhere. The more valuable question comes earlier: of these
+twenty results, which have I read? Answering it turns the vault from an archive you visit into something that
+informs where you go.
+
+Only the addresses are checked, and the vault answers with nothing but which of them it recognised — no
+titles, no paths, no view names. The page-side script never holds the vault token; it asks the extension's
+background worker, which asks the vault. A script sharing a page with whatever else that page loads is the
+last place a credential belongs.
+
+Matching is done on normalised URLs, so a result carrying campaign parameters still recognises the page you
+saved without them — while parameters that genuinely identify a page (`?v=`, `?id=`) are kept, since dropping
+those would merge two different pages into one.
+
+**The install prompt is unchanged.** Declaring the search hosts in the manifest would have put "Google, Bing,
+DuckDuckGo, PubMed…" in front of everyone at install, including those who never turn the feature on. Instead
+all ten are requested together at the moment it's enabled — one decision rather than a site-by-site
+interrogation, and none at all for anyone who doesn't want it. The script is registered at that point and
+unregistered when switched off.
+
+1140 tests (was 1107): row handles being stable, order-independent, distinct across files, positions and
+extractors, changing with content, and revealing no path; forged and stale handles matching nothing; the
+read-only check including case-insensitivity, partial application, and reporting what it refused; URL
+normalisation recognising the same page across www, scheme, trailing slash, fragment and campaign parameters
+while keeping identifying ones and ordering the rest; and search-result detection separating results from
+navigation, handling academic sites where the site's own pages are the results, deduplicating, and capping
+how many are asked about.
+
 ## Phase 153 — note capture, properly
 
 Second of the three phases. Note-shaped capture was worse than missing: a view configured for notes *was*

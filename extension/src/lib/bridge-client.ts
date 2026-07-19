@@ -5,6 +5,9 @@ import type {
   SchemaResponse,
   SearchRequest,
   SearchResponse,
+  UpdateRequest,
+  UpdateResponse,
+  KnownResponse,
 } from "../../../shared/protocol";
 import { DISCOVERY_PORTS, isBridgePing } from "../../../shared/protocol";
 
@@ -171,4 +174,13 @@ export async function bridgeReachable(baseUrl: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export async function update(connection: Connection, request: UpdateRequest): Promise<UpdateResponse> {
+  return call<UpdateResponse>(connection, "/update", { method: "POST", body: JSON.stringify(request) });
+}
+
+/** Ask which of these pages are already saved. Answers with urls only — nothing about what's in the vault. */
+export async function known(connection: Connection, urls: readonly string[]): Promise<KnownResponse> {
+  return call<KnownResponse>(connection, "/known", { method: "POST", body: JSON.stringify({ urls }) });
 }
