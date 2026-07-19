@@ -1,4 +1,5 @@
 import type { App, TFile } from "obsidian";
+import { normalizeUrl } from "../../../shared/protocol";
 
 /**
  * A row's "dedicated note" is the note that stands for that item — a paper's literature note, say. The old
@@ -13,23 +14,41 @@ import type { App, TFile } from "obsidian";
  * match.
  */
 
-/** The frontmatter key used to link dedicated notes for a profile. Defaults to "doi" for academic views. */
+/**
+ * The frontmatter key used to link dedicated notes for a profile.
+ *
+ * Academic views match on the DOI, which is the right identity for a paper: the same paper lives at arXiv,
+ * at the publisher, and as a PDF — three URLs, one DOI. Everything else matches on `source`, the page's
+ * normalized URL, which is the only identity a general web capture reliably has. Before this, non-academic
+ * views had **no** key at all, so promotion couldn't recognise an existing note and the row-note link only
+ * worked for papers.
+ */
 export function dedicatedNoteKeyFor(profile: { academicKit?: boolean; dedicatedNoteKey?: string }): string {
   const explicit = (profile.dedicatedNoteKey ?? "").trim();
   if (explicit !== "") return explicit;
-  return profile.academicKit ? "doi" : "";
+  return profile.academicKit ? "doi" : "source";
 }
 
-/** Normalize a match value so equivalent forms compare equal. DOIs get their scheme/host prefix stripped. */
+/**
+ * Normalize a match value so equivalent forms compare equal.
+ *
+ * DOIs get their scheme/host prefix stripped. URL-ish keys go through the same normalisation the bridge
+ * uses everywhere else, so a note whose `source` says `https://www.example.com/a/?utm_source=x` still
+ * matches a row captured from `https://example.com/a` — the whole point of using the URL as identity.
+ */
 export function normalizeIdentifier(key: string, value: string): string {
   const v = (value ?? "").trim();
   if (v === "") return "";
-  if (key.toLowerCase() === "doi") {
+  const k = key.toLowerCase();
+  if (k === "doi") {
     return v
       .replace(/^https?:\/\/(dx\.)?doi\.org\//i, "")
       .replace(/^doi:\s*/i, "")
       .trim()
       .toLowerCase();
+  }
+  if (k === "source" || k === "url" || k === "link") {
+    return normalizeUrl(v).toLowerCase();
   }
   return v.toLowerCase();
 }

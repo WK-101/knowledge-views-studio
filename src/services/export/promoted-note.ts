@@ -1,3 +1,4 @@
+import { renderTemplate } from "../../../shared/template";
 /**
  * The template for a promoted paper note. A default is provided; users can override it in settings
  * with a simple {{placeholder}} template. Substitution is pure + unit-testable.
@@ -67,8 +68,13 @@ function splitAuthorsLite(raw: string): string[] {
     .filter((s) => s !== "");
 }
 
-/** Render a promoted-note template. Values are quote-sanitised so quoted YAML stays valid. */
-export function renderPromotedNote(template: string, f: PromotedNoteFields, today = new Date()): string {
+/**
+ * The variables a promoted-note template may refer to.
+ *
+ * Exposed separately from rendering so the bridge can offer the same set to a companion preview, and so a
+ * test can pin exactly what a template author is promised.
+ */
+export function promotedNoteVariables(f: PromotedNoteFields, today = new Date()): Record<string, string> {
   const q = (s: string): string => s.replace(/"/g, "'"); // keep quoted YAML fields valid
   const authorList = splitAuthorsLite(f.authors);
   const authors = authorList.join(", ");
@@ -91,5 +97,19 @@ export function renderPromotedNote(template: string, f: PromotedNoteFields, toda
     annotations: f.annotations ?? "",
     zoterokey: f.zoteroKey ?? "",
   };
-  return template.replace(/\{\{(\w+)\}\}/g, (_m, key: string) => values[key.toLowerCase()] ?? "");
+  return values;
+}
+
+/**
+ * Render a promoted-note template.
+ *
+ * Now the shared engine — the same one captured notes and the companion's previews use — rather than a
+ * private substitution. Every old template keeps working: the old syntax only ever matched bare
+ * `{{word}}` placeholders, which the shared engine resolves identically (case-insensitively, unknown
+ * names to nothing). What changes is what *else* a template may now say: `{{title|truncate:60}}`,
+ * `{{doi|wikilink}}` and the rest of the filter registry work here too, and two syntaxes for one job can
+ * no longer drift apart.
+ */
+export function renderPromotedNote(template: string, f: PromotedNoteFields, today = new Date()): string {
+  return renderTemplate(template, promotedNoteVariables(f, today));
 }

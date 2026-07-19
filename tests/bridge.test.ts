@@ -11,6 +11,7 @@ import {
 import { checkAccess, originAllowed, isViewExposed, corsHeaders, isExtensionOrigin } from "../src/services/bridge/policy";
 import { BridgeRouter } from "../src/services/bridge/router";
 import { defaultRoutes, type BridgeContext } from "../src/services/bridge/routes";
+import { rowRefOf } from "../src/services/bridge/row-ref";
 import { bearerToken, parseBody } from "../src/services/bridge/server";
 import { snippetAround } from "../src/services/search/bridge-search";
 import { DEFAULT_BRIDGE_SETTINGS, type BridgeRequest, type BridgeSettings } from "../src/services/bridge/types";
@@ -507,6 +508,87 @@ describe("bridge · routes", () => {
       context as never,
     );
     expect(res.status).toBe(401);
+  });
+
+  describe("promoting a row to its note", () => {
+    const routerWith = (): BridgeRouter<BridgeContext> =>
+      new BridgeRouter<BridgeContext>().registerAll(defaultRoutes());
+
+    const aRow = {
+      cells: { Title: "A Read", URL: "https://x/a" },
+      provenance: { filePath: "L.md", extractor: "table", locator: { row: 0 }, fingerprint: "f0" },
+    };
+    const refOf = rowRefOf(aRow.provenance);
+
+    it("promotes a row and reports the note's path", async () => {
+      const calls: unknown[] = [];
+      const ctx = makeContext({
+        viewData: () => Promise.resolve({ rows: [aRow] as never, columns }),
+        promote: (...args: unknown[]) => {
+          calls.push(args);
+          return Promise.resolve({ ok: true, path: "Notes/A Read.md", created: true });
+        },
+      }).context as unknown as BridgeContext;
+      const res = await routerWith().dispatch(
+        req({ method: "POST", path: "/promote", body: { viewId: "papers", rowRef: refOf } }),
+        settings(),
+        ctx,
+      );
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ ok: true, path: "Notes/A Read.md", created: true });
+      expect(calls).toHaveLength(1);
+    });
+
+    it("is idempotent from the caller's side: finding reports created:false", async () => {
+      const ctx = makeContext({
+        viewData: () => Promise.resolve({ rows: [aRow] as never, columns }),
+        promote: () => Promise.resolve({ ok: true, path: "Notes/A Read.md", created: false }),
+      }).context as unknown as BridgeContext;
+      const res = await routerWith().dispatch(
+        req({ method: "POST", path: "/promote", body: { viewId: "papers", rowRef: refOf } }),
+        settings(),
+        ctx,
+      );
+      expect((res.body as { created?: boolean }).created).toBe(false);
+    });
+
+    it("refuses a stale or forged handle rather than promoting whatever is there now", async () => {
+      const ctx = makeContext({
+        viewData: () => Promise.resolve({ rows: [aRow] as never, columns }),
+        promote: () => Promise.resolve({ ok: true }),
+      }).context as unknown as BridgeContext;
+      const res = await routerWith().dispatch(
+        req({ method: "POST", path: "/promote", body: { viewId: "papers", rowRef: "forged" } }),
+        settings(),
+        ctx,
+      );
+      expect(res.status).toBe(409);
+    });
+
+    it("needs write permission — a note creation is a write", async () => {
+      const ctx = makeContext({
+        viewData: () => Promise.resolve({ rows: [aRow] as never, columns }),
+        promote: () => Promise.resolve({ ok: true }),
+      }).context as unknown as BridgeContext;
+      const res = await routerWith().dispatch(
+        req({ method: "POST", path: "/promote", body: { viewId: "papers", rowRef: refOf } }),
+        settings({ allowWrite: false }),
+        ctx,
+      );
+      expect(res.status).toBe(403);
+    });
+
+    it("says promotion isn't available rather than pretending, when the vault can't", async () => {
+      const ctx = makeContext({
+        viewData: () => Promise.resolve({ rows: [aRow] as never, columns }),
+      }).context as unknown as BridgeContext;
+      const res = await routerWith().dispatch(
+        req({ method: "POST", path: "/promote", body: { viewId: "papers", rowRef: refOf } }),
+        settings(),
+        ctx,
+      );
+      expect(res.status).toBe(503);
+    });
   });
 
   describe("reading a view for a dashboard", () => {

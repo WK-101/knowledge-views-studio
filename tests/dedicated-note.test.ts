@@ -10,9 +10,23 @@ describe("dedicatedNoteKeyFor — which frontmatter field links a row to its not
   it("defaults to 'doi' for academic-kit views", () => {
     expect(dedicatedNoteKeyFor({ academicKit: true })).toBe("doi");
   });
-  it("is empty for non-academic views with nothing configured", () => {
-    expect(dedicatedNoteKeyFor({})).toBe("");
-    expect(dedicatedNoteKeyFor({ academicKit: false })).toBe("");
+  it("defaults to the source URL for non-academic views", () => {
+    // Before this, non-academic views had NO key, so promotion couldn't recognise an existing note and
+    // the row-note link only worked for papers. A general web capture's one reliable identity is its URL.
+    expect(dedicatedNoteKeyFor({ academicKit: false })).toBe("source");
+  });
+
+  it("matches source URLs loosely, the way the bridge does everywhere else", () => {
+    // A note saved from a link with campaign parameters must still be the note for the clean URL.
+    expect(normalizeIdentifier("source", "https://www.example.com/a/?utm_source=x")).toBe(
+      normalizeIdentifier("source", "https://example.com/a"),
+    );
+  });
+
+  it("keeps identifying query parameters distinct even for source keys", () => {
+    expect(normalizeIdentifier("source", "https://example.com/p?id=1")).not.toBe(
+      normalizeIdentifier("source", "https://example.com/p?id=2"),
+    );
   });
   it("honours an explicit key over the academic default", () => {
     expect(dedicatedNoteKeyFor({ academicKit: true, dedicatedNoteKey: "isbn" })).toBe("isbn");

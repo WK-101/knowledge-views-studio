@@ -42,6 +42,12 @@ export interface CapturePayload {
     readonly fileName?: string;
     readonly body?: string;
     readonly template?: string;
+    /** Append into this note (under a heading when given) rather than creating a new one. */
+    readonly appendTo?: {
+      readonly path?: string;
+      readonly heading?: string;
+      readonly createHeading?: boolean;
+    };
   };
   /** Save as this shape regardless of how the view is configured. */
   readonly shape?: "row" | "note";

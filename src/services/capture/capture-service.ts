@@ -4,6 +4,9 @@ import { normalizeText } from "./normalize";
 import { renderTemplate, safeName as templateSafeName } from "../../../shared/template";
 import { mapToColumns, applyDefaults } from "./map";
 import { appendCapturedRow, appendCapturedRows } from "./capture-table";
+import { appendToNote, capturedAppendBlock } from "./append-note";
+import { findDedicatedNote } from "../notes/dedicated-note";
+import { noteLinkColumnName } from "../../views/promoted-detect";
 import type { CaptureColumn, CapturePayload, CaptureResult, CaptureTarget, MappedCapture } from "./types";
 
 /**
@@ -213,6 +216,27 @@ export class CaptureService {
     payload: CapturePayload,
   ): Promise<CaptureResult> {
     const note = payload.note;
+
+    // Appending into an existing note is its own path: no template, no filename, no de-duplication —
+    // the capture goes inside something that already exists, under a heading when one was named.
+    const appendPath = (note?.appendTo?.path ?? "").trim();
+    if (appendPath !== "") {
+      const path = normalizePath(appendPath.endsWith(".md") ? appendPath : `${appendPath}.md`);
+      const file = this.app.vault.getAbstractFileByPath(path);
+      if (!(file instanceof TFile)) return { ok: false, reason: `No note at ${path}.` };
+
+      const block = capturedAppendBlock(values, payload.url ?? "", payload.note?.body ?? "");
+      if (block === "") return { ok: false, reason: "Nothing to append." };
+
+      const existing = await this.app.vault.read(file);
+      const result = appendToNote(existing, block, {
+        ...(note?.appendTo?.heading !== undefined ? { heading: note.appendTo.heading } : {}),
+        ...(note?.appendTo?.createHeading !== undefined ? { createHeading: note.appendTo.createHeading } : {}),
+      });
+      if (!result.ok) return { ok: false, reason: result.reason ?? "Couldn't append." };
+      await this.app.vault.modify(file, result.content);
+      return { ok: true, path };
+    }
     const body = note?.body ?? "";
     const variables: Record<string, string> = { ...values, content: body };
     if (payload.url !== undefined && variables["url"] === undefined) variables["url"] = payload.url;
@@ -251,6 +275,41 @@ export class CaptureService {
     await this.ensureFolder(path);
     await this.app.vault.create(path, content);
     return { ok: true, path };
+  }
+
+  /**
+   * Link a new row to a note that already exists for the same page.
+   *
+   * The other direction of promotion: someone captured the note first — perhaps weeks ago — and is now
+   * adding the row. The identities match (same frontmatter key, same value), so the wikilink is written at
+   * capture time rather than left for anyone to notice and repair. Purely additive: no note, no link, no
+   * change; and a link column the values already fill is left alone.
+   */
+  linkExistingNote(
+    values: Readonly<Record<string, string>>,
+    columns: readonly CaptureColumn[],
+    matchKey: string,
+  ): Record<string, string> {
+    const out = { ...values };
+    if (matchKey.trim() === "") return out;
+
+    const linkColumn = noteLinkColumnName(columns.map((c) => ({ name: c.name, type: c.typeId })));
+    if (linkColumn === null || (out[linkColumn] ?? "").trim() !== "") return out;
+
+    const identity =
+      out[matchKey] ??
+      Object.entries(out).find(([name]) => name.toLowerCase() === matchKey.toLowerCase())?.[1] ??
+      (matchKey.toLowerCase() === "source"
+        ? Object.entries(out).find(([name]) => /^(url|link)$/i.test(name))?.[1]
+        : undefined) ??
+      "";
+    if (identity.trim() === "") return out;
+
+    const note = findDedicatedNote(this.app, matchKey, identity);
+    if (note === null) return out;
+    const name = note.path.replace(/\.md$/, "").split("/").pop() ?? note.basename;
+    out[linkColumn] = `[[${name}]]`;
+    return out;
   }
 
   /** Create any missing parent folders for a file path. */

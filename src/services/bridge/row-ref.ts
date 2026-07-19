@@ -1,4 +1,5 @@
 import type { Row, RowProvenance } from "../../domain/index";
+import { getField } from "../../domain/fields";
 
 /**
  * Naming a row across the wire, safely.
@@ -69,7 +70,7 @@ export interface EditableCheck {
  */
 export function editableChanges(
   row: Row,
-  values: readonly { readonly key: string; readonly value: string }[],
+  values: readonly { readonly key: string; readonly value: string; readonly mode?: "set" | "append" }[],
   columns: readonly { readonly name: string }[],
 ): EditableCheck {
   const known = new Map(columns.map((c) => [c.name.toLowerCase(), c.name]));
@@ -78,7 +79,7 @@ export function editableChanges(
   const allowed: { column: string; value: string }[] = [];
   const skipped: { column: string; reason: string }[] = [];
 
-  for (const { key, value } of values) {
+  for (const { key, value, mode } of values) {
     const name = known.get(key.trim().toLowerCase());
     if (name === undefined) {
       skipped.push({ column: key, reason: "This view has no such column." });
@@ -86,6 +87,18 @@ export function editableChanges(
     }
     if (readOnly.has(name.toLowerCase())) {
       skipped.push({ column: name, reason: "This value is computed or owned by another source." });
+      continue;
+    }
+    if (mode === "append") {
+      // The final value is composed HERE, against the row the vault just produced — not by the caller —
+      // so appending can't be used to replay a stale copy of the cell over a newer one.
+      const current = getField(row, name).trim();
+      const addition = value.trim();
+      if (addition === "") {
+        skipped.push({ column: name, reason: "Nothing to append." });
+        continue;
+      }
+      allowed.push({ column: name, value: current === "" ? addition : `${current}<br>${addition}` });
       continue;
     }
     allowed.push({ column: name, value });

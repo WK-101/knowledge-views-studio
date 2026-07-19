@@ -10,6 +10,8 @@ import type {
   KnownResponse,
   RowsRequest,
   RowsResponse,
+  PromoteRequest,
+  PromoteResponse,
 } from "../../../shared/protocol";
 import { DISCOVERY_PORTS, isBridgePing } from "../../../shared/protocol";
 
@@ -190,4 +192,9 @@ export async function known(connection: Connection, urls: readonly string[]): Pr
 /** Read a view's rows, for showing a dashboard or what's already noted about a page. */
 export async function rows(connection: Connection, request: RowsRequest): Promise<RowsResponse> {
   return call<RowsResponse>(connection, "/rows", { method: "POST", body: JSON.stringify(request) });
+}
+
+/** Create — or find — a row's dedicated note. Idempotent on the vault side. */
+export async function promote(connection: Connection, request: PromoteRequest): Promise<PromoteResponse> {
+  return call<PromoteResponse>(connection, "/promote", { method: "POST", body: JSON.stringify(request) });
 }

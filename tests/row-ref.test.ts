@@ -144,3 +144,55 @@ describe("bridge · normalizeUrl", () => {
     expect(normalizeUrl("mailto:someone@example.com")).toBe("mailto:someone@example.com");
   });
 });
+
+describe("bridge · appending into a cell", () => {
+  const columns = [{ name: "Annotations" }, { name: "Status" }, { name: "Total" }];
+
+  it("joins the addition to what's there with <br>, keeping the cell's history", () => {
+    const target = row({}, { Annotations: "First highlight" });
+    const { allowed } = editableChanges(
+      target,
+      [{ key: "Annotations", value: "Second highlight", mode: "append" }],
+      columns,
+    );
+    expect(allowed[0]?.value).toBe("First highlight<br>Second highlight");
+  });
+
+  it("starts cleanly when the cell was empty — no leading separator", () => {
+    const target = row({}, { Annotations: "" });
+    const { allowed } = editableChanges(target, [{ key: "Annotations", value: "First", mode: "append" }], columns);
+    expect(allowed[0]?.value).toBe("First");
+  });
+
+  it("composes the final value against the vault's own row, not the caller's copy", () => {
+    // The caller sends only the addition; whatever the cell holds NOW is what it lands after. Appending
+    // can't replay a stale snapshot of the cell over a newer one.
+    const target = row({}, { Annotations: "Newer content the caller never saw" });
+    const { allowed } = editableChanges(target, [{ key: "Annotations", value: "Add", mode: "append" }], columns);
+    expect(allowed[0]?.value).toContain("Newer content the caller never saw");
+  });
+
+  it("refuses to append nothing", () => {
+    const target = row({}, { Annotations: "x" });
+    const { allowed, skipped } = editableChanges(
+      target,
+      [{ key: "Annotations", value: "   ", mode: "append" }],
+      columns,
+    );
+    expect(allowed).toEqual([]);
+    expect(skipped[0]?.reason).toMatch(/nothing/i);
+  });
+
+  it("still refuses read-only cells in append mode", () => {
+    const target = row({ readOnlyFields: ["Total"] }, { Total: "5" });
+    const { allowed, skipped } = editableChanges(target, [{ key: "Total", value: "1", mode: "append" }], columns);
+    expect(allowed).toEqual([]);
+    expect(skipped[0]?.column).toBe("Total");
+  });
+
+  it("set mode still replaces outright", () => {
+    const target = row({}, { Status: "Old" });
+    const { allowed } = editableChanges(target, [{ key: "Status", value: "New" }], columns);
+    expect(allowed[0]?.value).toBe("New");
+  });
+})

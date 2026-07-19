@@ -39,6 +39,8 @@ export interface LookupMatch {
   readonly viewName: string;
   /** Opaque handle for editing this row. Meaningless outside the vault that issued it. */
   readonly rowRef?: string;
+  /** Whether this row already has a dedicated note, so a surface can offer "open" rather than "create". */
+  readonly hasNote?: boolean;
   readonly on: string;
   readonly title: string;
   readonly filePath: string;
@@ -64,6 +66,16 @@ export interface CaptureRequest {
     readonly body: string;
     /** Overrides the view's own template for this one capture. */
     readonly template?: string;
+    /**
+     * Append into this existing note instead of creating one — under a heading when given, at the end
+     * otherwise. For the captures that belong *inside* something: a daily log, a running inbox, a topic
+     * note collecting everything on one subject.
+     */
+    readonly appendTo?: {
+      readonly path: string;
+      readonly heading?: string;
+      readonly createHeading?: boolean;
+    };
   };
   /**
    * Save as a note or a row, for this capture only.
@@ -250,7 +262,15 @@ export interface UpdateRequest {
   readonly viewId: string;
   /** Opaque handle from a lookup result. Matched against the vault's own rows, never dereferenced. */
   readonly rowRef: string;
-  readonly values: readonly { readonly key: string; readonly value: string }[];
+  /**
+   * Each change either replaces the cell or appends to it. Appending is how an annotation joins the ones
+   * already there: the cell keeps its history, `<br>`-separated, instead of each highlight erasing the last.
+   */
+  readonly values: readonly {
+    readonly key: string;
+    readonly value: string;
+    readonly mode?: "set" | "append";
+  }[];
 }
 
 export interface UpdateResponse {
@@ -314,4 +334,17 @@ export interface Annotation {
   readonly anchor: TextAnchor;
   readonly note?: string;
   readonly createdAt: string;
+}
+
+export interface PromoteRequest {
+  readonly viewId: string;
+  readonly rowRef: string;
+}
+
+export interface PromoteResponse {
+  readonly ok: boolean;
+  readonly path?: string;
+  /** False when the note already existed and was found rather than made. */
+  readonly created?: boolean;
+  readonly reason?: string;
 }

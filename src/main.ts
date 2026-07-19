@@ -32,6 +32,7 @@ import {
   taskExtractor,
   inlineFieldExtractor,
 } from "./domain/index";
+import { PromotionService } from "./services/notes/promote-service";
 import { referencesToNote, type ImportedRef, DataService, ARCHIVE_EXTENSION, KVS_PACK_EXTENSION, KVS_VIEW_EXTENSION, ProfileStore, UndoManager, WriterService, createProfile, migrateData, xlsxExtractor } from "./services/index";
 import { ObsidianVaultGateway } from "./obsidian/index";
 import {
@@ -273,6 +274,32 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
         // exactly the path an in-app edit does — including its undo history.
         editCells: async (edits) => {
           await renderDeps.writer.editCells(edits);
+        },
+        // Promotion through the same writer as every other edit, so the link backfill shares its undo path.
+        promote: (profile, row, columns) => {
+          const service = new PromotionService({
+            app: this.app,
+            editCell: async (target, column, value) => {
+              await renderDeps.writer.editCells([{ provenance: target.provenance, column, value }]);
+            },
+          });
+          const scopeFolder = profile.scope.mode === "folders" ? (profile.scope.folders[0] ?? "") : "";
+          return service.promote(
+            {
+              academicKit: profile.academicKit,
+              ...(profile.dedicatedNoteKey !== undefined ? { dedicatedNoteKey: profile.dedicatedNoteKey } : {}),
+              ...(profile.promotedNotesFolder !== undefined
+                ? { promotedNotesFolder: profile.promotedNotesFolder }
+                : {}),
+              ...(profile.promotedNoteTemplate !== undefined
+                ? { promotedNoteTemplate: profile.promotedNoteTemplate }
+                : {}),
+              ...(scopeFolder !== "" ? { scopeFolder } : {}),
+            },
+            row,
+            columns,
+            store.getSettings().promotedNoteTemplate,
+          );
         },
         // Only offered when search exists at all; the endpoint then says so rather than returning an empty
         // list that would read as "nothing found".

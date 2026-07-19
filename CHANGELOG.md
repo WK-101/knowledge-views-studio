@@ -5,6 +5,57 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 158 — the capture model (Phase A)
+
+The foundation for the row-and-note workflow: a row collects a page's data; when a page deserves its own
+note, one click makes it — pre-filled, linked both ways; and if the note came first, the row finds it. The
+surfaces come later; this phase is the model itself, and every decision in it is testable without a browser.
+
+**Identity, generalised.** Promotion only worked for papers because only academic views had an identity key
+(the DOI). Everything else now defaults to `source` — the page's normalised URL — so a reading list's rows
+can have dedicated notes on exactly the machinery papers already used. DOIs stay the academic identity,
+which is right: the same paper lives at arXiv, at the publisher, and as a PDF — three URLs, one DOI. URL
+matching uses the same normalisation as the rest of the bridge, so a note saved from a link with campaign
+parameters is still the note for the clean URL.
+
+**One template engine.** Promoted notes now render through the shared engine that captured notes and the
+companion's previews use. Every old `{{placeholder}}` template keeps working — the old syntax was a strict
+subset — and filters now work in promoted templates too. All seven existing promoted-note tests pass
+unchanged, which is the compatibility claim in executable form.
+
+**Promotion for any row.** A new pure planner turns any row into its note: every cell becomes a template
+variable under its own name, so a view with a `Rating` column can write `{{rating}}` without declaring
+anything. The note always carries its identity in frontmatter — written in even when the template forgets —
+because a note that loses its identity is an orphan the next promote can't find. `POST /promote` exposes it:
+idempotent (found before created), stale-handle-safe, write-permission-gated, and the wikilink is backfilled
+into the row through the same writer as every other edit.
+
+**The reverse direction.** Capturing a row for a page whose note already exists links them at capture time —
+the `Note` column gets its wikilink without anyone noticing the pair and connecting it by hand. That's the
+"I made the note first, weeks ago" case, handled where it happens.
+
+**Append into an existing note.** Page-shaped capture could only create files, which quietly assumed every
+capture deserves its own note. A capture can now go *inside* something — a daily log, a running inbox, a
+topic note — under a chosen heading, at the end of that heading's section. The section logic understands
+ownership: `## Captured` owns its `### subsections`, so an append lands after them, not in the middle. What
+gets appended is a block (source line, then body), deliberately never frontmatter, which in the middle of a
+note would corrupt it.
+
+**Append into a cell.** An update can now say `mode: "append"` per change: the cell keeps what it has and
+the addition joins it, `<br>`-separated. The final value is composed at the bridge against the row the vault
+just produced — never by the caller — so appending can't replay a stale copy of a cell over a newer one.
+This is the write path web annotations will use.
+
+**Lookup says more.** A match now reports whether its row already has a dedicated note, so a surface can
+offer "open the note" instead of "create one".
+
+1253 tests (was 1209): identity defaulting and loose URL matching that still keeps identifying parameters
+distinct; promotion planning — aliases, titles, folders, sanitisation, the link column, cells-as-variables;
+heading-aware appending including section ownership, case-insensitive matching that refuses prefixes,
+create-once semantics, gap discipline and CRLF; the append block never containing frontmatter; cell
+appending — history kept, clean start, server-side composition, read-only refusal; and the promote route —
+success, idempotency signalling, stale handles, permission, and honest unavailability.
+
 ## Phase 157 — four bugs, four root causes
 
 All four reported problems traced to distinct causes. None was cosmetic.

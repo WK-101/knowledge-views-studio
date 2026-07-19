@@ -16,6 +16,8 @@ import {
   type SchemaColumn,
   type KnownRequest,
   type KnownResponse,
+  type PromoteRequest,
+  type PromoteResponse,
   type RowsRequest,
   type RowsResponse,
   type RowsRow,
@@ -30,6 +32,8 @@ import {
 } from "./types";
 import { normalizeUrl } from "../../../shared/protocol";
 import { editableChanges, findRowByRef, rowRefOf } from "./row-ref";
+import { noteLinkColumnName } from "../../views/promoted-detect";
+import { dedicatedNoteKeyFor } from "../notes/dedicated-note";
 
 /**
  * What the bridge actually does.
@@ -46,6 +50,12 @@ export interface BridgeContext {
   /** Rows and resolved columns for a view — the same pair the in-app capture command uses. */
   readonly viewData: (profile: Profile) => Promise<{ rows: readonly Row[]; columns: readonly CaptureColumn[] }>;
   readonly capture: CaptureService;
+  /** Create or find a row's dedicated note. Absent when promotion isn't available. */
+  readonly promote?: (
+    profile: Profile,
+    row: Row,
+    columns: readonly { readonly name: string; readonly type?: string }[],
+  ) => Promise<{ ok: boolean; path?: string; created?: boolean; reason?: string }>;
   /** Apply cell edits. Absent when writing back isn't available at all. */
   readonly editCells?: (edits: readonly { provenance: Row["provenance"]; column: string; value: string }[]) => Promise<void>;
   readonly onCaptured: (path: string) => void;
@@ -148,10 +158,15 @@ export function lookupRoute(): Route<BridgeContext> {
         const hit = findDuplicate(probe, columns, rows);
         if (hit !== null) {
           const titleColumn = columns.find((c) => c.role === "title") ?? columns[0];
+          const linkColumn = noteLinkColumnName(
+            columns.map((c) => ({ name: c.name, type: c.typeId })),
+          );
+          const hasNote = linkColumn !== null && getField(hit.row, linkColumn).trim() !== "";
           matches.push({
             viewId: profile.id,
             viewName: profile.name,
             rowRef: rowRefOf(hit.row.provenance),
+            ...(hasNote ? { hasNote: true } : {}),
             on: hit.on,
             title: titleColumn ? getField(hit.row, titleColumn.name) : "",
             filePath: hit.row.provenance.filePath,
@@ -242,6 +257,15 @@ export function captureRoute(): Route<BridgeContext> {
                 ...(typeof note.fileName === "string" ? { fileName: note.fileName } : {}),
                 ...(typeof note.body === "string" ? { body: note.body } : {}),
                 ...(typeof note.template === "string" ? { template: note.template } : {}),
+                ...(note.appendTo !== undefined && typeof note.appendTo.path === "string"
+                  ? {
+                      appendTo: {
+                        path: note.appendTo.path,
+                        ...(typeof note.appendTo.heading === "string" ? { heading: note.appendTo.heading } : {}),
+                        ...(note.appendTo.createHeading === true ? { createHeading: true } : {}),
+                      },
+                    }
+                  : {}),
               },
             }
           : {}),
@@ -255,7 +279,13 @@ export function captureRoute(): Route<BridgeContext> {
       }
 
       const duplicate = findDuplicate(values, columns, rows);
-      const written = await context.capture.commit(target, values, columns, payload);
+      // The reverse of promotion: when a note already exists for this page's identity, the new row gets
+      // its wikilink at capture time — nobody has to notice the pair and connect them by hand.
+      const linked =
+        typeof context.capture.linkExistingNote === "function"
+          ? context.capture.linkExistingNote(values, columns, dedicatedNoteKeyFor(profile))
+          : values;
+      const written = await context.capture.commit(target, linked, columns, payload);
       if (!written.ok) {
         const failed: CaptureResponse = { ok: false, reason: written.reason ?? "Could not write." };
         return { status: 500, body: failed };
@@ -422,9 +452,10 @@ export function updateRoute(): Route<BridgeContext> {
         return { status: 409, body: stale };
       }
 
-      const values = (asked as readonly { key?: unknown; value?: unknown }[]).map((v) => ({
+      const values = (asked as readonly { key?: unknown; value?: unknown; mode?: unknown }[]).map((v) => ({
         key: asString(v.key),
         value: asString(v.value),
+        ...(v.mode === "append" ? { mode: "append" as const } : {}),
       }));
       const { allowed, skipped } = editableChanges(row, values, columns);
       if (allowed.length === 0) {
@@ -517,6 +548,55 @@ export function rowsRoute(): Route<BridgeContext> {
   };
 }
 
+
+/**
+ * `POST /promote` — a row's dedicated note, in one click.
+ *
+ * The second half of the workflow the capture model exists for: the row collects the page's data, and when
+ * a page turns out to deserve its own note, this makes one — pre-filled from the row, linked both ways.
+ * Idempotent: the note is found before it is created, so promoting twice opens what the first promote made
+ * rather than manufacturing a duplicate.
+ */
+export function promoteRoute(): Route<BridgeContext> {
+  return {
+    method: "POST",
+    path: "/promote",
+    permission: "write",
+    handler: async (request, context) => {
+      const body = (request.body ?? {}) as PromoteRequest;
+      const viewId = (body.viewId ?? "").trim();
+      const rowRef = (body.rowRef ?? "").trim();
+      if (viewId === "" || rowRef === "") return badRequest("Which row, in which view?");
+      if (context.promote === undefined) {
+        return { status: 503, body: { error: "Promotion isn't available in this vault." } };
+      }
+
+      const profile = exposedProfiles(context).find((p) => p.id === viewId);
+      if (profile === undefined) return { status: 404, body: { error: "No such view." } };
+
+      const { rows, columns } = await context.viewData(profile);
+      const row = findRowByRef(rows, rowRef);
+      if (row === null) {
+        const stale: PromoteResponse = { ok: false, reason: "That row has changed or is no longer there." };
+        return { status: 409, body: stale };
+      }
+
+      const outcome = await context.promote(profile, row, columns);
+      if (!outcome.ok) {
+        const failed: PromoteResponse = { ok: false, reason: outcome.reason ?? "Couldn't create the note." };
+        return { status: 422, body: failed };
+      }
+      if (outcome.path !== undefined) context.onCaptured(row.provenance.filePath);
+      const response: PromoteResponse = {
+        ok: true,
+        ...(outcome.path !== undefined ? { path: outcome.path } : {}),
+        ...(outcome.created !== undefined ? { created: outcome.created } : {}),
+      };
+      return { status: 200, body: response };
+    },
+  };
+}
+
 /** `POST /pair` — exchange a short code shown in settings for a lasting token. */
 export function pairRoute(): Route<BridgeContext> {
   return {
@@ -544,6 +624,7 @@ export function defaultRoutes(): readonly Route<BridgeContext>[] {
     knownRoute(),
     rowsRoute(),
     captureRoute(),
+    promoteRoute(),
     updateRoute(),
     searchRoute(),
   ];
