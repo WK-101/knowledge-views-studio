@@ -4,6 +4,7 @@ import { renderTemplate, safeName } from "../../../shared/template";
 import { noteVariables, DEFAULT_NOTE_TEMPLATE, DEFAULT_FILENAME_TEMPLATE } from "../../../shared/note";
 import { BridgeError, capture, loadConnection } from "./bridge-client";
 import { queueCapture } from "./queue-store";
+import { loadPreferences } from "./preferences";
 
 /**
  * Capturing a page as a note.
@@ -45,8 +46,10 @@ export function mountNote(page: PageSnapshot, elements: Elements): void {
   const hasSelection = (page.selectionMarkdown ?? page.selection ?? "") !== "";
 
   // Default to the selection when there is one: choosing text is a more deliberate act than landing on a
-  // page, so it's the better guess at what someone means to keep.
+  // page, so it's the better guess at what someone means to keep. Someone who has said they don't want
+  // article bodies gets properties only, since that preference is the more considered statement.
   let bodyChoice: BodyChoice = hasSelection ? "selection" : hasArticle ? "article" : "none";
+  let quoteSelection = true;
 
   const bodyField = node("label", { class: "field" });
   bodyField.appendChild(node("span", {}, "Note body"));
@@ -84,9 +87,27 @@ export function mountNote(page: PageSnapshot, elements: Elements): void {
 
   const bodyFor = (choice: BodyChoice): string => {
     if (choice === "article") return page.article?.markdown ?? "";
-    if (choice === "selection") return page.selectionMarkdown ?? page.selection ?? "";
+    if (choice === "selection") {
+      const text = page.selectionMarkdown ?? page.selection ?? "";
+      if (text === "" || !quoteSelection) return text;
+      // Marking a selection as a quotation keeps someone else's words visibly theirs once it's in a note.
+      return text
+        .split(/\r?\n/)
+        .map((line) => (line.trim() === "" ? ">" : `> ${line}`))
+        .join("\n");
+    }
     return "";
   };
+
+  // Preferences arrive after the first draw; re-drawing is cheaper than blocking the panel on storage.
+  void loadPreferences().then((prefs) => {
+    quoteSelection = prefs.selectionStyle === "quote";
+    if (!prefs.includeContent && bodyChoice === "article") {
+      bodyChoice = hasSelection ? "selection" : "none";
+      bodyPicker.value = bodyChoice;
+    }
+    refresh();
+  });
 
   const refresh = (): void => {
     bodyChoice = bodyPicker.value as BodyChoice;

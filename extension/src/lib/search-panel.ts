@@ -1,5 +1,6 @@
 import type { SearchHit, SearchMode } from "../../../shared/protocol";
 import { BridgeError, loadConnection, obsidianLink, search } from "./bridge-client";
+import { loadPreferences } from "./preferences";
 
 /**
  * Searching the vault from the browser.
@@ -65,6 +66,14 @@ export function mountSearch(elements: Elements): void {
   const input = node("input", { type: "search", id: "q", placeholder: "Search your vault…" });
   const modeSelect = node("select", { id: "mode" });
   for (const mode of MODES) modeSelect.appendChild(node("option", { value: mode.id }, mode.label));
+  // Opens in whichever mode someone actually uses. Applied once, and never after they've touched it.
+  let modeChosen = false;
+  modeSelect.addEventListener("change", () => {
+    modeChosen = true;
+  });
+  void loadPreferences().then((prefs) => {
+    if (!modeChosen && MODES.some((m) => m.id === prefs.searchMode)) modeSelect.value = prefs.searchMode;
+  });
   bar.append(input, modeSelect);
   host.appendChild(bar);
 

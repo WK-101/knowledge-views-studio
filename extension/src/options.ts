@@ -1,5 +1,6 @@
 import {
   api,
+  fetchSchema,
   bridgeReachable,
   DEFAULT_BASE_URL,
   discoverBridge,
@@ -8,6 +9,9 @@ import {
   saveConnection,
 } from "./lib/bridge-client";
 import { parsePairingInput } from "../../shared/protocol";
+import { loadPreferences, savePreferences, type Preferences } from "./lib/preferences";
+import { isUsableRule, type DomainRule } from "../../shared/rules";
+import type { SchemaView } from "../../shared/protocol";
 import {
   hasSearchAccess,
   registerSearchScript,
@@ -126,9 +130,179 @@ async function doPair(): Promise<void> {
   }
 }
 
+
+
+// ---- Views, rules, and the rest of the settings -------------------------
+
+let views: readonly SchemaView[] = [];
+
+/**
+ * Read the view list from the vault.
+ *
+ * The extension caches it, because asking on every popup open would make the popup slow for a list that
+ * changes rarely. But it *does* change — a new view, a renamed one — and without a way to re-read it a rule
+ * would silently point at something that no longer exists. Hence a visible refresh.
+ */
+async function loadViews(): Promise<void> {
+  const note = byId("schemaNote");
+  try {
+    const connection = await loadConnection();
+    if (connection.token === null) {
+      note.textContent = "Connect to a vault first to choose views.";
+      return;
+    }
+    const schema = await fetchSchema(connection);
+    views = schema.views;
+    note.textContent = `${String(views.length)} view(s) available from “${schema.vault}”.`;
+    fillViewPickers();
+  } catch {
+    note.textContent = "Couldn't read your views — is Obsidian running?";
+  }
+}
+
+function fillViewPickers(): void {
+  const options = (includeBlank: boolean): HTMLOptionElement[] => {
+    const list: HTMLOptionElement[] = [];
+    if (includeBlank) {
+      const blank = document.createElement("option");
+      blank.value = "";
+      blank.textContent = "— first available —";
+      list.push(blank);
+    }
+    for (const view of views) {
+      const option = document.createElement("option");
+      option.value = view.id;
+      option.textContent = view.name;
+      list.push(option);
+    }
+    return list;
+  };
+  const def = byId<HTMLSelectElement>("defaultView");
+  const chosen = def.value;
+  def.replaceChildren(...options(true));
+  def.value = chosen;
+  byId<HTMLSelectElement>("ruleView").replaceChildren(...options(false));
+}
+
+/** A view's name, or a plain statement that it's gone — never a bare identifier. */
+function viewName(id: string): string {
+  return views.find((v) => v.id === id)?.name ?? "(view no longer exists)";
+}
+
+function drawRules(prefs: Preferences): void {
+  const host = byId("rules");
+  host.replaceChildren();
+  if (prefs.rules.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "hint";
+    empty.textContent = "No site rules yet.";
+    host.appendChild(empty);
+    return;
+  }
+  for (const [index, rule] of prefs.rules.entries()) {
+    const row = document.createElement("div");
+    row.className = "rule-row";
+
+    const domain = document.createElement("span");
+    domain.className = "rule-domain";
+    domain.textContent = rule.domain;
+    row.appendChild(domain);
+
+    const detail = document.createElement("span");
+    detail.className = "rule-detail";
+    detail.textContent = [
+      `→ ${viewName(rule.viewId)}`,
+      rule.shape !== undefined ? `as a ${rule.shape}` : "",
+      rule.tags !== undefined && rule.tags !== "" ? `· ${rule.tags}` : "",
+    ]
+      .filter((part) => part !== "")
+      .join(" ");
+    row.appendChild(detail);
+
+    const remove = document.createElement("button");
+    remove.className = "rule-remove";
+    remove.textContent = "Remove";
+    remove.addEventListener("click", () => {
+      void (async () => {
+        const next = prefs.rules.filter((_, i) => i !== index);
+        const saved = await savePreferences({ rules: next });
+        drawRules(saved);
+        status(`Rule for ${rule.domain} removed.`, "info");
+      })();
+    });
+    row.appendChild(remove);
+    host.appendChild(row);
+  }
+}
+
+async function wirePreferences(): Promise<void> {
+  const prefs = await loadPreferences();
+
+  byId<HTMLSelectElement>("defaultView").value = prefs.defaultViewId;
+  byId<HTMLInputElement>("rememberLastView").checked = prefs.rememberLastView;
+  byId<HTMLInputElement>("includeContent").checked = prefs.includeContent;
+  byId<HTMLSelectElement>("selectionStyle").value = prefs.selectionStyle;
+  byId<HTMLInputElement>("alwaysTags").value = prefs.alwaysTags;
+  byId<HTMLSelectElement>("searchMode").value = prefs.searchMode;
+  drawRules(prefs);
+
+  const bind = (id: string, read: () => Partial<Preferences>, event = "change"): void => {
+    byId(id).addEventListener(event, () => {
+      void savePreferences(read()).then(() => status("Saved.", "ok"));
+    });
+  };
+  bind("defaultView", () => ({ defaultViewId: byId<HTMLSelectElement>("defaultView").value }));
+  bind("rememberLastView", () => ({ rememberLastView: byId<HTMLInputElement>("rememberLastView").checked }));
+  bind("includeContent", () => ({ includeContent: byId<HTMLInputElement>("includeContent").checked }));
+  bind("selectionStyle", () => ({
+    selectionStyle: byId<HTMLSelectElement>("selectionStyle").value === "plain" ? "plain" : "quote",
+  }));
+  bind("alwaysTags", () => ({ alwaysTags: byId<HTMLInputElement>("alwaysTags").value.trim() }));
+  bind("searchMode", () => {
+    const value = byId<HTMLSelectElement>("searchMode").value;
+    return { searchMode: value === "meaning" || value === "ask" ? value : "keyword" };
+  });
+
+  byId("ruleAdd").addEventListener("click", () => {
+    void (async () => {
+      const shape = byId<HTMLSelectElement>("ruleShape").value;
+      const tags = byId<HTMLInputElement>("ruleTags").value.trim();
+      const candidate: Partial<DomainRule> = {
+        domain: byId<HTMLInputElement>("ruleDomain").value.trim(),
+        viewId: byId<HTMLSelectElement>("ruleView").value,
+        ...(shape === "row" || shape === "note" ? { shape } : {}),
+        ...(tags !== "" ? { tags } : {}),
+      };
+      // Refused rather than stored, so the list never fills with rules that quietly never fire.
+      if (!isUsableRule(candidate)) {
+        status("A rule needs a site and a view.", "error");
+        return;
+      }
+      const existing = await loadPreferences();
+      const withoutDuplicate = existing.rules.filter(
+        (r) => r.domain.toLowerCase() !== candidate.domain.toLowerCase(),
+      );
+      const saved = await savePreferences({ rules: [...withoutDuplicate, candidate] });
+      drawRules(saved);
+      byId<HTMLInputElement>("ruleDomain").value = "";
+      byId<HTMLInputElement>("ruleTags").value = "";
+      status(`Captures from ${candidate.domain} will go to ${viewName(candidate.viewId)}.`, "ok");
+    })();
+  });
+
+  byId("refreshSchema").addEventListener("click", () => {
+    void loadViews().then(() => {
+      status("Views re-read from Obsidian.", "ok");
+      void loadPreferences().then(drawRules);
+    });
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   void locate();
   void refresh();
+  void wirePreferences();
+  void loadViews();
   byId("pair").addEventListener("click", () => void doPair());
   byId("unpair").addEventListener("click", () => {
     void saveConnection({ token: "" }).then(() => {
@@ -157,9 +331,11 @@ document.addEventListener("DOMContentLoaded", () => {
     })();
   });
   byId("popupSize").addEventListener("change", () => {
-    const size = byId<HTMLSelectElement>("popupSize").value;
-    void api().storage.local.set({ popupSize: size });
-    status("Popup size saved — it applies next time you open it.", "ok");
+    const value = byId<HTMLSelectElement>("popupSize").value;
+    const size = value === "small" || value === "large" ? value : "medium";
+    void savePreferences({ popupSize: size }).then(() => {
+      status("Popup size saved — it applies next time you open it.", "ok");
+    });
   });
 
   byId("serpMarks").addEventListener("change", () => {

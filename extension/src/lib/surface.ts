@@ -7,6 +7,8 @@ import { mountNote } from "./note-panel";
 import { mountEdit } from "./edit-panel";
 import { mountAnnotations } from "./annotations-panel";
 import { mountDashboard } from "./dashboard-panel";
+import { loadPreferences, savePreferences, type Preferences } from "./preferences";
+import { matchRule, mergeTags } from "../../../shared/rules";
 import { queueCapture } from "./queue-store";
 
 /**
@@ -67,6 +69,7 @@ let selectionText = "";
 /** Which surface this is. The sidebar persists and can afford the whole vault; the popup is a glance. */
 export type SurfaceMode = "popup" | "sidebar";
 let mode: SurfaceMode = "popup";
+let prefs: Preferences | null = null;
 
 /** Ask the active tab for its page snapshot. */
 async function readPage(): Promise<PageSnapshot> {
@@ -221,6 +224,26 @@ async function start(): Promise<void> {
   picker.replaceChildren();
   for (const view of writable) picker.appendChild(el("option", { value: view.id }, view.name));
 
+  // Which view this page should go to, in order of how deliberately it was chosen: a rule written for this
+  // site, then whatever was used last, then a stated default. Each only applies if that view still exists,
+  // so a deleted or renamed view degrades to the next choice rather than to an error.
+  prefs = await loadPreferences();
+  const rule = matchRule(prefs.rules, snapshot.url);
+  const preferred = [rule?.viewId, prefs.rememberLastView ? prefs.lastViewId : "", prefs.defaultViewId]
+    .filter((id): id is string => typeof id === "string" && id !== "")
+    .find((id) => writable.some((v) => v.id === id));
+  if (preferred !== undefined) picker.value = preferred;
+
+  if (rule !== null) {
+    const named = writable.find((v) => v.id === rule.viewId);
+    if (named !== undefined) show(`Following your rule for this site — ${named.name}`, "info");
+  }
+
+  // Remember the choice, so the next capture from anywhere starts where this one left off.
+  picker.addEventListener("change", () => {
+    void savePreferences({ lastViewId: picker.value });
+  });
+
   selectionText = snapshot.selection ?? "";
   const fields = extractFields(snapshot);
   const draw = (): void => {
@@ -296,6 +319,13 @@ async function start(): Promise<void> {
   void warnIfAlreadySaved();
 }
 
+/** Tags a capture should carry regardless of the page: a site rule's, plus any set for everything. */
+export function extraTags(url: string): string {
+  if (prefs === null) return "";
+  const rule = matchRule(prefs.rules, url);
+  return mergeTags(prefs.alwaysTags, rule?.tags);
+}
+
 function collect(): CaptureRequest | null {
   if (current === null || snapshot === null) return null;
   const inputs = Array.from(document.querySelectorAll("[data-column]"));
@@ -306,6 +336,15 @@ function collect(): CaptureRequest | null {
     }))
     .filter((f) => f.key !== "" && f.value !== "");
   if (fields.length === 0) return null;
+
+  // Tags from a site rule and from the always-add setting, folded into whatever the form already has so
+  // neither overwrites the other.
+  const extra = extraTags(snapshot.url);
+  if (extra !== "") {
+    const tagField = fields.find((f) => f.key.toLowerCase() === "tags");
+    if (tagField === undefined) fields.push({ key: "tags", value: extra });
+    else tagField.value = mergeTags(tagField.value, extra);
+  }
   return { viewId: current.id, fields, url: snapshot.url };
 }
 

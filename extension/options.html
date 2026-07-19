@@ -54,6 +54,65 @@
     </section>
 
     <section>
+      <h2>Where captures go</h2>
+      <label class="field">
+        <span>Default view</span>
+        <select id="defaultView"><option value="">— first available —</option></select>
+      </label>
+      <label class="checkline">
+        <input id="rememberLastView" type="checkbox" />
+        <span>Start from whichever view I used last</span>
+      </label>
+
+      <h3>Rules for particular sites</h3>
+      <p class="hint">
+        The most specific rule wins, so <code>scholar.google.com</code> can behave differently from
+        <code>google.com</code>. A rule removes a decision from every capture on that site.
+      </p>
+      <div id="rules"></div>
+      <div class="rule-add">
+        <input id="ruleDomain" type="text" placeholder="arxiv.org" />
+        <select id="ruleView"></select>
+        <select id="ruleShape">
+          <option value="">view's own shape</option>
+          <option value="row">as a row</option>
+          <option value="note">as a note</option>
+        </select>
+        <input id="ruleTags" type="text" placeholder="tags (optional)" />
+        <button id="ruleAdd" type="button">Add</button>
+      </div>
+      <p id="schemaNote" class="hint"></p>
+      <button id="refreshSchema" type="button">Refresh views from Obsidian</button>
+    </section>
+
+    <section>
+      <h2>What gets captured</h2>
+      <label class="checkline">
+        <input id="includeContent" type="checkbox" />
+        <span>Include the article body in captured notes</span>
+      </label>
+      <label class="field">
+        <span>When I've selected text</span>
+        <select id="selectionStyle">
+          <option value="quote">Keep it as a quotation</option>
+          <option value="plain">Keep it as plain text</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Tags added to everything</span>
+        <input id="alwaysTags" type="text" placeholder="e.g. web, inbox" />
+      </label>
+      <label class="field">
+        <span>Search opens in</span>
+        <select id="searchMode">
+          <option value="keyword">Keyword</option>
+          <option value="meaning">Meaning</option>
+          <option value="ask">Ask a question</option>
+        </select>
+      </label>
+    </section>
+
+    <section>
       <h2>How it opens</h2>
       <label class="field">
         <span>Popup size</span>
@@ -64,7 +123,7 @@
         </select>
       </label>
       <p class="hint">
-        The sidebar is the fuller surface: it stays open while you browse, and adds your views so you can
+        The sidebar is the fuller surface: it stays open while you browse and adds your views, so you can
         work through a reading queue, edit rows and search without switching applications. Open it from your
         browser's sidebar control — in Firefox, View → Sidebar → Knowledge Views.
       </p>

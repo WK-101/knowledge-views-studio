@@ -86,6 +86,18 @@ so a contents page becomes a single blob of prose.
 Select text before opening the popup and every field gains a **Use selection** button, so a highlighted
 abstract, price or author can go into the column you actually want it in rather than always the description.
 
+## Rules for particular sites
+
+Papers from arXiv always belong in the same view, in the same shape. Articles from a newspaper belong
+somewhere else. A rule says so once, and every capture from that site follows it.
+
+The most specific rule wins, so `scholar.google.com` can behave differently from `google.com` without either
+rule knowing the other exists. A rule can also set the shape and add tags.
+
+Beyond that: a default view, returning to whichever view you used last, whether captured notes include the
+article body, whether a selection is kept as a quotation, tags added to everything, and which mode search
+opens in.
+
 ## Two surfaces
 
 **The popup** is a glance: capture what's in front of you, save a highlight, search. It comes in three sizes

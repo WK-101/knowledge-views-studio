@@ -5,6 +5,51 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 156 — settings that are about your vault, not about sockets
+
+The last of the five phases. Until now the companion's settings were entirely plumbing — an address, a
+pairing code, a queue — and every decision about *where things go* had to be made again on every capture.
+
+**Rules for particular sites.** Papers from arXiv always belong in the same view, in the same shape; articles
+from a newspaper belong somewhere else. Saying so once removes a decision from every capture rather than
+adding one, which is why this is the highest-value setting rather than merely another checkbox — a choice
+small enough to tolerate and frequent enough to grate is exactly the friction that quietly stops people using
+something.
+
+Matching is by host, and the most specific rule wins, so `scholar.google.com` can behave differently from
+`google.com` without either rule having to know the other exists. Order in the list is deliberately not
+significant: a rule that worked only because of where it happened to sit would be a miserable thing to
+debug. A rule can also fix the shape and add tags, which are merged with anything the page supplied rather
+than replacing it.
+
+**And the rest of what was missing:** a default view, returning to whichever view was used last, whether a
+captured note includes the article body, whether a selection is kept as a quotation, tags added to
+everything, and which mode search opens in. Every one of them actually changes behaviour — a setting that
+does nothing is worse than an absent one, because it invites someone to believe they've configured
+something.
+
+**Views can now be re-read on demand.** The extension caches the view list, since asking on every popup open
+would make the popup slow for something that changes rarely — but it does change, and without a refresh a
+rule could silently point at a view that no longer exists. Rules referring to a missing view now say so in
+plain words rather than showing a bare identifier.
+
+**One place for preferences.** They had accumulated as loose storage keys read wherever they were needed,
+each with its own idea of the default. That works until two places disagree, at which point a feature is on
+in one half of the extension and off in the other, and the bug is close to invisible. There is now one shape,
+one set of defaults, and one normaliser that copes with whatever is actually in storage — including settings
+written by earlier versions, which are preserved rather than reset.
+
+**A correction to the previous phase's notes.** I warned that annotation anchors would appear as stray
+columns. They don't: unmapped capture fields are handed back separately and never written, so anchor fields
+land only where a view already has columns for them. The concern was unfounded and the code needed no
+change.
+
+1198 tests (was 1171): host extraction from urls, bare hosts, and ports; subdomain matching, and the refusal
+to match a domain that merely ends the same way; specificity beating list order; rules that would never fire
+being rejected rather than stored; tag merging without repetition and regardless of case; and preference
+normalisation against absent, malformed, and out-of-range values, including that a missing boolean takes its
+default rather than silently becoming false.
+
 ## Phase 155 — two surfaces, and the vault in a sidebar
 
 **The sidebar.** A popup closes the moment you touch the page behind it, which is fine for filing something
