@@ -20,6 +20,13 @@ export interface CaptureTarget {
   readonly createIfMissing?: boolean;
   /** shape "note": folder for captured notes. Empty = vault root. */
   readonly folder?: string;
+  /**
+   * shape "note": how the note is written. Uses the shared template syntax, which follows Obsidian Web
+   * Clipper's, so a template written for that tool works here. Empty = a sensible default.
+   */
+  readonly noteTemplate?: string;
+  /** shape "note": how the file is named. Same syntax. */
+  readonly fileNameTemplate?: string;
 }
 
 /** One extracted field, before it's been matched to a column. Keys are whatever the source called them. */
@@ -30,6 +37,12 @@ export interface CaptureField {
 
 export interface CapturePayload {
   readonly fields: readonly CaptureField[];
+  /** Note-shaped capture: the body the caller extracted, and what to call the file. */
+  readonly note?: {
+    readonly fileName?: string;
+    readonly body?: string;
+    readonly template?: string;
+  };
   /** The page or file this came from, if any. Used for provenance and duplicate detection. */
   readonly url?: string;
   readonly capturedAt?: string;

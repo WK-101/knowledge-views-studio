@@ -1,6 +1,7 @@
 import { normalizePath, TFile, type App } from "obsidian";
 import { getField, type Row } from "../../domain/index";
 import { normalizeText } from "./normalize";
+import { renderTemplate, safeName as templateSafeName } from "../../../shared/template";
 import { mapToColumns, applyDefaults } from "./map";
 import { appendCapturedRow, appendCapturedRows } from "./capture-table";
 import type { CaptureColumn, CapturePayload, CaptureResult, CaptureTarget, MappedCapture } from "./types";
@@ -193,25 +194,55 @@ export class CaptureService {
     return { ok: true, path, createdTable: result.createdTable };
   }
 
+  /**
+   * Write a captured note.
+   *
+   * The template does the work, using the same engine the companion previews with — so what someone saw
+   * before pressing save is what lands. Without a template we fall back to frontmatter plus the body, which
+   * is what the previous version produced, except that now there *is* a body.
+   */
   private async commitNote(
     target: CaptureTarget,
     values: Readonly<Record<string, string>>,
     payload: CapturePayload,
   ): Promise<CaptureResult> {
+    const note = payload.note;
+    const body = note?.body ?? "";
+    const variables: Record<string, string> = { ...values, content: body };
+    if (payload.url !== undefined && variables["url"] === undefined) variables["url"] = payload.url;
+    if (variables["date"] === undefined) variables["date"] = new Date().toISOString();
+
+    const template = note?.template ?? target.noteTemplate ?? "";
+    const content =
+      template.trim() === ""
+        ? buildCapturedNote(values, {
+            ...(payload.url !== undefined ? { url: payload.url } : {}),
+            ...(body !== "" ? { body } : {}),
+          })
+        : renderTemplate(template, variables);
+
+    // A name sent by the caller wins: they showed it to the person before saving.
+    const fromCaller = (note?.fileName ?? "").trim();
+    const fromTemplate =
+      target.fileNameTemplate !== undefined && target.fileNameTemplate.trim() !== ""
+        ? renderTemplate(target.fileNameTemplate, variables)
+        : "";
     const titleKey = Object.keys(values).find((k) => k.toLowerCase() === "title");
-    const base = safeFileName(titleKey ? (values[titleKey] ?? "") : "");
+    const base = templateSafeName(
+      fromCaller !== "" ? fromCaller : fromTemplate !== "" ? fromTemplate : (titleKey ? values[titleKey] ?? "" : ""),
+    );
+
     const folder = normalizePath((target.folder ?? "").trim());
     const dir = folder === "" || folder === "." ? "" : `${folder}/`;
 
     let path = normalizePath(`${dir}${base}.md`);
     let n = 2;
     while (this.app.vault.getAbstractFileByPath(path) !== null) {
-      path = normalizePath(`${dir}${base} ${n}.md`);
+      path = normalizePath(`${dir}${base} ${String(n)}.md`);
       n++;
     }
 
     await this.ensureFolder(path);
-    const content = buildCapturedNote(values, payload.url !== undefined ? { url: payload.url } : {});
     await this.app.vault.create(path, content);
     return { ok: true, path };
   }

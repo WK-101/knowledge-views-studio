@@ -124,3 +124,19 @@ table.preview th { color: var(--muted); font-weight: 600; }
 .advanced { margin-top: 14px; }
 .advanced summary { cursor: pointer; color: var(--muted); font-size: 12px; }
 .advanced summary:hover { color: var(--fg); }
+
+/* Note capture: the rendered preview of what will be written. */
+.preview-note {
+  margin: 6px 0 0;
+  padding: 8px;
+  max-height: 200px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--bg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  color: var(--muted);
+}

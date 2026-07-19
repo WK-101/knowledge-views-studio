@@ -29,6 +29,7 @@
   "devDependencies": {
     "@eslint/js": "^9.0.0",
     "@types/node": "^22.0.0",
+    "@types/turndown": "^5.0.6",
     "esbuild": "^0.25.0",
     "eslint": "^9.0.0",
     "eslint-plugin-obsidianmd": "^0.4.1",
@@ -39,10 +40,12 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
+    "@mozilla/readability": "^0.6.0",
     "chart.js": "^4.5.1",
     "fflate": "^0.8.2",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^4.10.38",
-    "tesseract.js": "^6.0.1"
+    "tesseract.js": "^6.0.1",
+    "turndown": "^7.2.4"
   }
 }

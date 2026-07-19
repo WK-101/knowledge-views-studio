@@ -216,12 +216,22 @@ export function captureRoute(): Route<BridgeContext> {
         return { status: 200, body: manyResponse };
       }
 
+      const note = body.note;
       const payload: CapturePayload = {
         fields: (incoming as readonly { key?: unknown; value?: unknown }[]).map((f) => ({
           key: asString(f.key),
           value: asString(f.value),
         })),
         ...(typeof body.url === "string" && body.url.trim() !== "" ? { url: body.url.trim() } : {}),
+        ...(note !== undefined
+          ? {
+              note: {
+                ...(typeof note.fileName === "string" ? { fileName: note.fileName } : {}),
+                ...(typeof note.body === "string" ? { body: note.body } : {}),
+                ...(typeof note.template === "string" ? { template: note.template } : {}),
+              },
+            }
+          : {}),
       };
 
       const { rows, columns } = await context.viewData(profile);

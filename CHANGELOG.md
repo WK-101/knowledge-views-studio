@@ -5,6 +5,55 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 153 — note capture, properly
+
+Second of the three phases. Note-shaped capture was worse than missing: a view configured for notes *was*
+reachable, and the bridge *would* write one — but the companion only ever sent column values, so what landed
+was frontmatter with an empty body. A capture that keeps none of the article while appearing to succeed is
+the worst possible failure, because nobody notices until they go looking for something that was never saved.
+
+**The companion now reads the article.** Mozilla's Readability finds which part of a page is actually the
+piece, and Turndown converts it to Markdown. Both run on a **clone** of the document — rearranging the page
+someone is reading, while they watch, would be an unforgivable thing for a capture tool to do.
+
+**This required changing how pages are read.** The old approach injected a self-contained function, which was
+fine for scraping meta tags but can't carry libraries across the extension boundary. Reading is now a content
+script that answers messages. That also sidesteps a trap the earlier design hit: an injected *file* is
+wrapped in a function whose value never comes back, so returning a result from one silently yields nothing.
+
+**Templates follow Obsidian Web Clipper.** `{{title}}`, `{{content}}`, `{{author}}`, `{{date|date:"YYYY-MM-DD"}}`
+— so a template written for that tool works here rather than quietly producing blanks. Filters live in a
+registry, which is what lets KVS's own sit beside the familiar ones without either knowing about the other:
+`|wikilink` makes an Obsidian link, `|tags` turns a keyword list into tags, `|yaml` quotes anything that
+would break frontmatter, `|plain` strips Markdown back to text. A custom filter can override a standard one
+of the same name.
+
+Rendering never throws. A template is edited by hand, usually while looking at a page someone wants to keep,
+and failing the capture over a stray brace would lose the thing they were trying to save. Unknown variables
+resolve to nothing; unknown filters pass their input through.
+
+**The engine lives in `shared/`,** which is what makes the preview honest — the plugin renders the template
+when it writes the note, and the companion renders the same template with the same code to show what you'll
+get, so the two cannot drift.
+
+**In the popup:** a Note tab appears when the chosen view captures notes, offering the whole article, just
+your selection, or properties only. A selection is the default when there is one, because choosing text is a
+more deliberate act than landing on a page. The file name is editable and the rendered result is previewable
+before anything is written. **In Obsidian:** each note-shaped view gets a template and a file-name pattern,
+with the available variables and filters listed beneath them.
+
+Selections now keep their formatting — a highlighted list arrives as a list rather than as a run-on line.
+
+1107 tests (was 1061): variable substitution, case and spacing tolerance, unknown variables and filters;
+filter chaining, including that a chained value carries through each step rather than restarting; quoted
+arguments and pipes inside quotes; every filter's behaviour; date formatting and its refusal to invent a
+date from nonsense; path sanitising that leaves non-Latin titles intact; custom filters overriding and
+chaining with standard ones; and the variables a page produces, including byline precedence, unparseable
+URLs, and formatted selections.
+
+The extension bundle grows to roughly 47KB for the content script, which is what the two libraries cost. The
+plugin bundle is unaffected — verified, not assumed.
+
 ## Phase 152 — setup that doesn't fight you
 
 First of three phases addressing how the companion actually feels to use. This one is about the twelve steps

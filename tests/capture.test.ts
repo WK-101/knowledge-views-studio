@@ -7,6 +7,9 @@ import type { Row } from "../src/domain/index";
 import { parseCaptureText, effectiveTarget } from "../src/services/capture/parse";
 import type { TargetSource } from "../src/services/capture/parse";
 import type { CaptureColumn } from "../src/services/capture/types";
+import { noteVariables, DEFAULT_NOTE_TEMPLATE, DEFAULT_FILENAME_TEMPLATE } from "../shared/note";
+import { renderTemplate } from "../shared/template";
+import type { PageSnapshot } from "../shared/extract";
 import type { CapturePayload } from "../src/services/capture/types";
 
 const col = (name: string, typeId = "text", extra: Partial<CaptureColumn> = {}): CaptureColumn => ({
@@ -463,5 +466,79 @@ describe("capture · appendCapturedRows (many at once)", () => {
     expect(res.content).not.toContain("dropped");
     expect(res.content).toContain("| A | X |");
     expect(res.content).toContain("| B | Y |");
+  });
+})
+
+describe("capture · note variables from a page", () => {
+  const page = (patch: Partial<PageSnapshot> = {}): PageSnapshot => ({
+    url: "https://example.com/a",
+    title: "A Paper",
+    ...patch,
+  });
+
+  it("names variables the way Web Clipper does, so ported templates resolve", () => {
+    const values = noteVariables(page(), "Body text.");
+    for (const key of ["title", "url", "domain", "author", "published", "description", "content", "selection", "date", "image", "tags"]) {
+      expect(Object.keys(values)).toContain(key);
+    }
+  });
+
+  it("derives the domain without the www prefix", () => {
+    expect(noteVariables(page({ url: "https://www.example.com/x" }), "")["domain"]).toBe("example.com");
+  });
+
+  it("survives a url it can't parse rather than throwing", () => {
+    expect(noteVariables(page({ url: "not a url" }), "")["domain"]).toBe("");
+  });
+
+  it("prefers the article's byline over a meta author", () => {
+    const values = noteVariables(
+      page({ article: { markdown: "x", byline: "Ada Lovelace", wordCount: 1 }, meta: [{ key: "author", content: "Someone Else" }] }),
+      "",
+    );
+    expect(values["author"]).toBe("Ada Lovelace");
+  });
+
+  it("falls back to an academic citation tag for the author", () => {
+    const values = noteVariables(page({ meta: [{ key: "citation_author", content: "Grace Hopper" }] }), "");
+    expect(values["author"]).toBe("Grace Hopper");
+  });
+
+  it("prefers formatted selection over plain text, so a highlighted list stays a list", () => {
+    const values = noteVariables(page({ selection: "a b c", selectionMarkdown: "- a\n- b\n- c" }), "");
+    expect(values["selection"]).toBe("- a\n- b\n- c");
+  });
+
+  it("puts the chosen body into content", () => {
+    expect(noteVariables(page(), "# Heading\n\ntext")["content"]).toBe("# Heading\n\ntext");
+  });
+});
+
+describe("capture · the default note template", () => {
+  it("produces valid frontmatter with the article beneath it", () => {
+    const values = noteVariables(
+      {
+        url: "https://example.com/a",
+        title: "A Paper",
+        article: { markdown: "Body.", byline: "Ada", wordCount: 1 },
+      },
+      "Body.",
+    );
+    const out = renderTemplate(DEFAULT_NOTE_TEMPLATE, values);
+    expect(out.startsWith("---\n")).toBe(true);
+    expect(out).toContain("title: A Paper");
+    expect(out).toContain("source: https://example.com/a");
+    expect(out).toContain("author: Ada");
+    expect(out.trimEnd().endsWith("Body.")).toBe(true);
+  });
+
+  it("quotes a title that would otherwise break the frontmatter", () => {
+    const values = noteVariables({ url: "https://x/", title: "A study: part two" }, "");
+    expect(renderTemplate(DEFAULT_NOTE_TEMPLATE, values)).toContain('title: "A study: part two"');
+  });
+
+  it("names the file from the title, trimmed and path-safe", () => {
+    const values = noteVariables({ url: "https://x/", title: "A/B: a very long title" }, "");
+    expect(renderTemplate(DEFAULT_FILENAME_TEMPLATE, values)).toBe("AB a very long title");
   });
 })

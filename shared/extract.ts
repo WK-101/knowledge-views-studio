@@ -36,6 +36,14 @@ export interface PageSnapshot {
   readonly excerpt?: string;
   /** Tables found on the page, for capturing many rows at once. */
   readonly tables?: readonly RawTable[];
+  /** The article itself, as Markdown, when the page turned out to have one. */
+  readonly article?: {
+    readonly markdown: string;
+    readonly byline: string;
+    readonly wordCount: number;
+  };
+  /** The selection with its formatting preserved, so a highlighted list stays a list. */
+  readonly selectionMarkdown?: string;
 }
 
 export interface ExtractedField {

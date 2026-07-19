@@ -764,6 +764,34 @@ export class ProfileEditorModal extends Modal {
         t.setValue(target?.createIfMissing ?? true).onChange((v) => patchTarget({ createIfMissing: v })),
       );
 
+    const ntSetting = new Setting(noteSection)
+      .setName("Note template")
+      .setDesc(
+        "How a captured note is written. Uses the same syntax as Obsidian Web Clipper, so a template written for that works here. Empty = properties plus the page content.",
+      );
+    const ntInput = ntSetting.controlEl.createEl("textarea");
+    ntInput.rows = 6;
+    ntInput.placeholder = "---\ntitle: {{title|yaml}}\nsource: {{url}}\n---\n\n{{content}}";
+    ntInput.value = target?.noteTemplate ?? "";
+    const ntCommit = (): void => patchTarget({ noteTemplate: ntInput.value });
+    ntInput.addEventListener("change", ntCommit);
+    ntInput.addEventListener("blur", ntCommit);
+
+    noteSection.createDiv({
+      cls: "kvs-setting-note",
+      text: "Available: {{title}} {{url}} {{domain}} {{author}} {{published}} {{description}} {{content}} {{selection}} {{date}} {{image}} {{tags}} · filters: |upper |lower |truncate:N |date:\"YYYY-MM-DD\" |safe_name |list |tags |yaml |wikilink |blockquote |plain |slug",
+    });
+
+    const fnSetting = new Setting(noteSection)
+      .setName("File name")
+      .setDesc("How the note is named. Empty = the page title.");
+    const fnInput = fnSetting.controlEl.createEl("input", { type: "text" });
+    fnInput.placeholder = "{{title|safe_name|truncate:80}}";
+    fnInput.value = target?.fileNameTemplate ?? "";
+    const fnCommit = (): void => patchTarget({ fileNameTemplate: fnInput.value.trim() });
+    fnInput.addEventListener("change", fnCommit);
+    fnInput.addEventListener("blur", fnCommit);
+
     const fd = new Setting(noteSection)
       .setName("Captured notes folder")
       .setDesc("Where captured notes are created. Empty = the vault root.");

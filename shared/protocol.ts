@@ -52,6 +52,17 @@ export interface CaptureRequest {
    * so a partial failure can't leave half a table behind.
    */
   readonly rows?: readonly (readonly { readonly key: string; readonly value: string }[])[];
+  /**
+   * Note-shaped capture. Present when the caller wants a note rather than a row, carrying the article body
+   * it extracted — which the plugin can't obtain for itself, since a re-fetch would miss anything rendered
+   * by script, expanded by the reader, or behind a login.
+   */
+  readonly note?: {
+    readonly fileName: string;
+    readonly body: string;
+    /** Overrides the view's own template for this one capture. */
+    readonly template?: string;
+  };
 }
 
 export interface CaptureResponse {

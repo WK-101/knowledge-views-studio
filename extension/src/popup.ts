@@ -1,9 +1,9 @@
 import { extractFields, findDoi, type PageSnapshot } from "../../shared/extract";
 import type { CaptureRequest, SchemaResponse, SchemaView } from "../../shared/protocol";
 import { BridgeError, capture, fetchSchema, loadConnection, lookup } from "./lib/bridge-client";
-import { readPageSnapshot } from "./lib/page-reader";
 import { mountSearch } from "./lib/search-panel";
 import { mountRows } from "./lib/rows-panel";
+import { mountNote } from "./lib/note-panel";
 import { queueCapture } from "./lib/queue-store";
 
 /**
@@ -20,7 +20,10 @@ interface Tab {
   readonly url?: string;
 }
 interface ChromeLike {
-  tabs: { query(q: object): Promise<Tab[]> };
+  tabs: {
+    query(q: object): Promise<Tab[]>;
+    sendMessage(tabId: number, message: unknown): Promise<unknown>;
+  };
   scripting: { executeScript(o: object): Promise<{ result?: unknown }[]> };
   runtime: { openOptionsPage(): void };
   storage: { local: { get(k: string[] | null): Promise<Record<string, unknown>>; set(i: Record<string, unknown>): Promise<void> } };
@@ -63,12 +66,18 @@ async function readPage(): Promise<PageSnapshot> {
   const api = browserApi();
   const [tab] = await api.tabs.query({ active: true, currentWindow: true });
   if (tab?.id === undefined) throw new Error("No active tab.");
-  // Injected as a function, not a file: a bundled file is wrapped in an IIFE whose value never comes
-  // back, so the snapshot would arrive as undefined.
-  const results = await api.scripting.executeScript({ target: { tabId: tab.id }, func: readPageSnapshot });
-  const result = results[0]?.result;
-  if (result === undefined || result === null) throw new Error("Couldn't read this page.");
-  return result as PageSnapshot;
+
+  // Inject the content script, then ask it. Reading a file's return value doesn't work — a bundled file is
+  // wrapped in an IIFE whose value never comes back — and the extraction libraries are far too large to
+  // serialize as an injected function, so messaging is the only route that supports both.
+  await api.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js"] });
+  const reply = (await api.tabs.sendMessage(tab.id, { type: "kvs-read-page" })) as
+    | { ok: true; snapshot: PageSnapshot }
+    | { ok: false; error: string }
+    | undefined;
+  if (reply === undefined) throw new Error("The page didn't answer.");
+  if (!reply.ok) throw new Error(reply.error);
+  return reply.snapshot;
 }
 
 /**
@@ -212,6 +221,26 @@ async function start(): Promise<void> {
 
   // The rows tab only appears when the page actually holds a set of rows, so it never advertises a
   // capability this particular page can't offer.
+  // A view whose target is note-shaped gets the note panel instead of the column form; that shape was
+  // reachable before but produced a note with no body, which looked like it had worked.
+  const noteHost = document.getElementById("tab-note");
+  const noteTab = document.querySelector('[data-tab="note"]');
+  const syncShape = (): void => {
+    const isNote = current?.capture.shape === "note";
+    noteTab?.classList.toggle("hidden", !isNote);
+    document.getElementById("controls")?.classList.toggle("hidden", isNote);
+    if (isNote && noteHost !== null) {
+      mountNote(snapshot as PageSnapshot, {
+        host: noteHost,
+        view: () => current,
+        setStatus: (message, kind) => show(message, kind),
+      });
+      (noteTab as HTMLElement | null)?.click();
+    }
+  };
+  picker.addEventListener("change", syncShape);
+  syncShape();
+
   const rowsHost = document.getElementById("tab-rows");
   const rowsTab = document.querySelector('[data-tab="rows"]');
   if (rowsHost !== null && rowsTab !== null) {
@@ -287,6 +316,7 @@ function wireTabs(): void {
   const panels = new Map<string, HTMLElement>([
     ["capture", document.getElementById("tab-capture") as HTMLElement],
     ["rows", document.getElementById("tab-rows") as HTMLElement],
+    ["note", document.getElementById("tab-note") as HTMLElement],
     ["search", document.getElementById("tab-search") as HTMLElement],
   ]);
   let searchMounted = false;
