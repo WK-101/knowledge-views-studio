@@ -6,6 +6,7 @@ import type {
   SearchRequest,
   SearchResponse,
 } from "../../../shared/protocol";
+import { DISCOVERY_PORTS, isBridgePing } from "../../../shared/protocol";
 
 /**
  * Talking to the vault.
@@ -132,4 +133,42 @@ export async function search(connection: Connection, request: SearchRequest): Pr
  */
 export function obsidianLink(vault: string, path: string): string {
   return `obsidian://open?vault=${encodeURIComponent(vault)}&file=${encodeURIComponent(path)}`;
+}
+
+/**
+ * Find the vault without anyone having to type a port.
+ *
+ * Tries the default first and then a short list of neighbours, stopping at the first bridge that answers.
+ * Each attempt is given a short deadline, because a closed port on loopback fails instantly while a
+ * *filtered* one can hang — and a setup screen that appears frozen is worse than one that says it found
+ * nothing.
+ */
+export async function discoverBridge(ports: readonly number[] = DISCOVERY_PORTS): Promise<string | null> {
+  for (const port of ports) {
+    const baseUrl = `http://127.0.0.1:${String(port)}`;
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 700);
+      const response = await fetch(`${baseUrl}/ping`, { signal: controller.signal });
+      clearTimeout(timer);
+      if (!response.ok) continue;
+      if (isBridgePing(await response.json())) return baseUrl;
+    } catch {
+      // Nothing listening, or not ours. Try the next.
+    }
+  }
+  return null;
+}
+
+/** Whether a bridge is reachable at a known address — used by the setup screen's live status. */
+export async function bridgeReachable(baseUrl: string): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 700);
+    const response = await fetch(`${baseUrl}/ping`, { signal: controller.signal });
+    clearTimeout(timer);
+    return response.ok && isBridgePing(await response.json());
+  } catch {
+    return false;
+  }
 }

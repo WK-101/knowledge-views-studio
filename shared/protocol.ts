@@ -103,3 +103,70 @@ export interface SearchResponse {
   /** Set when search is available but the index hasn't finished, so the caller can say so. */
   readonly building?: boolean;
 }
+
+/**
+ * The answer to `/ping`.
+ *
+ * Says only "a KVS bridge is here, speaking this protocol" — deliberately not the vault name, nor whether
+ * anything is paired, nor what views exist. Enough for the companion to find the right port without
+ * anyone having to type one, and nothing more than that.
+ */
+export interface PingResponse {
+  readonly kvs: true;
+  readonly protocol: number;
+}
+
+/** Ports the companion looks on. The first is the default; the rest cover a clash with something else. */
+export const DISCOVERY_PORTS: readonly number[] = [27180, 27181, 27182, 27183, 27184];
+
+/** Whether a response body is genuinely a KVS bridge saying hello. */
+export function isBridgePing(body: unknown): body is PingResponse {
+  if (body === null || typeof body !== "object") return false;
+  const record = body as Record<string, unknown>;
+  return record["kvs"] === true && typeof record["protocol"] === "number";
+}
+
+/** What the companion needs to connect, however the person supplied it. */
+export interface PairingInput {
+  readonly code: string;
+  /** Present when the link carried one; otherwise the companion discovers it. */
+  readonly port?: number;
+}
+
+/**
+ * Read whatever was pasted into the pairing box.
+ *
+ * Accepts a bare six-digit code typed by hand, or a connection link copied from Obsidian in one click. The
+ * link is the reason this exists: it carries the port alongside the code, so the two things people most
+ * often get wrong arrive together and neither has to be typed.
+ *
+ * Deliberately forgiving about spacing and separators — a code read off a screen is frequently pasted with
+ * a stray space, and refusing that would be pedantry rather than security. The code itself still has to be
+ * exactly right, and is still single-use.
+ */
+export function parsePairingInput(raw: string): PairingInput | null {
+  const text = raw.trim();
+  if (text === "") return null;
+
+  // A connection link: kvs://pair?port=27180&code=123456
+  const link = /^kvs:\/\/pair\b(.*)$/i.exec(text);
+  if (link) {
+    const query = link[1] ?? "";
+    const code = /[?&]code=([0-9]{4,10})\b/.exec(query)?.[1];
+    const port = /[?&]port=([0-9]{2,5})\b/.exec(query)?.[1];
+    if (code === undefined) return null;
+    const portNumber = port === undefined ? undefined : Number(port);
+    const usable = portNumber !== undefined && portNumber >= 1024 && portNumber <= 65535;
+    return { code, ...(usable ? { port: portNumber } : {}) };
+  }
+
+  // A bare code, possibly pasted with spaces or dashes between the digits.
+  const digits = text.replace(/[\s-]/g, "");
+  if (/^[0-9]{4,10}$/.test(digits)) return { code: digits };
+  return null;
+}
+
+/** The link Obsidian offers to copy, carrying both things the companion needs. */
+export function buildConnectionLink(port: number, code: string): string {
+  return `kvs://pair?port=${String(port)}&code=${code}`;
+}

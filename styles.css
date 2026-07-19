@@ -4706,3 +4706,37 @@ body.is-phone .kvs-col-resize {
   padding: 2px 0;
   border-bottom: 1px solid var(--background-modifier-border);
 }
+
+/* Bridge setup checklist: what still needs doing, with the fix beside it. */
+.kvs-bridge-checklist {
+  margin: var(--size-4-2) 0;
+  padding: var(--size-4-2) var(--size-4-3);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+}
+.kvs-check {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: 3px 0;
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+}
+.kvs-check.is-done { color: var(--text-normal); }
+.kvs-check-mark {
+  flex: none;
+  width: 1em;
+  text-align: center;
+  color: var(--text-faint);
+}
+.kvs-check.is-done .kvs-check-mark { color: var(--interactive-accent); }
+.kvs-check-fix {
+  margin-left: auto;
+  padding: 2px 8px;
+  font-size: var(--font-ui-smaller);
+}
+.kvs-bridge-copy {
+  display: flex;
+  gap: var(--size-4-2);
+  margin: var(--size-4-2) 0;
+}

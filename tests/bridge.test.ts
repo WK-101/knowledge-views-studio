@@ -8,7 +8,7 @@ import {
   PAIRING_CODE_TTL_MS,
   type RandomBytes,
 } from "../src/services/bridge/auth";
-import { checkAccess, originAllowed, isViewExposed, corsHeaders } from "../src/services/bridge/policy";
+import { checkAccess, originAllowed, isViewExposed, corsHeaders, isExtensionOrigin } from "../src/services/bridge/policy";
 import { BridgeRouter } from "../src/services/bridge/router";
 import { defaultRoutes, type BridgeContext } from "../src/services/bridge/routes";
 import { bearerToken, parseBody } from "../src/services/bridge/server";
@@ -140,8 +140,25 @@ describe("bridge · policy", () => {
     expect(checkAccess(req({ origin: "https://evil.example" }), "read", locked)?.status).toBe(403);
   });
 
-  it("treats an empty allowlist as any origin, leaving pairing as the gate", () => {
-    expect(originAllowed("https://anything.example", [])).toBe(true);
+  it("treats an empty allowlist as any EXTENSION, not anything at all", () => {
+    // A page you're merely visiting can issue requests to 127.0.0.1. Permitting every origin would let any
+    // website discover that this plugin is installed and probe its endpoints, so ordinary web origins are
+    // refused unless deliberately listed.
+    expect(originAllowed("chrome-extension://abc", [])).toBe(true);
+    expect(originAllowed("moz-extension://abc", [])).toBe(true);
+    expect(originAllowed("https://anything.example", [])).toBe(false);
+    expect(originAllowed("http://localhost:3000", [])).toBe(false);
+  });
+
+  it("still honours an explicit allowlist literally, web origin or not", () => {
+    expect(originAllowed("https://example.com", ["https://example.com"])).toBe(true);
+  });
+
+  it("recognises the extension schemes browsers actually use", () => {
+    expect(isExtensionOrigin("chrome-extension://x")).toBe(true);
+    expect(isExtensionOrigin("moz-extension://x")).toBe(true);
+    expect(isExtensionOrigin("safari-web-extension://x")).toBe(true);
+    expect(isExtensionOrigin("https://x")).toBe(false);
   });
 
   it("allows callers that send no origin at all", () => {
@@ -549,3 +566,48 @@ describe("bridge · snippetAround", () => {
     expect(snippetAround(text, ["-", "a"]).startsWith("x")).toBe(true);
   });
 });
+
+describe("bridge · ping and discovery", () => {
+  const routerWith = (): BridgeRouter<BridgeContext> =>
+    new BridgeRouter<BridgeContext>().registerAll(defaultRoutes());
+  const ctx = {} as unknown as BridgeContext;
+
+  it("answers so the companion can find the port without being told one", async () => {
+    const res = await routerWith().dispatch(
+      { method: "GET", path: "/ping", origin: "moz-extension://abc" },
+      settings({ token: null }),
+      ctx,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ kvs: true, protocol: 1 });
+  });
+
+  it("says nothing about the vault, even to a paired caller", async () => {
+    const res = await routerWith().dispatch(
+      { method: "GET", path: "/ping", origin: "chrome-extension://abc", token: "the-real-token" },
+      settings(),
+      ctx,
+    );
+    // Not the vault name, not whether anything is paired, not what views exist.
+    expect(Object.keys(res.body as object).sort()).toEqual(["kvs", "protocol"]);
+  });
+
+  it("is NOT reachable from an ordinary web page", async () => {
+    // Otherwise any site you visited could probe localhost and learn this plugin is installed.
+    const res = await routerWith().dispatch(
+      { method: "GET", path: "/ping", origin: "https://evil.example" },
+      settings(),
+      ctx,
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("stays silent while the bridge is switched off", async () => {
+    const res = await routerWith().dispatch(
+      { method: "GET", path: "/ping", origin: "moz-extension://abc" },
+      settings({ enabled: false }),
+      ctx,
+    );
+    expect(res.status).toBe(503);
+  });
+})

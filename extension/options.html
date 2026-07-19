@@ -13,27 +13,31 @@
     </p>
 
     <section>
-      <h2>Connection</h2>
-      <label class="field">
-        <span>Where your vault is listening</span>
-        <input id="baseUrl" type="text" placeholder="http://127.0.0.1:27180" />
-      </label>
-      <p class="hint">Change this only if you changed the port in Obsidian's settings.</p>
-    </section>
+      <h2>Connect to your vault</h2>
+      <div id="found" class="status">Looking for Obsidian…</div>
 
-    <section>
-      <h2>Pairing</h2>
-      <p id="paired" class="hint">Not paired</p>
-      <p class="hint">
-        In Obsidian, open <em>Settings → Browser bridge</em>, turn it on, and choose
-        <em>Generate a pairing code</em>. Type that code here. It works once and lasts five minutes.
-      </p>
+      <ol class="steps">
+        <li>In Obsidian, open <strong>Settings → Browser bridge</strong> and turn it on.</li>
+        <li>Choose <strong>Generate a pairing code</strong>, then <strong>Copy connection link</strong>.</li>
+        <li>Paste it below.</li>
+      </ol>
+
       <label class="field">
-        <span>Pairing code</span>
-        <input id="code" type="text" inputmode="numeric" placeholder="123456" />
+        <span>Connection link or pairing code</span>
+        <input id="code" type="text" placeholder="kvs://pair?… or 123456" />
       </label>
-      <button id="pair" class="primary" type="button">Pair</button>
+      <button id="pair" class="primary" type="button">Connect</button>
+      <p id="paired" class="hint">Not connected</p>
       <button id="unpair" type="button" hidden>Forget this vault</button>
+
+      <details class="advanced">
+        <summary>Set the address manually</summary>
+        <label class="field">
+          <span>Where your vault is listening</span>
+          <input id="baseUrl" type="text" placeholder="http://127.0.0.1:27180" />
+        </label>
+        <p class="hint">Only needed if it wasn't found automatically.</p>
+      </details>
     </section>
 
     <section>

@@ -1,4 +1,13 @@
-import { api, DEFAULT_BASE_URL, loadConnection, pair, saveConnection } from "./lib/bridge-client";
+import {
+  api,
+  bridgeReachable,
+  DEFAULT_BASE_URL,
+  discoverBridge,
+  loadConnection,
+  pair,
+  saveConnection,
+} from "./lib/bridge-client";
+import { parsePairingInput } from "../../shared/protocol";
 import { readQueue, writeQueue } from "./lib/queue-store";
 
 /**
@@ -32,10 +41,41 @@ function status(message: string, kind: "info" | "error" | "ok" = "info"): void {
   el.className = `status ${kind}`;
 }
 
+/**
+ * Look for the vault and say what was found.
+ *
+ * Doing this on open, rather than waiting to fail at the moment someone tries to connect, means the port
+ * question mostly stops existing — and when it can't be answered, the reason is on screen before anyone has
+ * typed anything.
+ */
+async function locate(): Promise<void> {
+  const found = byId("found");
+  const connection = await loadConnection();
+
+  if (await bridgeReachable(connection.baseUrl)) {
+    found.textContent = `Found Obsidian at ${connection.baseUrl}`;
+    found.className = "status ok";
+    return;
+  }
+  found.textContent = "Looking for Obsidian…";
+  found.className = "status";
+
+  const discovered = await discoverBridge();
+  if (discovered !== null) {
+    await saveConnection({ baseUrl: discovered });
+    byId<HTMLInputElement>("baseUrl").value = discovered;
+    found.textContent = `Found Obsidian at ${discovered}`;
+    found.className = "status ok";
+    return;
+  }
+  found.textContent = "Obsidian isn't reachable yet — open it and turn the browser bridge on.";
+  found.className = "status error";
+}
+
 async function refresh(): Promise<void> {
   const connection = await loadConnection();
   byId<HTMLInputElement>("baseUrl").value = connection.baseUrl;
-  byId("paired").textContent = connection.token === null ? "Not paired" : "Paired with a vault";
+  byId("paired").textContent = connection.token === null ? "Not connected" : "Connected to a vault";
   byId("unpair").toggleAttribute("hidden", connection.token === null);
 
   const stored = await api().storage.local.get(["recallBadge"]);
@@ -50,25 +90,33 @@ async function refresh(): Promise<void> {
 }
 
 async function doPair(): Promise<void> {
-  const baseUrl = byId<HTMLInputElement>("baseUrl").value.trim() || DEFAULT_BASE_URL;
-  const code = byId<HTMLInputElement>("code").value.trim();
-  if (code === "") {
-    status("Enter the code shown in Obsidian's settings.", "error");
+  const raw = byId<HTMLInputElement>("code").value;
+  const parsed = parsePairingInput(raw);
+  if (parsed === null) {
+    status("Paste the connection link from Obsidian, or the six-digit code.", "error");
     return;
   }
-  status("Pairing…");
+
+  // A link carries the port; otherwise use whatever was found, falling back to the default.
+  let baseUrl = byId<HTMLInputElement>("baseUrl").value.trim() || DEFAULT_BASE_URL;
+  if (parsed.port !== undefined) baseUrl = `http://127.0.0.1:${String(parsed.port)}`;
+  else if (!(await bridgeReachable(baseUrl))) baseUrl = (await discoverBridge()) ?? baseUrl;
+
+  status("Connecting…");
   try {
-    const result = await pair(baseUrl, code);
+    const result = await pair(baseUrl, parsed.code);
     await saveConnection({ baseUrl, token: result.token });
     byId<HTMLInputElement>("code").value = "";
-    status(`Paired with “${result.vault}”.`, "ok");
+    status(`Connected to “${result.vault}”. You can capture straight away.`, "ok");
+    await locate();
     await refresh();
   } catch (error) {
-    status(error instanceof Error ? error.message : "Pairing failed.", "error");
+    status(error instanceof Error ? error.message : "Couldn't connect.", "error");
   }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  void locate();
   void refresh();
   byId("pair").addEventListener("click", () => void doPair());
   byId("unpair").addEventListener("click", () => {

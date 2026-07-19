@@ -22,10 +22,29 @@ export interface Denial {
  * afterwards. Requests with no Origin header at all (curl, a script) are treated as same-machine callers and
  * left to the token check.
  */
+/** Whether an origin is a browser extension rather than an ordinary web page. */
+export function isExtensionOrigin(origin: string): boolean {
+  return /^(chrome-extension|moz-extension|safari-web-extension|extension):\/\//i.test(origin.trim());
+}
+
+/**
+ * Whether an origin may call at all.
+ *
+ * An empty allowlist means "any extension", not "anything". That distinction matters: a page you happen to
+ * be visiting can issue requests to 127.0.0.1, so permitting every origin would let any website discover
+ * that you run this plugin — and probe the endpoints, even if the token then turned it away. Ordinary web
+ * origins are therefore refused unless deliberately listed, while requests carrying no Origin at all (a
+ * script, curl) are treated as same-machine callers and left to the token check.
+ *
+ * A non-empty allowlist is taken literally, so anyone with a reason to permit a web origin still can.
+ */
 export function originAllowed(origin: string | undefined, allowed: readonly string[]): boolean {
-  if (allowed.length === 0) return true;
+  if (allowed.length > 0) {
+    if (origin === undefined || origin === "") return true;
+    return allowed.some((a) => a.trim() !== "" && a.trim().toLowerCase() === origin.trim().toLowerCase());
+  }
   if (origin === undefined || origin === "") return true;
-  return allowed.some((a) => a.trim() !== "" && a.trim().toLowerCase() === origin.trim().toLowerCase());
+  return isExtensionOrigin(origin);
 }
 
 /** Whether a view may be seen or written through the bridge. */

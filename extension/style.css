@@ -116,3 +116,11 @@ table.preview th { color: var(--muted); font-weight: 600; }
   white-space: nowrap;
 }
 .mini:hover { color: var(--fg); border-color: var(--accent); }
+
+/* Setup: numbered steps and the collapsed manual-address escape hatch. */
+.steps { margin: 8px 0; padding-left: 20px; color: var(--muted); font-size: 12px; }
+.steps li { margin: 3px 0; }
+.steps strong { color: var(--fg); font-weight: 600; }
+.advanced { margin-top: 14px; }
+.advanced summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+.advanced summary:hover { color: var(--fg); }

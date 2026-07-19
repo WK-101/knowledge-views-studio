@@ -14,6 +14,7 @@ import {
   type LookupMatch,
   type LookupRequest,
   type SchemaColumn,
+  type PingResponse,
   type SchemaResponse,
   type SchemaView,
   type SearchMode,
@@ -284,6 +285,29 @@ export function searchRoute(): Route<BridgeContext> {
   };
 }
 
+
+/**
+ * `GET /ping` — "is a KVS bridge listening here?"
+ *
+ * Exists so nobody has to be told a port number. The companion tries a short list and stops at the first
+ * bridge that answers, which removes the one setup step people most often get wrong.
+ *
+ * It answers with the protocol version and nothing else: not the vault's name, not whether anything is
+ * paired, not what views exist. Combined with the origin rule — an unlisted web page can't reach the bridge
+ * at all — that keeps a convenience from turning into a way for a website to learn what you have installed.
+ */
+export function pingRoute(): Route<BridgeContext> {
+  return {
+    method: "GET",
+    path: "/ping",
+    permission: "public",
+    handler: () => {
+      const body: PingResponse = { kvs: true, protocol: BRIDGE_PROTOCOL };
+      return { status: 200, body };
+    },
+  };
+}
+
 /** `POST /pair` — exchange a short code shown in settings for a lasting token. */
 export function pairRoute(): Route<BridgeContext> {
   return {
@@ -303,5 +327,5 @@ export function pairRoute(): Route<BridgeContext> {
 
 /** The endpoints the bridge ships with. Registering rather than hard-wiring keeps the list open. */
 export function defaultRoutes(): readonly Route<BridgeContext>[] {
-  return [pairRoute(), schemaRoute(), lookupRoute(), captureRoute(), searchRoute()];
+  return [pingRoute(), pairRoute(), schemaRoute(), lookupRoute(), captureRoute(), searchRoute()];
 }

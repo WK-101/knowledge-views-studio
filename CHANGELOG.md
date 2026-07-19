@@ -5,6 +5,45 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 152 — setup that doesn't fight you
+
+First of three phases addressing how the companion actually feels to use. This one is about the twelve steps
+between installing it and capturing anything.
+
+**The dead end is gone.** A view with no capture target simply refused, and the companion reported "no view
+can receive captures" — which reads as a fault, not as a setting nobody had been asked to fill in. Obsidian's
+bridge settings now open with a checklist: bridge running, extension paired, how many views can receive
+captures, whether searching is allowed. The view line has a **Set them up** button that proposes a target for
+each view that lacks one, following where that view's rows already live — a view assembled from
+`Reading/Books.md` captures back into `Reading/Books.md`, because anywhere else would scatter one collection
+across two files. Views with no rows to follow get a new file named after them. Spreadsheet sources are never
+proposed: the write path there has different rules and a mistake is harder to see.
+
+**Nothing needs retyping.** The pairing code has a copy button, and beside it a **Copy connection link**
+button that carries the port as well — so one paste on the extension side replaces two fields filled in by
+hand. The extension's box accepts either that link or a bare code, forgiving the stray spaces and dashes a
+pasted code arrives with. The code itself is still exact, still expires, still works once.
+
+**The port question mostly stops existing.** A new `GET /ping` lets the companion find the bridge itself,
+trying the default and a few neighbours. Its answer is the protocol version and nothing else — not the
+vault's name, not whether anything is paired, not what views exist. The setup screen now checks on open and
+says what it found before anyone has typed anything, with the manual address tucked behind a disclosure for
+the case where it's genuinely needed.
+
+**A security hole closed on the way.** Designing `/ping` surfaced that an empty origin allowlist permitted
+*any* origin — including an ordinary web page. Since a page you're merely visiting can issue requests to
+127.0.0.1, that meant any website could have discovered this plugin was installed and probed its endpoints,
+with only the token turning them away. An empty allowlist now means "any **extension**", not "anything":
+web origins are refused unless deliberately listed, while requests with no Origin at all (a script, curl)
+are still treated as same-machine callers. An explicit allowlist is still honoured literally, so anyone with
+a reason to permit a web origin still can. This closes a real gap that predates the ping endpoint.
+
+1061 tests (was 1030): pairing input in both forms, with forgiving spacing, misordered parameters, missing
+and out-of-range ports, and a round trip through the link Obsidian offers; ping recognition against
+everything else that might answer on a port; target suggestion — following the dominant file, ignoring
+spreadsheets, naming after the view, sanitising paths, and tie-breaking; the checklist's notion of a usable
+target; and the ping endpoint's disclosure limits, including that it is unreachable from a web page.
+
 ## Phase 151 — store readiness
 
 Step 5: getting the companion to the point where submitting it is a form-filling exercise rather than an

@@ -19,7 +19,10 @@ import {
   formatBytes,
 } from "../services/index";
 import type { SearchIndexer } from "../workspace/search-indexer";
+import type { GlobalSettings } from "../services/profile/profile";
 import type { BridgeService } from "../services/bridge/bridge-service";
+import { hasUsableTarget, suggestCaptureTarget } from "../services/capture/suggest-target";
+import { buildConnectionLink } from "../../shared/protocol";
 import { LocalIndexBackend, VaultIndexBackend } from "../workspace/index-backend";
 import type { ViewRegistry } from "../views/index";
 import { ProfileEditorModal } from "./profile-editor-modal";
@@ -755,6 +758,64 @@ export class KnowledgeViewsSettingTab extends PluginSettingTab {
    * need a different number. The one thing that isn't negotiable is the default — off, and staying off until
    * someone deliberately turns it on.
    */
+  /**
+   * What still needs doing before the companion works.
+   *
+   * Setup used to be a scavenger hunt: the bridge in one place, pairing in another, and — the one that
+   * actually caught people — a per-view capture target with no prompt anywhere, so the extension reported
+   * "no view can receive captures" and looked broken. Every prerequisite is stated here instead, with the
+   * fix next to it.
+   */
+  private renderBridgeChecklist(el: HTMLElement, settings: GlobalSettings["bridge"]): void {
+    const { store, bridge, dataService } = this.deps;
+    const profiles = store.listProfiles();
+    const withTarget = profiles.filter((p) => hasUsableTarget(p.captureTarget, p.newRowFile));
+
+    const list = el.createDiv({ cls: "kvs-bridge-checklist" });
+    const line = (done: boolean, text: string): HTMLElement => {
+      const row = list.createDiv({ cls: `kvs-check ${done ? "is-done" : "is-todo"}` });
+      row.createSpan({ cls: "kvs-check-mark", text: done ? "\u2713" : "\u2022" });
+      row.createSpan({ text });
+      return row;
+    };
+
+    line(bridge?.isRunning() === true, bridge?.isRunning() === true ? "The bridge is running" : "The bridge isn't running yet");
+    line(settings.token !== null, settings.token !== null ? "An extension is paired" : "Nothing is paired yet");
+
+    const targetLine = line(
+      withTarget.length > 0,
+      profiles.length === 0
+        ? "No views yet — create one first"
+        : `${String(withTarget.length)} of ${String(profiles.length)} view(s) can receive captures`,
+    );
+
+    // The fix for the case that actually strands people.
+    if (withTarget.length < profiles.length && profiles.length > 0) {
+      const fix = targetLine.createEl("button", { cls: "kvs-check-fix", text: "Set them up" });
+      fix.addEventListener("click", () => {
+        void (async () => {
+          let changed = 0;
+          for (const profile of profiles) {
+            if (hasUsableTarget(profile.captureTarget, profile.newRowFile)) continue;
+            // Follow where the view's rows already live, so one collection stays in one file.
+            const result = await dataService.query({ ...profile, pageSize: null }, {});
+            const target = suggestCaptureTarget(result.rows, profile.name);
+            store.patchProfile(profile.id, { captureTarget: target });
+            changed++;
+          }
+          new Notice(
+            changed === 0
+              ? "Every view already had somewhere to capture to."
+              : `Set up capture for ${String(changed)} view(s). Check the target in each view's settings.`,
+          );
+          this.display();
+        })();
+      });
+    }
+
+    line(settings.allowSearch, settings.allowSearch ? "Searching is allowed" : "Searching is off (optional)");
+  }
+
   private renderBridge(el: HTMLElement): void {
     const { store, bridge } = this.deps;
     const settings = store.getSettings().bridge;
@@ -776,6 +837,8 @@ export class KnowledgeViewsSettingTab extends PluginSettingTab {
       );
 
     if (!settings.enabled) return;
+
+    this.renderBridgeChecklist(el, settings);
 
     const status = el.createDiv({ cls: "kvs-bridge-status" });
     const error = bridge?.error() ?? null;
@@ -810,12 +873,34 @@ export class KnowledgeViewsSettingTab extends PluginSettingTab {
         b.setButtonText("Generate a pairing code").setCta().onClick(() => {
           const code = bridge?.startPairing();
           if (code === undefined) return;
+          shownCode = code;
           codeEl.setText(code);
           codeEl.removeClass("kvs-hidden");
+          copyRow.removeClass("kvs-hidden");
         }),
       );
     }
     const codeEl = el.createDiv({ cls: "kvs-bridge-code kvs-hidden" });
+
+    // Copying beats retyping. The link carries the port as well, which is the other thing people get
+    // wrong — so one paste on the far side replaces two fields filled in by hand.
+    let shownCode = "";
+    const copyRow = el.createDiv({ cls: "kvs-bridge-copy kvs-hidden" });
+    const copyCode = copyRow.createEl("button", { text: "Copy code" });
+    copyCode.addEventListener("click", () => {
+      void navigator.clipboard.writeText(shownCode).then(
+        () => new Notice("Pairing code copied."),
+        () => new Notice("Couldn't copy — the code is shown above."),
+      );
+    });
+    const copyLink = copyRow.createEl("button", { text: "Copy connection link" });
+    copyLink.addEventListener("click", () => {
+      const link = buildConnectionLink(settings.port, shownCode);
+      void navigator.clipboard.writeText(link).then(
+        () => new Notice("Connection link copied — paste it into the extension."),
+        () => new Notice("Couldn't copy to the clipboard."),
+      );
+    });
 
     new Setting(el).setName("Permissions").setHeading();
 
