@@ -59,3 +59,39 @@ export interface CaptureResponse {
 
 /** Protocol version. Bumped when a wire shape changes incompatibly, so the extension can refuse politely. */
 export const BRIDGE_PROTOCOL = 1;
+
+// ---- Search (the read path) ----
+
+/**
+ * How to search. Keyword is the BM25 index; semantic finds by meaning; ask returns the passages that answer
+ * a question rather than a ranked list of documents.
+ */
+export type SearchMode = "keyword" | "semantic" | "ask";
+
+export interface SearchRequest {
+  readonly query: string;
+  readonly mode?: SearchMode;
+  readonly limit?: number;
+}
+
+export interface SearchHit {
+  readonly id: string;
+  readonly title: string;
+  /** note | row | pdf | docx | xlsx | pptx | epub | image | link | zotero | zotero-annotation */
+  readonly source: string;
+  /** Vault-relative path, when the hit lives in a file. */
+  readonly path?: string;
+  /** Heading, page or section within the file. */
+  readonly location?: string;
+  readonly snippet?: string;
+  /** For link and Zotero hits, where the thing actually is. */
+  readonly url?: string;
+  readonly score: number;
+}
+
+export interface SearchResponse {
+  readonly mode: SearchMode;
+  readonly hits: readonly SearchHit[];
+  /** Set when search is available but the index hasn't finished, so the caller can say so. */
+  readonly building?: boolean;
+}

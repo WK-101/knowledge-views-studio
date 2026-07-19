@@ -3,8 +3,16 @@
   "name": "Knowledge Views Studio Companion",
   "version": "0.1.0",
   "description": "Capture pages into your Obsidian vault's Knowledge Views, using each view's own columns.",
-  "permissions": ["activeTab", "scripting", "storage", "alarms"],
-  "host_permissions": ["http://127.0.0.1/*"],
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "alarms",
+    "tabs"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1/*"
+  ],
   "action": {
     "default_title": "Capture to Knowledge Views",
     "default_popup": "popup.html"
@@ -15,7 +23,9 @@
   },
   "background": {
     "service_worker": "background.js",
-    "scripts": ["background.js"],
+    "scripts": [
+      "background.js"
+    ],
     "type": "module"
   },
   "browser_specific_settings": {

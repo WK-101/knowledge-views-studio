@@ -1,4 +1,11 @@
-import type { CaptureRequest, CaptureResponse, LookupMatch, SchemaResponse } from "../../../shared/protocol";
+import type {
+  CaptureRequest,
+  CaptureResponse,
+  LookupMatch,
+  SchemaResponse,
+  SearchRequest,
+  SearchResponse,
+} from "../../../shared/protocol";
 
 /**
  * Talking to the vault.
@@ -110,4 +117,19 @@ export async function pair(baseUrl: string, code: string): Promise<{ token: stri
     "/pair",
     { method: "POST", body: JSON.stringify({ code }) },
   );
+}
+
+export async function search(connection: Connection, request: SearchRequest): Promise<SearchResponse> {
+  return call<SearchResponse>(connection, "/search", { method: "POST", body: JSON.stringify(request) });
+}
+
+/**
+ * A link that opens something in Obsidian.
+ *
+ * The `obsidian://` scheme is the only way back into the app from a browser, and it needs the vault by name
+ * — which is why `/schema` reports it. Everything is encoded, since note paths routinely contain spaces and
+ * characters that would otherwise end the URL early.
+ */
+export function obsidianLink(vault: string, path: string): string {
+  return `obsidian://open?vault=${encodeURIComponent(vault)}&file=${encodeURIComponent(path)}`;
 }

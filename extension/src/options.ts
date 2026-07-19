@@ -1,4 +1,4 @@
-import { DEFAULT_BASE_URL, loadConnection, pair, saveConnection } from "./lib/bridge-client";
+import { api, DEFAULT_BASE_URL, loadConnection, pair, saveConnection } from "./lib/bridge-client";
 import { readQueue, writeQueue } from "./lib/queue-store";
 
 /**
@@ -22,6 +22,9 @@ async function refresh(): Promise<void> {
   byId<HTMLInputElement>("baseUrl").value = connection.baseUrl;
   byId("paired").textContent = connection.token === null ? "Not paired" : "Paired with a vault";
   byId("unpair").toggleAttribute("hidden", connection.token === null);
+
+  const stored = await api().storage.local.get(["recallBadge"]);
+  byId<HTMLInputElement>("recallBadge").checked = stored["recallBadge"] === true;
 
   const queue = await readQueue();
   byId("queue").textContent =
@@ -58,6 +61,10 @@ document.addEventListener("DOMContentLoaded", () => {
       status("Unpaired. Your vault still holds its own token — revoke it there too if you want it gone.", "info");
       return refresh();
     });
+  });
+  byId("recallBadge").addEventListener("change", () => {
+    const on = byId<HTMLInputElement>("recallBadge").checked;
+    void api().storage.local.set({ recallBadge: on });
   });
   byId("clearQueue").addEventListener("click", () => {
     void writeQueue([]).then(() => {

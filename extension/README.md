@@ -53,6 +53,23 @@ either side at any time.
 
 If you changed the port in Obsidian, change it here too.
 
+## Searching your vault
+
+The popup's second tab searches the vault itself — notes, table rows, annotations, attachments and Zotero —
+in three ways: **keyword** (phrases, exclusions, tags), **meaning** (finds notes that say it differently),
+and **ask** (a question; the passages that answer it are the result). Hits open in Obsidian; Zotero items and
+saved links open where they actually are.
+
+Searching is its own permission in Obsidian, off by default, under **Settings → Browser bridge → Allow
+searching**. It's separate from the others deliberately: reading tells the extension the *shape* of your
+views, while searching can return the text inside your notes.
+
+## Knowing what you already have
+
+The companion can mark its toolbar icon when a page is already in your vault. It's off by default, in the
+extension's settings, because turning it on means every page you visit gets checked against your vault. That
+check never leaves your computer — but it's a thing to choose, not to assume.
+
 ## Using it
 
 Click the toolbar button on any page. The companion reads the page, picks a view, pre-fills what it found,
@@ -91,5 +108,5 @@ whichever half hasn't kept up.
 
 ## Not yet built
 
-Multi-row capture from tables and lists, highlight-to-field mapping, a badge showing pages already saved,
-and searching the vault from the browser. The bridge already has the shape for them.
+Multi-row capture from tables and lists, and highlight-to-field mapping. The bridge already has the shape
+for both.

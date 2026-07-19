@@ -1,5 +1,6 @@
 import { next, retryDelayMs } from "../../shared/queue";
-import { BridgeError, capture, loadConnection } from "./lib/bridge-client";
+import { BridgeError, capture, loadConnection, lookup } from "./lib/bridge-client";
+import { api } from "./lib/bridge-client";
 import { dropFromQueue, pruneQueue, readQueue, recordFailure } from "./lib/queue-store";
 
 /**
@@ -76,3 +77,88 @@ if (alarmApi !== null) {
 const runtimeApi = runtime();
 runtimeApi?.onInstalled.addListener(() => void drain());
 runtimeApi?.onStartup?.addListener(() => void drain());
+
+
+/**
+ * The recall badge.
+ *
+ * Marks the toolbar icon when the page you're on is already in your vault — the quiet half of a companion,
+ * useful precisely when you *aren't* capturing. It answers "have I read this already?" without you having
+ * to ask.
+ *
+ * Off by default and deliberately so: it means every page you visit is checked against your vault. That
+ * check never leaves the machine, but it's still a thing to be asked rather than assumed, and someone who
+ * only wants a capture button should not be quietly opted into it.
+ */
+
+interface ActionApi {
+  setBadgeText(details: { text: string; tabId?: number }): void;
+  setBadgeBackgroundColor?(details: { color: string }): void;
+  setTitle(details: { title: string; tabId?: number }): void;
+}
+interface TabsApi {
+  onUpdated: {
+    addListener(fn: (tabId: number, info: { status?: string }, tab: { url?: string }) => void): void;
+  };
+}
+
+const action = (): ActionApi | null => {
+  const g = globalThis as unknown as {
+    browser?: { action?: ActionApi; browserAction?: ActionApi };
+    chrome?: { action?: ActionApi; browserAction?: ActionApi };
+  };
+  return g.browser?.action ?? g.browser?.browserAction ?? g.chrome?.action ?? g.chrome?.browserAction ?? null;
+};
+const tabs = (): TabsApi | null => {
+  const g = globalThis as unknown as { browser?: { tabs?: TabsApi }; chrome?: { tabs?: TabsApi } };
+  return g.browser?.tabs ?? g.chrome?.tabs ?? null;
+};
+
+/** Short-lived memory of what we've already asked about, so revisits don't re-query the vault. */
+const recallCache = new Map<string, { at: number; found: boolean }>();
+const RECALL_TTL_MS = 5 * 60 * 1000;
+
+async function badgeEnabled(): Promise<boolean> {
+  const stored = await api().storage.local.get(["recallBadge"]);
+  return stored["recallBadge"] === true;
+}
+
+async function updateBadge(tabId: number, url: string): Promise<void> {
+  const ui = action();
+  if (ui === null) return;
+  if (!/^https?:\/\//i.test(url)) {
+    ui.setBadgeText({ text: "", tabId });
+    return;
+  }
+  if (!(await badgeEnabled())) return;
+
+  const cached = recallCache.get(url);
+  const fresh = cached !== undefined && Date.now() - cached.at < RECALL_TTL_MS;
+  let found = cached?.found ?? false;
+
+  if (!fresh) {
+    try {
+      const connection = await loadConnection();
+      if (connection.token === null) return;
+      const result = await lookup(connection, { url });
+      found = result.matches.length > 0;
+      recallCache.set(url, { at: Date.now(), found });
+    } catch {
+      // Obsidian closed, or reading not granted. Silence is right here: a badge is a convenience, and
+      // nagging about it on every page would be worse than its absence.
+      return;
+    }
+  }
+
+  ui.setBadgeText({ text: found ? "\u2713" : "", tabId });
+  ui.setBadgeBackgroundColor?.({ color: "#6b46c1" });
+  ui.setTitle({
+    title: found ? "Already in your vault — click to capture again or search" : "Capture to Knowledge Views",
+    tabId,
+  });
+}
+
+tabs()?.onUpdated.addListener((tabId, info, tab) => {
+  if (info.status !== "complete" || tab.url === undefined) return;
+  void updateBadge(tabId, tab.url);
+});

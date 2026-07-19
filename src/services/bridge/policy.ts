@@ -61,6 +61,9 @@ export function checkAccess(
   if (permission === "write" && !settings.allowWrite) {
     return { status: 403, reason: "Writing through the bridge is turned off." };
   }
+  if (permission === "search" && !settings.allowSearch) {
+    return { status: 403, reason: "Searching through the bridge is turned off." };
+  }
 
   if (settings.token === null) {
     return { status: 401, reason: "Nothing is paired with this vault yet." };

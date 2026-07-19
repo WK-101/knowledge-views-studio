@@ -829,6 +829,13 @@ export class KnowledgeViewsSettingTab extends PluginSettingTab {
       .setDesc("Let a paired extension capture into your views. Separate from reading, so you can grant one without the other.")
       .addToggle((t) => t.setValue(settings.allowWrite).onChange((v) => patch({ allowWrite: v })));
 
+    new Setting(el)
+      .setName("Allow searching")
+      .setDesc(
+        "Let a paired extension search this vault — notes, rows, annotations, attachments and Zotero — from the browser. This is a bigger grant than the other two: it can return the text inside your notes, not just the shape of your views.",
+      )
+      .addToggle((t) => t.setValue(settings.allowSearch).onChange((v) => patch({ allowSearch: v })));
+
     const views = store.listProfiles();
     new Setting(el)
       .setName("Views the bridge can see")

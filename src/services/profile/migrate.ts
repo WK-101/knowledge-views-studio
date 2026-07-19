@@ -183,6 +183,9 @@ function normalizeBridge(raw: unknown): GlobalSettings["bridge"] {
     port: asNumber(raw.port, d.port),
     allowRead: asBool(raw.allowRead, d.allowRead),
     allowWrite: asBool(raw.allowWrite, d.allowWrite),
+    // Defaults to off for an existing setup as well as a new one: search is the broadest grant here, and
+    // nobody should acquire it by updating.
+    allowSearch: asBool(raw.allowSearch, d.allowSearch),
     exposedViewIds: exposed,
     allowedOrigins: origins,
     token: typeof raw.token === "string" && raw.token !== "" ? raw.token : null,

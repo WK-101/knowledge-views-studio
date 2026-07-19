@@ -6,6 +6,7 @@ import { SEARCH_VIEW_TYPE, SearchView, openSearchView } from "./workspace/search
 import { captureFromClipboard, captureColumnsFor } from "./workspace/capture-command";
 import { CaptureService } from "./services/capture/capture-service";
 import { BridgeService } from "./services/bridge/bridge-service";
+import { runBridgeSearch } from "./services/search/bridge-search";
 import { openQuickSearch } from "./workspace/quick-search-modal";
 import { OcrPipeline } from "./services/search/ocr/pipeline";
 import { RELATED_VIEW_TYPE, RelatedNotesView, openRelatedView } from "./workspace/related-notes-view";
@@ -268,6 +269,11 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
         },
         capture: captureService,
         onCaptured: (path) => dataService.invalidate(path),
+        // Only offered when search exists at all; the endpoint then says so rather than returning an empty
+        // list that would read as "nothing found".
+        ...(searchIndexer
+          ? { search: (request) => runBridgeSearch(searchIndexer, request) }
+          : {}),
       }),
     });
     void this.bridge.sync();

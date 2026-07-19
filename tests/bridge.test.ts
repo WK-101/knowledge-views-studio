@@ -12,6 +12,7 @@ import { checkAccess, originAllowed, isViewExposed, corsHeaders } from "../src/s
 import { BridgeRouter } from "../src/services/bridge/router";
 import { defaultRoutes, type BridgeContext } from "../src/services/bridge/routes";
 import { bearerToken, parseBody } from "../src/services/bridge/server";
+import { snippetAround } from "../src/services/search/bridge-search";
 import { DEFAULT_BRIDGE_SETTINGS, type BridgeRequest, type BridgeSettings } from "../src/services/bridge/types";
 
 /** Deterministic bytes so generated secrets are predictable in tests. */
@@ -491,3 +492,60 @@ describe("bridge · routes", () => {
     expect(res.status).toBe(401);
   });
 })
+
+describe("bridge · search permission", () => {
+  it("is a separate grant from reading", () => {
+    // Someone may want capture without handing over the contents of their notes.
+    const readOnly = settings({ allowSearch: false });
+    expect(checkAccess(req(), "read", readOnly)).toBeNull();
+    expect(checkAccess(req({ method: "POST", path: "/search" }), "search", readOnly)?.status).toBe(403);
+  });
+
+  it("allows searching once granted", () => {
+    expect(checkAccess(req({ method: "POST" }), "search", settings({ allowSearch: true }))).toBeNull();
+  });
+
+  it("defaults to off, so it is never acquired by updating", () => {
+    expect(DEFAULT_BRIDGE_SETTINGS.allowSearch).toBe(false);
+  });
+
+  it("still requires a valid token", () => {
+    const granted = settings({ allowSearch: true, token: "real" });
+    expect(checkAccess(req({ token: "wrong" }), "search", granted)?.status).toBe(401);
+  });
+});
+
+describe("bridge · snippetAround", () => {
+  it("returns short text unchanged", () => {
+    expect(snippetAround("a short line", ["short"])).toBe("a short line");
+  });
+
+  it("cuts around the matched term rather than the start of the document", () => {
+    const text = `${"x".repeat(400)} needle ${"y".repeat(400)}`;
+    const snippet = snippetAround(text, ["needle"]);
+    expect(snippet).toContain("needle");
+    expect(snippet.length).toBeLessThan(300);
+  });
+
+  it("falls back to the opening when no term matches", () => {
+    const snippet = snippetAround("z".repeat(500), ["absent"]);
+    expect(snippet.startsWith("z")).toBe(true);
+    expect(snippet.endsWith("…")).toBe(true);
+  });
+
+  it("marks where it cut with ellipses", () => {
+    const text = `${"x".repeat(400)} needle ${"y".repeat(400)}`;
+    expect(snippetAround(text, ["needle"]).startsWith("…")).toBe(true);
+  });
+
+  it("collapses whitespace and copes with empty input", () => {
+    expect(snippetAround("  a\n\n  b  ", ["a"])).toBe("a b");
+    expect(snippetAround("", ["a"])).toBe("");
+  });
+
+  it("ignores punctuation-only or single-character terms", () => {
+    // A one-letter "term" would match almost anywhere and make the snippet meaningless.
+    const text = `${"x".repeat(400)} target ${"y".repeat(400)}`;
+    expect(snippetAround(text, ["-", "a"]).startsWith("x")).toBe(true);
+  });
+});

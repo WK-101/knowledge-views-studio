@@ -16,6 +16,9 @@ import {
   type SchemaColumn,
   type SchemaResponse,
   type SchemaView,
+  type SearchMode,
+  type SearchRequest,
+  type SearchResponse,
 } from "./types";
 
 /**
@@ -36,6 +39,11 @@ export interface BridgeContext {
   readonly onCaptured: (path: string) => void;
   /** Complete a pairing with a typed code. */
   readonly pair: (code: string) => { ok: true; token: string } | { ok: false; reason: string };
+  /**
+   * Search the vault. Absent when the plugin's search is switched off entirely, in which case the endpoint
+   * says so plainly rather than returning an empty list that would read as "nothing found".
+   */
+  readonly search?: (request: SearchRequest) => Promise<SearchResponse>;
 }
 
 function badRequest(reason: string): { status: number; body: unknown } {
@@ -210,6 +218,38 @@ export function captureRoute(): Route<BridgeContext> {
   };
 }
 
+
+/**
+ * `POST /search` — search the vault from the browser.
+ *
+ * This is what makes the companion a companion rather than a clipper. Comparable extensions have to borrow
+ * someone else's search plugin to do this at all; here the index is already in the same process, so keyword,
+ * meaning-based and question-answering search all come from one place — and they reach rows, annotations,
+ * attachments and Zotero, not just note titles.
+ *
+ * Behind its own permission: telling a caller what your views are shaped like is a far smaller thing than
+ * letting it read what's inside your notes.
+ */
+export function searchRoute(): Route<BridgeContext> {
+  return {
+    method: "POST",
+    path: "/search",
+    permission: "search",
+    handler: async (request, context) => {
+      const body = (request.body ?? {}) as SearchRequest;
+      const query = (body.query ?? "").trim();
+      if (query === "") return badRequest("Nothing to search for.");
+      if (context.search === undefined) {
+        return { status: 503, body: { error: "Search isn't enabled in this vault." } };
+      }
+      const mode: SearchMode = body.mode === "semantic" || body.mode === "ask" ? body.mode : "keyword";
+      const limit = Math.min(Math.max(Number(body.limit ?? 20) || 20, 1), 50);
+      const result = await context.search({ query, mode, limit });
+      return { status: 200, body: result };
+    },
+  };
+}
+
 /** `POST /pair` — exchange a short code shown in settings for a lasting token. */
 export function pairRoute(): Route<BridgeContext> {
   return {
@@ -229,5 +269,5 @@ export function pairRoute(): Route<BridgeContext> {
 
 /** The endpoints the bridge ships with. Registering rather than hard-wiring keeps the list open. */
 export function defaultRoutes(): readonly Route<BridgeContext>[] {
-  return [pairRoute(), schemaRoute(), lookupRoute(), captureRoute()];
+  return [pairRoute(), schemaRoute(), lookupRoute(), captureRoute(), searchRoute()];
 }

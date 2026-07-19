@@ -18,7 +18,7 @@
  */
 
 /** What a route needs before it will run. */
-export type BridgePermission = "public" | "read" | "write";
+export type BridgePermission = "public" | "read" | "write" | "search";
 
 export interface BridgeSettings {
   /** Master switch. Off means no port is opened at all. */
@@ -28,6 +28,12 @@ export interface BridgeSettings {
   readonly allowRead: boolean;
   /** Allow /capture. Separate from reading on purpose. */
   readonly allowWrite: boolean;
+  /**
+   * Allow /search. Kept apart from `allowRead` because it is a much larger grant: reading tells a caller
+   * what your views are *shaped* like, whereas searching can return the text inside your notes. Someone may
+   * reasonably want capture without handing over the contents of the vault.
+   */
+  readonly allowSearch: boolean;
   /**
    * Which views the bridge may see. `null` means all of them; a list narrows it, so a vault can expose one
    * reading list without exposing everything else in it.
@@ -48,6 +54,7 @@ export const DEFAULT_BRIDGE_SETTINGS: BridgeSettings = {
   port: 27180,
   allowRead: true,
   allowWrite: true,
+  allowSearch: false,
   exposedViewIds: null,
   allowedOrigins: [],
   token: null,

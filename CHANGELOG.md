@@ -5,6 +5,39 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 149 — the read path: your vault, from the browser
+
+Step 4 turns the companion from something that only writes into something worth keeping open.
+
+**Search your vault without leaving the page you're on.** A second tab in the popup searches the vault
+itself — notes, table rows, annotations, attachments and Zotero — three ways: keyword (phrases, exclusions,
+tags), by meaning, and by asking a question and getting the passages that answer it. Results open in
+Obsidian; Zotero items and saved links open where they actually are.
+
+This is where being one system pays. Comparable extensions can't search on their own — they require you to
+install a separate search plugin and then borrow it. Here the index is already in the vault, so all three
+modes come from one place, and they reach rows and attachments rather than just note titles. Nothing about
+it needs an account, a service, or a model.
+
+**Searching is its own permission, and it starts off.** Reading tells a caller what your views are *shaped*
+like; searching can return the text inside your notes. Those are different sizes of grant and shouldn't
+share a switch — so `allowSearch` is separate from `allowRead`, defaults to off for existing vaults as well
+as new ones, and is described in settings in those terms rather than as another checkbox.
+
+**The companion can also tell you what you already have.** With it turned on, the toolbar icon is marked
+when the page you're looking at is already in your vault — the quiet half of a companion, useful precisely
+when you *aren't* capturing. It's off by default and asked for explicitly, because turning it on means every
+page you visit is checked. That check never leaves the computer, but it is still a thing to choose rather
+than assume, and answers are briefly cached so a revisit doesn't re-ask.
+
+Search-as-you-type is debounced, and a slower earlier query can't overwrite a newer one's results — the kind
+of thing that looks like a glitch and is actually a race.
+
+997 tests (was 987): the search permission as a genuinely separate grant, its default, and that it still
+requires a valid token; and snippet extraction — cutting around the matched term rather than the start of a
+document, marking where it cut, falling back to the opening when nothing matches, collapsing whitespace, and
+ignoring one-character terms that would otherwise match everywhere and make the fragment meaningless.
+
 ## Phase 148 — the browser companion
 
 Step 3: the extension itself, for Chrome and Firefox, ready to load unpacked.

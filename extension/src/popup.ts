@@ -2,6 +2,7 @@ import { extractFields, findDoi, type PageSnapshot } from "../../shared/extract"
 import type { CaptureRequest, SchemaResponse, SchemaView } from "../../shared/protocol";
 import { BridgeError, capture, fetchSchema, loadConnection, lookup } from "./lib/bridge-client";
 import { readPageSnapshot } from "./lib/page-reader";
+import { mountSearch } from "./lib/search-panel";
 import { queueCapture } from "./lib/queue-store";
 
 /**
@@ -242,8 +243,40 @@ async function submit(): Promise<void> {
   }
 }
 
+/**
+ * Capture and search share one window.
+ *
+ * Both are the same question — "what does my vault know about this page?" — asked in two directions, so
+ * splitting them across separate surfaces would only add a click.
+ */
+function wireTabs(): void {
+  const buttons = Array.from(document.querySelectorAll("[data-tab]"));
+  const panels = new Map<string, HTMLElement>([
+    ["capture", document.getElementById("tab-capture") as HTMLElement],
+    ["search", document.getElementById("tab-search") as HTMLElement],
+  ]);
+  let searchMounted = false;
+
+  for (const button of buttons) {
+    button.addEventListener("click", () => {
+      const wanted = button.getAttribute("data-tab") ?? "capture";
+      for (const other of buttons) other.classList.toggle("active", other === button);
+      for (const [name, panel] of panels) panel.classList.toggle("hidden", name !== wanted);
+      if (wanted === "search" && !searchMounted) {
+        searchMounted = true;
+        mountSearch({
+          host: panels.get("search") as HTMLElement,
+          vaultName: () => schema?.vault ?? "",
+          setStatus: (message, kind) => show(message, kind),
+        });
+      }
+    });
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("save")?.addEventListener("click", () => void submit());
   document.getElementById("settings")?.addEventListener("click", () => browserApi().runtime.openOptionsPage());
+  wireTabs();
   void start();
 });
