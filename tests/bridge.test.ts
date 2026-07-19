@@ -591,6 +591,174 @@ describe("bridge · routes", () => {
     });
   });
 
+  describe("annotating a page", () => {
+    const routerWith = (): BridgeRouter<BridgeContext> =>
+      new BridgeRouter<BridgeContext>().registerAll(defaultRoutes());
+
+    const wire = { id: "abcdefghij", anchor: { exact: "quoted words" }, color: "yellow", createdAt: "2026-01-01T00:00:00Z" };
+    const pageRow = {
+      cells: { Title: "A Read", URL: "https://x/a", Annotations: "" },
+      provenance: { filePath: "L.md", extractor: "table", locator: { row: 0 }, fingerprint: "f0" },
+    };
+    const annColumns = [
+      { name: "Title", typeId: "text" },
+      { name: "URL", typeId: "url" },
+      { name: "Annotations", typeId: "text" },
+    ];
+
+    const annCtx = (overrides: Record<string, unknown> = {}) => {
+      const saved: unknown[] = [];
+      const edits: unknown[] = [];
+      const noteAppends: unknown[] = [];
+      const ctx = makeContext({
+        viewData: () => Promise.resolve({ rows: [pageRow] as never, columns: annColumns }),
+        editCells: (list: unknown) => {
+          edits.push(list);
+          return Promise.resolve();
+        },
+        webAnnotations: {
+          list: () => Promise.resolve([]),
+          save: (a: unknown) => {
+            saved.push(a);
+            return Promise.resolve();
+          },
+          remove: () => Promise.resolve(null),
+          appendToDedicatedNote: (...args: unknown[]) => {
+            noteAppends.push(args);
+            return Promise.resolve(true);
+          },
+        },
+        ...overrides,
+      }).context as unknown as BridgeContext;
+      return { ctx, saved, edits, noteAppends };
+    };
+
+    it("lands the highlight in sidecar, cell, and note in one call", async () => {
+      const { ctx, saved, edits, noteAppends } = annCtx();
+      const res = await routerWith().dispatch(
+        req({ method: "POST", path: "/annotate", body: { viewId: "papers", url: "https://x/a", annotation: wire } }),
+        settings(),
+        ctx,
+      );
+      expect(res.status).toBe(200);
+      const body = res.body as { ok: boolean; wroteCell?: boolean; wroteNote?: boolean; rowRef?: string };
+      expect(body.ok).toBe(true);
+      expect(body.wroteCell).toBe(true);
+      expect(body.wroteNote).toBe(true);
+      expect(body.rowRef).toBeDefined();
+      expect(saved).toHaveLength(1);
+      expect(edits).toHaveLength(1);
+      expect(noteAppends).toHaveLength(1);
+    });
+
+    it("appends the human-readable line, never machine bookkeeping, to the cell", async () => {
+      const { ctx, edits } = annCtx();
+      await routerWith().dispatch(
+        req({ method: "POST", path: "/annotate", body: { viewId: "papers", url: "https://x/a", annotation: { ...wire, note: "my thought" } } }),
+        settings(),
+        ctx,
+      );
+      const first = (edits[0] as { column: string; value: string }[])[0];
+      expect(first?.value).toBe("==quoted words== — my thought");
+      expect(first?.value).not.toContain("yellow");
+      expect(first?.value).not.toContain("abcdefghij");
+    });
+
+    it("creates the row first when the page has none — a highlight needs somewhere to land", async () => {
+      const twoPhases = [
+        { rows: [] as never[], columns: annColumns },
+        { rows: [pageRow] as never[], columns: annColumns },
+      ];
+      const { ctx, saved } = annCtx({
+        viewData: () => Promise.resolve(twoPhases.shift() ?? { rows: [pageRow] as never[], columns: annColumns }),
+      });
+      const res = await routerWith().dispatch(
+        req({
+          method: "POST",
+          path: "/annotate",
+          body: {
+            viewId: "papers",
+            url: "https://x/a",
+            annotation: wire,
+            fields: [{ key: "Title", value: "A Read" }, { key: "url", value: "https://x/a" }],
+          },
+        }),
+        settings(),
+        ctx,
+      );
+      const body = res.body as { ok: boolean; createdRow?: boolean };
+      expect(body.ok).toBe(true);
+      expect(body.createdRow).toBe(true);
+      expect(saved).toHaveLength(1);
+    });
+
+    it("refuses a highlight with nothing to anchor", async () => {
+      const { ctx } = annCtx();
+      const res = await routerWith().dispatch(
+        req({ method: "POST", path: "/annotate", body: { viewId: "papers", url: "https://x/a", annotation: { id: "x", anchor: { exact: "" } } } }),
+        settings(),
+        ctx,
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it("needs write permission", async () => {
+      const { ctx } = annCtx();
+      const res = await routerWith().dispatch(
+        req({ method: "POST", path: "/annotate", body: { viewId: "papers", url: "https://x/a", annotation: wire } }),
+        settings({ allowWrite: false }),
+        ctx,
+      );
+      expect(res.status).toBe(403);
+    });
+
+    it("lists a page's annotations for repainting, and needs only read", async () => {
+      const stored = [{ ...wire, url: "https://x/a" }];
+      const { ctx } = annCtx({
+        webAnnotations: {
+          list: () => Promise.resolve(stored),
+          save: () => Promise.resolve(),
+          remove: () => Promise.resolve(null),
+          appendToDedicatedNote: () => Promise.resolve(false),
+        },
+      });
+      const res = await routerWith().dispatch(
+        req({ method: "POST", path: "/annotations", body: { url: "https://x/a" } }),
+        settings({ allowWrite: false }),
+        ctx,
+      );
+      expect(res.status).toBe(200);
+      const body = res.body as { annotations: { id: string }[] };
+      expect(body.annotations[0]?.id).toBe("abcdefghij");
+      // The wire copy never carries the vault-side url key.
+      expect(Object.keys(body.annotations[0] ?? {})).not.toContain("url");
+    });
+
+    it("removal cleans the exact cell line and reports it", async () => {
+      const withLine = {
+        ...pageRow,
+        cells: { ...pageRow.cells, Annotations: "==quoted words==<br>==keep me==" },
+      };
+      const { ctx, edits } = annCtx({
+        viewData: () => Promise.resolve({ rows: [withLine] as never, columns: annColumns }),
+        webAnnotations: {
+          list: () => Promise.resolve([]),
+          save: () => Promise.resolve(),
+          remove: () => Promise.resolve({ ...wire, url: "https://x/a" }),
+          appendToDedicatedNote: () => Promise.resolve(false),
+        },
+      });
+      const res = await routerWith().dispatch(
+        req({ method: "POST", path: "/annotate/remove", body: { viewId: "papers", url: "https://x/a", id: "abcdefghij" } }),
+        settings(),
+        ctx,
+      );
+      expect((res.body as { removedFromCell?: boolean }).removedFromCell).toBe(true);
+      const first = (edits[0] as { value: string }[])[0];
+      expect(first?.value).toBe("==keep me==");
+    });
+  });
+
   describe("reading a view for a dashboard", () => {
     const routerWith = (): BridgeRouter<BridgeContext> =>
       new BridgeRouter<BridgeContext>().registerAll(defaultRoutes());

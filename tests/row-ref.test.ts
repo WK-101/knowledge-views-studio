@@ -196,3 +196,24 @@ describe("bridge · appending into a cell", () => {
     expect(allowed[0]?.value).toBe("New");
   });
 })
+
+describe("bridge · annotation text through the cell path (adversarial)", () => {
+  const columns = [{ name: "Annotations" }];
+
+  it("carries pipes, quotes and brackets through append composition unmangled", () => {
+    // The writer escapes pipes when it writes the table line; the composed value must arrive intact for
+    // that to work. Composition mangling them here would corrupt silently.
+    const nasty = 'He said "a | b" and [x](y) — plus a <br> literal';
+    const target = row({}, { Annotations: "prior" });
+    const { allowed } = editableChanges(target, [{ key: "Annotations", value: nasty, mode: "append" }], columns);
+    expect(allowed[0]?.value).toBe(`prior<br>${nasty}`);
+  });
+
+  it("keeps newline-free composition: multi-line additions arrive as one cell line", () => {
+    // A raw newline in a table cell breaks the row; callers must fold them before sending, and the
+    // composition must not reintroduce any.
+    const target = row({}, { Annotations: "a" });
+    const { allowed } = editableChanges(target, [{ key: "Annotations", value: "one two", mode: "append" }], columns);
+    expect(allowed[0]?.value).not.toContain("\n");
+  });
+})

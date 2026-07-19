@@ -5,6 +5,55 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 159 — the web annotator (Phase B)
+
+Select text on any page and a small toolbar appears: four colours, or a colour with a note. The highlight is
+painted immediately, lands in the page's row, in the page's dedicated note when it has one — and is painted
+again every time the page is revisited. Click a painted highlight to read its note, edit it, or remove it.
+This is the shape the reference tools (Web Highlights, WuCai, Hypothesis) established, with the vault as the
+store.
+
+**One highlight, three homes — by design.** The *sidecar* (a JSON file beside the plugin's data, syncing
+wherever the vault syncs) is the machine's copy: anchors, colours, ids, the only thing the painter ever
+reads. The *row cell* gets the glanceable copy — `==quote== — note` — readable in any table view. The
+*dedicated note* gets a proper blockquote under `## Annotations`, created if the template lacks the heading.
+Nothing ever parses the human copies back, which is precisely what makes them safe to edit: reword the cell
+line, annotate the blockquote, and no highlight breaks.
+
+**Painting is anchor-based, never position-based.** On revisit, the saved quote is located in the page's raw
+text — whitespace-tolerant, because a re-render's whitespace is exactly what changes; context-scored when
+the quote appears more than once; and refused when occurrences can't be told apart, because a highlight
+painted on the wrong words teaches distrust of every mark. A skipped paint is still in the vault and listed
+in the companion.
+
+**A highlight can create its row.** Highlighting a page with no row yet captures it first — metadata into
+the view the site's rule (or default) names — then annotates. A highlight is the strongest signal a page
+matters; it shouldn't be lost to filing order. The sidecar write comes last in the chain, so nothing ever
+claims a highlight the row copy silently lost.
+
+**Removal respects people.** Deleting a highlight strips exactly the line it wrote from the cell — matched
+whole, so a line someone reworded by hand no longer matches and survives. Their edit outranks our
+bookkeeping.
+
+**The trust boundaries hold.** All UI lives in a closed shadow root the page's CSS can't touch; the only
+additions to the page's own tree are the highlight marks themselves, styled inline, dark-mode aware. The
+pairing token never enters the content script — everything goes through the background worker, and the
+worker resolves which view a highlight lands in the same way captures do: site rule, then default, then
+last-used, then first writable.
+
+**Asked for, not assumed.** The annotator is off until enabled in settings; enabling asks for page access in
+the same click (the gesture rule the search toggle taught us), registers the content script, and
+re-registers it after browser restarts while the permission holds. The companion's Highlight tab now reads
+the structured store — colour dots, notes, per-highlight removal — instead of scraping rows.
+
+1299 tests (was 1253): the annotation model — ids, replace-by-id, tolerant reading of a hand-editable file,
+colour fallback, the cell line staying one line and never leaking bookkeeping, the note blockquote; locating
+— re-rendered whitespace, non-breaking spaces, regex-special quotes, lone-occurrence tolerance, duplicate
+refusal, context disambiguation; the sidecar surviving corruption and dropping only what can't paint; the
+route orchestration — cell text purity, row-creation-then-annotate, permission gating, wire hygiene, and
+removal cleaning exactly its own line; and adversarial pipes, quotes and `<br>` literals through the cell
+append path.
+
 ## Phase 158 — the capture model (Phase A)
 
 The foundation for the row-and-note workflow: a row collects a page's data; when a page deserves its own

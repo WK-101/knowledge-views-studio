@@ -12,6 +12,12 @@ import type {
   RowsResponse,
   PromoteRequest,
   PromoteResponse,
+  AnnotateRequest,
+  AnnotateResponse,
+  AnnotationsRequest,
+  AnnotationsResponse,
+  AnnotationRemoveRequest,
+  AnnotationRemoveResponse,
 } from "../../../shared/protocol";
 import { DISCOVERY_PORTS, isBridgePing } from "../../../shared/protocol";
 
@@ -197,4 +203,28 @@ export async function rows(connection: Connection, request: RowsRequest): Promis
 /** Create — or find — a row's dedicated note. Idempotent on the vault side. */
 export async function promote(connection: Connection, request: PromoteRequest): Promise<PromoteResponse> {
   return call<PromoteResponse>(connection, "/promote", { method: "POST", body: JSON.stringify(request) });
+}
+
+/** Save a highlight: sidecar, row cell, and dedicated note in one call. */
+export async function annotate(connection: Connection, request: AnnotateRequest): Promise<AnnotateResponse> {
+  return call<AnnotateResponse>(connection, "/annotate", { method: "POST", body: JSON.stringify(request) });
+}
+
+/** Everything saved for a page, for repainting. */
+export async function annotationsFor(
+  connection: Connection,
+  request: AnnotationsRequest,
+): Promise<AnnotationsResponse> {
+  return call<AnnotationsResponse>(connection, "/annotations", { method: "POST", body: JSON.stringify(request) });
+}
+
+/** Delete a highlight, cleaning up its row line where possible. */
+export async function annotateRemove(
+  connection: Connection,
+  request: AnnotationRemoveRequest,
+): Promise<AnnotationRemoveResponse> {
+  return call<AnnotationRemoveResponse>(connection, "/annotate/remove", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
 }

@@ -1,0 +1,143 @@
+import { describe, it, expect } from "vitest";
+import {
+  annotationId,
+  annotationCellText,
+  annotationNoteBlock,
+  coerceAnnotation,
+  withAnnotation,
+  withoutAnnotation,
+  type StoredAnnotation,
+  type PageAnnotations,
+} from "../shared/annotations";
+import { locateAnchor } from "../shared/anchor-locate";
+
+const ann = (patch: Partial<StoredAnnotation> = {}): StoredAnnotation => ({
+  id: "abc123defg",
+  url: "https://x/a",
+  anchor: { exact: "The important claim.", prefix: "before it. ", suffix: " After it" },
+  color: "yellow",
+  createdAt: "2026-07-20T00:00:00.000Z",
+  ...patch,
+});
+
+describe("annotations · model", () => {
+  it("makes distinct ids", () => {
+    expect(annotationId()).not.toBe(annotationId());
+    expect(annotationId()).toMatch(/^[a-z0-9]{10}$/);
+  });
+
+  it("replaces an annotation with the same id rather than duplicating it", () => {
+    const page: PageAnnotations = { url: "https://x/a", annotations: [ann()] };
+    const next = withAnnotation(page, ann({ color: "green" }));
+    expect(next.annotations).toHaveLength(1);
+    expect(next.annotations[0]?.color).toBe("green");
+  });
+
+  it("removes by id, and removing something already gone is not an error", () => {
+    const page: PageAnnotations = { url: "https://x/a", annotations: [ann()] };
+    expect(withoutAnnotation(page, "abc123defg").annotations).toHaveLength(0);
+    expect(withoutAnnotation(page, "never-there").annotations).toHaveLength(1);
+  });
+});
+
+describe("annotations · reading whatever the sidecar file holds", () => {
+  it("reads a well-formed entry", () => {
+    expect(coerceAnnotation(ann())).toEqual(ann());
+  });
+
+  it("drops entries that can't paint, rather than breaking every other highlight", () => {
+    // The sidecar lives in someone's vault: hand-edits, sync conflicts, future versions.
+    for (const bad of [null, 7, "x", {}, { id: "a" }, { id: "a", url: "u", anchor: {} }, { id: "a", url: "u", anchor: { exact: "" } }]) {
+      expect(coerceAnnotation(bad)).toBeNull();
+    }
+  });
+
+  it("falls back to yellow for a colour it doesn't know", () => {
+    expect(coerceAnnotation({ ...ann(), color: "chartreuse" })?.color).toBe("yellow");
+  });
+
+  it("drops an empty note rather than keeping a blank field", () => {
+    expect(coerceAnnotation({ ...ann(), note: "  " })?.note).toBeUndefined();
+    expect(coerceAnnotation({ ...ann(), note: "kept" })?.note).toBe("kept");
+  });
+});
+
+describe("annotations · the row cell copy", () => {
+  it("marks the quote and appends the note after a dash", () => {
+    expect(annotationCellText(ann({ note: "my thought" }))).toBe("==The important claim.== — my thought");
+    expect(annotationCellText(ann())).toBe("==The important claim.==");
+  });
+
+  it("stays on one line whatever the quote contained — a cell must", () => {
+    const multi = ann({ anchor: { exact: "line one\nline two" } });
+    expect(annotationCellText(multi)).toBe("==line one line two==");
+    expect(annotationCellText(multi)).not.toContain("\n");
+  });
+
+  it("never leaks machine bookkeeping into the cell", () => {
+    const text = annotationCellText(ann({ note: "n" }));
+    expect(text).not.toContain("yellow");
+    expect(text).not.toContain("abc123defg");
+    expect(text).not.toContain("before it");
+  });
+});
+
+describe("annotations · the note copy", () => {
+  it("writes a blockquote with the note nested beneath", () => {
+    expect(annotationNoteBlock(ann({ note: "my thought" }))).toBe(
+      "> The important claim.\n>\n> — my thought",
+    );
+  });
+
+  it("quotes every line of a multi-line highlight", () => {
+    const block = annotationNoteBlock(ann({ anchor: { exact: "one\ntwo" } }));
+    expect(block).toBe("> one\n> two");
+  });
+});
+
+describe("annotations · locating for paint", () => {
+  const raw = "Intro text here.  The   important\n  claim. And a follow-up sentence.";
+
+  it("finds the quote across re-rendered whitespace, at raw offsets", () => {
+    const at = locateAnchor(raw, { exact: "The important claim." });
+    expect(at).not.toBeNull();
+    expect(raw.slice(at!.start, at!.end).replace(/\s+/g, " ")).toBe("The important claim.");
+  });
+
+  it("matches exactly aside from whitespace — no fuzzy painting of the wrong words", () => {
+    expect(locateAnchor(raw, { exact: "The unimportant claim." })).toBeNull();
+  });
+
+  it("takes a lone occurrence even when the remembered context has changed", () => {
+    const at = locateAnchor(raw, { exact: "The important claim.", prefix: "entirely rewritten", suffix: "gone too" });
+    expect(at).not.toBeNull();
+  });
+
+  it("uses context to choose between duplicates", () => {
+    const doubled = "Alpha. Same words here. Beta. Same words here. Gamma.";
+    const at = locateAnchor(doubled, { exact: "Same words here.", prefix: "Beta. ", suffix: " Gamma" });
+    expect(at).not.toBeNull();
+    expect(at!.start).toBeGreaterThan(doubled.indexOf("Beta"));
+  });
+
+  it("refuses duplicates it can't tell apart — wrong paint is worse than none", () => {
+    const doubled = "Same words here. Same words here.";
+    expect(locateAnchor(doubled, { exact: "Same words here." })).toBeNull();
+  });
+
+  it("survives regex-special characters in the quote", () => {
+    const text = "Cost is $5.00 (roughly [a lot]) today.";
+    const at = locateAnchor(text, { exact: "$5.00 (roughly [a lot])" });
+    expect(at).not.toBeNull();
+    expect(text.slice(at!.start, at!.end)).toBe("$5.00 (roughly [a lot])");
+  });
+
+  it("matches across a non-breaking space, which re-renders love to introduce", () => {
+    const at = locateAnchor("The\u00a0important claim.", { exact: "The important claim." });
+    expect(at).not.toBeNull();
+  });
+
+  it("returns null for an empty anchor", () => {
+    expect(locateAnchor(raw, { exact: "   " })).toBeNull();
+  });
+});

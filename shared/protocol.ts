@@ -348,3 +348,54 @@ export interface PromoteResponse {
   readonly created?: boolean;
   readonly reason?: string;
 }
+
+// ---- Web annotations ----
+
+/** One highlight, as the wire carries it. */
+export interface WireAnnotation {
+  readonly id: string;
+  readonly anchor: TextAnchor;
+  readonly color: string;
+  readonly note?: string;
+  readonly createdAt: string;
+}
+
+export interface AnnotateRequest {
+  readonly viewId: string;
+  readonly url: string;
+  readonly annotation: WireAnnotation;
+  /** Page metadata for creating the row when the page has none yet — a highlight needs a row to land in. */
+  readonly fields?: readonly { readonly key: string; readonly value: string }[];
+}
+
+export interface AnnotateResponse {
+  readonly ok: boolean;
+  /** The row the annotation landed in, freshly created or found. */
+  readonly rowRef?: string;
+  readonly createdRow?: boolean;
+  /** Whether the human-readable copies were written. */
+  readonly wroteCell?: boolean;
+  readonly wroteNote?: boolean;
+  readonly reason?: string;
+}
+
+export interface AnnotationsRequest {
+  readonly url: string;
+}
+
+export interface AnnotationsResponse {
+  readonly ok: boolean;
+  readonly annotations: readonly WireAnnotation[];
+}
+
+export interface AnnotationRemoveRequest {
+  readonly url: string;
+  readonly id: string;
+  /** The view whose row should lose the matching cell line, when known. */
+  readonly viewId?: string;
+}
+
+export interface AnnotationRemoveResponse {
+  readonly ok: boolean;
+  readonly removedFromCell?: boolean;
+}

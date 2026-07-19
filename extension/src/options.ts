@@ -10,6 +10,7 @@ import {
 } from "./lib/bridge-client";
 import { parsePairingInput } from "../../shared/protocol";
 import { loadPreferences, savePreferences, type Preferences } from "./lib/preferences";
+import { hasPageAccess, requestPageAccess, registerAnnotator, unregisterAnnotator } from "./lib/page-access";
 import { isUsableRule, type DomainRule } from "../../shared/rules";
 import type { SchemaView } from "../../shared/protocol";
 import {
@@ -244,6 +245,7 @@ async function wirePreferences(): Promise<void> {
   byId<HTMLSelectElement>("selectionStyle").value = prefs.selectionStyle;
   byId<HTMLInputElement>("alwaysTags").value = prefs.alwaysTags;
   byId<HTMLSelectElement>("searchMode").value = prefs.searchMode;
+  byId<HTMLInputElement>("annotations").checked = prefs.annotations;
   drawRules(prefs);
 
   const bind = (id: string, read: () => Partial<Preferences>, event = "change"): void => {
@@ -336,6 +338,34 @@ document.addEventListener("DOMContentLoaded", () => {
     void savePreferences({ popupSize: size }).then(() => {
       status("Popup size saved — it applies next time you open it.", "ok");
     });
+  });
+
+  byId("annotations").addEventListener("change", () => {
+    const box = byId<HTMLInputElement>("annotations");
+
+    if (!box.checked) {
+      void (async () => {
+        await savePreferences({ annotations: false });
+        await unregisterAnnotator();
+        status("Highlighting on pages is off.", "info");
+      })();
+      return;
+    }
+
+    // Requested before anything is awaited — the same gesture rule the search toggle learned the hard way.
+    const pending = requestPageAccess();
+
+    void (async () => {
+      const granted = (await pending) || (await hasPageAccess());
+      if (!granted) {
+        box.checked = false;
+        status("Highlighting needs permission to read pages; nothing was changed.", "error");
+        return;
+      }
+      await savePreferences({ annotations: true });
+      await registerAnnotator();
+      status("Select text on any page to highlight it.", "ok");
+    })();
   });
 
   byId("serpMarks").addEventListener("change", () => {

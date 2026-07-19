@@ -32,6 +32,8 @@ export interface Preferences {
   readonly searchMode: "keyword" | "meaning" | "ask";
   readonly recallBadge: boolean;
   readonly serpMarks: boolean;
+  /** Whether the in-page highlighter runs. Needs page access, asked for when this is turned on. */
+  readonly annotations: boolean;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -46,6 +48,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   searchMode: "keyword",
   recallBadge: false,
   serpMarks: false,
+  annotations: false,
 };
 
 const KEY = "preferences";
@@ -91,6 +94,7 @@ export function normalizePreferences(raw: unknown): Preferences {
     searchMode: mode === "meaning" || mode === "ask" ? mode : "keyword",
     recallBadge: value["recallBadge"] === true,
     serpMarks: value["serpMarks"] === true,
+    annotations: value["annotations"] === true,
   };
 }
 

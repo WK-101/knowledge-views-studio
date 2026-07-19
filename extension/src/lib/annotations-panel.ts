@@ -1,19 +1,18 @@
 import type { PageSnapshot } from "../../../shared/extract";
 import { anchorSummary, buildAnchor } from "../../../shared/anchor";
-import type { CaptureRequest, SchemaView, TextAnchor } from "../../../shared/protocol";
-import { BridgeError, capture, loadConnection, rows as fetchRows } from "./bridge-client";
-import { queueCapture } from "./queue-store";
+import type { SchemaView, TextAnchor, WireAnnotation } from "../../../shared/protocol";
+import { BridgeError, annotate, annotateRemove, annotationsFor, loadConnection } from "./bridge-client";
 
 /**
- * Highlights, kept where the rest of your reading is.
+ * The page's highlights, managed from the companion.
  *
- * A highlight is only worth making if it can be found again, so what's saved is the quoted text plus a
- * little of what surrounds it — never a position, which points at something else the moment the page
- * rerenders. When a passage genuinely has gone, the annotation says so rather than silently pointing at a
- * neighbouring sentence.
+ * The in-page toolbar is where highlights are usually made; this panel is where they're *reviewed* — every
+ * highlight on the page with its colour and note, and the way to remove one. It reads the structured store,
+ * never the row's cell: the cell is the human copy people are free to edit, and nothing machine-side should
+ * depend on parsing it back.
  *
- * Existing highlights for the page are listed first. Seeing what you already thought about something is most
- * of the value of having written it down.
+ * A selection can also be saved from here, for the cases where the toolbar isn't available — a page where
+ * the annotator is off, or a highlight being added from the popup deliberately.
  */
 
 interface Elements {
@@ -33,52 +32,85 @@ function node<K extends keyof HTMLElementTagNameMap>(
   return el;
 }
 
-/** The column an annotation's text belongs in, preferring one the view actually named for it. */
-export function highlightColumn(view: SchemaView): string {
-  const named = view.columns.find((c) =>
-    ["highlight", "quote", "annotation", "excerpt", "note"].includes(c.name.toLowerCase()),
-  );
-  if (named !== undefined) return named.name;
-  const long = view.columns.find((c) => c.typeId === "markdown");
-  return long?.name ?? view.columns[0]?.name ?? "Note";
-}
+const DOT: Record<string, string> = {
+  yellow: "#e6c200",
+  green: "#3fae5a",
+  blue: "#4a8fe0",
+  red: "#e05a6a",
+};
 
 export function mountAnnotations(page: PageSnapshot, elements: Elements): void {
   const { host, view, setStatus } = elements;
   host.replaceChildren();
 
-  const selected = (page.selectionMarkdown ?? page.selection ?? "").trim();
-  const existing = node("div", { class: "annots" });
-  host.appendChild(existing);
+  const list = node("div", { class: "annots" });
+  host.appendChild(list);
 
-  // What you already noted about this page, before offering to add more.
-  void (async () => {
-    const target = view();
-    if (target === null) return;
+  const drawExisting = async (): Promise<void> => {
+    list.replaceChildren();
     try {
       const connection = await loadConnection();
-      const result = await fetchRows(connection, { viewId: target.id, url: page.url, pageSize: 20 });
-      if (result.rows.length === 0) {
-        existing.appendChild(node("p", { class: "hint" }, "No highlights saved from this page yet."));
+      const result = await annotationsFor(connection, { url: page.url });
+      if (result.annotations.length === 0) {
+        list.appendChild(node("p", { class: "hint" }, "No highlights on this page yet."));
         return;
       }
-      const column = highlightColumn(target);
-      existing.appendChild(node("p", { class: "hint" }, `${String(result.rows.length)} saved from this page`));
-      for (const row of result.rows) {
-        const text = row.cells[column] ?? Object.values(row.cells).find((v) => v !== "") ?? "";
-        if (text === "") continue;
-        existing.appendChild(node("blockquote", { class: "annot" }, anchorSummary({ exact: text }, 160)));
+      list.appendChild(
+        node("p", { class: "hint" }, `${String(result.annotations.length)} highlight(s) on this page`),
+      );
+      for (const annotation of result.annotations) {
+        list.appendChild(annotationRow(annotation, drawExisting));
       }
     } catch {
-      // Reading is optional here; adding a highlight still works without it.
+      list.appendChild(node("p", { class: "hint" }, "Couldn't read this page's highlights — is Obsidian running?"));
     }
-  })();
+  };
+
+  const annotationRow = (annotation: WireAnnotation, redraw: () => Promise<void>): HTMLElement => {
+    const wrap = node("div", { class: "annot" });
+    const head = node("div", { class: "annot-head" });
+    const dot = node("span", { class: "annot-dot" });
+    dot.style.backgroundColor = DOT[annotation.color] ?? DOT["yellow"] ?? "";
+    head.appendChild(dot);
+    head.appendChild(node("span", { class: "annot-quote" }, anchorSummary(annotation.anchor, 140)));
+    const remove = node("button", { class: "link annot-remove", type: "button" }, "Remove");
+    remove.addEventListener("click", () => {
+      void (async () => {
+        try {
+          const connection = await loadConnection();
+          const target = view();
+          await annotateRemove(connection, {
+            url: page.url,
+            id: annotation.id,
+            ...(target !== null ? { viewId: target.id } : {}),
+          });
+          setStatus("Highlight removed.", "info");
+          await redraw();
+        } catch {
+          setStatus("Couldn't remove that highlight.", "error");
+        }
+      })();
+    });
+    head.appendChild(remove);
+    wrap.appendChild(head);
+    if (annotation.note !== undefined) {
+      wrap.appendChild(node("p", { class: "annot-note" }, annotation.note));
+    }
+    return wrap;
+  };
+
+  void drawExisting();
 
   host.appendChild(node("hr", {}));
 
+  const selected = (page.selectionMarkdown ?? page.selection ?? "").trim();
   if (selected === "") {
     host.appendChild(
-      node("p", { class: "hint" }, "Select some text on the page, then reopen this to save it as a highlight."),
+      node(
+        "p",
+        { class: "hint" },
+        "Select text on the page and use the highlight toolbar — or select and reopen this to save from here.",
+      ),
     );
     return;
   }
@@ -101,40 +133,43 @@ export function mountAnnotations(page: PageSnapshot, elements: Elements): void {
         setStatus("Pick a view to save into first.", "error");
         return;
       }
-      // Anchor against the article text so the highlight can be found again after the page changes.
+      // Anchored against the article text — the panel can't read the live page the way the in-page
+      // toolbar can, so restoring this highlight depends on the article extraction being faithful.
       const context = page.article?.markdown ?? page.excerpt ?? selected;
       const anchor: TextAnchor = buildAnchor(context, selected);
-
-      const request: CaptureRequest = {
-        viewId: target.id,
-        fields: [
-          { key: highlightColumn(target), value: selected },
-          { key: "url", value: page.url },
-          { key: "title", value: page.title ?? "" },
-          ...(noteInput.value.trim() !== "" ? [{ key: "note", value: noteInput.value.trim() }] : []),
-          ...(anchor.prefix !== undefined ? [{ key: "anchorPrefix", value: anchor.prefix }] : []),
-          ...(anchor.suffix !== undefined ? [{ key: "anchorSuffix", value: anchor.suffix }] : []),
-        ],
-        url: page.url,
+      const annotation: WireAnnotation = {
+        id: Array.from({ length: 10 }, () =>
+          "abcdefghijklmnopqrstuvwxyz0123456789"[Math.floor(Math.random() * 36)],
+        ).join(""),
+        anchor,
+        color: "yellow",
+        createdAt: new Date().toISOString(),
+        ...(noteInput.value.trim() !== "" ? { note: noteInput.value.trim() } : {}),
       };
 
       button.setAttribute("disabled", "");
       setStatus("Saving highlight…");
       try {
         const connection = await loadConnection();
-        const result = await capture(connection, request);
+        const result = await annotate(connection, {
+          viewId: target.id,
+          url: page.url,
+          annotation,
+          fields: [
+            { key: "title", value: page.title ?? "" },
+            { key: "url", value: page.url },
+          ],
+        });
         if (!result.ok) {
           setStatus(result.reason ?? "Couldn't save that highlight.", "error");
           button.removeAttribute("disabled");
           return;
         }
-        setStatus(`Highlight saved to ${result.path ?? "your vault"}`, "ok");
+        setStatus(result.createdRow === true ? "Highlight saved — new row created for this page." : "Highlight saved.", "ok");
+        noteInput.value = "";
+        button.removeAttribute("disabled");
+        await drawExisting();
       } catch (error) {
-        if (error instanceof BridgeError && error.offline) {
-          await queueCapture(request);
-          setStatus("Your vault isn't reachable — saved to send when it is.", "info");
-          return;
-        }
         setStatus(error instanceof BridgeError ? error.message : "Couldn't save that highlight.", "error");
         button.removeAttribute("disabled");
       }

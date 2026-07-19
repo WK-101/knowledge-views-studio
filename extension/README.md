@@ -86,6 +86,13 @@ so a contents page becomes a single blob of prose.
 Select text before opening the popup and every field gains a **Use selection** button, so a highlighted
 abstract, price or author can go into the column you actually want it in rather than always the description.
 
+## Highlighting on pages
+
+Turn it on in settings, select text on any page, and a toolbar appears: four colours, or a colour with a
+note. Highlights are painted again whenever you revisit the page, land in the page's row, and — when the
+page has a dedicated note — under its `## Annotations` heading. Click a highlight to read, note, or remove
+it. A page with no row yet gets one automatically: a highlight is the strongest signal a page matters.
+
 ## Rules for particular sites
 
 Papers from arXiv always belong in the same view, in the same shape. Articles from a newspaper belong

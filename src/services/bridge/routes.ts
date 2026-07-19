@@ -16,6 +16,12 @@ import {
   type SchemaColumn,
   type KnownRequest,
   type KnownResponse,
+  type AnnotateRequest,
+  type AnnotateResponse,
+  type AnnotationRemoveRequest,
+  type AnnotationRemoveResponse,
+  type AnnotationsRequest,
+  type AnnotationsResponse,
   type PromoteRequest,
   type PromoteResponse,
   type RowsRequest,
@@ -34,6 +40,9 @@ import { normalizeUrl } from "../../../shared/protocol";
 import { editableChanges, findRowByRef, rowRefOf } from "./row-ref";
 import { noteLinkColumnName } from "../../views/promoted-detect";
 import { dedicatedNoteKeyFor } from "../notes/dedicated-note";
+import { annotationColumn, cellWithoutAnnotation, readWireAnnotation, rowForUrl } from "./annotate-plan";
+import { annotationCellText, type StoredAnnotation } from "../../../shared/annotations";
+import { identityCell } from "../notes/promotion-plan";
 
 /**
  * What the bridge actually does.
@@ -50,6 +59,13 @@ export interface BridgeContext {
   /** Rows and resolved columns for a view — the same pair the in-app capture command uses. */
   readonly viewData: (profile: Profile) => Promise<{ rows: readonly Row[]; columns: readonly CaptureColumn[] }>;
   readonly capture: CaptureService;
+  /** Web-annotation storage and note feeding. Absent when annotations aren't available. */
+  readonly webAnnotations?: {
+    list(url: string): Promise<readonly StoredAnnotation[]>;
+    save(annotation: StoredAnnotation): Promise<void>;
+    remove(url: string, id: string): Promise<StoredAnnotation | null>;
+    appendToDedicatedNote(matchKey: string, matchValue: string, annotation: StoredAnnotation): Promise<boolean>;
+  };
   /** Create or find a row's dedicated note. Absent when promotion isn't available. */
   readonly promote?: (
     profile: Profile,
@@ -597,6 +613,209 @@ export function promoteRoute(): Route<BridgeContext> {
   };
 }
 
+
+/**
+ * `POST /annotate` — a highlight lands everywhere it belongs, in one call.
+ *
+ * Sidecar for repainting; the page's row for the glanceable copy; the dedicated note, when there is one,
+ * for the write-up. And when the page has no row yet, one is created first from the metadata the caller
+ * sent — a highlight is the strongest signal a page matters, and it shouldn't be lost to filing order.
+ *
+ * The sidecar write comes LAST. If anything earlier fails, nothing claims the highlight exists; a sidecar
+ * entry whose row copy silently failed would paint a highlight the vault has no record of.
+ */
+export function annotateRoute(): Route<BridgeContext> {
+  return {
+    method: "POST",
+    path: "/annotate",
+    permission: "write",
+    handler: async (request, context) => {
+      const body = (request.body ?? {}) as AnnotateRequest;
+      const viewId = (body.viewId ?? "").trim();
+      const url = (body.url ?? "").trim();
+      if (viewId === "" || url === "") return badRequest("Which page, into which view?");
+      const annotation = readWireAnnotation(body.annotation, url);
+      if (annotation === null) return badRequest("That highlight has no text to anchor.");
+      if (context.webAnnotations === undefined) {
+        return { status: 503, body: { error: "Annotations aren't available in this vault." } };
+      }
+
+      const profile = exposedProfiles(context).find((p) => p.id === viewId);
+      if (profile === undefined) return { status: 404, body: { error: "No such view." } };
+
+      let { rows, columns } = await context.viewData(profile);
+      let target = rowForUrl(rows, columns, url);
+      let createdRow = false;
+
+      if (target === null) {
+        // No row yet: make one from the page metadata, then find it again in the re-read view.
+        const fields: readonly { key?: unknown; value?: unknown }[] = Array.isArray(body.fields)
+          ? (body.fields as readonly { key?: unknown; value?: unknown }[])
+          : [];
+        const payload: CapturePayload = {
+          fields: fields.map((f) => ({ key: asString(f.key), value: asString(f.value) })),
+          url,
+        };
+        const { values } = prepareCapture(payload, columns);
+        if (Object.keys(values).length === 0) {
+          const failed: AnnotateResponse = {
+            ok: false,
+            reason: "This page has no row in that view, and there wasn't enough metadata to create one.",
+          };
+          return { status: 422, body: failed };
+        }
+        const captureTarget = effectiveTarget(profile);
+        if (captureTarget === null) {
+          const failed: AnnotateResponse = { ok: false, reason: "That view has no capture target set." };
+          return { status: 422, body: failed };
+        }
+        const linked =
+          typeof context.capture.linkExistingNote === "function"
+            ? context.capture.linkExistingNote(values, columns, dedicatedNoteKeyFor(profile))
+            : values;
+        const written = await context.capture.commit(captureTarget, linked, columns, payload);
+        if (!written.ok) {
+          const failed: AnnotateResponse = { ok: false, reason: written.reason ?? "Couldn't create the row." };
+          return { status: 500, body: failed };
+        }
+        if (written.path !== undefined) context.onCaptured(written.path);
+        createdRow = true;
+        ({ rows, columns } = await context.viewData(profile));
+        target = rowForUrl(rows, columns, url);
+      }
+
+      // The row copy: appended through the same guarded path as any other edit.
+      let wroteCell = false;
+      if (target !== null && context.editCells !== undefined) {
+        const column = annotationColumn(columns);
+        if (column !== null) {
+          const { allowed } = editableChanges(
+            target,
+            [{ key: column, value: annotationCellText(annotation), mode: "append" }],
+            columns,
+          );
+          if (allowed.length > 0) {
+            await context.editCells(
+              allowed.map((change) => ({ provenance: target.provenance, column: change.column, value: change.value })),
+            );
+            context.onCaptured(target.provenance.filePath);
+            wroteCell = true;
+          }
+        }
+      }
+
+      // The note copy, when the page has a dedicated note.
+      let wroteNote = false;
+      if (target !== null) {
+        const matchKey = dedicatedNoteKeyFor(profile);
+        const cells: Record<string, string> = {};
+        for (const column of columns) cells[column.name] = getField(target, column.name);
+        const matchValue = identityCell(cells, matchKey);
+        if (matchValue !== "") {
+          wroteNote = await context.webAnnotations.appendToDedicatedNote(matchKey, matchValue, annotation);
+        }
+      }
+
+      await context.webAnnotations.save(annotation);
+
+      const response: AnnotateResponse = {
+        ok: true,
+        ...(target !== null ? { rowRef: rowRefOf(target.provenance) } : {}),
+        ...(createdRow ? { createdRow: true } : {}),
+        ...(wroteCell ? { wroteCell: true } : {}),
+        ...(wroteNote ? { wroteNote: true } : {}),
+      };
+      return { status: 200, body: response };
+    },
+  };
+}
+
+/** `POST /annotations` — everything saved for a page, for repainting on revisit. */
+export function annotationsRoute(): Route<BridgeContext> {
+  return {
+    method: "POST",
+    path: "/annotations",
+    permission: "read",
+    handler: async (request, context) => {
+      const body = (request.body ?? {}) as AnnotationsRequest;
+      const url = (body.url ?? "").trim();
+      if (url === "") return badRequest("Which page?");
+      if (context.webAnnotations === undefined) {
+        const empty: AnnotationsResponse = { ok: true, annotations: [] };
+        return { status: 200, body: empty };
+      }
+      const stored = await context.webAnnotations.list(url);
+      const response: AnnotationsResponse = {
+        ok: true,
+        annotations: stored.map((a) => ({
+          id: a.id,
+          anchor: a.anchor,
+          color: a.color,
+          createdAt: a.createdAt,
+          ...(a.note !== undefined ? { note: a.note } : {}),
+        })),
+      };
+      return { status: 200, body: response };
+    },
+  };
+}
+
+/**
+ * `POST /annotate/remove` — delete a highlight, and clean up its row line.
+ *
+ * The cell cleanup strips exactly the line the annotation wrote, matched whole — a line someone reworded by
+ * hand no longer matches and therefore survives, which is the right way round: their edit outranks our
+ * bookkeeping.
+ */
+export function annotateRemoveRoute(): Route<BridgeContext> {
+  return {
+    method: "POST",
+    path: "/annotate/remove",
+    permission: "write",
+    handler: async (request, context) => {
+      const body = (request.body ?? {}) as AnnotationRemoveRequest;
+      const url = (body.url ?? "").trim();
+      const id = (body.id ?? "").trim();
+      if (url === "" || id === "") return badRequest("Which highlight, on which page?");
+      if (context.webAnnotations === undefined) {
+        return { status: 503, body: { error: "Annotations aren't available in this vault." } };
+      }
+
+      const removed = await context.webAnnotations.remove(url, id);
+      let removedFromCell = false;
+
+      const viewId = (body.viewId ?? "").trim();
+      if (removed !== null && viewId !== "" && context.editCells !== undefined) {
+        const profile = exposedProfiles(context).find((p) => p.id === viewId);
+        if (profile !== undefined) {
+          const { rows, columns } = await context.viewData(profile);
+          const target = rowForUrl(rows, columns, url);
+          const column = target !== null ? annotationColumn(columns) : null;
+          if (target !== null && column !== null) {
+            const cleaned = cellWithoutAnnotation(getField(target, column), removed);
+            if (cleaned !== null) {
+              const { allowed } = editableChanges(target, [{ key: column, value: cleaned }], columns);
+              if (allowed.length > 0) {
+                await context.editCells(
+                  allowed.map((c) => ({ provenance: target.provenance, column: c.column, value: c.value })),
+                );
+                context.onCaptured(target.provenance.filePath);
+                removedFromCell = true;
+              }
+            }
+          }
+        }
+      }
+
+      const response: AnnotationRemoveResponse = {
+        ok: true,
+        ...(removedFromCell ? { removedFromCell: true } : {}),
+      };
+      return { status: 200, body: response };
+    },
+  };
+}
+
 /** `POST /pair` — exchange a short code shown in settings for a lasting token. */
 export function pairRoute(): Route<BridgeContext> {
   return {
@@ -625,6 +844,9 @@ export function defaultRoutes(): readonly Route<BridgeContext>[] {
     rowsRoute(),
     captureRoute(),
     promoteRoute(),
+    annotateRoute(),
+    annotationsRoute(),
+    annotateRemoveRoute(),
     updateRoute(),
     searchRoute(),
   ];

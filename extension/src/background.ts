@@ -1,5 +1,8 @@
 import { next, retryDelayMs } from "../../shared/queue";
-import { BridgeError, capture, known, loadConnection, lookup } from "./lib/bridge-client";
+import { BridgeError, annotate, annotateRemove, annotationsFor, capture, fetchSchema, known, loadConnection, lookup } from "./lib/bridge-client";
+import { loadPreferences } from "./lib/preferences";
+import { matchRule } from "../../shared/rules";
+import { hasPageAccess, registerAnnotator } from "./lib/page-access";
 import { api } from "./lib/bridge-client";
 import { dropFromQueue, pruneQueue, readQueue, recordFailure } from "./lib/queue-store";
 import { hasSearchAccess, registerSearchScript } from "./lib/serp-permission";
@@ -249,12 +252,89 @@ runtimeMessaging?.onMessage.addListener((message, _sender, sendResponse) => {
   return true;
 });
 
+/**
+ * Which view a highlight lands in — a rule for the site, the default, the last-used, then the first
+ * writable view. Decided here, once, so the content script never has to know views exist. The same order
+ * a capture uses, because an annotation IS a capture that happens to start from a selection.
+ */
+async function viewForAnnotation(url: string): Promise<string | null> {
+  const prefs = await loadPreferences();
+  const rule = matchRule(prefs.rules, url);
+  const connection = await loadConnection();
+  if (connection.token === null) return null;
+  try {
+    const schema = await fetchSchema(connection);
+    const writable = schema.views.filter((v) => v.capture !== undefined);
+    const preferred = [rule?.viewId, prefs.defaultViewId, prefs.rememberLastView ? prefs.lastViewId : ""]
+      .filter((id): id is string => typeof id === "string" && id !== "")
+      .find((id) => writable.some((v) => v.id === id));
+    return preferred ?? writable[0]?.id ?? null;
+  } catch {
+    return null;
+  }
+}
 
-// Re-register the search-page marker after a browser restart, when the permission is already held.
+runtimeMessaging?.onMessage.addListener((message, _sender, sendResponse) => {
+  const request = message as { type?: string; url?: unknown; annotation?: unknown; fields?: unknown; id?: unknown } | null;
+  if (request?.type !== "kvs-annotate" && request?.type !== "kvs-annotations-for" && request?.type !== "kvs-annotate-remove") {
+    return false;
+  }
+  void (async () => {
+    try {
+      const connection = await loadConnection();
+      const url = typeof request.url === "string" ? request.url : "";
+      if (connection.token === null || url === "") {
+        sendResponse(request.type === "kvs-annotations-for" ? { annotations: [] } : { ok: false });
+        return;
+      }
+
+      if (request.type === "kvs-annotations-for") {
+        const result = await annotationsFor(connection, { url });
+        sendResponse({ annotations: result.annotations });
+        return;
+      }
+
+      if (request.type === "kvs-annotate-remove") {
+        const viewId = await viewForAnnotation(url);
+        await annotateRemove(connection, { url, id: String(request.id ?? ""), ...(viewId !== null ? { viewId } : {}) });
+        sendResponse({ ok: true });
+        return;
+      }
+
+      const viewId = await viewForAnnotation(url);
+      if (viewId === null) {
+        sendResponse({ ok: false, reason: "No view can take this highlight." });
+        return;
+      }
+      const fields = Array.isArray(request.fields)
+        ? (request.fields as { key: string; value: string }[])
+        : [];
+      const result = await annotate(connection, {
+        viewId,
+        url,
+        annotation: request.annotation as never,
+        fields,
+      });
+      sendResponse({ ok: result.ok });
+    } catch {
+      sendResponse(request.type === "kvs-annotations-for" ? { annotations: [] } : { ok: false });
+    }
+  })();
+  return true;
+});
+
+
+// Re-register page scripts after a browser restart, when their permissions are already held.
 void (async () => {
   try {
     if ((await serpEnabled()) && (await hasSearchAccess())) await registerSearchScript();
   } catch {
     // Nothing to do; the feature stays off until enabled again.
+  }
+  try {
+    const prefs = await loadPreferences();
+    if (prefs.annotations && (await hasPageAccess())) await registerAnnotator();
+  } catch {
+    // Same: off until enabled again.
   }
 })();

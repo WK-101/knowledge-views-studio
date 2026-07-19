@@ -33,6 +33,8 @@ import {
   inlineFieldExtractor,
 } from "./domain/index";
 import { PromotionService } from "./services/notes/promote-service";
+import { WebAnnotationService } from "./services/web-annotations/web-annotation-service";
+import type { StoredAnnotation } from "../shared/annotations";
 import { referencesToNote, type ImportedRef, DataService, ARCHIVE_EXTENSION, KVS_PACK_EXTENSION, KVS_VIEW_EXTENSION, ProfileStore, UndoManager, WriterService, createProfile, migrateData, xlsxExtractor } from "./services/index";
 import { ObsidianVaultGateway } from "./obsidian/index";
 import {
@@ -275,6 +277,20 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
         editCells: async (edits) => {
           await renderDeps.writer.editCells(edits);
         },
+        // Annotation storage next to the plugin's own data, so it syncs wherever the vault syncs.
+        webAnnotations: (() => {
+          const service = new WebAnnotationService({
+            app: this.app,
+            storePath: `${this.manifest.dir ?? `${this.app.vault.configDir}/plugins/knowledge-views-studio`}/web-annotations.json`,
+          });
+          return {
+            list: (url: string) => service.list(url),
+            save: (annotation: StoredAnnotation) => service.save(annotation),
+            remove: (url: string, id: string) => service.remove(url, id),
+            appendToDedicatedNote: (matchKey: string, matchValue: string, annotation: StoredAnnotation) =>
+              service.appendToDedicatedNote(matchKey, matchValue, annotation),
+          };
+        })(),
         // Promotion through the same writer as every other edit, so the link backfill shares its undo path.
         promote: (profile, row, columns) => {
           const service = new PromotionService({

@@ -282,3 +282,10 @@ h3 { margin: 14px 0 4px; font-size: 12px; font-weight: 600; color: var(--fg); }
 .rule-remove { margin-left: auto; padding: 1px 7px; font-size: 11px; }
 code { padding: 0 3px; border-radius: 3px; background: var(--line); font-size: 11px; }
 @media (max-width: 560px) { .rule-add { grid-template-columns: 1fr 1fr; } }
+
+/* ---- Highlight list ---------------------------------------------------- */
+.annot-head { display: flex; align-items: center; gap: 6px; }
+.annot-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.annot-quote { flex: 1 1 auto; font-size: 12px; }
+.annot-remove { flex: none; font-size: 11px; }
+.annot-note { margin: 3px 0 0 15px; font-size: 11px; color: var(--muted); }

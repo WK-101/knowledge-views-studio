@@ -52,3 +52,51 @@ export function requestPageAccess(): Promise<boolean> {
     return Promise.resolve(false);
   }
 }
+
+// ---- The annotator's registration --------------------------------------
+
+const ANNOTATOR_ID = "kvs-annotator";
+
+interface ScriptingApi {
+  registerContentScripts?(scripts: object[]): Promise<void>;
+  unregisterContentScripts?(filter: { ids: string[] }): Promise<void>;
+  getRegisteredContentScripts?(filter: { ids: string[] }): Promise<object[]>;
+}
+
+function scripting(): ScriptingApi | null {
+  const g = globalThis as unknown as {
+    browser?: { scripting?: ScriptingApi };
+    chrome?: { scripting?: ScriptingApi };
+  };
+  return g.browser?.scripting ?? g.chrome?.scripting ?? null;
+}
+
+/**
+ * Run the annotator on every page.
+ *
+ * It has to be registered, not injected on demand: restoring highlights when a page opens only works if the
+ * script is already there when the page opens. Registration survives only alongside the page-access
+ * permission — refuse that, and this quietly stays off.
+ */
+export async function registerAnnotator(): Promise<void> {
+  const api = scripting();
+  if (api?.registerContentScripts === undefined) return;
+  try {
+    const existing = (await api.getRegisteredContentScripts?.({ ids: [ANNOTATOR_ID] })) ?? [];
+    if (existing.length > 0) return;
+    await api.registerContentScripts([
+      { id: ANNOTATOR_ID, matches: ["http://*/*", "https://*/*"], js: ["annotate.js"], runAt: "document_idle" },
+    ]);
+  } catch {
+    // Without the permission, registration fails and the feature simply stays off.
+  }
+}
+
+export async function unregisterAnnotator(): Promise<void> {
+  const api = scripting();
+  try {
+    await api?.unregisterContentScripts?.({ ids: [ANNOTATOR_ID] });
+  } catch {
+    // Nothing registered is the state we wanted.
+  }
+}
