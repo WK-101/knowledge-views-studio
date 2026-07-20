@@ -289,3 +289,39 @@ code { padding: 0 3px; border-radius: 3px; background: var(--line); font-size: 1
 .annot-quote { flex: 1 1 auto; font-size: 12px; }
 .annot-remove { flex: none; font-size: 11px; }
 .annot-note { margin: 3px 0 0 15px; font-size: 11px; color: var(--muted); }
+
+/* ---- Settings: the tabbed layout ---------------------------------------
+   The same strategy as the plugin's settings tab: a nav of sections, one visible at a time, each section a
+   card. Settings pages fail by becoming one long scroll where nothing has a home; a person looking for the
+   sidebar switch should not have to read about pairing codes on the way. */
+body.options { max-width: 640px; }
+.opt-nav {
+  display: flex;
+  gap: 2px;
+  margin: 14px 0 16px;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.opt-tab {
+  border: 0;
+  background: none;
+  padding: 7px 12px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.opt-tab:hover { color: var(--fg); }
+.opt-tab.active { color: var(--fg); font-weight: 600; border-bottom-color: var(--accent, #7c5cff); }
+.opt-pane[hidden] { display: none; }
+.opt-pane > .card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px 16px;
+  margin-bottom: 14px;
+  background: var(--card, transparent);
+}
+.opt-pane > .card > h2 { margin-top: 0; }
+.pane-intro { color: var(--muted); font-size: 12px; margin: 2px 0 10px; }

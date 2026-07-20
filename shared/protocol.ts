@@ -356,6 +356,8 @@ export interface WireAnnotation {
   readonly id: string;
   readonly anchor: TextAnchor;
   readonly color: string;
+  /** "highlight" (painted over) or "underline" (drawn beneath). Anything else reads as highlight. */
+  readonly style?: string;
   readonly note?: string;
   readonly createdAt: string;
 }

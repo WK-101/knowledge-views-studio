@@ -21,14 +21,40 @@ import type { WireAnnotation } from "../../shared/protocol";
  *    injected into an arbitrary page is the last place a credential belongs.
  */
 
-type Color = "yellow" | "green" | "blue" | "red";
+type Color = "yellow" | "green" | "blue" | "red" | "purple" | "orange";
+type Style = "highlight" | "underline";
 
-const PAINT: Record<Color, { light: string; dark: string }> = {
-  yellow: { light: "rgba(255, 213, 0, 0.38)", dark: "rgba(255, 213, 0, 0.30)" },
-  green: { light: "rgba(76, 217, 100, 0.34)", dark: "rgba(76, 217, 100, 0.28)" },
-  blue: { light: "rgba(90, 160, 255, 0.34)", dark: "rgba(90, 160, 255, 0.30)" },
-  red: { light: "rgba(255, 105, 120, 0.34)", dark: "rgba(255, 105, 120, 0.28)" },
+const PAINT: Record<Color, { light: string; dark: string; solid: string }> = {
+  yellow: { light: "rgba(255, 213, 0, 0.38)", dark: "rgba(255, 213, 0, 0.30)", solid: "#e6c200" },
+  green: { light: "rgba(76, 217, 100, 0.34)", dark: "rgba(76, 217, 100, 0.28)", solid: "#3fae5a" },
+  blue: { light: "rgba(90, 160, 255, 0.34)", dark: "rgba(90, 160, 255, 0.30)", solid: "#4a8fe0" },
+  red: { light: "rgba(255, 105, 120, 0.34)", dark: "rgba(255, 105, 120, 0.28)", solid: "#e05a6a" },
+  purple: { light: "rgba(175, 120, 255, 0.32)", dark: "rgba(175, 120, 255, 0.28)", solid: "#9a6ae0" },
+  orange: { light: "rgba(255, 160, 70, 0.36)", dark: "rgba(255, 160, 70, 0.28)", solid: "#e08a3a" },
 };
+
+/** The colour and style used last, so the next highlight starts from what you actually use. */
+let lastChoice: { color: Color; style: Style } = { color: "yellow", style: "highlight" };
+
+interface ChoiceStorage {
+  local: { get(keys: string[]): Promise<Record<string, unknown>>; set(items: Record<string, unknown>): Promise<void> };
+}
+function choiceStorage(): ChoiceStorage | null {
+  const g = globalThis as unknown as { browser?: { storage?: ChoiceStorage }; chrome?: { storage?: ChoiceStorage } };
+  return g.browser?.storage ?? g.chrome?.storage ?? null;
+}
+void choiceStorage()
+  ?.local.get(["annotatorLast"])
+  .then((stored) => {
+    const raw = stored["annotatorLast"] as { color?: string; style?: string } | undefined;
+    if (raw?.color !== undefined && raw.color in PAINT) lastChoice = { ...lastChoice, color: raw.color as Color };
+    if (raw?.style === "underline") lastChoice = { ...lastChoice, style: "underline" };
+  })
+  .catch(() => undefined);
+function rememberChoice(color: Color, style: Style): void {
+  lastChoice = { color, style };
+  void choiceStorage()?.local.set({ annotatorLast: lastChoice }).catch(() => undefined);
+}
 
 const HL_ATTR = "data-kvs-hl";
 
@@ -96,18 +122,36 @@ function segmentsIn(
 // ------------------------------------------------------------------ painting
 
 /** Wrap one span of one text node in a highlight mark. */
-function wrapSegment(node: Text, from: number, to: number, id: string, color: Color): void {
+function styleMark(mark: HTMLElement, color: Color, style: Style): void {
+  if (style === "underline") {
+    mark.style.backgroundColor = "transparent";
+    mark.style.borderBottom = `2px solid ${PAINT[color].solid}`;
+    mark.style.paddingBottom = "1px";
+  } else {
+    mark.style.backgroundColor = PAINT[color][dark() ? "dark" : "light"];
+    mark.style.borderBottom = "none";
+    mark.style.paddingBottom = "0";
+  }
+  mark.style.color = "inherit";
+  mark.style.cursor = "pointer";
+}
+
+function wrapSegment(node: Text, from: number, to: number, id: string, color: Color, style: Style): void {
   if (to <= from) return;
   const target = from === 0 ? node : node.splitText(from);
   if (to < (node.nodeValue ?? "").length + from) target.splitText(to - from);
   const mark = document.createElement("mark");
   mark.setAttribute(HL_ATTR, id);
-  mark.style.backgroundColor = PAINT[color][dark() ? "dark" : "light"];
-  mark.style.color = "inherit";
-  mark.style.padding = "0";
-  mark.style.cursor = "pointer";
+  styleMark(mark, color, style);
   target.parentNode?.replaceChild(mark, target);
   mark.appendChild(target);
+}
+
+/** Restyle an existing highlight in place — recolouring shouldn't re-anchor anything. */
+function restyle(id: string, color: Color, style: Style): void {
+  for (const mark of Array.from(document.querySelectorAll(`[${HL_ATTR}="${id}"]`))) {
+    styleMark(mark as HTMLElement, color, style);
+  }
 }
 
 /** Paint an annotation wherever its anchor confidently locates. Returns whether it painted. */
@@ -116,12 +160,13 @@ function paint(annotation: WireAnnotation): boolean {
   const located = locateAnchor(index.text, annotation.anchor);
   if (located === null) return false;
   const color = (annotation.color in PAINT ? annotation.color : "yellow") as Color;
+  const style: Style = annotation.style === "underline" ? "underline" : "highlight";
   // Wrap in document order; splitting mutates nodes, so segments are recomputed from a fresh index each
   // time a node is split. Simpler: collect segments first, then wrap back-to-front so earlier offsets
   // stay valid.
   const segments = segmentsIn(index, located.start, located.end);
   for (const segment of segments.reverse()) {
-    wrapSegment(segment.node, segment.from, segment.to, annotation.id, color);
+    wrapSegment(segment.node, segment.from, segment.to, annotation.id, color, style);
   }
   return segments.length > 0;
 }
@@ -258,7 +303,7 @@ function newId(): string {
 }
 
 /** Create, paint and save a highlight from the current selection. */
-function highlightSelection(color: Color, note?: string): void {
+function highlightSelection(color: Color, style: Style, note?: string): void {
   const selection = window.getSelection();
   if (selection === null || selection.isCollapsed || selection.rangeCount === 0) return;
   const range = selection.getRangeAt(0);
@@ -277,15 +322,17 @@ function highlightSelection(color: Color, note?: string): void {
     id: newId(),
     anchor,
     color,
+    style,
     createdAt: new Date().toISOString(),
     ...(note !== undefined && note.trim() !== "" ? { note: note.trim() } : {}),
   };
+  rememberChoice(color, style);
 
   // Paint immediately — waiting for the vault would make the toolbar feel broken — then save; failure
   // unpaints, so the page never shows a highlight the vault refused.
   const segments = segmentsIn(index, start, end);
   for (const segment of segments.reverse()) {
-    wrapSegment(segment.node, segment.from, segment.to, annotation.id, color);
+    wrapSegment(segment.node, segment.from, segment.to, annotation.id, color, style);
   }
   live.set(annotation.id, annotation);
   selection.removeAllRanges();
@@ -299,26 +346,54 @@ function highlightSelection(color: Color, note?: string): void {
   });
 }
 
-/** The selection toolbar: four colours, and a note field behind one more click. */
+/** The selection toolbar: the colours, the style, and a note behind one more click. */
 function showToolbar(rect: DOMRect): void {
   const root = ensureShell();
   clearUi();
   const bar = document.createElement("div");
   bar.className = "bar";
 
+  let style: Style = lastChoice.style;
+
+  const swatches: HTMLButtonElement[] = [];
+  const drawSwatches = (): void => {
+    for (const swatch of swatches) {
+      const color = swatch.dataset["color"] as Color;
+      swatch.style.backgroundColor = PAINT[color].solid;
+      swatch.style.borderRadius = style === "underline" ? "3px" : "50%";
+      swatch.style.height = style === "underline" ? "6px" : "18px";
+      swatch.style.marginTop = style === "underline" ? "6px" : "0";
+    }
+  };
+
   for (const color of Object.keys(PAINT) as Color[]) {
     const swatch = document.createElement("button");
     swatch.className = "swatch";
-    swatch.style.backgroundColor = PAINT[color][dark() ? "dark" : "light"].replace(/0\.\d+\)/, "0.9)");
-    swatch.title = `Highlight ${color}`;
+    swatch.dataset["color"] = color;
+    swatch.title = `${style === "underline" ? "Underline" : "Highlight"} ${color}`;
     swatch.addEventListener("mousedown", (event) => {
       event.preventDefault();
-      highlightSelection(color);
+      highlightSelection(color, style);
     });
+    swatches.push(swatch);
     bar.appendChild(swatch);
   }
 
   bar.appendChild(Object.assign(document.createElement("div"), { className: "divider" }));
+
+  const styleToggle = document.createElement("button");
+  styleToggle.className = "action";
+  const drawToggle = (): void => {
+    styleToggle.textContent = style === "underline" ? "U̲" : "H";
+    styleToggle.title = style === "underline" ? "Switch to highlight" : "Switch to underline";
+  };
+  styleToggle.addEventListener("mousedown", (event) => {
+    event.preventDefault();
+    style = style === "underline" ? "highlight" : "underline";
+    drawToggle();
+    drawSwatches();
+  });
+  bar.appendChild(styleToggle);
 
   const withNote = document.createElement("button");
   withNote.className = "action";
@@ -326,10 +401,12 @@ function showToolbar(rect: DOMRect): void {
   withNote.title = "Highlight with a note";
   withNote.addEventListener("mousedown", (event) => {
     event.preventDefault();
-    showNoteEditor(rect, (note, color) => highlightSelection(color, note));
+    showNoteEditor(rect, (note, color) => highlightSelection(color, style, note));
   });
   bar.appendChild(withNote);
 
+  drawToggle();
+  drawSwatches();
   placeNear(bar, rect);
   root.appendChild(bar);
 }
@@ -352,13 +429,18 @@ function showNoteEditor(
 
   const rowEl = document.createElement("div");
   rowEl.className = "row";
-  let chosen: Color = "yellow";
+  let chosen: Color = lastChoice.color;
   for (const color of Object.keys(PAINT) as Color[]) {
     const swatch = document.createElement("button");
     swatch.className = "swatch";
-    swatch.style.backgroundColor = PAINT[color][dark() ? "dark" : "light"].replace(/0\.\d+\)/, "0.9)");
+    swatch.style.backgroundColor = PAINT[color].solid;
+    swatch.style.outline = color === chosen ? "2px solid #888" : "none";
     swatch.addEventListener("click", () => {
       chosen = color;
+      for (const other of Array.from(rowEl.querySelectorAll(".swatch"))) {
+        (other as HTMLElement).style.outline = "none";
+      }
+      swatch.style.outline = "2px solid #888";
     });
     rowEl.appendChild(swatch);
   }
@@ -374,7 +456,7 @@ function showNoteEditor(
   input.focus();
 }
 
-/** Clicking a painted highlight: its note, and the way to change or remove it. */
+/** Clicking a painted highlight: its note, and everything you can do to it. */
 function showHighlightMenu(id: string, rect: DOMRect): void {
   const annotation = live.get(id);
   const root = ensureShell();
@@ -389,8 +471,55 @@ function showHighlightMenu(id: string, rect: DOMRect): void {
     bar.appendChild(note);
   }
 
+  // Recolour and restyle in place — the anchor doesn't change, so nothing re-anchors.
+  const swatchRow = document.createElement("div");
+  swatchRow.className = "row";
+  for (const color of Object.keys(PAINT) as Color[]) {
+    const swatch = document.createElement("button");
+    swatch.className = "swatch";
+    swatch.style.backgroundColor = PAINT[color].solid;
+    swatch.title = `Recolour ${color}`;
+    swatch.addEventListener("click", () => {
+      if (annotation === undefined) return;
+      const style: Style = annotation.style === "underline" ? "underline" : "highlight";
+      const updated: WireAnnotation = { ...annotation, color };
+      live.set(id, updated);
+      restyle(id, color, style);
+      rememberChoice(color, style);
+      void saveAnnotation(updated);
+    });
+    swatchRow.appendChild(swatch);
+  }
+  bar.appendChild(swatchRow);
+
   const rowEl = document.createElement("div");
   rowEl.className = "row";
+
+  const styleButton = document.createElement("button");
+  styleButton.className = "action";
+  styleButton.textContent = annotation?.style === "underline" ? "As highlight" : "As underline";
+  styleButton.addEventListener("click", () => {
+    if (annotation === undefined) return;
+    const nextStyle: Style = annotation.style === "underline" ? "highlight" : "underline";
+    const color = (annotation.color in PAINT ? annotation.color : "yellow") as Color;
+    const updated: WireAnnotation = { ...annotation, style: nextStyle };
+    live.set(id, updated);
+    restyle(id, color, nextStyle);
+    clearUi();
+    void saveAnnotation(updated);
+  });
+  rowEl.appendChild(styleButton);
+
+  const copyButton = document.createElement("button");
+  copyButton.className = "action";
+  copyButton.textContent = "Copy";
+  copyButton.title = "Copy the highlighted text";
+  copyButton.addEventListener("click", () => {
+    const text = annotation?.anchor.exact ?? "";
+    void navigator.clipboard.writeText(text).catch(() => undefined);
+    clearUi();
+  });
+  rowEl.appendChild(copyButton);
 
   const noteButton = document.createElement("button");
   noteButton.className = "action";

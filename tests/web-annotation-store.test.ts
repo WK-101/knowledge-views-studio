@@ -7,6 +7,7 @@ const ann = (id: string): StoredAnnotation => ({
   url: "https://example.com/a",
   anchor: { exact: "quoted text" },
   color: "yellow",
+  style: "highlight",
   createdAt: "2026-07-20T00:00:00.000Z",
 });
 

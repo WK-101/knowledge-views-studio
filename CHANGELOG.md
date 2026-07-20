@@ -5,6 +5,35 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 160 — a richer annotator, and settings with a shape
+
+**The settings page now works like the plugin's own**: a nav of sections — Connection, Captures,
+Highlighting, Sidebar, More — one visible at a time, each setting housed where a person would look for it.
+Settings pages fail by becoming one long scroll where nothing has a home; someone looking for the sidebar
+switch shouldn't have to read about pairing codes on the way.
+
+**The sidebar is one tick now.** All it ever actually needed was the page-reading permission — the popup
+borrows that from the toolbar click, and a sidebar has no click to borrow from. The checkbox asks for it
+(from the click, before any await — the gesture rule), and success reveals where each browser hides its
+sidebar. Unticking doesn't revoke anything; permissions are removed in the browser's own settings, and the
+page says so instead of pretending.
+
+**"No view can receive captures" now explains itself.** Three different situations shared that sentence —
+the wrong vault answering, writing turned off in the plugin, and views without capture targets — and
+nothing on screen distinguished them. The message now names the vault it reached and lists what each view
+said (the plugin has always sent per-view reasons; the surface threw them away). The settings page's view
+count now reads "5 views from X, 0 can receive captures" with the reasons, which is a diagnosis rather than
+a number. Found and fixed nearby: the background chose views for annotations by the wrong test (`capture`
+present rather than `capture.writable`), so a highlight could be sent to a view that would refuse it.
+
+**The annotator grew into a tool.** Six colours (purple and orange join), and two styles — paint or
+underline. The toolbar starts from whatever colour and style you used last, remembered across pages.
+Clicking an existing highlight now offers recolour (in place, nothing re-anchors), restyle, copy the quoted
+text, note, and remove. Sidecar entries written by the previous version read cleanly: a missing style is a
+highlight, junk colours fall back to yellow.
+
+1299 tests held, plus style and colour coercion pinned across all six colours and both styles.
+
 ## Phase 159 — the web annotator (Phase B)
 
 Select text on any page and a small toolbar appears: four colours, or a colour with a note. The highlight is

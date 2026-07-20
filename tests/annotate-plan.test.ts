@@ -16,6 +16,7 @@ const ann = (patch: Partial<StoredAnnotation> = {}): StoredAnnotation => ({
   url: "https://x/a",
   anchor: { exact: "quoted words" },
   color: "yellow",
+  style: "highlight",
   createdAt: "2026-07-20T00:00:00.000Z",
   ...patch,
 });

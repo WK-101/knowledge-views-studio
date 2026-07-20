@@ -154,7 +154,19 @@ async function loadViews(): Promise<void> {
     }
     const schema = await fetchSchema(connection);
     views = schema.views;
-    note.textContent = `${String(views.length)} view(s) available from “${schema.vault}”.`;
+    const writable = views.filter((v) => v.capture.writable).length;
+    // The counts are the diagnosis: "5 views, 0 can receive captures" says in one line what a bare view
+    // count hides completely.
+    note.textContent =
+      views.length === 0
+        ? `“${schema.vault}” exposes no views to the browser — check the plugin's Browser bridge settings.`
+        : `${String(views.length)} view(s) from “${schema.vault}”, ${String(writable)} can receive captures.`;
+    if (views.length > 0 && writable === 0) {
+      const reasons = views
+        .map((v) => `${v.name}: ${v.capture.reason ?? "can't receive captures"}`)
+        .join(" · ");
+      note.textContent += ` ${reasons}`;
+    }
     fillViewPickers();
   } catch {
     note.textContent = "Couldn't read your views — is Obsidian running?";
@@ -300,7 +312,60 @@ async function wirePreferences(): Promise<void> {
   });
 }
 
+/** One pane at a time, the way the plugin's own settings work. */
+function wirePanes(): void {
+  const tabs = Array.from(document.querySelectorAll(".opt-tab"));
+  for (const tab of tabs) {
+    tab.addEventListener("click", () => {
+      const wanted = tab.getAttribute("data-pane") ?? "connection";
+      for (const other of tabs) other.classList.toggle("active", other === tab);
+      for (const pane of Array.from(document.querySelectorAll(".opt-pane"))) {
+        (pane as HTMLElement).hidden = pane.id !== `pane-${wanted}`;
+      }
+    });
+  }
+}
+
+/**
+ * The sidebar, made ready in one tick.
+ *
+ * All the sidebar actually *needs* is the page-reading permission; the rest of making it work is knowing
+ * where your browser hides it. So the checkbox requests the permission (from the click, before any await —
+ * the gesture rule), and success reveals the where-to-find-it instructions.
+ */
+function wireSidebarSetup(): void {
+  const box = byId<HTMLInputElement>("sidebarSetup");
+  const steps = byId("sidebarSteps");
+
+  void hasPageAccess().then((held) => {
+    box.checked = held;
+    steps.hidden = !held;
+  });
+
+  box.addEventListener("change", () => {
+    if (!box.checked) {
+      // Permissions can't be dropped from here; unticking just hides the instructions.
+      steps.hidden = true;
+      status("The sidebar keeps working; permissions can be removed in your browser's extension settings.", "info");
+      return;
+    }
+    const pending = requestPageAccess();
+    void (async () => {
+      const granted = (await pending) || (await hasPageAccess());
+      if (!granted) {
+        box.checked = false;
+        status("The sidebar needs permission to read pages; nothing was changed.", "error");
+        return;
+      }
+      steps.hidden = false;
+      status("The sidebar is ready — see below for where to open it.", "ok");
+    })();
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+  wirePanes();
+  wireSidebarSetup();
   void locate();
   void refresh();
   void wirePreferences();

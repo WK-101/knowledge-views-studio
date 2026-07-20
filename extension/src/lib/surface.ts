@@ -258,7 +258,22 @@ async function start(): Promise<void> {
 
   const writable = schema.views.filter((v) => v.capture.writable);
   if (writable.length === 0) {
-    show("No view in this vault can receive captures yet. Set a capture target in a view's settings.", "error");
+    // Three different situations used to share one sentence here, which made this undiagnosable: the wrong
+    // vault answering, writing turned off, and views without capture targets all look identical unless the
+    // message says which vault it reached and what each view said.
+    show(`Connected to “${schema.vault}”, but no view there can receive captures.`, "error");
+    const detail = el("div", { class: "hint" });
+    if (schema.views.length === 0) {
+      detail.appendChild(
+        el("p", {}, "That vault exposes no views to the browser at all — check “Views the browser may see” in the plugin's Browser bridge settings."),
+      );
+    } else {
+      for (const view of schema.views) {
+        detail.appendChild(el("p", {}, `${view.name}: ${view.capture.reason ?? "can't receive captures."}`));
+      }
+    }
+    detail.appendChild(el("p", {}, "If that isn't the vault you meant, check the Connection tab in the companion's settings."));
+    root().appendChild(detail);
     return;
   }
 

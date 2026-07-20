@@ -37,6 +37,8 @@ const DOT: Record<string, string> = {
   green: "#3fae5a",
   blue: "#4a8fe0",
   red: "#e05a6a",
+  purple: "#9a6ae0",
+  orange: "#e08a3a",
 };
 
 export function mountAnnotations(page: PageSnapshot, elements: Elements): void {

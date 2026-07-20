@@ -12,8 +12,18 @@
       account. Your vault decides what it will show and whether it accepts captures at all.
     </p>
 
-    <section>
+    <nav class="opt-nav" aria-label="Settings sections">
+      <button class="opt-tab active" data-pane="connection" type="button">Connection</button>
+      <button class="opt-tab" data-pane="captures" type="button">Captures</button>
+      <button class="opt-tab" data-pane="highlight" type="button">Highlighting</button>
+      <button class="opt-tab" data-pane="sidebar" type="button">Sidebar</button>
+      <button class="opt-tab" data-pane="more" type="button">More</button>
+    </nav>
+
+    <div id="pane-connection" class="opt-pane">
+    <section class="card">
       <h2>Connect to your vault</h2>
+
       <div id="found" class="status">Looking for Obsidian…</div>
 
       <ol class="steps">
@@ -38,23 +48,18 @@
         </label>
         <p class="hint">Only needed if it wasn't found automatically.</p>
       </details>
-    </section>
+        </section>
+    <section class="card">
+      <h2>Waiting to send</h2>
 
-    <section>
-      <h2>Show what you already have</h2>
-      <label class="checkline">
-        <input id="recallBadge" type="checkbox" />
-        <span>Mark the toolbar icon when a page is already in my vault</span>
-      </label>
-      <p class="hint">
-        Off by default. Turning it on means every page you visit is checked against your vault. That check
-        never leaves this computer, but it is still a thing worth choosing rather than assuming. It also
-        needs <em>Allow searching</em> or <em>Allow reading</em> to be on in Obsidian.
-      </p>
-    </section>
-
-    <section>
+      <p id="queue" class="hint">Nothing waiting.</p>
+      <button id="clearQueue" type="button" hidden>Discard them</button>
+        </section>
+    </div>
+    <div id="pane-captures" class="opt-pane" hidden>
+    <section class="card">
       <h2>Where captures go</h2>
+
       <label class="field">
         <span>Default view</span>
         <select id="defaultView"><option value="">— first available —</option></select>
@@ -83,10 +88,10 @@
       </div>
       <p id="schemaNote" class="hint"></p>
       <button id="refreshSchema" type="button">Refresh views from Obsidian</button>
-    </section>
-
-    <section>
+        </section>
+    <section class="card">
       <h2>What gets captured</h2>
+
       <label class="checkline">
         <input id="includeContent" type="checkbox" />
         <span>Include the article body in captured notes</span>
@@ -110,10 +115,50 @@
           <option value="ask">Ask a question</option>
         </select>
       </label>
-    </section>
+        </section>
+    </div>
+    <div id="pane-highlight" class="opt-pane" hidden>
+    <section class="card">
+      <h2>Highlight on pages</h2>
 
-    <section>
+      <label class="checkline">
+        <input id="annotations" type="checkbox" />
+        <span>Let me highlight text on any page, saved to my vault</span>
+      </label>
+      <p class="hint">
+        Select text on a page and a toolbar appears: six colours, highlight or underline, a note if you
+        want one. Highlights are painted again whenever you revisit the page, land in the page's row, and —
+        when the page has a dedicated note — under its Annotations heading. Click any highlight to recolour,
+        restyle, copy, note, or remove it. The toolbar starts from whatever colour and style you used last.
+        Needs permission to read pages, asked for when you turn this on.
+      </p>
+        </section>
+    </div>
+    <div id="pane-sidebar" class="opt-pane" hidden>
+    <section class="card">
+      <h2>The sidebar</h2>
+      <label class="checkline">
+        <input id="sidebarSetup" type="checkbox" />
+        <span>Set the sidebar up for me</span>
+      </label>
+      <p class="hint">
+        One tick: this asks for the page-reading permission the sidebar needs (the popup borrows it from the
+        toolbar click; a sidebar has no click to borrow from) and confirms everything is ready.
+      </p>
+      <div id="sidebarSteps" class="hint" hidden>
+        <p><strong>Ready.</strong> To open it:</p>
+        <ul>
+          <li><strong>Firefox:</strong> View → Sidebar → Knowledge Views, or Ctrl+B and pick it from the sidebar dropdown.</li>
+          <li><strong>Chrome/Edge:</strong> click the side-panel icon in the toolbar and choose Knowledge Views.</li>
+        </ul>
+        <p>The sidebar stays open while you browse: your views, row editing, and search without switching windows.</p>
+      </div>
+    </section>
+    </div>
+    <div id="pane-more" class="opt-pane" hidden>
+    <section class="card">
       <h2>How it opens</h2>
+
       <label class="field">
         <span>Popup size</span>
         <select id="popupSize">
@@ -127,24 +172,23 @@
         work through a reading queue, edit rows and search without switching applications. Open it from your
         browser's sidebar control — in Firefox, View → Sidebar → Knowledge Views.
       </p>
-    </section>
+        </section>
+    <section class="card">
+      <h2>Show what you already have</h2>
 
-    <section>
-      <h2>Highlight on pages</h2>
       <label class="checkline">
-        <input id="annotations" type="checkbox" />
-        <span>Let me highlight text on any page, saved to my vault</span>
+        <input id="recallBadge" type="checkbox" />
+        <span>Mark the toolbar icon when a page is already in my vault</span>
       </label>
       <p class="hint">
-        Select text on a page and a small toolbar appears: pick a colour, add a note. Highlights are painted
-        again whenever you revisit the page, land in the page's row, and — when the page has a dedicated
-        note — under its Annotations heading. Needs permission to read pages, asked for when you turn this
-        on.
+        Off by default. Turning it on means every page you visit is checked against your vault. That check
+        never leaves this computer, but it is still a thing worth choosing rather than assuming. It also
+        needs <em>Allow searching</em> or <em>Allow reading</em> to be on in Obsidian.
       </p>
-    </section>
-
-    <section>
+        </section>
+    <section class="card">
       <h2>Mark search results</h2>
+
       <label class="checkline">
         <input id="serpMarks" type="checkbox" />
         <span>Show which search results are already in my vault</span>
@@ -155,13 +199,9 @@
         of results are checked, and only against your own vault; nothing about what you have is sent back to
         the page beyond which links it recognised.
       </p>
-    </section>
+        </section>
+    </div>
 
-    <section>
-      <h2>Waiting to send</h2>
-      <p id="queue" class="hint">Nothing waiting.</p>
-      <button id="clearQueue" type="button" hidden>Discard them</button>
-    </section>
 
     <div id="status" class="status"></div>
     <script src="options.js"></script>

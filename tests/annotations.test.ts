@@ -16,6 +16,7 @@ const ann = (patch: Partial<StoredAnnotation> = {}): StoredAnnotation => ({
   url: "https://x/a",
   anchor: { exact: "The important claim.", prefix: "before it. ", suffix: " After it" },
   color: "yellow",
+  style: "highlight",
   createdAt: "2026-07-20T00:00:00.000Z",
   ...patch,
 });
@@ -53,6 +54,19 @@ describe("annotations · reading whatever the sidecar file holds", () => {
   });
 
   it("falls back to yellow for a colour it doesn't know", () => {
+    expect(coerceAnnotation({ ...ann(), color: "chartreuse" })?.color).toBe("yellow");
+  });
+
+  it("keeps an underline style and reads anything else as highlight", () => {
+    expect(coerceAnnotation({ ...ann(), style: "underline" })?.style).toBe("underline");
+    expect(coerceAnnotation({ ...ann(), style: "wavy" })?.style).toBe("highlight");
+    expect(coerceAnnotation({ ...ann(), style: undefined })?.style).toBe("highlight");
+  });
+
+  it("accepts all six colours and still falls back for junk", () => {
+    for (const color of ["yellow", "green", "blue", "red", "purple", "orange"]) {
+      expect(coerceAnnotation({ ...ann(), color })?.color).toBe(color);
+    }
     expect(coerceAnnotation({ ...ann(), color: "chartreuse" })?.color).toBe("yellow");
   });
 

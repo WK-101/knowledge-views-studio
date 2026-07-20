@@ -17,13 +17,24 @@ import type { Annotation, TextAnchor } from "./protocol";
  * means parsing prose to repaint a page, which breaks the first time someone edits their own note.
  */
 
-export type HighlightColor = "yellow" | "green" | "blue" | "red";
+export type HighlightColor = "yellow" | "green" | "blue" | "red" | "purple" | "orange";
 
-export const HIGHLIGHT_COLORS: readonly HighlightColor[] = ["yellow", "green", "blue", "red"];
+export const HIGHLIGHT_COLORS: readonly HighlightColor[] = [
+  "yellow",
+  "green",
+  "blue",
+  "red",
+  "purple",
+  "orange",
+];
+
+/** How a highlight is drawn: painted over, or underlined beneath. */
+export type HighlightStyle = "highlight" | "underline";
 
 export interface StoredAnnotation extends Annotation {
   readonly id: string;
   readonly color: HighlightColor;
+  readonly style: HighlightStyle;
 }
 
 /** A page's annotations, as the sidecar holds them. */
@@ -43,6 +54,10 @@ function coerceColor(raw: unknown): HighlightColor {
   return typeof raw === "string" && (HIGHLIGHT_COLORS as readonly string[]).includes(raw)
     ? (raw as HighlightColor)
     : "yellow";
+}
+
+function coerceStyle(raw: unknown): HighlightStyle {
+  return raw === "underline" ? "underline" : "highlight";
 }
 
 function coerceAnchor(raw: unknown): TextAnchor | null {
@@ -75,6 +90,7 @@ export function coerceAnnotation(raw: unknown): StoredAnnotation | null {
     url: entry["url"],
     anchor,
     color: coerceColor(entry["color"]),
+    style: coerceStyle(entry["style"]),
     createdAt: typeof entry["createdAt"] === "string" ? entry["createdAt"] : new Date(0).toISOString(),
     ...(typeof entry["note"] === "string" && entry["note"].trim() !== "" ? { note: entry["note"] } : {}),
   };

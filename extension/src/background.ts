@@ -264,7 +264,8 @@ async function viewForAnnotation(url: string): Promise<string | null> {
   if (connection.token === null) return null;
   try {
     const schema = await fetchSchema(connection);
-    const writable = schema.views.filter((v) => v.capture !== undefined);
+    // `capture` is always present in schema entries; writability is the real question.
+    const writable = schema.views.filter((v) => v.capture.writable);
     const preferred = [rule?.viewId, prefs.defaultViewId, prefs.rememberLastView ? prefs.lastViewId : ""]
       .filter((id): id is string => typeof id === "string" && id !== "")
       .find((id) => writable.some((v) => v.id === id));
