@@ -405,3 +405,23 @@ button, .tab, .mini, .dest-btn, a.mini { transition: background-color 120ms ease
 /* One vertical rhythm for the capture pane. */
 #tab-capture > * + * { margin-top: 8px; }
 #form { margin: 0; }
+
+/* ---- Per-view column mapping ------------------------------------------- */
+.vc-view { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.vc-view:last-child { border-bottom: 0; }
+.vc-name { font-weight: 600; font-size: 12px; margin-bottom: 5px; }
+.vc-field { display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 8px; margin: 4px 0; }
+.vc-field > span { font-size: 12px; color: var(--muted); }
+.vc-field select { margin: 0; }
+
+/* ---- Suggested values: proposals, not commitments ---------------------- */
+input.has-suggestion::placeholder, textarea.has-suggestion::placeholder {
+  color: var(--accent, #7c5cff);
+  opacity: 0.55;
+  font-style: italic;
+}
+.suggest-chip { display: inline-flex; gap: 2px; flex: none; }
+.suggest-chip.hidden { display: none; }
+.suggest-take, .suggest-drop { padding: 2px 7px; line-height: 1.4; }
+.suggest-take { color: #2e7d32; }
+.suggest-drop { color: var(--muted); }

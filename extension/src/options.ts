@@ -10,7 +10,7 @@ import {
 } from "./lib/bridge-client";
 import { parsePairingInput } from "../../shared/protocol";
 import { loadPreferences, savePreferences, type Preferences } from "./lib/preferences";
-import { hasPageAccess, requestPageAccess, registerAnnotator, unregisterAnnotator } from "./lib/page-access";
+import { hasPageAccess, requestPageAccess, registerAnnotator, unregisterAnnotator, injectAnnotatorIntoOpenTabs } from "./lib/page-access";
 import { pluginIsCurrent, outdatedPluginMessage } from "./lib/version";
 import { zoteroStatus, zoteroCollections } from "./lib/zotero-client";
 import { isUsableRule, type DomainRule } from "../../shared/rules";
@@ -32,6 +32,14 @@ import { readQueue, writeQueue } from "./lib/queue-store";
  */
 
 const byId = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
+
+/** A tiny element helper for the settings-only DOM. */
+function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls = "", text = ""): HTMLElementTagNameMap[K] {
+  const node = document.createElement(tag);
+  if (cls !== "") node.className = cls;
+  if (text !== "") node.textContent = text;
+  return node;
+}
 
 /** Ask for the optional `tabs` permission. Returns false if it isn't granted, including when refused. */
 async function requestTabsPermission(): Promise<boolean> {
@@ -174,6 +182,7 @@ async function loadViews(): Promise<void> {
       note.textContent += ` ${reasons}`;
     }
     fillViewPickers();
+    void drawViewColumns();
   } catch {
     note.textContent = "Couldn't read your views — is Obsidian running?";
   }
@@ -265,6 +274,67 @@ function drawRules(prefs: Preferences): void {
   }
 }
 
+/**
+ * Per-view column choices.
+ *
+ * The plugin guesses which column is the URL and which takes annotations, and the guess is usually right.
+ * This is for when it isn't — a view whose link lives in a column called something the heuristic doesn't
+ * know. Each picker offers that view's actual columns plus "choose automatically", so the override is
+ * always visibly optional.
+ */
+async function drawViewColumns(): Promise<void> {
+  const host = byId("viewColumns");
+  host.replaceChildren();
+  if (views.length === 0) {
+    host.appendChild(el("p", "hint", "Connect and refresh views to map columns."));
+    return;
+  }
+  const prefs = await loadPreferences();
+  for (const view of views) {
+    const current = prefs.viewColumns[view.id] ?? {};
+    const block = el("div", "vc-view");
+    block.appendChild(el("div", "vc-name", view.name));
+
+    const picker = (label: string, chosen: string | undefined, onPick: (value: string) => void): HTMLElement => {
+      const wrap = el("label", "vc-field");
+      wrap.appendChild(el("span", "", label));
+      const select = document.createElement("select");
+      const auto = document.createElement("option");
+      auto.value = "";
+      auto.textContent = "choose automatically";
+      select.appendChild(auto);
+      for (const column of view.columns) {
+        const option = document.createElement("option");
+        option.value = column.name;
+        option.textContent = column.name;
+        select.appendChild(option);
+      }
+      select.value = chosen ?? "";
+      select.addEventListener("change", () => onPick(select.value));
+      wrap.appendChild(select);
+      return wrap;
+    };
+
+    const save = async (patch: { urlColumn?: string; annotationColumn?: string }): Promise<void> => {
+      const latest = await loadPreferences();
+      const entry = { ...(latest.viewColumns[view.id] ?? {}), ...patch };
+      // An empty string means "automatic" — store it as absence, not as a blank override.
+      const cleaned: { urlColumn?: string; annotationColumn?: string } = {};
+      if (entry.urlColumn !== undefined && entry.urlColumn !== "") cleaned.urlColumn = entry.urlColumn;
+      if (entry.annotationColumn !== undefined && entry.annotationColumn !== "") cleaned.annotationColumn = entry.annotationColumn;
+      const next = { ...latest.viewColumns };
+      if (cleaned.urlColumn === undefined && cleaned.annotationColumn === undefined) delete next[view.id];
+      else next[view.id] = cleaned;
+      await savePreferences({ viewColumns: next });
+      status("Saved.", "ok");
+    };
+
+    block.appendChild(picker("URL column", current.urlColumn, (v) => void save({ urlColumn: v })));
+    block.appendChild(picker("Annotations column", current.annotationColumn, (v) => void save({ annotationColumn: v })));
+    host.appendChild(block);
+  }
+}
+
 async function wirePreferences(): Promise<void> {
   const prefs = await loadPreferences();
 
@@ -327,6 +397,7 @@ async function wirePreferences(): Promise<void> {
     void loadViews().then(() => {
       status("Views re-read from Obsidian.", "ok");
       void loadPreferences().then(drawRules);
+      void drawViewColumns();
     });
   });
 }
@@ -509,7 +580,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       await savePreferences({ annotations: true });
       await registerAnnotator();
-      status("Select text on any page to highlight it.", "ok");
+      // Reach tabs already open, so highlights on the page you're looking at appear without a reload.
+      await injectAnnotatorIntoOpenTabs();
+      status("Select text on any page to highlight it. Existing pages will show their highlights now.", "ok");
     })();
   });
 

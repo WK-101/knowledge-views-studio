@@ -21,7 +21,17 @@ import {
 const ANNOTATION_COLUMNS = ["annotations", "highlights", "quotes", "notes"];
 
 /** Which column of a view takes annotation text, or null when the view has nowhere for it. */
-export function annotationColumn(columns: readonly { readonly name: string }[]): string | null {
+export function annotationColumn(
+  columns: readonly { readonly name: string }[],
+  declaredColumn?: string,
+): string | null {
+  const declared = (declaredColumn ?? "").trim();
+  if (declared !== "") {
+    const named = columns.find((c) => c.name.trim().toLowerCase() === declared.toLowerCase());
+    if (named !== undefined) return named.name;
+    // A declaration that no longer matches a column falls through to the guess rather than silently
+    // dropping every annotation on the floor.
+  }
   for (const wanted of ANNOTATION_COLUMNS) {
     const found = columns.find((c) => c.name.trim().toLowerCase() === wanted);
     if (found !== undefined) return found.name;
@@ -34,12 +44,19 @@ export function rowForUrl(
   rows: readonly Row[],
   columns: readonly { readonly name: string; readonly typeId?: string }[],
   url: string,
+  declaredColumn?: string,
 ): Row | null {
   const wanted = normalizeUrl(url);
   if (wanted === "") return null;
-  const urlColumns = columns.filter(
-    (c) => c.typeId === "url" || /^(url|link|source)$/i.test(c.name.trim()),
-  );
+
+  // A declared column is the person's decision and overrides the guess entirely — but only if the view
+  // actually has it; a stale declaration (a renamed column) falls back rather than matching nothing.
+  const declared = (declaredColumn ?? "").trim();
+  const urlColumns =
+    declared !== "" && columns.some((c) => c.name.trim().toLowerCase() === declared.toLowerCase())
+      ? columns.filter((c) => c.name.trim().toLowerCase() === declared.toLowerCase())
+      : columns.filter((c) => c.typeId === "url" || /^(url|link|source)$/i.test(c.name.trim()));
+
   for (const row of rows) {
     for (const column of urlColumns) {
       if (normalizeUrl(getField(row, column.name)) === wanted) return row;

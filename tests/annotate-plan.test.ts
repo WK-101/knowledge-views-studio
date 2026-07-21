@@ -115,3 +115,26 @@ describe("annotate · removing a blockquote from the note", () => {
     expect(noteWithoutAnnotation("## Annotations\n\n> something else\n", ann())).toBeNull();
   });
 })
+
+describe("annotate · declared columns override the guess", () => {
+  it("uses the named URL column even when it isn't url/link/source", async () => {
+    const columns = [{ name: "Title", typeId: "text" }, { name: "Web Address", typeId: "text" }];
+    const rows = [row({ Title: "T", "Web Address": "https://x/a" })];
+    expect(rowForUrl(rows, columns, "https://x/a", "Web Address")?.cells["Title"]).toBe("T");
+  });
+
+  it("falls back to the guess when the declared URL column no longer exists", () => {
+    const columns = [{ name: "Title", typeId: "text" }, { name: "URL", typeId: "url" }];
+    const rows = [row({ Title: "T", URL: "https://x/a" })];
+    // "Renamed Column" is gone; the heuristic still finds the url-typed one rather than matching nothing.
+    expect(rowForUrl(rows, columns, "https://x/a", "Renamed Column")).not.toBeNull();
+  });
+
+  it("uses the named annotations column even when it isn't in the default vocabulary", () => {
+    expect(annotationColumn([{ name: "My Marks" }], "My Marks")).toBe("My Marks");
+  });
+
+  it("falls back to the vocabulary when the declared annotations column is missing", () => {
+    expect(annotationColumn([{ name: "Notes" }], "Gone")).toBe("Notes");
+  });
+})

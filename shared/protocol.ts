@@ -33,6 +33,12 @@ export interface LookupRequest {
   readonly url?: string;
   readonly doi?: string;
   readonly viewIds?: readonly string[];
+  /**
+   * Which column holds the URL, per view — the person's declaration, overriding any guess. A view whose id
+   * isn't here falls back to the heuristic (url-typed, or named url/link/source), which is a sensible
+   * default, not a rule. Keyed by view id because the right column differs from view to view.
+   */
+  readonly urlColumns?: Readonly<Record<string, string>>;
 }
 
 export interface LookupMatch {
@@ -379,6 +385,10 @@ export interface AnnotateRequest {
   readonly annotation: WireAnnotation;
   /** Page metadata for creating the row when the page has none yet — a highlight needs a row to land in. */
   readonly fields?: readonly { readonly key: string; readonly value: string }[];
+  /** Which column takes the annotation text, overriding the guess. */
+  readonly annotationColumn?: string;
+  /** Which column holds the URL, for finding this page's row. */
+  readonly urlColumn?: string;
 }
 
 export interface AnnotateResponse {
@@ -406,6 +416,8 @@ export interface AnnotationRemoveRequest {
   readonly id: string;
   /** The view whose row should lose the matching cell line, when known. */
   readonly viewId?: string;
+  readonly annotationColumn?: string;
+  readonly urlColumn?: string;
 }
 
 export interface AnnotationRemoveResponse {

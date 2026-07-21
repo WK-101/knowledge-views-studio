@@ -2,7 +2,7 @@ import { next, retryDelayMs } from "../../shared/queue";
 import { BridgeError, annotate, annotateRemove, annotationsFor, capture, fetchSchema, known, loadConnection, lookup } from "./lib/bridge-client";
 import { loadPreferences } from "./lib/preferences";
 import { matchRule } from "../../shared/rules";
-import { hasPageAccess, registerAnnotator } from "./lib/page-access";
+import { hasPageAccess, registerAnnotator, injectAnnotatorIntoOpenTabs } from "./lib/page-access";
 import { forget, statusKey } from "./lib/answer-cache";
 import { api } from "./lib/bridge-client";
 import { dropFromQueue, pruneQueue, readQueue, recordFailure } from "./lib/queue-store";
@@ -300,7 +300,15 @@ runtimeMessaging?.onMessage.addListener((message, _sender, sendResponse) => {
 
       if (request.type === "kvs-annotate-remove") {
         const viewId = await viewForAnnotation(url);
-        await annotateRemove(connection, { url, id: String(request.id ?? ""), ...(viewId !== null ? { viewId } : {}) });
+        const removePrefs = await loadPreferences();
+        const removeCols = viewId !== null ? removePrefs.viewColumns[viewId] : undefined;
+        await annotateRemove(connection, {
+          url,
+          id: String(request.id ?? ""),
+          ...(viewId !== null ? { viewId } : {}),
+          ...(removeCols?.annotationColumn !== undefined ? { annotationColumn: removeCols.annotationColumn } : {}),
+          ...(removeCols?.urlColumn !== undefined ? { urlColumn: removeCols.urlColumn } : {}),
+        });
         void forget([statusKey(url)]);
         sendResponse({ ok: true });
         return;
@@ -314,11 +322,15 @@ runtimeMessaging?.onMessage.addListener((message, _sender, sendResponse) => {
       const fields = Array.isArray(request.fields)
         ? (request.fields as { key: string; value: string }[])
         : [];
+      const prefs = await loadPreferences();
+      const cols = prefs.viewColumns[viewId];
       const result = await annotate(connection, {
         viewId,
         url,
         annotation: request.annotation as never,
         fields,
+        ...(cols?.annotationColumn !== undefined ? { annotationColumn: cols.annotationColumn } : {}),
+        ...(cols?.urlColumn !== undefined ? { urlColumn: cols.urlColumn } : {}),
       });
       if (result.ok) void forget([statusKey(url)]);
       sendResponse({ ok: result.ok, ...(result.reason !== undefined ? { reason: result.reason } : {}) });
@@ -341,7 +353,12 @@ void (async () => {
   }
   try {
     const prefs = await loadPreferences();
-    if (prefs.annotations && (await hasPageAccess())) await registerAnnotator();
+    if (prefs.annotations && (await hasPageAccess())) {
+      await registerAnnotator();
+      // Tabs restored from the last session predate this run's registration; inject so their highlights
+      // repaint without a manual reload.
+      await injectAnnotatorIntoOpenTabs();
+    }
   } catch {
     // Same: off until enabled again.
   }

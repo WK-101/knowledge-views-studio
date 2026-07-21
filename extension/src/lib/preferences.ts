@@ -40,6 +40,12 @@ export interface Preferences {
   readonly zotero: boolean;
   /** The Zotero collection saves go into. Empty = wherever Zotero's own selection sits. */
   readonly zoteroCollectionKey: string;
+  /**
+   * Per-view column choices, keyed by view id. Each optional: an unset column falls back to the sensible
+   * guess, so this is a set of overrides, not a required configuration. `urlColumn` is which cell holds
+   * the page's URL for matching; `annotationColumn` is where highlight text is written.
+   */
+  readonly viewColumns: Readonly<Record<string, { urlColumn?: string; annotationColumn?: string }>>;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -58,9 +64,26 @@ export const DEFAULT_PREFERENCES: Preferences = {
   annotationViewId: "",
   zotero: false,
   zoteroCollectionKey: "",
+  viewColumns: {},
 };
 
 const KEY = "preferences";
+
+/** Coerce the per-view column map, dropping anything malformed. */
+function normalizeViewColumns(raw: unknown): Record<string, { urlColumn?: string; annotationColumn?: string }> {
+  if (raw === null || typeof raw !== "object") return {};
+  const out: Record<string, { urlColumn?: string; annotationColumn?: string }> = {};
+  for (const [viewId, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (value === null || typeof value !== "object") continue;
+    const entry = value as Record<string, unknown>;
+    const url = typeof entry["urlColumn"] === "string" ? entry["urlColumn"] : undefined;
+    const ann = typeof entry["annotationColumn"] === "string" ? entry["annotationColumn"] : undefined;
+    if (url !== undefined || ann !== undefined) {
+      out[viewId] = { ...(url !== undefined ? { urlColumn: url } : {}), ...(ann !== undefined ? { annotationColumn: ann } : {}) };
+    }
+  }
+  return out;
+}
 
 interface StorageApi {
   local: {
@@ -107,6 +130,7 @@ export function normalizePreferences(raw: unknown): Preferences {
     annotationViewId: typeof value["annotationViewId"] === "string" ? value["annotationViewId"] : "",
     zotero: value["zotero"] === true,
     zoteroCollectionKey: typeof value["zoteroCollectionKey"] === "string" ? value["zoteroCollectionKey"] : "",
+    viewColumns: normalizeViewColumns(value["viewColumns"]),
   };
 }
 

@@ -132,26 +132,56 @@ function renderForm(view: SchemaView, prefill: Record<string, string>, unmatched
             "data-column": column.name,
             type: column.typeId === "number" ? "number" : column.typeId === "date" ? "date" : "text",
           });
-      (input as HTMLInputElement | HTMLTextAreaElement).value = prefill[column.name] ?? "";
+      const typed = input as HTMLInputElement | HTMLTextAreaElement;
+      const suggestion = prefill[column.name] ?? "";
 
-      // Highlight-to-field: with text selected on the page, any column can take it with one click. The
-      // popup can't watch the page's selection live — opening the popup ends it — so the selection is
-      // captured with the snapshot and offered here, which is the honest version of the same idea.
-      if (selectionText !== "") {
+      // A suggestion is shown, not committed: faded in the field, accepted with a click or by typing over
+      // it, dismissed with a click. The old behaviour dropped the guessed value straight into the field as
+      // though the person had entered it — so a wrong guess had to be noticed and deleted, and a right one
+      // gave no signal it was a guess at all. Showing it as a proposal makes the guess honest.
+      if (suggestion !== "") {
+        typed.placeholder = suggestion;
+        typed.classList.add("has-suggestion");
+        const accept = (): void => {
+          if (typed.value.trim() === "") {
+            typed.value = suggestion;
+            typed.classList.remove("has-suggestion");
+            chip.classList.add("hidden");
+          }
+        };
+        typed.addEventListener("focus", () => {
+          // Focusing to type over the suggestion clears the faded hint; focusing and leaving keeps it.
+        });
+        typed.addEventListener("input", () => {
+          chip.classList.toggle("hidden", typed.value.trim() !== "" || suggestion === "");
+        });
+
         const row = el("div", { class: "with-action" });
-        row.appendChild(input);
+        row.appendChild(typed);
+        const chip = el("span", { class: "suggest-chip" });
+        const take = el("button", { class: "mini suggest-take", type: "button", title: "Use this suggestion" }, "✓");
+        take.addEventListener("click", accept);
+        const drop = el("button", { class: "mini suggest-drop", type: "button", title: "Dismiss this suggestion" }, "✕");
+        drop.addEventListener("click", () => {
+          typed.placeholder = "";
+          typed.classList.remove("has-suggestion");
+          chip.classList.add("hidden");
+        });
+        chip.append(take, drop);
+        row.appendChild(chip);
+        field.appendChild(row);
+      } else if (selectionText !== "") {
+        const row = el("div", { class: "with-action" });
+        row.appendChild(typed);
         const use = el("button", { class: "mini", type: "button", title: "Use the text you selected" }, "Use selection");
         use.addEventListener("click", () => {
-          // Appended, not replaced: selecting more text is adding to what's here, and silently discarding
-          // what someone already typed or selected earlier loses work.
-          const field = input as HTMLInputElement | HTMLTextAreaElement;
-          const existing = field.value.trim();
-          field.value = existing === "" ? selectionText : `${existing}\n${selectionText}`;
+          const existing = typed.value.trim();
+          typed.value = existing === "" ? selectionText : `${existing}\n${selectionText}`;
         });
         row.appendChild(use);
         field.appendChild(row);
       } else {
-        field.appendChild(input);
+        field.appendChild(typed);
       }
     }
     form.appendChild(field);
@@ -531,10 +561,18 @@ function collect(): CaptureRequest | null {
   if (current === null || snapshot === null) return null;
   const inputs = Array.from(document.querySelectorAll("[data-column]"));
   const fields = inputs
-    .map((node) => ({
-      key: node.getAttribute("data-column") ?? "",
-      value: (node as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value.trim(),
-    }))
+    .map((node) => {
+      const field = node as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+      const typedValue = field.value.trim();
+      // An untouched field still showing its suggestion counts as accepting it — the faded value is a
+      // proposal the person left standing, and saving should honour what they saw. A field they cleared
+      // has an empty placeholder, so nothing is contributed.
+      const suggested = "placeholder" in field ? (field as HTMLInputElement).placeholder.trim() : "";
+      return {
+        key: node.getAttribute("data-column") ?? "",
+        value: typedValue !== "" ? typedValue : suggested,
+      };
+    })
     .filter((f) => f.key !== "" && f.value !== "");
   if (fields.length === 0) return null;
 

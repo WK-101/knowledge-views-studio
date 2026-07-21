@@ -61,6 +61,41 @@ interface ScriptingApi {
   registerContentScripts?(scripts: object[]): Promise<void>;
   unregisterContentScripts?(filter: { ids: string[] }): Promise<void>;
   getRegisteredContentScripts?(filter: { ids: string[] }): Promise<object[]>;
+  executeScript?(injection: { target: { tabId: number }; files: string[] }): Promise<unknown>;
+}
+
+interface TabsApi {
+  query(info: { url: string[] }): Promise<{ id?: number }[]>;
+}
+function tabs(): TabsApi | null {
+  const g = globalThis as unknown as { browser?: { tabs?: TabsApi }; chrome?: { tabs?: TabsApi } };
+  return g.browser?.tabs ?? g.chrome?.tabs ?? null;
+}
+
+/**
+ * Inject the annotator into tabs that are already open.
+ *
+ * Registration only affects future navigations, so a tab open when the feature was switched on — or when
+ * the browser started — never received the script, and its saved highlights never repainted. This reaches
+ * those tabs once; the content script's own idempotency marker keeps a second injection harmless.
+ */
+export async function injectAnnotatorIntoOpenTabs(): Promise<void> {
+  const scriptApi = scripting();
+  const tabApi = tabs();
+  if (scriptApi?.executeScript === undefined || tabApi === null) return;
+  try {
+    const open = await tabApi.query({ url: ["http://*/*", "https://*/*"] });
+    for (const tab of open) {
+      if (tab.id === undefined) continue;
+      try {
+        await scriptApi.executeScript({ target: { tabId: tab.id }, files: ["annotate.js"] });
+      } catch {
+        // Some tabs refuse injection (a page that navigated away, a restricted URL); skip and continue.
+      }
+    }
+  } catch {
+    // No tabs permission or none open — nothing to do.
+  }
 }
 
 function scripting(): ScriptingApi | null {

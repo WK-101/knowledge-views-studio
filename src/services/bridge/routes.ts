@@ -190,7 +190,11 @@ export function lookupRoute(): Route<BridgeContext> {
         // literally named "url", so a view whose column was called Link answered "not captured" to a page
         // whose row it was displaying — while the save path, using the wider vocabulary, saw nothing wrong.
         // Two matchers with two vocabularies is how a page stays "not in any of your views" forever.
-        const urlRow = url !== "" ? rowForUrl(rows, columns, url) : null;
+        const declaredUrlCol =
+          body.urlColumns !== undefined && typeof body.urlColumns === "object"
+            ? (body.urlColumns as Record<string, string>)[profile.id]
+            : undefined;
+        const urlRow = url !== "" ? rowForUrl(rows, columns, url, declaredUrlCol) : null;
         let hit: { row: Row; on: string } | null = urlRow !== null ? { row: urlRow, on: "url" } : null;
         if (hit === null && doi !== "") {
           const probe: Record<string, string> = {};
@@ -701,8 +705,11 @@ export function annotateRoute(): Route<BridgeContext> {
       const profile = exposedProfiles(context).find((p) => p.id === viewId);
       if (profile === undefined) return { status: 404, body: { error: "No such view." } };
 
+      const declaredUrlCol = typeof body.urlColumn === "string" ? body.urlColumn : undefined;
+      const declaredAnnCol = typeof body.annotationColumn === "string" ? body.annotationColumn : undefined;
+
       let { rows, columns } = await context.viewData(profile);
-      let target = rowForUrl(rows, columns, url);
+      let target = rowForUrl(rows, columns, url, declaredUrlCol);
       let createdRow = false;
 
       if (target === null) {
@@ -739,13 +746,13 @@ export function annotateRoute(): Route<BridgeContext> {
         if (written.path !== undefined) context.onCaptured(written.path);
         createdRow = true;
         ({ rows, columns } = await context.viewData(profile));
-        target = rowForUrl(rows, columns, url);
+        target = rowForUrl(rows, columns, url, declaredUrlCol);
       }
 
       // The row copy: appended through the same guarded path as any other edit.
       let wroteCell = false;
       if (target !== null && context.editCells !== undefined) {
-        const column = annotationColumn(columns);
+        const column = annotationColumn(columns, declaredAnnCol);
         if (column !== null) {
           const { allowed } = editableChanges(
             target,
@@ -847,13 +854,15 @@ export function annotateRemoveRoute(): Route<BridgeContext> {
       // deletion not working, and "the extension guessed the wrong view" is our problem, not the person's.
       if (removed !== null && context.editCells !== undefined) {
         const suggested = (body.viewId ?? "").trim();
+        const declaredUrlCol = typeof body.urlColumn === "string" ? body.urlColumn : undefined;
+        const declaredAnnCol = typeof body.annotationColumn === "string" ? body.annotationColumn : undefined;
         const ordered = [...exposedProfiles(context)].sort((a, b) =>
           a.id === suggested ? -1 : b.id === suggested ? 1 : 0,
         );
         for (const profile of ordered) {
           const { rows, columns } = await context.viewData(profile);
-          const target = rowForUrl(rows, columns, url);
-          const column = target !== null ? annotationColumn(columns) : null;
+          const target = rowForUrl(rows, columns, url, declaredUrlCol);
+          const column = target !== null ? annotationColumn(columns, declaredAnnCol) : null;
           if (target === null || column === null) continue;
           const cleaned = cellWithoutAnnotation(getField(target, column), removed);
           if (cleaned === null) continue;

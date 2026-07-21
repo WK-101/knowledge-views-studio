@@ -5,6 +5,33 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 168 — you choose the columns, and suggestions stay suggestions
+
+**Which column holds what is now yours to declare.** A new "Columns per view" section in settings maps, per
+view, which column holds the page's URL (for recognising a page you've saved) and which takes highlight
+text. Each picker offers that view's real columns plus "choose automatically", and the automatic choice —
+the url/link/source and annotations/highlights/quotes/notes heuristics — remains the default for any view
+left unset. So the guess is a starting point, never a limit: a view whose link lives in a column called
+"Web Address" or whose highlights belong in "Marginalia" now works by saying so. The declaration overrides
+the guess everywhere — lookup, annotate, and annotation removal — and a stale declaration (a renamed
+column) falls back to the heuristic rather than silently matching nothing.
+
+**Highlights repaint on pages that were already open.** Registering the annotator only affects future
+navigations, so a tab open when the feature was enabled — or restored from the last session — never
+received the script, and its saved highlights never came back. Enabling now injects into every open tab,
+and startup does the same for restored tabs; the content script's idempotency marker keeps the extra
+injection harmless. This is why earlier-annotated pages showed nothing until a manual reload.
+
+**Suggested values are shown, not committed.** A guessed field value used to drop straight into the box as
+though you'd typed it, so a wrong guess had to be spotted and deleted and a right one gave no sign it was a
+guess. Guesses now appear faded in the field with a ✓ to accept and a ✕ to dismiss — type over it, or leave
+it standing and it's saved as shown, or clear it and the field contributes nothing. A publication year, an
+author, a title pulled from the page: each offered rather than assumed.
+
+1345 tests (was 1339): declared URL and annotation columns overriding the guess, and both falling back when
+the named column is gone; the per-view column preference surviving normalization with malformed entries
+dropped.
+
 ## Phase 167 — one matcher, one cache, and a menu that stops flickering
 
 **"Not in any of your views", found for real this time.** Lookup consulted only columns literally named

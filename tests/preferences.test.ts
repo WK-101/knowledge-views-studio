@@ -70,3 +70,24 @@ describe("preferences · zotero", () => {
     expect(normalizePreferences({ zoteroCollectionKey: 7 }).zoteroCollectionKey).toBe("");
   });
 })
+
+describe("preferences · per-view columns", () => {
+  it("keeps well-formed per-view overrides and drops malformed ones", () => {
+    const prefs = normalizePreferences({
+      viewColumns: {
+        v1: { urlColumn: "Web Address", annotationColumn: "Marks" },
+        v2: { urlColumn: "Link" },
+        v3: { nonsense: true },
+        v4: "not an object",
+      },
+    });
+    expect(prefs.viewColumns["v1"]).toEqual({ urlColumn: "Web Address", annotationColumn: "Marks" });
+    expect(prefs.viewColumns["v2"]).toEqual({ urlColumn: "Link" });
+    expect(prefs.viewColumns["v3"]).toBeUndefined();
+    expect(prefs.viewColumns["v4"]).toBeUndefined();
+  });
+
+  it("defaults to an empty map", () => {
+    expect(normalizePreferences({}).viewColumns).toEqual({});
+  });
+})

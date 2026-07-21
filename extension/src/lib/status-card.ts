@@ -91,7 +91,12 @@ export async function mountStatusCard(
   if (prior === null || !prior.fresh) {
     try {
       const connection = await loadConnection();
-      found = await lookup(connection, { url });
+      const prefs2 = await loadPreferences();
+      const urlColumns: Record<string, string> = {};
+      for (const [viewId, cols] of Object.entries(prefs2.viewColumns)) {
+        if (cols.urlColumn !== undefined) urlColumns[viewId] = cols.urlColumn;
+      }
+      found = await lookup(connection, { url, ...(Object.keys(urlColumns).length > 0 ? { urlColumns } : {}) });
       highlightCount = (await annotationsFor(connection, { url })).annotations.length;
       void remember(key, { found, highlightCount } satisfies StatusBundle);
       if (prior !== null) {
