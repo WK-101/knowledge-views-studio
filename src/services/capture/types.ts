@@ -9,9 +9,40 @@
 
 export type CaptureShape = "row" | "note";
 
+/**
+ * The recurring notes a row can be captured into. These mirror the three periods every daily-notes workflow
+ * settles on; deliberately a closed set so the path/format logic stays a lookup rather than open-ended.
+ */
+export type PeriodicKind = "daily" | "weekly" | "monthly";
+
+/**
+ * How to address a periodic note (today's daily note, this week's, this month's).
+ *
+ * Everything is optional so a view can say "daily" and inherit the rest from the vault's own daily-notes
+ * configuration — the point is to write into the *same* file the user's Periodic Notes / core Daily Notes
+ * setup would, never a parallel duplicate. When a field is set it overrides that inheritance.
+ */
+export interface PeriodicTarget {
+  /** Which recurrence. Defaults to "daily" when the destination is periodic but this is unset. */
+  readonly period?: PeriodicKind;
+  /** moment format string for the file name (e.g. "YYYY-MM-DD"). Empty = the period's default. */
+  readonly format?: string;
+  /** Folder the periodic note lives in. Empty = vault root. */
+  readonly folder?: string;
+  /** Vault-relative path to a template file used when the note has to be created. Empty = a bare note. */
+  readonly template?: string;
+}
+
 /** Where a view's captures land. Unset falls back to the older `newRowFile` behaviour. */
 export interface CaptureTarget {
   readonly shape: CaptureShape;
+  /**
+   * shape "row": whether rows go to a single fixed note or into a recurring (daily/weekly/monthly) note
+   * resolved fresh each time. Unset = "file" (the original behaviour, a single `notePath`).
+   */
+  readonly destination?: "file" | "periodic";
+  /** shape "row" + destination "periodic": how the recurring note is addressed. */
+  readonly periodic?: PeriodicTarget;
   /** shape "row": the note whose table receives captured rows. */
   readonly notePath?: string;
   /** shape "row": the table under this heading. Empty = the note's first table. */

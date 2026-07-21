@@ -92,6 +92,10 @@ import { ViewBrowserModal } from "./view-browser-modal";
 import { BackupExportModal, type BackupExportOptions } from "./backup-export-modal";
 import type { ProcessorDeps } from "../codeblock/processor";
 import { wireImageZoom } from "../views/image-zoom";
+import { CaptureService } from "../services/capture/capture-service";
+import { captureColumnsFor } from "./capture-command";
+import { effectiveTarget } from "../services/capture/parse";
+import type { CaptureTarget } from "../services/capture/types";
 
 export const DASHBOARD_VIEW_TYPE = "kvs-dashboard";
 
@@ -256,6 +260,22 @@ export class DashboardView extends TextFileView {
   private async addRowAndEdit(): Promise<void> {
     const base = this.renderedProfile();
     if (!base) return;
+
+    // If the view has a capture destination configured — a fixed note, or a daily/weekly/monthly periodic
+    // note — add the row through the capture pipeline. That's what lets "Add row" create the note and the
+    // table when they don't exist yet (today's daily note, say), rather than needing an existing row to
+    // anchor against. This is the destination the user chose in the view's Capture settings.
+    const target = effectiveTarget(base);
+    if (
+      target !== null &&
+      target.shape === "row" &&
+      (target.destination === "periodic" || (target.notePath ?? "").trim() !== "")
+    ) {
+      await this.addRowViaCapture(base, target);
+      return;
+    }
+
+    // Fallback for a view with no capture destination: anchor a blank row against an existing row's table.
     const fallback = this.lastRows[0]?.provenance;
     if (!fallback) {
       new Notice("This view has no rows yet — add one from a template, or capture papers by DOI.");
@@ -277,27 +297,70 @@ export class DashboardView extends TextFileView {
       },
     });
     this.deps.dataService.invalidate(reference.filePath);
+    await this.revealNewRowIn(base, reference.filePath);
+  }
+
+  /**
+   * Add a blank row through the capture pipeline, then open it.
+   *
+   * Unlike the anchored path this can address a table that's empty or not yet written — and, for a periodic
+   * destination, create today's (or this week's / month's) note first — so the first item can arrive before
+   * any table has been typed by hand. Undo restores the target file's prior contents (an empty note if we
+   * had to create it).
+   */
+  private async addRowViaCapture(base: Profile, target: CaptureTarget): Promise<void> {
+    const service = new CaptureService(this.app);
+    const path = service.targetPath(target);
+    if (path === "" || path === ".") {
+      new Notice("This view's capture destination isn't fully set — check the view's Capture settings.");
+      return;
+    }
+
+    const before = await this.deps.dataService.query({ ...base, pageSize: null }, {});
+    const columns = captureColumnsFor(base, before.rows);
+    const snapshot = await this.deps.writer.snapshot([path]);
+
+    const res = await service.commit(target, {}, columns, { fields: [] });
+    if (!res.ok) {
+      new Notice(`Couldn't add a row: ${res.reason ?? "unknown error"}`);
+      return;
+    }
+    const writtenPath = res.path ?? path;
+    this.deps.undo.push({
+      label: "Add row",
+      undo: async () => {
+        await this.deps.writer.restore(snapshot);
+        this.deps.dataService.invalidate(writtenPath);
+        void this.renderActive();
+      },
+    });
+    this.deps.dataService.invalidate(writtenPath);
+    await this.revealNewRowIn(base, writtenPath);
+  }
+
+  /** Re-query, find the newest row in a file, re-render, and open its detail card (the shared tail of both
+   *  add-row paths). */
+  private async revealNewRowIn(base: Profile, filePath: string): Promise<void> {
     const result = await this.deps.dataService.query({ ...base, pageSize: null }, {});
-    const inFile = result.rows.filter((r) => r.provenance.filePath === reference.filePath);
+    const inFile = result.rows.filter((r) => r.provenance.filePath === filePath);
     const line = (r: Row): number => Number(r.provenance.locator.line ?? 0);
     const newRow = inFile.length > 0 ? inFile.reduce((a, b) => (line(b) > line(a) ? b : a)) : undefined;
     await this.renderActive();
-    if (newRow) {
-      openRowDetail(
-        {
-          app: this.app,
-          cellRenderers: this.deps.cellRenderers,
-          sourcePath: this.file?.path ?? "",
-          component: this,
-          columns: resolveColumns(base, result.rows),
-          onEditCell: (row, column, value) => this.editing?.onEditCell(row, column, value),
-          columnValues: (name) => this.columnValues(name),
-          ...(base.academicKit ? { onFetchDoiValues: (doi: string) => this.academic.fetchDoiValues(doi) } : {}),
-          ...(base.academicKit ? { onFindCitations: (doi: string) => this.academic.findCitationsFor(doi) } : {}),
-        },
-        newRow,
-      );
-    }
+    if (!newRow) return;
+    openRowDetail(
+      {
+        app: this.app,
+        cellRenderers: this.deps.cellRenderers,
+        sourcePath: this.file?.path ?? "",
+        component: this,
+        columns: resolveColumns(base, result.rows),
+        onEditCell: (row, column, value) => this.editing?.onEditCell(row, column, value),
+        columnValues: (name) => this.columnValues(name),
+        ...(base.academicKit ? { onFetchDoiValues: (doi: string) => this.academic.fetchDoiValues(doi) } : {}),
+        ...(base.academicKit ? { onFindCitations: (doi: string) => this.academic.findCitationsFor(doi) } : {}),
+      },
+      newRow,
+    );
   }
 
   /** For each library paper with a DOI, find which other library papers it cites (via OpenAlex) and

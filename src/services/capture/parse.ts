@@ -66,6 +66,8 @@ export function effectiveTarget(source: TargetSource): CaptureTarget | null {
   const target = source.captureTarget;
   if (target) {
     if (target.shape === "note") return target;
+    // A periodic destination resolves its own path each time, so it's valid without a static notePath.
+    if (target.destination === "periodic") return target;
     if ((target.notePath ?? "").trim() !== "") return target;
   }
   const legacy = (source.newRowFile ?? "").trim();

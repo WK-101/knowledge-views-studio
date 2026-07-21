@@ -1,4 +1,4 @@
-import { normalizePath, TFile, type App } from "obsidian";
+import { moment, normalizePath, TFile, type App } from "obsidian";
 import { getField, type Row } from "../../domain/index";
 import { normalizeText } from "./normalize";
 import { renderTemplate, safeName as templateSafeName } from "../../../shared/template";
@@ -7,7 +7,27 @@ import { appendCapturedRow, appendCapturedRows } from "./capture-table";
 import { appendToNote, capturedAppendBlock } from "./append-note";
 import { findDedicatedNote } from "../notes/dedicated-note";
 import { noteLinkColumnName } from "../../views/promoted-detect";
-import type { CaptureColumn, CapturePayload, CaptureResult, CaptureTarget, MappedCapture } from "./types";
+import { periodicNotePath } from "./periodic";
+import type {
+  CaptureColumn,
+  CapturePayload,
+  CaptureResult,
+  CaptureTarget,
+  MappedCapture,
+  PeriodicTarget,
+} from "./types";
+
+/**
+ * Obsidian bundles moment but exports it with a type that has no call signature, so `moment()` won't compile.
+ * This is the one narrow escape hatch: a wrapper that calls it and exposes only `.format`, which is all the
+ * periodic path/template work needs.
+ */
+interface MomentLike {
+  format(fmt: string): string;
+}
+function now(): MomentLike {
+  return (moment as unknown as () => MomentLike)();
+}
 
 /**
  * Committing a capture to the vault.
@@ -152,20 +172,15 @@ export class CaptureService {
     }
     if (rows.length === 0) return { ok: false, reason: "No rows to write." };
 
-    const path = normalizePath((target.notePath ?? "").trim());
-    if (path === "" || path === ".") return { ok: false, reason: "This view has no capture target set." };
-
-    let file = this.app.vault.getAbstractFileByPath(path);
-    if (file === null && target.createIfMissing === true) {
-      await this.ensureFolder(path);
-      file = await this.app.vault.create(path, "");
-    }
-    if (!(file instanceof TFile)) return { ok: false, reason: `Capture target not found: ${path}` };
+    const resolved = await this.resolveRowFile(target);
+    if ("error" in resolved) return { ok: false, reason: resolved.error };
+    const { file, path } = resolved;
 
     const content = await this.app.vault.read(file);
+    const createIfMissing = target.destination === "periodic" ? true : target.createIfMissing;
     const result = appendCapturedRows(content, rows, {
       ...(target.heading !== undefined ? { heading: target.heading } : {}),
-      ...(target.createIfMissing !== undefined ? { createIfMissing: target.createIfMissing } : {}),
+      ...(createIfMissing !== undefined ? { createIfMissing } : {}),
       columns: columns.map((c) => c.name),
     });
     if (!result.ok) return { ok: false, reason: result.reason ?? "Couldn't write the rows." };
@@ -179,28 +194,92 @@ export class CaptureService {
     values: Readonly<Record<string, string>>,
     columns: readonly CaptureColumn[],
   ): Promise<CaptureResult> {
-    const path = normalizePath((target.notePath ?? "").trim());
-    if (path === "" || path === ".") return { ok: false, reason: "This view has no capture target set." };
-
-    let file = this.app.vault.getAbstractFileByPath(path);
-    if (file === null && target.createIfMissing === true) {
-      await this.ensureFolder(path);
-      file = await this.app.vault.create(path, "");
-    }
-    if (!(file instanceof TFile)) {
-      return { ok: false, reason: `Capture target not found: ${path}` };
-    }
+    const resolved = await this.resolveRowFile(target);
+    if ("error" in resolved) return { ok: false, reason: resolved.error };
+    const { file, path } = resolved;
 
     const content = await this.app.vault.read(file);
+    const createIfMissing = target.destination === "periodic" ? true : target.createIfMissing;
     const result = appendCapturedRow(content, values, {
       ...(target.heading !== undefined ? { heading: target.heading } : {}),
-      ...(target.createIfMissing !== undefined ? { createIfMissing: target.createIfMissing } : {}),
+      ...(createIfMissing !== undefined ? { createIfMissing } : {}),
       columns: columns.map((c) => c.name),
     });
     if (!result.ok) return { ok: false, reason: result.reason ?? "Couldn't write the row." };
 
     await this.app.vault.modify(file, result.content);
     return { ok: true, path, createdTable: result.createdTable };
+  }
+
+  /**
+   * The path a row-capture would land in *right now*.
+   *
+   * For a fixed note that's just the configured path; for a periodic destination it's today's (or this
+   * week's / month's) note, resolved against the current moment. Public so the in-app add-row path can
+   * snapshot the file for undo and open it afterwards without duplicating the resolution rules.
+   */
+  targetPath(target: CaptureTarget): string {
+    if (target.destination === "periodic") {
+      return periodicNotePath(target.periodic ?? {}, (fmt) => now().format(fmt));
+    }
+    return normalizePath((target.notePath ?? "").trim());
+  }
+
+  /**
+   * Find (or, when allowed, create) the note a row-capture writes into.
+   *
+   * A periodic destination always creates the note if today's doesn't exist yet — that's the whole point of
+   * capturing into daily notes — seeding it from the configured template so it matches what the user's own
+   * daily-notes setup would have produced. A fixed note only self-creates when `createIfMissing` is set,
+   * preserving the original behaviour.
+   */
+  private async resolveRowFile(
+    target: CaptureTarget,
+  ): Promise<{ file: TFile; path: string } | { error: string }> {
+    if (target.destination === "periodic") {
+      const path = this.targetPath(target);
+      if (path === "" || path === ".") return { error: "Couldn't work out the periodic note's path." };
+      let file = this.app.vault.getAbstractFileByPath(path);
+      if (file === null) {
+        await this.ensureFolder(path);
+        file = await this.app.vault.create(path, await this.periodicInitialContent(target.periodic ?? {}));
+      }
+      if (!(file instanceof TFile)) return { error: `Couldn't open the periodic note: ${path}` };
+      return { file, path };
+    }
+
+    const path = normalizePath((target.notePath ?? "").trim());
+    if (path === "" || path === ".") return { error: "This view has no capture target set." };
+    let file = this.app.vault.getAbstractFileByPath(path);
+    if (file === null && target.createIfMissing === true) {
+      await this.ensureFolder(path);
+      file = await this.app.vault.create(path, "");
+    }
+    if (!(file instanceof TFile)) return { error: `Capture target not found: ${path}` };
+    return { file, path };
+  }
+
+  /**
+   * The contents a periodic note is created with.
+   *
+   * When the spec (or the vault's own config, copied into it) names a template file, we read it and expand
+   * the handful of date/time tokens Periodic Notes understands, so a note KVS creates reads like one the
+   * user's setup would have made. No template — or a missing one — means an empty note; the capture table is
+   * appended to it afterwards.
+   */
+  private async periodicInitialContent(spec: PeriodicTarget): Promise<string> {
+    const tpl = (spec.template ?? "").trim();
+    if (tpl === "") return "";
+    const path = normalizePath(tpl.endsWith(".md") ? tpl : `${tpl}.md`);
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!(file instanceof TFile)) return "";
+    const raw = await this.app.vault.read(file);
+    const m = now();
+    return raw
+      .replace(/\{\{\s*date\s*:\s*([^}]+?)\s*\}\}/gi, (_match, fmt: string) => m.format(fmt))
+      .replace(/\{\{\s*date\s*\}\}/gi, () => m.format("YYYY-MM-DD"))
+      .replace(/\{\{\s*time\s*:\s*([^}]+?)\s*\}\}/gi, (_match, fmt: string) => m.format(fmt))
+      .replace(/\{\{\s*time\s*\}\}/gi, () => m.format("HH:mm"));
   }
 
   /**

@@ -5,6 +5,53 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 190 — capture into daily notes (periodic destinations)
+
+Plugin 0.181.0. Extends where a view's rows can land: not just one fixed note, but a recurring
+daily / weekly / monthly note resolved fresh each time — and "Add row" now uses it too. No companion or
+bridge change — `REQUIRED_PLUGIN_VERSION` is untouched.
+
+**The problem.** "New rows go to" could only name a single fixed file, and it could only *append* — it
+finds the table by anchoring to an existing row's provenance, so a view with no rows yet, or a note that
+doesn't exist yet, had nowhere to write. For a Periodic Notes workflow — where each day's captures belong
+in *that day's* note, aggregated under a heading, in a table that may not have been created yet — neither
+half worked. The ask was to capture into daily notes by header-schema matching: append to the table under
+the chosen heading if it's there, create it if it isn't, and create the day's note if it isn't there
+either.
+
+**Adopt, don't couple.** Rather than depend on the Periodic Notes plugin's API, KVS resolves the note
+path itself (`periodicNotePath` — a pure function over a moment-format string, folder, and period). The
+collision worry — writing a *second*, parallel daily note next to the user's own — is answered by
+resolving to the **same** path their setup uses: an **Auto-detect** button reads the existing
+configuration (`readPeriodicDefaults` — the community Periodic Notes plugin first, since it covers all
+three periods, then core Daily Notes for the daily case) and fills in the format, folder, and template.
+Same format + same folder ⇒ same path ⇒ KVS writes into the note that's already there (or creates it the
+way that setup would have, seeding it from the same template with `{{date}}`/`{{time}}` expanded), never a
+duplicate. Because the resolution is KVS's own, the feature works with no periodic-notes plugin installed
+at all.
+
+**The capture table logic was already right.** `appendCapturedRow` already finds the table under a
+heading, matches the header schema, appends a row when it fits, and writes a fresh table from the view's
+columns when it doesn't. Periodic capture only needed dynamic path resolution and note creation in front
+of it — added as `CaptureService.resolveRowFile` / `targetPath` / `periodicInitialContent`, with the two
+commit paths (`commitRow`, `commitMany`) refactored onto the shared resolver so a periodic note is
+created-if-missing by definition while a fixed note keeps respecting its explicit toggle.
+
+**"Add row" uses the capture destination now.** The in-app add-row button (`addRowAndEdit`) routed through
+the anchored writer, which is exactly why it couldn't seed an empty or absent table. When a view has a
+capture destination configured it now goes through the capture pipeline (`addRowViaCapture`) — creating
+today's note and the table as needed, then opening the new row's card — and only falls back to the old
+anchored append for views with no destination set. Undo restores the target file's prior contents (an
+empty note where one had to be created).
+
+**Settings.** The Capture section of a view's Sources tab gains a "Where rows go" selector — a fixed
+note, or today's / this week's / this month's note — revealing either the fixed-note fields or the
+periodic ones (Auto-detect, date format, folder, template), with "Under heading" shared across both. 12
+new unit tests cover path resolution, config auto-detection, and the periodic-target passthrough; the
+vault-writing path is Obsidian-only and unverifiable headless (eyeball: add a row in a view set to
+"Today's daily note" and confirm it lands under the heading in today's note, creating note and table the
+first time).
+
 ## Phase 189 — promoted notes for every view (ungated, declared, two-way)
 
 Plugin 0.180.0. Three long-standing rough edges around "Promote to dedicated note", fixed together. No

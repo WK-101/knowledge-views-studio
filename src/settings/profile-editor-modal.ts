@@ -1,5 +1,6 @@
 import { Modal, Notice, Setting, TFolder, setIcon, type App } from "obsidian";
-import type { CaptureTarget } from "../services/capture/types";
+import type { CaptureTarget, PeriodicKind, PeriodicTarget } from "../services/capture/types";
+import { DEFAULT_PERIODIC_FORMAT, readPeriodicDefaults } from "../services/capture/periodic";
 import {
   FIELD_ROLES,
   inferFieldRole,
@@ -791,7 +792,49 @@ export class ProfileEditorModal extends Modal {
     rowSection.toggleClass("kvs-hidden", shape !== "row");
     noteSection.toggleClass("kvs-hidden", shape !== "note");
 
-    const ct = new Setting(rowSection)
+    // A row can land in one fixed note, or in a recurring note resolved fresh each time (today's daily note,
+    // this week's, this month's). The periodic path is what aggregates captures — and "Add row" — into daily
+    // notes the way a Periodic Notes workflow expects, creating the note and table on first use.
+    const patchPeriodic = (p: Partial<PeriodicTarget>): void => {
+      const current = this.profile.captureTarget ?? { shape: "row" as const };
+      this.patch({ captureTarget: { ...current, periodic: { ...(current.periodic ?? {}), ...p } } });
+    };
+    const destValue = target?.destination === "periodic" ? target.periodic?.period ?? "daily" : "file";
+
+    new Setting(rowSection)
+      .setName("Where rows go")
+      .setDesc("A single fixed note, or a recurring note KVS resolves and creates as needed — matching your daily-notes workflow.")
+      .addDropdown((d) => {
+        d.addOption("file", "A fixed note");
+        d.addOption("daily", "Today's daily note");
+        d.addOption("weekly", "This week's note");
+        d.addOption("monthly", "This month's note");
+        d.setValue(destValue);
+        d.onChange((value) => {
+          if (value === "file") {
+            patchTarget({ destination: "file" });
+          } else {
+            const current = this.profile.captureTarget ?? { shape: "row" as const };
+            this.patch({
+              captureTarget: {
+                ...current,
+                destination: "periodic",
+                periodic: { ...(current.periodic ?? {}), period: value as PeriodicKind },
+              },
+            });
+          }
+          this.renderSources();
+        });
+      });
+
+    const fixedSection = rowSection.createDiv();
+    const periodicSection = rowSection.createDiv();
+    const isPeriodic = destValue !== "file";
+    fixedSection.toggleClass("kvs-hidden", isPeriodic);
+    periodicSection.toggleClass("kvs-hidden", !isPeriodic);
+
+    // --- Fixed-note destination ---
+    const ct = new Setting(fixedSection)
       .setName("Capture into")
       .setDesc("The note holding the table that receives captured rows.");
     const ctInput = ct.controlEl.createEl("input", { type: "text" });
@@ -805,22 +848,84 @@ export class ProfileEditorModal extends Modal {
     ctInput.addEventListener("change", ctCommit);
     ctInput.addEventListener("blur", ctCommit);
 
-    const hd = new Setting(rowSection)
-      .setName("Under heading")
-      .setDesc("Use the table below this heading. Empty = the note's first table.");
-    const hdInput = hd.controlEl.createEl("input", { type: "text" });
-    hdInput.placeholder = "e.g. Inbox";
-    hdInput.value = target?.heading ?? "";
-    const hdCommit = (): void => patchTarget({ heading: hdInput.value.trim() });
-    hdInput.addEventListener("change", hdCommit);
-    hdInput.addEventListener("blur", hdCommit);
-
-    new Setting(rowSection)
+    new Setting(fixedSection)
       .setName("Create the table if it isn't there")
       .setDesc("Write the note, heading and header row from this view's columns on the first capture.")
       .addToggle((t) =>
         t.setValue(target?.createIfMissing ?? true).onChange((v) => patchTarget({ createIfMissing: v })),
       );
+
+    // --- Periodic destination ---
+    const period: PeriodicKind = target?.periodic?.period ?? "daily";
+    new Setting(periodicSection)
+      .setName("Match your daily-notes setup")
+      .setDesc("Copy the date format, folder and template from the Periodic Notes plugin (or core Daily Notes), so KVS writes into the very same note rather than a parallel one.")
+      .addButton((b) =>
+        b.setButtonText("Auto-detect").onClick(() => {
+          const found = readPeriodicDefaults(this.app, period);
+          if (found === null) {
+            new Notice("No configuration found — enable the Periodic Notes plugin or core Daily Notes, then try again.");
+            return;
+          }
+          patchPeriodic({
+            ...(found.format !== undefined ? { format: found.format } : {}),
+            ...(found.folder !== undefined ? { folder: found.folder } : {}),
+            ...(found.template !== undefined ? { template: found.template } : {}),
+          });
+          new Notice(`Filled from ${found.source === "periodic-notes" ? "the Periodic Notes plugin" : "core Daily Notes"}.`);
+          this.renderSources();
+        }),
+      );
+
+    const pf = new Setting(periodicSection)
+      .setName("Date format")
+      .setDesc("moment.js format for the note's file name. Empty = the period's default.");
+    const pfInput = pf.controlEl.createEl("input", { type: "text" });
+    pfInput.placeholder = DEFAULT_PERIODIC_FORMAT[period];
+    pfInput.value = target?.periodic?.format ?? "";
+    const pfCommit = (): void => patchPeriodic({ format: pfInput.value.trim() });
+    pfInput.addEventListener("change", pfCommit);
+    pfInput.addEventListener("blur", pfCommit);
+
+    const pfd = new Setting(periodicSection)
+      .setName("Folder")
+      .setDesc("Where the periodic note lives. Empty = the vault root.");
+    const pfdInput = pfd.controlEl.createEl("input", { type: "text" });
+    pfdInput.placeholder = "e.g. Journal/Daily";
+    pfdInput.value = target?.periodic?.folder ?? "";
+    const pfdCommit = (): void => patchPeriodic({ folder: pfdInput.value.trim() });
+    pfdInput.addEventListener("change", pfdCommit);
+    pfdInput.addEventListener("blur", pfdCommit);
+
+    const pt = new Setting(periodicSection)
+      .setName("Template")
+      .setDesc("A note used when today's (or this week's / month's) note has to be created. Empty = a blank note. {{date}} and {{time}} are expanded.");
+    const ptInput = pt.controlEl.createEl("input", { type: "text" });
+    ptInput.placeholder = "e.g. Templates/Daily.md";
+    ptInput.value = target?.periodic?.template ?? "";
+    const ptList = pt.controlEl.createEl("datalist");
+    ptList.id = `kvs-pt-${Math.random().toString(36).slice(2)}`;
+    for (const f of this.allMarkdownFiles()) ptList.createEl("option", { value: f });
+    ptInput.setAttr("list", ptList.id);
+    const ptCommit = (): void => patchPeriodic({ template: ptInput.value.trim() });
+    ptInput.addEventListener("change", ptCommit);
+    ptInput.addEventListener("blur", ptCommit);
+
+    periodicSection.createDiv({
+      cls: "kvs-setting-note",
+      text: "The table is always created if it isn't there — KVS finds the table under your chosen heading, appends a row if it exists, or writes a fresh table with this view's columns if it doesn't.",
+    });
+
+    // --- Shared: heading applies to both destinations ---
+    const hd = new Setting(rowSection)
+      .setName("Under heading")
+      .setDesc("Use the table below this heading. Empty = the note's first table.");
+    const hdInput = hd.controlEl.createEl("input", { type: "text" });
+    hdInput.placeholder = "e.g. Captured";
+    hdInput.value = target?.heading ?? "";
+    const hdCommit = (): void => patchTarget({ heading: hdInput.value.trim() });
+    hdInput.addEventListener("change", hdCommit);
+    hdInput.addEventListener("blur", hdCommit);
 
     const ntSetting = new Setting(noteSection)
       .setName("Note template")

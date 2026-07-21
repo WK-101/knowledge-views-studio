@@ -450,7 +450,14 @@ export function createProfile(partial: ProfileInput = {}): Profile {
     ...(partial.dedicatedNoteKey ? { dedicatedNoteKey: partial.dedicatedNoteKey } : {}),
     ...(partial.showSummaryRow !== undefined ? { showSummaryRow: partial.showSummaryRow } : {}),
     ...(partial.newRowFile ? { newRowFile: partial.newRowFile } : {}),
-    ...(partial.captureTarget ? { captureTarget: { ...partial.captureTarget } } : {}),
+    ...(partial.captureTarget
+      ? {
+          captureTarget: {
+            ...partial.captureTarget,
+            ...(partial.captureTarget.periodic ? { periodic: { ...partial.captureTarget.periodic } } : {}),
+          },
+        }
+      : {}),
     ...(partial.category !== undefined && partial.category !== "" ? { category: partial.category } : {}),
     sort: partial.sort ?? [],
     group: partial.group ?? null,

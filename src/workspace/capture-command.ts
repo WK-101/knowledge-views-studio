@@ -53,11 +53,14 @@ class ViewPicker extends SuggestModal<Profile> {
   renderSuggestion(profile: Profile, el: HTMLElement): void {
     el.createDiv({ text: profile.name });
     const target = effectiveTarget(profile);
-    const where = target === null
-      ? "No capture target set"
-      : target.shape === "note"
-        ? `New note in ${target.folder === undefined || target.folder === "" ? "vault root" : target.folder}`
-        : `Row in ${target.notePath ?? ""}`;
+    const where =
+      target === null
+        ? "No capture target set"
+        : target.shape === "note"
+          ? `New note in ${target.folder === undefined || target.folder === "" ? "vault root" : target.folder}`
+          : target.destination === "periodic"
+            ? `Row in your ${target.periodic?.period ?? "daily"} note`
+            : `Row in ${target.notePath ?? ""}`;
     el.createEl("small", { text: where });
   }
   onChooseSuggestion(profile: Profile): void {
