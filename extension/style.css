@@ -17,7 +17,6 @@ body {
   color: var(--fg);
   background: var(--bg);
 }
-body.popup { width: 360px; padding: 12px; }
 body.options { max-width: 640px; margin: 0 auto; padding: 32px 24px; }
 header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 h1 { font-size: 18px; margin: 0 0 8px; }
@@ -147,14 +146,6 @@ table.preview th { color: var(--muted); font-weight: 600; }
 .edit-head a:hover { text-decoration: underline; }
 
 /* ---- Surfaces ---------------------------------------------------------- */
-/* The popup is a fixed pane the browser sizes for us; three widths, because a glance and a working area
-   are different needs and one compromise size serves neither. */
-body.is-popup.size-small { width: 320px; font-size: 12px; }
-body.is-popup.size-medium { width: 380px; }
-body.is-popup.size-large { width: 460px; }
-body.is-popup.size-small .field { margin-bottom: 6px; }
-body.is-popup.size-small textarea { rows: 2; }
-body.is-popup.size-large .preview-note { max-height: 320px; }
 
 /* ---- Surfaces ---------------------------------------------------------
    Both pages share a structure: a fixed header and tab strip, then one scrolling region. The popup is a
@@ -163,10 +154,6 @@ body.is-popup.size-large .preview-note { max-height: 320px; }
 #panels { display: block; }
 .panel.hidden { display: none; }
 
-body.is-popup.size-small { width: 320px; font-size: 12px; }
-body.is-popup.size-medium { width: 380px; }
-body.is-popup.size-large { width: 460px; }
-body.is-popup.size-large .preview-note { max-height: 320px; }
 
 body.is-sidebar {
   width: auto;
@@ -568,3 +555,78 @@ nav.tabs, .tabs { display: flex; gap: 2px; background: var(--bg-sunken); padding
 #status { min-height: 16px; font-size: 12px; }
 #status.error { color: var(--err); }
 #status.ok { color: var(--ok); }
+
+/* ============================================================================
+   POPUP DENSITY & SIZE — one working class (.is-popup), three recalibrated
+   widths, and a compact rhythm so the pane holds more without feeling packed.
+   The size preference now actually applies (the body carries .is-popup).
+   ========================================================================== */
+body.is-popup {
+  padding: 11px 12px 12px;
+  width: 360px;          /* medium default — comfortable-compact */
+}
+body.is-popup.size-small  { width: 312px; font-size: 12.5px; padding: 9px 10px 10px; }
+body.is-popup.size-medium { width: 360px; }
+body.is-popup.size-large  { width: 432px; }
+
+/* Compaction: the popup was leaking vertical space. Tighten every seam without
+   crowding — smaller header, denser tabs, closer field rhythm. */
+body.is-popup header { margin-bottom: 8px; }
+body.is-popup header strong { font-size: 13.5px; font-weight: 650; }
+body.is-popup .tabs { padding: 2px; margin-bottom: 9px; gap: 1px; }
+body.is-popup .tab { padding: 5px 8px; font-size: 12px; }
+body.is-popup #status { min-height: 0; margin-bottom: 6px; }
+body.is-popup #status:empty { display: none; }
+body.is-popup .field { margin: 7px 0; }
+body.is-popup .field > label, body.is-popup .field > span { margin-bottom: 3px; font-size: 11.5px; }
+body.is-popup input, body.is-popup select, body.is-popup textarea { padding: 6px 9px; }
+body.is-popup .dest-row { margin: 8px 0 7px; }
+body.is-popup .status-card { gap: 6px; }
+body.is-popup .status-match { padding: 8px 10px; }
+body.is-popup #save { margin-top: 9px; width: 100%; }
+body.is-popup .hint { font-size: 11.5px; }
+
+/* Small size trims further; large gives the form and previews room to breathe. */
+body.is-popup.size-small .field { margin: 5px 0; }
+body.is-popup.size-small .status-match { padding: 6px 8px; }
+body.is-popup.size-large .annotation-mirror,
+body.is-popup.size-large .preview-note { max-height: 300px; }
+body.is-popup.size-large .field { margin: 9px 0; }
+
+/* ============================================================================
+   SETTINGS DENSITY — compact but fully functional, in the spirit of the KVS
+   dashboard's settings: less chrome, closer rhythm, clear grouping, no wasted
+   space. Beginners see focused panes; every advanced control is still one tab
+   and one glance away.
+   ========================================================================== */
+body.options { max-width: 620px; padding: 28px 24px 56px; }
+body.options header { margin-bottom: 4px; }
+body.options h1 { font-size: 18px; }
+.opt-tabs { margin: 14px 0 18px; }
+
+.opt-pane > .card {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 12px;
+}
+.opt-pane > .card > h2 { margin: 0 0 10px; font-size: 11.5px; }
+.opt-pane .card .field { margin: 9px 0; }
+.opt-pane .card .field:first-of-type { margin-top: 4px; }
+.opt-pane .checkline { margin: 9px 0; }
+.opt-pane .hint { margin: 5px 0 2px; }
+
+/* Short fields sit two-up on wider panes — the KVS settings trick for density
+   without shrinking targets. Long controls (selects that hold view names,
+   textareas) stay full-width via .field-wide. */
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin: 8px 0; }
+.field-grid .field { margin: 0; }
+.field-wide { grid-column: 1 / -1; }
+@media (max-width: 440px) { .field-grid { grid-template-columns: 1fr; } }
+
+/* A quiet divider between logical groups inside one card, instead of a new card
+   for every two settings (which is where the old page leaked its height). */
+.card .group + .group { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.card .group > h3 { margin: 0 0 8px; font-size: 12px; color: var(--muted); font-weight: 600; }

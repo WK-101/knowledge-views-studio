@@ -5,6 +5,38 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 171 — the popup size preference actually works, and a denser, calmer UI
+
+Companion-side again; the plugin is unchanged, so updating it is optional this round.
+
+**The popup size setting was doing nothing — now it works, and the sizes are recalibrated.** The popup's
+body never carried the class every width rule keys on, so `body.is-popup.size-*` matched nothing and the
+popup's width was uncontrolled: the small/medium/large preference had no effect whatsoever. The class is now
+applied, and the three widths are retuned to be genuinely distinct — a compact 312px for a glance, a
+comfortable 360px default, and a roomy 432px for people who do most of their filing from the popup.
+
+**The popup stops leaking vertical space.** It was loose where it should be tight — oversized header,
+airy tabs, wide field gaps. Every seam is drawn closer without crowding: a smaller header, denser tab
+strip, tighter field rhythm, a status line that collapses when empty. The same glance now shows more, and
+the working area feels considered rather than sprawling.
+
+**Settings are compact but fully functional**, in the spirit of the KVS dashboard's own settings: less
+chrome, closer rhythm, cards that group rather than isolate, and a two-column grid for short fields so
+density comes from layout, not from shrinking anything. A beginner sees focused panes; every advanced
+control is still one tab and one glance away.
+
+**The highlighter's toolbar got the modern treatment** — a cleaner floating pill matching the sidebar's
+language: softer corners, better depth, refined colour swatches with a subtle focus ring, and calmer
+buttons. The highlight menu shares the same styling.
+
+**Staged next, with a concrete shape:** the table hover-capture affordance (a small floating action on a
+detected table to capture its rows or copy it, without opening the popup — this needs the same
+content-script registration the annotator uses, so it's its own focused build), and the annotation model's
+next step (tags on highlights, then a page-level note and a per-page outline).
+
+No test count change (1355): the size fix is DOM-and-CSS, and the size-preference normalization it depends
+on was already covered.
+
 ## Phase 170 — an in-page highlights sidebar, and a modern coat of paint
 
 This phase is entirely companion-side; the plugin is unchanged, so updating it is optional this round.

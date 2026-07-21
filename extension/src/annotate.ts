@@ -243,29 +243,32 @@ function ensureShell(): ShadowRoot {
       position: fixed;
       display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 6px 8px;
-      background: ${dark() ? "#2a2a2e" : "#ffffff"};
-      color: ${dark() ? "#e6e6e6" : "#1a1a1a"};
-      border: 1px solid ${dark() ? "#48484d" : "#d5d5da"};
-      border-radius: 8px;
-      box-shadow: 0 4px 18px rgba(0,0,0,0.22);
-      font: 12px/1.4 system-ui, sans-serif;
+      gap: 7px;
+      padding: 7px 9px;
+      background: ${dark() ? "#232327" : "#ffffff"};
+      color: ${dark() ? "#e9e8e6" : "#37352f"};
+      border: 1px solid ${dark() ? "#34343a" : "#ebeae7"};
+      border-radius: 12px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.18), 0 1px 2px rgba(0,0,0,0.06);
+      font: 12.5px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
     }
     .swatch {
-      width: 18px; height: 18px;
+      width: 19px; height: 19px;
       border-radius: 50%;
-      border: 1.5px solid rgba(0,0,0,0.18);
+      border: 2px solid ${dark() ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.10)"};
       cursor: pointer;
       padding: 0;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
     }
-    .swatch:hover { transform: scale(1.15); }
-    .divider { width: 1px; height: 16px; background: ${dark() ? "#48484d" : "#e0e0e4"}; }
+    .swatch:hover { transform: scale(1.18); box-shadow: 0 0 0 3px ${dark() ? "rgba(143,116,255,0.25)" : "rgba(124,92,255,0.18)"}; }
+    .divider { width: 1px; height: 18px; background: ${dark() ? "#34343a" : "#ececf0"}; margin: 0 1px; }
     button.action {
       border: 0; background: none; cursor: pointer;
-      color: inherit; font: inherit; padding: 2px 4px; border-radius: 4px;
+      color: inherit; font: inherit; font-weight: 550; padding: 4px 8px; border-radius: 7px;
+      transition: background 0.12s ease;
     }
-    button.action:hover { background: ${dark() ? "#3a3a3f" : "#f0f0f3"}; }
+    button.action:hover { background: ${dark() ? "#2a2a30" : "#f1f0ee"}; }
     textarea {
       width: 220px; min-height: 52px;
       border: 1px solid ${dark() ? "#48484d" : "#d5d5da"};

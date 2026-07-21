@@ -801,11 +801,16 @@ export function startSurface(surface: SurfaceMode): void {
  * one of those groups unhappy, and the cost of offering three is a class name.
  */
 async function applyDensity(): Promise<void> {
+  // The mode class is what every width and density rule keys on. It was never being added — the body
+  // carried only `size-medium`, so `body.is-popup.size-*` matched nothing and the popup's width was
+  // uncontrolled, which is why the size preference appeared to do nothing at all. Add both, always.
+  document.body.classList.add(mode === "popup" ? "is-popup" : "is-sidebar");
   if (mode !== "popup") return;
   let size = "medium";
   try {
     const stored = await browserApi().storage.local.get(["popupSize"]);
-    if (typeof stored["popupSize"] === "string") size = stored["popupSize"];
+    const value = stored["popupSize"];
+    if (value === "small" || value === "medium" || value === "large") size = value;
   } catch {
     // Preference unreadable; the middle size is a reasonable thing to fall back on.
   }
