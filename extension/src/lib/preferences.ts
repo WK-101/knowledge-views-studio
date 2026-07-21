@@ -60,11 +60,13 @@ export interface Preferences {
    * guess, so this is a set of overrides, not a required configuration. `urlColumn` is which cell holds
    * the page's URL for matching; `annotationColumn` is where highlight text is written.
    */
-  readonly viewColumns: Readonly<Record<string, { urlColumn?: string; annotationColumn?: string }>>;
+  readonly viewColumns: Readonly<Record<string, { urlColumn?: string; annotationColumn?: string; stickyColumn?: string }>>;
   /** Write each highlight in the row cell as a bullet-point line rather than a plain line. */
   readonly annotationBullets: boolean;
   /** Show the in-page highlights sidebar (a floating, draggable panel listing the page's highlights). */
   readonly annotationSidebar: boolean;
+  /** Show the launcher button that drops a new sticky note on any highlight-enabled page. */
+  readonly stickyLauncher: boolean;
   /** Offer a hover action on data tables to capture their rows or copy them, without opening the popup. */
   readonly tableCapture: boolean;
   /** The selection toolbar's actions — which show, and in what order. See island-actions.ts. */
@@ -94,6 +96,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   viewColumns: {},
   annotationBullets: false,
   annotationSidebar: false,
+  stickyLauncher: false,
   tableCapture: false,
   islandActions: DEFAULT_ISLAND_ACTIONS,
   islandSettings: DEFAULT_ISLAND_SETTINGS,
@@ -111,8 +114,13 @@ function normalizeViewColumns(raw: unknown): Record<string, { urlColumn?: string
     const entry = value as Record<string, unknown>;
     const url = typeof entry["urlColumn"] === "string" ? entry["urlColumn"] : undefined;
     const ann = typeof entry["annotationColumn"] === "string" ? entry["annotationColumn"] : undefined;
-    if (url !== undefined || ann !== undefined) {
-      out[viewId] = { ...(url !== undefined ? { urlColumn: url } : {}), ...(ann !== undefined ? { annotationColumn: ann } : {}) };
+    const sticky = typeof entry["stickyColumn"] === "string" ? entry["stickyColumn"] : undefined;
+    if (url !== undefined || ann !== undefined || sticky !== undefined) {
+      out[viewId] = {
+        ...(url !== undefined ? { urlColumn: url } : {}),
+        ...(ann !== undefined ? { annotationColumn: ann } : {}),
+        ...(sticky !== undefined ? { stickyColumn: sticky } : {}),
+      };
     }
   }
   return out;
@@ -166,6 +174,7 @@ export function normalizePreferences(raw: unknown): Preferences {
     viewColumns: normalizeViewColumns(value["viewColumns"]),
     annotationBullets: value["annotationBullets"] === true,
     annotationSidebar: value["annotationSidebar"] === true,
+    stickyLauncher: value["stickyLauncher"] === true,
     tableCapture: value["tableCapture"] === true,
     islandActions: normalizeIslandActions(value["islandActions"]),
     islandSettings: normalizeIslandSettings(value["islandSettings"]),

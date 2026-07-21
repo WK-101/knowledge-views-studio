@@ -24,6 +24,17 @@ import {
   type DisplayHit,
   type SearchTargets,
 } from "./lib/search-targets";
+import {
+  STICKY_DEFAULT_H,
+  STICKY_DEFAULT_W,
+  STICKY_MAX_H,
+  STICKY_MAX_W,
+  STICKY_MIN_H,
+  STICKY_MIN_W,
+  stickyId,
+  type StickyNote,
+} from "../../shared/sticky";
+import { renderMarkdown } from "./lib/markdown-mini";
 
 /**
  * The annotator, on the page.
@@ -108,6 +119,9 @@ let islandSettings: IslandSettings = DEFAULT_ISLAND_SETTINGS;
 
 /** Where the Search action sends a selection. Read from preferences on load; defaults to vault + engines. */
 let searchTargets: SearchTargets = DEFAULT_SEARCH_TARGETS;
+
+/** Whether the "drop a sticky note" launcher button is shown. Read from preferences on load. */
+let stickyLauncherEnabled = false;
 
 interface ChoiceStorage {
   local: { get(keys: string[]): Promise<Record<string, unknown>>; set(items: Record<string, unknown>): Promise<void> };
@@ -676,6 +690,19 @@ function showToolbar(rect: DOMRect): void {
       });
       bar.appendChild(btn);
     },
+    sticky: () => {
+      const btn = document.createElement("button");
+      btn.className = "action";
+      btn.textContent = "▢ note";
+      btn.title = "Pin a sticky note to the page, seeded with the selection";
+      btn.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        // Drop the note just below the selection, in document coordinates, seeded with the selected text.
+        clearUi();
+        createStickyNote(window.scrollX + rect.left, window.scrollY + rect.bottom + 8, selectionText.trim());
+      });
+      bar.appendChild(btn);
+    },
   };
 
   for (const action of islandActions) {
@@ -1082,6 +1109,8 @@ async function restore(): Promise<void> {
   }
   // The sidebar counts what's actually here; update it once the page's highlights are loaded.
   refreshSidebar();
+  // Re-pin sticky notes after highlights, so the palette pushed with the highlights is already in force.
+  void restoreStickies();
 }
 
 // ------------------------------------------------------------ in-page sidebar
@@ -1102,13 +1131,21 @@ void choiceStorage()
   ?.local.get(["preferences"])
   .then((stored) => {
     const prefs = stored["preferences"] as
-      | { annotationSidebar?: boolean; islandActions?: unknown; islandSettings?: unknown; searchTargets?: unknown }
+      | {
+          annotationSidebar?: boolean;
+          stickyLauncher?: boolean;
+          islandActions?: unknown;
+          islandSettings?: unknown;
+          searchTargets?: unknown;
+        }
       | undefined;
     sidebarEnabled = prefs?.annotationSidebar === true;
+    stickyLauncherEnabled = prefs?.stickyLauncher === true;
     islandActions = normalizeIslandActions(prefs?.islandActions);
     islandSettings = normalizeIslandSettings(prefs?.islandSettings);
     searchTargets = normalizeSearchTargets(prefs?.searchTargets);
     if (sidebarEnabled) mountLauncher();
+    if (stickyLauncherEnabled) mountStickyLauncher();
   })
   .catch(() => undefined);
 
@@ -1435,6 +1472,493 @@ function sidebarStyles(): string {
     }
     .kvs-sb-item:hover .kvs-sb-del { opacity: 1; }
     .kvs-sb-del:hover { background: ${isDark ? "#3a2a2e" : "#fdeaee"}; color: #e0526a; }
+  `;
+}
+
+// ----------------------------------------------------------------- sticky notes
+//
+// A sticky note is the highlighter's opposite number: not anchored to text, but pinned to a place on the
+// page — a draggable, resizable card holding rich markdown, in one of the same eight palette colours. It
+// lives in its own persistent shadow host (absolutely positioned at the document origin, so notes scroll
+// with the page they're pinned to), is saved to the vault through the background worker, and re-pins itself
+// on revisit. Everything here is additive: the highlighter and sidebar behave identically whether or not a
+// single sticky note exists.
+
+let stickyShell: HTMLElement | null = null;
+let stickyShadow: ShadowRoot | null = null;
+/** Live notes on this page, id → its model and its card element. */
+const stickies = new Map<string, { note: StickyNote; card: HTMLElement }>();
+/** Per-note debounce timers for auto-save, so typing doesn't hammer the vault. */
+const stickySaveTimers = new Map<string, number>();
+
+/** The persistent shadow host for sticky notes — absolute at the document origin, so cards scroll with the page. */
+function ensureStickyShell(): ShadowRoot {
+  if (stickyShadow !== null) return stickyShadow;
+  stickyShell = document.createElement("div");
+  stickyShell.style.position = "absolute";
+  stickyShell.style.zIndex = "2147483645";
+  stickyShell.style.top = "0";
+  stickyShell.style.left = "0";
+  stickyShell.style.width = "0";
+  stickyShell.style.height = "0";
+  stickyShadow = stickyShell.attachShadow({ mode: "closed" });
+  const style = document.createElement("style");
+  style.textContent = stickyStyles();
+  stickyShadow.appendChild(style);
+  document.documentElement.appendChild(stickyShell);
+  return stickyShadow;
+}
+
+/** ISO timestamp helper — one place, so created/updated read consistently. */
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+/**
+ * Create a new sticky note at a document position, seeded with optional markdown, and open it for editing.
+ * Nothing is saved until the note has a non-empty body (an empty note left behind simply vanishes).
+ */
+function createStickyNote(x: number, y: number, seed = ""): void {
+  const note: StickyNote = {
+    id: stickyId(),
+    url: location.href,
+    color: lastChoice.color,
+    body: seed,
+    // Keep a fresh note fully on-screen even if dropped near an edge.
+    x: Math.max(8, Math.min(x, window.scrollX + window.innerWidth - STICKY_DEFAULT_W - 8)),
+    y: Math.max(8, y),
+    w: STICKY_DEFAULT_W,
+    h: STICKY_DEFAULT_H,
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+  };
+  renderStickyCard(note, { editing: true });
+  refreshStickyLauncher();
+}
+
+/** Update a note's model in place and re-persist it (debounced) — the single mutation path. */
+function updateSticky(id: string, patch: Partial<StickyNote>, opts: { immediate?: boolean } = {}): void {
+  const entry = stickies.get(id);
+  if (entry === undefined) return;
+  const next: StickyNote = { ...entry.note, ...patch, updatedAt: nowIso() };
+  entry.note = next;
+  if (opts.immediate === true) {
+    flushStickySave(id);
+  } else {
+    scheduleStickySave(id);
+  }
+}
+
+/** Debounce a save for a note; a burst of edits collapses to one write shortly after typing stops. */
+function scheduleStickySave(id: string): void {
+  const existing = stickySaveTimers.get(id);
+  if (existing !== undefined) window.clearTimeout(existing);
+  stickySaveTimers.set(
+    id,
+    window.setTimeout(() => flushStickySave(id), 800),
+  );
+}
+
+/** Write a note to the vault now (if it has a body worth saving). */
+function flushStickySave(id: string): void {
+  const timer = stickySaveTimers.get(id);
+  if (timer !== undefined) {
+    window.clearTimeout(timer);
+    stickySaveTimers.delete(id);
+  }
+  const entry = stickies.get(id);
+  if (entry === undefined || entry.note.body.trim() === "") return;
+  const api = messenger();
+  if (api === null) return;
+  const note = entry.note;
+  void api.runtime
+    .sendMessage({
+      type: "kvs-sticky-save",
+      url: location.href,
+      note: {
+        id: note.id,
+        color: note.color,
+        body: note.body,
+        x: note.x,
+        y: note.y,
+        w: note.w,
+        h: note.h,
+        createdAt: note.createdAt,
+        updatedAt: note.updatedAt,
+      },
+      fields: pageMetadataFields(),
+    })
+    .then((reply) => {
+      const result = reply as { ok?: boolean; reason?: string } | undefined;
+      if (result?.ok !== true) toast(`Sticky note not saved: ${result?.reason ?? "your vault refused it."}`);
+    })
+    .catch(() => undefined);
+}
+
+/** Remove a note: its card, its local state, and its vault copy (sidecar + cell line). */
+function deleteSticky(id: string): void {
+  const entry = stickies.get(id);
+  if (entry === undefined) return;
+  entry.card.remove();
+  stickies.delete(id);
+  const timer = stickySaveTimers.get(id);
+  if (timer !== undefined) window.clearTimeout(timer);
+  stickySaveTimers.delete(id);
+  refreshStickyLauncher();
+  const api = messenger();
+  // Only ask the vault to forget it if it was ever saved (a body-less note never reached the vault).
+  if (api !== null && entry.note.body.trim() !== "") {
+    void api.runtime.sendMessage({ type: "kvs-sticky-remove", url: location.href, id }).catch(() => undefined);
+  }
+}
+
+/** The rgba tint for a sticky card of a colour, at a chosen alpha, in the page's scheme. */
+function stickyTint(color: Color, alpha: number): string {
+  const [r, g, b] = PAINT[color].rgb;
+  return `rgba(${String(r)}, ${String(g)}, ${String(b)}, ${String(alpha)})`;
+}
+
+/**
+ * Draw (or redraw) a note's card: header with drag handle + copy + delete, a body that renders markdown and
+ * switches to a textarea to edit, and a footer with the eight colour dots, a Save button, and a resize grip.
+ */
+function renderStickyCard(note: StickyNote, opts: { editing?: boolean } = {}): void {
+  const root = ensureStickyShell();
+  const existing = stickies.get(note.id);
+  const card = existing?.card ?? document.createElement("div");
+  stickies.set(note.id, { note, card });
+  card.className = `sticky ${dark() ? "dark" : ""}`;
+  card.textContent = "";
+
+  const applyBox = (): void => {
+    card.style.left = `${String(note.x)}px`;
+    card.style.top = `${String(note.y)}px`;
+    card.style.width = `${String(note.w)}px`;
+    card.style.height = `${String(note.h)}px`;
+    card.style.background = stickyTint(note.color, dark() ? 0.16 : 0.14);
+    card.style.borderColor = PAINT[note.color].solid;
+  };
+  applyBox();
+
+  // Header — drag handle, spacer, copy, delete.
+  const header = document.createElement("div");
+  header.className = "sticky-head";
+  header.style.background = stickyTint(note.color, dark() ? 0.28 : 0.24);
+  const grip = document.createElement("span");
+  grip.className = "sticky-grip";
+  grip.textContent = "⠿";
+  grip.title = "Drag to move";
+  header.appendChild(grip);
+  const spacer = document.createElement("span");
+  spacer.className = "sticky-spacer";
+  header.appendChild(spacer);
+
+  const copyBtn = document.createElement("button");
+  copyBtn.className = "sticky-icon";
+  copyBtn.textContent = "⧉";
+  copyBtn.title = "Copy the note's markdown";
+  copyBtn.addEventListener("mousedown", (event) => event.stopPropagation());
+  copyBtn.addEventListener("click", () => {
+    void navigator.clipboard.writeText(stickies.get(note.id)?.note.body ?? "").then(
+      () => toast("Sticky note copied."),
+      () => toast("Couldn't copy to the clipboard."),
+    );
+  });
+  header.appendChild(copyBtn);
+
+  const delBtn = document.createElement("button");
+  delBtn.className = "sticky-icon sticky-del";
+  delBtn.textContent = "×";
+  delBtn.title = "Delete this note";
+  delBtn.addEventListener("mousedown", (event) => event.stopPropagation());
+  delBtn.addEventListener("click", () => deleteSticky(note.id));
+  header.appendChild(delBtn);
+  card.appendChild(header);
+
+  // Body — rendered markdown, or a textarea while editing. Click the rendered body to edit; blur to render.
+  const body = document.createElement("div");
+  body.className = "sticky-body";
+
+  const showRendered = (): void => {
+    body.textContent = "";
+    const view = document.createElement("div");
+    view.className = "sticky-md";
+    const current = stickies.get(note.id)?.note.body ?? "";
+    if (current.trim() === "") {
+      view.innerHTML = '<p class="sticky-empty">Empty note — click to write. Markdown works.</p>';
+    } else {
+      view.innerHTML = renderMarkdown(current);
+    }
+    view.addEventListener("click", (event) => {
+      // A click that's selecting a link shouldn't drop into edit mode.
+      if (event.target instanceof HTMLAnchorElement) return;
+      showEditor();
+    });
+    body.appendChild(view);
+  };
+
+  const showEditor = (): void => {
+    body.textContent = "";
+    const textarea = document.createElement("textarea");
+    textarea.className = "sticky-input";
+    textarea.value = stickies.get(note.id)?.note.body ?? "";
+    textarea.placeholder = "Write in markdown…";
+    textarea.addEventListener("input", () => updateSticky(note.id, { body: textarea.value }));
+    textarea.addEventListener("blur", () => {
+      // Persist immediately on blur, then render — unless the note is empty and never saved, in which case
+      // it stays editable (removing it is the delete button's job, not an accidental blur's).
+      flushStickySave(note.id);
+      showRendered();
+    });
+    body.appendChild(textarea);
+    textarea.focus();
+    // Cursor to the end so seeded text is ready to extend.
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+  };
+
+  card.appendChild(body);
+
+  // Footer — the eight colour dots, a Save button, and the resize grip.
+  const footer = document.createElement("div");
+  footer.className = "sticky-foot";
+  const dots = document.createElement("div");
+  dots.className = "sticky-colors";
+  for (const color of Object.keys(PAINT) as Color[]) {
+    const dot = document.createElement("button");
+    dot.className = color === note.color ? "sticky-dot selected" : "sticky-dot";
+    dot.style.background = PAINT[color].solid;
+    dot.title = `Colour: ${color}`;
+    dot.addEventListener("mousedown", (event) => event.stopPropagation());
+    dot.addEventListener("click", () => {
+      updateSticky(note.id, { color }, { immediate: true });
+      rememberChoice(color, lastChoice.style, lastChoice.intensity);
+      const live = stickies.get(note.id);
+      if (live !== undefined) renderStickyCard(live.note, { editing: body.querySelector(".sticky-input") !== null });
+    });
+    dots.appendChild(dot);
+  }
+  footer.appendChild(dots);
+
+  const saveBtn = document.createElement("button");
+  saveBtn.className = "sticky-save";
+  saveBtn.textContent = "Save";
+  saveBtn.title = "Save to your vault now";
+  saveBtn.addEventListener("mousedown", (event) => event.stopPropagation());
+  saveBtn.addEventListener("click", () => {
+    const area = body.querySelector(".sticky-input");
+    if (area instanceof HTMLTextAreaElement) updateSticky(note.id, { body: area.value });
+    flushStickySave(note.id);
+    toast("Sticky note saved.");
+    showRendered();
+  });
+  footer.appendChild(saveBtn);
+
+  const resize = document.createElement("div");
+  resize.className = "sticky-resize";
+  resize.title = "Drag to resize";
+  footer.appendChild(resize);
+  card.appendChild(footer);
+
+  if (opts.editing === true) showEditor();
+  else showRendered();
+
+  makeStickyDraggable(note.id, card, header);
+  makeStickyResizable(note.id, card, resize);
+
+  if (existing === undefined) root.appendChild(card);
+}
+
+/** Drag a note by its header, in document coordinates, persisting the new position when the drag ends. */
+function makeStickyDraggable(id: string, card: HTMLElement, handle: HTMLElement): void {
+  handle.addEventListener("mousedown", (event) => {
+    if (event.target instanceof HTMLButtonElement) return; // header buttons aren't drag starts
+    event.preventDefault();
+    const start = stickies.get(id)?.note;
+    if (start === undefined) return;
+    const originX = start.x;
+    const originY = start.y;
+    const startClientX = event.clientX;
+    const startClientY = event.clientY;
+    const onMove = (move: MouseEvent): void => {
+      const x = Math.max(0, originX + (move.clientX - startClientX));
+      const y = Math.max(0, originY + (move.clientY - startClientY));
+      card.style.left = `${String(x)}px`;
+      card.style.top = `${String(y)}px`;
+      const entry = stickies.get(id);
+      if (entry !== undefined) entry.note = { ...entry.note, x, y };
+    };
+    const onUp = (): void => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      updateSticky(id, {}, { immediate: true });
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
+}
+
+/** Resize a note from its corner grip, clamped to the model's bounds, persisting when the drag ends. */
+function makeStickyResizable(id: string, card: HTMLElement, handle: HTMLElement): void {
+  handle.addEventListener("mousedown", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const start = stickies.get(id)?.note;
+    if (start === undefined) return;
+    const originW = start.w;
+    const originH = start.h;
+    const startClientX = event.clientX;
+    const startClientY = event.clientY;
+    const onMove = (move: MouseEvent): void => {
+      const w = Math.max(STICKY_MIN_W, Math.min(STICKY_MAX_W, originW + (move.clientX - startClientX)));
+      const h = Math.max(STICKY_MIN_H, Math.min(STICKY_MAX_H, originH + (move.clientY - startClientY)));
+      card.style.width = `${String(w)}px`;
+      card.style.height = `${String(h)}px`;
+      const entry = stickies.get(id);
+      if (entry !== undefined) entry.note = { ...entry.note, w, h };
+    };
+    const onUp = (): void => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      updateSticky(id, {}, { immediate: true });
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
+}
+
+/** Re-pin every sticky note the vault holds for this page. Called once on load, after highlights restore. */
+async function restoreStickies(): Promise<void> {
+  const api = messenger();
+  if (api === null) return;
+  try {
+    const reply = (await api.runtime.sendMessage({ type: "kvs-stickies-for", url: location.href })) as
+      | {
+          ok?: boolean;
+          notes?: (Partial<StickyNote> & { id: string; body: string })[];
+          palette?: readonly { name?: string; hex?: string; rgb?: readonly [number, number, number] }[];
+        }
+      | undefined;
+    if (reply?.palette) applyPalette(reply.palette);
+    for (const raw of reply?.notes ?? []) {
+      const note: StickyNote = {
+        id: raw.id,
+        url: location.href,
+        color: (raw.color !== undefined && raw.color in PAINT ? raw.color : "yellow") as Color,
+        body: raw.body,
+        x: typeof raw.x === "number" ? raw.x : 24,
+        y: typeof raw.y === "number" ? raw.y : 24,
+        w: typeof raw.w === "number" ? raw.w : STICKY_DEFAULT_W,
+        h: typeof raw.h === "number" ? raw.h : STICKY_DEFAULT_H,
+        createdAt: raw.createdAt ?? nowIso(),
+        updatedAt: raw.updatedAt ?? nowIso(),
+      };
+      renderStickyCard(note);
+    }
+    refreshStickyLauncher();
+  } catch {
+    // Vault unreachable — notes re-pin next time it is. Nothing shown; the page is still fully usable.
+  }
+}
+
+// The launcher: a small button that drops a fresh note in the middle of the current view.
+let stickyLauncher: HTMLButtonElement | null = null;
+function mountStickyLauncher(): void {
+  if (stickyLauncher !== null) return;
+  const root = ensureStickyShell();
+  stickyLauncher = document.createElement("button");
+  stickyLauncher.className = "kvs-sticky-launcher";
+  stickyLauncher.type = "button";
+  stickyLauncher.title = "Pin a new sticky note to this page";
+  stickyLauncher.textContent = "▢";
+  stickyLauncher.addEventListener("click", () => {
+    // Drop it near the top-left of the current viewport, in document coordinates.
+    createStickyNote(window.scrollX + 40, window.scrollY + 90);
+  });
+  root.appendChild(stickyLauncher);
+  refreshStickyLauncher();
+}
+
+/** Keep the launcher's badge in step with how many notes are on the page. */
+function refreshStickyLauncher(): void {
+  if (stickyLauncher === null) return;
+  stickyLauncher.setAttribute("data-count", String(stickies.size));
+}
+
+/** The stylesheet for the sticky cards and their launcher — theme-aware, in the shadow root. */
+function stickyStyles(): string {
+  const isDark = dark();
+  const t = inPageTheme(isDark);
+  return `
+    :host { all: initial; }
+    * { box-sizing: border-box; font-family: ${t.font}; -webkit-font-smoothing: antialiased; }
+    .sticky {
+      position: absolute; display: flex; flex-direction: column;
+      border: 1px solid; border-radius: 12px; overflow: hidden;
+      box-shadow: 0 6px 22px rgba(0,0,0,${isDark ? "0.45" : "0.18"});
+      color: ${t.fg}; font-size: 13px; line-height: 1.5;
+      backdrop-filter: blur(2px);
+    }
+    .sticky-head {
+      display: flex; align-items: center; gap: 6px; padding: 5px 8px; cursor: move; user-select: none;
+      border-bottom: 1px solid ${t.line};
+    }
+    .sticky-grip { color: ${t.muted}; font-size: 14px; letter-spacing: -2px; line-height: 1; }
+    .sticky-spacer { flex: 1 1 auto; }
+    .sticky-icon {
+      border: none; background: transparent; color: ${t.muted}; cursor: pointer; font-size: 15px;
+      line-height: 1; padding: 2px 5px; border-radius: 6px; transition: background 0.12s ease, color 0.12s ease;
+    }
+    .sticky-icon:hover { background: ${t.hover}; color: ${t.fg}; }
+    .sticky-del:hover { background: ${isDark ? "#3a2a2e" : "#fdeaee"}; color: #e0526a; }
+    .sticky-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 8px 10px; }
+    .sticky-body::-webkit-scrollbar { width: 8px; }
+    .sticky-body::-webkit-scrollbar-thumb { background: ${t.line}; border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
+    .sticky-md { overflow-wrap: anywhere; }
+    .sticky-md p { margin: 0 0 8px; }
+    .sticky-md h1, .sticky-md h2, .sticky-md h3, .sticky-md h4 { margin: 6px 0; line-height: 1.25; }
+    .sticky-md h1 { font-size: 17px; } .sticky-md h2 { font-size: 15.5px; } .sticky-md h3 { font-size: 14px; }
+    .sticky-md ul, .sticky-md ol { margin: 4px 0 8px; padding-left: 20px; }
+    .sticky-md li { margin: 2px 0; }
+    .sticky-md a { color: ${t.accent}; text-decoration: underline; }
+    .sticky-md code { background: ${t.hover}; padding: 1px 5px; border-radius: 5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+    .sticky-md pre { background: ${isDark ? "#15151a" : "#f4f3f2"}; padding: 8px 10px; border-radius: 8px; overflow-x: auto; margin: 6px 0; }
+    .sticky-md pre code { background: none; padding: 0; }
+    .sticky-md blockquote { margin: 6px 0; padding-left: 10px; border-left: 3px solid ${t.line}; color: ${t.muted}; }
+    .sticky-md hr { border: none; border-top: 1px solid ${t.line}; margin: 8px 0; }
+    .sticky-empty { color: ${t.muted}; font-style: italic; }
+    .sticky-input {
+      width: 100%; height: 100%; min-height: 60px; border: none; outline: none; resize: none;
+      background: transparent; color: ${t.fg}; font: inherit; padding: 0;
+    }
+    .sticky-foot {
+      display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-top: 1px solid ${t.line};
+      position: relative;
+    }
+    .sticky-colors { display: flex; gap: 4px; flex: 1 1 auto; flex-wrap: wrap; }
+    .sticky-dot {
+      width: 13px; height: 13px; border-radius: 50%; border: 1px solid ${isDark ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.14)"};
+      cursor: pointer; padding: 0; transition: transform 0.1s ease;
+    }
+    .sticky-dot:hover { transform: scale(1.22); }
+    .sticky-dot.selected { box-shadow: 0 0 0 2px ${t.accent}; }
+    .sticky-save {
+      border: 1px solid ${t.line}; background: ${t.accent}; color: ${t.accentInk}; cursor: pointer;
+      font: inherit; font-weight: 600; font-size: 11.5px; padding: 3px 10px; border-radius: 7px;
+    }
+    .sticky-save:hover { filter: brightness(1.05); }
+    .sticky-resize {
+      width: 14px; height: 14px; flex: 0 0 auto; cursor: nwse-resize; margin-left: 2px;
+      background:
+        linear-gradient(135deg, transparent 0 55%, ${t.muted} 55% 62%, transparent 62% 74%, ${t.muted} 74% 82%, transparent 82%);
+      border-radius: 0 0 6px 0;
+    }
+    .kvs-sticky-launcher {
+      position: fixed; right: 18px; bottom: 70px; width: 44px; height: 44px; border-radius: 50%;
+      border: none; background: ${t.accent}; color: #fff; cursor: pointer; font-size: 20px; line-height: 1;
+      display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .kvs-sticky-launcher:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,0,0,0.3); }
   `;
 }
 

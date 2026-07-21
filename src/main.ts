@@ -34,7 +34,9 @@ import {
 } from "./domain/index";
 import { PromotionService } from "./services/notes/promote-service";
 import { WebAnnotationService } from "./services/web-annotations/web-annotation-service";
+import { StickyNoteService } from "./services/web-annotations/sticky-note-service";
 import type { StoredAnnotation } from "../shared/annotations";
+import type { StickyNote } from "../shared/sticky";
 import { effectivePalette } from "../shared/annotations";
 import { findDedicatedNote } from "./services/notes/dedicated-note";
 import { referencesToNote, type ImportedRef, DataService, ARCHIVE_EXTENSION, KVS_PACK_EXTENSION, KVS_VIEW_EXTENSION, ProfileStore, UndoManager, WriterService, createProfile, migrateData, xlsxExtractor } from "./services/index";
@@ -328,6 +330,19 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
               annotation: StoredAnnotation,
               opts?: { note?: boolean; tags?: boolean; tagsToProperty?: boolean },
             ) => service.appendToDedicatedNote(matchKey, matchValue, annotation, opts),
+          };
+        })(),
+        // Sticky notes: their own sidecar next to the highlight one, syncing wherever the vault syncs.
+        stickyNotes: (() => {
+          const service = new StickyNoteService({
+            app: this.app,
+            storePath: `${this.manifest.dir ?? `${this.app.vault.configDir}/plugins/knowledge-views-studio`}/sticky-notes.json`,
+          });
+          return {
+            list: (url: string) => service.list(url),
+            save: (note: StickyNote) => service.save(note),
+            remove: (url: string, id: string) => service.remove(url, id),
+            removeAll: (url: string) => service.removeAll(url),
           };
         })(),
         // Deletion through the same writer as every other edit — snapshot first, so it shares undo.

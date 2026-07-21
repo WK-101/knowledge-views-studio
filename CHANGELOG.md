@@ -5,6 +5,60 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 183 — sticky notes (island redesign, part 5)
+
+Plugin 0.179.0, companion 0.6.0 — the first part to touch *both* halves, because a sticky note isn't like the
+actions before it. A highlight and its cousins are anchored to text: they live where the words are. A sticky
+note is anchored to a *place* — a free-floating card you drag where you want, resize to fit, and fill with
+rich markdown, in one of the same eight palette colours. Nothing about it depends on the page's text, so it
+survives edits that would orphan a highlight.
+
+WHAT IT IS. Turn it on (Highlighting → "Show the sticky-note button") and a launcher appears on any
+highlight-enabled page; click it to drop a note, or add the **Sticky note** action to the selection toolbar to
+turn a selection into one. Each card has a drag handle (move), a corner grip (resize), one-click copy of its
+markdown and one-click delete, the eight colour dots, and a Save button. Click the body to edit as markdown,
+click out to see it rendered. Notes re-pin themselves — position, size, colour, and all — when you revisit the
+page.
+
+TWO COPIES, NOT THREE. Highlights keep three copies (sidecar, row cell, dedicated note); a sticky note keeps
+two. The **sidecar** (`sticky-notes.json`, beside the highlight one) is the machine's truth and what re-pins
+every note. The **row cell**, in whichever column you choose, is the readable copy. There's deliberately no
+dedicated-note copy: a sticky note is a margin scribble, not a literature note, and forcing it under
+`## Annotations` beside quoted highlights would misrepresent it.
+
+THE CELL, BY ID. A highlight's cell line is found by matching its (fixed) text; a sticky note's text *changes*,
+so that wouldn't survive an edit. Instead each note's cell line carries a hidden HTML-comment marker with its
+id, so an edit replaces exactly its own line (an upsert by id, never a second copy) and a delete strips it —
+however much the body was reworded. The body is collapsed to one line for the cell (inline markdown survives;
+hard breaks fold to spaces), because a cell is one line by construction. The column is the per-view **Sticky
+notes column** picker under Columns; unset, the plugin guesses by name (Sticky Notes / Sticky / Notes /
+Annotations).
+
+RICH MARKDOWN, SAFELY. The card renders markdown with a new purpose-built module (`markdown-mini.ts`) rather
+than a library — the content script injects into pages we don't control, and most libraries pass raw HTML
+through, which is the wrong default there. Everything is HTML-escaped first; only a known subset is then
+re-introduced (headings, bold/italic/strike, inline and fenced code, lists, blockquotes, rules, links); links
+are restricted to safe schemes, so a `javascript:` URL renders as text, never an href. Inline code is pulled
+out before the emphasis passes so markup inside a code span stays literal.
+
+SAVE BEHAVIOUR. Auto, debounced (~0.8s after you stop typing, and on blur), *plus* an explicit Save button —
+both, as asked. An empty note is never sent to the vault; deleting one that was never saved just removes the
+card.
+
+STORAGE & WIRE. New `StickyNote` model and coercer in `shared/sticky.ts` (id/url/body required, colour
+defaulted to a palette name, position/size clamped to bounds); `StickyNoteService` sidecar in the plugin
+mirroring the web-annotation one; three new bridge routes (`/sticky`, `/stickies`, `/sticky/remove`) reusing
+the highlighter's row-matching and the same guarded cell writer, so a note's writeback shares the undo path
+every edit does; `sticky-plan.ts` holds the pure column-choice and upsert/remove-by-id logic. The companion
+gets a `sticky` island action (auto-appears in everyone's list), a launcher, the per-view sticky column
+picker, `stickyLauncher` preference, and background handlers that keep the vault token out of the page as
+ever. **`REQUIRED_PLUGIN_VERSION` moves to 0.179.0**: the companion's sticky feature needs these new
+endpoints, so an older vault names itself rather than failing in confusing ways.
+
+Honest caveat: the card, its drag/resize, the markdown view, the launcher, and the settings picker are browser
+DOM — unverified until run. The model, the markdown renderer, the column logic, and the upsert/remove-by-id
+are pure and unit-tested (28 new tests).
+
 ## Phase 182 — search the selection (island redesign, part 4)
 
 Companion 0.5.0. The second new toolbar action: **Search**. Select text, click Search, and a menu offers

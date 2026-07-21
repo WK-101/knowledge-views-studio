@@ -1,5 +1,5 @@
 import { next, retryDelayMs } from "../../shared/queue";
-import { BridgeError, annotate, annotateRemove, annotationsFor, capture, fetchSchema, known, loadConnection, lookup, search } from "./lib/bridge-client";
+import { BridgeError, annotate, annotateRemove, annotationsFor, capture, fetchSchema, known, loadConnection, lookup, search, stickiesFor, stickyRemove, stickyUpsert } from "./lib/bridge-client";
 import { loadPreferences } from "./lib/preferences";
 import { displayHits, wireSearchMode } from "./lib/search-targets";
 import { matchRule } from "../../shared/rules";
@@ -433,6 +433,84 @@ runtimeMessaging?.onMessage.addListener((message, _sender, sendResponse) => {
   return true;
 });
 
+
+/**
+ * Sticky notes on the page's behalf.
+ *
+ * Same shape as the highlight handlers: the content script asks, the token stays here, and the view a note
+ * lands in is resolved by the same order highlights use (explicit annotation view, then site rule, default,
+ * last-used, first writable). The note's cell copy goes to the per-view `stickyColumn` the person chose, if
+ * any — otherwise the plugin guesses a column by name.
+ */
+runtimeMessaging?.onMessage.addListener((message, _sender, sendResponse) => {
+  const request = message as { type?: string; url?: unknown; note?: unknown; id?: unknown } | null;
+  if (request?.type !== "kvs-sticky-save" && request?.type !== "kvs-stickies-for" && request?.type !== "kvs-sticky-remove") {
+    return false;
+  }
+  void (async () => {
+    try {
+      const connection = await loadConnection();
+      const url = typeof request.url === "string" ? request.url : "";
+      if (connection.token === null || url === "") {
+        sendResponse(request.type === "kvs-stickies-for" ? { ok: true, notes: [] } : { ok: false, reason: "Not paired with a vault yet." });
+        return;
+      }
+
+      if (request.type === "kvs-stickies-for") {
+        const result = await stickiesFor(connection, { url });
+        sendResponse({ ok: true, notes: result.notes, ...(result.palette ? { palette: result.palette } : {}) });
+        return;
+      }
+
+      const viewId = await viewForAnnotation(url);
+      const prefs = await loadPreferences();
+      const cols = viewId !== null ? prefs.viewColumns[viewId] : undefined;
+
+      if (request.type === "kvs-sticky-remove") {
+        await stickyRemove(connection, {
+          url,
+          id: String(request.id ?? ""),
+          ...(viewId !== null ? { viewId } : {}),
+          ...(cols?.stickyColumn !== undefined ? { stickyColumn: cols.stickyColumn } : {}),
+          ...(cols?.urlColumn !== undefined ? { urlColumn: cols.urlColumn } : {}),
+        });
+        void forget([statusKey(url)]);
+        broadcastAnnotationChange(url);
+        sendResponse({ ok: true });
+        return;
+      }
+
+      // kvs-sticky-save
+      if (viewId === null) {
+        sendResponse({ ok: false, reason: "No view can take this note." });
+        return;
+      }
+      const result = await stickyUpsert(connection, {
+        viewId,
+        url,
+        note: request.note as never,
+        fields: pageFieldsFrom(request),
+        ...(cols?.stickyColumn !== undefined ? { stickyColumn: cols.stickyColumn } : {}),
+        ...(cols?.urlColumn !== undefined ? { urlColumn: cols.urlColumn } : {}),
+      });
+      if (result.ok) {
+        void forget([statusKey(url)]);
+        broadcastAnnotationChange(url);
+      }
+      sendResponse({ ok: result.ok, ...(result.reason !== undefined ? { reason: result.reason } : {}) });
+    } catch (error) {
+      const reason = error instanceof BridgeError ? error.message : "Couldn't reach your vault.";
+      sendResponse(request.type === "kvs-stickies-for" ? { ok: true, notes: [] } : { ok: false, reason });
+    }
+  })();
+  return true;
+});
+
+/** The page-metadata fields a sticky-save carried, for creating a row when the page has none yet. */
+function pageFieldsFrom(request: unknown): { key: string; value: string }[] {
+  const fields = (request as { fields?: unknown } | null)?.fields;
+  return Array.isArray(fields) ? (fields as { key: string; value: string }[]) : [];
+}
 
 /**
  * Search the vault on the selection toolbar's behalf.

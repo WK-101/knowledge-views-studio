@@ -20,6 +20,12 @@ import type {
   AnnotationRemoveResponse,
   AnnotationsClearRequest,
   AnnotationsClearResponse,
+  StickyUpsertRequest,
+  StickyUpsertResponse,
+  StickyListRequest,
+  StickyListResponse,
+  StickyRemoveRequest,
+  StickyRemoveResponse,
   RowDeleteRequest,
   RowDeleteResponse,
   NoteDeleteRequest,
@@ -238,6 +244,21 @@ export async function annotateRemove(
     method: "POST",
     body: JSON.stringify(request),
   });
+}
+
+/** Save (or update) a sticky note: its sidecar copy, and its line in the chosen row cell. */
+export async function stickyUpsert(connection: Connection, request: StickyUpsertRequest): Promise<StickyUpsertResponse> {
+  return call<StickyUpsertResponse>(connection, "/sticky", { method: "POST", body: JSON.stringify(request) });
+}
+
+/** Every sticky note pinned to a page, for re-pinning on revisit. */
+export async function stickiesFor(connection: Connection, request: StickyListRequest): Promise<StickyListResponse> {
+  return call<StickyListResponse>(connection, "/stickies", { method: "POST", body: JSON.stringify(request) });
+}
+
+/** Delete a sticky note, cleaning up its row line where possible. */
+export async function stickyRemove(connection: Connection, request: StickyRemoveRequest): Promise<StickyRemoveResponse> {
+  return call<StickyRemoveResponse>(connection, "/sticky/remove", { method: "POST", body: JSON.stringify(request) });
 }
 
 /** Remove one row. The dedicated note is never touched by this. */

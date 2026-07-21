@@ -13,7 +13,7 @@
  * 0.164.0, not 0.162.0 as first shipped: version reporting itself only works from 0.164 (the 0.162 wiring
  * silently never ran), so requiring anything older names a version that cannot satisfy the check.
  */
-export const REQUIRED_PLUGIN_VERSION = "0.169.0";
+export const REQUIRED_PLUGIN_VERSION = "0.179.0";
 
 function triple(version: string): [number, number, number] | null {
   const match = /^(\d+)\.(\d+)\.(\d+)/.exec(version.trim());

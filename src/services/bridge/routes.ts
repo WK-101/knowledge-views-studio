@@ -29,6 +29,12 @@ import {
   type AnnotationRemoveResponse,
   type AnnotationsRequest,
   type AnnotationsResponse,
+  type StickyUpsertRequest,
+  type StickyUpsertResponse,
+  type StickyListRequest,
+  type StickyListResponse,
+  type StickyRemoveRequest,
+  type StickyRemoveResponse,
   type PromoteRequest,
   type PromoteResponse,
   type RowsRequest,
@@ -48,7 +54,9 @@ import { editableChanges, findRowByRef, rowRefOf } from "./row-ref";
 import { noteLinkColumnName } from "../../views/promoted-detect";
 import { dedicatedNoteKeyFor } from "../notes/dedicated-note";
 import { annotationColumn, cellWithoutAnnotation, readWireAnnotation, rowForUrl } from "./annotate-plan";
+import { cellWithoutSticky, stickyColumn, upsertStickyLine } from "./sticky-plan";
 import { annotationCellText, type StoredAnnotation } from "../../../shared/annotations";
+import { coerceStickyNote, type StickyNote } from "../../../shared/sticky";
 import { identityCell } from "../notes/promotion-plan";
 
 /**
@@ -99,6 +107,14 @@ export interface BridgeContext {
   /** The palette in force for this vault — Zotero's, or a custom override — so the web annotator paints the
    * same colours the vault uses. Resolved plugin-side; the extension is a dumb consumer. */
   readonly palette?: () => readonly { name: string; hex: string; rgb: readonly [number, number, number] }[];
+  /** Sticky-note storage. Absent when the feature isn't available; a note's cell copy still goes through
+   * `editCells`, so the row writeback shares the same guarded path every other edit does. */
+  readonly stickyNotes?: {
+    list(url: string): Promise<readonly StickyNote[]>;
+    save(note: StickyNote): Promise<void>;
+    remove(url: string, id: string): Promise<StickyNote | null>;
+    removeAll(url: string): Promise<number>;
+  };
   /** Create or find a row's dedicated note. Absent when promotion isn't available. */
   readonly promote?: (
     profile: Profile,
@@ -1019,6 +1035,199 @@ export function annotationsClearRoute(): Route<BridgeContext> {
   };
 }
 
+/**
+ * `POST /sticky` — save (or update) a sticky note: its sidecar copy, and its line in the chosen row cell.
+ *
+ * The row half mirrors `/annotate`: find the page's row (make one from metadata if there's none yet), then
+ * write into the sticky column. The difference is the cell write is an upsert *by the note's id* — a note's
+ * text changes, so editing it must replace exactly its own line, not append a second one, and not disturb
+ * whatever else shares the column.
+ */
+export function stickyUpsertRoute(): Route<BridgeContext> {
+  return {
+    method: "POST",
+    path: "/sticky",
+    permission: "write",
+    handler: async (request, context) => {
+      const body = (request.body ?? {}) as StickyUpsertRequest;
+      const viewId = (body.viewId ?? "").trim();
+      const url = (body.url ?? "").trim();
+      if (viewId === "" || url === "") return badRequest("Which page, into which view?");
+      const note = coerceStickyNote({ ...(body.note ?? {}), url });
+      if (note === null) return badRequest("That sticky note has no body to save.");
+      if (context.stickyNotes === undefined) {
+        return { status: 503, body: { error: "Sticky notes aren't available in this vault." } };
+      }
+
+      const profile = exposedProfiles(context).find((p) => p.id === viewId);
+      if (profile === undefined) return { status: 404, body: { error: "No such view." } };
+
+      const declaredUrlCol = typeof body.urlColumn === "string" ? body.urlColumn : undefined;
+      const declaredStickyCol = typeof body.stickyColumn === "string" ? body.stickyColumn : undefined;
+
+      let { rows, columns } = await context.viewData(profile);
+      let target = rowForUrl(rows, columns, url, declaredUrlCol);
+      let createdRow = false;
+
+      if (target === null) {
+        // No row yet: make one from the page metadata, then find it again in the re-read view.
+        const fields: readonly { key?: unknown; value?: unknown }[] = Array.isArray(body.fields)
+          ? (body.fields as readonly { key?: unknown; value?: unknown }[])
+          : [];
+        const payload: CapturePayload = {
+          fields: fields.map((f) => ({ key: asString(f.key), value: asString(f.value) })),
+          url,
+        };
+        const { values } = prepareCapture(payload, columns);
+        if (Object.keys(values).length === 0) {
+          const failed: StickyUpsertResponse = {
+            ok: false,
+            reason: "This page has no row in that view, and there wasn't enough metadata to create one.",
+          };
+          return { status: 422, body: failed };
+        }
+        const captureTarget = effectiveTarget(profile);
+        if (captureTarget === null) {
+          const failed: StickyUpsertResponse = { ok: false, reason: "That view has no capture target set." };
+          return { status: 422, body: failed };
+        }
+        const linked =
+          typeof context.capture.linkExistingNote === "function"
+            ? context.capture.linkExistingNote(values, columns, dedicatedNoteKeyFor(profile))
+            : values;
+        const written = await context.capture.commit(captureTarget, linked, columns, payload);
+        if (!written.ok) {
+          const failed: StickyUpsertResponse = { ok: false, reason: written.reason ?? "Couldn't create the row." };
+          return { status: 500, body: failed };
+        }
+        if (written.path !== undefined) context.onCaptured(written.path);
+        createdRow = true;
+        ({ rows, columns } = await context.viewData(profile));
+        target = rowForUrl(rows, columns, url, declaredUrlCol);
+      }
+
+      // The row copy: upsert the note's line by id, through the same guarded writer as any other edit.
+      let wroteCell = false;
+      if (target !== null && context.editCells !== undefined) {
+        const column = stickyColumn(columns, declaredStickyCol);
+        if (column !== null) {
+          const nextCell = upsertStickyLine(getField(target, column), note);
+          const { allowed } = editableChanges(target, [{ key: column, value: nextCell }], columns);
+          if (allowed.length > 0) {
+            await context.editCells(
+              allowed.map((change) => ({ provenance: target.provenance, column: change.column, value: change.value })),
+            );
+            context.onCaptured(target.provenance.filePath);
+            wroteCell = true;
+          }
+        }
+      }
+
+      await context.stickyNotes.save(note);
+
+      const response: StickyUpsertResponse = {
+        ok: true,
+        ...(target !== null ? { rowRef: rowRefOf(target.provenance) } : {}),
+        ...(createdRow ? { createdRow: true } : {}),
+        ...(wroteCell ? { wroteCell: true } : {}),
+      };
+      return { status: 200, body: response };
+    },
+  };
+}
+
+/** `POST /stickies` — every note pinned to a page, for re-pinning on revisit. */
+export function stickyListRoute(): Route<BridgeContext> {
+  return {
+    method: "POST",
+    path: "/stickies",
+    permission: "read",
+    handler: async (request, context) => {
+      const body = (request.body ?? {}) as StickyListRequest;
+      const url = (body.url ?? "").trim();
+      if (url === "") return badRequest("Which page?");
+      if (context.stickyNotes === undefined) {
+        const empty: StickyListResponse = { ok: true, notes: [] };
+        return { status: 200, body: empty };
+      }
+      const stored = await context.stickyNotes.list(url);
+      const response: StickyListResponse = {
+        ok: true,
+        notes: stored.map((n) => ({
+          id: n.id,
+          color: n.color,
+          body: n.body,
+          x: n.x,
+          y: n.y,
+          w: n.w,
+          h: n.h,
+          createdAt: n.createdAt,
+          updatedAt: n.updatedAt,
+        })),
+        ...(context.palette !== undefined
+          ? { palette: context.palette().map((c) => ({ name: c.name, hex: c.hex, rgb: c.rgb })) }
+          : {}),
+      };
+      return { status: 200, body: response };
+    },
+  };
+}
+
+/** `POST /sticky/remove` — delete a note, and strip its line from the row cell (matched by id). */
+export function stickyRemoveRoute(): Route<BridgeContext> {
+  return {
+    method: "POST",
+    path: "/sticky/remove",
+    permission: "write",
+    handler: async (request, context) => {
+      const body = (request.body ?? {}) as StickyRemoveRequest;
+      const url = (body.url ?? "").trim();
+      const id = (body.id ?? "").trim();
+      if (url === "" || id === "") return badRequest("Which note, on which page?");
+      if (context.stickyNotes === undefined) {
+        return { status: 503, body: { error: "Sticky notes aren't available in this vault." } };
+      }
+
+      const removed = await context.stickyNotes.remove(url, id);
+      let removedFromCell = false;
+
+      // Like a highlight's removal: the suggested view first, then every exposed view, because a stale cell
+      // line left behind reads as the delete not working — and our wrong guess is our problem, not theirs.
+      if (removed !== null && context.editCells !== undefined) {
+        const suggested = (body.viewId ?? "").trim();
+        const declaredUrlCol = typeof body.urlColumn === "string" ? body.urlColumn : undefined;
+        const declaredStickyCol = typeof body.stickyColumn === "string" ? body.stickyColumn : undefined;
+        const ordered = [...exposedProfiles(context)].sort((a, b) =>
+          a.id === suggested ? -1 : b.id === suggested ? 1 : 0,
+        );
+        for (const profile of ordered) {
+          const { rows, columns } = await context.viewData(profile);
+          const target = rowForUrl(rows, columns, url, declaredUrlCol);
+          const column = target !== null ? stickyColumn(columns, declaredStickyCol) : null;
+          if (target === null || column === null) continue;
+          const cleaned = cellWithoutSticky(getField(target, column), id);
+          if (cleaned === null) continue;
+          const { allowed } = editableChanges(target, [{ key: column, value: cleaned }], columns);
+          if (allowed.length > 0) {
+            await context.editCells(
+              allowed.map((c) => ({ provenance: target.provenance, column: c.column, value: c.value })),
+            );
+            context.onCaptured(target.provenance.filePath);
+            removedFromCell = true;
+            break;
+          }
+        }
+      }
+
+      const response: StickyRemoveResponse = {
+        ok: true,
+        ...(removedFromCell ? { removedFromCell: true } : {}),
+      };
+      return { status: 200, body: response };
+    },
+  };
+}
+
 /** `POST /pair` — exchange a short code shown in settings for a lasting token. */
 export function pairRoute(): Route<BridgeContext> {
   return {
@@ -1050,6 +1259,9 @@ export function defaultRoutes(): readonly Route<BridgeContext>[] {
     annotateRoute(),
     annotationsRoute(),
     annotateRemoveRoute(),
+    stickyUpsertRoute(),
+    stickyListRoute(),
+    stickyRemoveRoute(),
     rowDeleteRoute(),
     noteDeleteRoute(),
     annotationsClearRoute(),

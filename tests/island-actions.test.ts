@@ -28,7 +28,7 @@ describe("island actions · the configurable selection toolbar", () => {
       { id: "intensity", enabled: false },
     ];
     const out = normalizeIslandActions(stored);
-    expect(ids(out)).toEqual(["note", "colors", "style", "intensity", "copy", "search"]);
+    expect(ids(out)).toEqual(["note", "colors", "style", "intensity", "copy", "search", "sticky"]);
     expect(out.find((a) => a.id === "colors")!.enabled).toBe(false);
     expect(out.find((a) => a.id === "intensity")!.enabled).toBe(false);
     expect(out.find((a) => a.id === "note")!.enabled).toBe(true);
@@ -43,7 +43,7 @@ describe("island actions · the configurable selection toolbar", () => {
       "garbage", // non-object — dropped
     ]);
     // note (from its first, kept) then the remaining known actions appended in catalogue order.
-    expect(ids(out)).toEqual(["note", "colors", "style", "intensity", "copy", "search"]);
+    expect(ids(out)).toEqual(["note", "colors", "style", "intensity", "copy", "search", "sticky"]);
     expect(out.find((a) => a.id === "note")!.enabled).toBe(true);
     // Exactly the known actions, once each — no unknowns survive.
     expect(out).toHaveLength(ISLAND_ACTIONS.length);
@@ -51,7 +51,7 @@ describe("island actions · the configurable selection toolbar", () => {
 
   it("appends actions the stored list never had (a newer version's), on, at the end", () => {
     const out = normalizeIslandActions([{ id: "note", enabled: false }]);
-    expect(ids(out)).toEqual(["note", "colors", "style", "intensity", "copy", "search"]);
+    expect(ids(out)).toEqual(["note", "colors", "style", "intensity", "copy", "search", "sticky"]);
     // The appended ones default to on, so a new action shows up rather than hiding.
     expect(out.find((a) => a.id === "colors")!.enabled).toBe(true);
     expect(out.find((a) => a.id === "style")!.enabled).toBe(true);

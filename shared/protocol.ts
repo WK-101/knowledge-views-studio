@@ -445,6 +445,66 @@ export interface AnnotationRemoveResponse {
   readonly removedFromCell?: boolean;
 }
 
+// ---- Sticky notes ----
+
+/** One sticky note, as the wire carries it. Position/size are page pixels; body is markdown. */
+export interface WireStickyNote {
+  readonly id: string;
+  readonly color: string;
+  readonly body: string;
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface StickyUpsertRequest {
+  readonly viewId: string;
+  readonly url: string;
+  readonly note: WireStickyNote;
+  /** Page metadata for creating the row when the page has none yet — a note needs a row for its cell copy. */
+  readonly fields?: readonly { readonly key: string; readonly value: string }[];
+  /** Which column takes the note text, overriding the guess. */
+  readonly stickyColumn?: string;
+  /** Which column holds the URL, for finding this page's row. */
+  readonly urlColumn?: string;
+}
+
+export interface StickyUpsertResponse {
+  readonly ok: boolean;
+  readonly rowRef?: string;
+  readonly createdRow?: boolean;
+  readonly wroteCell?: boolean;
+  readonly reason?: string;
+}
+
+export interface StickyListRequest {
+  readonly url: string;
+}
+
+export interface StickyListResponse {
+  readonly ok: boolean;
+  readonly notes: readonly WireStickyNote[];
+  /** The vault's active palette, so a note paints the vault's colours (as with highlights). */
+  readonly palette?: readonly WirePaletteColor[];
+}
+
+export interface StickyRemoveRequest {
+  readonly url: string;
+  readonly id: string;
+  /** The view whose row should lose the matching cell line, when known. */
+  readonly viewId?: string;
+  readonly stickyColumn?: string;
+  readonly urlColumn?: string;
+}
+
+export interface StickyRemoveResponse {
+  readonly ok: boolean;
+  readonly removedFromCell?: boolean;
+}
+
 export interface RowDeleteRequest {
   readonly viewId: string;
   readonly rowRef: string;

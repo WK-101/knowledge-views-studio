@@ -448,22 +448,31 @@ async function drawViewColumns(): Promise<void> {
       return wrap;
     };
 
-    const save = async (patch: { urlColumn?: string; annotationColumn?: string }): Promise<void> => {
+    const save = async (patch: {
+      urlColumn?: string;
+      annotationColumn?: string;
+      stickyColumn?: string;
+    }): Promise<void> => {
       const latest = await loadPreferences();
       const entry = { ...(latest.viewColumns[view.id] ?? {}), ...patch };
       // An empty string means "automatic" — store it as absence, not as a blank override.
-      const cleaned: { urlColumn?: string; annotationColumn?: string } = {};
+      const cleaned: { urlColumn?: string; annotationColumn?: string; stickyColumn?: string } = {};
       if (entry.urlColumn !== undefined && entry.urlColumn !== "") cleaned.urlColumn = entry.urlColumn;
       if (entry.annotationColumn !== undefined && entry.annotationColumn !== "") cleaned.annotationColumn = entry.annotationColumn;
+      if (entry.stickyColumn !== undefined && entry.stickyColumn !== "") cleaned.stickyColumn = entry.stickyColumn;
       const next = { ...latest.viewColumns };
-      if (cleaned.urlColumn === undefined && cleaned.annotationColumn === undefined) delete next[view.id];
-      else next[view.id] = cleaned;
+      if (cleaned.urlColumn === undefined && cleaned.annotationColumn === undefined && cleaned.stickyColumn === undefined) {
+        delete next[view.id];
+      } else {
+        next[view.id] = cleaned;
+      }
       await savePreferences({ viewColumns: next });
       status("Saved.", "ok");
     };
 
     block.appendChild(picker("URL column", current.urlColumn, (v) => void save({ urlColumn: v })));
     block.appendChild(picker("Annotations column", current.annotationColumn, (v) => void save({ annotationColumn: v })));
+    block.appendChild(picker("Sticky notes column", current.stickyColumn, (v) => void save({ stickyColumn: v })));
     host.appendChild(block);
   }
 }
@@ -482,6 +491,7 @@ async function wirePreferences(): Promise<void> {
   byId<HTMLSelectElement>("annotationView").value = prefs.annotationViewId;
   byId<HTMLInputElement>("annotationBullets").checked = prefs.annotationBullets;
   byId<HTMLInputElement>("annotationSidebar").checked = prefs.annotationSidebar;
+  byId<HTMLInputElement>("stickyLauncher").checked = prefs.stickyLauncher;
   drawRules(prefs);
   renderIslandActions(prefs);
   byId<HTMLInputElement>("searchVault").checked = prefs.searchTargets.vault;
@@ -521,6 +531,7 @@ async function wirePreferences(): Promise<void> {
   bind("annotationView", () => ({ annotationViewId: byId<HTMLSelectElement>("annotationView").value }));
   bind("annotationBullets", () => ({ annotationBullets: byId<HTMLInputElement>("annotationBullets").checked }));
   bind("annotationSidebar", () => ({ annotationSidebar: byId<HTMLInputElement>("annotationSidebar").checked }));
+  bind("stickyLauncher", () => ({ stickyLauncher: byId<HTMLInputElement>("stickyLauncher").checked }));
   bind("searchMode", () => {
     const value = byId<HTMLSelectElement>("searchMode").value;
     return { searchMode: value === "meaning" || value === "ask" ? value : "keyword" };
