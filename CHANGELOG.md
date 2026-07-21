@@ -5,6 +5,37 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 188 — the chrome UI redesign, part 3 (onboarding + options polish)
+
+Companion 0.11.0, extension-only. The last of the extension-only redesign phases: a first-run experience,
+and the settings polish that finishes the chrome.
+
+- **A welcome / onboarding page** — the thing the companion never had. It opens once, automatically, on
+  first install (a fresh install only — an update or a browser restart doesn't reopen it), and is
+  re-openable any time from settings. Web-Highlights' lesson: value first, no account, no gate. A branded
+  hero, then three steps, each with a real action and a **live done-state** rather than a static
+  instruction:
+    1. **Connect your vault** — reads the pairing state live (checks the token, then confirms by fetching
+       the schema, which also names the vault): "Connected to *Vault*", or "Not connected yet". A button to
+       the pairing settings; coming back from that tab re-checks without a reload.
+    2. **Turn on web highlighting** — turns it on *from here*: asks the page-read permission from the click
+       (the gesture rule the rest of the extension learned the hard way), saves the pref, registers the
+       annotator, and injects it into open tabs. The step ticks green when it's on.
+    3. **The tools you'll reach for** — a short, honest tour (selection toolbar, edge minimap, sticky notes,
+       number-key colours + brush, vault search) and the way out (open settings, or start using it).
+  A completed step shows a green number and a check, so the page is a checklist of what's actually set up.
+- **A branded options header** — the same logo mark beside the wordmark that the popup now carries, so the
+  two surfaces match, plus a "Show the welcome guide" button.
+- **Save confirmations are a floating toast now** — the settings status line moved to a self-dismissing
+  pill (bottom-right, fades after a moment); errors stay until replaced, because a problem shouldn't vanish
+  before it's read.
+
+Wired into the build (a new `welcome.ts` entry + `welcome.html`), and into the AMO source package (which
+also picked up `sidebar.html`, previously missing there). Verified by rendering the welcome page and the
+options header headless (Chromium/Playwright) in light and dark. 1463 tests still pass, tsc clean on both
+halves, eslint at the 37-warning baseline. The onboarding and settings are browser DOM — eyeball the real
+first-run once installed.
+
 ## Phase 187 — the chrome UI redesign, part 2 (in-page polish: minimap, brush, shortcuts)
 
 Companion 0.10.0, extension-only. Part 2 of the redesign turns to the *in-page* annotator, adopting the

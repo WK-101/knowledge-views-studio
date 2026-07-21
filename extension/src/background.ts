@@ -26,9 +26,25 @@ interface AlarmsApi {
   onAlarm: { addListener(fn: (alarm: { name: string }) => void): void };
 }
 interface RuntimeApi {
-  onInstalled: { addListener(fn: () => void): void };
+  onInstalled: { addListener(fn: (details: { reason?: string }) => void): void };
   onStartup?: { addListener(fn: () => void): void };
   sendMessage?(message: unknown): Promise<unknown>;
+}
+
+/** Open the welcome/onboarding page in a new tab — used once, on first install. */
+function openWelcomeTab(): void {
+  const g = globalThis as unknown as {
+    browser?: { tabs?: { create(o: { url: string }): unknown }; runtime?: { getURL(p: string): string } };
+    chrome?: { tabs?: { create(o: { url: string }): unknown }; runtime?: { getURL(p: string): string } };
+  };
+  const api = g.browser ?? g.chrome;
+  const url = api?.runtime?.getURL?.("welcome.html");
+  if (url === undefined || api?.tabs?.create === undefined) return;
+  try {
+    api.tabs.create({ url });
+  } catch {
+    // A blocked tab-open is not worth surfacing; the guide is also reachable from settings.
+  }
 }
 
 /**
@@ -96,7 +112,11 @@ if (alarmApi !== null) {
 }
 
 const runtimeApi = runtime();
-runtimeApi?.onInstalled.addListener(() => void drain());
+runtimeApi?.onInstalled.addListener((details) => {
+  void drain();
+  // A fresh install opens the welcome guide once; an update or browser restart doesn't.
+  if (details?.reason === "install") openWelcomeTab();
+});
 runtimeApi?.onStartup?.addListener(() => void drain());
 
 

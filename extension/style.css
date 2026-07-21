@@ -764,3 +764,65 @@ button.primary svg { width: 17px; height: 17px; flex: none; }
 /* The .hidden utility must beat the later flex-display rules on tabs, dest buttons, and the preview card
    that would otherwise un-hide elements by source order. A hide utility is exactly where !important belongs. */
 .hidden { display: none !important; }
+
+/* ============================================================================
+   PHASE C — onboarding welcome page, a branded options header, and a floating
+   save toast. Layered last.
+   ========================================================================== */
+
+/* The welcome / onboarding page. */
+body.welcome { max-width: 640px; margin: 0 auto; padding: 56px 28px 72px; }
+.wc-hero { text-align: center; margin-bottom: 36px; }
+.wc-mark { width: 40px; height: 40px; color: var(--accent); }
+.wc-hero h1 { font-size: 26px; font-weight: 680; letter-spacing: -0.02em; margin: 14px 0 10px; }
+.wc-sub { color: var(--muted); font-size: 14.5px; line-height: 1.6; max-width: 460px; margin: 0 auto; }
+
+.wc-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.wc-step {
+  display: flex; gap: 14px; align-items: flex-start; padding: 18px 20px;
+  border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--bg); box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.wc-num {
+  flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; font-weight: 650; font-size: 13px; background: var(--accent-weak); color: var(--accent);
+}
+.wc-body { flex: 1 1 auto; min-width: 0; }
+.wc-body h2 { font-size: 15px; font-weight: 620; text-transform: none; letter-spacing: 0; color: var(--fg); margin: 2px 0 6px; }
+.wc-body .hint { margin: 0 0 12px; }
+.wc-body .primary { width: auto; margin: 0; }
+.wc-line { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+.wc-line.wc-ok { color: var(--ok); font-weight: 550; }
+.wc-line.wc-err { color: var(--err); }
+.wc-check {
+  flex: 0 0 auto; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line);
+  display: flex; align-items: center; justify-content: center;
+}
+.wc-step.wc-done { border-color: color-mix(in srgb, var(--ok) 40%, var(--line)); }
+.wc-step.wc-done .wc-num { background: var(--ok); color: #fff; }
+.wc-step.wc-done .wc-check { border-color: var(--ok); background: var(--ok); }
+.wc-step.wc-done .wc-check::after { content: "✓"; color: #fff; font-size: 13px; font-weight: 700; }
+.wc-tips { margin: 4px 0 14px; padding-left: 18px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.wc-tips li { margin: 5px 0; }
+.wc-tips strong { color: var(--fg); font-weight: 600; }
+.wc-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.wc-actions button { width: auto; margin: 0; display: inline-flex; align-items: center; gap: 7px; }
+.wc-actions button svg { width: 16px; height: 16px; flex: none; }
+.wc-foot { text-align: center; margin-top: 26px; }
+
+/* Branded options header — the mark beside the wordmark, matching the popup. */
+.opt-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.opt-head .brand-mark { width: 22px; height: 22px; }
+.opt-head h1 { margin: 0; }
+#showWelcome { margin-top: 10px; }
+
+/* Save toast — the settings status line, floated and self-dismissing (JS clears non-errors). */
+body.options #status {
+  position: fixed; right: 20px; bottom: 20px; z-index: 50; margin: 0; padding: 9px 14px;
+  border-radius: var(--radius); background: var(--fg); color: var(--bg); font-size: 12.5px; font-weight: 550;
+  box-shadow: var(--shadow); opacity: 0; transform: translateY(6px); pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease; max-width: 320px;
+}
+body.options #status:not(:empty) { opacity: 1; transform: translateY(0); }
+body.options #status.error { background: var(--err); color: #fff; }
+body.options #status.ok { background: var(--ok); color: #fff; }

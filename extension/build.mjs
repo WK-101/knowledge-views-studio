@@ -19,7 +19,7 @@ rmSync(outdir, { recursive: true, force: true });
 mkdirSync(outdir, { recursive: true });
 
 await esbuild.build({
-  entryPoints: [from("src/popup.ts"), from("src/options.ts"), from("src/background.ts"), from("src/content.ts"), from("src/serp.ts"), from("src/sidebar.ts"), from("src/annotate.ts"), from("src/table-capture.ts")],
+  entryPoints: [from("src/popup.ts"), from("src/options.ts"), from("src/background.ts"), from("src/content.ts"), from("src/serp.ts"), from("src/sidebar.ts"), from("src/annotate.ts"), from("src/table-capture.ts"), from("src/welcome.ts")],
   bundle: true,
   format: "iife",
   target: "es2020",
@@ -30,7 +30,7 @@ await esbuild.build({
   logLevel: "info",
 });
 
-for (const file of ["manifest.json", "popup.html", "sidebar.html", "options.html", "style.css"]) {
+for (const file of ["manifest.json", "popup.html", "sidebar.html", "options.html", "welcome.html", "style.css"]) {
   cpSync(from(file), `${outdir}/${file}`);
 }
 cpSync(from("icons"), `${outdir}/icons`, { recursive: true });

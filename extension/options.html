@@ -6,11 +6,15 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body class="options">
-    <h1>Knowledge Views Companion</h1>
+    <div class="opt-head">
+      <svg class="brand-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1.5"/><rect width="7" height="7" x="14" y="3" rx="1.5"/><rect width="7" height="7" x="14" y="14" rx="1.5"/><rect width="7" height="7" x="3" y="14" rx="1.5"/></svg>
+      <h1>Knowledge Views Companion</h1>
+    </div>
     <p class="lead">
       This connects to Obsidian running on this computer. Nothing is sent anywhere else, and there is no
       account. Your vault decides what it will show and whether it accepts captures at all.
     </p>
+    <button id="showWelcome" class="mini" type="button">Show the welcome guide</button>
 
     <nav class="opt-nav" aria-label="Settings sections">
       <button class="opt-tab active" data-pane="connection" type="button">

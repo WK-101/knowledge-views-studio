@@ -66,10 +66,29 @@ async function requestTabsPermission(): Promise<boolean> {
   }
 }
 
+let statusTimer: number | undefined;
 function status(message: string, kind: "info" | "error" | "ok" = "info"): void {
   const el = byId("status");
   el.textContent = message;
   el.className = `status ${kind}`;
+  // The status line is a floating toast now — clear a confirmation after a moment so it fades out. Errors
+  // stay until the next message replaces them, because a problem shouldn't vanish before it's read.
+  window.clearTimeout(statusTimer);
+  if (kind !== "error" && message !== "") {
+    statusTimer = window.setTimeout(() => {
+      if (el.textContent === message) el.textContent = "";
+    }, 2600);
+  }
+}
+
+/** Open the welcome / onboarding page in a new tab. */
+function openWelcome(): void {
+  const g = globalThis as unknown as {
+    browser?: { runtime?: { getURL(p: string): string } };
+    chrome?: { runtime?: { getURL(p: string): string } };
+  };
+  const url = (g.browser ?? g.chrome)?.runtime?.getURL?.("welcome.html");
+  if (url !== undefined) window.open(url, "_blank");
 }
 
 /**
@@ -572,6 +591,7 @@ async function wirePreferences(): Promise<void> {
   bind("annotationBullets", () => ({ annotationBullets: byId<HTMLInputElement>("annotationBullets").checked }));
   bind("annotationSidebar", () => ({ annotationSidebar: byId<HTMLInputElement>("annotationSidebar").checked }));
   bind("stickyLauncher", () => ({ stickyLauncher: byId<HTMLInputElement>("stickyLauncher").checked }));
+  byId("showWelcome").addEventListener("click", () => openWelcome());
   bind("highlightMinimap", () => ({ highlightMinimap: byId<HTMLInputElement>("highlightMinimap").checked }));
   bind("colorKeys", () => ({ colorKeys: byId<HTMLInputElement>("colorKeys").checked }));
   bind("defaultHighlightColor", () => {
