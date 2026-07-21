@@ -12,6 +12,7 @@ import { matchRule, mergeTags } from "../../../shared/rules";
 import { hasPageAccess, requestPageAccess } from "./page-access";
 import { pluginIsCurrent, outdatedPluginMessage } from "./version";
 import { mountStatusCard } from "./status-card";
+import { prefillFor } from "./prefill";
 import { promote } from "./bridge-client";
 import { queueCapture } from "./queue-store";
 
@@ -163,15 +164,7 @@ function renderForm(view: SchemaView, prefill: Record<string, string>, unmatched
 }
 
 /** Pre-fill by asking the vault what each field means, rather than guessing here. */
-function prefillFor(view: SchemaView, fields: readonly { key: string; value: string }[]): Record<string, string> {
-  const out: Record<string, string> = {};
-  const byKey = new Map(fields.map((f) => [f.key.toLowerCase(), f.value]));
-  for (const column of view.columns) {
-    const direct = byKey.get(column.name.toLowerCase());
-    if (direct !== undefined) out[column.name] = direct;
-  }
-  return out;
-}
+
 
 async function warnIfAlreadySaved(): Promise<void> {
   if (snapshot === null) return;
@@ -359,14 +352,45 @@ async function start(): Promise<void> {
   // Adding reveals the controls; everything on the card that exists gets its actions, and nothing shows a
   // button for a state it isn't in.
   const controls = document.getElementById("controls");
+  const destination = document.getElementById("destination");
   const cardHost = el("div", {});
   root().appendChild(cardHost);
+
+  // One compact line under the card: the picker carries "into this view…" and the buttons finish the
+  // sentence. Always present when anything is writable — adding shouldn't hide behind the card's state.
+  destination?.classList.remove("hidden");
+  const addRowButton = document.getElementById("addRow");
+  const addPageButton = document.getElementById("addPage");
+
   const revealAdd = (shape: "row" | "note"): void => {
-    controls?.classList.remove("hidden");
+    addRowButton?.classList.toggle("active", shape === "row");
+    addPageButton?.classList.toggle("active", shape === "note");
     if (shape === "note") {
-      (document.querySelector('[data-tab="note"]') as HTMLElement | null)?.click();
+      // Forced visible: a page without an article is still a page — properties and selection make a
+      // perfectly good note, and a button that dead-clicks a hidden tab reads as broken because it is.
+      const noteTab = document.querySelector('[data-tab="note"]');
+      noteTab?.classList.remove("hidden");
+      if (noteHost !== null && snapshot !== null) {
+        mountNote(snapshot, {
+          host: noteHost,
+          view: () => current,
+          setStatus: (message, kind) => show(message, kind),
+          onSaved: () => refreshStatusCard?.(),
+        });
+      }
+      (noteTab as HTMLElement | null)?.click();
+      controls?.classList.add("hidden");
+      return;
     }
+    (document.querySelector('[data-tab="capture"]') as HTMLElement | null)?.click();
+    controls?.classList.remove("hidden");
+    // The form is the point of the click; land the cursor in it.
+    window.setTimeout(() => {
+      (document.querySelector("#form [data-column]") as HTMLElement | null)?.focus();
+    }, 30);
   };
+  addRowButton?.addEventListener("click", () => revealAdd("row"));
+  addPageButton?.addEventListener("click", () => revealAdd("note"));
   const drawCard = (): void => {
     const doi = fields.find((f) => f.key.trim().toLowerCase() === "doi")?.value ?? "";
     void mountStatusCard(

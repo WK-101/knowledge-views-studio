@@ -24,11 +24,12 @@
     <main id="panels">
       <div id="tab-capture" class="panel">
         <div id="app"></div>
+        <div id="destination" class="dest-row hidden">
+          <select id="view" title="Which view this page goes to"></select>
+          <button id="addRow" class="dest-btn" type="button" title="Add this page as a row in the view">+ Row</button>
+          <button id="addPage" class="dest-btn" type="button" title="Save this page as a note">+ Page</button>
+        </div>
         <div id="controls" class="hidden">
-          <label class="field">
-            <span>Into view</span>
-            <select id="view"></select>
-          </label>
           <div id="form"></div>
           <button id="save" class="primary" type="button">Save to vault</button>
         </div>

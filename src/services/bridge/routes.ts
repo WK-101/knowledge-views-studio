@@ -346,6 +346,11 @@ export function captureRoute(): Route<BridgeContext> {
         const visible = after.rows.some((r) => r.provenance.filePath === written.path);
         if (!visible) {
           warning = `Saved to “${written.path}”, but that file isn't one this view reads — the row won't appear in “${profile.name}”. Add the file to the view's sources, or point the view's capture target at a file it reads.`;
+        } else if ((payload.url ?? "") !== "" && rowForUrl(after.rows, after.columns, payload.url ?? "") === null) {
+          // The row exists and the view shows it — but nothing in it holds the page's URL, so lookup can
+          // never recognise this page as captured. Without this sentence, the symptom is a page that stays
+          // "not in any of your views" forever, one save after another, each one apparently successful.
+          warning = `Saved — but no cell holds this page's URL, so “${profile.name}” can't recognise the page as already captured. Add a URL/Link/Source column to the view (or map one), and future captures will be recognised.`;
         }
       }
 

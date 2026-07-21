@@ -5,6 +5,39 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 166 — one line to add, forms that fill themselves, and the row that could never be recognised
+
+**The destination is one line now.** Under the status card: the view picker at seventy percent, `+ Row` and
+`+ Page` finishing the sentence beside it. Choosing where and choosing what shape are one decision, and the
+popup has no room for ceremony — the two stacked button rows are gone, the card frames the state, the line
+below it acts on it. Popup rhythm tightened throughout: quieter chrome, one visual language for small
+actions.
+
+**"Add as page" actually works on every page.** It used to click the Whole-page tab — which is hidden on
+pages without an extractable article, so on those pages the button dead-clicked nothing and read as broken,
+because it was. The tab is now forced visible and the note panel mounted on demand: a page without an
+article is still a page, and properties plus selection make a perfectly good note. "Add as row" reveals the
+form on the capture tab and lands the cursor in the first field.
+
+**Forms fill themselves by meaning, not spelling.** Matching was exact-name-only: a view whose column is
+called `Link` got nothing from the page's `url`, `Summary` nothing from `description`, and the form sat
+empty next to a page full of exactly the right data — which reads as "capture doesn't work", because from
+the outside it doesn't. Columns now carry a vocabulary (url/link/source/address…, title/name/page…,
+description/summary/excerpt/abstract…, author/by…, published/date…, tags/keywords…, doi), exact names still
+win first, and each page field is spent once so `url` doesn't fill both a `Link` and a `Source` column.
+This serves the form, Save to vault, and row creation alike.
+
+**And the page that stayed "not in any of your views" forever.** A row can save successfully, appear in its
+view, and still hold nothing that identifies the page — no cell with the URL — so lookup can never
+recognise the page as captured, one apparently successful save after another. The capture response now says
+exactly that when it happens: which view can't recognise the page, and that adding a URL/Link/Source column
+fixes it. Together with the alias prefill (which makes the URL actually land wherever such a column
+exists), this closes the loop the card's refresh alone could not.
+
+1335 tests (was 1327): alias matching in both directions, exact-first precedence, spend-once, blanks never
+displacing real matches, unknown columns left alone; and the unrecognisable-row warning firing on a saved
+row without a URL and staying silent on one that carries it.
+
 ## Phase 165 — Zotero at the table, and three revisions from use
 
 **Zotero integration.** A new settings tab turns it on; nothing new is asked of the person, because the

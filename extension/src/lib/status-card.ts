@@ -88,8 +88,6 @@ export async function mountStatusCard(
     return;
   }
 
-  const hasAnything = found.matches.length > 0 || found.note !== undefined || highlightCount > 0;
-
   // ---- Presence -----------------------------------------------------------
 
   if (found.matches.length === 0) {
@@ -229,22 +227,12 @@ export async function mountStatusCard(
   }
 
   const writable = schema.views.some((v) => v.capture.writable);
-  if (writable && (found.matches.length === 0 || !hasAnything)) {
-    const add = el("div", { class: "status-actions status-add" });
-    // Two equal choices, equally weighted. "Row first" is one workflow, not a hierarchy the buttons
-    // should editorialise.
-    const asRow = el("button", { class: "primary", type: "button" }, "Add as row");
-    asRow.addEventListener("click", () => actions.onAdd("row"));
-    const asPage = el("button", { class: "primary", type: "button" }, "Add as page");
-    asPage.addEventListener("click", () => actions.onAdd("note"));
-    add.append(asRow, asPage);
-    card.appendChild(add);
-  } else if (writable && found.matches.length > 0) {
-    // Already present, but adding elsewhere stays possible — several views legitimately hold one page.
-    const add = el("div", { class: "status-actions" });
-    const more = el("button", { class: "mini", type: "button" }, "Add to another view…");
-    more.addEventListener("click", () => actions.onAdd("row"));
-    add.appendChild(more);
-    card.appendChild(add);
+  if (!writable) {
+    card.appendChild(
+      el("p", { class: "hint" }, "No view can receive captures — check the plugin's Browser bridge settings."),
+    );
+  } else if (found.matches.length === 0 && found.note === undefined) {
+    // The destination row below the card is where adding happens; the card just frames the state.
+    card.appendChild(el("p", { class: "hint" }, "Add it below — pick a view, then row or page."));
   }
 }

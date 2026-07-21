@@ -618,9 +618,40 @@ describe("bridge · routes", () => {
       expect(body.warning).toContain("won't appear");
     });
 
-    it("stays silent when the row is visible where it was written", async () => {
-      const visibleRow = {
+    it("warns when the saved row holds no URL, so the page can never be recognised", async () => {
+      // The symptom without this: a page that stays "not in any of your views" forever, one apparently
+      // successful save after another.
+      const urlless = {
         cells: { Title: "T" },
+        provenance: { filePath: "Library.md", extractor: "table", locator: { row: 0 }, fingerprint: "f" },
+      };
+      const ctx = makeContext({
+        viewData: () => Promise.resolve({ rows: [urlless] as never, columns: [{ name: "Title", typeId: "text" }] }),
+        capture: {
+          commit: () => Promise.resolve({ ok: true, path: "Library.md" }),
+          linkExistingNote: (v: unknown) => v,
+        },
+      }).context as unknown as BridgeContext;
+      const router = new BridgeRouter<BridgeContext>().registerAll(defaultRoutes());
+      const res = await router.dispatch(
+        req({
+          method: "POST",
+          path: "/capture",
+          body: { viewId: "papers", url: "https://x/a", fields: [{ key: "Title", value: "T" }] },
+        }),
+        settings(),
+        ctx,
+      );
+      const body = res.body as { ok: boolean; warning?: string };
+      expect(body.ok).toBe(true);
+      expect(body.warning).toContain("recognise");
+    });
+
+    it("stays silent when the row is visible where it was written", async () => {
+      // Visible AND recognisable: the file is read by the view and a cell holds the page's URL. Anything
+      // less now warns, deliberately.
+      const visibleRow = {
+        cells: { Title: "T", URL: "https://x/a" },
         provenance: { filePath: "Library.md", extractor: "table", locator: { row: 0 }, fingerprint: "f" },
       };
       const ctx = makeContext({
