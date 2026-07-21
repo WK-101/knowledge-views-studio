@@ -5,6 +5,31 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 179 — the selection toolbar becomes configurable (island redesign, part 1)
+
+Companion 0.2.0. The floating toolbar that appears when you select text was a fixed row — the colour swatches,
+a style toggle, a transparency toggle, and "＋ note", always all shown, always in that order. This makes it
+yours: under Highlighting → Toolbar actions, each control is a row you can switch off and drag to reorder, so
+the toolbar shows only what you use, arranged how you want.
+
+The point is that nothing about the toolbar is hardcoded any more. Everything it can show is one entry in a
+single catalogue (island-actions.ts): an id the page renders and the label/hint the settings screen shows. A
+person's choices live in one ordered list of `{ id, enabled }`, and both the toolbar and the settings list
+read from it — so they can't drift apart, and turning an action off in settings simply drops it from the bar.
+
+This is the foundation the rest of the redesign hangs off. The catalogue is built to grow: adding an action
+later — copy-as-quote, search the selection, a sticky note — is one entry here plus a renderer, and existing
+installs pick it up automatically (on, and last in the order) with no need to re-save, because the stored list
+is reconciled against the catalogue on load: known actions keep your order and on/off, anything unknown or
+duplicated is dropped, and anything new is appended.
+
+Details: the settings list reorders by native drag-and-drop (no library added — it degrades to the on/off
+toggles if a browser blocks dragging), and the colours stay a tight cluster as one movable unit. Turning every
+action off simply shows no toolbar rather than an empty one. Reload a page after changing the settings.
+
+The plugin is unchanged (still 0.178.0) — this is a companion-only release. The next parts are the toolbar's
+appearance and behaviour settings, then new actions added one at a time.
+
 ## Phase 178 — imported-annotation callouts, recoloured to the exact palette
 
 The last round put the standardized colours into dashboard cells. This finishes the job for the other place a

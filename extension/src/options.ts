@@ -10,6 +10,7 @@ import {
 } from "./lib/bridge-client";
 import { parsePairingInput } from "../../shared/protocol";
 import { loadPreferences, savePreferences, type Preferences } from "./lib/preferences";
+import { ISLAND_ACTIONS } from "./lib/island-actions";
 import { hasPageAccess, requestPageAccess, registerAnnotator, unregisterAnnotator, injectAnnotatorIntoOpenTabs, registerTableCapture, unregisterTableCapture, injectTableCaptureIntoOpenTabs } from "./lib/page-access";
 import { pluginIsCurrent, outdatedPluginMessage } from "./lib/version";
 import { zoteroStatus, zoteroCollections } from "./lib/zotero-client";
@@ -228,6 +229,86 @@ function viewName(id: string): string {
   return views.find((v) => v.id === id)?.name ?? "(view no longer exists)";
 }
 
+/**
+ * The selection toolbar's actions: a list you can reorder by dragging and switch on or off, so the toolbar
+ * shows only what you use, in the order you want. Reads and writes the one `islandActions` preference; every
+ * change saves and re-renders from the saved (normalized) result, so the list can't drift from what's stored.
+ */
+function renderIslandActions(prefs: Preferences): void {
+  const host = byId("islandActions");
+  host.replaceChildren();
+  const meta = new Map(ISLAND_ACTIONS.map((a) => [a.id, a]));
+  const list = [...prefs.islandActions];
+
+  const persist = (next: typeof list): void => {
+    void savePreferences({ islandActions: next }).then((saved) => {
+      renderIslandActions(saved);
+      status("Saved.", "ok");
+    });
+  };
+
+  let dragIndex: number | null = null;
+
+  list.forEach((action, index) => {
+    const info = meta.get(action.id);
+    if (info === undefined) return;
+
+    const row = el("div", "island-row");
+    row.draggable = true;
+
+    const handle = el("span", "island-handle", "⠿");
+    handle.title = "Drag to reorder";
+    row.appendChild(handle);
+
+    const text = el("div", "island-text");
+    text.appendChild(el("div", "island-name", info.label));
+    text.appendChild(el("div", "island-hint", info.hint));
+    row.appendChild(text);
+
+    const toggle = el("label", "island-toggle");
+    const box = el("input");
+    box.type = "checkbox";
+    box.checked = action.enabled;
+    box.addEventListener("change", () => {
+      persist(list.map((a, i) => (i === index ? { id: a.id, enabled: box.checked } : a)));
+    });
+    toggle.appendChild(box);
+    row.appendChild(toggle);
+
+    // Reorder with native drag-and-drop — no library, and it degrades to the toggles if a browser blocks it.
+    row.addEventListener("dragstart", (event) => {
+      dragIndex = index;
+      row.classList.add("dragging");
+      // Firefox won't start a drag unless some data is set.
+      event.dataTransfer?.setData("text/plain", String(index));
+      if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+    });
+    row.addEventListener("dragend", () => {
+      dragIndex = null;
+      host.querySelectorAll(".island-row").forEach((r) => r.classList.remove("dragging", "drop-target"));
+    });
+    row.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+      if (dragIndex !== null && dragIndex !== index) row.classList.add("drop-target");
+    });
+    row.addEventListener("dragleave", () => row.classList.remove("drop-target"));
+    row.addEventListener("drop", (event) => {
+      event.preventDefault();
+      row.classList.remove("drop-target");
+      if (dragIndex === null || dragIndex === index) return;
+      const next = [...list];
+      const [moved] = next.splice(dragIndex, 1);
+      if (moved === undefined) return;
+      // Insert before the row it was dropped on; account for the gap left by removing the dragged item.
+      next.splice(dragIndex < index ? index - 1 : index, 0, moved);
+      persist(next);
+    });
+
+    host.appendChild(row);
+  });
+}
+
 function drawRules(prefs: Preferences): void {
   const host = byId("rules");
   host.replaceChildren();
@@ -350,6 +431,7 @@ async function wirePreferences(): Promise<void> {
   byId<HTMLInputElement>("annotationBullets").checked = prefs.annotationBullets;
   byId<HTMLInputElement>("annotationSidebar").checked = prefs.annotationSidebar;
   drawRules(prefs);
+  renderIslandActions(prefs);
 
   const bind = (id: string, read: () => Partial<Preferences>, event = "change"): void => {
     byId(id).addEventListener(event, () => {

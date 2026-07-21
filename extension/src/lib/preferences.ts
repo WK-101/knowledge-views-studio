@@ -1,4 +1,9 @@
 import type { DomainRule } from "../../../shared/rules";
+import {
+  DEFAULT_ISLAND_ACTIONS,
+  normalizeIslandActions,
+  type IslandAction,
+} from "./island-actions";
 
 /**
  * Every preference in one place.
@@ -52,6 +57,8 @@ export interface Preferences {
   readonly annotationSidebar: boolean;
   /** Offer a hover action on data tables to capture their rows or copy them, without opening the popup. */
   readonly tableCapture: boolean;
+  /** The selection toolbar's actions — which show, and in what order. See island-actions.ts. */
+  readonly islandActions: readonly IslandAction[];
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -74,6 +81,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   annotationBullets: false,
   annotationSidebar: false,
   tableCapture: false,
+  islandActions: DEFAULT_ISLAND_ACTIONS,
 };
 
 const KEY = "preferences";
@@ -143,6 +151,7 @@ export function normalizePreferences(raw: unknown): Preferences {
     annotationBullets: value["annotationBullets"] === true,
     annotationSidebar: value["annotationSidebar"] === true,
     tableCapture: value["tableCapture"] === true,
+    islandActions: normalizeIslandActions(value["islandActions"]),
   };
 }
 

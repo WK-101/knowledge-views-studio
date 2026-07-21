@@ -3,6 +3,12 @@ import { inPageTheme, highlightAlpha } from "../../shared/in-page-ui";
 import { ZOTERO_PALETTE, type HighlightColor, type HighlightIntensity } from "../../shared/annotations";
 import { locateAnchor } from "../../shared/anchor-locate";
 import type { WireAnnotation } from "../../shared/protocol";
+import {
+  DEFAULT_ISLAND_ACTIONS,
+  normalizeIslandActions,
+  type IslandAction,
+  type IslandActionId,
+} from "./lib/island-actions";
 
 /**
  * The annotator, on the page.
@@ -78,6 +84,9 @@ let lastChoice: { color: Color; style: Style; intensity: Intensity } = {
   style: "highlight",
   intensity: "medium",
 };
+
+/** Which toolbar actions to show, and in what order. Read from preferences on load; defaults to all on. */
+let islandActions: readonly IslandAction[] = DEFAULT_ISLAND_ACTIONS;
 
 interface ChoiceStorage {
   local: { get(keys: string[]): Promise<Record<string, unknown>>; set(items: Record<string, unknown>): Promise<void> };
@@ -310,6 +319,7 @@ function ensureShell(): ShadowRoot {
     }
     .swatch:hover { transform: scale(1.18); box-shadow: 0 0 0 3px ${dark() ? "rgba(143,116,255,0.25)" : "rgba(124,92,255,0.18)"}; }
     .swatch.selected { box-shadow: 0 0 0 3px ${t.accent}; }
+    .swatch-group { display: inline-flex; align-items: center; gap: 5px; }
     .divider { width: 1px; align-self: stretch; background: ${t.line}; margin: 2px 1px; }
     button.action {
       border: 0; background: none; cursor: pointer;
@@ -502,12 +512,17 @@ function highlightSelection(color: Color, style: Style, note?: string, intensity
 function showToolbar(rect: DOMRect): void {
   const root = ensureShell();
   clearUi();
+  // Nothing to show if every action is turned off — better to show no toolbar than an empty one.
+  if (!islandActions.some((a) => a.enabled)) return;
+
   const bar = document.createElement("div");
   bar.className = "bar";
 
   let style: Style = lastChoice.style;
   let intensity: Intensity = lastChoice.intensity;
 
+  // Shared across the colour swatches and the two toggles: changing style or transparency repaints the
+  // swatch previews. A no-op when the colours action is off (nothing in `swatches`), so the toggles still work.
   const swatches: HTMLButtonElement[] = [];
   const drawSwatches = (): void => {
     for (const swatch of swatches) {
@@ -521,67 +536,80 @@ function showToolbar(rect: DOMRect): void {
     }
   };
 
-  for (const color of Object.keys(PAINT) as Color[]) {
-    const swatch = document.createElement("button");
-    swatch.className = "swatch";
-    swatch.dataset["color"] = color;
-    swatch.title = `${style === "underline" ? "Underline" : "Highlight"} ${color}`;
-    swatch.addEventListener("mousedown", (event) => {
-      event.preventDefault();
-      highlightSelection(color, style, undefined, intensity);
-    });
-    swatches.push(swatch);
-    bar.appendChild(swatch);
+  // One builder per action: it creates its own controls and appends them to the bar. The toolbar renders
+  // whichever actions are enabled, in the order the person arranged them — nothing here is positional.
+  const builders: Record<IslandActionId, () => void> = {
+    colors: () => {
+      const group = document.createElement("div");
+      group.className = "swatch-group";
+      for (const color of Object.keys(PAINT) as Color[]) {
+        const swatch = document.createElement("button");
+        swatch.className = "swatch";
+        swatch.dataset["color"] = color;
+        swatch.title = `${style === "underline" ? "Underline" : "Highlight"} ${color}`;
+        swatch.addEventListener("mousedown", (event) => {
+          event.preventDefault();
+          highlightSelection(color, style, undefined, intensity);
+        });
+        swatches.push(swatch);
+        group.appendChild(swatch);
+      }
+      bar.appendChild(group);
+      drawSwatches();
+    },
+    style: () => {
+      const styleToggle = document.createElement("button");
+      styleToggle.className = "icon-btn";
+      const drawToggle = (): void => {
+        styleToggle.textContent = style === "underline" ? "U̲" : "H";
+        styleToggle.title =
+          style === "underline" ? "Shape: underline (tap for highlight)" : "Shape: highlight (tap for underline)";
+      };
+      styleToggle.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        style = style === "underline" ? "highlight" : "underline";
+        drawToggle();
+        drawSwatches();
+      });
+      drawToggle();
+      bar.appendChild(styleToggle);
+    },
+    intensity: () => {
+      const order: Intensity[] = ["light", "medium", "strong"];
+      const glyph: Record<Intensity, string> = { light: "░", medium: "▒", strong: "▓" };
+      const alphaToggle = document.createElement("button");
+      alphaToggle.className = "icon-btn";
+      const drawAlpha = (): void => {
+        alphaToggle.textContent = glyph[intensity];
+        alphaToggle.title = `Transparency: ${intensity} (tap to change)`;
+      };
+      alphaToggle.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        intensity = order[(order.indexOf(intensity) + 1) % order.length] ?? "medium";
+        drawAlpha();
+        drawSwatches();
+        rememberChoice(lastChoice.color, style, intensity);
+      });
+      drawAlpha();
+      bar.appendChild(alphaToggle);
+    },
+    note: () => {
+      const withNote = document.createElement("button");
+      withNote.className = "action";
+      withNote.textContent = "＋ note";
+      withNote.title = "Highlight with a note and tags";
+      withNote.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        showNoteEditor(rect, (note, color, tags) => highlightSelection(color, style, note, intensity, tags));
+      });
+      bar.appendChild(withNote);
+    },
+  };
+
+  for (const action of islandActions) {
+    if (action.enabled) builders[action.id]();
   }
 
-  bar.appendChild(Object.assign(document.createElement("div"), { className: "divider" }));
-
-  // Shape: highlight or underline.
-  const styleToggle = document.createElement("button");
-  styleToggle.className = "icon-btn";
-  const drawToggle = (): void => {
-    styleToggle.textContent = style === "underline" ? "U̲" : "H";
-    styleToggle.title = style === "underline" ? "Shape: underline (tap for highlight)" : "Shape: highlight (tap for underline)";
-  };
-  styleToggle.addEventListener("mousedown", (event) => {
-    event.preventDefault();
-    style = style === "underline" ? "highlight" : "underline";
-    drawToggle();
-    drawSwatches();
-  });
-  bar.appendChild(styleToggle);
-
-  // Transparency: cycle light → medium → strong. The glyph fills as it strengthens.
-  const order: Intensity[] = ["light", "medium", "strong"];
-  const glyph: Record<Intensity, string> = { light: "░", medium: "▒", strong: "▓" };
-  const alphaToggle = document.createElement("button");
-  alphaToggle.className = "icon-btn";
-  const drawAlpha = (): void => {
-    alphaToggle.textContent = glyph[intensity];
-    alphaToggle.title = `Transparency: ${intensity} (tap to change)`;
-  };
-  alphaToggle.addEventListener("mousedown", (event) => {
-    event.preventDefault();
-    intensity = order[(order.indexOf(intensity) + 1) % order.length] ?? "medium";
-    drawAlpha();
-    drawSwatches();
-    rememberChoice(lastChoice.color, style, intensity);
-  });
-  bar.appendChild(alphaToggle);
-
-  const withNote = document.createElement("button");
-  withNote.className = "action";
-  withNote.textContent = "＋ note";
-  withNote.title = "Highlight with a note and tags";
-  withNote.addEventListener("mousedown", (event) => {
-    event.preventDefault();
-    showNoteEditor(rect, (note, color, tags) => highlightSelection(color, style, note, intensity, tags));
-  });
-  bar.appendChild(withNote);
-
-  drawToggle();
-  drawAlpha();
-  drawSwatches();
   placeNear(bar, rect);
   root.appendChild(bar);
 }
@@ -845,8 +873,9 @@ let sidebarEnabled = false;
 void choiceStorage()
   ?.local.get(["preferences"])
   .then((stored) => {
-    const prefs = stored["preferences"] as { annotationSidebar?: boolean } | undefined;
+    const prefs = stored["preferences"] as { annotationSidebar?: boolean; islandActions?: unknown } | undefined;
     sidebarEnabled = prefs?.annotationSidebar === true;
+    islandActions = normalizeIslandActions(prefs?.islandActions);
     if (sidebarEnabled) mountLauncher();
   })
   .catch(() => undefined);
