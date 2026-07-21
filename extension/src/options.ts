@@ -13,6 +13,13 @@ import { loadPreferences, savePreferences, type Preferences } from "./lib/prefer
 import { ISLAND_ACTIONS } from "./lib/island-actions";
 import type { IslandSettings, IslandSize, IslandTheme, IslandTrigger } from "./lib/island-settings";
 import { CUSTOM_ENGINE_PREFIX, isUsableTemplate, resolveEngine } from "./lib/search-targets";
+import {
+  coerceSiteAutoAction,
+  summarizeAutoAction,
+  type OnSelectKind,
+  type SiteAutoAction,
+} from "./lib/auto-actions";
+import { hostOf } from "../../shared/rules";
 import { hasPageAccess, requestPageAccess, registerAnnotator, unregisterAnnotator, injectAnnotatorIntoOpenTabs, registerTableCapture, unregisterTableCapture, injectTableCaptureIntoOpenTabs } from "./lib/page-access";
 import { pluginIsCurrent, outdatedPluginMessage } from "./lib/version";
 import { zoteroStatus, zoteroCollections } from "./lib/zotero-client";
@@ -361,6 +368,36 @@ function renderSearchEngines(prefs: Preferences): void {
   });
 }
 
+/**
+ * Per-site auto-actions: a list of site rules that fire an action on selection or page load. Mirrors the
+ * capture-rules list — summary plus Remove, edited by removing and re-adding — because it's the same shape
+ * of thing (a per-site override you set once), and consistency beats a second, cleverer editor.
+ */
+function renderAutoActions(prefs: Preferences): void {
+  const host = byId("autoActions");
+  host.replaceChildren();
+  if (prefs.autoActions.length === 0) {
+    host.appendChild(el("p", "hint", "No site auto-actions yet."));
+    return;
+  }
+  for (const [index, rule] of prefs.autoActions.entries()) {
+    const row = el("div", "rule-row");
+    row.appendChild(el("span", "rule-domain", rule.domain));
+    row.appendChild(el("span", "rule-detail", summarizeAutoAction(rule)));
+    const remove = el("button", "rule-remove", "Remove");
+    remove.addEventListener("click", () => {
+      void (async () => {
+        const next = prefs.autoActions.filter((_, i) => i !== index);
+        const saved = await savePreferences({ autoActions: next });
+        renderAutoActions(saved);
+        status(`Auto-action for ${rule.domain} removed.`, "info");
+      })();
+    });
+    row.appendChild(remove);
+    host.appendChild(row);
+  }
+}
+
 function drawRules(prefs: Preferences): void {
   const host = byId("rules");
   host.replaceChildren();
@@ -574,6 +611,52 @@ async function wirePreferences(): Promise<void> {
       byId<HTMLInputElement>("engineLabel").value = "";
       byId<HTMLInputElement>("engineTemplate").value = "";
       status(`${label} added to the search menu.`, "ok");
+    })();
+  });
+
+  // Per-site auto-actions: show only the parameters the chosen on-selection kind uses, then add on click.
+  renderAutoActions(prefs);
+  const updateAutoFields = (): void => {
+    const kind = byId<HTMLSelectElement>("autoOnSelect").value;
+    const setShown = (id: string, on: boolean): void => {
+      byId(id).hidden = !on;
+    };
+    setShown("autoColorField", kind === "highlight" || kind === "sticky");
+    setShown("autoStyleField", kind === "highlight");
+    setShown("autoIntensityField", kind === "highlight");
+    setShown("autoFormatField", kind === "copy");
+    setShown("autoToolbarField", kind !== "none");
+  };
+  byId("autoOnSelect").addEventListener("change", updateAutoFields);
+  updateAutoFields();
+
+  byId("autoAdd").addEventListener("click", () => {
+    void (async () => {
+      const kind = byId<HTMLSelectElement>("autoOnSelect").value as OnSelectKind;
+      const candidate: Record<string, unknown> = {
+        domain: byId<HTMLInputElement>("autoDomain").value.trim(),
+        onSelect: kind,
+        color: byId<HTMLSelectElement>("autoColor").value,
+        style: byId<HTMLSelectElement>("autoStyle").value,
+        intensity: byId<HTMLSelectElement>("autoIntensity").value,
+        copyFormat: byId<HTMLSelectElement>("autoFormat").value,
+        alsoShowToolbar: byId<HTMLInputElement>("autoAlsoToolbar").checked,
+        openSidebar: byId<HTMLInputElement>("autoOpenSidebar").checked,
+        showStickyLauncher: byId<HTMLInputElement>("autoStickyLauncher").checked,
+      };
+      // Coerced through the same normalizer the annotator reads with, so a rule that can't do anything
+      // (no host, or every effect off) is refused here rather than stored to silently never fire.
+      const rule: SiteAutoAction | null = coerceSiteAutoAction(candidate);
+      if (rule === null) {
+        status("A site rule needs a domain and at least one effect.", "error");
+        return;
+      }
+      const existing = await loadPreferences();
+      const withoutDuplicate = existing.autoActions.filter((r) => hostOf(r.domain) !== hostOf(rule.domain));
+      const saved = await savePreferences({ autoActions: [...withoutDuplicate, rule] });
+      renderAutoActions(saved);
+      byId<HTMLInputElement>("autoDomain").value = "";
+      status(`Auto-action for ${rule.domain} saved.`, "ok");
     })();
   });
 

@@ -254,6 +254,79 @@
         <code>https://pubmed.ncbi.nlm.nih.gov/?term=%s</code>.
       </p>
     </section>
+
+    <section class="card">
+      <h2>Per-site auto-actions</h2>
+      <p class="hint">
+        Make a chosen thing happen automatically on a site — no toolbar click. On selection, fire one action
+        (highlight, copy, sticky note, or open the note editor); on page load, bring up the sidebar or the
+        sticky launcher. The most specific domain wins, so <code>docs.example.com</code> can differ from
+        <code>example.com</code>. Reload a page after changing these.
+      </p>
+      <div id="autoActions"></div>
+      <div class="auto-add">
+        <input id="autoDomain" type="text" placeholder="example.com" />
+        <label class="auto-field">
+          <span>On selection</span>
+          <select id="autoOnSelect">
+            <option value="none">Nothing (show the toolbar)</option>
+            <option value="highlight">Highlight it</option>
+            <option value="copy">Copy it</option>
+            <option value="sticky">Make a sticky note</option>
+            <option value="note">Open the note editor</option>
+          </select>
+        </label>
+        <label class="auto-field" id="autoColorField" hidden>
+          <span>Colour</span>
+          <select id="autoColor">
+            <option value="yellow">yellow</option>
+            <option value="red">red</option>
+            <option value="green">green</option>
+            <option value="blue">blue</option>
+            <option value="purple">purple</option>
+            <option value="magenta">magenta</option>
+            <option value="orange">orange</option>
+            <option value="gray">gray</option>
+          </select>
+        </label>
+        <label class="auto-field" id="autoStyleField" hidden>
+          <span>Style</span>
+          <select id="autoStyle">
+            <option value="highlight">highlight</option>
+            <option value="underline">underline</option>
+          </select>
+        </label>
+        <label class="auto-field" id="autoIntensityField" hidden>
+          <span>Transparency</span>
+          <select id="autoIntensity">
+            <option value="light">light</option>
+            <option value="medium">medium</option>
+            <option value="strong">strong</option>
+          </select>
+        </label>
+        <label class="auto-field" id="autoFormatField" hidden>
+          <span>Copy as</span>
+          <select id="autoFormat">
+            <option value="quote">quote</option>
+            <option value="blockquote">blockquote</option>
+            <option value="markdown-link">markdown link</option>
+          </select>
+        </label>
+        <label class="checkline" id="autoToolbarField" hidden>
+          <input id="autoAlsoToolbar" type="checkbox" />
+          <span>…then still show the toolbar</span>
+        </label>
+        <label class="checkline">
+          <input id="autoOpenSidebar" type="checkbox" />
+          <span>On page load: open the highlights sidebar</span>
+        </label>
+        <label class="checkline">
+          <input id="autoStickyLauncher" type="checkbox" />
+          <span>On page load: show the sticky launcher</span>
+        </label>
+        <button id="autoAdd" type="button">Add site rule</button>
+      </div>
+    </section>
     </div>
     <div id="pane-sidebar" class="opt-pane" hidden>
     <section class="card">

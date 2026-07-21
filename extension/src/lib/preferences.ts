@@ -14,6 +14,11 @@ import {
   normalizeSearchTargets,
   type SearchTargets,
 } from "./search-targets";
+import {
+  DEFAULT_SITE_AUTO_ACTIONS,
+  normalizeSiteAutoActions,
+  type SiteAutoAction,
+} from "./auto-actions";
 
 /**
  * Every preference in one place.
@@ -75,6 +80,8 @@ export interface Preferences {
   readonly islandSettings: IslandSettings;
   /** Where the toolbar's Search action can send a selection. See search-targets.ts. */
   readonly searchTargets: SearchTargets;
+  /** Per-site auto-actions — fire a chosen action on selection or page load, by site. See auto-actions.ts. */
+  readonly autoActions: readonly SiteAutoAction[];
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -101,6 +108,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   islandActions: DEFAULT_ISLAND_ACTIONS,
   islandSettings: DEFAULT_ISLAND_SETTINGS,
   searchTargets: DEFAULT_SEARCH_TARGETS,
+  autoActions: DEFAULT_SITE_AUTO_ACTIONS,
 };
 
 const KEY = "preferences";
@@ -179,6 +187,7 @@ export function normalizePreferences(raw: unknown): Preferences {
     islandActions: normalizeIslandActions(value["islandActions"]),
     islandSettings: normalizeIslandSettings(value["islandSettings"]),
     searchTargets: normalizeSearchTargets(value["searchTargets"]),
+    autoActions: normalizeSiteAutoActions(value["autoActions"]),
   };
 }
 

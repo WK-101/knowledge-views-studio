@@ -5,6 +5,46 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 184 — per-site auto-actions (island redesign, part 6)
+
+Companion 0.7.0, extension-only (the plugin is untouched — every effect is client-side, over endpoints that
+already exist). A per-site rule that makes a chosen thing happen automatically, so a research session on one
+site doesn't cost a toolbar click per selection.
+
+It's the capture-rules idea (`DomainRule`) turned on the annotator. The *matching* is the same and reused
+verbatim — by host, most-specific-wins, so a rule for `docs.example.com` beats one for `example.com` without
+either knowing the other exists. But the *effect* is a behaviour, not a capture target, so it lives in its own
+type (`SiteAutoAction` in the new `auto-actions.ts`) rather than overloading `DomainRule`: a capture rule and
+a highlight-on-select rule have nothing to say to each other, and fusing them would force every one to reason
+about the other. Nothing is fixed — every effect is opt-in and independently parameterised, which is the whole
+point of an expert per-site rule.
+
+Two moments a rule can act on, either or both:
+
+  - **on selection** — fire one action the instant text is selected: highlight it (in a set colour, style, and
+    transparency), copy it (in a set format), drop a sticky note seeded from it, or open the note editor —
+    instead of waiting for a toolbar click. Each wires to the annotator function that already does it, so the
+    behaviour is identical to doing it by hand.
+  - **on page load** — bring the tools you use on that site up front: open the highlights sidebar, and/or show
+    the sticky launcher. A site rule is more specific than the global toggles, so it opens these even when
+    they're off globally.
+
+Expert control over the toolbar, as asked: each on-selection rule carries its own **"…then still show the
+toolbar"** toggle, so one site can silently auto-highlight while another auto-highlights *and* raises the
+toolbar to adjust. The sensible default is to hide it — the action already happened. (Sticky and note open
+their own UI, so they never also raise the toolbar.)
+
+The on-selection action fires under exactly the same gate the toolbar uses (non-empty selection, the
+minimum-characters and editable-field rules, and the show/hold-Alt/off trigger), so an auto-action never fires
+where the toolbar itself wouldn't have shown — predictable, not a second set of conditions to reason about.
+
+Settings: a **Per-site auto-actions** card under Highlighting — a domain, the on-selection kind with only its
+relevant parameters shown, the page-load toggles, and Add; the list mirrors the capture-rules list (summary
+plus Remove, edited by re-adding) for consistency. The add form coerces through the very normalizer the
+annotator reads with, so a rule that can't do anything (no host, or every effect off) is refused rather than
+stored to silently never fire. The model, matcher, normalizer, and summary are pure and unit-tested (11 new);
+the annotator wiring and the settings card are browser DOM — unverified until run.
+
 ## Phase 183 — sticky notes (island redesign, part 5)
 
 Plugin 0.179.0, companion 0.6.0 — the first part to touch *both* halves, because a sticky note isn't like the

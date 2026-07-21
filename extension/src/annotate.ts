@@ -35,6 +35,7 @@ import {
   type StickyNote,
 } from "../../shared/sticky";
 import { renderMarkdown } from "./lib/markdown-mini";
+import { matchAutoAction, normalizeSiteAutoActions, type SiteAutoAction } from "./lib/auto-actions";
 
 /**
  * The annotator, on the page.
@@ -122,6 +123,9 @@ let searchTargets: SearchTargets = DEFAULT_SEARCH_TARGETS;
 
 /** Whether the "drop a sticky note" launcher button is shown. Read from preferences on load. */
 let stickyLauncherEnabled = false;
+
+/** The per-site auto-action for this page, if any — resolved once on load from the site rules. */
+let activeAutoAction: SiteAutoAction | null = null;
 
 interface ChoiceStorage {
   local: { get(keys: string[]): Promise<Record<string, unknown>>; set(items: Record<string, unknown>): Promise<void> };
@@ -1137,6 +1141,7 @@ void choiceStorage()
           islandActions?: unknown;
           islandSettings?: unknown;
           searchTargets?: unknown;
+          autoActions?: unknown;
         }
       | undefined;
     sidebarEnabled = prefs?.annotationSidebar === true;
@@ -1144,8 +1149,10 @@ void choiceStorage()
     islandActions = normalizeIslandActions(prefs?.islandActions);
     islandSettings = normalizeIslandSettings(prefs?.islandSettings);
     searchTargets = normalizeSearchTargets(prefs?.searchTargets);
+    activeAutoAction = matchAutoAction(normalizeSiteAutoActions(prefs?.autoActions), location.href);
     if (sidebarEnabled) mountLauncher();
     if (stickyLauncherEnabled) mountStickyLauncher();
+    applyPageLoadAutoActions();
   })
   .catch(() => undefined);
 
@@ -1962,6 +1969,59 @@ function stickyStyles(): string {
   `;
 }
 
+// ------------------------------------------------------------- per-site auto-actions
+//
+// A per-site rule can make a chosen thing happen without a click: fire an action the moment text is
+// selected, and/or bring the sidebar or sticky launcher up when a matching page loads. The matching (by
+// host, most-specific-wins) and the rules live in ./lib/auto-actions; this is the half that acts on them,
+// wiring each effect to the annotator function that already does it.
+
+/** Run the on-selection action for the active site rule, on the current selection. */
+function performAutoSelect(rect: DOMRect, text: string): void {
+  const rule = activeAutoAction;
+  if (rule === null) return;
+  switch (rule.onSelect) {
+    case "highlight":
+      highlightSelection(rule.color ?? "yellow", rule.style ?? "highlight", undefined, rule.intensity ?? "medium");
+      break;
+    case "copy": {
+      const formatted = formatCopy(rule.copyFormat ?? "quote", text, location.href);
+      void navigator.clipboard.writeText(formatted).then(
+        () => toast(`Copied as ${(rule.copyFormat ?? "quote").replace("-", " ")}.`),
+        () => toast("Couldn't copy to the clipboard."),
+      );
+      break;
+    }
+    case "sticky":
+      clearUi();
+      createStickyNote(window.scrollX + rect.left, window.scrollY + rect.bottom + 8, text.trim());
+      // A sticky note opens its own editor; showing the toolbar on top would fight it.
+      return;
+    case "note":
+      showNoteEditor(rect, (note, color, tags) =>
+        highlightSelection(color, rule.style ?? "highlight", note, rule.intensity ?? "medium", tags),
+      );
+      // The note editor is the UI now; don't also raise the toolbar.
+      return;
+    case "none":
+      return;
+  }
+  // For highlight/copy, the expert per-rule choice decides whether the toolbar still appears afterwards.
+  if (rule.alsoShowToolbar === true) showToolbar(rect);
+}
+
+/** Apply the active site rule's page-load effects: open the sidebar and/or show the sticky launcher. */
+function applyPageLoadAutoActions(): void {
+  const rule = activeAutoAction;
+  if (rule === null) return;
+  // A site rule is more specific than the global toggles, so it opens these even when they're off globally.
+  if (rule.openSidebar === true) {
+    mountLauncher();
+    openSidebar();
+  }
+  if (rule.showStickyLauncher === true) mountStickyLauncher();
+}
+
 // ---------------------------------------------------------------------- wire
 
 const marker = "__kvsAnnotatorReady";
@@ -1994,6 +2054,11 @@ if (scope[marker] !== true) {
         return;
       }
       const rect = selection.getRangeAt(0).getBoundingClientRect();
+      // A per-site rule can act on the selection directly instead of raising the toolbar.
+      if (activeAutoAction !== null && activeAutoAction.onSelect !== "none") {
+        performAutoSelect(rect, text);
+        return;
+      }
       showToolbar(rect);
     }, 10);
   });
