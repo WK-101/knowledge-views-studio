@@ -5,6 +5,35 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 180 — the selection toolbar's appearance and behaviour (island redesign, part 2)
+
+Companion 0.3.0. Part 1 made the toolbar's actions configurable; this makes the toolbar itself configurable —
+how it looks, and when it shows. Under Highlighting → Toolbar appearance & behaviour, six independent settings,
+each defaulting to exactly what the toolbar does today, so nothing changes until you change it:
+
+  - **Size** — small, medium, or large. The whole toolbar scales together.
+  - **Colour scheme** — match the page (the default), or pin it always-light or always-dark.
+  - **Show the toolbar** — as soon as you select text (the default), only while you hold Alt, or never. "Never"
+    still paints and lets you click your existing highlights; it just stops the toolbar popping up on a
+    selection, for reading without the interruption.
+  - **Ignore selections shorter than N characters** — so an accidental one- or two-character selection doesn't
+    flash a toolbar. Zero (the default) means any selection.
+  - **Hide the toolbar when the page scrolls** — the toolbar is pinned in place, so it otherwise lingers after
+    the text has scrolled away. Off by default.
+  - **Show the toolbar inside editable fields** — on by default; turn it off to keep the toolbar out of the way
+    when you're selecting text inside a rich-text editor.
+
+Same shape as part 1: one small settings object (island-settings.ts) with a default that matches current
+behaviour and a normalizer that coerces every field — an unknown size, a negative or out-of-range minimum, a
+non-boolean — back to something valid, so a corrupted stored value can never leave the toolbar broken. The
+content script reads it in one place: the colour scheme flows through the one `dark()` the whole toolbar
+already used, the size is a single transform on the bar, and the show/hide rules gate one decision at the
+point a selection would raise the toolbar.
+
+Companion-only — the plugin is unchanged (0.178.0), and none of this needs a plugin endpoint. Reload a page
+after changing these. Next: the new toolbar actions, added one at a time — copy-as-quote, search the
+selection, a sticky note, and the rest.
+
 ## Phase 179 — the selection toolbar becomes configurable (island redesign, part 1)
 
 Companion 0.2.0. The floating toolbar that appears when you select text was a fixed row — the colour swatches,

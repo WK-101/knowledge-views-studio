@@ -4,6 +4,11 @@ import {
   normalizeIslandActions,
   type IslandAction,
 } from "./island-actions";
+import {
+  DEFAULT_ISLAND_SETTINGS,
+  normalizeIslandSettings,
+  type IslandSettings,
+} from "./island-settings";
 
 /**
  * Every preference in one place.
@@ -59,6 +64,8 @@ export interface Preferences {
   readonly tableCapture: boolean;
   /** The selection toolbar's actions — which show, and in what order. See island-actions.ts. */
   readonly islandActions: readonly IslandAction[];
+  /** The selection toolbar's appearance and behaviour. See island-settings.ts. */
+  readonly islandSettings: IslandSettings;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -82,6 +89,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   annotationSidebar: false,
   tableCapture: false,
   islandActions: DEFAULT_ISLAND_ACTIONS,
+  islandSettings: DEFAULT_ISLAND_SETTINGS,
 };
 
 const KEY = "preferences";
@@ -152,6 +160,7 @@ export function normalizePreferences(raw: unknown): Preferences {
     annotationSidebar: value["annotationSidebar"] === true,
     tableCapture: value["tableCapture"] === true,
     islandActions: normalizeIslandActions(value["islandActions"]),
+    islandSettings: normalizeIslandSettings(value["islandSettings"]),
   };
 }
 

@@ -9,6 +9,12 @@ import {
   type IslandAction,
   type IslandActionId,
 } from "./lib/island-actions";
+import {
+  DEFAULT_ISLAND_SETTINGS,
+  ISLAND_SIZE_SCALE,
+  normalizeIslandSettings,
+  type IslandSettings,
+} from "./lib/island-settings";
 
 /**
  * The annotator, on the page.
@@ -88,6 +94,9 @@ let lastChoice: { color: Color; style: Style; intensity: Intensity } = {
 /** Which toolbar actions to show, and in what order. Read from preferences on load; defaults to all on. */
 let islandActions: readonly IslandAction[] = DEFAULT_ISLAND_ACTIONS;
 
+/** The toolbar's appearance and behaviour. Read from preferences on load; defaults to today's behaviour. */
+let islandSettings: IslandSettings = DEFAULT_ISLAND_SETTINGS;
+
 interface ChoiceStorage {
   local: { get(keys: string[]): Promise<Record<string, unknown>>; set(items: Record<string, unknown>): Promise<void> };
 }
@@ -119,7 +128,12 @@ const messenger = (): Messenger | null => {
   return g.browser ?? g.chrome ?? null;
 };
 
-const dark = (): boolean => window.matchMedia("(prefers-color-scheme: dark)").matches;
+const dark = (): boolean =>
+  islandSettings.theme === "dark"
+    ? true
+    : islandSettings.theme === "light"
+      ? false
+      : window.matchMedia("(prefers-color-scheme: dark)").matches;
 
 // ---------------------------------------------------------------- text index
 
@@ -308,6 +322,8 @@ function ensureShell(): ShadowRoot {
       border-radius: ${t.radius};
       box-shadow: ${t.shadow};
       font-size: 12.5px; line-height: 1.4;
+      transform: scale(${ISLAND_SIZE_SCALE[islandSettings.size]});
+      transform-origin: top left;
     }
     .swatch {
       width: 17px; height: 17px;
@@ -376,6 +392,14 @@ function placeNear(el: HTMLElement, rect: DOMRect): void {
   const margin = 8;
   el.style.left = `${String(Math.max(margin, Math.min(rect.left, window.innerWidth - 260)))}px`;
   el.style.top = `${String(Math.min(window.innerHeight - 60, rect.bottom + margin))}px`;
+}
+
+/** True when the selection sits inside a rich-text editable region (a contenteditable host). */
+function selectionInEditable(selection: Selection): boolean {
+  const node = selection.anchorNode;
+  const elt = node instanceof Element ? node : (node?.parentElement ?? null);
+  const host = elt?.closest("[contenteditable]");
+  return host instanceof HTMLElement && host.isContentEditable;
 }
 
 // ----------------------------------------------------------------- behaviour
@@ -873,9 +897,12 @@ let sidebarEnabled = false;
 void choiceStorage()
   ?.local.get(["preferences"])
   .then((stored) => {
-    const prefs = stored["preferences"] as { annotationSidebar?: boolean; islandActions?: unknown } | undefined;
+    const prefs = stored["preferences"] as
+      | { annotationSidebar?: boolean; islandActions?: unknown; islandSettings?: unknown }
+      | undefined;
     sidebarEnabled = prefs?.annotationSidebar === true;
     islandActions = normalizeIslandActions(prefs?.islandActions);
+    islandSettings = normalizeIslandSettings(prefs?.islandSettings);
     if (sidebarEnabled) mountLauncher();
   })
   .catch(() => undefined);
@@ -1220,9 +1247,20 @@ if (scope[marker] !== true) {
     // Clicking a highlight is the click handler's business. The 10ms clear here used to race the menu that
     // click was about to open — menu up, menu gone, reading as a flicker and a broken Remove.
     if (event.target instanceof Element && event.target.closest(`[${HL_ATTR}]`) !== null) return;
+    const altHeld = event.altKey; // captured now — the event is stale inside the timeout below
     window.setTimeout(() => {
       const selection = window.getSelection();
-      if (selection === null || selection.isCollapsed || selection.toString().trim() === "") {
+      const text = selection?.toString().trim() ?? "";
+      // The behaviour settings decide whether this selection earns a toolbar; anything else dismisses it.
+      const show =
+        selection !== null &&
+        !selection.isCollapsed &&
+        text !== "" &&
+        islandSettings.trigger !== "off" &&
+        (islandSettings.trigger !== "hold-alt" || altHeld) &&
+        text.length >= islandSettings.minChars &&
+        (islandSettings.inEditable || !selectionInEditable(selection));
+      if (!show || selection === null) {
         clearUi();
         return;
       }
@@ -1230,6 +1268,16 @@ if (scope[marker] !== true) {
       showToolbar(rect);
     }, 10);
   });
+
+  // The toolbar is pinned in place, so it lingers when the page scrolls out from under it. Dismiss it on
+  // scroll when the person has asked for that; otherwise leave it (the default, and the old behaviour).
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (islandSettings.hideOnScroll) clearUi();
+    },
+    { passive: true },
+  );
 
   document.addEventListener("click", (event) => {
     const target = event.target;

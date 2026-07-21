@@ -178,6 +178,47 @@
       </p>
       <div id="islandActions" class="island-actions"></div>
     </section>
+
+    <section class="card">
+      <h2>Toolbar appearance &amp; behaviour</h2>
+      <p class="hint">How the selection toolbar looks, and when it appears. Reload a page after changing these.</p>
+      <label class="field">
+        <span>Size</span>
+        <select id="islandSize">
+          <option value="small">Small</option>
+          <option value="medium">Medium</option>
+          <option value="large">Large</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Colour scheme</span>
+        <select id="islandTheme">
+          <option value="auto">Match the page</option>
+          <option value="light">Always light</option>
+          <option value="dark">Always dark</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Show the toolbar</span>
+        <select id="islandTrigger">
+          <option value="auto">As soon as I select text</option>
+          <option value="hold-alt">Only while I hold Alt</option>
+          <option value="off">Never (leave existing highlights alone)</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Ignore selections shorter than</span>
+        <input id="islandMinChars" type="number" min="0" max="100" step="1" /> <span class="suffix">characters</span>
+      </label>
+      <label class="checkline">
+        <input id="islandHideOnScroll" type="checkbox" />
+        <span>Hide the toolbar when the page scrolls</span>
+      </label>
+      <label class="checkline">
+        <input id="islandInEditable" type="checkbox" />
+        <span>Show the toolbar when I select inside an editable field (a rich-text editor)</span>
+      </label>
+    </section>
     </div>
     <div id="pane-sidebar" class="opt-pane" hidden>
     <section class="card">

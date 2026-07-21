@@ -11,6 +11,7 @@ import {
 import { parsePairingInput } from "../../shared/protocol";
 import { loadPreferences, savePreferences, type Preferences } from "./lib/preferences";
 import { ISLAND_ACTIONS } from "./lib/island-actions";
+import type { IslandSettings, IslandSize, IslandTheme, IslandTrigger } from "./lib/island-settings";
 import { hasPageAccess, requestPageAccess, registerAnnotator, unregisterAnnotator, injectAnnotatorIntoOpenTabs, registerTableCapture, unregisterTableCapture, injectTableCaptureIntoOpenTabs } from "./lib/page-access";
 import { pluginIsCurrent, outdatedPluginMessage } from "./lib/version";
 import { zoteroStatus, zoteroCollections } from "./lib/zotero-client";
@@ -433,6 +434,25 @@ async function wirePreferences(): Promise<void> {
   drawRules(prefs);
   renderIslandActions(prefs);
 
+  // Appearance & behaviour of the selection toolbar. Every control writes the whole islandSettings object,
+  // read back from the six inputs, so there's no partial-update bookkeeping — the form is the source.
+  byId<HTMLSelectElement>("islandSize").value = prefs.islandSettings.size;
+  byId<HTMLSelectElement>("islandTheme").value = prefs.islandSettings.theme;
+  byId<HTMLSelectElement>("islandTrigger").value = prefs.islandSettings.trigger;
+  byId<HTMLInputElement>("islandMinChars").value = String(prefs.islandSettings.minChars);
+  byId<HTMLInputElement>("islandHideOnScroll").checked = prefs.islandSettings.hideOnScroll;
+  byId<HTMLInputElement>("islandInEditable").checked = prefs.islandSettings.inEditable;
+
+  const readIslandSettings = (): IslandSettings => ({
+    size: byId<HTMLSelectElement>("islandSize").value as IslandSize,
+    theme: byId<HTMLSelectElement>("islandTheme").value as IslandTheme,
+    trigger: byId<HTMLSelectElement>("islandTrigger").value as IslandTrigger,
+    // Coerced here and re-validated in normalizeIslandSettings, so a blank or out-of-range box can't stick.
+    minChars: Math.max(0, Math.min(100, parseInt(byId<HTMLInputElement>("islandMinChars").value, 10) || 0)),
+    hideOnScroll: byId<HTMLInputElement>("islandHideOnScroll").checked,
+    inEditable: byId<HTMLInputElement>("islandInEditable").checked,
+  });
+
   const bind = (id: string, read: () => Partial<Preferences>, event = "change"): void => {
     byId(id).addEventListener(event, () => {
       void savePreferences(read()).then(() => status("Saved.", "ok"));
@@ -452,6 +472,9 @@ async function wirePreferences(): Promise<void> {
     const value = byId<HTMLSelectElement>("searchMode").value;
     return { searchMode: value === "meaning" || value === "ask" ? value : "keyword" };
   });
+  for (const id of ["islandSize", "islandTheme", "islandTrigger", "islandMinChars", "islandHideOnScroll", "islandInEditable"]) {
+    bind(id, () => ({ islandSettings: readIslandSettings() }));
+  }
 
   byId("ruleAdd").addEventListener("click", () => {
     void (async () => {
