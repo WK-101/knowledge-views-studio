@@ -5,6 +5,31 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 165 — Zotero at the table, and three revisions from use
+
+**Zotero integration.** A new settings tab turns it on; nothing new is asked of the person, because the
+extension already holds the local-machine permission the bridge uses. Two protocols, each used for what
+Zotero maintains it for: the *connector protocol* (what Zotero's own browser extension speaks) for saving,
+and Zotero 7's *local read API* for searching. With it on: search shows an "In your Zotero" group after the
+vault's results — items, links, DOIs, and the text of notes and annotations, each opening in Zotero itself —
+appended after the vault answers so a slow or absent Zotero never delays what the vault already found. And
+the status card gains **Send to Zotero**: the page's metadata (title, url, DOI when the page declares one,
+excerpt as the abstract) saved as a webpage item into the collection chosen in settings, via the same
+two-step session the official connector uses. When a Zotero version refuses the collection move, the save
+still stands and the message says where the item actually went, rather than claiming placement that didn't
+happen. Saving works on older Zoteros; searching needs 7+; the settings pane probes and says which you have.
+
+**Three revisions from use.** *Add as row* and *Add as page* are now the same size — "row first" is one
+workflow, not a hierarchy the buttons should editorialise. *The status card redraws after a save* — it
+answers "what's here?", so a saved row or note must update it, or the card lies about the state it just
+helped change. *Use selection appends* instead of replacing — selecting more text is adding to what's
+there, and silently discarding what someone already typed loses work.
+
+1317 → 1327 tests: Zotero item reading (ordinary items, annotations-as-excerpts, html-stripped notes,
+attachments and empties dropped), collection ordering with depth, the webpage item shape (DOI into extra,
+absent fields omitted rather than empty), session ids, select links, and the new preferences surviving
+normalization.
+
 ## Phase 164 — the version gate that called every version old
 
 Updating both halves to 0.163 produced: *"Your vault is running an older version… this companion needs

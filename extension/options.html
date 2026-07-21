@@ -17,6 +17,7 @@
       <button class="opt-tab" data-pane="captures" type="button">Captures</button>
       <button class="opt-tab" data-pane="highlight" type="button">Highlighting</button>
       <button class="opt-tab" data-pane="sidebar" type="button">Sidebar</button>
+      <button class="opt-tab" data-pane="zotero" type="button">Zotero</button>
       <button class="opt-tab" data-pane="more" type="button">More</button>
     </nav>
 
@@ -163,6 +164,28 @@
         </ul>
         <p>The sidebar stays open while you browse: your views, row editing, and search without switching windows.</p>
       </div>
+    </section>
+    </div>
+    <div id="pane-zotero" class="opt-pane" hidden>
+    <section class="card">
+      <h2>Zotero</h2>
+      <label class="checkline">
+        <input id="zoteroOn" type="checkbox" />
+        <span>Use the Zotero running on this computer</span>
+      </label>
+      <p class="hint">
+        With this on, search also looks inside your Zotero library — items, links, DOIs, notes, and
+        annotations — and pages can be sent straight to Zotero, into the collection you choose below. This
+        talks only to the Zotero on this machine; nothing goes anywhere else.
+      </p>
+      <p id="zoteroStatus" class="hint"></p>
+      <label class="field">
+        <span>Save into</span>
+        <select id="zoteroCollection"><option value="">— Zotero's currently selected collection —</option></select>
+      </label>
+      <p class="hint">
+        Searching needs Zotero 7 or newer; saving works with older versions too. Zotero must be running.
+      </p>
     </section>
     </div>
     <div id="pane-more" class="opt-pane" hidden>

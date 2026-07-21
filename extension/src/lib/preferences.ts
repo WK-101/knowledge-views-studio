@@ -36,6 +36,10 @@ export interface Preferences {
   readonly annotations: boolean;
   /** The view highlights land in. Empty = decided per site (rule, then default, then last used). */
   readonly annotationViewId: string;
+  /** Whether the local Zotero is consulted (search) and offered as a destination (save). */
+  readonly zotero: boolean;
+  /** The Zotero collection saves go into. Empty = wherever Zotero's own selection sits. */
+  readonly zoteroCollectionKey: string;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -52,6 +56,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   serpMarks: false,
   annotations: false,
   annotationViewId: "",
+  zotero: false,
+  zoteroCollectionKey: "",
 };
 
 const KEY = "preferences";
@@ -99,6 +105,8 @@ export function normalizePreferences(raw: unknown): Preferences {
     serpMarks: value["serpMarks"] === true,
     annotations: value["annotations"] === true,
     annotationViewId: typeof value["annotationViewId"] === "string" ? value["annotationViewId"] : "",
+    zotero: value["zotero"] === true,
+    zoteroCollectionKey: typeof value["zoteroCollectionKey"] === "string" ? value["zoteroCollectionKey"] : "",
   };
 }
 

@@ -336,3 +336,5 @@ body.options { max-width: 640px; }
 .status-actions a.mini { text-decoration: none; }
 .status-add { margin-top: 2px; }
 .mini.danger { color: #c0392b; border-color: rgba(192, 57, 43, 0.4); }
+
+.zotero-head { margin: 10px 0 4px; font-weight: 600; }

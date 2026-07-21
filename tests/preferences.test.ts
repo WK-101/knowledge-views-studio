@@ -61,3 +61,12 @@ describe("preferences · the annotation view", () => {
     expect(normalizePreferences({ annotationViewId: 7 }).annotationViewId).toBe("");
   });
 })
+
+describe("preferences · zotero", () => {
+  it("keeps the toggle and collection, defaulting off and unplaced", () => {
+    expect(normalizePreferences({}).zotero).toBe(false);
+    expect(normalizePreferences({ zotero: true }).zotero).toBe(true);
+    expect(normalizePreferences({ zoteroCollectionKey: "ABCD" }).zoteroCollectionKey).toBe("ABCD");
+    expect(normalizePreferences({ zoteroCollectionKey: 7 }).zoteroCollectionKey).toBe("");
+  });
+})

@@ -1,6 +1,7 @@
 import type { SearchHit, SearchMode } from "../../../shared/protocol";
 import { BridgeError, loadConnection, obsidianLink, search } from "./bridge-client";
 import { loadPreferences } from "./preferences";
+import { zoteroSearch, zoteroSelectLink, type ZoteroHit } from "./zotero-client";
 
 /**
  * Searching the vault from the browser.
@@ -102,6 +103,19 @@ export function mountSearch(elements: Elements): void {
       if (ticket !== inFlight) return;
       render(response.hits);
       setStatus(response.hits.length === 0 ? "Nothing found." : `${String(response.hits.length)} result(s)`);
+
+      // Zotero, when it's on: appended as its own group after the vault answers, so a slow or absent
+      // Zotero never delays what the vault already found.
+      const prefs = await loadPreferences();
+      if (prefs.zotero) {
+        try {
+          const zotero = await zoteroSearch(query);
+          if (ticket !== inFlight) return;
+          renderZotero(zotero);
+        } catch {
+          // Zotero not running is a normal state, not an error worth interrupting a search for.
+        }
+      }
     } catch (error) {
       if (ticket !== inFlight) return;
       results.replaceChildren();
@@ -112,6 +126,24 @@ export function mountSearch(elements: Elements): void {
             ? error.message
             : "Couldn't search your vault.";
       setStatus(message, "error");
+    }
+  };
+
+  const renderZotero = (hits: readonly ZoteroHit[]): void => {
+    if (hits.length === 0) return;
+    results.appendChild(node("div", { class: "hint zotero-head" }, `In your Zotero — ${String(hits.length)}`));
+    for (const hit of hits) {
+      const item = node("div", { class: "result" });
+      const head = node("div", { class: "result-head" });
+      head.appendChild(node("span", { class: "badge" }, hit.itemType === "annotation" ? "highlight" : hit.itemType));
+      head.appendChild(node("a", { href: zoteroSelectLink(hit.key) }, hit.title));
+      item.appendChild(head);
+      const where = hit.doi !== undefined ? `DOI: ${hit.doi}` : (hit.url ?? "");
+      if (where !== "") item.appendChild(node("div", { class: "hint" }, where));
+      if (hit.excerpt !== undefined && hit.excerpt !== hit.title) {
+        item.appendChild(node("p", { class: "snippet" }, hit.excerpt));
+      }
+      results.appendChild(item);
     }
   };
 

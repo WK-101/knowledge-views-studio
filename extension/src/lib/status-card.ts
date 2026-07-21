@@ -1,4 +1,6 @@
 import type { LookupResponse, SchemaResponse } from "../../../shared/protocol";
+import { loadPreferences } from "./preferences";
+import { zoteroSave, type ZoteroSaveItem } from "./zotero-client";
 import {
   annotationsClear,
   annotationsFor,
@@ -69,6 +71,7 @@ export async function mountStatusCard(
   vaultName: string,
   schema: SchemaResponse,
   actions: StatusActions,
+  page?: ZoteroSaveItem,
 ): Promise<void> {
   host.replaceChildren();
   const card = el("div", { class: "status-card" });
@@ -204,12 +207,35 @@ export async function mountStatusCard(
 
   // ---- Adding -------------------------------------------------------------
 
+  // Send to Zotero, when the integration is on: the same page metadata a capture would use, saved through
+  // the connector protocol into the chosen collection — one button, like Zotero's own extension.
+  const prefs = await loadPreferences();
+  if (prefs.zotero && page !== undefined && page.url !== "") {
+    const wrap = el("div", { class: "status-actions" });
+    const send = el("button", { class: "mini", type: "button" }, "Send to Zotero");
+    send.addEventListener("click", () => {
+      send.disabled = true;
+      void (async () => {
+        const outcome = await zoteroSave(page, prefs.zoteroCollectionKey || undefined);
+        if (!outcome.ok) actions.setStatus(outcome.reason ?? "Zotero refused the save.", "error");
+        else if (prefs.zoteroCollectionKey !== "" && outcome.placed !== true) {
+          actions.setStatus("Saved to Zotero — but it refused the collection move, so the item is wherever Zotero's own selection sits.", "info");
+        } else actions.setStatus("Saved to Zotero.", "ok");
+        send.disabled = false;
+      })();
+    });
+    wrap.appendChild(send);
+    card.appendChild(wrap);
+  }
+
   const writable = schema.views.some((v) => v.capture.writable);
   if (writable && (found.matches.length === 0 || !hasAnything)) {
     const add = el("div", { class: "status-actions status-add" });
+    // Two equal choices, equally weighted. "Row first" is one workflow, not a hierarchy the buttons
+    // should editorialise.
     const asRow = el("button", { class: "primary", type: "button" }, "Add as row");
     asRow.addEventListener("click", () => actions.onAdd("row"));
-    const asPage = el("button", { type: "button" }, "Add as page");
+    const asPage = el("button", { class: "primary", type: "button" }, "Add as page");
     asPage.addEventListener("click", () => actions.onAdd("note"));
     add.append(asRow, asPage);
     card.appendChild(add);

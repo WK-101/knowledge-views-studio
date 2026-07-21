@@ -74,6 +74,9 @@ let selectionText = "";
 export type SurfaceMode = "popup" | "sidebar";
 let mode: SurfaceMode = "popup";
 let prefs: Preferences | null = null;
+/** Redraws the status card; set once the card exists. The card answers "what's here?", so anything that
+ * changes what's here — a saved row, a saved note — must call this or the card lies about the new state. */
+let refreshStatusCard: (() => void) | null = null;
 
 /** Ask the active tab for its page snapshot. */
 async function readPage(): Promise<PageSnapshot> {
@@ -137,7 +140,11 @@ function renderForm(view: SchemaView, prefill: Record<string, string>, unmatched
         row.appendChild(input);
         const use = el("button", { class: "mini", type: "button", title: "Use the text you selected" }, "Use selection");
         use.addEventListener("click", () => {
-          (input as HTMLInputElement | HTMLTextAreaElement).value = selectionText;
+          // Appended, not replaced: selecting more text is adding to what's here, and silently discarding
+          // what someone already typed or selected earlier loses work.
+          const field = input as HTMLInputElement | HTMLTextAreaElement;
+          const existing = field.value.trim();
+          field.value = existing === "" ? selectionText : `${existing}\n${selectionText}`;
         });
         row.appendChild(use);
         field.appendChild(row);
@@ -361,16 +368,30 @@ async function start(): Promise<void> {
     }
   };
   const drawCard = (): void => {
-    void mountStatusCard(cardHost, snapshot?.url ?? "", schema?.vault ?? "", schema as SchemaResponse, {
-      onAdd: revealAdd,
-      onEdit: () => {
-        (document.querySelector('[data-tab="edit"]') as HTMLElement | null)?.click();
+    const doi = fields.find((f) => f.key.trim().toLowerCase() === "doi")?.value ?? "";
+    void mountStatusCard(
+      cardHost,
+      snapshot?.url ?? "",
+      schema?.vault ?? "",
+      schema as SchemaResponse,
+      {
+        onAdd: revealAdd,
+        onEdit: () => {
+          (document.querySelector('[data-tab="edit"]') as HTMLElement | null)?.click();
+        },
+        refresh: drawCard,
+        setStatus: (message, kind) => show(message, kind),
       },
-      refresh: drawCard,
-      setStatus: (message, kind) => show(message, kind),
-    });
+      {
+        title: snapshot?.title ?? "",
+        url: snapshot?.url ?? "",
+        ...(doi !== "" ? { doi } : {}),
+        ...(snapshot?.excerpt !== undefined && snapshot.excerpt !== "" ? { abstract: snapshot.excerpt } : {}),
+      },
+    );
   };
   drawCard();
+  refreshStatusCard = drawCard;
 
   // "Create its note" buttons on the card promote through the bridge; delegated, since the card redraws.
   cardHost.addEventListener("click", (event) => {
@@ -419,6 +440,7 @@ async function start(): Promise<void> {
         host: noteHost,
         view: () => current,
         setStatus: (message, kind) => show(message, kind),
+        onSaved: () => refreshStatusCard?.(),
       });
       // Jump straight there only when the view is meant for notes; otherwise it's an option, not the plan.
       if (prefersNote) (noteTab as HTMLElement | null)?.click();
@@ -517,12 +539,14 @@ async function submit(): Promise<void> {
     if (result.warning !== undefined) {
       show(result.warning, "error");
       button.disabled = false;
+      refreshStatusCard?.();
       return;
     }
     const notes: string[] = ["Saved"];
     if (result.createdTable === true) notes.push("(created the table)");
     if (result.duplicate !== undefined) notes.push(`· also matched an existing row on ${result.duplicate.on}`);
     show(notes.join(" "), "ok");
+    refreshStatusCard?.();
     if (mode === "popup") window.setTimeout(() => window.close(), 1200);
   } catch (error) {
     if (error instanceof BridgeError && error.offline) {

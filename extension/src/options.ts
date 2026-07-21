@@ -12,6 +12,7 @@ import { parsePairingInput } from "../../shared/protocol";
 import { loadPreferences, savePreferences, type Preferences } from "./lib/preferences";
 import { hasPageAccess, requestPageAccess, registerAnnotator, unregisterAnnotator } from "./lib/page-access";
 import { pluginIsCurrent, outdatedPluginMessage } from "./lib/version";
+import { zoteroStatus, zoteroCollections } from "./lib/zotero-client";
 import { isUsableRule, type DomainRule } from "../../shared/rules";
 import type { SchemaView } from "../../shared/protocol";
 import {
@@ -351,6 +352,66 @@ function wirePanes(): void {
  * where your browser hides it. So the checkbox requests the permission (from the click, before any await —
  * the gesture rule), and success reveals the where-to-find-it instructions.
  */
+/** The Zotero pane: a toggle, an honest status line, and the collection saves land in. */
+function wireZotero(): void {
+  const box = byId<HTMLInputElement>("zoteroOn");
+  const statusLine = byId("zoteroStatus");
+  const picker = byId<HTMLSelectElement>("zoteroCollection");
+
+  const probe = async (): Promise<void> => {
+    statusLine.textContent = "Looking for Zotero…";
+    const found = await zoteroStatus();
+    if (!found.running) {
+      statusLine.textContent = "Zotero isn't reachable. Start it, then reopen this page.";
+      return;
+    }
+    statusLine.textContent = found.searchable
+      ? "Zotero found — saving and searching both available."
+      : "Zotero found — saving works; searching needs Zotero 7 or newer.";
+    if (found.searchable) {
+      const collections = await zoteroCollections();
+      const keep = picker.value;
+      picker.replaceChildren();
+      const blank = document.createElement("option");
+      blank.value = "";
+      blank.textContent = "— Zotero's currently selected collection —";
+      picker.appendChild(blank);
+      for (const c of collections) {
+        const option = document.createElement("option");
+        option.value = c.key;
+        option.textContent = `${"\u2003".repeat(c.depth)}${c.name}`;
+        picker.appendChild(option);
+      }
+      picker.value = keep;
+      void loadPreferences().then((prefs) => {
+        picker.value = prefs.zoteroCollectionKey;
+      });
+    }
+  };
+
+  void loadPreferences().then((prefs) => {
+    box.checked = prefs.zotero;
+    if (prefs.zotero) void probe();
+  });
+
+  box.addEventListener("change", () => {
+    void (async () => {
+      await savePreferences({ zotero: box.checked });
+      if (box.checked) {
+        await probe();
+        status("Zotero integration is on.", "ok");
+      } else {
+        statusLine.textContent = "";
+        status("Zotero integration is off.", "info");
+      }
+    })();
+  });
+
+  picker.addEventListener("change", () => {
+    void savePreferences({ zoteroCollectionKey: picker.value }).then(() => status("Saved.", "ok"));
+  });
+}
+
 function wireSidebarSetup(): void {
   const box = byId<HTMLInputElement>("sidebarSetup");
   const steps = byId("sidebarSteps");
@@ -384,6 +445,7 @@ function wireSidebarSetup(): void {
 document.addEventListener("DOMContentLoaded", () => {
   wirePanes();
   wireSidebarSetup();
+  wireZotero();
   void locate();
   void refresh();
   void wirePreferences();

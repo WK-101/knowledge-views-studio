@@ -23,6 +23,8 @@ interface Elements {
   readonly host: HTMLElement;
   readonly view: () => SchemaView | null;
   readonly setStatus: (message: string, kind?: "info" | "error" | "ok") => void;
+  /** Called after a note lands in the vault, so the status card can stop saying the page isn't there. */
+  readonly onSaved?: () => void;
 }
 
 type BodyChoice = "article" | "selection" | "none";
@@ -155,6 +157,7 @@ export function mountNote(page: PageSnapshot, elements: Elements): void {
           return;
         }
         setStatus(`Saved to ${result.path ?? "your vault"}`, "ok");
+        elements.onSaved?.();
       } catch (error) {
         if (error instanceof BridgeError && error.offline) {
           await queueCapture(request);
