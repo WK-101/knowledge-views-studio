@@ -80,13 +80,19 @@ export function readWireAnnotation(raw: unknown, url: string): StoredAnnotation 
  * cell doesn't contain the line and shouldn't be rewritten at all.
  */
 export function cellWithoutAnnotation(cell: string, annotation: StoredAnnotation): string | null {
-  // Either form the writer might have used — plain or bulleted — so removal finds the line whichever the
-  // person had switched on when they made the highlight.
-  const plain = annotationCellText(annotation, false);
-  const bulleted = annotationCellText(annotation, true);
+  // Every form the writer might have used — bulleted or not, with or without the note, with or without
+  // tags — so removal finds the line whatever the write-back settings were when the highlight was made.
+  const forms = new Set<string>();
+  for (const bullet of [false, true]) {
+    for (const note of [false, true]) {
+      for (const tags of [false, true]) {
+        forms.add(annotationCellText(annotation, { bullet, note, tags }));
+      }
+    }
+  }
   const parts = cell.split("<br>").map((part) => part.trim());
-  if (!parts.includes(plain) && !parts.includes(bulleted)) return null;
-  const kept = parts.filter((part) => part !== plain && part !== bulleted && part !== "");
+  if (![...forms].some((form) => parts.includes(form))) return null;
+  const kept = parts.filter((part) => part !== "" && !forms.has(part));
   return kept.join("<br>");
 }
 
@@ -98,24 +104,36 @@ export function cellWithoutAnnotation(cell: string, annotation: StoredAnnotation
  * the block and shouldn't be rewritten at all.
  */
 export function noteWithoutAnnotation(content: string, annotation: StoredAnnotation): string | null {
-  const block = annotationNoteBlock(annotation);
+  // Every block form the writer might have used, longest first: the with-tags block contains the
+  // without-tags block as a prefix, so a shorter form must never be matched ahead of a longer one, or the
+  // removal would carve our text out of the middle of a larger block.
+  const forms = new Set<string>();
+  for (const note of [false, true]) {
+    for (const tags of [false, true]) {
+      forms.add(annotationNoteBlock(annotation, { note, tags }));
+    }
+  }
+  const ordered = [...forms].sort((a, b) => b.length - a.length);
   // Matched on line boundaries, never as a substring: the block is a prefix of any hand-extended version
   // of itself, and a substring match would carve our text out of the middle of theirs — mangling exactly
   // the edit this function exists to protect.
-  let from = 0;
-  while (true) {
-    const at = content.indexOf(block, from);
-    if (at < 0) return null;
-    const startsLine = at === 0 || content[at - 1] === "\n";
-    const afterEnd = content.slice(at + block.length, at + block.length + 2);
-    const endsLine = afterEnd === "" || afterEnd.startsWith("\n") || afterEnd.startsWith("\r\n");
-    if (startsLine && endsLine) {
-      const before = content.slice(0, at);
-      // The block leaves with one of its surrounding blank lines, so removals don't accumulate gaps —
-      // and don't erase the gap that belongs to the neighbour either.
-      const after = content.slice(at + block.length).replace(/^(\r?\n){1,2}/, "");
-      return before + after;
+  for (const block of ordered) {
+    let from = 0;
+    while (true) {
+      const at = content.indexOf(block, from);
+      if (at < 0) break;
+      const startsLine = at === 0 || content[at - 1] === "\n";
+      const afterEnd = content.slice(at + block.length, at + block.length + 2);
+      const endsLine = afterEnd === "" || afterEnd.startsWith("\n") || afterEnd.startsWith("\r\n");
+      if (startsLine && endsLine) {
+        const before = content.slice(0, at);
+        // The block leaves with one of its surrounding blank lines, so removals don't accumulate gaps —
+        // and don't erase the gap that belongs to the neighbour either.
+        const after = content.slice(at + block.length).replace(/^(\r?\n){1,2}/, "");
+        return before + after;
+      }
+      from = at + 1;
     }
-    from = at + 1;
   }
+  return null;
 }

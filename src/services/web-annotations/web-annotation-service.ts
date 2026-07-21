@@ -141,16 +141,37 @@ export class WebAnnotationService {
     matchKey: string,
     matchValue: string,
     annotation: StoredAnnotation,
+    opts?: { note?: boolean; tags?: boolean; tagsToProperty?: boolean },
   ): Promise<boolean> {
     const note = findDedicatedNote(this.deps.app, matchKey, matchValue);
     if (note === null || !(note instanceof TFile)) return false;
     const existing = await this.deps.app.vault.read(note);
-    const result = appendToNote(existing, annotationNoteBlock(annotation), {
+    const result = appendToNote(existing, annotationNoteBlock(annotation, { note: opts?.note !== false, tags: opts?.tags !== false }), {
       heading: "Annotations",
       createHeading: true,
     });
     if (!result.ok) return false;
     await this.deps.app.vault.modify(note, result.content);
+    // Obsidian-native tags: fold this highlight's tags into the note's frontmatter `tags` property, so
+    // Obsidian tags the whole note. Additive by design — a tag once added stays the note's tag even if the
+    // highlight is later removed, because pruning a shared frontmatter field would risk erasing tags the
+    // person added by hand. The sidecar save runs after this, so the current annotation's tags are merged
+    // in explicitly rather than read back.
+    if (opts?.tagsToProperty === true && (annotation.tags ?? []).length > 0) {
+      await this.mergeFrontmatterTags(note, annotation.tags ?? []);
+    }
     return true;
+  }
+
+  /** Add tags to a note's frontmatter `tags` property without disturbing any already there. */
+  private async mergeFrontmatterTags(note: TFile, tags: readonly string[]): Promise<void> {
+    const add = tags.map((t) => t.replace(/\s+/g, "-").replace(/^#+/, ""));
+    await this.deps.app.fileManager.processFrontMatter(note, (fm: Record<string, unknown>) => {
+      const raw = fm["tags"];
+      const existing = Array.isArray(raw) ? raw.map(String) : typeof raw === "string" && raw !== "" ? [raw] : [];
+      const merged = new Set(existing.map((t) => t.replace(/^#+/, "")));
+      for (const t of add) merged.add(t);
+      fm["tags"] = [...merged];
+    });
   }
 }

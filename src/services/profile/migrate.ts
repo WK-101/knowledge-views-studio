@@ -9,6 +9,8 @@ import {
 import {
   DEFAULT_DATA,
   DEFAULT_SETTINGS,
+  DEFAULT_ANNOTATION_WRITEBACK,
+  type AnnotationWriteback,
   SCHEMA_VERSION,
   createProfile,
   type GlobalSettings,
@@ -194,6 +196,18 @@ function normalizeBridge(raw: unknown): GlobalSettings["bridge"] {
   };
 }
 
+function normalizeWriteback(raw: unknown): AnnotationWriteback {
+  const d = DEFAULT_ANNOTATION_WRITEBACK;
+  if (!isRecord(raw)) return d;
+  return {
+    noteToCell: asBool(raw.noteToCell, d.noteToCell),
+    noteToNote: asBool(raw.noteToNote, d.noteToNote),
+    tagsToCell: asBool(raw.tagsToCell, d.tagsToCell),
+    tagsToNoteInline: asBool(raw.tagsToNoteInline, d.tagsToNoteInline),
+    tagsToNoteProperty: asBool(raw.tagsToNoteProperty, d.tagsToNoteProperty),
+  };
+}
+
 function normalizeSettings(raw: unknown): GlobalSettings {
   if (!isRecord(raw)) return DEFAULT_SETTINGS;
   return {
@@ -231,6 +245,7 @@ function normalizeSettings(raw: unknown): GlobalSettings {
     literatureNotesFolder: asString(raw.literatureNotesFolder, DEFAULT_SETTINGS.literatureNotesFolder),
     literatureNoteTemplate: asString(raw.literatureNoteTemplate, DEFAULT_SETTINGS.literatureNoteTemplate),
     onboardingSeen: asBool(raw.onboardingSeen, DEFAULT_SETTINGS.onboardingSeen),
+    annotationWriteback: normalizeWriteback(raw.annotationWriteback),
     seenHints: Array.isArray(raw.seenHints) ? raw.seenHints.filter((h): h is string => typeof h === "string") : [],
     enableRowCopy: asBool(raw.enableRowCopy, DEFAULT_SETTINGS.enableRowCopy),
     copyLinkHandling:

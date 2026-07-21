@@ -5,6 +5,48 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 174 — where notes and tags go, and the leak that hid them
+
+A highlight's note and tags were being saved. They just weren't all coming back.
+
+The report was that only the highlighted text showed up in the vault — no notes, no tags. The note was in
+fact written into the row cell and the dedicated note all along, and tags into the dedicated note as
+hashtags. What went wrong was on the *return* trip. When a page is revisited, the extension asks the plugin
+for that page's annotations and repaints them; the endpoint that answers was building each highlight from
+only its id, anchor, colour, timestamp, and note. It silently dropped `style`, `tags`, and `intensity`. So a
+revisited page repainted every underline as a highlight, reset every transparency to medium, and showed no
+tags — even though the sidecar on disk had all of it. One line of serialization was the whole leak, and it's
+now closed: style, tags, and intensity round-trip like everything else.
+
+With the round trip fixed, the second half of the request is about control: notes and tags shouldn't be
+forced into one fixed place. Write-back is now configured — notes and tags **separately**, each with its own
+destinations and its defaults already chosen — under Settings → the browser-bridge section → "Highlight
+write-back":
+
+  - **Notes** can go in the row cell, in the page's dedicated note, or both. Both, by default.
+  - **Tags** can go in the row cell as `#hashtags`, in the dedicated note as an inline `#hashtag` line, and/or
+    into the dedicated note's frontmatter `tags` property. The inline note line is on by default; the cell is
+    off (a table stays lean); the property is off until asked for.
+
+Every tag form is a real Obsidian tag — inline `#hashtags` and the frontmatter `tags` property are exactly
+what Obsidian's own tag index reads — so "unified with Obsidian" isn't a coat of paint: the vault treats
+these as tags, findable in tag search and the tag pane. The quote itself is always written; only the note and
+tags are optional, because the quote is the one part with nothing to fall back on.
+
+Two design decisions worth recording. First, removal had to be taught every shape the writer might have
+produced. A highlight written with tags-in-the-cell, then removed after the setting was turned off, still has
+to delete cleanly — so removal now reconstructs and matches all note/tag/bullet combinations rather than the
+single form it once assumed, longest first so a with-tags block is never mistaken for its own without-tags
+prefix and carved out of the middle of someone's writing. Second, the frontmatter `tags` property is
+**additive**: folding a highlight's tags into a note's properties is easy to do safely, but *pruning* a shared
+frontmatter field on a single removal would risk erasing tags the person added by hand, so a tag placed there
+stays the note's tag. That is the honest trade, stated rather than hidden.
+
+This round is plugin-only. The formatters and the write-back live entirely in the plugin; the extension
+already sent tags and transparency correctly and already knows how to paint what the fixed endpoint now
+returns, so the companion is unchanged. Update the plugin and revisit a page: the underlines, the
+transparency, and the tags come back.
+
 ## Phase 173 — one design language, and highlights that carry tags and transparency
 
 Two things had drifted, and they turned out to be the same thing.

@@ -1005,6 +1005,44 @@ export class KnowledgeViewsSettingTab extends PluginSettingTab {
       el.createDiv({ cls: "kvs-bridge-log", text: "Nothing yet." });
     }
 
+    // Where a highlight's note and tags land in the vault — notes and tags chosen separately, defaults
+    // pre-selected. Top-level settings (not bridge-scoped), so the patch differs from the bridge patch above.
+    new Setting(el).setName("Highlight write-back").setHeading();
+    el.createDiv({
+      cls: "kvs-setting-note",
+      text: "When you highlight on the web, its note and tags are written into the vault. Choose where each goes — the quote itself is always written. Tags are saved as Obsidian #hashtags (or the frontmatter property), so Obsidian treats them as tags.",
+    });
+    const wb = (): GlobalSettings["annotationWriteback"] => store.getSettings().annotationWriteback;
+    const patchWb = (p: Partial<GlobalSettings["annotationWriteback"]>): void => {
+      store.updateSettings({ annotationWriteback: { ...store.getSettings().annotationWriteback, ...p } });
+    };
+
+    new Setting(el).setName("Notes").setDesc("Where the note you type on a highlight is written.").setHeading();
+    new Setting(el)
+      .setName("Note in the row")
+      .setDesc("Append the note after the quote in the view's row cell.")
+      .addToggle((t) => t.setValue(wb().noteToCell).onChange((v) => patchWb({ noteToCell: v })));
+    new Setting(el)
+      .setName("Note in the page's note")
+      .setDesc("Write the note under the quote in the page's dedicated note, when it has one.")
+      .addToggle((t) => t.setValue(wb().noteToNote).onChange((v) => patchWb({ noteToNote: v })));
+
+    new Setting(el).setName("Tags").setDesc("Where the tags you add to a highlight are written.").setHeading();
+    new Setting(el)
+      .setName("Tags in the row")
+      .setDesc("Append the tags as #hashtags in the view's row cell. Off by default — keeps tables lean.")
+      .addToggle((t) => t.setValue(wb().tagsToCell).onChange((v) => patchWb({ tagsToCell: v })));
+    new Setting(el)
+      .setName("Tags in the page's note")
+      .setDesc("Write the tags as an inline #hashtag line under the quote in the dedicated note.")
+      .addToggle((t) => t.setValue(wb().tagsToNoteInline).onChange((v) => patchWb({ tagsToNoteInline: v })));
+    new Setting(el)
+      .setName("Tags as a note property")
+      .setDesc(
+        "Also fold the tags into the dedicated note's frontmatter tags property, tagging the whole note. Additive: removing a highlight later won't strip a tag already added here.",
+      )
+      .addToggle((t) => t.setValue(wb().tagsToNoteProperty).onChange((v) => patchWb({ tagsToNoteProperty: v })));
+
     const endpoints = bridge?.endpoints() ?? [];
     if (endpoints.length > 0) {
       const listed = endpoints.map((e) => `${e.method} ${e.path} (${e.permission})`).join(" · ");

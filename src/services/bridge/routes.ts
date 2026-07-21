@@ -81,7 +81,20 @@ export interface BridgeContext {
     remove(url: string, id: string): Promise<StoredAnnotation | null>;
     removeAll(url: string): Promise<number>;
     removeFromDedicatedNote?(url: string, annotation: StoredAnnotation): Promise<boolean>;
-    appendToDedicatedNote(matchKey: string, matchValue: string, annotation: StoredAnnotation): Promise<boolean>;
+    appendToDedicatedNote(
+      matchKey: string,
+      matchValue: string,
+      annotation: StoredAnnotation,
+      opts?: { note?: boolean; tags?: boolean; tagsToProperty?: boolean },
+    ): Promise<boolean>;
+  };
+  /** Where highlight notes and tags are written back (notes and tags configured separately). */
+  readonly annotationWriteback?: () => {
+    noteToCell: boolean;
+    noteToNote: boolean;
+    tagsToCell: boolean;
+    tagsToNoteInline: boolean;
+    tagsToNoteProperty: boolean;
   };
   /** Create or find a row's dedicated note. Absent when promotion isn't available. */
   readonly promote?: (
@@ -749,14 +762,29 @@ export function annotateRoute(): Route<BridgeContext> {
         target = rowForUrl(rows, columns, url, declaredUrlCol);
       }
 
+      // Where notes and tags go is a per-vault choice; default keeps notes in both places and tags in the
+      // dedicated note as Obsidian hashtags.
+      const wb = context.annotationWriteback?.() ?? {
+        noteToCell: true,
+        noteToNote: true,
+        tagsToCell: false,
+        tagsToNoteInline: true,
+        tagsToNoteProperty: false,
+      };
+
       // The row copy: appended through the same guarded path as any other edit.
       let wroteCell = false;
-      if (target !== null && context.editCells !== undefined) {
+      if (target !== null && context.editCells !== undefined && (wb.noteToCell || wb.tagsToCell)) {
         const column = annotationColumn(columns, declaredAnnCol);
         if (column !== null) {
+          const cellText = annotationCellText(annotation, {
+            bullet: body.bullet === true,
+            note: wb.noteToCell,
+            tags: wb.tagsToCell,
+          });
           const { allowed } = editableChanges(
             target,
-            [{ key: column, value: annotationCellText(annotation, body.bullet === true), mode: "append" }],
+            [{ key: column, value: cellText, mode: "append" }],
             columns,
           );
           if (allowed.length > 0) {
@@ -771,13 +799,17 @@ export function annotateRoute(): Route<BridgeContext> {
 
       // The note copy, when the page has a dedicated note.
       let wroteNote = false;
-      if (target !== null) {
+      if (target !== null && (wb.noteToNote || wb.tagsToNoteInline || wb.tagsToNoteProperty)) {
         const matchKey = dedicatedNoteKeyFor(profile);
         const cells: Record<string, string> = {};
         for (const column of columns) cells[column.name] = getField(target, column.name);
         const matchValue = identityCell(cells, matchKey);
         if (matchValue !== "") {
-          wroteNote = await context.webAnnotations.appendToDedicatedNote(matchKey, matchValue, annotation);
+          wroteNote = await context.webAnnotations.appendToDedicatedNote(matchKey, matchValue, annotation, {
+            note: wb.noteToNote,
+            tags: wb.tagsToNoteInline,
+            tagsToProperty: wb.tagsToNoteProperty,
+          });
         }
       }
 
@@ -817,7 +849,13 @@ export function annotationsRoute(): Route<BridgeContext> {
           anchor: a.anchor,
           color: a.color,
           createdAt: a.createdAt,
+          // style, tags, and intensity round-trip too — without them a revisited page repainted every
+          // highlight as a plain medium highlight, losing underlines, transparency, and tags even though
+          // the sidecar had them. This serialization was the leak.
+          style: a.style,
           ...(a.note !== undefined ? { note: a.note } : {}),
+          ...(a.tags !== undefined && a.tags.length > 0 ? { tags: a.tags } : {}),
+          ...(a.intensity !== undefined ? { intensity: a.intensity } : {}),
         })),
       };
       return { status: 200, body: response };

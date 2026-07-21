@@ -289,6 +289,8 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
         },
         capture: captureService,
         onCaptured: (path) => dataService.invalidate(path),
+        // Notes and tags write-back destinations, read live so a settings change takes effect at once.
+        annotationWriteback: () => store.getSettings().annotationWriteback,
         // Reuses the same writer the app itself edits through, so a change from the browser goes down
         // exactly the path an in-app edit does — including its undo history.
         editCells: async (edits) => {
@@ -307,8 +309,12 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
             removeAll: (url: string) => service.removeAll(url),
             removeFromDedicatedNote: (url: string, annotation: StoredAnnotation) =>
               service.removeFromDedicatedNote(url, annotation),
-            appendToDedicatedNote: (matchKey: string, matchValue: string, annotation: StoredAnnotation) =>
-              service.appendToDedicatedNote(matchKey, matchValue, annotation),
+            appendToDedicatedNote: (
+              matchKey: string,
+              matchValue: string,
+              annotation: StoredAnnotation,
+              opts?: { note?: boolean; tags?: boolean; tagsToProperty?: boolean },
+            ) => service.appendToDedicatedNote(matchKey, matchValue, annotation, opts),
           };
         })(),
         // Deletion through the same writer as every other edit — snapshot first, so it shares undo.

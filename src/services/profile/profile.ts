@@ -136,6 +136,33 @@ export interface Layout {
 export type RowHeight = "compact" | "normal" | "comfortable";
 export type TableWidth = "fit" | "wide";
 
+/**
+ * Where a web highlight's note and tags are written back into the vault. Notes and tags are configured
+ * separately, each with its own destinations, so a table can stay lean while the dedicated note carries the
+ * full write-up — or the reverse. Tags are always written as Obsidian #hashtags (or the frontmatter `tags`
+ * property), so Obsidian's own tag index treats them as tags.
+ */
+export interface AnnotationWriteback {
+  /** Note text in the row's cell, after the quote. */
+  readonly noteToCell: boolean;
+  /** Note text in the page's dedicated note, under the quote. */
+  readonly noteToNote: boolean;
+  /** Tags as inline #hashtags in the row's cell. */
+  readonly tagsToCell: boolean;
+  /** Tags as an inline #hashtag line in the dedicated note's body. */
+  readonly tagsToNoteInline: boolean;
+  /** Tags in the dedicated note's frontmatter `tags:` property — the most Obsidian-native form. */
+  readonly tagsToNoteProperty: boolean;
+}
+
+export const DEFAULT_ANNOTATION_WRITEBACK: AnnotationWriteback = {
+  noteToCell: true,
+  noteToNote: true,
+  tagsToCell: false,
+  tagsToNoteInline: true,
+  tagsToNoteProperty: false,
+};
+
 export interface GlobalSettings {
   /** Live re-render of open views when their source notes change. */
   readonly autoRefresh: boolean;
@@ -228,6 +255,8 @@ export interface GlobalSettings {
   readonly literatureNoteTemplate: string;
   /** Whether the first-run welcome has been shown (so it appears only once). */
   readonly onboardingSeen: boolean;
+  /** Where highlight notes and tags are written back into the vault (notes and tags configured separately). */
+  readonly annotationWriteback: AnnotationWriteback;
   /** Ids of one-time contextual hints the user has dismissed. */
   readonly seenHints: readonly string[];
 
@@ -286,6 +315,7 @@ export const DEFAULT_SETTINGS: GlobalSettings = {
   literatureNotesFolder: "Literature",
   literatureNoteTemplate: "",
   onboardingSeen: false,
+  annotationWriteback: DEFAULT_ANNOTATION_WRITEBACK,
   seenHints: [],
   enableRowCopy: false,
   copyLinkHandling: "keep",

@@ -191,3 +191,47 @@ describe("annotation model · tags", () => {
     expect(block).toContain("#deep-work #focus");
   });
 });
+
+describe("write-back · configurable note and tag destinations", () => {
+  const withTags: StoredAnnotation = {
+    id: "t1", url: "u", anchor: { exact: "quoted words" }, color: "yellow", style: "highlight",
+    createdAt: "2026-01-01T00:00:00Z", note: "my thought", tags: ["deep work", "focus"],
+  };
+
+  it("cell: note on, tags on — hashtags follow the note, spaces hyphenated", () => {
+    expect(annotationCellText(withTags, { note: true, tags: true })).toBe(
+      "==quoted words== — my thought #deep-work #focus",
+    );
+  });
+
+  it("cell: note off, tags on — just quote and hashtags", () => {
+    expect(annotationCellText(withTags, { note: false, tags: true })).toBe("==quoted words== #deep-work #focus");
+  });
+
+  it("cell: tags off (default) matches the old plain form", () => {
+    expect(annotationCellText(withTags)).toBe("==quoted words== — my thought");
+    expect(annotationCellText(withTags, true)).toBe("- ==quoted words== — my thought"); // boolean = bullet, still works
+  });
+
+  it("note block: tags can be omitted while the note stays", () => {
+    const block = annotationNoteBlock(withTags, { tags: false });
+    expect(block).toContain("my thought");
+    expect(block).not.toContain("#deep-work");
+  });
+
+  it("removal finds the cell line whichever destinations were on when it was written", () => {
+    // Written with tags in the cell; settings later changed. Removal must still strip it.
+    const line = annotationCellText(withTags, { note: true, tags: true });
+    const cell = `first row<br>${line}<br>third row`;
+    expect(cellWithoutAnnotation(cell, withTags)).toBe("first row<br>third row");
+  });
+
+  it("removal strips a with-tags note block without carving its no-tags prefix out of the middle", () => {
+    const block = annotationNoteBlock(withTags, { note: true, tags: true });
+    const content = `## Annotations\n\n${block}\n\n> a note someone kept\n`;
+    const cleaned = noteWithoutAnnotation(content, withTags);
+    expect(cleaned).not.toBeNull();
+    expect(cleaned).not.toContain("#deep-work");
+    expect(cleaned).toContain("a note someone kept");
+  });
+});

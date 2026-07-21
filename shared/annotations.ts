@@ -134,14 +134,37 @@ function oneLine(text: string): string {
  * anchor context or the colour — a table full of machine bookkeeping would make the view unusable, and the
  * sidecar already remembers those.
  */
-export function annotationCellText(annotation: StoredAnnotation, bullet = false): string {
+export interface CellTextOptions {
+  /** Prefix each highlight as a list item. Off by default. */
+  readonly bullet?: boolean;
+  /** Include the note after the quote. On by default. */
+  readonly note?: boolean;
+  /** Append the tags as Obsidian #hashtags. Off by default — a table stays readable without them. */
+  readonly tags?: boolean;
+}
+
+/** Tags rendered as Obsidian hashtags, spaces folded to hyphens so each is a single valid tag. */
+function tagHashtags(annotation: StoredAnnotation): string {
+  return (annotation.tags ?? []).map((t) => `#${t.replace(/\s+/g, "-")}`).join(" ");
+}
+
+/**
+ * The annotation as it joins the row's cell.
+ *
+ * Readable at a glance in any table: the quote marked as a highlight, the note after a dash, and — only when
+ * asked — the tags as hashtags. Never the anchor context, colour, or transparency; the sidecar remembers
+ * those, and a table full of machine bookkeeping would be unusable. The second argument accepts a bare
+ * boolean for backward compatibility, read as `{ bullet }`.
+ */
+export function annotationCellText(annotation: StoredAnnotation, opts: CellTextOptions | boolean = {}): string {
+  const o: CellTextOptions = typeof opts === "boolean" ? { bullet: opts } : opts;
   const quote = oneLine(annotation.anchor.exact);
-  const note = oneLine(annotation.note ?? "");
-  const body = note === "" ? `==${quote}==` : `==${quote}== — ${note}`;
-  // A bullet prefix for those who want each highlight to read as a list item. Off by default: a plain line
-  // is the safer thing to write into an arbitrary table cell, and bullets inside a markdown table cell
-  // render less predictably than in a note.
-  return bullet ? `- ${body}` : body;
+  const note = o.note === false ? "" : oneLine(annotation.note ?? "");
+  const tags = o.tags === true ? tagHashtags(annotation) : "";
+  let body = `==${quote}==`;
+  if (note !== "") body += ` — ${note}`;
+  if (tags !== "") body += ` ${tags}`;
+  return o.bullet === true ? `- ${body}` : body;
 }
 
 /**
@@ -150,10 +173,17 @@ export function annotationCellText(annotation: StoredAnnotation, bullet = false)
  * A blockquote for the highlight, the note beneath it as a nested line — the shape a literature note would
  * use anyway, so promoted notes read as written rather than as imported.
  */
-export function annotationNoteBlock(annotation: StoredAnnotation): string {
+export interface NoteBlockOptions {
+  /** Include the note under the quote. On by default. */
+  readonly note?: boolean;
+  /** Include the tags as an inline #hashtag line. On by default. */
+  readonly tags?: boolean;
+}
+
+export function annotationNoteBlock(annotation: StoredAnnotation, opts: NoteBlockOptions = {}): string {
   const quote = annotation.anchor.exact.trim().split(/\r?\n/).map((line) => `> ${line}`).join("\n");
-  const note = (annotation.note ?? "").trim();
-  const tagList = (annotation.tags ?? []).map((t) => `#${t.replace(/\s+/g, "-")}`).join(" ");
+  const note = opts.note === false ? "" : (annotation.note ?? "").trim();
+  const tagList = opts.tags === false ? "" : tagHashtags(annotation);
   const base = note === "" ? quote : `${quote}\n>\n> — ${note}`;
   // Tags on their own line under the quote, as Obsidian hashtags, so the vault's own tag index finds them.
   return tagList === "" ? base : `${base}\n>\n> ${tagList}`;
