@@ -5,6 +5,26 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 172 — capture a table without opening the popup
+
+Companion-side; the plugin is unchanged, so updating it is optional this round.
+
+**Hover a data table on any page and capture it in place.** A data table — a comparison, a bibliography, a
+leaderboard — is already a set of rows, but every clipper flattens it into one note because a note is all it
+can make. Turn this on in settings and a small action appears at the corner of tables that look like data:
+**Capture** sends their rows straight into a view (resolved the usual way — a site rule, then your default,
+then the last view used, then the first writable one), and **Copy** puts the whole table on the clipboard as
+Markdown. Neither opens the popup. The rows go in as rows, in one write, keyed by the table's own headers.
+
+It's deliberately quiet: the action shows only on hover, only on tables that genuinely look like data (a
+header, real columns, filled rows — layout tables are ignored), and lives in a closed shadow root so no page
+can restyle it and it can't leak out. Off by default and, like the highlighter, it asks for page permission
+when you switch it on; when it's off, the script does nothing at all. The Markdown conversion escapes pipes,
+flattens in-cell newlines, and squares every row to the header width, so a pasted table stays intact.
+
+1361 tests (was 1355): the table-to-Markdown conversion — header and divider, pipe escaping, newline
+flattening, ragged-row padding and trimming, empty input — and the table-capture preference defaulting off.
+
 ## Phase 171 — the popup size preference actually works, and a denser, calmer UI
 
 Companion-side again; the plugin is unchanged, so updating it is optional this round.

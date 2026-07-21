@@ -50,6 +50,8 @@ export interface Preferences {
   readonly annotationBullets: boolean;
   /** Show the in-page highlights sidebar (a floating, draggable panel listing the page's highlights). */
   readonly annotationSidebar: boolean;
+  /** Offer a hover action on data tables to capture their rows or copy them, without opening the popup. */
+  readonly tableCapture: boolean;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -71,6 +73,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   viewColumns: {},
   annotationBullets: false,
   annotationSidebar: false,
+  tableCapture: false,
 };
 
 const KEY = "preferences";
@@ -139,6 +142,7 @@ export function normalizePreferences(raw: unknown): Preferences {
     viewColumns: normalizeViewColumns(value["viewColumns"]),
     annotationBullets: value["annotationBullets"] === true,
     annotationSidebar: value["annotationSidebar"] === true,
+    tableCapture: value["tableCapture"] === true,
   };
 }
 

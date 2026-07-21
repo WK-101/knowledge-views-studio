@@ -107,3 +107,11 @@ describe("preferences · in-page sidebar", () => {
     expect(normalizePreferences({ annotationSidebar: 1 }).annotationSidebar).toBe(false);
   });
 })
+
+describe("preferences · on-page table capture", () => {
+  it("keeps the toggle, defaulting off (needs page access, like the annotator)", () => {
+    expect(normalizePreferences({}).tableCapture).toBe(false);
+    expect(normalizePreferences({ tableCapture: true }).tableCapture).toBe(true);
+    expect(normalizePreferences({ tableCapture: "on" }).tableCapture).toBe(false);
+  });
+})

@@ -10,7 +10,7 @@ import {
 } from "./lib/bridge-client";
 import { parsePairingInput } from "../../shared/protocol";
 import { loadPreferences, savePreferences, type Preferences } from "./lib/preferences";
-import { hasPageAccess, requestPageAccess, registerAnnotator, unregisterAnnotator, injectAnnotatorIntoOpenTabs } from "./lib/page-access";
+import { hasPageAccess, requestPageAccess, registerAnnotator, unregisterAnnotator, injectAnnotatorIntoOpenTabs, registerTableCapture, unregisterTableCapture, injectTableCaptureIntoOpenTabs } from "./lib/page-access";
 import { pluginIsCurrent, outdatedPluginMessage } from "./lib/version";
 import { zoteroStatus, zoteroCollections } from "./lib/zotero-client";
 import { isUsableRule, type DomainRule } from "../../shared/rules";
@@ -345,6 +345,7 @@ async function wirePreferences(): Promise<void> {
   byId<HTMLInputElement>("alwaysTags").value = prefs.alwaysTags;
   byId<HTMLSelectElement>("searchMode").value = prefs.searchMode;
   byId<HTMLInputElement>("annotations").checked = prefs.annotations;
+  byId<HTMLInputElement>("tableCapture").checked = prefs.tableCapture;
   byId<HTMLSelectElement>("annotationView").value = prefs.annotationViewId;
   byId<HTMLInputElement>("annotationBullets").checked = prefs.annotationBullets;
   byId<HTMLInputElement>("annotationSidebar").checked = prefs.annotationSidebar;
@@ -587,6 +588,34 @@ document.addEventListener("DOMContentLoaded", () => {
       // Reach tabs already open, so highlights on the page you're looking at appear without a reload.
       await injectAnnotatorIntoOpenTabs();
       status("Select text on any page to highlight it. Existing pages will show their highlights now.", "ok");
+    })();
+  });
+
+  byId("tableCapture").addEventListener("change", () => {
+    const box = byId<HTMLInputElement>("tableCapture");
+
+    if (!box.checked) {
+      void (async () => {
+        await savePreferences({ tableCapture: false });
+        await unregisterTableCapture();
+        status("The on-page table capture action is off.", "info");
+      })();
+      return;
+    }
+
+    // Same gesture rule as the other page-access features: request before the first await.
+    const pending = requestPageAccess();
+    void (async () => {
+      const granted = (await pending) || (await hasPageAccess());
+      if (!granted) {
+        box.checked = false;
+        status("The table capture action needs permission to read pages; nothing was changed.", "error");
+        return;
+      }
+      await savePreferences({ tableCapture: true });
+      await registerTableCapture();
+      await injectTableCaptureIntoOpenTabs();
+      status("Hover a data table on any page to capture or copy it.", "ok");
     })();
   });
 

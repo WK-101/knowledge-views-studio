@@ -79,7 +79,7 @@ function tabs(): TabsApi | null {
  * the browser started — never received the script, and its saved highlights never repainted. This reaches
  * those tabs once; the content script's own idempotency marker keeps a second injection harmless.
  */
-export async function injectAnnotatorIntoOpenTabs(): Promise<void> {
+async function injectFileIntoOpenTabs(file: string): Promise<void> {
   const scriptApi = scripting();
   const tabApi = tabs();
   if (scriptApi?.executeScript === undefined || tabApi === null) return;
@@ -88,7 +88,7 @@ export async function injectAnnotatorIntoOpenTabs(): Promise<void> {
     for (const tab of open) {
       if (tab.id === undefined) continue;
       try {
-        await scriptApi.executeScript({ target: { tabId: tab.id }, files: ["annotate.js"] });
+        await scriptApi.executeScript({ target: { tabId: tab.id }, files: [file] });
       } catch {
         // Some tabs refuse injection (a page that navigated away, a restricted URL); skip and continue.
       }
@@ -96,6 +96,37 @@ export async function injectAnnotatorIntoOpenTabs(): Promise<void> {
   } catch {
     // No tabs permission or none open — nothing to do.
   }
+}
+
+export async function injectAnnotatorIntoOpenTabs(): Promise<void> {
+  await injectFileIntoOpenTabs("annotate.js");
+}
+
+const TABLE_CAPTURE_ID = "kvs-table-capture";
+
+/** Register the table-capture content script for future navigations. */
+export async function registerTableCapture(): Promise<void> {
+  const api = scripting();
+  if (api?.registerContentScripts === undefined) return;
+  try {
+    const existing = (await api.getRegisteredContentScripts?.({ ids: [TABLE_CAPTURE_ID] })) ?? [];
+    if (existing.length > 0) return;
+    await api.registerContentScripts([
+      { id: TABLE_CAPTURE_ID, matches: ["http://*/*", "https://*/*"], js: ["table-capture.js"], runAt: "document_idle" },
+    ]);
+  } catch {
+    // Without the permission, registration fails and the feature simply stays off.
+  }
+}
+
+export async function unregisterTableCapture(): Promise<void> {
+  const api = scripting();
+  await api?.unregisterContentScripts?.({ ids: [TABLE_CAPTURE_ID] });
+}
+
+/** Reach tabs already open so their tables get the action without a reload. */
+export async function injectTableCaptureIntoOpenTabs(): Promise<void> {
+  await injectFileIntoOpenTabs("table-capture.js");
 }
 
 function scripting(): ScriptingApi | null {

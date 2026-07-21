@@ -19,7 +19,7 @@ rmSync(outdir, { recursive: true, force: true });
 mkdirSync(outdir, { recursive: true });
 
 await esbuild.build({
-  entryPoints: [from("src/popup.ts"), from("src/options.ts"), from("src/background.ts"), from("src/content.ts"), from("src/serp.ts"), from("src/sidebar.ts"), from("src/annotate.ts")],
+  entryPoints: [from("src/popup.ts"), from("src/options.ts"), from("src/background.ts"), from("src/content.ts"), from("src/serp.ts"), from("src/sidebar.ts"), from("src/annotate.ts"), from("src/table-capture.ts")],
   bundle: true,
   format: "iife",
   target: "es2020",

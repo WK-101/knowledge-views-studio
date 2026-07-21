@@ -2,7 +2,7 @@ import { next, retryDelayMs } from "../../shared/queue";
 import { BridgeError, annotate, annotateRemove, annotationsFor, capture, fetchSchema, known, loadConnection, lookup } from "./lib/bridge-client";
 import { loadPreferences } from "./lib/preferences";
 import { matchRule } from "../../shared/rules";
-import { hasPageAccess, registerAnnotator, injectAnnotatorIntoOpenTabs } from "./lib/page-access";
+import { hasPageAccess, registerAnnotator, injectAnnotatorIntoOpenTabs, registerTableCapture, injectTableCaptureIntoOpenTabs } from "./lib/page-access";
 import { forget, statusKey } from "./lib/answer-cache";
 import { api } from "./lib/bridge-client";
 import { dropFromQueue, pruneQueue, readQueue, recordFailure } from "./lib/queue-store";
@@ -273,6 +273,31 @@ runtimeMessaging?.onMessage.addListener((message, _sender, sendResponse) => {
  * writable view. Decided here, once, so the content script never has to know views exist. The same order
  * a capture uses, because an annotation IS a capture that happens to start from a selection.
  */
+/**
+ * Which view a direct capture (a hovered table) should land in.
+ *
+ * Like the annotation resolver but without the explicit annotation-view override, which is about
+ * highlights, not rows: a site rule wins, then the default view, then the last one used, then the first
+ * writable one. Null means nothing can receive it — the caller says so rather than failing silently.
+ */
+async function viewForCapture(url: string): Promise<{ id: string; name: string } | null> {
+  const prefs = await loadPreferences();
+  const rule = matchRule(prefs.rules, url);
+  const connection = await loadConnection();
+  if (connection.token === null) return null;
+  try {
+    const schema = await fetchSchema(connection);
+    const writable = schema.views.filter((v) => v.capture.writable);
+    const wantedId = [rule?.viewId, prefs.defaultViewId, prefs.rememberLastView ? prefs.lastViewId : ""]
+      .filter((id): id is string => typeof id === "string" && id !== "")
+      .find((id) => writable.some((v) => v.id === id));
+    const chosen = writable.find((v) => v.id === wantedId) ?? writable[0];
+    return chosen !== undefined ? { id: chosen.id, name: chosen.name } : null;
+  } catch {
+    return null;
+  }
+}
+
 async function viewForAnnotation(url: string): Promise<string | null> {
   const prefs = await loadPreferences();
   const rule = matchRule(prefs.rules, url);
@@ -292,6 +317,49 @@ async function viewForAnnotation(url: string): Promise<string | null> {
     return null;
   }
 }
+
+runtimeMessaging?.onMessage.addListener((message, _sender, sendResponse) => {
+  const request = message as { type?: string; url?: unknown; headers?: unknown; rows?: unknown } | null;
+  if (request?.type !== "kvs-capture-table") return false;
+  void (async () => {
+    try {
+      const url = typeof request.url === "string" ? request.url : "";
+      const headers = Array.isArray(request.headers) ? (request.headers as string[]) : [];
+      const rawRows = Array.isArray(request.rows) ? (request.rows as string[][]) : [];
+      if (headers.length === 0 || rawRows.length === 0) {
+        sendResponse({ ok: false, reason: "That table had nothing to capture." });
+        return;
+      }
+      const target = await viewForCapture(url);
+      if (target === null) {
+        sendResponse({ ok: false, reason: "No view is set to receive captures — open the extension and pick a default view." });
+        return;
+      }
+      // Each row becomes a field set keyed by the table's own headers, blank headers dropped.
+      const rows = rawRows.map((cells) =>
+        headers
+          .map((key, i) => ({ key: key.trim(), value: (cells[i] ?? "").trim() }))
+          .filter((f) => f.key !== ""),
+      );
+      const connection = await loadConnection();
+      const result = await capture(connection, {
+        viewId: target.id,
+        fields: [],
+        rows,
+        ...(url !== "" ? { url } : {}),
+      });
+      if (result.ok) {
+        sendResponse({ ok: true, written: result.written ?? rows.length, viewName: target.name });
+      } else {
+        sendResponse({ ok: false, reason: result.reason ?? "Couldn't capture that table." });
+      }
+    } catch (error) {
+      const reason = error instanceof BridgeError ? error.message : "Couldn't reach your vault.";
+      sendResponse({ ok: false, reason });
+    }
+  })();
+  return true;
+});
 
 runtimeMessaging?.onMessage.addListener((message, _sender, sendResponse) => {
   const request = message as { type?: string; url?: unknown; annotation?: unknown; fields?: unknown; id?: unknown } | null;
@@ -378,6 +446,11 @@ void (async () => {
       // Tabs restored from the last session predate this run's registration; inject so their highlights
       // repaint without a manual reload.
       await injectAnnotatorIntoOpenTabs();
+    }
+    // The table-capture action needs page access too; register it when on (the default) and access exists.
+    if (prefs.tableCapture && (await hasPageAccess())) {
+      await registerTableCapture();
+      await injectTableCaptureIntoOpenTabs();
     }
   } catch {
     // Same: off until enabled again.
