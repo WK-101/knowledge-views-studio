@@ -104,7 +104,12 @@ async function call<T>(connection: Connection, path: string, init: RequestInit =
   }
 
   if (!response.ok) {
-    const message = (body as { error?: string }).error ?? `Request failed (${String(response.status)}).`;
+    // A 404 from a paired vault means the endpoint doesn't exist there — i.e. the plugin predates this
+    // companion. "Not found" reads as a bug; the truthful sentence is "update the plugin".
+    const message =
+      response.status === 404
+        ? "Your vault's plugin doesn't have this feature yet — update Knowledge Views Studio in Obsidian, then reload it."
+        : ((body as { error?: string }).error ?? `Request failed (${String(response.status)}).`);
     throw new BridgeError(message, false, response.status);
   }
   return body as T;

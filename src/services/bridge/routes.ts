@@ -54,6 +54,8 @@ import { identityCell } from "../notes/promotion-plan";
 
 export interface BridgeContext {
   readonly vaultName: string;
+  /** The plugin's manifest version, reported so an out-of-date vault names itself. */
+  readonly pluginVersion?: string;
   readonly settings: () => BridgeSettings;
   readonly listProfiles: () => readonly Profile[];
   /** Rows and resolved columns for a view — the same pair the in-app capture command uses. */
@@ -135,7 +137,12 @@ export function schemaRoute(): Route<BridgeContext> {
                 : { writable: false, shape: target.shape, reason: "Writing through the bridge is turned off." },
         });
       }
-      const body: SchemaResponse = { vault: context.vaultName, protocol: BRIDGE_PROTOCOL, views };
+      const body: SchemaResponse = {
+        vault: context.vaultName,
+        protocol: BRIDGE_PROTOCOL,
+        ...(context.pluginVersion !== undefined ? { pluginVersion: context.pluginVersion } : {}),
+        views,
+      };
       return { status: 200, body };
     },
   };
@@ -384,8 +391,12 @@ export function pingRoute(): Route<BridgeContext> {
     method: "GET",
     path: "/ping",
     permission: "public",
-    handler: () => {
-      const body: PingResponse = { kvs: true, protocol: BRIDGE_PROTOCOL };
+    handler: (_request, context) => {
+      const body: PingResponse = {
+        kvs: true,
+        protocol: BRIDGE_PROTOCOL,
+        ...(context.pluginVersion !== undefined ? { pluginVersion: context.pluginVersion } : {}),
+      };
       return { status: 200, body };
     },
   };

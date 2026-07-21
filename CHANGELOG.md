@@ -5,6 +5,34 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 162 — the two halves now check they match
+
+The three "still broken" reports had one cause, and it wasn't in any of the features: the vault was running
+an old plugin while the companion called endpoints that only exist in new ones. The newest *release* of the
+plugin is 0.140.0 — before the whole capture model, promotion, and every annotation endpoint — and the two
+halves ship separately with nothing anywhere comparing them. Every 404 surfaced as its symptom: highlights
+"vanishing" (the save endpoint didn't exist), captures following years-old rules, three sessions of
+plugin-side fixes that never ran. The diagnosis shipped in 0.161 couldn't help either — it was itself
+plugin-side.
+
+**The vault now names its version** in ping and schema responses, and the companion refuses to proceed
+quietly when it's older than required: the popup, sidebar, and settings all state the version they found,
+the version they need, and that until the plugin is updated, captures and highlights will misbehave in
+confusing ways. A missing version reads as too old, because plugins that predate reporting are precisely
+the old ones.
+
+**A 404 from a paired vault now says "update the plugin"** instead of "not found" — from a paired vault it
+means exactly that, and "not found" reads as a bug in the wrong half.
+
+**And the build is now delivered installable.** The repository zips exclude `main.js` (a build artifact),
+which silently meant no way to actually run what was built without a release or a local build. A
+`kvs-plugin-install` zip now ships alongside: manifest, build, and styles, ready to drop into the vault's
+plugin folder.
+
+1304 → 1309 tests: the version comparison — required and newer accepted, older rejected, missing and
+unreadable read as too old (the case that actually happened), numeric not textual ordering, and the message
+naming what it found.
+
 ## Phase 161 — the vanishing explained, and captures that say where they went
 
 Four reports from real use, and the pattern across all four is the same lesson: features were behaving

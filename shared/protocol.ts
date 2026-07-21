@@ -25,6 +25,7 @@ export interface SchemaView {
 export interface SchemaResponse {
   readonly vault: string;
   readonly protocol: number;
+  readonly pluginVersion?: string;
   readonly views: readonly SchemaView[];
 }
 
@@ -149,6 +150,8 @@ export interface SearchResponse {
 export interface PingResponse {
   readonly kvs: true;
   readonly protocol: number;
+  /** The plugin's own version, so a companion can tell when the vault side is older than it is. */
+  readonly pluginVersion?: string;
 }
 
 /** Ports the companion looks on. The first is the default; the rest cover a clash with something else. */

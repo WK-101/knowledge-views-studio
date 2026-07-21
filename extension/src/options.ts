@@ -11,6 +11,7 @@ import {
 import { parsePairingInput } from "../../shared/protocol";
 import { loadPreferences, savePreferences, type Preferences } from "./lib/preferences";
 import { hasPageAccess, requestPageAccess, registerAnnotator, unregisterAnnotator } from "./lib/page-access";
+import { pluginIsCurrent, outdatedPluginMessage } from "./lib/version";
 import { isUsableRule, type DomainRule } from "../../shared/rules";
 import type { SchemaView } from "../../shared/protocol";
 import {
@@ -153,6 +154,10 @@ async function loadViews(): Promise<void> {
       return;
     }
     const schema = await fetchSchema(connection);
+    if (!pluginIsCurrent(schema.pluginVersion)) {
+      note.textContent = outdatedPluginMessage(schema.pluginVersion);
+      return;
+    }
     views = schema.views;
     const writable = views.filter((v) => v.capture.writable).length;
     // The counts are the diagnosis: "5 views, 0 can receive captures" says in one line what a bare view

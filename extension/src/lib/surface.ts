@@ -10,6 +10,7 @@ import { mountDashboard } from "./dashboard-panel";
 import { loadPreferences, savePreferences, type Preferences } from "./preferences";
 import { matchRule, mergeTags } from "../../../shared/rules";
 import { hasPageAccess, requestPageAccess } from "./page-access";
+import { pluginIsCurrent, outdatedPluginMessage } from "./version";
 import { queueCapture } from "./queue-store";
 
 /**
@@ -253,6 +254,14 @@ async function start(): Promise<void> {
   } catch (error) {
     const message = error instanceof BridgeError ? error.message : "Couldn't reach your vault.";
     show(message, "error");
+    return;
+  }
+
+  // The mismatch that cost three sessions: extension and plugin ship separately, and an old plugin makes
+  // every new endpoint 404 — highlights vanish, captures follow old rules, and nothing says why. Now the
+  // vault names its version and an out-of-date one is called out before anything else can confuse.
+  if (!pluginIsCurrent(schema.pluginVersion)) {
+    show(outdatedPluginMessage(schema.pluginVersion), "error");
     return;
   }
 
