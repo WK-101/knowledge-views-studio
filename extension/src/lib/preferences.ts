@@ -48,6 +48,8 @@ export interface Preferences {
   readonly viewColumns: Readonly<Record<string, { urlColumn?: string; annotationColumn?: string }>>;
   /** Write each highlight in the row cell as a bullet-point line rather than a plain line. */
   readonly annotationBullets: boolean;
+  /** Show the in-page highlights sidebar (a floating, draggable panel listing the page's highlights). */
+  readonly annotationSidebar: boolean;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -68,6 +70,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   zoteroCollectionKey: "",
   viewColumns: {},
   annotationBullets: false,
+  annotationSidebar: false,
 };
 
 const KEY = "preferences";
@@ -135,6 +138,7 @@ export function normalizePreferences(raw: unknown): Preferences {
     zoteroCollectionKey: typeof value["zoteroCollectionKey"] === "string" ? value["zoteroCollectionKey"] : "",
     viewColumns: normalizeViewColumns(value["viewColumns"]),
     annotationBullets: value["annotationBullets"] === true,
+    annotationSidebar: value["annotationSidebar"] === true,
   };
 }
 

@@ -5,6 +5,31 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 170 — an in-page highlights sidebar, and a modern coat of paint
+
+This phase is entirely companion-side; the plugin is unchanged, so updating it is optional this round.
+
+**A floating highlights sidebar, WuCai-style.** Turn it on in settings and a small button appears at the
+corner of any page you can highlight; click it for a draggable panel listing that page's highlights — each
+with its colour, quote, note, and how long ago you made it. Click any one to scroll to it on the page and
+watch it flash; remove one inline. It's off by default (opt-in, as it should be), lives entirely in its own
+shadow root so no page can restyle it and it can't leak out, and is purely additive — the highlighter works
+exactly as before whether the sidebar is open, closed, or disabled. Studied from WuCai's floating panel and
+Web Highlights' outline, built to our own local-first shape.
+
+**A modern coat of paint across popup, sidebar, and settings.** A Notion-like visual language layered over
+the existing structure: a warm-neutral palette with a refined accent, a proper spacing and radius scale,
+softer borders and subtle depth, segmented pill-highlighted tabs, tactile buttons with a clear primary,
+comfortable inputs with a calm focus ring, and quieter, better-weighted typography. Nothing moved; every
+surface just reads as considered rather than default.
+
+**Groundwork noted for what's next.** Studying Annotator, Web Highlights, and WuCai in depth mapped the
+road ahead — tags on highlights, a page-level note, a per-page outline, recent-colours memory, and a
+library view of everything highlighted — each of which now has a clear home in this structure. This phase
+lays the visual language and the sidebar those build on.
+
+1355 tests (was 1354): the sidebar preference surviving normalization, defaulting to off.
+
 ## Phase 169 — declared columns everywhere, DOIs first, and highlights that show where they land
 
 **Any column can be the URL or annotation column — you say which.** The settings mapper isn't limited to

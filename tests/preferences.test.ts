@@ -99,3 +99,11 @@ describe("preferences · annotation bullets", () => {
     expect(normalizePreferences({ annotationBullets: "yes" }).annotationBullets).toBe(false);
   });
 })
+
+describe("preferences · in-page sidebar", () => {
+  it("keeps the sidebar toggle, defaulting off (opt-in)", () => {
+    expect(normalizePreferences({}).annotationSidebar).toBe(false);
+    expect(normalizePreferences({ annotationSidebar: true }).annotationSidebar).toBe(true);
+    expect(normalizePreferences({ annotationSidebar: 1 }).annotationSidebar).toBe(false);
+  });
+})

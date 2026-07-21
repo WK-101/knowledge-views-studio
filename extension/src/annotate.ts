@@ -409,6 +409,7 @@ function highlightSelection(color: Color, style: Style, note?: string): void {
     wrapSegment(segment.node, segment.from, segment.to, annotation.id, color, style);
   }
   live.set(annotation.id, annotation);
+  refreshSidebar();
   selection.removeAllRanges();
   clearUi();
 
@@ -620,6 +621,7 @@ function showHighlightMenu(id: string, rect: DOMRect): void {
   removeButton.addEventListener("click", () => {
     unpaint(id);
     live.delete(id);
+    refreshSidebar();
     clearUi();
     void removeAnnotation(id);
   });
@@ -649,6 +651,340 @@ async function restore(): Promise<void> {
     // Skipped paints are deliberate: a highlight that can't be confidently located stays unpainted rather
     // than landing on the wrong words. It's still in the vault, listed in the companion.
   }
+  // The sidebar counts what's actually here; update it once the page's highlights are loaded.
+  refreshSidebar();
+}
+
+// ------------------------------------------------------------ in-page sidebar
+//
+// An optional, draggable panel that lists this page's highlights — WuCai's idea, and a genuinely useful
+// one: the highlights you made, in one place, click to jump to any of them. It lives in its own persistent
+// shadow host (the transient toolbar host gets emptied on every click; this must not), is off by default,
+// and appears only when the person turns it on. Everything here is additive — the highlighter works
+// exactly as before whether the sidebar is open, closed, or disabled.
+
+let sidebarShell: HTMLElement | null = null;
+let sidebarShadow: ShadowRoot | null = null;
+let sidebarOpen = false;
+let sidebarEnabled = false;
+
+/** Read the one preference this content script cares about: is the sidebar turned on? */
+void choiceStorage()
+  ?.local.get(["preferences"])
+  .then((stored) => {
+    const prefs = stored["preferences"] as { annotationSidebar?: boolean } | undefined;
+    sidebarEnabled = prefs?.annotationSidebar === true;
+    if (sidebarEnabled) mountLauncher();
+  })
+  .catch(() => undefined);
+
+/** The floating pill that opens the panel — small, out of the way, showing the count. */
+let launcher: HTMLButtonElement | null = null;
+function mountLauncher(): void {
+  if (launcher !== null) return;
+  const root = ensureSidebarShell();
+  launcher = document.createElement("button");
+  launcher.className = "kvs-launcher";
+  launcher.type = "button";
+  launcher.title = "Show this page's highlights";
+  launcher.addEventListener("click", () => {
+    sidebarOpen ? closeSidebar() : openSidebar();
+  });
+  root.appendChild(launcher);
+  refreshLauncher();
+}
+
+function refreshLauncher(): void {
+  if (launcher === null) return;
+  const count = live.size;
+  launcher.textContent = "";
+  const icon = document.createElement("span");
+  icon.className = "kvs-launcher-icon";
+  icon.textContent = "✎";
+  launcher.appendChild(icon);
+  if (count > 0) {
+    const badge = document.createElement("span");
+    badge.className = "kvs-launcher-badge";
+    badge.textContent = String(count);
+    launcher.appendChild(badge);
+  }
+  launcher.classList.toggle("kvs-launcher-empty", count === 0);
+}
+
+/** The persistent shadow host for the sidebar + launcher (distinct from the transient toolbar host). */
+function ensureSidebarShell(): ShadowRoot {
+  if (sidebarShadow !== null) return sidebarShadow;
+  sidebarShell = document.createElement("div");
+  sidebarShell.style.position = "fixed";
+  sidebarShell.style.zIndex = "2147483646";
+  sidebarShell.style.top = "0";
+  sidebarShell.style.left = "0";
+  sidebarShell.style.width = "0";
+  sidebarShell.style.height = "0";
+  sidebarShadow = sidebarShell.attachShadow({ mode: "closed" });
+  const style = document.createElement("style");
+  style.textContent = sidebarStyles();
+  sidebarShadow.appendChild(style);
+  document.documentElement.appendChild(sidebarShell);
+  return sidebarShadow;
+}
+
+let panel: HTMLElement | null = null;
+function openSidebar(): void {
+  const root = ensureSidebarShell();
+  if (panel === null) {
+    panel = document.createElement("div");
+    panel.className = `kvs-sidebar ${dark() ? "kvs-dark" : ""}`;
+    root.appendChild(panel);
+    makeDraggable(panel);
+  }
+  panel.style.display = "flex";
+  sidebarOpen = true;
+  renderSidebar();
+}
+
+function closeSidebar(): void {
+  if (panel !== null) panel.style.display = "none";
+  sidebarOpen = false;
+}
+
+/** One line of an annotation's text for the list. */
+function quoteOf(annotation: WireAnnotation): string {
+  return (annotation.anchor.exact || "").replace(/\s+/g, " ").trim();
+}
+
+/** Relative time, the way every modern list shows it. */
+function relativeTime(iso: string): string {
+  const then = Date.parse(iso);
+  if (Number.isNaN(then)) return "";
+  const secs = Math.max(0, Math.round((Date.now() - then) / 1000));
+  if (secs < 45) return "just now";
+  const mins = Math.round(secs / 60);
+  if (mins < 60) return `${String(mins)}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${String(hours)}h ago`;
+  const days = Math.round(hours / 24);
+  if (days < 30) return `${String(days)}d ago`;
+  return new Date(then).toLocaleDateString();
+}
+
+function renderSidebar(): void {
+  if (panel === null) return;
+  panel.textContent = "";
+
+  // Header — draggable handle, title, count, close.
+  const header = document.createElement("div");
+  header.className = "kvs-sb-head";
+  const title = document.createElement("div");
+  title.className = "kvs-sb-title";
+  title.textContent = "Highlights";
+  const count = document.createElement("span");
+  count.className = "kvs-sb-count";
+  count.textContent = String(live.size);
+  title.appendChild(count);
+  header.appendChild(title);
+  const close = document.createElement("button");
+  close.className = "kvs-sb-close";
+  close.type = "button";
+  close.title = "Close";
+  close.textContent = "×";
+  close.addEventListener("click", () => closeSidebar());
+  header.appendChild(close);
+  panel.appendChild(header);
+
+  // List.
+  const list = document.createElement("div");
+  list.className = "kvs-sb-list";
+  const items = [...live.values()].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+  if (items.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "kvs-sb-empty";
+    empty.textContent = "No highlights on this page yet. Select text to add one.";
+    list.appendChild(empty);
+  }
+  for (const annotation of items) {
+    list.appendChild(sidebarItem(annotation));
+  }
+  panel.appendChild(list);
+}
+
+function sidebarItem(annotation: WireAnnotation): HTMLElement {
+  const item = document.createElement("div");
+  item.className = "kvs-sb-item";
+
+  const bar = document.createElement("span");
+  bar.className = "kvs-sb-bar";
+  bar.style.backgroundColor = (PAINT[annotation.color as Color] ?? PAINT.yellow).solid;
+  item.appendChild(bar);
+
+  const body = document.createElement("div");
+  body.className = "kvs-sb-body";
+  const quote = document.createElement("div");
+  quote.className = "kvs-sb-quote";
+  quote.textContent = quoteOf(annotation);
+  body.appendChild(quote);
+  if (annotation.note !== undefined && annotation.note.trim() !== "") {
+    const note = document.createElement("div");
+    note.className = "kvs-sb-note";
+    note.textContent = annotation.note.trim();
+    body.appendChild(note);
+  }
+  const meta = document.createElement("div");
+  meta.className = "kvs-sb-meta";
+  meta.textContent = relativeTime(annotation.createdAt);
+  body.appendChild(meta);
+  item.appendChild(body);
+
+  const del = document.createElement("button");
+  del.className = "kvs-sb-del";
+  del.type = "button";
+  del.title = "Remove highlight";
+  del.textContent = "×";
+  del.addEventListener("click", (event) => {
+    event.stopPropagation();
+    unpaint(annotation.id);
+    live.delete(annotation.id);
+    void removeAnnotation(annotation.id);
+    refreshSidebar();
+  });
+  item.appendChild(del);
+
+  // Click the row → scroll to the mark and flash it.
+  item.addEventListener("click", () => {
+    const mark = document.querySelector(`[${HL_ATTR}="${annotation.id}"]`);
+    if (mark instanceof HTMLElement) {
+      mark.scrollIntoView({ behavior: "smooth", block: "center" });
+      flashMark(annotation.id);
+    }
+  });
+  return item;
+}
+
+/** A brief pulse on a mark, so clicking it in the list points the eye to it on the page. */
+function flashMark(id: string): void {
+  for (const mark of Array.from(document.querySelectorAll(`[${HL_ATTR}="${id}"]`))) {
+    if (!(mark instanceof HTMLElement)) continue;
+    mark.style.transition = "box-shadow 0.2s ease";
+    mark.style.boxShadow = "0 0 0 3px rgba(124, 92, 255, 0.55)";
+    window.setTimeout(() => {
+      mark.style.boxShadow = "";
+    }, 1400);
+  }
+}
+
+/** Keep the sidebar and launcher in sync after a highlight is added or removed. */
+function refreshSidebar(): void {
+  refreshLauncher();
+  if (sidebarOpen) renderSidebar();
+}
+
+/** Drag by the header, staying within the viewport. */
+function makeDraggable(el: HTMLElement): void {
+  let startX = 0;
+  let startY = 0;
+  let originLeft = 0;
+  let originTop = 0;
+  let dragging = false;
+
+  const onMove = (event: MouseEvent): void => {
+    if (!dragging) return;
+    const left = Math.min(window.innerWidth - 60, Math.max(0, originLeft + (event.clientX - startX)));
+    const top = Math.min(window.innerHeight - 40, Math.max(0, originTop + (event.clientY - startY)));
+    el.style.left = `${String(left)}px`;
+    el.style.top = `${String(top)}px`;
+    el.style.right = "auto";
+  };
+  const onUp = (): void => {
+    dragging = false;
+    document.removeEventListener("mousemove", onMove);
+    document.removeEventListener("mouseup", onUp);
+  };
+  el.addEventListener("mousedown", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element) || target.closest(".kvs-sb-head") === null) return;
+    if (target.closest(".kvs-sb-close") !== null) return;
+    dragging = true;
+    const rect = el.getBoundingClientRect();
+    startX = event.clientX;
+    startY = event.clientY;
+    originLeft = rect.left;
+    originTop = rect.top;
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    event.preventDefault();
+  });
+}
+
+function sidebarStyles(): string {
+  const isDark = dark();
+  const bg = isDark ? "#1f1f22" : "#ffffff";
+  const fg = isDark ? "#e8e8ea" : "#1a1a1c";
+  const muted = isDark ? "#9a9aa2" : "#77777f";
+  const line = isDark ? "#34343a" : "#ececf0";
+  const hover = isDark ? "#2a2a30" : "#f6f6f8";
+  const accent = "#7c5cff";
+  return `
+    :host { all: initial; }
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .kvs-launcher {
+      position: fixed; right: 18px; bottom: 18px; width: 44px; height: 44px; border-radius: 50%;
+      border: none; background: ${accent}; color: #fff; cursor: pointer; display: flex;
+      align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .kvs-launcher:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,0,0,0.3); }
+    .kvs-launcher-empty { background: ${isDark ? "#3a3a42" : "#c9c9d2"}; }
+    .kvs-launcher-icon { font-size: 18px; line-height: 1; }
+    .kvs-launcher-badge {
+      position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; padding: 0 5px;
+      border-radius: 9px; background: #ff5470; color: #fff; font-size: 11px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; border: 2px solid ${bg};
+    }
+    .kvs-sidebar {
+      position: fixed; top: 12px; right: 68px; width: 340px; max-height: calc(100vh - 24px);
+      background: ${bg}; color: ${fg}; border: 1px solid ${line}; border-radius: 14px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.18); display: flex; flex-direction: column;
+      overflow: hidden; font-size: 13px; line-height: 1.5;
+    }
+    .kvs-sb-head {
+      display: flex; align-items: center; justify-content: space-between; padding: 12px 14px;
+      border-bottom: 1px solid ${line}; cursor: move; user-select: none;
+    }
+    .kvs-sb-title { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+    .kvs-sb-count {
+      font-size: 11px; font-weight: 600; color: ${muted}; background: ${hover};
+      padding: 1px 8px; border-radius: 10px;
+    }
+    .kvs-sb-close {
+      border: none; background: transparent; color: ${muted}; font-size: 20px; line-height: 1;
+      cursor: pointer; padding: 0 4px; border-radius: 6px;
+    }
+    .kvs-sb-close:hover { background: ${hover}; color: ${fg}; }
+    .kvs-sb-list { overflow-y: auto; padding: 6px; }
+    .kvs-sb-list::-webkit-scrollbar { width: 8px; }
+    .kvs-sb-list::-webkit-scrollbar-thumb { background: ${line}; border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
+    .kvs-sb-empty { padding: 22px 16px; text-align: center; color: ${muted}; font-size: 12px; }
+    .kvs-sb-item {
+      display: flex; gap: 10px; padding: 9px 10px; border-radius: 9px; cursor: pointer; position: relative;
+      transition: background 0.12s ease;
+    }
+    .kvs-sb-item:hover { background: ${hover}; }
+    .kvs-sb-bar { flex: 0 0 3px; border-radius: 2px; align-self: stretch; }
+    .kvs-sb-body { flex: 1 1 auto; min-width: 0; }
+    .kvs-sb-quote {
+      color: ${fg}; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+      overflow: hidden; overflow-wrap: anywhere;
+    }
+    .kvs-sb-note { color: ${muted}; font-size: 12px; margin-top: 3px; overflow-wrap: anywhere; }
+    .kvs-sb-meta { color: ${muted}; font-size: 11px; margin-top: 4px; }
+    .kvs-sb-del {
+      position: absolute; top: 6px; right: 6px; border: none; background: transparent; color: ${muted};
+      font-size: 16px; line-height: 1; cursor: pointer; opacity: 0; padding: 2px 6px; border-radius: 6px;
+      transition: opacity 0.12s ease;
+    }
+    .kvs-sb-item:hover .kvs-sb-del { opacity: 1; }
+    .kvs-sb-del:hover { background: ${isDark ? "#3a2a2e" : "#fdeaee"}; color: #e0526a; }
+  `;
 }
 
 // ---------------------------------------------------------------------- wire
@@ -661,6 +997,7 @@ if (scope[marker] !== true) {
   document.addEventListener("mouseup", (event) => {
     // Our own UI must not retrigger or dismiss itself mid-click.
     if (shell !== null && event.composedPath().includes(shell)) return;
+    if (sidebarShell !== null && event.composedPath().includes(sidebarShell)) return;
     // Clicking a highlight is the click handler's business. The 10ms clear here used to race the menu that
     // click was about to open — menu up, menu gone, reading as a flicker and a broken Remove.
     if (event.target instanceof Element && event.target.closest(`[${HL_ATTR}]`) !== null) return;
@@ -688,6 +1025,7 @@ if (scope[marker] !== true) {
     if (event.altKey) {
       unpaint(id);
       live.delete(id);
+      refreshSidebar();
       clearUi();
       void removeAnnotation(id);
       return;

@@ -347,6 +347,7 @@ async function wirePreferences(): Promise<void> {
   byId<HTMLInputElement>("annotations").checked = prefs.annotations;
   byId<HTMLSelectElement>("annotationView").value = prefs.annotationViewId;
   byId<HTMLInputElement>("annotationBullets").checked = prefs.annotationBullets;
+  byId<HTMLInputElement>("annotationSidebar").checked = prefs.annotationSidebar;
   drawRules(prefs);
 
   const bind = (id: string, read: () => Partial<Preferences>, event = "change"): void => {
@@ -363,6 +364,7 @@ async function wirePreferences(): Promise<void> {
   bind("alwaysTags", () => ({ alwaysTags: byId<HTMLInputElement>("alwaysTags").value.trim() }));
   bind("annotationView", () => ({ annotationViewId: byId<HTMLSelectElement>("annotationView").value }));
   bind("annotationBullets", () => ({ annotationBullets: byId<HTMLInputElement>("annotationBullets").checked }));
+  bind("annotationSidebar", () => ({ annotationSidebar: byId<HTMLInputElement>("annotationSidebar").checked }));
   bind("searchMode", () => {
     const value = byId<HTMLSelectElement>("searchMode").value;
     return { searchMode: value === "meaning" || value === "ask" ? value : "keyword" };
