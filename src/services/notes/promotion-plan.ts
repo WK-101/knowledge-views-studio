@@ -1,5 +1,5 @@
 import { safeName } from "../../../shared/template";
-import { noteLinkColumnName } from "../../views/promoted-detect";
+import { resolveNoteLinkColumn } from "../../views/promoted-detect";
 
 /**
  * Planning a row's dedicated note, for any view.
@@ -25,6 +25,8 @@ export interface PromotionInput {
   readonly configuredFolder?: string;
   /** The view's first scope folder, for the default location. */
   readonly scopeFolder?: string;
+  /** The column the person named to hold the wikilink back, if any. Empty = auto-detect. */
+  readonly explicitLinkColumn?: string;
 }
 
 export interface PromotionPlan {
@@ -126,8 +128,33 @@ export function promotionPlan(input: PromotionInput): PromotionPlan {
     folder,
     fileBase,
     variables,
-    noteLinkColumn: noteLinkColumnName(
+    noteLinkColumn: resolveNoteLinkColumn(
+      input.explicitLinkColumn,
       input.columns.map((c) => ({ name: c.name, type: c.type ?? "text" })),
     ),
   };
+}
+
+/** The basename of a file path, without its `.md` extension — the target of a wikilink to it. */
+export function noteBasename(filePath: string): string {
+  return (filePath.split("/").pop() ?? filePath).replace(/\.md$/i, "");
+}
+
+/**
+ * Ensure a promoted note carries a `[[source]]` wikilink back to the row's source note, so the two show a
+ * connection in the graph (the frontmatter-identity match never does). Inserted right after the frontmatter,
+ * skipped when the link is already present. Only meaningful for a markdown source — the caller decides that.
+ */
+export function withSourceBacklink(content: string, sourceBasename: string): string {
+  const target = sourceBasename.trim();
+  if (target === "") return content;
+  const link = `[[${target}]]`;
+  if (content.includes(link)) return content;
+  const line = `Source note: ${link}\n`;
+  const fm = /^---\n[\s\S]*?\n---\n/.exec(content);
+  if (fm) {
+    const at = fm[0].length;
+    return `${content.slice(0, at)}\n${line}\n${content.slice(at)}`;
+  }
+  return `${line}\n${content}`;
 }

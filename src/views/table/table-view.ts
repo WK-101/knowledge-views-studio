@@ -15,7 +15,7 @@ import { buildPrefix, totalHeight, findRowAt, computeWindow, anchorShift } from 
 import { enableHandleDrag } from "../../util/pointer-drag";
 
 import { selectionStore, bulkDraftStore, scrollStore, capViewState, pendingFocusStore } from "../view-state";
-import { noteLinkColumnName, wikilinkTarget, citeKeyColumnName } from "../promoted-detect";
+import { citeKeyColumnName, promotedFillColor, promotedNotesEnabled, resolveNoteLinkColumn, wikilinkTarget } from "../promoted-detect";
 import { rowRefOf } from "../../services/bridge/row-ref";
 import { dedicatedNoteKeyFor, getDedicatedNoteIndex, normalizeIdentifier } from "../../services/notes/dedicated-note";
 import { resolveFieldColumn } from "../../domain/columns/academic-fields";
@@ -227,7 +227,7 @@ function columnPool(ctx: ViewRenderContext): { name: string; type: string }[] {
 }
 
 function noteLinkColumn(ctx: ViewRenderContext): string | null {
-  return noteLinkColumnName(columnPool(ctx));
+  return resolveNoteLinkColumn(ctx.profile.noteLinkColumn, columnPool(ctx));
 }
 
 /** This row's value for the dedicated-note match key (its DOI for academic views), or "". */
@@ -240,6 +240,8 @@ function matchValueFor(row: Row, ctx: ViewRenderContext, key: string): string {
  *  else the Note column's `[[link]]`, else the paper's cite key if a note by that name exists in the vault.
  *  The frontmatter index is process-cached, so this is an O(1) map lookup per row, not a vault scan. */
 function promotedNoteFor(row: Row, ctx: ViewRenderContext): string | null {
+  // A view that turned promoted notes off shows no indicator at all.
+  if (!promotedNotesEnabled(ctx.profile)) return null;
   const matchKey = dedicatedNoteKeyFor(ctx.profile);
   if (matchKey !== "") {
     const value = matchValueFor(row, ctx, matchKey);
@@ -260,8 +262,9 @@ function promotedNoteFor(row: Row, ctx: ViewRenderContext): string | null {
 /** Whether this view can carry a promoted-note indicator (a note-link/cite-key column, or a frontmatter
  *  identifier match such as DOI for academic views). */
 function hasPromoteIndicator(ctx: ViewRenderContext): boolean {
+  if (!promotedNotesEnabled(ctx.profile)) return false;
   const pool = columnPool(ctx);
-  return noteLinkColumnName(pool) !== null || citeKeyColumnName(pool) !== null || dedicatedNoteKeyFor(ctx.profile) !== "";
+  return resolveNoteLinkColumn(ctx.profile.noteLinkColumn, pool) !== null || citeKeyColumnName(pool) !== null || dedicatedNoteKeyFor(ctx.profile) !== "";
 }
 
 /** Whether the table has a single combined leading gutter column (selection / source / promote indicator).
@@ -285,17 +288,38 @@ function renderGutterCell(
   td.style.width = `${effectiveGutterWidth(ctx, Boolean(selection))}px`;
   const inner = td.createDiv({ cls: "kvs-gutter" });
 
+  // The palette fill that marks a promoted row, as inline custom properties the checkbox (or stand-in
+  // swatch) reads. Null when this row has no note, or the view's fill colour is "none".
+  const fill = promoted ? promotedFillColor(ctx.profile.promotedFillColor) : null;
+  const applyFill = (elm: HTMLElement): void => {
+    if (fill === null) return;
+    elm.style.setProperty("--kvs-pf", `rgba(var(--kvs-mark-rgb-${fill}), 0.30)`);
+    elm.style.setProperty("--kvs-pf-border", `rgba(var(--kvs-mark-rgb-${fill}), 0.55)`);
+  };
+
   if (selection) {
     const checkbox = inner.createEl("input", { cls: "kvs-checkbox" });
     checkbox.type = "checkbox";
     checkbox.checked = selection.has(tokenOf(row));
     checkbox.setAttribute("aria-label", "Select row");
+    // A promoted row's checkbox carries the faded palette fill — the indicator, no separate marker.
+    if (fill !== null) {
+      checkbox.addClass("is-promoted-fill");
+      applyFill(checkbox);
+      setTooltip(checkbox, `Has a dedicated note: ${promoted ?? ""}`);
+    }
     checkbox.addEventListener("change", () => {
       if (checkbox.checked) selection.add(tokenOf(row));
       else selection.delete(tokenOf(row));
       tr.toggleClass("is-selected", checkbox.checked);
       repaint(); // lightweight: renderTable passes refreshSelectionUI here, so the grid isn't rebuilt
     });
+  } else if (fill !== null) {
+    // No selection column, but the row is promoted — a small filled swatch stands in for the checkbox.
+    const box = inner.createSpan({ cls: "kvs-promoted-box" });
+    applyFill(box);
+    box.setAttribute("aria-hidden", "true");
+    setTooltip(box, `Has a dedicated note: ${promoted ?? ""}`);
   }
 
   // A single, quiet "row actions" button opens the same menu as right-click — the one place row commands
@@ -314,14 +338,9 @@ function renderGutterCell(
     });
   }
 
-  // Promoted status: a small accent flag in the corner, always visible, costing no width. Pure state — the
-  // "open dedicated note" action lives in the row menu — so the column reads at a glance without clutter.
-  if (promoted) {
-    td.addClass("is-promoted");
-    const flag = inner.createSpan({ cls: "kvs-row-flag" });
-    flag.setAttribute("aria-hidden", "true");
-    setTooltip(flag, `Has a dedicated note: ${promoted}`);
-  }
+  // Promoted status now reads from the checkbox fill (or the stand-in swatch) above — the shaded checkbox
+  // is the indicator, so no separate corner flag.
+  if (promoted) td.addClass("is-promoted");
 }
 
 /**

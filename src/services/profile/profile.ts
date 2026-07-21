@@ -77,10 +77,22 @@ export interface Profile {
   /** Maps kit semantic fields (title/year/venue/summary) to column names, so renaming a column
    *  doesn't break DOI/OpenAlex lookups. Type-based fields (doi/citekey/authors/tags/cites) auto-resolve. */
   readonly fieldMap?: Readonly<Record<string, string>>;
+  /** Whether this view offers promoted (dedicated) notes at all — the row action, the gutter indicator, and
+   *  the settings. Unset = on (default), so promotion is available on every view, not only academic ones. */
+  readonly promotedNotes?: boolean;
+  /** The palette colour a promoted row's checkbox is tinted with, so rows that have a dedicated note read at
+   *  a glance. A HighlightColor name, or "none" for no fill. Unset = default. */
+  readonly promotedFillColor?: string;
+  /** The column that holds the `[[wikilink]]` back to a row's dedicated note (making a graph edge). Empty =
+   *  auto-detect (a column named "Note", else the first link-typed column). Set to name it explicitly. */
+  readonly noteLinkColumn?: string;
+  /** Also write a `[[source]]` wikilink inside a promoted note, back to the row's source note, for a two-way
+   *  graph connection. Unset = on (default). No-ops when the source isn't a markdown note. */
+  readonly backlinkToSource?: boolean;
   /** Folder for promoted paper notes. Empty = default ("{first scope folder}/Papers"). */
   readonly promotedNotesFolder?: string;
   /** Frontmatter field that links a row to its dedicated note (so promote finds an existing note anywhere,
-   *  not just by folder/name). Empty = default ("doi" for academic-kit views, otherwise no field match). */
+   *  not just by folder/name). Empty = default ("doi" for academic-kit views, otherwise "source" = the URL). */
   readonly dedicatedNoteKey?: string;
   /** Show the table's summary/aggregation footer row. Unset = shown (default); false = hidden for this view. */
   readonly showSummaryRow?: boolean;
@@ -429,6 +441,10 @@ export function createProfile(partial: ProfileInput = {}): Profile {
     hideEmptyColumns: partial.hideEmptyColumns ?? false,
     academicKit: partial.academicKit ?? false,
     ...(partial.fieldMap ? { fieldMap: { ...partial.fieldMap } } : {}),
+    ...(partial.promotedNotes !== undefined ? { promotedNotes: partial.promotedNotes } : {}),
+    ...(partial.promotedFillColor ? { promotedFillColor: partial.promotedFillColor } : {}),
+    ...(partial.noteLinkColumn ? { noteLinkColumn: partial.noteLinkColumn } : {}),
+    ...(partial.backlinkToSource !== undefined ? { backlinkToSource: partial.backlinkToSource } : {}),
     ...(partial.promotedNotesFolder ? { promotedNotesFolder: partial.promotedNotesFolder } : {}),
     ...(partial.promotedNoteTemplate ? { promotedNoteTemplate: partial.promotedNoteTemplate } : {}),
     ...(partial.dedicatedNoteKey ? { dedicatedNoteKey: partial.dedicatedNoteKey } : {}),

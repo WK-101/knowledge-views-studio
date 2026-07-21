@@ -1208,8 +1208,48 @@
   vertical-align: middle;
 }
 .kvs-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 15px;
+  height: 15px;
   margin: 0;
+  border: 1.5px solid var(--background-modifier-border-hover);
+  border-radius: 4px;
+  background: var(--background-primary);
   cursor: pointer;
+  vertical-align: middle;
+  position: relative;
+  flex: none;
+  transition: background 0.1s ease, border-color 0.1s ease;
+}
+.kvs-checkbox:hover { border-color: var(--interactive-accent); }
+.kvs-checkbox:checked { background: var(--interactive-accent); border-color: var(--interactive-accent); }
+.kvs-checkbox:checked::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--text-on-accent, #fff);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+/* Promoted rows: the checkbox carries a subtle faded fill in the view's chosen palette colour, so a row
+   with a dedicated note reads at a glance — no separate marker. The tint shows only while unchecked, so a
+   selected row's accent check still stands out. `--kvs-pf`/`--kvs-pf-border` are set inline per row. */
+.kvs-checkbox.is-promoted-fill:not(:checked) {
+  background: var(--kvs-pf, transparent);
+  border-color: var(--kvs-pf-border, var(--background-modifier-border-hover));
+}
+/* When a view has no selection column, a small filled swatch stands in for the shaded checkbox. */
+.kvs-promoted-box {
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  border: 1.5px solid var(--kvs-pf-border, var(--background-modifier-border-hover));
+  background: var(--kvs-pf, transparent);
+  display: inline-block;
   vertical-align: middle;
 }
 
@@ -2765,19 +2805,8 @@
   background: var(--background-modifier-hover);
 }
 
-/* Promoted flag — a small accent diamond pinned to the corner. Pure status, no width cost; always visible so
-   promoted rows read at a glance. The action to open the note lives in the row menu. */
-.kvs-row-flag {
-  position: absolute;
-  top: 3px;
-  right: 3px;
-  width: 6px;
-  height: 6px;
-  border-radius: 1px;
-  background: var(--text-accent);
-  transform: rotate(45deg);
-  pointer-events: auto;
-}
+/* Promoted rows are marked by the shaded checkbox (or the stand-in swatch) in the gutter — see the
+   .kvs-checkbox.is-promoted-fill and .kvs-promoted-box rules near the checkbox styles. */
 .kvs-gutter-cell.is-promoted .kvs-row-actions {
   opacity: 0.55; /* a promoted row shows its handle faintly at rest, hinting there's an action */
 }

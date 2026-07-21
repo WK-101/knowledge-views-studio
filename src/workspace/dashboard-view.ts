@@ -59,6 +59,9 @@ import {
   type SaveStatus,
 } from "../services/index";
 import { dedicatedNoteKeyFor, findDedicatedNote } from "../services/notes/dedicated-note";
+import { PromotionService } from "../services/notes/promote-service";
+import { noteBasename, withSourceBacklink } from "../services/notes/promotion-plan";
+import { promotedNotesEnabled, resolveNoteLinkColumn } from "../views/promoted-detect";
 import { exportViewBackup } from "./backup-runner";
 import {
   buildClipboardFor,
@@ -304,6 +307,12 @@ export class DashboardView extends TextFileView {
 
   /** Promote a library row to a dedicated note (pre-seeded with metadata + a Findings table). */
   private async promoteToNote(row: Row, profile: Profile): Promise<void> {
+    // Non-academic views promote through the general service — a cleaner note template, the configurable
+    // link column, and the two-way source backlink — rather than the paper-shaped academic flow below.
+    if (!profile.academicKit) {
+      await this.promoteGeneral(row, profile);
+      return;
+    }
     const cols = (this.renderedProfile() ?? profile).columns;
     const val = (field: AcademicField): string => {
       const col = this.academic.fieldCol(cols, field);
@@ -322,7 +331,9 @@ export class DashboardView extends TextFileView {
     const configured = (profile.promotedNotesFolder ?? "").trim().replace(/\/+$/, "");
     const scopeFolder = profile.scope.mode === "folders" ? profile.scope.folders[0] ?? "" : "";
     const dir = configured !== "" ? configured : scopeFolder ? `${scopeFolder}/Papers` : "Papers";
-    const noteCol = cols.find((c) => c.type === "link" || /^note$/i.test(c.name));
+    // The link column: the view's explicit choice, else the auto-detected "Note"/link column.
+    const noteColName = resolveNoteLinkColumn(profile.noteLinkColumn, cols.map((c) => ({ name: c.name, type: c.type })));
+    const noteCol = noteColName !== null ? cols.find((c) => c.name === noteColName) ?? null : null;
 
     // Already promoted? Look for the dedicated note two ways, most robust first:
     //  1. By a stable identifier in the note's frontmatter (the DOI for academic views) — finds the note
@@ -390,7 +401,12 @@ export class DashboardView extends TextFileView {
         annotations: enrich?.annotations ?? "",
         zoteroKey: enrich?.zoteroKey ?? "",
       };
-      await this.app.vault.create(notePath, renderPromotedNote(template, fields));
+      let noteContent = renderPromotedNote(template, fields);
+      // Two-way graph link: a `[[source]]` backlink inside the note when the source is a markdown note.
+      if (profile.backlinkToSource !== false && /\.md$/i.test(row.provenance.filePath)) {
+        noteContent = withSourceBacklink(noteContent, noteBasename(row.provenance.filePath));
+      }
+      await this.app.vault.create(notePath, noteContent);
 
       // Link the row back to its new note (fill the Note column if present).
       if (noteCol && getField(row, noteCol.name).trim() === "") {
@@ -404,6 +420,53 @@ export class DashboardView extends TextFileView {
       const file = this.app.vault.getAbstractFileByPath(notePath);
       if (file instanceof TFile) await this.app.workspace.getLeaf(true).openFile(file);
       new Notice(`Created “${noteName}”.`);
+    } catch (error) {
+      console.error("[KVS] Promote to note failed:", error);
+      new Notice("Couldn't create the note (check that the vault is writable).");
+    }
+  }
+
+  /**
+   * Promote a row in a non-academic view through the general service: a web-shaped note template, the
+   * configurable dedicated-note key and wikilink column, and the two-way source backlink. Idempotent — a
+   * second promote opens the note the first one made.
+   */
+  private async promoteGeneral(row: Row, profile: Profile): Promise<void> {
+    const cols = (this.renderedProfile() ?? profile).columns;
+    const scopeFolder = profile.scope.mode === "folders" ? profile.scope.folders[0] ?? "" : "";
+    const service = new PromotionService({
+      app: this.app,
+      editCell: async (r, column, value) => {
+        await this.applyRowEdits(
+          r.provenance.filePath,
+          [{ provenance: r.provenance, column, value }],
+          "Link note",
+        );
+      },
+    });
+    try {
+      const result = await service.promote(
+        {
+          academicKit: false,
+          ...(profile.dedicatedNoteKey !== undefined ? { dedicatedNoteKey: profile.dedicatedNoteKey } : {}),
+          ...(profile.promotedNotesFolder !== undefined ? { promotedNotesFolder: profile.promotedNotesFolder } : {}),
+          ...(profile.promotedNoteTemplate !== undefined ? { promotedNoteTemplate: profile.promotedNoteTemplate } : {}),
+          ...(profile.noteLinkColumn !== undefined ? { noteLinkColumn: profile.noteLinkColumn } : {}),
+          ...(profile.backlinkToSource !== undefined ? { backlinkToSource: profile.backlinkToSource } : {}),
+          ...(scopeFolder !== "" ? { scopeFolder } : {}),
+        },
+        row,
+        cols.map((c) => ({ name: c.name, type: c.type })),
+      );
+      if (!result.ok) {
+        new Notice(result.reason ?? "Couldn't create the note.");
+        return;
+      }
+      if (result.path !== undefined) {
+        const file = this.app.vault.getAbstractFileByPath(result.path);
+        if (file instanceof TFile) await this.app.workspace.getLeaf(true).openFile(file);
+      }
+      new Notice(result.created === false ? "Opened the existing note." : "Created the dedicated note.");
     } catch (error) {
       console.error("[KVS] Promote to note failed:", error);
       new Notice("Couldn't create the note (check that the vault is writable).");
@@ -2510,9 +2573,10 @@ export class DashboardView extends TextFileView {
         ? {
             onFetchDoi: (row: Row) => void this.academic.fillFromDoi(row, profile),
             onFetchZotero: (row: Row) => void this.academic.fillFromZotero(row, profile),
-            onPromote: (row: Row) => void this.promoteToNote(row, profile),
           }
         : {}),
+      // Promotion is available on every view (not only academic ones) unless this view turned it off.
+      ...(promotedNotesEnabled(profile) ? { onPromote: (row: Row) => void this.promoteToNote(row, profile) } : {}),
       ...(this.deps.store.getSettings().enableRowCopy
         ? {
             onCopyRows: (rows: readonly Row[], format?: CopyFormat) => this.copyRows(rows, profile, format),

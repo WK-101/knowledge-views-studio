@@ -3,7 +3,7 @@ import { renderTemplate } from "../../../shared/template";
 import type { Row } from "../../domain/index";
 import { getField } from "../../domain/fields";
 import { dedicatedNoteKeyFor, findDedicatedNote } from "./dedicated-note";
-import { DEFAULT_WEB_PROMOTED_TEMPLATE, promotionPlan } from "./promotion-plan";
+import { DEFAULT_WEB_PROMOTED_TEMPLATE, noteBasename, promotionPlan, withSourceBacklink } from "./promotion-plan";
 
 /**
  * Creating (or finding) a row's dedicated note, from anywhere.
@@ -26,6 +26,10 @@ export interface PromoteProfileBits {
   readonly promotedNotesFolder?: string;
   readonly promotedNoteTemplate?: string;
   readonly scopeFolder?: string;
+  /** The column the person named to hold the wikilink back. Empty = auto-detect. */
+  readonly noteLinkColumn?: string;
+  /** Also write a `[[source]]` backlink inside the note, for a two-way graph edge. Unset = on. */
+  readonly backlinkToSource?: boolean;
 }
 
 export interface PromoteOutcome {
@@ -57,6 +61,7 @@ export class PromotionService {
       matchKey,
       ...(profile.promotedNotesFolder !== undefined ? { configuredFolder: profile.promotedNotesFolder } : {}),
       ...(profile.scopeFolder !== undefined ? { scopeFolder: profile.scopeFolder } : {}),
+      ...(profile.noteLinkColumn !== undefined ? { explicitLinkColumn: profile.noteLinkColumn } : {}),
     });
 
     if (plan.matchValue === "") {
@@ -86,6 +91,14 @@ export class PromotionService {
       content = content.startsWith("---\n")
         ? content.replace("---\n", `---\n${matchKey}: ${plan.matchValue}\n`)
         : `---\n${matchKey}: ${plan.matchValue}\n---\n\n${content}`;
+    }
+
+    // The two-way graph link: a `[[source note]]` backlink inside the note, when the source is a markdown
+    // note (an xlsx or a bare URL has no note to point at). The frontmatter-identity match is invisible to
+    // the graph, so this is what actually makes the connection show.
+    const sourcePath = row.provenance.filePath;
+    if (profile.backlinkToSource !== false && /\.md$/i.test(sourcePath)) {
+      content = withSourceBacklink(content, noteBasename(sourcePath));
     }
 
     await this.ensureFolder(plan.folder);

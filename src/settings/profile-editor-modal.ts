@@ -120,6 +120,7 @@ export class ProfileEditorModal extends Modal {
   private generalEl!: HTMLElement;
   private sourcesEl!: HTMLElement;
   private researchEl!: HTMLElement;
+  private notesEl!: HTMLElement;
   private viewOptionsEl!: HTMLElement;
   private columnsEl!: HTMLElement;
   private rollupsEl!: HTMLElement;
@@ -192,6 +193,7 @@ export class ProfileEditorModal extends Modal {
     this.formulasEl = panels.createDiv({ cls: "kvs-editor-panel" });
     this.filterEl = panels.createDiv({ cls: "kvs-editor-panel" });
     this.researchEl = panels.createDiv({ cls: "kvs-editor-panel" });
+    this.notesEl = panels.createDiv({ cls: "kvs-editor-panel" });
     this.sortEl = panels.createDiv({ cls: "kvs-editor-panel" });
 
     this.renderGeneral();
@@ -202,6 +204,7 @@ export class ProfileEditorModal extends Modal {
     this.renderFormulas();
     this.renderFilter();
     this.renderResearch();
+    this.renderNotes();
     this.renderSort();
 
     const kitOn = this.deps.store.getSettings().enableAcademicKit;
@@ -215,6 +218,7 @@ export class ProfileEditorModal extends Modal {
       ...(kitOn
         ? [{ el: this.researchEl, label: "Research", icon: "graduation-cap", desc: "Academic kit for this view", group: "data" }]
         : []),
+      { el: this.notesEl, label: "Promoted notes", icon: "file-plus", desc: "Dedicated notes for rows", group: "data" },
       { el: this.viewOptionsEl, label: "Type & display", icon: "layout-dashboard", desc: "View type & options", group: "layout" },
       { el: this.sortEl, label: "Sort & grouping", icon: "arrow-up-down", desc: "Order & grouping", group: "layout" },
     ];
@@ -437,65 +441,6 @@ export class ProfileEditorModal extends Modal {
     }
   }
 
-  /** Where "Promote to dedicated note" saves paper notes, and this view's optional note template (kit). */
-  private renderPromotedFolder(el: HTMLElement): void {
-    const setting = new Setting(el)
-      .setName("Promoted notes folder")
-      .setDesc("Where “Promote to dedicated note” saves paper notes. Empty = a “Papers” subfolder of this view's folder.");
-    const input = setting.controlEl.createEl("input", { cls: "kvs-folder-input" });
-    input.type = "text";
-    input.placeholder = "e.g. Research/Papers";
-    input.value = this.profile.promotedNotesFolder ?? "";
-    const dl = setting.controlEl.createEl("datalist");
-    dl.id = `kvs-pf-${Math.random().toString(36).slice(2)}`;
-    for (const f of this.allFolders()) dl.createEl("option", { value: f });
-    input.setAttr("list", dl.id);
-    const commit = (): void => this.patch({ promotedNotesFolder: input.value.trim().replace(/\/+$/, "") });
-    input.addEventListener("change", commit);
-    input.addEventListener("blur", commit);
-
-    // How a row is linked to its dedicated note. Matching on a frontmatter field (the DOI, for academic
-    // views) finds the note wherever it lives and stops "promote" ever making a duplicate. Presented as a
-    // dropdown of the frontmatter properties actually used in the vault, so any view — academic or not — can
-    // pick the property that identifies its notes.
-    const academic = this.profile.academicKit === true;
-    const current = this.profile.dedicatedNoteKey ?? "";
-    // Curated identifiers first, then whatever the vault actually uses, de-duplicated; keep the current
-    // value even if no note carries it yet.
-    const curated = ["doi", "isbn", "url", "zotero-key", "uid", "id"];
-    const keyOptions = [...new Set([...(current ? [current] : []), ...curated, ...this.frontmatterKeys()])];
-    new Setting(el)
-      .setName("Match dedicated notes by")
-      .setDesc("Frontmatter property that ties a row to its note, so “Promote to note” recognises an existing note anywhere in the vault (not just by folder or filename). Default matches by DOI for academic views.")
-      .addDropdown((dd) => {
-        dd.addOption("", academic ? "Default (DOI)" : "Default (match by note link only)");
-        for (const k of keyOptions) dd.addOption(k, k);
-        dd.setValue(current);
-        dd.onChange((v) => this.patch({ dedicatedNoteKey: v }));
-      });
-
-    const tmpl = new Setting(el)
-      .setName("Promoted note template (this view)")
-      .setDesc("Overrides the global template for this view. Placeholders: {{title}}, {{authors}}, {{year}}, {{venue}}, {{doi}}, {{citekey}}, {{cite}}, {{tags}}, {{date}}. Empty = use the global template.");
-    tmpl.addTextArea((ta) => {
-      ta.setPlaceholder("Leave empty to use the global template…");
-      ta.setValue(this.profile.promotedNoteTemplate ?? "");
-      ta.onChange((value) => this.patch({ promotedNoteTemplate: value }));
-      ta.inputEl.rows = 10;
-      ta.inputEl.addClass("kvs-template-textarea");
-    });
-    tmpl.addExtraButton((btn) =>
-      btn
-        .setIcon("clipboard-copy")
-        .setTooltip("Start from the default template")
-        .onClick(() => {
-          this.patch({ promotedNoteTemplate: DEFAULT_PROMOTED_TEMPLATE });
-          this.renderResearch();
-          this.refilter();
-        }),
-    );
-  }
-
   // ---- General: what this view *is* (identity only) ----
   private renderGeneral(): void {
     const el = this.generalEl;
@@ -540,11 +485,124 @@ export class ProfileEditorModal extends Modal {
       );
 
     if (!this.profile.academicKit) {
-      hint(el, "Turn this on to map academic fields, choose where promoted notes are saved, and set this view's note template.");
+      hint(el, "Turn this on to map academic fields (DOI, authors, cite key) and get citation-aware columns. Promoted-note settings live in the “Promoted notes” section and work on every view.");
       return;
     }
     this.renderFieldMap(el);
-    this.renderPromotedFolder(el);
+  }
+
+  /**
+   * Promoted (dedicated) notes — for every view, not only academic ones.
+   *
+   * A row can be "promoted" into a standalone note that stands for that item. This is where a view says
+   * whether it offers that, how a row is tied to its note (the identity, and the wikilink column), how a
+   * promoted row is marked in the table, and where notes are saved / from what template. Everything that was
+   * previously hidden (the `source`/`doi` match key, the magic "Note" column) is declared here.
+   */
+  private renderNotes(): void {
+    const el = this.notesEl;
+    el.empty();
+    panelHead(el, {
+      title: "Promoted notes",
+      desc: "Turn a row into a dedicated note that stands for it — a paper's literature note, a product page, a recipe. Available on every view.",
+    });
+
+    const enabled = this.profile.promotedNotes !== false;
+    new Setting(el)
+      .setName("Offer promoted notes")
+      .setDesc("Show “Promote to dedicated note” on rows, and mark rows that already have one. Turn off for views that don't use notes.")
+      .addToggle((t) =>
+        t.setValue(enabled).onChange((v) => {
+          this.patch({ promotedNotes: v });
+          this.renderNotes();
+        }),
+      );
+    if (!enabled) {
+      hint(el, "Promoted notes are off for this view.");
+      return;
+    }
+
+    // How a row is tied to its note: a stable frontmatter identifier (survives rename/move, prevents
+    // duplicates). Default is the URL (`source`) for general views, the DOI for academic ones.
+    const current = this.profile.dedicatedNoteKey ?? "";
+    const curated = ["source", "doi", "isbn", "url", "zotero-key", "uid", "id"];
+    const keyOptions = [...new Set([...(current ? [current] : []), ...curated, ...this.frontmatterKeys()])];
+    new Setting(el)
+      .setName("Match a row to its note by")
+      .setDesc("The frontmatter property that identifies a row's note, so promotion finds an existing note anywhere in the vault (not just by folder or filename). This is the invisible link — it does not show in the graph.")
+      .addDropdown((dd) => {
+        dd.addOption("", this.profile.academicKit ? "Default (DOI)" : "Default (URL / source)");
+        for (const k of keyOptions) dd.addOption(k, k);
+        dd.setValue(current);
+        dd.onChange((v) => this.patch({ dedicatedNoteKey: v }));
+      });
+
+    // The wikilink column — the graph-visible half. Previously a fixed magic "Note" column; now declared.
+    const columnNames = this.profile.columns.map((c) => c.name);
+    new Setting(el)
+      .setName("Wikilink column")
+      .setDesc("Which column holds the [[wikilink]] back to a row's note — this is what shows the connection in the graph. Auto = a column named “Note”, else the first link column.")
+      .addDropdown((dd) => {
+        dd.addOption("", "Auto-detect");
+        for (const name of columnNames) dd.addOption(name, name);
+        dd.setValue(this.profile.noteLinkColumn ?? "");
+        dd.onChange((v) => this.patch({ noteLinkColumn: v }));
+      });
+
+    new Setting(el)
+      .setName("Also link the note back to its source")
+      .setDesc("Write a [[source note]] link inside the promoted note, so the graph shows a two-way connection. No effect when the source isn't a markdown note.")
+      .addToggle((t) => t.setValue(this.profile.backlinkToSource !== false).onChange((v) => this.patch({ backlinkToSource: v })));
+
+    // The at-a-glance indicator: a faded palette tint on a promoted row's checkbox.
+    const PALETTE = ["yellow", "red", "green", "blue", "purple", "magenta", "orange", "gray"];
+    new Setting(el)
+      .setName("Mark promoted rows")
+      .setDesc("Shade the checkbox of a row that has a dedicated note, in a colour from the KVS palette. Choose “None” for no marking.")
+      .addDropdown((dd) => {
+        dd.addOption("", "Default (purple)");
+        for (const c of PALETTE) dd.addOption(c, c);
+        dd.addOption("none", "None");
+        dd.setValue(this.profile.promotedFillColor ?? "");
+        dd.onChange((v) => this.patch({ promotedFillColor: v }));
+      });
+
+    // Where notes are saved.
+    const folderSetting = new Setting(el)
+      .setName("Promoted notes folder")
+      .setDesc("Where a promoted note is saved. Empty = a “Notes” subfolder of this view's folder (“Papers” for academic views).");
+    const input = folderSetting.controlEl.createEl("input", { cls: "kvs-folder-input" });
+    input.type = "text";
+    input.placeholder = "e.g. Research/Notes";
+    input.value = this.profile.promotedNotesFolder ?? "";
+    const dl = folderSetting.controlEl.createEl("datalist");
+    dl.id = `kvs-pf-${Math.random().toString(36).slice(2)}`;
+    for (const f of this.allFolders()) dl.createEl("option", { value: f });
+    input.setAttr("list", dl.id);
+    const commit = (): void => this.patch({ promotedNotesFolder: input.value.trim().replace(/\/+$/, "") });
+    input.addEventListener("change", commit);
+    input.addEventListener("blur", commit);
+
+    const tmpl = new Setting(el)
+      .setName("Promoted note template (this view)")
+      .setDesc("Overrides the global template for this view. Any column becomes a placeholder: {{title}}, {{source}}, {{date}}, {{annotations}}, plus one per column name. Empty = use the global template.");
+    tmpl.addTextArea((ta) => {
+      ta.setPlaceholder("Leave empty to use the global template…");
+      ta.setValue(this.profile.promotedNoteTemplate ?? "");
+      ta.onChange((value) => this.patch({ promotedNoteTemplate: value }));
+      ta.inputEl.rows = 10;
+      ta.inputEl.addClass("kvs-template-textarea");
+    });
+    tmpl.addExtraButton((btn) =>
+      btn
+        .setIcon("clipboard-copy")
+        .setTooltip("Start from the default template")
+        .onClick(() => {
+          this.patch({ promotedNoteTemplate: DEFAULT_PROMOTED_TEMPLATE });
+          this.renderNotes();
+          this.refilter();
+        }),
+    );
   }
 
   // ---- Sources: where this view's rows come from ----

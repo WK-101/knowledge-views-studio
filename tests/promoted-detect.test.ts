@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { noteLinkColumnName, wikilinkTarget, citeKeyColumnName } from "../src/views/promoted-detect";
+import {
+  citeKeyColumnName,
+  noteLinkColumnName,
+  promotedFillColor,
+  promotedNotesEnabled,
+  resolveNoteLinkColumn,
+  wikilinkTarget,
+} from "../src/views/promoted-detect";
 
 // Mirrors the Paper Library's configured columns (note the relation "Cites" must NOT win).
 const libraryCols = [
@@ -38,5 +45,32 @@ describe("promoted-note detection", () => {
     expect(citeKeyColumnName(libraryCols)).toBe("Cite key");
     expect(citeKeyColumnName([{ name: "Key", type: "citekey" }])).toBe("Key");
     expect(citeKeyColumnName([{ name: "X", type: "text" }])).toBeNull();
+  });
+
+  it("resolves an explicit link column, falling back to auto-detect", () => {
+    const cols = [{ name: "URL", type: "text" }, { name: "My Notes", type: "text" }, { name: "Note", type: "link" }];
+    // Explicit choice wins, case-insensitively.
+    expect(resolveNoteLinkColumn("my notes", cols)).toBe("My Notes");
+    // Empty = auto-detect (the "Note"/link column).
+    expect(resolveNoteLinkColumn("", cols)).toBe("Note");
+    expect(resolveNoteLinkColumn(undefined, cols)).toBe("Note");
+    // A stale explicit choice (renamed away) falls back to auto rather than linking nothing.
+    expect(resolveNoteLinkColumn("Gone", cols)).toBe("Note");
+    // No candidate at all → null.
+    expect(resolveNoteLinkColumn("", [{ name: "Title", type: "text" }])).toBeNull();
+  });
+
+  it("treats promoted notes as on unless explicitly off", () => {
+    expect(promotedNotesEnabled({})).toBe(true);
+    expect(promotedNotesEnabled({ promotedNotes: true })).toBe(true);
+    expect(promotedNotesEnabled({ promotedNotes: false })).toBe(false);
+  });
+
+  it("resolves the promoted-row fill colour, defaulting and honouring 'none'", () => {
+    expect(promotedFillColor("green")).toBe("green");
+    expect(promotedFillColor("magenta")).toBe("magenta");
+    expect(promotedFillColor("none")).toBeNull();
+    expect(promotedFillColor(undefined)).toBe("purple"); // default
+    expect(promotedFillColor("chartreuse")).toBe("purple"); // unknown → default, not dropped
   });
 });

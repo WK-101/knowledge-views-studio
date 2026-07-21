@@ -5,6 +5,41 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 189 — promoted notes for every view (ungated, declared, two-way)
+
+Plugin 0.180.0. Three long-standing rough edges around "Promote to dedicated note", fixed together. No
+companion or bridge change — `REQUIRED_PLUGIN_VERSION` is untouched.
+
+**1. Promotion is no longer academic-only.** The engine (`PromotionService`, `promotionPlan`) was always
+general — its own comments say so — but two lines buried it behind the Academic kit: the `onPromote` handler
+was only wired for `academicKit` views, and the promoted-note settings only rendered inside the academic
+Research panel. Now promotion is offered on **every writable view**, with a per-view **"Offer promoted
+notes"** toggle (default on) to hide it where it isn't wanted. Non-academic views promote through the general
+service — a web-shaped note template, not the paper one — while academic views keep their Zotero/DOI
+enrichment.
+
+**2. The row indicator is the checkbox itself, not a separate marker.** The small ◆ corner flag is gone.
+A promoted row's **checkbox is now shaded with a faded fill in a palette colour** (`.kvs-checkbox` became a
+clean custom checkbox so the tint is reliable, not a native box we can't paint), chosen per-view from the
+KVS 8-colour palette — or "None". A view with no selection column shows a small filled swatch in its place.
+
+**3. The row↔note link is declared and adjustable, and now shows in the graph.** Two things were hidden and
+fixed: the frontmatter identity key (`source` for general views, `doi` for academic) and the *magic* column
+name **"Note"** that silently became the wikilink column. Both are now settings in a new **"Promoted notes"**
+section (present on every view): **"Match a row to its note by"** (the frontmatter identifier — the invisible
+link that prevents duplicates), and **"Wikilink column"** (which column holds the `[[link]]` — the
+graph-visible half, no longer magic). And because the frontmatter match never showed in the graph — the thing
+you noticed — promotion now writes a **two-way link**: the row's wikilink column points at the note, *and* a
+`[[source note]]` backlink is written inside the note pointing back to the row's source note, so the
+connection actually appears in the graph. A "link note back to source" toggle governs the second half
+(no-ops when the source isn't a markdown note).
+
+New per-view profile fields: `promotedNotes`, `promotedFillColor`, `noteLinkColumn`, `backlinkToSource`
+(all optional, old profiles default sensibly). Pure logic is unit-tested (16 new: link-column resolution,
+fill-colour resolution, the source-backlink insertion, the explicit-column plan); 1470 pass. tsc clean on
+both halves, eslint at the 37-warning baseline, plugin build clean. The table indicator, the settings panel,
+and the graph edges are in-Obsidian UI — unverified until run in the app.
+
 ## Phase 188 — the chrome UI redesign, part 3 (onboarding + options polish)
 
 Companion 0.11.0, extension-only. The last of the extension-only redesign phases: a first-run experience,

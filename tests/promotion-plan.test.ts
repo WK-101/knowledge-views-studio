@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { promotionPlan, identityCell, DEFAULT_WEB_PROMOTED_TEMPLATE } from "../src/services/notes/promotion-plan";
+import {
+  DEFAULT_WEB_PROMOTED_TEMPLATE,
+  identityCell,
+  noteBasename,
+  promotionPlan,
+  withSourceBacklink,
+} from "../src/services/notes/promotion-plan";
 import { renderTemplate } from "../shared/template";
 
 const input = (cells: Record<string, string>, patch: object = {}) => ({
@@ -87,5 +93,35 @@ describe("promotion · variables", () => {
     expect(note).toContain('title: "A study: part two"');
     expect(note).toContain("source: https://x/a");
     expect(note).toContain("## Annotations");
+  });
+
+  it("honours an explicit link column, over auto-detect", () => {
+    const cols = [{ name: "URL", type: "text" }, { name: "Linked note", type: "text" }, { name: "Note", type: "link" }];
+    const withExplicit = promotionPlan({ cells: { Title: "X" }, columns: cols, matchKey: "source", explicitLinkColumn: "Linked note" });
+    expect(withExplicit.noteLinkColumn).toBe("Linked note");
+    const auto = promotionPlan({ cells: { Title: "X" }, columns: cols, matchKey: "source" });
+    expect(auto.noteLinkColumn).toBe("Note");
+  });
+
+  it("derives a wikilink-target basename from a source path", () => {
+    expect(noteBasename("Research/Papers/Deep Work.md")).toBe("Deep Work");
+    expect(noteBasename("Note.md")).toBe("Note");
+    expect(noteBasename("folder/Reading List")).toBe("Reading List");
+  });
+
+  it("inserts a source backlink after the frontmatter, once", () => {
+    const content = "---\ntitle: X\nsource: https://x/a\n---\n\n# X\n\nbody\n";
+    const out = withSourceBacklink(content, "My Table");
+    expect(out).toContain("Source note: [[My Table]]");
+    // Placed after the frontmatter block, before the body.
+    expect(out.indexOf("Source note:")).toBeGreaterThan(out.indexOf("---\n\n") - 1);
+    expect(out.indexOf("Source note:")).toBeLessThan(out.indexOf("# X"));
+    // Idempotent: a second pass doesn't add a duplicate.
+    expect(withSourceBacklink(out, "My Table")).toBe(out);
+  });
+
+  it("prepends the backlink when there's no frontmatter, and no-ops on a blank source", () => {
+    expect(withSourceBacklink("just body", "Src")).toBe("Source note: [[Src]]\n\njust body");
+    expect(withSourceBacklink("body", "  ")).toBe("body");
   });
 });
