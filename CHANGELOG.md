@@ -5,6 +5,29 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 181 — the copy menu, first of the new toolbar actions (island redesign, part 3)
+
+Companion 0.4.0. With the toolbar now configurable, this is the first *new* action to plug into it: **Copy**.
+Select text, click Copy, and pick how it lands on the clipboard —
+
+  - **Quote** — the text in typographic quotes, collapsed to one line, to drop inside a sentence;
+  - **Blockquote** — a Markdown `>` block, one prefix per line, to paste as a quotation;
+  - **Markdown link** — the text as the label of a link back to the page it came from.
+
+A short confirmation tells you which format was copied. It reads the selection the moment the toolbar opens,
+so the text is safe even after the click, and the formatters are pure functions (the page URL passed in, not
+read from the page) with their own tests — quote collapsing, per-line blockquote prefixing with blank lines
+kept, and bracket-escaping in link labels so a `[1]` in the text can't break the link.
+
+The point of part 1 was that this would be a small addition, and it is: one entry in the action catalogue and
+one renderer. Because the catalogue reconciles itself on load, Copy simply appears — on, at the end of the
+list — in the Toolbar actions settings of every existing install, ready to reorder or switch off like any
+other, with nothing to re-save. It reuses the toolbar's own menu styling and the existing clipboard path, so
+it needs no new permission.
+
+Companion-only — the plugin is unchanged (0.178.0). Reload a page to pick it up. More actions to follow, one
+at a time: search the selection, a sticky note, and the rest.
+
 ## Phase 180 — the selection toolbar's appearance and behaviour (island redesign, part 2)
 
 Companion 0.3.0. Part 1 made the toolbar's actions configurable; this makes the toolbar itself configurable —

@@ -15,6 +15,7 @@ import {
   normalizeIslandSettings,
   type IslandSettings,
 } from "./lib/island-settings";
+import { formatCopy, type CopyFormat } from "./lib/copy-formats";
 
 /**
  * The annotator, on the page.
@@ -544,6 +545,8 @@ function showToolbar(rect: DOMRect): void {
 
   let style: Style = lastChoice.style;
   let intensity: Intensity = lastChoice.intensity;
+  // Captured now, while the selection is live, so the copy action has the text even after a click.
+  const selectionText = window.getSelection()?.toString() ?? "";
 
   // Shared across the colour swatches and the two toggles: changing style or transparency repaints the
   // swatch previews. A no-op when the colours action is off (nothing in `swatches`), so the toggles still work.
@@ -628,11 +631,63 @@ function showToolbar(rect: DOMRect): void {
       });
       bar.appendChild(withNote);
     },
+    copy: () => {
+      const btn = document.createElement("button");
+      btn.className = "action";
+      btn.textContent = "⧉ copy";
+      btn.title = "Copy the selection as a quote, blockquote, or link";
+      btn.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        showCopyMenu(rect, selectionText);
+      });
+      bar.appendChild(btn);
+    },
   };
 
   for (const action of islandActions) {
     if (action.enabled) builders[action.id]();
   }
+
+  placeNear(bar, rect);
+  root.appendChild(bar);
+}
+
+/** A small menu offering the three copy formats for the current selection. */
+function showCopyMenu(rect: DOMRect, text: string): void {
+  const root = ensureShell();
+  clearUi();
+  const bar = document.createElement("div");
+  bar.className = "bar col";
+
+  // A clamped preview of what's on the clipboard's way, so it's clear what's being copied.
+  const preview = document.createElement("div");
+  preview.className = "menu-quote";
+  preview.textContent = text;
+  bar.appendChild(preview);
+
+  const options: { label: string; format: CopyFormat }[] = [
+    { label: "Quote", format: "quote" },
+    { label: "Blockquote", format: "blockquote" },
+    { label: "Markdown link", format: "markdown-link" },
+  ];
+  const row = document.createElement("div");
+  row.className = "row";
+  for (const option of options) {
+    const button = document.createElement("button");
+    button.className = "action";
+    button.textContent = option.label;
+    button.title = `Copy as ${option.label.toLowerCase()}`;
+    button.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      const formatted = formatCopy(option.format, text, location.href);
+      void navigator.clipboard.writeText(formatted).then(
+        () => toast(`Copied as ${option.label.toLowerCase()}.`),
+        () => toast("Couldn't copy to the clipboard."),
+      );
+    });
+    row.appendChild(button);
+  }
+  bar.appendChild(row);
 
   placeNear(bar, rect);
   root.appendChild(bar);
