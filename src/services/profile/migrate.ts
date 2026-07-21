@@ -10,6 +10,7 @@ import {
   DEFAULT_DATA,
   DEFAULT_SETTINGS,
   DEFAULT_ANNOTATION_WRITEBACK,
+  DEFAULT_PALETTE_OVERRIDE,
   type AnnotationWriteback,
   SCHEMA_VERSION,
   createProfile,
@@ -18,6 +19,7 @@ import {
   type Profile,
 } from "./profile";
 import { normalizeWeights } from "../search/relevance";
+import { ZOTERO_PALETTE, hexToRgb255, type PaletteOverride } from "../../../shared/annotations";
 
 export interface MigrationOutcome {
   readonly data: PluginData;
@@ -208,6 +210,23 @@ function normalizeWriteback(raw: unknown): AnnotationWriteback {
   };
 }
 
+/**
+ * A stored palette override, made safe: `enabled` coerced to a boolean, and every one of the eight colour
+ * slots resolved to a valid hex — the stored value if it parses, otherwise that colour's Zotero default. A
+ * garbage or missing entry can never survive into the running palette.
+ */
+function normalizePaletteOverride(raw: unknown): PaletteOverride {
+  const d = DEFAULT_PALETTE_OVERRIDE;
+  if (!isRecord(raw)) return d;
+  const storedColors = isRecord(raw.colors) ? raw.colors : {};
+  const colors: Record<string, string> = {};
+  for (const c of ZOTERO_PALETTE) {
+    const stored = storedColors[c.name];
+    colors[c.name] = typeof stored === "string" && hexToRgb255(stored) !== null ? stored : c.hex;
+  }
+  return { enabled: asBool(raw.enabled, d.enabled), colors };
+}
+
 function normalizeSettings(raw: unknown): GlobalSettings {
   if (!isRecord(raw)) return DEFAULT_SETTINGS;
   return {
@@ -246,6 +265,7 @@ function normalizeSettings(raw: unknown): GlobalSettings {
     literatureNoteTemplate: asString(raw.literatureNoteTemplate, DEFAULT_SETTINGS.literatureNoteTemplate),
     onboardingSeen: asBool(raw.onboardingSeen, DEFAULT_SETTINGS.onboardingSeen),
     annotationWriteback: normalizeWriteback(raw.annotationWriteback),
+    paletteOverride: normalizePaletteOverride(raw.paletteOverride),
     seenHints: Array.isArray(raw.seenHints) ? raw.seenHints.filter((h): h is string => typeof h === "string") : [],
     enableRowCopy: asBool(raw.enableRowCopy, DEFAULT_SETTINGS.enableRowCopy),
     copyLinkHandling:

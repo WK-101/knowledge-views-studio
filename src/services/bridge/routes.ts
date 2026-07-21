@@ -96,6 +96,9 @@ export interface BridgeContext {
     tagsToNoteInline: boolean;
     tagsToNoteProperty: boolean;
   };
+  /** The palette in force for this vault — Zotero's, or a custom override — so the web annotator paints the
+   * same colours the vault uses. Resolved plugin-side; the extension is a dumb consumer. */
+  readonly palette?: () => readonly { name: string; hex: string; rgb: readonly [number, number, number] }[];
   /** Create or find a row's dedicated note. Absent when promotion isn't available. */
   readonly promote?: (
     profile: Profile,
@@ -857,6 +860,9 @@ export function annotationsRoute(): Route<BridgeContext> {
           ...(a.tags !== undefined && a.tags.length > 0 ? { tags: a.tags } : {}),
           ...(a.intensity !== undefined ? { intensity: a.intensity } : {}),
         })),
+        ...(context.palette !== undefined
+          ? { palette: context.palette().map((c) => ({ name: c.name, hex: c.hex, rgb: c.rgb })) }
+          : {}),
       };
       return { status: 200, body: response };
     },

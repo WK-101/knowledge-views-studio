@@ -416,9 +416,19 @@ export interface AnnotationsRequest {
   readonly url: string;
 }
 
+/** A single highlight colour in the vault's active palette, sent so the annotator paints what the vault uses. */
+export interface WirePaletteColor {
+  readonly name: string;
+  readonly hex: string;
+  readonly rgb: readonly [number, number, number];
+}
+
 export interface AnnotationsResponse {
   readonly ok: boolean;
   readonly annotations: readonly WireAnnotation[];
+  /** The vault's active highlight palette (Zotero's, or a custom override). Absent on older plugins, in which
+   * case the annotator keeps its built-in Zotero defaults. */
+  readonly palette?: readonly WirePaletteColor[];
 }
 
 export interface AnnotationRemoveRequest {

@@ -377,7 +377,8 @@ runtimeMessaging?.onMessage.addListener((message, _sender, sendResponse) => {
 
       if (request.type === "kvs-annotations-for") {
         const result = await annotationsFor(connection, { url });
-        sendResponse({ annotations: result.annotations });
+        // Forward the vault's palette alongside its annotations, so the annotator paints the vault's colours.
+        sendResponse({ annotations: result.annotations, ...(result.palette ? { palette: result.palette } : {}) });
         return;
       }
 

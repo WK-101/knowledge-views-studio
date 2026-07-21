@@ -71,6 +71,51 @@ export function paletteHex(color: HighlightColor): string {
   return (ZOTERO_PALETTE.find((c) => c.name === color) ?? ZOTERO_PALETTE[0]!).hex;
 }
 
+/** A hex like "#5fb236" (with or without the leading #) → [95,178,54]; null if not a valid 6-digit hex. */
+export function hexToRgb255(hex: string): readonly [number, number, number] | null {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return null;
+  const v = parseInt(m[1]!, 16);
+  return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
+}
+
+/** Normalise a hex to lowercase with a leading # (assumes it already passed hexToRgb255). */
+function normalizeHex(hex: string): string {
+  const t = hex.trim().toLowerCase();
+  return t.startsWith("#") ? t : `#${t}`;
+}
+
+/**
+ * A per-vault palette override. Off by default, in which case Zotero's palette stands unchanged; on, its named
+ * hexes replace the corresponding Zotero colours. The point is the modular half of the promise: a vault that
+ * doesn't want the shared Zotero shades can pick its own, and everything that draws a highlight follows,
+ * because everything resolves through this one type.
+ */
+export interface PaletteOverride {
+  readonly enabled: boolean;
+  readonly colors: Readonly<Partial<Record<HighlightColor, string>>>;
+}
+
+/**
+ * The palette actually in force. Zotero's eight by default; when the override is on, each colour whose entry
+ * is a valid hex takes that hex (and the rgb derived from it), every other slot keeping Zotero's. An invalid
+ * or missing entry never breaks its slot — it falls back to Zotero — so a half-filled override can't produce a
+ * black or empty swatch. Recognition of *imported* highlights is deliberately not routed through here: colour
+ * naming stays on the canonical Zotero values, because the override is about what a vault draws, not how it
+ * names what it imports from Zotero or a PDF.
+ */
+export function effectivePalette(
+  override?: PaletteOverride,
+): readonly { readonly name: HighlightColor; readonly hex: string; readonly rgb: readonly [number, number, number] }[] {
+  if (!override?.enabled) return ZOTERO_PALETTE;
+  return ZOTERO_PALETTE.map((c) => {
+    const raw = override.colors[c.name];
+    if (typeof raw !== "string") return c;
+    const rgb = hexToRgb255(raw);
+    return rgb ? { name: c.name, hex: normalizeHex(raw), rgb } : c;
+  });
+}
+
 /** How a highlight is drawn: painted over, or underlined beneath. */
 export type HighlightStyle = "highlight" | "underline";
 

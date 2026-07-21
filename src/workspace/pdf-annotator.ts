@@ -418,7 +418,11 @@ export class PdfOverlayManager {
 }
 
 /** Wire the floating toolbar (swatches + eraser) to the overlay manager. */
-export function registerPdfAnnotatorToolbar(plugin: Plugin, manager: PdfOverlayManager): void {
+export function registerPdfAnnotatorToolbar(
+  plugin: Plugin,
+  manager: PdfOverlayManager,
+  palette: () => readonly { name: string; hex: string }[] = () => HIGHLIGHT_COLORS,
+): void {
   let bar: HTMLElement | null = null;
   const hide = (): void => {
     bar?.remove();
@@ -447,10 +451,11 @@ export function registerPdfAnnotatorToolbar(plugin: Plugin, manager: PdfOverlayM
   const show = (rect: DOMRect): void => {
     hide();
     bar = document.body.createDiv({ cls: "kvs-hl-bar" });
-    for (const c of HIGHLIGHT_COLORS) {
+    // Read the palette live, so a colour override (or a return to Zotero) shows up the next time the bar opens.
+    for (const c of palette()) {
       const sw = bar.createDiv({ cls: "kvs-hl-swatch" });
       sw.setCssProps({ "--kvs-swatch": c.hex });
-      sw.setAttr("aria-label", `Highlight ${c.name}`);
+      sw.setAttr("aria-label", `Highlight ${c.name.charAt(0).toUpperCase()}${c.name.slice(1)}`);
       onPress(sw, () => void manager.addHighlightFromSelection(c.hex));
     }
     const eraser = bar.createDiv({ cls: "kvs-hl-erase" });

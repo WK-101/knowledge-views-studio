@@ -9,6 +9,8 @@ import {
   HIGHLIGHT_COLORS,
   ZOTERO_PALETTE,
   paletteHex,
+  effectivePalette,
+  hexToRgb255,
   type StoredAnnotation,
   type PageAnnotations,
 } from "../shared/annotations";
@@ -190,5 +192,39 @@ describe("Zotero palette (the canonical highlight colours)", () => {
     expect(paletteHex("magenta")).toBe("#e56eee");
     // A name outside the palette can't occur through the type, but the fallback is Zotero yellow.
     expect(paletteHex("yellow")).toBe("#ffd400");
+  });
+});
+
+describe("effectivePalette (the per-vault override)", () => {
+  it("returns Zotero's palette untouched when the override is off or absent", () => {
+    expect(effectivePalette(undefined)).toBe(ZOTERO_PALETTE);
+    expect(effectivePalette({ enabled: false, colors: { green: "#008080" } })).toBe(ZOTERO_PALETTE);
+  });
+
+  it("replaces only the overridden slots when enabled, and derives their rgb from the hex", () => {
+    const p = effectivePalette({ enabled: true, colors: { green: "#008080" } });
+    const green = p.find((c) => c.name === "green")!;
+    expect(green.hex).toBe("#008080");
+    expect(green.rgb).toEqual([0, 128, 128]);
+    // Every other colour keeps its Zotero value.
+    expect(p.find((c) => c.name === "red")!.hex).toBe("#ff6666");
+    expect(p.find((c) => c.name === "yellow")!.hex).toBe("#ffd400");
+    // Order and length are preserved.
+    expect(p.map((c) => c.name)).toEqual(ZOTERO_PALETTE.map((c) => c.name));
+  });
+
+  it("falls back to Zotero per-slot for an invalid or missing entry — never a broken swatch", () => {
+    const p = effectivePalette({ enabled: true, colors: { green: "not-a-hex", blue: "#123456" } });
+    // Invalid green → Zotero green; missing red → Zotero red; valid blue → the override.
+    expect(p.find((c) => c.name === "green")!.hex).toBe("#5fb236");
+    expect(p.find((c) => c.name === "red")!.hex).toBe("#ff6666");
+    expect(p.find((c) => c.name === "blue")!.hex).toBe("#123456");
+  });
+
+  it("parses hex to rgb, tolerating a missing # and rejecting nonsense", () => {
+    expect(hexToRgb255("#5fb236")).toEqual([95, 178, 54]);
+    expect(hexToRgb255("5fb236")).toEqual([95, 178, 54]);
+    expect(hexToRgb255("#fff")).toBeNull();
+    expect(hexToRgb255("teal")).toBeNull();
   });
 });

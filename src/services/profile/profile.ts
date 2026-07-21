@@ -1,4 +1,5 @@
 import { DEFAULT_THEME_SPEC } from "../annotations/themes";
+import { ZOTERO_PALETTE, type PaletteOverride } from "../../../shared/annotations";
 import type { CaptureTarget } from "../capture/types";
 import { DEFAULT_BRIDGE_SETTINGS, type BridgeSettings } from "../bridge/types";
 import { DEFAULT_RELEVANCE, type RelevanceWeights } from "../search/relevance";
@@ -163,6 +164,15 @@ export const DEFAULT_ANNOTATION_WRITEBACK: AnnotationWriteback = {
   tagsToNoteProperty: false,
 };
 
+/**
+ * The palette override, off by default with every slot pre-filled with its Zotero hex — so when someone turns
+ * it on, the colour pickers start from Zotero's values and are edited from there, rather than from blank.
+ */
+export const DEFAULT_PALETTE_OVERRIDE: PaletteOverride = {
+  enabled: false,
+  colors: Object.fromEntries(ZOTERO_PALETTE.map((c) => [c.name, c.hex])),
+};
+
 export interface GlobalSettings {
   /** Live re-render of open views when their source notes change. */
   readonly autoRefresh: boolean;
@@ -257,6 +267,7 @@ export interface GlobalSettings {
   readonly onboardingSeen: boolean;
   /** Where highlight notes and tags are written back into the vault (notes and tags configured separately). */
   readonly annotationWriteback: AnnotationWriteback;
+  readonly paletteOverride: PaletteOverride;
   /** Ids of one-time contextual hints the user has dismissed. */
   readonly seenHints: readonly string[];
 
@@ -316,6 +327,7 @@ export const DEFAULT_SETTINGS: GlobalSettings = {
   literatureNoteTemplate: "",
   onboardingSeen: false,
   annotationWriteback: DEFAULT_ANNOTATION_WRITEBACK,
+  paletteOverride: DEFAULT_PALETTE_OVERRIDE,
   seenHints: [],
   enableRowCopy: false,
   copyLinkHandling: "keep",

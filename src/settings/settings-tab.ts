@@ -11,6 +11,7 @@ import {
   DEFAULT_PROMOTED_TEMPLATE,
   PROMOTED_PLACEHOLDERS,
   DEFAULT_THEME_SPEC,
+  DEFAULT_PALETTE_OVERRIDE,
   testZoteroConnection,
   type DataService,
   type Profile,
@@ -23,6 +24,7 @@ import type { GlobalSettings } from "../services/profile/profile";
 import type { BridgeService } from "../services/bridge/bridge-service";
 import { hasUsableTarget, suggestCaptureTarget } from "../services/capture/suggest-target";
 import { buildConnectionLink } from "../../shared/protocol";
+import { ZOTERO_PALETTE } from "../../shared/annotations";
 import { LocalIndexBackend, VaultIndexBackend } from "../workspace/index-backend";
 import type { ViewRegistry } from "../views/index";
 import { ProfileEditorModal } from "./profile-editor-modal";
@@ -1251,10 +1253,47 @@ export class KnowledgeViewsSettingTab extends PluginSettingTab {
         }),
     );
 
+    const palette = settings.paletteOverride;
+    new Setting(el).setName("Highlight palette").setHeading();
+    new Setting(el)
+      .setName("Use a custom palette")
+      .setDesc(
+        "Off by default, highlights use Zotero's eight colours — so a colour looks the same in Zotero, in a PDF, " +
+          "and on a web page, and can carry one meaning across the vault. Turn this on to set your own eight; the " +
+          "PDF swatches and the web annotator follow. (Naming of imported Zotero/PDF highlights stays on the " +
+          "standard values, so imports are still recognised.)",
+      )
+      .addToggle((t) =>
+        t.setValue(palette.enabled).onChange((v) => {
+          store.updateSettings({ paletteOverride: { ...palette, enabled: v } });
+          this.display();
+        }),
+      );
+    if (palette.enabled) {
+      for (const c of ZOTERO_PALETTE) {
+        new Setting(el)
+          .setName(c.name.charAt(0).toUpperCase() + c.name.slice(1))
+          .setDesc(`Zotero default ${c.hex}`)
+          .addColorPicker((picker) =>
+            picker.setValue(palette.colors[c.name] ?? c.hex).onChange((hex) => {
+              store.updateSettings({
+                paletteOverride: { ...palette, colors: { ...palette.colors, [c.name]: hex } },
+              });
+            }),
+          );
+      }
+      new Setting(el).addButton((b) =>
+        b.setButtonText("Reset to Zotero's colours").onClick(() => {
+          store.updateSettings({ paletteOverride: { ...palette, colors: DEFAULT_PALETTE_OVERRIDE.colors } });
+          this.display();
+        }),
+      );
+    }
+
     new Setting(el)
       .setName("Highlight colour themes")
       .setDesc(
-        'Map highlight colours to research themes (used as the callout label and to group "Build highlight synthesis"). Format: "color=Theme; color=Theme". Colours: yellow, green, blue, red, purple, orange, gray.',
+        'Map highlight colours to research themes (used as the callout label and to group "Build highlight synthesis"). Format: "color=Theme; color=Theme". Colours: yellow, red, green, blue, purple, magenta, orange, gray.',
       )
       .addTextArea((ta) => {
         ta.setPlaceholder(DEFAULT_THEME_SPEC).setValue(settings.annotationThemes).onChange((v) => store.updateSettings({ annotationThemes: v }));

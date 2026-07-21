@@ -38,6 +38,29 @@ const PAINT: Record<Color, { rgb: readonly [number, number, number]; solid: stri
   ZOTERO_PALETTE.map((c) => [c.name, { rgb: c.rgb, solid: c.hex }]),
 ) as Record<Color, { rgb: readonly [number, number, number]; solid: string }>;
 
+/**
+ * Adopt a palette pushed by the plugin — the vault's own highlight colours, Zotero's or a custom override — so
+ * a highlight painted here matches what the vault draws. Mutates PAINT in place (the swatch loops read it live
+ * at render time), and falls back per-slot to the colour already loaded if an entry is malformed, so a bad
+ * push can never blank a swatch. No push, or an older plugin, leaves the built-in Zotero defaults untouched.
+ */
+function applyPalette(
+  palette: readonly { name?: string; hex?: string; rgb?: readonly [number, number, number] }[],
+): void {
+  for (const c of palette) {
+    if (
+      typeof c.name === "string" &&
+      c.name in PAINT &&
+      typeof c.hex === "string" &&
+      Array.isArray(c.rgb) &&
+      c.rgb.length === 3 &&
+      c.rgb.every((n) => typeof n === "number")
+    ) {
+      PAINT[c.name as Color] = { rgb: [c.rgb[0]!, c.rgb[1]!, c.rgb[2]!], solid: c.hex };
+    }
+  }
+}
+
 /** An annotation's transparency, defaulting to medium. */
 function intensityOf(a: WireAnnotation | undefined): Intensity {
   return a?.intensity === "light" || a?.intensity === "strong" ? a.intensity : "medium";
@@ -784,8 +807,14 @@ async function restore(): Promise<void> {
   let annotations: WireAnnotation[] = [];
   try {
     const reply = (await api.runtime.sendMessage({ type: "kvs-annotations-for", url: location.href })) as
-      | { annotations?: WireAnnotation[] }
+      | {
+          annotations?: WireAnnotation[];
+          palette?: readonly { name?: string; hex?: string; rgb?: readonly [number, number, number] }[];
+        }
       | undefined;
+    // Adopt the vault's palette (if the plugin sent one) before painting, so restored highlights and the
+    // toolbar swatches use the vault's colours from the first frame rather than the built-in defaults.
+    if (reply?.palette) applyPalette(reply.palette);
     annotations = reply?.annotations ?? [];
   } catch {
     return;

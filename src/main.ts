@@ -35,6 +35,7 @@ import {
 import { PromotionService } from "./services/notes/promote-service";
 import { WebAnnotationService } from "./services/web-annotations/web-annotation-service";
 import type { StoredAnnotation } from "../shared/annotations";
+import { effectivePalette } from "../shared/annotations";
 import { findDedicatedNote } from "./services/notes/dedicated-note";
 import { referencesToNote, type ImportedRef, DataService, ARCHIVE_EXTENSION, KVS_PACK_EXTENSION, KVS_VIEW_EXTENSION, ProfileStore, UndoManager, WriterService, createProfile, migrateData, xlsxExtractor } from "./services/index";
 import { ObsidianVaultGateway } from "./obsidian/index";
@@ -183,7 +184,9 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     const overlayManager = new PdfOverlayManager(this.app, annotationSyncOpts);
     this.pdfOverlayManager = overlayManager;
     registerAnnotationDecorator(this, (sourcePath, blockId) => void overlayManager.queueDelete(sourcePath, blockId), (sourcePath, blockId) => void overlayManager.editAnnotation(sourcePath, blockId));
-    registerPdfAnnotatorToolbar(this, overlayManager);
+    registerPdfAnnotatorToolbar(this, overlayManager, () =>
+      effectivePalette(store.getSettings().paletteOverride).map((c) => ({ name: c.name, hex: c.hex })),
+    );
     this.registerEvent(this.app.workspace.on("active-leaf-change", () => overlayManager.onLeafChange()));
     this.registerDomEvent(window, "blur", () => void overlayManager.flushAll());
 
@@ -291,6 +294,9 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
         onCaptured: (path) => dataService.invalidate(path),
         // Notes and tags write-back destinations, read live so a settings change takes effect at once.
         annotationWriteback: () => store.getSettings().annotationWriteback,
+        // The vault's active highlight palette, resolved live, so the web annotator paints the same colours
+        // the vault uses — Zotero's by default, or a custom override when one is enabled.
+        palette: () => effectivePalette(store.getSettings().paletteOverride),
         // Reuses the same writer the app itself edits through, so a change from the browser goes down
         // exactly the path an in-app edit does — including its undo history.
         editCells: async (edits) => {

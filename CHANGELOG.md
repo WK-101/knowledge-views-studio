@@ -5,6 +5,38 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 176 — a per-vault palette override: keep Zotero's eight, or set your own
+
+Last round standardised every highlight on Zotero's eight colours. This round adds the other half of that
+promise: a vault that doesn't want the shared shades can choose its own — and because everything already
+resolves colour through one place, turning the override on is a substitution, not a rewrite.
+
+It lives under Settings → Research → "Highlight palette", off by default. Off, nothing changes: Zotero's eight
+stand, and a colour means the same thing in Zotero, in a PDF, and on a web page. On, eight colour pickers
+appear, pre-filled with Zotero's hexes so you edit from a known starting point rather than from blank, plus a
+one-click "Reset to Zotero's colours". What you pick, the vault draws:
+
+  - the **PDF highlighter's** swatches read the palette live, so a new colour shows the next time the bar opens;
+  - the **web annotator** paints your colours too — the plugin resolves the palette and sends it to the
+    companion on the same fetch that restores a page's highlights, so it's in force before the toolbar ever
+    draws. An older plugin sends nothing and the annotator keeps its built-in Zotero defaults, so nothing
+    breaks across a version gap.
+
+Two decisions worth recording. First, the override is deliberately *not* wired into colour **naming**: an
+imported Zotero or PDF highlight is still recognised against the standard Zotero values, because those imports
+carry Zotero's own hexes regardless of what your vault paints — naming what you import and drawing what you
+make are different jobs, and conflating them would misname imports. Second, the resolver falls back per-slot:
+any colour whose override is blank or malformed quietly keeps its Zotero value, so a half-filled or corrupted
+setting can never produce a black or empty swatch. Stored settings are validated the same way on load.
+
+Modularity was the point. The override is one typed setting resolved by one function; the PDF annotator, the
+web annotator, and the settings screen all read through it. Adding a colour, or a whole alternate palette
+later, stays a change in one place.
+
+This round pairs the plugin and the companion again — the plugin owns the setting and the resolving, the
+companion consumes the resolved palette. They don't depend on each other to function, but the override only
+reaches web highlights when both are current. Update both.
+
 ## Phase 175 — one palette: Zotero's eight colours, everywhere a highlight is drawn or named
 
 Until now, "green" meant three slightly different greens. The web annotator painted its own six colours, the
