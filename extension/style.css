@@ -425,3 +425,22 @@ input.has-suggestion::placeholder, textarea.has-suggestion::placeholder {
 .suggest-take, .suggest-drop { padding: 2px 7px; line-height: 1.4; }
 .suggest-take { color: #2e7d32; }
 .suggest-drop { color: var(--muted); }
+
+/* ---- "Also save to" group (Zotero) ------------------------------------ */
+.status-external { display: flex; align-items: center; gap: 8px; margin: 6px 0 2px; padding-top: 6px; border-top: 1px solid var(--line); }
+.status-external-label { font-size: 11px; color: var(--muted); }
+
+/* ---- Annotation column mirror (read-only, managed by highlighting) ----- */
+.annotation-mirror {
+  border: 1px dashed var(--line);
+  border-radius: 7px;
+  padding: 6px 8px;
+  font-size: 12px;
+  background: color-mix(in srgb, var(--accent, #7c5cff) 5%, transparent);
+  max-height: 140px;
+  overflow-y: auto;
+}
+.annotation-mirror.mirror-empty { color: var(--muted); font-style: italic; }
+.mirror-line { padding: 2px 0; overflow-wrap: anywhere; }
+.mirror-line + .mirror-line { border-top: 1px solid var(--line); }
+.mirror-hint { margin-top: 3px; }

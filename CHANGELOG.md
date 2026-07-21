@@ -5,6 +5,45 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 169 — declared columns everywhere, DOIs first, and highlights that show where they land
+
+**Any column can be the URL or annotation column — you say which.** The settings mapper isn't limited to
+two named criteria; it declares, per view, which column holds the page's URL (for recognising a saved page)
+and which takes highlight text, and those declarations now flow through *every* path — lookup, annotate,
+and annotation removal. A view whose link lives in "Web Address" and whose highlights belong in
+"Marginalia" works by saying so. The heuristic stays the default for anything unset, and a declaration that
+names a column which no longer exists falls back to the heuristic rather than silently matching nothing. To
+the question of whether there were only two criteria: the mapper covers any column you have — a Year, a
+Publisher, a Created date — through the same suggestion vocabulary, which now knows publication dates,
+authors, publishers, DOIs, and a capture date supplied as today.
+
+**Papers are identified by DOI, not the publisher URL.** A page carrying a DOI — in its citation metadata
+or its address — now leads with that DOI as its identity: the same work behind many publisher URLs
+recognises itself wherever it was captured, and the card says so. The DOI is emitted as a first-class field
+the form maps by name, so a view with a DOI column fills it from the page.
+
+**The annotation column shows its highlights, live, in the capture form.** It used to be an editable field
+that Save to vault would overwrite — but highlights are managed by the annotator, not by capture. It's now
+a read-only mirror of the page's highlights, excluded from save, refreshing the moment a highlight lands.
+And it lands live: making a highlight on the page (while the sidebar is open) now refreshes the status card,
+the highlight list, and this mirror, because the background tells open surfaces the page changed.
+
+**Highlights read as a list when you want them to.** A settings toggle writes each highlight in the row as
+a bullet-point line rather than a plain one; off by default, since a plain line is the safer thing to put
+in an arbitrary table cell. Removal finds the line whichever form it was written in.
+
+**The Highlight tab appears only when there are highlights**, and Send to Zotero has moved out of its
+floating spot into an "Also save to" group with the page's other destinations.
+
+**A five-word highlight stays five words.** Selecting to the end of a sentence puts the selection's
+boundary on the element, not a text node — and reading that element child-offset as a character position
+stretched the highlight to the whole sentence. Boundaries are now resolved to real text positions, so the
+highlight covers what was selected.
+
+1354 tests (was 1345): declared URL and annotation columns overriding the guess and falling back when
+absent; DOI-first lookup matching a paper behind a different URL; canonical doi/published/author extraction
+from citation metadata and the URL; bullet cell text and its removal in either form; the bullet preference.
+
 ## Phase 168 — you choose the columns, and suggestions stay suggestions
 
 **Which column holds what is now yours to declare.** A new "Columns per view" section in settings maps, per

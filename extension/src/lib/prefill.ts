@@ -18,10 +18,12 @@ const ALIASES: Record<string, readonly string[]> = {
   title: ["title", "name", "page", "heading", "site"],
   description: ["description", "summary", "excerpt", "abstract", "about", "snippet", "overview"],
   author: ["author", "authors", "by", "creator", "writer"],
-  published: ["published", "date", "published date", "publication date", "created", "year"],
+  published: ["published", "published date", "publication date", "pubdate", "year", "date published"],
+  created: ["created", "created date", "date added", "captured", "capture date", "added", "saved"],
   tags: ["tags", "keywords", "topics", "labels", "categories"],
   selection: ["selection", "quote", "quotes", "highlight", "highlights", "annotations", "notes"],
-  doi: ["doi"],
+  doi: ["doi", "identifier", "digital object identifier"],
+  publisher: ["publisher", "journal", "venue", "source name", "site name"],
 };
 
 /** The canonical field a column name answers to, or null. */

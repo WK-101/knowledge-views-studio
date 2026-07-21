@@ -103,6 +103,47 @@ function offsetOf(index: TextIndex, node: Text, offset: number): number {
   return entry === undefined ? -1 : entry.start + offset;
 }
 
+/**
+ * Turn any selection boundary — text node or element — into a raw-text position.
+ *
+ * A text-node boundary is a direct character offset. An element boundary is a *child index*: the selection
+ * sits before its Nth child. For a start we want the beginning of the first text at or after that point;
+ * for an end, the end of the last text at or before it. This is the difference between honouring what was
+ * selected and reading an element's child count as though it were a character count.
+ */
+function resolveBoundary(
+  index: TextIndex,
+  node: Node,
+  offset: number,
+  edge: "start" | "end",
+): number {
+  if (node instanceof Text) return offsetOf(index, node, offset);
+
+  // An element boundary: find the text nodes that fall inside this element, and take the edge nearest the
+  // child index the boundary named.
+  const contained = index.nodes.filter((n) => node.contains(n.node));
+  if (contained.length === 0) return -1;
+  const child = (node.childNodes[offset] ?? null) as Node | null;
+
+  if (edge === "start") {
+    // The first text at or after the boundary's child.
+    for (const entry of contained) {
+      if (child === null || child.compareDocumentPosition(entry.node) & Node.DOCUMENT_POSITION_FOLLOWING || child === entry.node || child.contains(entry.node)) {
+        return entry.start;
+      }
+    }
+    return contained[0]?.start ?? -1;
+  }
+  // end: the end of the last text before the boundary's child.
+  let last = contained[0];
+  for (const entry of contained) {
+    if (child !== null && (child.compareDocumentPosition(entry.node) & Node.DOCUMENT_POSITION_FOLLOWING) === 0 && child !== entry.node) {
+      last = entry;
+    }
+  }
+  return last === undefined ? -1 : last.start + (last.node.nodeValue ?? "").length;
+}
+
 /** The text nodes a raw-text span [start, end) touches, with local offsets. */
 function segmentsIn(
   index: TextIndex,
@@ -338,12 +379,16 @@ function highlightSelection(color: Color, style: Style, note?: string): void {
   const range = selection.getRangeAt(0);
   const index = buildIndex();
 
-  const startNode = range.startContainer;
-  const endNode = range.endContainer;
-  if (!(startNode instanceof Text) || !(endNode instanceof Text)) return;
-  const start = offsetOf(index, startNode, range.startOffset);
-  const end = offsetOf(index, endNode, range.endOffset);
-  if (start < 0 || end <= start) return;
+  // Selection boundaries don't always land on text nodes: selecting to the end of a paragraph puts the
+  // end boundary on the element, and `endContainer` is then an element with a child-offset, not a Text
+  // node with a character-offset. Reading that child-offset as a character position is what stretched a
+  // five-word selection out to the whole sentence — the offset pointed past the words into the element's
+  // structure. Resolving each boundary to the nearest real text position fixes it at the source.
+  const startPos = resolveBoundary(index, range.startContainer, range.startOffset, "start");
+  const endPos = resolveBoundary(index, range.endContainer, range.endOffset, "end");
+  if (startPos < 0 || endPos <= startPos) return;
+  const start = startPos;
+  const end = endPos;
 
   const exact = index.text.slice(start, end);
   const anchor = buildAnchor(index.text, exact, start);

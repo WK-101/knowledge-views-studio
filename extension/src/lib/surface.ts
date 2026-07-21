@@ -1,6 +1,6 @@
 import { extractFields, findDoi, type PageSnapshot } from "../../../shared/extract";
 import type { CaptureRequest, SchemaResponse, SchemaView } from "../../../shared/protocol";
-import { BridgeError, capture, fetchSchema, loadConnection, lookup } from "./bridge-client";
+import { BridgeError, capture, fetchSchema, loadConnection, lookup, annotationsFor } from "./bridge-client";
 import { mountSearch } from "./search-panel";
 import { mountRows } from "./rows-panel";
 import { mountNote } from "./note-panel";
@@ -36,7 +36,7 @@ interface ChromeLike {
     sendMessage(tabId: number, message: unknown): Promise<unknown>;
   };
   scripting: { executeScript(o: object): Promise<{ result?: unknown }[]> };
-  runtime: { openOptionsPage(): void };
+  runtime: { openOptionsPage(): void; onMessage?: { addListener(fn: (message: unknown) => void): void } };
   storage: { local: { get(k: string[] | null): Promise<Record<string, unknown>>; set(i: Record<string, unknown>): Promise<void> } };
 }
 const browserApi = (): ChromeLike => {
@@ -76,9 +76,63 @@ let selectionText = "";
 export type SurfaceMode = "popup" | "sidebar";
 let mode: SurfaceMode = "popup";
 let prefs: Preferences | null = null;
+
+/** The columns a highlight lands in by default, matched when no per-view column is declared. */
+const ANNOTATION_COLUMN_GUESS = ["annotations", "highlights", "quotes", "notes"];
+
+/**
+ * Which column in a view holds highlight text.
+ *
+ * The person's per-view declaration wins when the named column still exists; otherwise the same guess the
+ * plugin uses. Returned so the capture form can show that column as a live mirror of the page's highlights
+ * rather than an editable field — because highlights are managed by the annotator, not by Save to vault.
+ */
+function annotationColumnName(view: SchemaView): string | null {
+  const declared = prefs?.viewColumns[view.id]?.annotationColumn ?? "";
+  if (declared !== "" && view.columns.some((c) => c.name.toLowerCase() === declared.toLowerCase())) {
+    return view.columns.find((c) => c.name.toLowerCase() === declared.toLowerCase())?.name ?? null;
+  }
+  for (const wanted of ANNOTATION_COLUMN_GUESS) {
+    const found = view.columns.find((c) => c.name.trim().toLowerCase() === wanted);
+    if (found !== undefined) return found.name;
+  }
+  return null;
+}
+
+/** One line of an annotation's text, the way the vault composes the row cell. */
+function annotationLine(exact: string, note: string): string {
+  const quote = exact.replace(/\s+/g, " ").trim();
+  const trimmedNote = note.replace(/\s+/g, " ").trim();
+  return trimmedNote === "" ? `==${quote}==` : `==${quote}== — ${trimmedNote}`;
+}
+
+/** Fill the annotation mirror (if the current form has one) from the page's live highlights. */
+async function refreshAnnotationMirror(): Promise<void> {
+  const mirror = document.querySelector("[data-annotation-mirror]");
+  if (!(mirror instanceof HTMLElement) || snapshot === null) return;
+  try {
+    const connection = await loadConnection();
+    const { annotations } = await annotationsFor(connection, { url: snapshot.url });
+    if (annotations.length === 0) {
+      mirror.textContent = "No highlights yet — select text on the page to add some.";
+      mirror.classList.add("mirror-empty");
+      return;
+    }
+    mirror.classList.remove("mirror-empty");
+    mirror.replaceChildren();
+    for (const annotation of annotations) {
+      const line = annotationLine(annotation.anchor.exact, annotation.note ?? "");
+      mirror.appendChild(el("div", { class: "mirror-line" }, line));
+    }
+  } catch {
+    mirror.textContent = "Couldn't read this page's highlights.";
+  }
+}
 /** Redraws the status card; set once the card exists. The card answers "what's here?", so anything that
  * changes what's here — a saved row, a saved note — must call this or the card lies about the new state. */
 let refreshStatusCard: (() => void) | null = null;
+/** Re-mounts the highlight list; set once it exists, called when a highlight lands while open. */
+let remountAnnotations: (() => void) | null = null;
 
 /** Ask the active tab for its page snapshot. */
 async function readPage(): Promise<PageSnapshot> {
@@ -110,9 +164,24 @@ function renderForm(view: SchemaView, prefill: Record<string, string>, unmatched
   const form = document.getElementById("form") as HTMLElement;
   form.replaceChildren();
 
+  const annotationCol = annotationColumnName(view);
+
   for (const column of view.columns) {
     const field = el("div", { class: "field" });
     field.appendChild(el("label", { for: `f-${column.name}` }, column.name));
+
+    // The annotation column is managed by highlighting, not by this form — so it's shown as a live,
+    // read-only mirror of the page's highlights, carrying `data-annotation-mirror` (not `data-column`) so
+    // Save to vault leaves it alone. It fills itself now and refreshes whenever a highlight lands.
+    if (annotationCol !== null && column.name === annotationCol) {
+      const mirror = el("div", { class: "annotation-mirror", "data-annotation-mirror": column.name });
+      mirror.textContent = "Loading highlights…";
+      field.appendChild(mirror);
+      field.appendChild(el("p", { class: "hint mirror-hint" }, "Managed by highlighting — select text on the page to add."));
+      form.appendChild(field);
+      void refreshAnnotationMirror();
+      continue;
+    }
 
     if (column.options !== undefined && column.options.length > 0) {
       const select = el("select", { id: `f-${column.name}`, "data-column": column.name });
@@ -353,6 +422,10 @@ async function start(): Promise<void> {
 
   selectionText = snapshot.selection ?? "";
   let fields = extractFields(snapshot);
+  // A "created"/"captured" column is about when this entry was made, not anything on the page, so it's
+  // supplied here as today's date — offered as a suggestion like everything else, never forced.
+  const today = new Date().toISOString().slice(0, 10);
+  if (!fields.some((f) => f.key === "created")) fields = [...fields, { key: "created", value: today }];
   const draw = (): void => {
     current = writable.find((v) => v.id === picker.value) ?? writable[0] ?? null;
     if (current === null) return;
@@ -377,6 +450,7 @@ async function start(): Promise<void> {
           snapshot = fresh;
           selectionText = fresh.selection ?? "";
           fields = extractFields(fresh);
+          if (!fields.some((f) => f.key === "created")) fields = [...fields, { key: "created", value: today }];
           draw();
           show(selectionText !== "" ? "Re-read — your selection is available below." : "Re-read this page.", "ok");
         } catch {
@@ -432,6 +506,9 @@ async function start(): Promise<void> {
   addPageButton?.addEventListener("click", () => revealAdd("note"));
   const drawCard = (): void => {
     const doi = fields.find((f) => f.key.trim().toLowerCase() === "doi")?.value ?? "";
+    // A DOI is the stabler identity for a paper — the same work sits behind many publisher URLs. When the
+    // page has one, matching leads with it, so capturing the RSC page and the journal page recognise each
+    // other. Passed to the card, which passes it to lookup.
     void mountStatusCard(
       cardHost,
       snapshot?.url ?? "",
@@ -523,15 +600,41 @@ async function start(): Promise<void> {
     rowsTab.classList.toggle("hidden", !found);
   }
 
-  // Highlights are worth having on both surfaces: selecting text is a quick act, and so is saving it.
+  // The Highlight tab is a place to review this page's highlights — so it appears only when there are
+  // some. Highlights are made on the page itself; a tab offering to manage what doesn't exist is clutter.
+  // The panel still mounts (cheap, and needed the moment a highlight lands); only the tab waits.
   const annotHost = document.getElementById("tab-annotate");
-  if (annotHost !== null) {
-    mountAnnotations(snapshot, {
-      host: annotHost,
-      view: () => current,
-      setStatus: (message, kind) => show(message, kind),
+  if (annotHost !== null && snapshot !== null) {
+    const mountList = (): void => {
+      mountAnnotations(snapshot as PageSnapshot, {
+        host: annotHost,
+        view: () => current,
+        setStatus: (message, kind) => show(message, kind),
+        onCount: (count) => {
+          document.querySelector('[data-tab="annotate"]')?.classList.toggle("hidden", count === 0);
+        },
+      });
+    };
+    mountList();
+    remountAnnotations = mountList;
+  }
+
+  // A highlight made on the page (while the sidebar is open) changes what's here: the status card, the
+  // highlight list, and the annotation-column mirror all reflect the vault, so all three are refreshed
+  // when the background reports a change for this page. The popup never receives this — clicking the page
+  // to annotate closes it — which is exactly why the sidebar is the surface that needs it.
+  const messaging = browserApi().runtime.onMessage;
+  if (messaging !== undefined) {
+    messaging.addListener((message: unknown) => {
+      const changed = message as { type?: string; url?: string } | null;
+      if (changed?.type !== "kvs-annotation-changed") return;
+      if (snapshot === null || changed.url !== snapshot.url) return;
+      void forget([statusKey(snapshot.url)]).then(() => {
+        refreshStatusCard?.();
+        remountAnnotations?.();
+        void refreshAnnotationMirror();
+      });
     });
-    document.querySelector('[data-tab="annotate"]')?.classList.remove("hidden");
   }
 
   // Dashboards only in the sidebar. A popup closes on the first click elsewhere, which makes working

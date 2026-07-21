@@ -108,10 +108,14 @@ function oneLine(text: string): string {
  * anchor context or the colour — a table full of machine bookkeeping would make the view unusable, and the
  * sidecar already remembers those.
  */
-export function annotationCellText(annotation: StoredAnnotation): string {
+export function annotationCellText(annotation: StoredAnnotation, bullet = false): string {
   const quote = oneLine(annotation.anchor.exact);
   const note = oneLine(annotation.note ?? "");
-  return note === "" ? `==${quote}==` : `==${quote}== — ${note}`;
+  const body = note === "" ? `==${quote}==` : `==${quote}== — ${note}`;
+  // A bullet prefix for those who want each highlight to read as a list item. Off by default: a plain line
+  // is the safer thing to write into an arbitrary table cell, and bullets inside a markdown table cell
+  // render less predictably than in a note.
+  return bullet ? `- ${body}` : body;
 }
 
 /**

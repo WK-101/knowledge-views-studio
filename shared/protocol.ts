@@ -389,6 +389,8 @@ export interface AnnotateRequest {
   readonly annotationColumn?: string;
   /** Which column holds the URL, for finding this page's row. */
   readonly urlColumn?: string;
+  /** Write the cell line as a bullet point. */
+  readonly bullet?: boolean;
 }
 
 export interface AnnotateResponse {

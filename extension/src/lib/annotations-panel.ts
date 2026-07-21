@@ -19,6 +19,8 @@ interface Elements {
   readonly host: HTMLElement;
   readonly view: () => SchemaView | null;
   readonly setStatus: (message: string, kind?: "info" | "error" | "ok") => void;
+  /** Report how many highlights this page has, so a surface can hide an empty Highlight tab. */
+  readonly onCount?: (count: number) => void;
 }
 
 function node<K extends keyof HTMLElementTagNameMap>(
@@ -53,6 +55,7 @@ export function mountAnnotations(page: PageSnapshot, elements: Elements): void {
     try {
       const connection = await loadConnection();
       const result = await annotationsFor(connection, { url: page.url });
+      elements.onCount?.(result.annotations.length);
       if (result.annotations.length === 0) {
         list.appendChild(node("p", { class: "hint" }, "No highlights on this page yet."));
         return;
@@ -64,6 +67,7 @@ export function mountAnnotations(page: PageSnapshot, elements: Elements): void {
         list.appendChild(annotationRow(annotation, drawExisting));
       }
     } catch {
+      elements.onCount?.(0);
       list.appendChild(node("p", { class: "hint" }, "Couldn't read this page's highlights — is Obsidian running?"));
     }
   };

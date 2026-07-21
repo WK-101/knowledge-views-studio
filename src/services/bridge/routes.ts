@@ -756,7 +756,7 @@ export function annotateRoute(): Route<BridgeContext> {
         if (column !== null) {
           const { allowed } = editableChanges(
             target,
-            [{ key: column, value: annotationCellText(annotation), mode: "append" }],
+            [{ key: column, value: annotationCellText(annotation, body.bullet === true), mode: "append" }],
             columns,
           );
           if (allowed.length > 0) {

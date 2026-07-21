@@ -46,6 +46,8 @@ export interface Preferences {
    * the page's URL for matching; `annotationColumn` is where highlight text is written.
    */
   readonly viewColumns: Readonly<Record<string, { urlColumn?: string; annotationColumn?: string }>>;
+  /** Write each highlight in the row cell as a bullet-point line rather than a plain line. */
+  readonly annotationBullets: boolean;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -65,6 +67,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   zotero: false,
   zoteroCollectionKey: "",
   viewColumns: {},
+  annotationBullets: false,
 };
 
 const KEY = "preferences";
@@ -131,6 +134,7 @@ export function normalizePreferences(raw: unknown): Preferences {
     zotero: value["zotero"] === true,
     zoteroCollectionKey: typeof value["zoteroCollectionKey"] === "string" ? value["zoteroCollectionKey"] : "",
     viewColumns: normalizeViewColumns(value["viewColumns"]),
+    annotationBullets: value["annotationBullets"] === true,
   };
 }
 

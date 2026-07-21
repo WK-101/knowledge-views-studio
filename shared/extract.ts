@@ -168,6 +168,23 @@ export function extractFields(page: PageSnapshot): ExtractedField[] {
   if (page.title !== undefined) add("title", page.title);
   add("url", page.url);
 
+  // Canonical fields the form can map by name, lifted from whatever citation vocabulary the page used.
+  // A DOI is emitted under "doi" so a view with a DOI column takes it; a publication date under
+  // "published"; an author under "author". These make academic capture fill itself.
+  const pick = (...keys: string[]): string => {
+    for (const key of keys) {
+      const found = fields.find((f) => f.key === key);
+      if (found !== undefined && found.value !== "") return found.value;
+    }
+    return "";
+  };
+  const doi = findDoi(page, fields);
+  if (doi !== null) add("doi", doi);
+  const published = pick("citation_publication_date", "schema:datepublished", "og:article:published_time", "dc.date");
+  if (published !== "") add("published", published);
+  const author = pick("citation_author", "schema:author", "og:article:author", "dc.creator");
+  if (author !== "") add("author", author);
+
   return fields;
 }
 

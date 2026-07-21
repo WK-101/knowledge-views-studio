@@ -96,7 +96,14 @@ export async function mountStatusCard(
       for (const [viewId, cols] of Object.entries(prefs2.viewColumns)) {
         if (cols.urlColumn !== undefined) urlColumns[viewId] = cols.urlColumn;
       }
-      found = await lookup(connection, { url, ...(Object.keys(urlColumns).length > 0 ? { urlColumns } : {}) });
+      // DOI leads when the page has one: the same paper lives behind many publisher URLs, so a DOI match
+      // recognises a paper captured from anywhere. The URL rides along for pages without a DOI.
+      const doi = page?.doi ?? "";
+      found = await lookup(connection, {
+        url,
+        ...(doi !== "" ? { doi } : {}),
+        ...(Object.keys(urlColumns).length > 0 ? { urlColumns } : {}),
+      });
       highlightCount = (await annotationsFor(connection, { url })).annotations.length;
       void remember(key, { found, highlightCount } satisfies StatusBundle);
       if (prior !== null) {
@@ -119,7 +126,10 @@ export async function mountStatusCard(
   // ---- Presence -----------------------------------------------------------
 
   if (found.matches.length === 0) {
-    card.appendChild(el("p", { class: "status-line" }, "This page isn't in any of your views."));
+    const line = page?.doi !== undefined && page.doi !== ""
+      ? `Not in any of your views. This is a paper (DOI ${page.doi}) — captured, it's saved by DOI, so any link to the same paper will match.`
+      : "This page isn't in any of your views.";
+    card.appendChild(el("p", { class: "status-line" }, line));
   }
 
   for (const match of found.matches) {
@@ -233,12 +243,13 @@ export async function mountStatusCard(
 
   // ---- Adding -------------------------------------------------------------
 
-  // Send to Zotero, when the integration is on: the same page metadata a capture would use, saved through
-  // the connector protocol into the chosen collection — one button, like Zotero's own extension.
+  // Send to Zotero belongs with the other places this page can go — grouped under the add line, not
+  // floating on its own. Rendered only when Zotero is on and the page has a URL to send.
   const prefs = await loadPreferences();
   if (prefs.zotero && page !== undefined && page.url !== "") {
-    const wrap = el("div", { class: "status-actions" });
-    const send = el("button", { class: "mini", type: "button" }, "Send to Zotero");
+    const group = el("div", { class: "status-external" });
+    group.appendChild(el("span", { class: "status-external-label" }, "Also save to"));
+    const send = el("button", { class: "mini", type: "button" }, "Zotero");
     send.addEventListener("click", () => {
       send.disabled = true;
       void (async () => {
@@ -250,8 +261,8 @@ export async function mountStatusCard(
         send.disabled = false;
       })();
     });
-    wrap.appendChild(send);
-    card.appendChild(wrap);
+    group.appendChild(send);
+    card.appendChild(group);
   }
 
   const writable = schema.views.some((v) => v.capture.writable);

@@ -238,3 +238,36 @@ describe("queue · holding captures the bridge couldn't take", () => {
     expect(retryDelayMs(99)).toBeLessThanOrEqual(10 * 60 * 1000);
   });
 });
+
+describe("extract · canonical fields for academic capture", () => {
+  it("emits a canonical doi from citation metadata, so a DOI column fills itself", () => {
+    const fields = extractFields(
+      page({ meta: [{ key: "citation_doi", content: "10.1039/D0EY00001A" }] }),
+    );
+    expect(valueFor(fields, "doi")).toBe("10.1039/D0EY00001A");
+  });
+
+  it("finds a DOI embedded in the URL when the page declares none in metadata", () => {
+    const fields = extractFields(page({ url: "https://doi.org/10.1234/abcd.5678" }));
+    expect(valueFor(fields, "doi")).toBe("10.1234/abcd.5678");
+  });
+
+  it("emits canonical published and author from whatever vocabulary the page used", () => {
+    const fields = extractFields(
+      page({
+        meta: [
+          { key: "citation_publication_date", content: "2024-05-01" },
+          { key: "citation_author", content: "A. Researcher" },
+        ],
+      }),
+    );
+    expect(valueFor(fields, "published")).toBe("2024-05-01");
+    expect(valueFor(fields, "author")).toBe("A. Researcher");
+  });
+
+  it("adds no canonical fields when the page has none of them", () => {
+    const fields = extractFields(page({ meta: [{ key: "og:title", content: "T" }] }));
+    expect(valueFor(fields, "doi")).toBeUndefined();
+    expect(valueFor(fields, "published")).toBeUndefined();
+  });
+});

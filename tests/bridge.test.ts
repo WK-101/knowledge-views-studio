@@ -698,6 +698,38 @@ describe("bridge · routes", () => {
     });
   });
 
+  describe("lookup by DOI, the stabler identity for a paper", () => {
+    it("matches a paper by its DOI even when the URL differs from the saved one", async () => {
+      // The same work sits behind many publisher URLs; a DOI match recognises it wherever it was captured.
+      const doiColumns = [
+        { name: "Title", typeId: "text", role: "title" },
+        { name: "DOI", typeId: "doi" },
+      ];
+      const doiRow = {
+        cells: { Title: "Paper", DOI: "10.1039/D0EY00001A" },
+        provenance: { filePath: "Papers.md", extractor: "table", locator: { row: 0 }, fingerprint: "f" },
+      };
+      const ctx = makeContext({
+        viewData: () => Promise.resolve({ rows: [doiRow] as never, columns: doiColumns }),
+      }).context as unknown as BridgeContext;
+      const router = new BridgeRouter<BridgeContext>().registerAll(defaultRoutes());
+      const res = await router.dispatch(
+        req({
+          method: "POST",
+          path: "/lookup",
+          body: { url: "https://some.publisher/entirely/different", doi: "10.1039/D0EY00001A" },
+        }),
+        settings(),
+        ctx,
+      );
+      // The URL shares nothing with any row; a match at all can only have come from the DOI. `on` carries
+      // the matched column's name, which here is the DOI column.
+      const body = res.body as { matches: { on: string }[] };
+      expect(body.matches.length).toBeGreaterThan(0);
+      expect(body.matches.some((m) => m.on.toLowerCase() === "doi")).toBe(true);
+    });
+  });
+
   describe("lookup matching the columns people actually have", () => {
     it("finds a page whose row keeps its URL in a column called Link", async () => {
       // The exact miss that kept a captured page reading "not in any of your views": lookup consulted

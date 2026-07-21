@@ -27,6 +27,21 @@ interface AlarmsApi {
 interface RuntimeApi {
   onInstalled: { addListener(fn: () => void): void };
   onStartup?: { addListener(fn: () => void): void };
+  sendMessage?(message: unknown): Promise<unknown>;
+}
+
+/**
+ * Tell any open surface (the sidebar, mainly) that this page's highlights changed.
+ *
+ * The popup closes the moment you click the page to annotate, so it never needs this; the sidebar stays
+ * open, and without a nudge its status card, highlight list, and annotation-column mirror would keep
+ * showing the state from before the highlight. Fire-and-forget: the sender's own listener ignores it (it
+ * isn't in the handler's allowlist), and there may be no listener at all, which is fine.
+ */
+function broadcastAnnotationChange(url: string): void {
+  const api = runtime();
+  if (api?.sendMessage === undefined) return;
+  void api.sendMessage({ type: "kvs-annotation-changed", url }).catch(() => undefined);
 }
 
 const ALARM = "kvs-drain";
@@ -310,6 +325,7 @@ runtimeMessaging?.onMessage.addListener((message, _sender, sendResponse) => {
           ...(removeCols?.urlColumn !== undefined ? { urlColumn: removeCols.urlColumn } : {}),
         });
         void forget([statusKey(url)]);
+        broadcastAnnotationChange(url);
         sendResponse({ ok: true });
         return;
       }
@@ -331,8 +347,12 @@ runtimeMessaging?.onMessage.addListener((message, _sender, sendResponse) => {
         fields,
         ...(cols?.annotationColumn !== undefined ? { annotationColumn: cols.annotationColumn } : {}),
         ...(cols?.urlColumn !== undefined ? { urlColumn: cols.urlColumn } : {}),
+        ...(prefs.annotationBullets ? { bullet: true } : {}),
       });
-      if (result.ok) void forget([statusKey(url)]);
+      if (result.ok) {
+        void forget([statusKey(url)]);
+        broadcastAnnotationChange(url);
+      }
       sendResponse({ ok: result.ok, ...(result.reason !== undefined ? { reason: result.reason } : {}) });
     } catch (error) {
       // The reason is the difference between a fixable setting and a mystery; it must reach the page.

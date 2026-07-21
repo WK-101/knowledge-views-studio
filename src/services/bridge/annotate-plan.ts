@@ -80,10 +80,13 @@ export function readWireAnnotation(raw: unknown, url: string): StoredAnnotation 
  * cell doesn't contain the line and shouldn't be rewritten at all.
  */
 export function cellWithoutAnnotation(cell: string, annotation: StoredAnnotation): string | null {
-  const line = annotationCellText(annotation);
+  // Either form the writer might have used — plain or bulleted — so removal finds the line whichever the
+  // person had switched on when they made the highlight.
+  const plain = annotationCellText(annotation, false);
+  const bulleted = annotationCellText(annotation, true);
   const parts = cell.split("<br>").map((part) => part.trim());
-  if (!parts.includes(line)) return null;
-  const kept = parts.filter((part) => part !== line && part !== "");
+  if (!parts.includes(plain) && !parts.includes(bulleted)) return null;
+  const kept = parts.filter((part) => part !== plain && part !== bulleted && part !== "");
   return kept.join("<br>");
 }
 

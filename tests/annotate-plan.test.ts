@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { annotationCellText } from "../shared/annotations";
 import {
   noteWithoutAnnotation,
   annotationColumn,
@@ -138,3 +139,23 @@ describe("annotate · declared columns override the guess", () => {
     expect(annotationColumn([{ name: "Notes" }], "Gone")).toBe("Notes");
   });
 })
+
+describe("annotate · bullet cell text", () => {
+  it("prefixes a bullet only when asked", () => {
+    const a = ann({ note: "" });
+    expect(annotationCellText(a)).toBe("==quoted words==");
+    expect(annotationCellText(a, true)).toBe("- ==quoted words==");
+  });
+
+  it("keeps the note and the bullet together", () => {
+    const a = ann({ note: "my thought" });
+    expect(annotationCellText(a, true)).toBe("- ==quoted words== — my thought");
+  });
+
+  it("removal finds the line whether it was written plain or bulleted", () => {
+    const a = ann({ note: "" });
+    expect(cellWithoutAnnotation("==quoted words==", a)).toBe("");
+    expect(cellWithoutAnnotation("- ==quoted words==", a)).toBe("");
+    expect(cellWithoutAnnotation("keep me<br>- ==quoted words==", a)).toBe("keep me");
+  });
+});

@@ -91,3 +91,11 @@ describe("preferences · per-view columns", () => {
     expect(normalizePreferences({}).viewColumns).toEqual({});
   });
 })
+
+describe("preferences · annotation bullets", () => {
+  it("keeps the bullet toggle, defaulting off", () => {
+    expect(normalizePreferences({}).annotationBullets).toBe(false);
+    expect(normalizePreferences({ annotationBullets: true }).annotationBullets).toBe(true);
+    expect(normalizePreferences({ annotationBullets: "yes" }).annotationBullets).toBe(false);
+  });
+})
