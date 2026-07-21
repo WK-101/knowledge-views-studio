@@ -17,16 +17,59 @@ import type { Annotation, TextAnchor } from "./protocol";
  * means parsing prose to repaint a page, which breaks the first time someone edits their own note.
  */
 
-export type HighlightColor = "yellow" | "green" | "blue" | "red" | "purple" | "orange";
+export type HighlightColor =
+  | "yellow"
+  | "red"
+  | "green"
+  | "blue"
+  | "purple"
+  | "magenta"
+  | "orange"
+  | "gray";
 
 export const HIGHLIGHT_COLORS: readonly HighlightColor[] = [
   "yellow",
+  "red",
   "green",
   "blue",
-  "red",
   "purple",
+  "magenta",
   "orange",
+  "gray",
 ];
+
+/**
+ * The canonical highlight palette — Zotero's eight annotation colours, by exact hex.
+ *
+ * This is the single source of truth for what a highlight *looks like*, shared by everything that draws or
+ * names one: the web annotator paints with these, the PDF annotator offers these, and the colour-namer maps
+ * imported hexes (from Zotero, or a PDF) to the nearest of these. Standardising on Zotero's values is what
+ * makes a "green" highlight the same green whether it was made in Zotero, in a PDF, or on a web page — so a
+ * colour can carry a consistent meaning across a whole vault. The order is Zotero's own toolbar order, so the
+ * swatches line up with muscle memory.
+ *
+ * Non-default palettes: because everything reads this one constant, a per-vault override is a matter of
+ * substituting the map, not chasing hardcoded colours through the codebase.
+ */
+export const ZOTERO_PALETTE: readonly {
+  readonly name: HighlightColor;
+  readonly hex: string;
+  readonly rgb: readonly [number, number, number];
+}[] = [
+  { name: "yellow", hex: "#ffd400", rgb: [255, 212, 0] },
+  { name: "red", hex: "#ff6666", rgb: [255, 102, 102] },
+  { name: "green", hex: "#5fb236", rgb: [95, 178, 54] },
+  { name: "blue", hex: "#2ea8e5", rgb: [46, 168, 229] },
+  { name: "purple", hex: "#a28ae5", rgb: [162, 138, 229] },
+  { name: "magenta", hex: "#e56eee", rgb: [229, 110, 238] },
+  { name: "orange", hex: "#f19837", rgb: [241, 152, 55] },
+  { name: "gray", hex: "#aaaaaa", rgb: [170, 170, 170] },
+];
+
+/** The canonical hex for a highlight colour name — falls back to Zotero yellow. */
+export function paletteHex(color: HighlightColor): string {
+  return (ZOTERO_PALETTE.find((c) => c.name === color) ?? ZOTERO_PALETTE[0]!).hex;
+}
 
 /** How a highlight is drawn: painted over, or underlined beneath. */
 export type HighlightStyle = "highlight" | "underline";

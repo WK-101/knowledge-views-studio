@@ -1,6 +1,6 @@
 import { buildAnchor } from "../../shared/anchor";
 import { inPageTheme, highlightAlpha } from "../../shared/in-page-ui";
-import type { HighlightIntensity } from "../../shared/annotations";
+import { ZOTERO_PALETTE, type HighlightColor, type HighlightIntensity } from "../../shared/annotations";
 import { locateAnchor } from "../../shared/anchor-locate";
 import type { WireAnnotation } from "../../shared/protocol";
 
@@ -23,18 +23,20 @@ import type { WireAnnotation } from "../../shared/protocol";
  *    injected into an arbitrary page is the last place a credential belongs.
  */
 
-type Color = "yellow" | "green" | "blue" | "red" | "purple" | "orange";
+type Color = HighlightColor;
 type Style = "highlight" | "underline";
 type Intensity = HighlightIntensity;
 
-const PAINT: Record<Color, { rgb: [number, number, number]; solid: string }> = {
-  yellow: { rgb: [255, 213, 0], solid: "#e6c200" },
-  green: { rgb: [76, 217, 100], solid: "#3fae5a" },
-  blue: { rgb: [90, 160, 255], solid: "#4a8fe0" },
-  red: { rgb: [255, 105, 120], solid: "#e05a6a" },
-  purple: { rgb: [175, 120, 255], solid: "#9a6ae0" },
-  orange: { rgb: [255, 160, 70], solid: "#e08a3a" },
-};
+/**
+ * What each colour looks like in the page — the canonical Zotero palette, so a highlight painted here matches
+ * the same colour in Zotero and in the PDF annotator, and reads identically once imported into the vault.
+ * `rgb` feeds the transparency-weighted fill; `solid` (the palette hex) is the underline stroke and the swatch
+ * border. Built straight from ZOTERO_PALETTE so all eight — magenta and gray included — stay in lockstep, and
+ * the swatch order (via Object.keys) follows Zotero's own toolbar.
+ */
+const PAINT: Record<Color, { rgb: readonly [number, number, number]; solid: string }> = Object.fromEntries(
+  ZOTERO_PALETTE.map((c) => [c.name, { rgb: c.rgb, solid: c.hex }]),
+) as Record<Color, { rgb: readonly [number, number, number]; solid: string }>;
 
 /** An annotation's transparency, defaulting to medium. */
 function intensityOf(a: WireAnnotation | undefined): Intensity {

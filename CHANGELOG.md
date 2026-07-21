@@ -5,6 +5,39 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 175 — one palette: Zotero's eight colours, everywhere a highlight is drawn or named
+
+Until now, "green" meant three slightly different greens. The web annotator painted its own six colours, the
+PDF highlighter offered six of Zotero's, and the colour-namer that labels imported annotations carried a
+seventh set again — none of them the same, none of them complete. So a highlight made on a web page, the same
+"green" made in a PDF, and a green highlight imported from Zotero all looked subtly unlike each other in the
+vault, and magenta and gray couldn't be made at all.
+
+They now share one source of truth: **Zotero's eight annotation colours, by their exact hex** — yellow
+#ffd400, red #ff6666, green #5fb236, blue #2ea8e5, purple #a28ae5, magenta #e56eee, orange #f19837, gray
+#aaaaaa, in Zotero's own toolbar order. A single palette in the shared layer, and everything that draws or
+names a highlight reads from it:
+
+  - the **web annotator** paints these (and now shows all eight swatches, magenta and gray included);
+  - the **PDF highlighter** offers these (all eight, where it had six);
+  - the **colour-namer** that maps an imported hex — from Zotero, or a PDF — to a name now recognises all
+    eight exactly, so an imported magenta is magenta, not rounded to purple.
+
+The point is consistency with meaning. When the same green is the same green whether it came from Zotero, a
+PDF, or a web page, a colour can carry a fixed meaning across a whole vault — green for a hypothesis, red for
+a point to challenge, the code your reading already runs on. Aligning on Zotero's values specifically means
+the workflows people already share (Zotero → Obsidian colour-to-callout mappings, for instance) line up with
+no re-mapping.
+
+Because every colour now comes from one exported constant rather than being hardcoded in three places, this is
+also the foundation for the modular part of the ask: a non-default palette becomes a matter of substituting
+that one map, not chasing hexes through the codebase. A per-vault override — for anyone who doesn't want the
+consistency — is the next increment; this round makes it a small change rather than a large one.
+
+This round pairs the plugin and the companion, since both draw highlights. They don't depend on each other to
+work — an out-of-date half still functions — but the "identical everywhere" effect is complete only when both
+are updated. Update the plugin and the extension together.
+
 ## Phase 174 — where notes and tags go, and the leak that hid them
 
 A highlight's note and tags were being saved. They just weren't all coming back.

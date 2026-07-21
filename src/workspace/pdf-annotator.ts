@@ -2,15 +2,17 @@ import { Modal, Notice, Setting, TFile, type App, type Plugin } from "obsidian";
 import { annotationId, boundingRect, type AnnotationRect, type KvsAnnotation } from "../domain/index";
 import { allPaperAttachments, parseThemeMap, pdfAnnotationStore, removeAnnotationCallout, renderAnnotation, replaceAnnotationCallout, type AnnotationTarget } from "../services/index";
 import { type AnnotationSyncOptions } from "./annotation-sync";
+import { ZOTERO_PALETTE } from "../../shared/annotations";
 
-export const HIGHLIGHT_COLORS: readonly { name: string; hex: string }[] = [
-  { name: "Yellow", hex: "#ffd400" },
-  { name: "Green", hex: "#5fb236" },
-  { name: "Blue", hex: "#2ea8e5" },
-  { name: "Red", hex: "#ff6666" },
-  { name: "Purple", hex: "#a28ae5" },
-  { name: "Orange", hex: "#f19837" },
-];
+/**
+ * The highlighter's swatches — the canonical Zotero palette, so a highlight drawn on a PDF here is the same
+ * colour Zotero would give it and the same the web annotator paints. Derived from ZOTERO_PALETTE (display
+ * names title-cased) so all eight, magenta and gray included, stay in lockstep with the one source of truth.
+ */
+export const HIGHLIGHT_COLORS: readonly { name: string; hex: string }[] = ZOTERO_PALETTE.map((c) => ({
+  name: c.name.charAt(0).toUpperCase() + c.name.slice(1),
+  hex: c.hex,
+}));
 
 // ---- pdf.js viewer access (undocumented internals; all optional/guarded) ----
 

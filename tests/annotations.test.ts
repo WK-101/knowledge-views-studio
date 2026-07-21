@@ -6,6 +6,9 @@ import {
   coerceAnnotation,
   withAnnotation,
   withoutAnnotation,
+  HIGHLIGHT_COLORS,
+  ZOTERO_PALETTE,
+  paletteHex,
   type StoredAnnotation,
   type PageAnnotations,
 } from "../shared/annotations";
@@ -154,5 +157,38 @@ describe("annotations · locating for paint", () => {
 
   it("returns null for an empty anchor", () => {
     expect(locateAnchor(raw, { exact: "   " })).toBeNull();
+  });
+});
+
+describe("Zotero palette (the canonical highlight colours)", () => {
+  it("is Zotero's eight colours, in Zotero's order, by exact hex", () => {
+    expect(ZOTERO_PALETTE.map((c) => c.name)).toEqual([
+      "yellow",
+      "red",
+      "green",
+      "blue",
+      "purple",
+      "magenta",
+      "orange",
+      "gray",
+    ]);
+    expect(ZOTERO_PALETTE.map((c) => c.hex)).toEqual([
+      "#ffd400",
+      "#ff6666",
+      "#5fb236",
+      "#2ea8e5",
+      "#a28ae5",
+      "#e56eee",
+      "#f19837",
+      "#aaaaaa",
+    ]);
+  });
+
+  it("exposes all eight names as HIGHLIGHT_COLORS and resolves a colour to its hex", () => {
+    expect(HIGHLIGHT_COLORS).toHaveLength(8);
+    expect(paletteHex("green")).toBe("#5fb236");
+    expect(paletteHex("magenta")).toBe("#e56eee");
+    // A name outside the palette can't occur through the type, but the fallback is Zotero yellow.
+    expect(paletteHex("yellow")).toBe("#ffd400");
   });
 });

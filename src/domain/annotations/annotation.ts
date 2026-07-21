@@ -1,4 +1,5 @@
 import { fnv1a } from "../../util/hash";
+import { ZOTERO_PALETTE } from "../../../shared/annotations";
 
 /** Standard PDF markup + note kinds we recognise (superset covers Zotero/EPUB later). */
 export type AnnotationKind = "highlight" | "underline" | "strikeout" | "note" | "square" | "freetext" | "ink" | "image";
@@ -42,15 +43,12 @@ export function annotationId(a: Pick<KvsAnnotation, "attachment" | "page" | "kin
   return fnv1a(`${a.attachment}|${a.page}|${a.kind}|${geo}`);
 }
 
-const NAMED: readonly { name: string; rgb: [number, number, number] }[] = [
-  { name: "yellow", rgb: [255, 212, 0] },
-  { name: "red", rgb: [231, 76, 60] },
-  { name: "green", rgb: [58, 166, 117] },
-  { name: "blue", rgb: [46, 108, 176] },
-  { name: "purple", rgb: [142, 68, 173] },
-  { name: "orange", rgb: [230, 126, 34] },
-  { name: "gray", rgb: [149, 165, 166] },
-];
+/**
+ * Nearest-match table for naming an imported hex — the canonical Zotero palette, so a Zotero or PDF highlight
+ * lands on the same colour name the web annotator would paint. Deriving it from ZOTERO_PALETTE keeps the two
+ * in lockstep and means magenta and gray are recognised, not rounded to a neighbour.
+ */
+const NAMED: readonly { name: string; rgb: readonly [number, number, number] }[] = ZOTERO_PALETTE;
 
 /** Nearest human colour name for a hex — drives the colour→callout/theme mapping. */
 export function colorName(hex?: string): string {

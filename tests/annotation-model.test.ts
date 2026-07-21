@@ -25,6 +25,18 @@ describe("annotation model", () => {
     expect(rgbToHex(1, 0, 0)).toBe("#ff0000"); // 0..1 scale
     expect(rgbToHex(255, 212, 0)).toBe("#ffd400"); // 0..255 scale
   });
+
+  it("recognises all eight Zotero colours by their exact hex — including magenta and gray", () => {
+    // A Zotero (or PDF) highlight arrives as one of these hexes; each must name itself, not round to a neighbour.
+    expect(colorName("#ffd400")).toBe("yellow");
+    expect(colorName("#ff6666")).toBe("red");
+    expect(colorName("#5fb236")).toBe("green");
+    expect(colorName("#2ea8e5")).toBe("blue");
+    expect(colorName("#a28ae5")).toBe("purple");
+    expect(colorName("#e56eee")).toBe("magenta");
+    expect(colorName("#f19837")).toBe("orange");
+    expect(colorName("#aaaaaa")).toBe("gray");
+  });
 });
 
 describe("textInRects", () => {
