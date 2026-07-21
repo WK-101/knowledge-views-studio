@@ -12,6 +12,7 @@ import { parsePairingInput } from "../../shared/protocol";
 import { loadPreferences, savePreferences, type Preferences } from "./lib/preferences";
 import { ISLAND_ACTIONS } from "./lib/island-actions";
 import type { IslandSettings, IslandSize, IslandTheme, IslandTrigger } from "./lib/island-settings";
+import { CUSTOM_ENGINE_PREFIX, isUsableTemplate, resolveEngine } from "./lib/search-targets";
 import { hasPageAccess, requestPageAccess, registerAnnotator, unregisterAnnotator, injectAnnotatorIntoOpenTabs, registerTableCapture, unregisterTableCapture, injectTableCaptureIntoOpenTabs } from "./lib/page-access";
 import { pluginIsCurrent, outdatedPluginMessage } from "./lib/version";
 import { zoteroStatus, zoteroCollections } from "./lib/zotero-client";
@@ -310,6 +311,56 @@ function renderIslandActions(prefs: Preferences): void {
   });
 }
 
+/**
+ * The Search action's web engines: built-ins as toggles, custom ones as toggles with a remove button.
+ * Reads and writes the one `searchTargets` preference; like the actions list, every change saves and
+ * re-renders from the saved (normalized) result, so the list can't drift from what's stored.
+ */
+function renderSearchEngines(prefs: Preferences): void {
+  const host = byId("searchEngines");
+  host.replaceChildren();
+
+  const persist = (engines: Preferences["searchTargets"]["engines"]): void => {
+    void savePreferences({ searchTargets: { ...prefs.searchTargets, engines } }).then((saved) => {
+      renderSearchEngines(saved);
+      status("Saved.", "ok");
+    });
+  };
+
+  prefs.searchTargets.engines.forEach((choice, index) => {
+    const engine = resolveEngine(choice);
+    if (engine === null) return;
+
+    const row = el("div", "island-row");
+
+    const text = el("div", "island-text");
+    text.appendChild(el("div", "island-name", engine.label));
+    text.appendChild(el("div", "island-hint", engine.template));
+    row.appendChild(text);
+
+    if (choice.id.startsWith(CUSTOM_ENGINE_PREFIX)) {
+      const remove = el("button", "island-remove", "Remove");
+      remove.type = "button";
+      remove.addEventListener("click", () => {
+        persist(prefs.searchTargets.engines.filter((_, i) => i !== index));
+      });
+      row.appendChild(remove);
+    }
+
+    const toggle = el("label", "island-toggle");
+    const box = el("input");
+    box.type = "checkbox";
+    box.checked = choice.enabled;
+    box.addEventListener("change", () => {
+      persist(prefs.searchTargets.engines.map((e, i) => (i === index ? { ...e, enabled: box.checked } : e)));
+    });
+    toggle.appendChild(box);
+    row.appendChild(toggle);
+
+    host.appendChild(row);
+  });
+}
+
 function drawRules(prefs: Preferences): void {
   const host = byId("rules");
   host.replaceChildren();
@@ -433,6 +484,8 @@ async function wirePreferences(): Promise<void> {
   byId<HTMLInputElement>("annotationSidebar").checked = prefs.annotationSidebar;
   drawRules(prefs);
   renderIslandActions(prefs);
+  byId<HTMLInputElement>("searchVault").checked = prefs.searchTargets.vault;
+  renderSearchEngines(prefs);
 
   // Appearance & behaviour of the selection toolbar. Every control writes the whole islandSettings object,
   // read back from the six inputs, so there's no partial-update bookkeeping — the form is the source.
@@ -475,6 +528,43 @@ async function wirePreferences(): Promise<void> {
   for (const id of ["islandSize", "islandTheme", "islandTrigger", "islandMinChars", "islandHideOnScroll", "islandInEditable"]) {
     bind(id, () => ({ islandSettings: readIslandSettings() }));
   }
+
+  // The vault toggle re-reads the stored engines rather than a captured copy, so it can't undo an
+  // engine change made since the page rendered.
+  byId("searchVault").addEventListener("change", () => {
+    void (async () => {
+      const latest = await loadPreferences();
+      const saved = await savePreferences({
+        searchTargets: { ...latest.searchTargets, vault: byId<HTMLInputElement>("searchVault").checked },
+      });
+      renderSearchEngines(saved);
+      status("Saved.", "ok");
+    })();
+  });
+
+  byId("engineAdd").addEventListener("click", () => {
+    void (async () => {
+      const label = byId<HTMLInputElement>("engineLabel").value.trim();
+      const template = byId<HTMLInputElement>("engineTemplate").value.trim();
+      // Refused rather than stored, so the menu never fills with engines that open junk tabs.
+      if (label === "" || !isUsableTemplate(template)) {
+        status("An engine needs a name and an http(s) URL containing %s.", "error");
+        return;
+      }
+      const latest = await loadPreferences();
+      const id = `${CUSTOM_ENGINE_PREFIX}${Date.now().toString(36)}`;
+      const saved = await savePreferences({
+        searchTargets: {
+          ...latest.searchTargets,
+          engines: [...latest.searchTargets.engines, { id, enabled: true, label, template }],
+        },
+      });
+      renderSearchEngines(saved);
+      byId<HTMLInputElement>("engineLabel").value = "";
+      byId<HTMLInputElement>("engineTemplate").value = "";
+      status(`${label} added to the search menu.`, "ok");
+    })();
+  });
 
   byId("ruleAdd").addEventListener("click", () => {
     void (async () => {

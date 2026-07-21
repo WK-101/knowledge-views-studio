@@ -5,6 +5,41 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 182 — search the selection (island redesign, part 4)
+
+Companion 0.5.0. The second new toolbar action: **Search**. Select text, click Search, and a menu offers
+everywhere the selection can be looked up — **your vault**, and the **web engines you choose**.
+
+The vault half is the interesting one, because the plumbing already existed: the bridge has had a `/search`
+endpoint (keyword, semantic, ask) since the search panel was built, and this action simply asks it from the
+page. The content script sends the selection to the background worker — the token stays out of injected
+scripts, as ever — which searches the vault, fetches the vault's name from the schema, and returns
+display-ready hits: title, source badge, snippet, and a link that already knows where it goes (a link hit
+opens where it lives, a file hit opens through `obsidian://`, a hit with neither shows unlinked rather than
+linking to nowhere). Results render right there in the island's menu, so "have I noted this already?" is
+answered without leaving the page. The mode follows the search-mode preference, and the stored `"meaning"`
+value is mapped to the wire's `"semantic"` explicitly. A vault that hasn't allowed searching says so in the
+menu, in the same words the search panel uses.
+
+The web half follows the reference extension's shape (SearchFromPopupOrContextMenu): a catalogue of
+built-in engines — Google, DuckDuckGo, Wikipedia, Google Scholar on by default, Bing shipped off — plus
+**custom engines**, any http(s) URL with `%s` where the encoded terms go. Everything lives in a new pure
+module, `extension/src/lib/search-targets.ts`, run through the same catalogue-reconciling normalizer
+pattern as the toolbar actions: stored order and on/off kept, unknowns and duplicates dropped, new
+built-ins appended at their defaults, and a custom engine with a broken template dropped rather than
+allowed to open a junk tab (templates must be http(s) and contain `%s`, which also keeps `javascript:`
+URLs out). Built-ins always resolve label and template from the catalogue, never from storage, so a fixed
+template fixes itself on update.
+
+Settings: a **Search the selection** card under Highlighting — a vault toggle, a toggle per engine, and an
+add-your-own form. With every target off, the Search button doesn't appear at all: no toolbar button beats
+a dead one. The action plugs into the island catalogue, so it auto-appears in everyone's Toolbar actions
+list — on, at the end — with no re-save.
+
+Honest caveat, as with every island part: the menu, the in-page results list, and the settings card are
+browser DOM — unverified until run. The formatters, normalizer, resolver, URL builder, mode mapping, and
+hit-to-link logic are pure and unit-tested.
+
 ## Phase 181 — the copy menu, first of the new toolbar actions (island redesign, part 3)
 
 Companion 0.4.0. With the toolbar now configurable, this is the first *new* action to plug into it: **Copy**.

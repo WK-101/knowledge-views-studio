@@ -16,6 +16,14 @@ import {
   type IslandSettings,
 } from "./lib/island-settings";
 import { formatCopy, type CopyFormat } from "./lib/copy-formats";
+import {
+  DEFAULT_SEARCH_TARGETS,
+  normalizeSearchTargets,
+  resolveEngine,
+  searchUrl,
+  type DisplayHit,
+  type SearchTargets,
+} from "./lib/search-targets";
 
 /**
  * The annotator, on the page.
@@ -97,6 +105,9 @@ let islandActions: readonly IslandAction[] = DEFAULT_ISLAND_ACTIONS;
 
 /** The toolbar's appearance and behaviour. Read from preferences on load; defaults to today's behaviour. */
 let islandSettings: IslandSettings = DEFAULT_ISLAND_SETTINGS;
+
+/** Where the Search action sends a selection. Read from preferences on load; defaults to vault + engines. */
+let searchTargets: SearchTargets = DEFAULT_SEARCH_TARGETS;
 
 interface ChoiceStorage {
   local: { get(keys: string[]): Promise<Record<string, unknown>>; set(items: Record<string, unknown>): Promise<void> };
@@ -373,6 +384,16 @@ function ensureShell(): ShadowRoot {
     }
     .menu-quote { max-width: 260px; color: ${t.muted}; font-size: 11.5px; line-height: 1.45;
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .hit { display: block; max-width: 300px; padding: 6px 8px; border-radius: ${t.radiusSmall};
+      text-decoration: none; color: ${t.fg}; transition: background 0.12s ease; }
+    a.hit:hover { background: ${t.hover}; }
+    .hit-head { display: flex; align-items: baseline; gap: 6px; }
+    .hit-title { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .hit-src { flex: 0 0 auto; font-size: 10px; font-weight: 600; color: ${t.muted};
+      border: 1px solid ${t.line}; border-radius: 999px; padding: 0 6px; text-transform: uppercase; }
+    .hit-snippet { color: ${t.muted}; font-size: 11px; line-height: 1.4; margin-top: 2px;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .hit-list { display: flex; flex-direction: column; gap: 2px; max-height: 300px; overflow-y: auto; }
     .col { display: flex; flex-direction: column; gap: 7px; }
     .row { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
     .row.end { justify-content: flex-end; }
@@ -642,6 +663,19 @@ function showToolbar(rect: DOMRect): void {
       });
       bar.appendChild(btn);
     },
+    search: () => {
+      // With every target turned off there is nothing the menu could offer — no button beats a dead one.
+      if (!searchTargets.vault && !searchTargets.engines.some((e) => e.enabled && resolveEngine(e) !== null)) return;
+      const btn = document.createElement("button");
+      btn.className = "action";
+      btn.textContent = "⌕ search";
+      btn.title = "Search the selection in your vault or on the web";
+      btn.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        showSearchMenu(rect, selectionText);
+      });
+      bar.appendChild(btn);
+    },
   };
 
   for (const action of islandActions) {
@@ -691,6 +725,121 @@ function showCopyMenu(rect: DOMRect, text: string): void {
 
   placeNear(bar, rect);
   root.appendChild(bar);
+}
+
+/**
+ * The search menu: the selection, and everywhere it can be looked up. Web engines open in a new tab; the
+ * vault is asked through the background worker (the token stays out of this script, as always) and answers
+ * right here in the menu — "have I noted this already?" without leaving the page.
+ */
+function showSearchMenu(rect: DOMRect, text: string): void {
+  const root = ensureShell();
+  clearUi();
+  const bar = document.createElement("div");
+  bar.className = "bar col";
+
+  const preview = document.createElement("div");
+  preview.className = "menu-quote";
+  preview.textContent = text;
+  bar.appendChild(preview);
+
+  const row = document.createElement("div");
+  row.className = "row";
+
+  if (searchTargets.vault) {
+    const vaultButton = document.createElement("button");
+    vaultButton.className = "action";
+    vaultButton.textContent = "Your vault";
+    vaultButton.title = "Search your vault for this";
+    vaultButton.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      showVaultResults(bar, text);
+    });
+    row.appendChild(vaultButton);
+  }
+
+  for (const choice of searchTargets.engines) {
+    if (!choice.enabled) continue;
+    const engine = resolveEngine(choice);
+    if (engine === null) continue;
+    const button = document.createElement("button");
+    button.className = "action";
+    button.textContent = engine.label;
+    button.title = `Search ${engine.label} for this`;
+    button.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      window.open(searchUrl(engine.template, text), "_blank", "noopener");
+      clearUi();
+    });
+    row.appendChild(button);
+  }
+
+  bar.appendChild(row);
+  placeNear(bar, rect);
+  root.appendChild(bar);
+}
+
+/** Ask the vault (via the background) and replace the menu's body with what it found. */
+function showVaultResults(bar: HTMLElement, text: string): void {
+  const status = document.createElement("div");
+  status.className = "menu-quote";
+  status.textContent = "Searching your vault…";
+  bar.replaceChildren(status);
+
+  const api = messenger();
+  if (api === null) {
+    status.textContent = "The extension isn't available on this page.";
+    return;
+  }
+  void api.runtime
+    .sendMessage({ type: "kvs-vault-search", query: text })
+    .then((reply) => {
+      const result = reply as { ok?: boolean; reason?: string; hits?: DisplayHit[] } | undefined;
+      if (result?.ok !== true) {
+        status.textContent = result?.reason ?? "Couldn't search your vault.";
+        return;
+      }
+      const hits = result.hits ?? [];
+      if (hits.length === 0) {
+        status.textContent = "Nothing in your vault matches this.";
+        return;
+      }
+      const list = document.createElement("div");
+      list.className = "hit-list";
+      for (const hit of hits) {
+        // A hit with somewhere to go is a link; one without (no URL, no path) is shown but goes nowhere.
+        const item = document.createElement(hit.href !== "" ? "a" : "div");
+        item.className = "hit";
+        if (item instanceof HTMLAnchorElement) {
+          item.href = hit.href;
+          item.target = "_blank";
+          item.rel = "noreferrer";
+        }
+        const head = document.createElement("div");
+        head.className = "hit-head";
+        const title = document.createElement("span");
+        title.className = "hit-title";
+        title.textContent = hit.title;
+        head.appendChild(title);
+        const src = document.createElement("span");
+        src.className = "hit-src";
+        src.textContent = hit.source;
+        head.appendChild(src);
+        item.appendChild(head);
+        const detail = hit.snippet !== "" ? hit.snippet : hit.location;
+        if (detail !== "") {
+          const snippet = document.createElement("div");
+          snippet.className = "hit-snippet";
+          snippet.textContent = detail;
+          item.appendChild(snippet);
+        }
+        list.appendChild(item);
+      }
+      bar.replaceChildren(list);
+    })
+    .catch(() => {
+      status.textContent = "Couldn't reach the extension.";
+    });
 }
 
 /** A small note editor, used both at creation and when annotating an existing highlight. */
@@ -953,11 +1102,12 @@ void choiceStorage()
   ?.local.get(["preferences"])
   .then((stored) => {
     const prefs = stored["preferences"] as
-      | { annotationSidebar?: boolean; islandActions?: unknown; islandSettings?: unknown }
+      | { annotationSidebar?: boolean; islandActions?: unknown; islandSettings?: unknown; searchTargets?: unknown }
       | undefined;
     sidebarEnabled = prefs?.annotationSidebar === true;
     islandActions = normalizeIslandActions(prefs?.islandActions);
     islandSettings = normalizeIslandSettings(prefs?.islandSettings);
+    searchTargets = normalizeSearchTargets(prefs?.searchTargets);
     if (sidebarEnabled) mountLauncher();
   })
   .catch(() => undefined);

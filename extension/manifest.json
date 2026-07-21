@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Knowledge Views Studio Companion",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Capture pages into your Obsidian vault's Knowledge Views, using each view's own columns.",
   "permissions": [
     "activeTab",

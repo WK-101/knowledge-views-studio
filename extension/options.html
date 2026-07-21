@@ -144,7 +144,8 @@
       </label>
       <p class="hint">
         Select text on a page and a toolbar appears: highlight in any of eight colours, switch to an
-        underline, add a note, or copy the selection as a quote, blockquote, or link. Highlights are painted
+        underline, add a note, copy the selection as a quote, blockquote, or link, or search it — in your
+        vault or on the web. Highlights are painted
         again whenever you revisit the page, land in the page's row, and — when the page has a dedicated note
         — under its Annotations heading. Click any highlight to recolour, restyle, copy, note, or remove it.
         Which controls the toolbar shows, and how it looks and behaves, are yours to set below.
@@ -219,6 +220,29 @@
         <input id="islandInEditable" type="checkbox" />
         <span>Show the toolbar when I select inside an editable field (a rich-text editor)</span>
       </label>
+    </section>
+
+    <section class="card">
+      <h2>Search the selection</h2>
+      <p class="hint">
+        Where the toolbar's Search action can send selected text. Your vault answers right there on the
+        page; web engines open in a new tab. Turn off anything you don't use — with everything off, the
+        Search button doesn't appear at all. Reload a page after changing these.
+      </p>
+      <label class="checkline">
+        <input id="searchVault" type="checkbox" />
+        <span>Your vault — show matching notes, rows, and highlights in the menu</span>
+      </label>
+      <div id="searchEngines" class="island-actions"></div>
+      <div class="engine-add">
+        <input id="engineLabel" type="text" placeholder="Name (e.g. PubMed)" />
+        <input id="engineTemplate" type="text" placeholder="URL with %s for the search terms" />
+        <button id="engineAdd" type="button">Add engine</button>
+      </div>
+      <p class="hint">
+        A custom engine is any search URL with <code>%s</code> where the terms go — for example
+        <code>https://pubmed.ncbi.nlm.nih.gov/?term=%s</code>.
+      </p>
     </section>
     </div>
     <div id="pane-sidebar" class="opt-pane" hidden>

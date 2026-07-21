@@ -1,6 +1,7 @@
 import { next, retryDelayMs } from "../../shared/queue";
-import { BridgeError, annotate, annotateRemove, annotationsFor, capture, fetchSchema, known, loadConnection, lookup } from "./lib/bridge-client";
+import { BridgeError, annotate, annotateRemove, annotationsFor, capture, fetchSchema, known, loadConnection, lookup, search } from "./lib/bridge-client";
 import { loadPreferences } from "./lib/preferences";
+import { displayHits, wireSearchMode } from "./lib/search-targets";
 import { matchRule } from "../../shared/rules";
 import { hasPageAccess, registerAnnotator, injectAnnotatorIntoOpenTabs, registerTableCapture, injectTableCaptureIntoOpenTabs } from "./lib/page-access";
 import { forget, statusKey } from "./lib/answer-cache";
@@ -432,6 +433,52 @@ runtimeMessaging?.onMessage.addListener((message, _sender, sendResponse) => {
   return true;
 });
 
+
+/**
+ * Search the vault on the selection toolbar's behalf.
+ *
+ * The content script asks; this holds the token, asks the vault, and returns display-ready hits — title,
+ * badge, snippet, and a link that already knows whether it points at the web, at Zotero, or back into
+ * Obsidian (which needs the vault's name, fetched from the schema here so the page never has to know it).
+ */
+runtimeMessaging?.onMessage.addListener((message, _sender, sendResponse) => {
+  const request = message as { type?: string; query?: unknown } | null;
+  if (request?.type !== "kvs-vault-search") return false;
+  void (async () => {
+    try {
+      const query = typeof request.query === "string" ? request.query.replace(/\s+/g, " ").trim() : "";
+      if (query === "") {
+        sendResponse({ ok: false, reason: "Nothing to search for." });
+        return;
+      }
+      const connection = await loadConnection();
+      if (connection.token === null) {
+        sendResponse({ ok: false, reason: "Not paired with a vault yet — open the extension to pair." });
+        return;
+      }
+      const prefs = await loadPreferences();
+      const result = await search(connection, { query, mode: wireSearchMode(prefs.searchMode), limit: 8 });
+      // The vault's name, for obsidian:// links back into it. Best-effort: without it, file hits simply
+      // list unlinked rather than the whole search failing.
+      let vault = "";
+      try {
+        vault = (await fetchSchema(connection)).vault;
+      } catch {
+        // Schema not readable (permission granted for search but not reading, say) — links degrade, results stay.
+      }
+      sendResponse({ ok: true, hits: displayHits(result.hits, vault) });
+    } catch (error) {
+      const reason =
+        error instanceof BridgeError && error.status === 403
+          ? "Searching isn't allowed yet — turn it on in Obsidian's Browser bridge settings."
+          : error instanceof BridgeError
+            ? error.message
+            : "Couldn't reach your vault.";
+      sendResponse({ ok: false, reason });
+    }
+  })();
+  return true;
+});
 
 // Re-register page scripts after a browser restart, when their permissions are already held.
 void (async () => {

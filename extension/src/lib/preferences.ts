@@ -9,6 +9,11 @@ import {
   normalizeIslandSettings,
   type IslandSettings,
 } from "./island-settings";
+import {
+  DEFAULT_SEARCH_TARGETS,
+  normalizeSearchTargets,
+  type SearchTargets,
+} from "./search-targets";
 
 /**
  * Every preference in one place.
@@ -66,6 +71,8 @@ export interface Preferences {
   readonly islandActions: readonly IslandAction[];
   /** The selection toolbar's appearance and behaviour. See island-settings.ts. */
   readonly islandSettings: IslandSettings;
+  /** Where the toolbar's Search action can send a selection. See search-targets.ts. */
+  readonly searchTargets: SearchTargets;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -90,6 +97,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   tableCapture: false,
   islandActions: DEFAULT_ISLAND_ACTIONS,
   islandSettings: DEFAULT_ISLAND_SETTINGS,
+  searchTargets: DEFAULT_SEARCH_TARGETS,
 };
 
 const KEY = "preferences";
@@ -161,6 +169,7 @@ export function normalizePreferences(raw: unknown): Preferences {
     tableCapture: value["tableCapture"] === true,
     islandActions: normalizeIslandActions(value["islandActions"]),
     islandSettings: normalizeIslandSettings(value["islandSettings"]),
+    searchTargets: normalizeSearchTargets(value["searchTargets"]),
   };
 }
 

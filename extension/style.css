@@ -663,3 +663,13 @@ body.options h1 { font-size: 18px; }
 /* The min-characters field: a narrow number box with its unit inline beside it. */
 #islandMinChars { width: 88px; display: inline-block; }
 .field .suffix { display: inline; margin-left: 6px; font-size: 12px; color: var(--muted); }
+
+/* Search-the-selection: engine rows reuse the island-row look (no drag handle — the menu is short),
+   long URL templates wrap inside their row, and custom engines carry a small Remove button. */
+#searchEngines .island-row { cursor: default; }
+#searchEngines .island-hint { overflow-wrap: anywhere; }
+.island-remove { flex: 0 0 auto; padding: 1px 7px; font-size: 11px; }
+.engine-add { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
+.engine-add input { flex: 1 1 auto; min-width: 0; }
+.engine-add #engineLabel { flex: 0 1 160px; }
+.engine-add button { flex: 0 0 auto; }
