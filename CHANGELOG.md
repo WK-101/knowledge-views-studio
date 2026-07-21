@@ -5,6 +5,40 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 186 — the chrome UI redesign, part 1 (icons, identity, preview-first capture)
+
+Companion 0.9.0, extension-only. After a competitive teardown (Obsidian Web Clipper, Web Highlights, WuCai,
+Evernote), the verdict was clear: the *in-page* surfaces (island, sidebar, sticky notes, export) already read
+as modern, but the **popup and options chrome** felt dated. This is the first pass at fixing that — the
+highest-impact, lowest-risk half of the redesign.
+
+What changed, building on the earlier "Notion refresh" of the tokens:
+
+- **An icon system where there was none.** Every control in the popup, sidebar, and settings was text-only;
+  now there's a consistent inline **Lucide-style icon set** — a logo mark + wordmark in the header, an icon
+  settings button, icon+label tabs (capture / rows / whole-page / update / highlight / search / views), icon
+  action buttons (Row / Page / Save), and an icon nav in settings. This single change does most of the work
+  of making the chrome feel current.
+- **A real header.** "Knowledge Views" as a bold string next to a "Settings" text link became a proper
+  brand row (mark + wordmark) with a quiet, hover-filled icon button.
+- **Preview-first capture** — the headline. The capture panel now shows a live **"what you'll save"** card:
+  the row's title, each field's value read exactly the way the save path reads it (a field still showing its
+  faded suggestion counts; an emptied one doesn't), a live count for the highlights column (managed on the
+  page, not in the form), and where it lands ("Saves to *ViewName*"). It updates as you type. Capture stops
+  being a blind form — the Obsidian-clipper lesson, adapted to our view/column model.
+- **Settings nav → a segmented, icon pill row** (was a plain underline row), each section with its icon.
+
+A self-inflicted bug caught and fixed during verification: a `*/` sequence *inside* a CSS comment closed the
+comment early and corrupted the `.hidden` utility, briefly un-hiding every secondary tab; the utility is now
+`display: none !important` (where !important actually belongs) and the comment no longer contains `*/`.
+
+Verified visually, not just by types: the popup and options were rendered headless (Chromium/Playwright) in
+light and dark and screenshotted, confirming the icons, layout, tab-hiding, and the preview card render
+correctly — a stronger check than "unverified until run" for a pure-UI change. All 1458 tests still pass,
+tsc is clean on both halves, eslint holds at the 37-warning baseline. No logic changed: the capture, search,
+pairing, and highlight flows are the same code behind a new surface. Part 2 of the redesign (deeper
+in-page polish, onboarding) can follow.
+
 ## Phase 185 — copy-all / export (island redesign, part 7, last of the arc)
 
 Companion 0.8.0, extension-only. The last item on the island roadmap: take a whole page's highlights and

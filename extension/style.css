@@ -682,3 +682,85 @@ body.options h1 { font-size: 18px; }
 .auto-field select { font-size: 13px; }
 .auto-add .checkline { flex: 1 1 100%; margin: 0; }
 .auto-add > #autoAdd { flex: 0 0 auto; margin-left: auto; }
+
+/* ============================================================================
+   PHASE A REDESIGN — icon system, header identity, and a live capture preview.
+   Layered last so it wins by source order. This is what the chrome UI was
+   missing on top of the earlier Notion refresh: iconography, a real header,
+   segmented icon-nav in settings, and a "what you'll save" preview.
+   ========================================================================== */
+
+/* Header identity — a logo mark + wordmark, and an icon settings button. */
+.app-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.brand { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.brand strong { font-size: 14px; font-weight: 650; letter-spacing: -0.01em; }
+.brand-mark { width: 19px; height: 19px; color: var(--accent); flex: none; }
+body.is-popup .app-head { margin-bottom: 9px; }
+
+/* Icon buttons — square, quiet, hover-filled. */
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; padding: 0; border-radius: var(--radius-sm);
+  border: 1px solid transparent; background: transparent; color: var(--muted); cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.icon-btn:hover { background: var(--bg-hover); color: var(--fg); }
+.icon-btn:active { transform: translateY(0.5px); }
+.icon-btn svg { width: 17px; height: 17px; }
+
+/* Tabs and nav: icon + label, centered. */
+.tab { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.tab-ic { width: 15px; height: 15px; flex: none; }
+.tab span { line-height: 1; }
+body.is-popup .tab .tab-ic { width: 14px; height: 14px; }
+
+/* Destination + save buttons carry icons. */
+.dest-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.dest-btn svg { width: 15px; height: 15px; flex: none; }
+button.primary { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+button.primary svg { width: 17px; height: 17px; flex: none; }
+
+/* Options nav → a modern segmented pill row with icons (was a plain underline row). */
+.opt-nav {
+  display: flex; flex-wrap: wrap; gap: 3px; background: var(--bg-sunken);
+  padding: 4px; border-radius: var(--radius); margin: 18px 0 22px; border: none;
+}
+.opt-tab {
+  display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px; font-size: 13px;
+  font-weight: 550; color: var(--muted); border: none; background: transparent;
+  border-radius: var(--radius-sm); cursor: pointer; transition: background 0.12s ease, color 0.12s ease;
+}
+.opt-tab:hover { color: var(--fg); background: var(--bg-hover); }
+.opt-tab.active { background: var(--bg); color: var(--fg); box-shadow: var(--shadow-sm); font-weight: 600; border-bottom: none; }
+.opt-tab .tab-ic { width: 15px; height: 15px; flex: none; }
+
+/* Live capture preview — the "what you'll save" card under the form. */
+.preview-card {
+  margin-top: 11px; padding: 11px 13px; border: 1px solid var(--line);
+  border-radius: var(--radius); background: var(--bg-sunken);
+}
+.preview-card.hidden { display: none; }
+.preview-head {
+  display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 650;
+  text-transform: uppercase; letter-spacing: 0.05em; color: var(--faint); margin-bottom: 8px;
+}
+.preview-head svg { width: 13px; height: 13px; flex: none; }
+.preview-title { font-weight: 600; font-size: 13px; margin-bottom: 6px; overflow-wrap: anywhere; }
+.preview-field { display: flex; gap: 8px; padding: 4px 0; font-size: 12px; align-items: baseline; }
+.preview-field + .preview-field { border-top: 1px solid var(--line); }
+.preview-key { flex: 0 0 34%; color: var(--muted); font-weight: 500; overflow-wrap: anywhere; }
+.preview-val { flex: 1 1 auto; overflow-wrap: anywhere; white-space: pre-wrap; }
+.preview-empty { color: var(--faint); font-style: italic; font-size: 12px; }
+.preview-dest {
+  margin-top: 9px; padding-top: 8px; border-top: 1px solid var(--line);
+  font-size: 11.5px; color: var(--muted); display: flex; align-items: center; gap: 5px;
+}
+.preview-dest svg { width: 13px; height: 13px; flex: none; color: var(--accent); }
+.preview-dest strong { color: var(--fg); font-weight: 600; }
+
+/* Tab labels stay on one line (the icon+label flex would otherwise wrap "Whole page"). */
+.tab span { white-space: nowrap; }
+
+/* The .hidden utility must beat the later flex-display rules on tabs, dest buttons, and the preview card
+   that would otherwise un-hide elements by source order. A hide utility is exactly where !important belongs. */
+.hidden { display: none !important; }

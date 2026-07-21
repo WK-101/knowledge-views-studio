@@ -66,6 +66,20 @@ function el<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
+/** A few inline Lucide-style icons for the preview card (static strings, safe as innerHTML). */
+const ICON = {
+  eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>',
+  layers:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>',
+};
+
+/** A span holding one of the inline icons. */
+function icon(svg: string): HTMLSpanElement {
+  const span = document.createElement("span");
+  span.innerHTML = svg;
+  return span;
+}
+
 let snapshot: PageSnapshot | null = null;
 let schema: SchemaResponse | null = null;
 let current: SchemaView | null = null;
@@ -124,6 +138,8 @@ async function refreshAnnotationMirror(): Promise<void> {
       const line = annotationLine(annotation.anchor.exact, annotation.note ?? "");
       mirror.appendChild(el("div", { class: "mirror-line" }, line));
     }
+    // The preview counts these, so refresh it once they've loaded.
+    renderPreview();
   } catch {
     mirror.textContent = "Couldn't read this page's highlights.";
   }
@@ -261,6 +277,74 @@ function renderForm(view: SchemaView, prefill: Record<string, string>, unmatched
       el("p", { class: "hint" }, `Also found, with no matching column: ${unmatched.join(", ")}`),
     );
   }
+  renderPreview();
+}
+
+/**
+ * The live "what you'll save" preview.
+ *
+ * The capture form is a set of fields; this reflects them back as the row that's actually about to be
+ * written — the same values, read the same way `collect()` reads them (a field left showing its faded
+ * suggestion counts, an emptied one doesn't) — so there's no gap between what you see and what lands in the
+ * vault. The annotation column shows a live count rather than a value, because highlights are managed on the
+ * page, not here.
+ */
+function renderPreview(): void {
+  const host = document.getElementById("preview");
+  if (host === null) return;
+  host.replaceChildren();
+
+  const head = el("div", { class: "preview-head" });
+  head.appendChild(icon(ICON.eye));
+  head.appendChild(el("span", {}, "Preview"));
+  host.appendChild(head);
+
+  // The title of the row: whatever the page called itself, so the card reads as a real entry.
+  const title = (snapshot?.title ?? "").trim();
+  if (title !== "") host.appendChild(el("div", { class: "preview-title" }, title));
+
+  const inputs = Array.from(document.querySelectorAll("#form [data-column]"));
+  let shown = 0;
+  for (const node of inputs) {
+    const field = node as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+    const key = node.getAttribute("data-column") ?? "";
+    const typed = field.value.trim();
+    const suggested = "placeholder" in field ? (field as HTMLInputElement).placeholder.trim() : "";
+    const value = typed !== "" ? typed : suggested;
+    if (key === "" || value === "") continue;
+    const row = el("div", { class: "preview-field" });
+    row.appendChild(el("span", { class: "preview-key" }, key));
+    row.appendChild(el("span", { class: "preview-val" }, value.length > 200 ? `${value.slice(0, 200)}…` : value));
+    host.appendChild(row);
+    shown++;
+  }
+
+  // The annotation column is a live mirror, not a form field — surface it as a count so the preview is honest.
+  const mirrorLines = document.querySelectorAll("[data-annotation-mirror] .mirror-line").length;
+  if (mirrorLines > 0) {
+    const row = el("div", { class: "preview-field" });
+    row.appendChild(el("span", { class: "preview-key" }, "highlights"));
+    row.appendChild(el("span", { class: "preview-val" }, `${String(mirrorLines)} on this page`));
+    host.appendChild(row);
+    shown++;
+  }
+
+  if (shown === 0) {
+    host.appendChild(el("div", { class: "preview-empty" }, "Fill in a field to preview the row you'll save."));
+  }
+
+  // Where it lands, echoing the destination picker.
+  if (current !== null) {
+    const dest = el("div", { class: "preview-dest" });
+    dest.appendChild(icon(ICON.layers));
+    const text = el("span", {});
+    text.append("Saves to ");
+    text.appendChild(el("strong", {}, current.name));
+    dest.appendChild(text);
+    host.appendChild(dest);
+  }
+
+  host.classList.remove("hidden");
 }
 
 /** Pre-fill by asking the vault what each field means, rather than guessing here. */
@@ -789,6 +873,8 @@ export function startSurface(surface: SurfaceMode): void {
   document.body.classList.add(`is-${surface}`);
   document.getElementById("save")?.addEventListener("click", () => void submit());
   document.getElementById("settings")?.addEventListener("click", () => browserApi().runtime.openOptionsPage());
+  // Keep the live preview in step with the form as it's typed.
+  document.getElementById("form")?.addEventListener("input", () => renderPreview());
   wireTabs();
   void applyDensity();
   void start();
