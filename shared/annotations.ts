@@ -31,6 +31,11 @@ export const HIGHLIGHT_COLORS: readonly HighlightColor[] = [
 /** How a highlight is drawn: painted over, or underlined beneath. */
 export type HighlightStyle = "highlight" | "underline";
 
+/** How strongly a highlight is painted — the transparency choice. */
+export type HighlightIntensity = "light" | "medium" | "strong";
+
+export const HIGHLIGHT_INTENSITIES: readonly HighlightIntensity[] = ["light", "medium", "strong"];
+
 export interface StoredAnnotation extends Annotation {
   readonly id: string;
   readonly color: HighlightColor;
@@ -58,6 +63,25 @@ function coerceColor(raw: unknown): HighlightColor {
 
 function coerceStyle(raw: unknown): HighlightStyle {
   return raw === "underline" ? "underline" : "highlight";
+}
+
+function coerceIntensity(raw: unknown): HighlightIntensity {
+  return raw === "light" || raw === "strong" ? raw : "medium";
+}
+
+/** Clean a stored tag list: strings only, trimmed, de-duplicated, blanks and a leading # dropped. */
+function coerceTags(raw: unknown): readonly string[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== "string") continue;
+    const tag = item.trim().replace(/^#+/, "").trim();
+    if (tag === "" || seen.has(tag.toLowerCase())) continue;
+    seen.add(tag.toLowerCase());
+    out.push(tag);
+  }
+  return out;
 }
 
 function coerceAnchor(raw: unknown): TextAnchor | null {
@@ -93,6 +117,8 @@ export function coerceAnnotation(raw: unknown): StoredAnnotation | null {
     style: coerceStyle(entry["style"]),
     createdAt: typeof entry["createdAt"] === "string" ? entry["createdAt"] : new Date(0).toISOString(),
     ...(typeof entry["note"] === "string" && entry["note"].trim() !== "" ? { note: entry["note"] } : {}),
+    ...(coerceTags(entry["tags"]).length > 0 ? { tags: coerceTags(entry["tags"]) } : {}),
+    intensity: coerceIntensity(entry["intensity"]),
   };
 }
 
@@ -127,7 +153,10 @@ export function annotationCellText(annotation: StoredAnnotation, bullet = false)
 export function annotationNoteBlock(annotation: StoredAnnotation): string {
   const quote = annotation.anchor.exact.trim().split(/\r?\n/).map((line) => `> ${line}`).join("\n");
   const note = (annotation.note ?? "").trim();
-  return note === "" ? quote : `${quote}\n>\n> — ${note}`;
+  const tagList = (annotation.tags ?? []).map((t) => `#${t.replace(/\s+/g, "-")}`).join(" ");
+  const base = note === "" ? quote : `${quote}\n>\n> — ${note}`;
+  // Tags on their own line under the quote, as Obsidian hashtags, so the vault's own tag index finds them.
+  return tagList === "" ? base : `${base}\n>\n> ${tagList}`;
 }
 
 /** Add an annotation to a page's set, replacing any earlier one with the same id. */

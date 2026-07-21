@@ -1,4 +1,6 @@
 import { buildAnchor } from "../../shared/anchor";
+import { inPageTheme, highlightAlpha } from "../../shared/in-page-ui";
+import type { HighlightIntensity } from "../../shared/annotations";
 import { locateAnchor } from "../../shared/anchor-locate";
 import type { WireAnnotation } from "../../shared/protocol";
 
@@ -23,18 +25,34 @@ import type { WireAnnotation } from "../../shared/protocol";
 
 type Color = "yellow" | "green" | "blue" | "red" | "purple" | "orange";
 type Style = "highlight" | "underline";
+type Intensity = HighlightIntensity;
 
-const PAINT: Record<Color, { light: string; dark: string; solid: string }> = {
-  yellow: { light: "rgba(255, 213, 0, 0.38)", dark: "rgba(255, 213, 0, 0.30)", solid: "#e6c200" },
-  green: { light: "rgba(76, 217, 100, 0.34)", dark: "rgba(76, 217, 100, 0.28)", solid: "#3fae5a" },
-  blue: { light: "rgba(90, 160, 255, 0.34)", dark: "rgba(90, 160, 255, 0.30)", solid: "#4a8fe0" },
-  red: { light: "rgba(255, 105, 120, 0.34)", dark: "rgba(255, 105, 120, 0.28)", solid: "#e05a6a" },
-  purple: { light: "rgba(175, 120, 255, 0.32)", dark: "rgba(175, 120, 255, 0.28)", solid: "#9a6ae0" },
-  orange: { light: "rgba(255, 160, 70, 0.36)", dark: "rgba(255, 160, 70, 0.28)", solid: "#e08a3a" },
+const PAINT: Record<Color, { rgb: [number, number, number]; solid: string }> = {
+  yellow: { rgb: [255, 213, 0], solid: "#e6c200" },
+  green: { rgb: [76, 217, 100], solid: "#3fae5a" },
+  blue: { rgb: [90, 160, 255], solid: "#4a8fe0" },
+  red: { rgb: [255, 105, 120], solid: "#e05a6a" },
+  purple: { rgb: [175, 120, 255], solid: "#9a6ae0" },
+  orange: { rgb: [255, 160, 70], solid: "#e08a3a" },
 };
 
-/** The colour and style used last, so the next highlight starts from what you actually use. */
-let lastChoice: { color: Color; style: Style } = { color: "yellow", style: "highlight" };
+/** An annotation's transparency, defaulting to medium. */
+function intensityOf(a: WireAnnotation | undefined): Intensity {
+  return a?.intensity === "light" || a?.intensity === "strong" ? a.intensity : "medium";
+}
+
+/** The fill for a highlight of a colour at a transparency level, in the page's colour scheme. */
+function fillFor(color: Color, intensity: HighlightIntensity): string {
+  const [r, g, b] = PAINT[color].rgb;
+  return `rgba(${String(r)}, ${String(g)}, ${String(b)}, ${String(highlightAlpha(intensity, dark()))})`;
+}
+
+/** The colour, style, and transparency used last, so the next highlight starts from what you actually use. */
+let lastChoice: { color: Color; style: Style; intensity: Intensity } = {
+  color: "yellow",
+  style: "highlight",
+  intensity: "medium",
+};
 
 interface ChoiceStorage {
   local: { get(keys: string[]): Promise<Record<string, unknown>>; set(items: Record<string, unknown>): Promise<void> };
@@ -46,13 +64,14 @@ function choiceStorage(): ChoiceStorage | null {
 void choiceStorage()
   ?.local.get(["annotatorLast"])
   .then((stored) => {
-    const raw = stored["annotatorLast"] as { color?: string; style?: string } | undefined;
+    const raw = stored["annotatorLast"] as { color?: string; style?: string; intensity?: string } | undefined;
     if (raw?.color !== undefined && raw.color in PAINT) lastChoice = { ...lastChoice, color: raw.color as Color };
     if (raw?.style === "underline") lastChoice = { ...lastChoice, style: "underline" };
+    if (raw?.intensity === "light" || raw?.intensity === "strong") lastChoice = { ...lastChoice, intensity: raw.intensity };
   })
   .catch(() => undefined);
-function rememberChoice(color: Color, style: Style): void {
-  lastChoice = { color, style };
+function rememberChoice(color: Color, style: Style, intensity: Intensity = lastChoice.intensity): void {
+  lastChoice = { color, style, intensity };
   void choiceStorage()?.local.set({ annotatorLast: lastChoice }).catch(() => undefined);
 }
 
@@ -163,13 +182,13 @@ function segmentsIn(
 // ------------------------------------------------------------------ painting
 
 /** Wrap one span of one text node in a highlight mark. */
-function styleMark(mark: HTMLElement, color: Color, style: Style): void {
+function styleMark(mark: HTMLElement, color: Color, style: Style, intensity: Intensity): void {
   if (style === "underline") {
     mark.style.backgroundColor = "transparent";
     mark.style.borderBottom = `2px solid ${PAINT[color].solid}`;
     mark.style.paddingBottom = "1px";
   } else {
-    mark.style.backgroundColor = PAINT[color][dark() ? "dark" : "light"];
+    mark.style.backgroundColor = fillFor(color, intensity);
     mark.style.borderBottom = "none";
     mark.style.paddingBottom = "0";
   }
@@ -177,22 +196,22 @@ function styleMark(mark: HTMLElement, color: Color, style: Style): void {
   mark.style.cursor = "pointer";
 }
 
-function wrapSegment(node: Text, from: number, to: number, id: string, color: Color, style: Style): void {
+function wrapSegment(node: Text, from: number, to: number, id: string, color: Color, style: Style, intensity: Intensity): void {
   if (to <= from) return;
   const target = from === 0 ? node : node.splitText(from);
   if (to < (node.nodeValue ?? "").length + from) target.splitText(to - from);
   const mark = document.createElement("mark");
   mark.setAttribute(HL_ATTR, id);
   mark.title = "Click for options · Alt+click to remove";
-  styleMark(mark, color, style);
+  styleMark(mark, color, style, intensity);
   target.parentNode?.replaceChild(mark, target);
   mark.appendChild(target);
 }
 
 /** Restyle an existing highlight in place — recolouring shouldn't re-anchor anything. */
-function restyle(id: string, color: Color, style: Style): void {
+function restyle(id: string, color: Color, style: Style, intensity: Intensity): void {
   for (const mark of Array.from(document.querySelectorAll(`[${HL_ATTR}="${id}"]`))) {
-    styleMark(mark as HTMLElement, color, style);
+    styleMark(mark as HTMLElement, color, style, intensity);
   }
 }
 
@@ -203,12 +222,13 @@ function paint(annotation: WireAnnotation): boolean {
   if (located === null) return false;
   const color = (annotation.color in PAINT ? annotation.color : "yellow") as Color;
   const style: Style = annotation.style === "underline" ? "underline" : "highlight";
+  const intensity: Intensity = annotation.intensity === "light" || annotation.intensity === "strong" ? annotation.intensity : "medium";
   // Wrap in document order; splitting mutates nodes, so segments are recomputed from a fresh index each
   // time a node is split. Simpler: collect segments first, then wrap back-to-front so earlier offsets
   // stay valid.
   const segments = segmentsIn(index, located.start, located.end);
   for (const segment of segments.reverse()) {
-    wrapSegment(segment.node, segment.from, segment.to, annotation.id, color, style);
+    wrapSegment(segment.node, segment.from, segment.to, annotation.id, color, style, intensity);
   }
   return segments.length > 0;
 }
@@ -237,24 +257,26 @@ function ensureShell(): ShadowRoot {
   shell.style.top = "0";
   shell.style.left = "0";
   shadow = shell.attachShadow({ mode: "closed" });
+  const t = inPageTheme(dark());
   const style = document.createElement("style");
   style.textContent = `
+    :host { all: initial; }
+    * { box-sizing: border-box; font-family: ${t.font}; -webkit-font-smoothing: antialiased; }
     .bar {
       position: fixed;
       display: flex;
       align-items: center;
-      gap: 7px;
-      padding: 7px 9px;
-      background: ${dark() ? "#232327" : "#ffffff"};
-      color: ${dark() ? "#e9e8e6" : "#37352f"};
-      border: 1px solid ${dark() ? "#34343a" : "#ebeae7"};
-      border-radius: 12px;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.18), 0 1px 2px rgba(0,0,0,0.06);
-      font: 12.5px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      -webkit-font-smoothing: antialiased;
+      gap: 5px;
+      padding: 5px 7px;
+      background: ${t.bg};
+      color: ${t.fg};
+      border: 1px solid ${t.line};
+      border-radius: ${t.radius};
+      box-shadow: ${t.shadow};
+      font-size: 12.5px; line-height: 1.4;
     }
     .swatch {
-      width: 19px; height: 19px;
+      width: 17px; height: 17px;
       border-radius: 50%;
       border: 2px solid ${dark() ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.10)"};
       cursor: pointer;
@@ -262,23 +284,46 @@ function ensureShell(): ShadowRoot {
       transition: transform 0.12s ease, box-shadow 0.12s ease;
     }
     .swatch:hover { transform: scale(1.18); box-shadow: 0 0 0 3px ${dark() ? "rgba(143,116,255,0.25)" : "rgba(124,92,255,0.18)"}; }
-    .divider { width: 1px; height: 18px; background: ${dark() ? "#34343a" : "#ececf0"}; margin: 0 1px; }
+    .swatch.selected { box-shadow: 0 0 0 3px ${t.accent}; }
+    .divider { width: 1px; align-self: stretch; background: ${t.line}; margin: 2px 1px; }
     button.action {
       border: 0; background: none; cursor: pointer;
-      color: inherit; font: inherit; font-weight: 550; padding: 4px 8px; border-radius: 7px;
-      transition: background 0.12s ease;
+      color: ${t.fg}; font: inherit; font-weight: 550; padding: 4px 7px; border-radius: ${t.radiusSmall};
+      transition: background 0.12s ease; white-space: nowrap;
     }
-    button.action:hover { background: ${dark() ? "#2a2a30" : "#f1f0ee"}; }
+    button.action:hover { background: ${t.hover}; }
+    button.action.on { background: ${t.accent}; color: ${t.accentInk}; }
+    .icon-btn {
+      display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 22px;
+      border: 1px solid ${t.line}; background: ${t.bg}; color: ${t.fg}; cursor: pointer;
+      border-radius: ${t.radiusSmall}; font: inherit; font-size: 11px; font-weight: 600; padding: 0 6px;
+      transition: background 0.12s ease, border-color 0.12s ease;
+    }
+    .icon-btn:hover { background: ${t.hover}; border-color: ${t.muted}; }
     textarea {
-      width: 220px; min-height: 52px;
-      border: 1px solid ${dark() ? "#48484d" : "#d5d5da"};
-      border-radius: 6px;
-      background: ${dark() ? "#1f1f23" : "#fafafa"};
-      color: inherit; font: inherit; padding: 5px 7px;
+      width: 240px; min-height: 52px;
+      border: 1px solid ${t.line};
+      border-radius: ${t.radiusSmall};
+      background: ${dark() ? "#1c1c1f" : "#faf9f8"};
+      color: ${t.fg}; font: inherit; padding: 6px 8px;
       resize: vertical;
     }
-    .col { display: flex; flex-direction: column; gap: 6px; }
-    .row { display: flex; gap: 6px; justify-content: flex-end; }
+    input.tags-field {
+      width: 240px; border: 1px solid ${t.line}; border-radius: ${t.radiusSmall};
+      background: ${dark() ? "#1c1c1f" : "#faf9f8"}; color: ${t.fg}; font: inherit; padding: 6px 8px;
+    }
+    .field-label { font-size: 11px; color: ${t.muted}; font-weight: 550; margin-bottom: 2px; }
+    .tag-row { display: flex; flex-wrap: wrap; gap: 5px; max-width: 260px; }
+    .tag-chip {
+      display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 550;
+      padding: 2px 8px; border-radius: 999px; background: ${t.accent}1f; color: ${dark() ? "#c7b8ff" : "#5b3fd6"};
+      border: 1px solid ${t.accent}33;
+    }
+    .menu-quote { max-width: 260px; color: ${t.muted}; font-size: 11.5px; line-height: 1.45;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .col { display: flex; flex-direction: column; gap: 7px; }
+    .row { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+    .row.end { justify-content: flex-end; }
   `;
   shadow.appendChild(style);
   document.documentElement.appendChild(shell);
@@ -376,7 +421,7 @@ function newId(): string {
 }
 
 /** Create, paint and save a highlight from the current selection. */
-function highlightSelection(color: Color, style: Style, note?: string): void {
+function highlightSelection(color: Color, style: Style, note?: string, intensity: Intensity = lastChoice.intensity, tags?: readonly string[]): void {
   const selection = window.getSelection();
   if (selection === null || selection.isCollapsed || selection.rangeCount === 0) return;
   const range = selection.getRangeAt(0);
@@ -395,21 +440,24 @@ function highlightSelection(color: Color, style: Style, note?: string): void {
 
   const exact = index.text.slice(start, end);
   const anchor = buildAnchor(index.text, exact, start);
+  const cleanTags = (tags ?? []).map((t) => t.trim().replace(/^#+/, "").trim()).filter((t) => t !== "");
   const annotation: WireAnnotation = {
     id: newId(),
     anchor,
     color,
     style,
+    intensity,
     createdAt: new Date().toISOString(),
     ...(note !== undefined && note.trim() !== "" ? { note: note.trim() } : {}),
+    ...(cleanTags.length > 0 ? { tags: cleanTags } : {}),
   };
-  rememberChoice(color, style);
+  rememberChoice(color, style, intensity);
 
   // Paint immediately — waiting for the vault would make the toolbar feel broken — then save; failure
   // unpaints, so the page never shows a highlight the vault refused.
   const segments = segmentsIn(index, start, end);
   for (const segment of segments.reverse()) {
-    wrapSegment(segment.node, segment.from, segment.to, annotation.id, color, style);
+    wrapSegment(segment.node, segment.from, segment.to, annotation.id, color, style, intensity);
   }
   live.set(annotation.id, annotation);
   refreshSidebar();
@@ -433,14 +481,17 @@ function showToolbar(rect: DOMRect): void {
   bar.className = "bar";
 
   let style: Style = lastChoice.style;
+  let intensity: Intensity = lastChoice.intensity;
 
   const swatches: HTMLButtonElement[] = [];
   const drawSwatches = (): void => {
     for (const swatch of swatches) {
       const color = swatch.dataset["color"] as Color;
-      swatch.style.backgroundColor = PAINT[color].solid;
+      // Preview the actual look: a solid dot for highlight (weighted by transparency), a bar for underline.
+      swatch.style.backgroundColor = style === "underline" ? PAINT[color].solid : fillFor(color, intensity);
+      swatch.style.borderColor = PAINT[color].solid;
       swatch.style.borderRadius = style === "underline" ? "3px" : "50%";
-      swatch.style.height = style === "underline" ? "6px" : "18px";
+      swatch.style.height = style === "underline" ? "6px" : "17px";
       swatch.style.marginTop = style === "underline" ? "6px" : "0";
     }
   };
@@ -452,7 +503,7 @@ function showToolbar(rect: DOMRect): void {
     swatch.title = `${style === "underline" ? "Underline" : "Highlight"} ${color}`;
     swatch.addEventListener("mousedown", (event) => {
       event.preventDefault();
-      highlightSelection(color, style);
+      highlightSelection(color, style, undefined, intensity);
     });
     swatches.push(swatch);
     bar.appendChild(swatch);
@@ -460,11 +511,12 @@ function showToolbar(rect: DOMRect): void {
 
   bar.appendChild(Object.assign(document.createElement("div"), { className: "divider" }));
 
+  // Shape: highlight or underline.
   const styleToggle = document.createElement("button");
-  styleToggle.className = "action";
+  styleToggle.className = "icon-btn";
   const drawToggle = (): void => {
     styleToggle.textContent = style === "underline" ? "U̲" : "H";
-    styleToggle.title = style === "underline" ? "Switch to highlight" : "Switch to underline";
+    styleToggle.title = style === "underline" ? "Shape: underline (tap for highlight)" : "Shape: highlight (tap for underline)";
   };
   styleToggle.addEventListener("mousedown", (event) => {
     event.preventDefault();
@@ -474,17 +526,36 @@ function showToolbar(rect: DOMRect): void {
   });
   bar.appendChild(styleToggle);
 
+  // Transparency: cycle light → medium → strong. The glyph fills as it strengthens.
+  const order: Intensity[] = ["light", "medium", "strong"];
+  const glyph: Record<Intensity, string> = { light: "░", medium: "▒", strong: "▓" };
+  const alphaToggle = document.createElement("button");
+  alphaToggle.className = "icon-btn";
+  const drawAlpha = (): void => {
+    alphaToggle.textContent = glyph[intensity];
+    alphaToggle.title = `Transparency: ${intensity} (tap to change)`;
+  };
+  alphaToggle.addEventListener("mousedown", (event) => {
+    event.preventDefault();
+    intensity = order[(order.indexOf(intensity) + 1) % order.length] ?? "medium";
+    drawAlpha();
+    drawSwatches();
+    rememberChoice(lastChoice.color, style, intensity);
+  });
+  bar.appendChild(alphaToggle);
+
   const withNote = document.createElement("button");
   withNote.className = "action";
   withNote.textContent = "＋ note";
-  withNote.title = "Highlight with a note";
+  withNote.title = "Highlight with a note and tags";
   withNote.addEventListener("mousedown", (event) => {
     event.preventDefault();
-    showNoteEditor(rect, (note, color) => highlightSelection(color, style, note));
+    showNoteEditor(rect, (note, color, tags) => highlightSelection(color, style, note, intensity, tags));
   });
   bar.appendChild(withNote);
 
   drawToggle();
+  drawAlpha();
   drawSwatches();
   placeNear(bar, rect);
   root.appendChild(bar);
@@ -493,8 +564,9 @@ function showToolbar(rect: DOMRect): void {
 /** A small note editor, used both at creation and when annotating an existing highlight. */
 function showNoteEditor(
   rect: DOMRect,
-  onDone: (note: string, color: Color) => void,
+  onDone: (note: string, color: Color, tags: string[]) => void,
   initial = "",
+  initialTags: readonly string[] = [],
 ): void {
   const root = ensureShell();
   clearUi();
@@ -506,29 +578,45 @@ function showNoteEditor(
   input.value = initial;
   box.appendChild(input);
 
+  const tagsWrap = document.createElement("div");
+  const tagsLabel = document.createElement("div");
+  tagsLabel.className = "field-label";
+  tagsLabel.textContent = "Tags";
+  const tagsInput = document.createElement("input");
+  tagsInput.className = "tags-field";
+  tagsInput.placeholder = "comma or space separated";
+  tagsInput.value = initialTags.join(", ");
+  tagsWrap.appendChild(tagsLabel);
+  tagsWrap.appendChild(tagsInput);
+  box.appendChild(tagsWrap);
+
   const rowEl = document.createElement("div");
   rowEl.className = "row";
   let chosen: Color = lastChoice.color;
   for (const color of Object.keys(PAINT) as Color[]) {
     const swatch = document.createElement("button");
-    swatch.className = "swatch";
+    swatch.className = color === chosen ? "swatch selected" : "swatch";
     swatch.style.backgroundColor = PAINT[color].solid;
-    swatch.style.outline = color === chosen ? "2px solid #888" : "none";
     swatch.addEventListener("click", () => {
       chosen = color;
       for (const other of Array.from(rowEl.querySelectorAll(".swatch"))) {
-        (other as HTMLElement).style.outline = "none";
+        (other as HTMLElement).classList.remove("selected");
       }
-      swatch.style.outline = "2px solid #888";
+      swatch.classList.add("selected");
     });
     rowEl.appendChild(swatch);
   }
-  const save = document.createElement("button");
-  save.className = "action";
-  save.textContent = "Save";
-  save.addEventListener("click", () => onDone(input.value, chosen));
-  rowEl.appendChild(save);
   box.appendChild(rowEl);
+
+  const actions = document.createElement("div");
+  actions.className = "row end";
+  const parseTags = (): string[] => tagsInput.value.split(/[\s,]+/).map((x) => x.trim()).filter((x) => x !== "");
+  const save = document.createElement("button");
+  save.className = "action on";
+  save.textContent = "Save";
+  save.addEventListener("click", () => onDone(input.value, chosen, parseTags()));
+  actions.appendChild(save);
+  box.appendChild(actions);
 
   placeNear(box, rect);
   root.appendChild(box);
@@ -543,77 +631,128 @@ function showHighlightMenu(id: string, rect: DOMRect): void {
   const bar = document.createElement("div");
   bar.className = "bar col";
 
-  if (annotation?.note !== undefined) {
+  const rerender = (): void => showHighlightMenu(id, rect);
+  const currentStyle: Style = annotation?.style === "underline" ? "underline" : "highlight";
+  const currentColor = (annotation?.color !== undefined && annotation.color in PAINT ? annotation.color : "yellow") as Color;
+  const currentIntensity = intensityOf(annotation);
+
+  // The quote itself, clamped, so you know which highlight you're on.
+  if (annotation?.anchor.exact !== undefined) {
+    const quote = document.createElement("div");
+    quote.className = "menu-quote";
+    quote.textContent = annotation.anchor.exact;
+    bar.appendChild(quote);
+  }
+  if (annotation?.note !== undefined && annotation.note.trim() !== "") {
     const note = document.createElement("div");
+    note.style.maxWidth = "260px";
     note.textContent = annotation.note;
-    note.style.maxWidth = "240px";
     bar.appendChild(note);
   }
+  if (annotation?.tags !== undefined && annotation.tags.length > 0) {
+    const tagRow = document.createElement("div");
+    tagRow.className = "tag-row";
+    for (const tag of annotation.tags) {
+      const chip = document.createElement("span");
+      chip.className = "tag-chip";
+      chip.textContent = `#${tag}`;
+      tagRow.appendChild(chip);
+    }
+    bar.appendChild(tagRow);
+  }
 
-  // Recolour and restyle in place — the anchor doesn't change, so nothing re-anchors.
+  // Recolour in place — the anchor doesn't change, so nothing re-anchors.
   const swatchRow = document.createElement("div");
   swatchRow.className = "row";
   for (const color of Object.keys(PAINT) as Color[]) {
     const swatch = document.createElement("button");
-    swatch.className = "swatch";
+    swatch.className = color === currentColor ? "swatch selected" : "swatch";
     swatch.style.backgroundColor = PAINT[color].solid;
     swatch.title = `Recolour ${color}`;
     swatch.addEventListener("click", () => {
       if (annotation === undefined) return;
-      const style: Style = annotation.style === "underline" ? "underline" : "highlight";
       const updated: WireAnnotation = { ...annotation, color };
       live.set(id, updated);
-      restyle(id, color, style);
-      rememberChoice(color, style);
+      restyle(id, color, currentStyle, currentIntensity);
+      rememberChoice(color, currentStyle, currentIntensity);
       void saveAnnotation(updated);
+      rerender();
     });
     swatchRow.appendChild(swatch);
   }
   bar.appendChild(swatchRow);
 
-  const rowEl = document.createElement("div");
-  rowEl.className = "row";
+  // Shape and transparency, matching the toolbar's controls.
+  const controls = document.createElement("div");
+  controls.className = "row";
 
-  const styleButton = document.createElement("button");
-  styleButton.className = "action";
-  styleButton.textContent = annotation?.style === "underline" ? "As highlight" : "As underline";
-  styleButton.addEventListener("click", () => {
+  const shapeBtn = document.createElement("button");
+  shapeBtn.className = "icon-btn";
+  shapeBtn.textContent = currentStyle === "underline" ? "U̲" : "H";
+  shapeBtn.title = currentStyle === "underline" ? "Shape: underline" : "Shape: highlight";
+  shapeBtn.addEventListener("click", () => {
     if (annotation === undefined) return;
-    const nextStyle: Style = annotation.style === "underline" ? "highlight" : "underline";
-    const color = (annotation.color in PAINT ? annotation.color : "yellow") as Color;
+    const nextStyle: Style = currentStyle === "underline" ? "highlight" : "underline";
     const updated: WireAnnotation = { ...annotation, style: nextStyle };
     live.set(id, updated);
-    restyle(id, color, nextStyle);
-    clearUi();
+    restyle(id, currentColor, nextStyle, currentIntensity);
     void saveAnnotation(updated);
+    rerender();
   });
-  rowEl.appendChild(styleButton);
+  controls.appendChild(shapeBtn);
+
+  const order: Intensity[] = ["light", "medium", "strong"];
+  const glyph: Record<Intensity, string> = { light: "░", medium: "▒", strong: "▓" };
+  const alphaBtn = document.createElement("button");
+  alphaBtn.className = "icon-btn";
+  alphaBtn.textContent = glyph[currentIntensity];
+  alphaBtn.title = `Transparency: ${currentIntensity}`;
+  alphaBtn.addEventListener("click", () => {
+    if (annotation === undefined) return;
+    const next = order[(order.indexOf(currentIntensity) + 1) % order.length] ?? "medium";
+    const updated: WireAnnotation = { ...annotation, intensity: next };
+    live.set(id, updated);
+    restyle(id, currentColor, currentStyle, next);
+    rememberChoice(currentColor, currentStyle, next);
+    void saveAnnotation(updated);
+    rerender();
+  });
+  controls.appendChild(alphaBtn);
 
   const copyButton = document.createElement("button");
   copyButton.className = "action";
   copyButton.textContent = "Copy";
   copyButton.title = "Copy the highlighted text";
   copyButton.addEventListener("click", () => {
-    const text = annotation?.anchor.exact ?? "";
-    void navigator.clipboard.writeText(text).catch(() => undefined);
+    void navigator.clipboard.writeText(annotation?.anchor.exact ?? "").catch(() => undefined);
     clearUi();
   });
-  rowEl.appendChild(copyButton);
+  controls.appendChild(copyButton);
+  bar.appendChild(controls);
+
+  // Note + tags editor, and removal.
+  const rowEl = document.createElement("div");
+  rowEl.className = "row end";
 
   const noteButton = document.createElement("button");
   noteButton.className = "action";
-  noteButton.textContent = annotation?.note === undefined ? "Add note" : "Edit note";
+  noteButton.textContent = annotation?.note === undefined || annotation.note.trim() === "" ? "＋ note & tags" : "Edit note & tags";
   noteButton.addEventListener("click", () => {
     showNoteEditor(
       rect,
-      (note) => {
+      (note, _color, tags) => {
         if (annotation === undefined) return;
-        const updated: WireAnnotation = { ...annotation, ...(note.trim() !== "" ? { note: note.trim() } : {}) };
+        const updated: WireAnnotation = {
+          ...annotation,
+          ...(note.trim() !== "" ? { note: note.trim() } : {}),
+          ...(tags.length > 0 ? { tags } : {}),
+        };
         live.set(id, updated);
         clearUi();
         void saveAnnotation(updated);
       },
       annotation?.note ?? "",
+      annotation?.tags ?? [],
     );
   });
   rowEl.appendChild(noteButton);
@@ -832,6 +971,17 @@ function sidebarItem(annotation: WireAnnotation): HTMLElement {
     note.textContent = annotation.note.trim();
     body.appendChild(note);
   }
+  if (annotation.tags !== undefined && annotation.tags.length > 0) {
+    const tagRow = document.createElement("div");
+    tagRow.className = "kvs-sb-tags";
+    for (const tag of annotation.tags) {
+      const chip = document.createElement("span");
+      chip.className = "kvs-sb-chip";
+      chip.textContent = `#${tag}`;
+      tagRow.appendChild(chip);
+    }
+    body.appendChild(tagRow);
+  }
   const meta = document.createElement("div");
   meta.className = "kvs-sb-meta";
   meta.textContent = relativeTime(annotation.createdAt);
@@ -920,12 +1070,13 @@ function makeDraggable(el: HTMLElement): void {
 
 function sidebarStyles(): string {
   const isDark = dark();
-  const bg = isDark ? "#1f1f22" : "#ffffff";
-  const fg = isDark ? "#e8e8ea" : "#1a1a1c";
-  const muted = isDark ? "#9a9aa2" : "#77777f";
-  const line = isDark ? "#34343a" : "#ececf0";
-  const hover = isDark ? "#2a2a30" : "#f6f6f8";
-  const accent = "#7c5cff";
+  const t = inPageTheme(isDark);
+  const bg = t.bg;
+  const fg = t.fg;
+  const muted = t.muted;
+  const line = t.line;
+  const hover = t.hover;
+  const accent = t.accent;
   return `
     :host { all: initial; }
     * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -979,6 +1130,11 @@ function sidebarStyles(): string {
       overflow: hidden; overflow-wrap: anywhere;
     }
     .kvs-sb-note { color: ${muted}; font-size: 12px; margin-top: 3px; overflow-wrap: anywhere; }
+    .kvs-sb-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+    .kvs-sb-chip {
+      font-size: 10.5px; font-weight: 550; padding: 1px 7px; border-radius: 999px;
+      background: ${accent}1f; color: ${isDark ? "#c7b8ff" : "#5b3fd6"}; border: 1px solid ${accent}33;
+    }
     .kvs-sb-meta { color: ${muted}; font-size: 11px; margin-top: 4px; }
     .kvs-sb-del {
       position: absolute; top: 6px; right: 6px; border: none; background: transparent; color: ${muted};

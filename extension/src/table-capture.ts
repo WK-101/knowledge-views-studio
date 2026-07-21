@@ -15,6 +15,7 @@
 import { looksLikeData } from "../../shared/extract-rows";
 import type { RawTable } from "../../shared/extract";
 import { tableToMarkdown } from "../../shared/table-markdown";
+import { inPageTheme } from "../../shared/in-page-ui";
 
 interface Messenger {
   runtime: { sendMessage(message: unknown): Promise<unknown> };
@@ -249,35 +250,30 @@ function wire(): void {
 }
 
 function pillStyles(): string {
-  const isDark = dark();
-  const bg = isDark ? "#232327" : "#ffffff";
-  const fg = isDark ? "#e9e8e6" : "#37352f";
-  const muted = isDark ? "#9c9a94" : "#7a776f";
-  const line = isDark ? "#34343a" : "#ebeae7";
-  const hover = isDark ? "#2a2a30" : "#f1f0ee";
-  const accent = "#7c5cff";
+  const t = inPageTheme(dark());
+  // Shares the annotator's design tokens so the two read as one tool. Kept deliberately small — a compact
+  // chip at the table's corner, not a bar.
   return `
     :host { all: initial; }
-    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; font-family: ${t.font}; -webkit-font-smoothing: antialiased; }
     .kvs-tc-pill {
-      position: absolute; display: none; align-items: center; gap: 6px; padding: 5px 7px;
-      background: ${bg}; color: ${fg}; border: 1px solid ${line}; border-radius: 10px;
-      box-shadow: 0 6px 22px rgba(0,0,0,0.18), 0 1px 2px rgba(0,0,0,0.06); font-size: 12px;
-      -webkit-font-smoothing: antialiased;
+      position: absolute; display: none; align-items: center; gap: 4px; padding: 3px 4px;
+      background: ${t.bg}; color: ${t.fg}; border: 1px solid ${t.line}; border-radius: ${t.radius};
+      box-shadow: ${t.shadow}; font-size: 11.5px;
     }
-    .kvs-tc-label { color: ${muted}; font-size: 11px; padding: 0 2px; }
+    .kvs-tc-label { color: ${t.muted}; font-size: 10.5px; padding: 0 3px; }
     .kvs-tc-btn {
-      border: 1px solid ${line}; background: ${bg}; color: ${fg}; font: inherit; font-weight: 550;
-      padding: 3px 9px; border-radius: 7px; cursor: pointer; transition: background 0.12s ease, border-color 0.12s ease;
+      border: 0; background: none; color: ${t.fg}; font: inherit; font-weight: 550;
+      padding: 3px 8px; border-radius: ${t.radiusSmall}; cursor: pointer; transition: background 0.12s ease;
     }
-    .kvs-tc-btn:hover { background: ${hover}; border-color: ${muted}; }
+    .kvs-tc-btn:hover { background: ${t.hover}; }
     .kvs-tc-btn[disabled] { opacity: 0.6; cursor: default; }
-    .kvs-tc-primary { background: ${accent}; border-color: ${accent}; color: #fff; }
-    .kvs-tc-primary:hover { background: #6a4ae8; border-color: #6a4ae8; }
+    .kvs-tc-primary { background: ${t.accent}; color: ${t.accentInk}; }
+    .kvs-tc-primary:hover { background: ${t.accentHover}; }
     .kvs-tc-toast {
       position: fixed; left: 16px; bottom: 16px; max-width: 320px; padding: 10px 13px;
-      background: ${bg}; color: ${fg}; border: 1px solid ${line}; border-radius: 10px;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.2); font-size: 12.5px; line-height: 1.45;
+      background: ${t.bg}; color: ${t.fg}; border: 1px solid ${t.line}; border-radius: ${t.radius};
+      box-shadow: ${t.shadow}; font-size: 12.5px; line-height: 1.45;
     }
   `;
 }

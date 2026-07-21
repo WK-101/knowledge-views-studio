@@ -350,6 +350,10 @@ export interface Annotation {
   readonly url: string;
   readonly anchor: TextAnchor;
   readonly note?: string;
+  /** Free-form labels for grouping highlights across pages — the organisational layer Web Highlights leans on. */
+  readonly tags?: readonly string[];
+  /** How strongly the highlight is painted: transparency, chosen per highlight. Absent reads as "medium". */
+  readonly intensity?: "light" | "medium" | "strong";
   readonly createdAt: string;
 }
 
@@ -376,6 +380,10 @@ export interface WireAnnotation {
   /** "highlight" (painted over) or "underline" (drawn beneath). Anything else reads as highlight. */
   readonly style?: string;
   readonly note?: string;
+  /** Free-form labels for grouping highlights across pages. */
+  readonly tags?: readonly string[];
+  /** Transparency level: "light" | "medium" | "strong". Anything else reads as medium. */
+  readonly intensity?: string;
   readonly createdAt: string;
 }
 

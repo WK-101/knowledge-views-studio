@@ -43,7 +43,8 @@ describe("annotations · model", () => {
 
 describe("annotations · reading whatever the sidecar file holds", () => {
   it("reads a well-formed entry", () => {
-    expect(coerceAnnotation(ann())).toEqual(ann());
+    // coerceAnnotation now always resolves a transparency, defaulting to medium.
+    expect(coerceAnnotation(ann())).toEqual(ann({ intensity: "medium" }));
   });
 
   it("drops entries that can't paint, rather than breaking every other highlight", () => {

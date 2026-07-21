@@ -5,6 +5,49 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 173 — one design language, and highlights that carry tags and transparency
+
+Two things had drifted, and they turned out to be the same thing.
+
+The first was cosmetic on the surface and structural underneath: every piece of UI the extension paints onto a
+page — the highlight toolbar, the menu you get when you click a highlight, the highlights sidebar, and the
+table-capture chip added last phase — had grown its own colours, radii, shadows, and button shapes. Each was
+reasonable alone; together they read as four different tools that happened to land on the same page. The
+table chip was the loudest example, noticeably larger and shaped unlike anything else. The cause was simply
+that each surface hard-coded its own palette, so there was no single place that decided what "an extension
+surface" looks like.
+
+`shared/in-page-ui.ts` is now that place. One `inPageTheme(isDark)` returns the tokens — background, text,
+muted text, lines, hover, the accent, radii, shadow, font — and the toolbar, the menu, the sidebar, and the
+table chip all draw from it, in light mode and dark. Aligning them shrank the outliers: the table chip is now
+a small borderless pill at the table's corner rather than a bar, and the toolbar and menu share the same
+compact buttons. The menu, which had been a stack of full-width text buttons that matched nothing, was rebuilt
+to show the highlighted quote (clamped to two lines so you know which highlight you're on), the note, the
+tags, and the same colour-swatch-plus-controls language the toolbar uses.
+
+The second was the annotation model itself, which is the piece that was actually asked for. Highlights gain
+two properties. **Tags** are the organisational layer — free-form labels you can attach when you make a
+highlight or later from its menu, shown as chips in the menu and the sidebar, and written into the dedicated
+note as real Obsidian `#hashtags` so the vault's own tag index finds them. **Transparency** is a per-highlight
+choice of how strongly the colour is painted — light, medium, or strong — because one weight never suited both
+a passing mark and the sentence that matters. Both the toolbar and the menu cycle it with a single control
+whose glyph fills as it strengthens (░ ▒ ▓), and the swatches preview the actual weight rather than a flat dot.
+
+Under the hood, transparency meant the painter stopped storing pre-mixed colours. Each colour is now an RGB
+triple, and the alpha is computed from the intensity and the page's colour scheme at paint time
+(`highlightAlpha`), so the same highlight reads the same weight on a white page and a dark one. `coerceAnnotation`
+learned to read and default both fields — an absent or unrecognised intensity reads as medium, tags are
+cleaned to strings only, trimmed, de-duplicated, and stripped of a leading `#`. Because that coercion is shared
+between the plugin and the extension, the plugin recompiled too: with the updated plugin, tags and transparency
+persist to the sidecar and appear in the dedicated note; with an older plugin the highlights still paint and the
+transparency still renders live, but the two new fields won't survive a reload, since the old code drops what it
+doesn't recognise. The companion gate wasn't tightened — an old plugin is degraded, not broken — but **updating
+the plugin is recommended this round**, not merely optional, for tags and transparency to stick.
+
+Everything the model change touches is covered — intensity defaulting, tag cleaning, the hashtag line in the
+note block, the shared theme, and the transparency curve. The in-page surfaces themselves remain DOM that only
+renders in a real browser, so as always expect to confirm the look and possibly one layout pass.
+
 ## Phase 172 — capture a table without opening the popup
 
 Companion-side; the plugin is unchanged, so updating it is optional this round.

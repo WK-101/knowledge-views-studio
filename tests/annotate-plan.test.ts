@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { annotationCellText } from "../shared/annotations";
+import { annotationCellText, annotationNoteBlock, coerceAnnotation } from "../shared/annotations";
 import {
   noteWithoutAnnotation,
   annotationColumn,
@@ -157,5 +157,37 @@ describe("annotate · bullet cell text", () => {
     expect(cellWithoutAnnotation("==quoted words==", a)).toBe("");
     expect(cellWithoutAnnotation("- ==quoted words==", a)).toBe("");
     expect(cellWithoutAnnotation("keep me<br>- ==quoted words==", a)).toBe("keep me");
+  });
+});
+
+describe("annotation model · transparency (intensity)", () => {
+  it("defaults absent or bad intensity to medium, keeps light/strong", () => {
+    expect(coerceAnnotation({ id: "a", url: "u", anchor: { exact: "x" } })?.intensity).toBe("medium");
+    expect(coerceAnnotation({ id: "a", url: "u", anchor: { exact: "x" }, intensity: "nope" })?.intensity).toBe("medium");
+    expect(coerceAnnotation({ id: "a", url: "u", anchor: { exact: "x" }, intensity: "light" })?.intensity).toBe("light");
+    expect(coerceAnnotation({ id: "a", url: "u", anchor: { exact: "x" }, intensity: "strong" })?.intensity).toBe("strong");
+  });
+});
+
+describe("annotation model · tags", () => {
+  it("cleans tags: trims, drops blanks, strips a leading #, de-duplicates case-insensitively", () => {
+    const a = coerceAnnotation({
+      id: "a", url: "u", anchor: { exact: "x" },
+      tags: ["  research ", "#idea", "", "Research", 42, "idea"],
+    });
+    expect(a?.tags).toEqual(["research", "idea"]);
+  });
+
+  it("omits tags entirely when there are none valid", () => {
+    const a = coerceAnnotation({ id: "a", url: "u", anchor: { exact: "x" }, tags: ["", 1, "  "] });
+    expect(a?.tags).toBeUndefined();
+  });
+
+  it("writes tags as hashtags into the dedicated note block", () => {
+    const block = annotationNoteBlock({
+      id: "a", url: "u", anchor: { exact: "quote" }, color: "yellow", style: "highlight",
+      createdAt: "2026-01-01T00:00:00Z", tags: ["deep work", "focus"],
+    });
+    expect(block).toContain("#deep-work #focus");
   });
 });
