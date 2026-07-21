@@ -11,6 +11,8 @@ import { loadPreferences, savePreferences, type Preferences } from "./preference
 import { matchRule, mergeTags } from "../../../shared/rules";
 import { hasPageAccess, requestPageAccess } from "./page-access";
 import { pluginIsCurrent, outdatedPluginMessage } from "./version";
+import { mountStatusCard } from "./status-card";
+import { promote } from "./bridge-client";
 import { queueCapture } from "./queue-store";
 
 /**
@@ -346,7 +348,57 @@ async function start(): Promise<void> {
     controls?.insertBefore(refresh, controls.firstChild);
   }
 
-  document.getElementById("controls")?.classList.remove("hidden");
+  // Status first, machinery second: the card answers "do I already have this?" before any form appears.
+  // Adding reveals the controls; everything on the card that exists gets its actions, and nothing shows a
+  // button for a state it isn't in.
+  const controls = document.getElementById("controls");
+  const cardHost = el("div", {});
+  root().appendChild(cardHost);
+  const revealAdd = (shape: "row" | "note"): void => {
+    controls?.classList.remove("hidden");
+    if (shape === "note") {
+      (document.querySelector('[data-tab="note"]') as HTMLElement | null)?.click();
+    }
+  };
+  const drawCard = (): void => {
+    void mountStatusCard(cardHost, snapshot?.url ?? "", schema?.vault ?? "", schema as SchemaResponse, {
+      onAdd: revealAdd,
+      onEdit: () => {
+        (document.querySelector('[data-tab="edit"]') as HTMLElement | null)?.click();
+      },
+      refresh: drawCard,
+      setStatus: (message, kind) => show(message, kind),
+    });
+  };
+  drawCard();
+
+  // "Create its note" buttons on the card promote through the bridge; delegated, since the card redraws.
+  cardHost.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const viewId = target.getAttribute("data-promote");
+    if (viewId === null) return;
+    void (async () => {
+      try {
+        const connection = await loadConnection();
+        const looked = await lookup(connection, { url: snapshot?.url ?? "" });
+        const match = looked.matches.find((m) => m.viewId === viewId);
+        if (match?.rowRef === undefined) return;
+        const result = await promote(connection, { viewId, rowRef: match.rowRef });
+        show(
+          result.ok
+            ? result.created === true
+              ? `Note created: ${result.path ?? ""}`
+              : `Found its existing note: ${result.path ?? ""}`
+            : (result.reason ?? "Couldn't create the note."),
+          result.ok ? "ok" : "error",
+        );
+        drawCard();
+      } catch (error) {
+        show(error instanceof Error ? error.message : "Couldn't create the note.", "error");
+      }
+    })();
+  });
 
   // The rows tab only appears when the page actually holds a set of rows, so it never advertises a
   // capability this particular page can't offer.

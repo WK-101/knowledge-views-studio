@@ -18,6 +18,12 @@ import type {
   AnnotationsResponse,
   AnnotationRemoveRequest,
   AnnotationRemoveResponse,
+  AnnotationsClearRequest,
+  AnnotationsClearResponse,
+  RowDeleteRequest,
+  RowDeleteResponse,
+  NoteDeleteRequest,
+  NoteDeleteResponse,
 } from "../../../shared/protocol";
 import { DISCOVERY_PORTS, isBridgePing } from "../../../shared/protocol";
 
@@ -229,6 +235,27 @@ export async function annotateRemove(
   request: AnnotationRemoveRequest,
 ): Promise<AnnotationRemoveResponse> {
   return call<AnnotationRemoveResponse>(connection, "/annotate/remove", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+/** Remove one row. The dedicated note is never touched by this. */
+export async function rowDelete(connection: Connection, request: RowDeleteRequest): Promise<RowDeleteResponse> {
+  return call<RowDeleteResponse>(connection, "/row/delete", { method: "POST", body: JSON.stringify(request) });
+}
+
+/** Move the page's dedicated note to the vault's trash — recoverable. */
+export async function noteDelete(connection: Connection, request: NoteDeleteRequest): Promise<NoteDeleteResponse> {
+  return call<NoteDeleteResponse>(connection, "/note/delete", { method: "POST", body: JSON.stringify(request) });
+}
+
+/** Remove every highlight for a page from the plugin's store. */
+export async function annotationsClear(
+  connection: Connection,
+  request: AnnotationsClearRequest,
+): Promise<AnnotationsClearResponse> {
+  return call<AnnotationsClearResponse>(connection, "/annotations/clear", {
     method: "POST",
     body: JSON.stringify(request),
   });

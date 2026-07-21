@@ -14,8 +14,9 @@ import type { KnowledgeView, ViewRenderContext } from "../view";
 import { buildPrefix, totalHeight, findRowAt, computeWindow, anchorShift } from "./virtual-window";
 import { enableHandleDrag } from "../../util/pointer-drag";
 
-import { selectionStore, bulkDraftStore, scrollStore, capViewState } from "../view-state";
+import { selectionStore, bulkDraftStore, scrollStore, capViewState, pendingFocusStore } from "../view-state";
 import { noteLinkColumnName, wikilinkTarget, citeKeyColumnName } from "../promoted-detect";
+import { rowRefOf } from "../../services/bridge/row-ref";
 import { dedicatedNoteKeyFor, getDedicatedNoteIndex, normalizeIdentifier } from "../../services/notes/dedicated-note";
 import { resolveFieldColumn } from "../../domain/columns/academic-fields";
 
@@ -389,6 +390,8 @@ function renderBodyRow(
   // The row's true position in the full dataset (not its position in the rendered window), so a
   // screen reader reads "row 240 of 500" correctly even though only a dozen rows are in the DOM.
   if (ariaRowIndex !== undefined) tr.setAttribute("aria-rowindex", String(ariaRowIndex));
+  // The same opaque handle the bridge uses, so "open this row from the browser" can find it again here.
+  tr.setAttribute("data-kvs-ref", rowRefOf(row.provenance));
   renderGutterCell(tr, row, ctx, selection, repaint);
   ctx.columns.forEach((column, index) => renderCell(tr, row, column, ctx, frozen && index === 0));
   attachRowMenu(tr, row, ctx);
@@ -614,6 +617,25 @@ function lockColumnWidths(table: HTMLElement): boolean {
 
 type TableItem = { kind: "header"; key: string; count: number } | { kind: "row"; row: Row };
 
+/** The item index of a pending focus request, or -1. Consumes the request either way. */
+function takePendingFocusIndex(profileId: string, items: readonly TableItem[]): { index: number; ref: string } | null {
+  const ref = pendingFocusStore.get(profileId);
+  if (ref === undefined) return null;
+  pendingFocusStore.delete(profileId);
+  const index = items.findIndex((item) => item.kind === "row" && rowRefOf(item.row.provenance) === ref);
+  return { index, ref };
+}
+
+/** Briefly mark a row so an arriving eye finds it. */
+function flashRow(container: HTMLElement, ref: string): void {
+  window.requestAnimationFrame(() => {
+    const el = container.querySelector(`[data-kvs-ref="${ref}"]`);
+    if (!(el instanceof HTMLElement)) return;
+    el.classList.add("kvs-row-flash");
+    window.setTimeout(() => el.classList.remove("kvs-row-flash"), 2600);
+  });
+}
+
 /** Flatten the result into a single ordered item list (group headers + rows). */
 function buildTableItems(ctx: ViewRenderContext): TableItem[] {
   const groups = ctx.result.groups;
@@ -746,7 +768,14 @@ function renderTable(ctx: ViewRenderContext): void {
       scrollStore.set(ctx.viewKey, scroll.scrollTop);
       capViewState(scrollStore);
     });
+    const focus = takePendingFocusIndex(ctx.profile.id, items);
     window.requestAnimationFrame(() => {
+      if (focus !== null && focus.index >= 0) {
+        const el = tbody.querySelector(`[data-kvs-ref="${focus.ref}"]`);
+        if (el instanceof HTMLElement) el.scrollIntoView({ block: "center" });
+        flashRow(tbody, focus.ref);
+        return;
+      }
       const saved = scrollStore.get(ctx.viewKey) ?? 0;
       if (saved > 0) scroll.scrollTop = saved;
     });
@@ -870,10 +899,20 @@ function renderTable(ctx: ViewRenderContext): void {
     });
   });
 
+  const focus = takePendingFocusIndex(ctx.profile.id, items);
   renderWindow(true);
   window.requestAnimationFrame(() => {
     // Correct the window once layout is known (real viewport height) and restore scroll. This
     // recycles rather than force-rebuilding, so it's a no-op when the window hasn't changed.
+    if (focus !== null && focus.index >= 0) {
+      // Estimated heights are all the prefix knows before rows are measured, so this lands near the row
+      // rather than exactly on it — then the rendered window contains it, and the flash does the rest.
+      const viewport = scroll.clientHeight || 600;
+      scroll.scrollTop = Math.max(0, (prefix[focus.index] ?? 0) - viewport / 3);
+      renderWindow(false);
+      flashRow(tbody, focus.ref);
+      return;
+    }
     const saved = scrollStore.get(ctx.viewKey) ?? 0;
     if (saved > 0) scroll.scrollTop = saved;
     renderWindow(false);

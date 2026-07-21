@@ -108,6 +108,18 @@ export class WebAnnotationService {
     return removed;
   }
 
+  /** Remove every annotation for a page. Returns how many went. */
+  async removeAll(url: string): Promise<number> {
+    const store = await this.load();
+    const key = normalizeUrl(url);
+    const count = store.get(key)?.annotations.length ?? 0;
+    if (count > 0) {
+      store.delete(key);
+      await this.persist();
+    }
+    return count;
+  }
+
   /**
    * Append an annotation's markdown block under `## Annotations` in the page's dedicated note, if the page
    * has one. Creating the heading when the template lacks it is deliberate: a highlight should never be

@@ -4740,3 +4740,10 @@ body.is-phone .kvs-col-resize {
   gap: var(--size-4-2);
   margin: var(--size-4-2) 0;
 }
+
+/* A row arrived at from the browser: briefly marked so the eye lands where the link pointed. */
+.kvs-row-flash { animation: kvs-row-flash 2.4s ease-out; }
+@keyframes kvs-row-flash {
+  0% { background-color: rgba(124, 92, 255, 0.35); }
+  100% { background-color: transparent; }
+}

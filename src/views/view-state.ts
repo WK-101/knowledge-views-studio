@@ -13,6 +13,14 @@ export interface MonthState {
 export const selectionStore = new Map<string, Set<string>>();
 export const bulkDraftStore = new Map<string, { column: string; value: string }>();
 export const scrollStore = new Map<string, number>();
+/**
+ * A row a view should scroll to on its next render, keyed by profile id.
+ *
+ * Set by the obsidian:// handler when the browser asks to open a specific row; consumed (and cleared) by
+ * the layout the moment it renders. One-shot on purpose: a focus request describes an arrival, not a state,
+ * and a stale one re-centering the view on every refresh would fight the person using it.
+ */
+export const pendingFocusStore = new Map<string, string>();
 export const monthState = new Map<string, MonthState>();
 
 /** Structural view over any of the stores — enough to prune and cap without knowing the value type. */

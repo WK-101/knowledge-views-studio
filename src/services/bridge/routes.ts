@@ -13,9 +13,16 @@ import {
   type CaptureResponse,
   type LookupMatch,
   type LookupRequest,
+  type LookupResponse,
   type SchemaColumn,
   type KnownRequest,
   type KnownResponse,
+  type AnnotationsClearRequest,
+  type AnnotationsClearResponse,
+  type NoteDeleteRequest,
+  type NoteDeleteResponse,
+  type RowDeleteRequest,
+  type RowDeleteResponse,
   type AnnotateRequest,
   type AnnotateResponse,
   type AnnotationRemoveRequest,
@@ -61,11 +68,18 @@ export interface BridgeContext {
   /** Rows and resolved columns for a view — the same pair the in-app capture command uses. */
   readonly viewData: (profile: Profile) => Promise<{ rows: readonly Row[]; columns: readonly CaptureColumn[] }>;
   readonly capture: CaptureService;
+  /** Delete rows through the shared writer, with its undo path. Absent when deleting isn't available. */
+  readonly deleteRows?: (rows: readonly Row[]) => Promise<number>;
+  /** Move the page's dedicated note to the vault's trash. Absent when unavailable. */
+  readonly trashNoteForUrl?: (url: string) => Promise<string | null>;
+  /** The dedicated note's path for a page, by identity, or null. */
+  readonly noteForUrl?: (url: string) => string | null;
   /** Web-annotation storage and note feeding. Absent when annotations aren't available. */
   readonly webAnnotations?: {
     list(url: string): Promise<readonly StoredAnnotation[]>;
     save(annotation: StoredAnnotation): Promise<void>;
     remove(url: string, id: string): Promise<StoredAnnotation | null>;
+    removeAll(url: string): Promise<number>;
     appendToDedicatedNote(matchKey: string, matchValue: string, annotation: StoredAnnotation): Promise<boolean>;
   };
   /** Create or find a row's dedicated note. Absent when promotion isn't available. */
@@ -196,7 +210,14 @@ export function lookupRoute(): Route<BridgeContext> {
           });
         }
       }
-      return { status: 200, body: { matches } };
+      // The page-level note, found by identity whether or not any row links it — the "note first, no row
+      // yet" state has to be visible for the surface to offer creating its row.
+      const notePath = url !== "" ? context.noteForUrl?.(url) ?? null : null;
+      const response: LookupResponse = {
+        matches,
+        ...(notePath !== null ? { note: { path: notePath } } : {}),
+      };
+      return { status: 200, body: response };
     },
   };
 }
@@ -841,6 +862,89 @@ export function annotateRemoveRoute(): Route<BridgeContext> {
   };
 }
 
+
+/**
+ * `POST /row/delete` — remove one row, named by its handle.
+ *
+ * Deliberately row-scoped: the dedicated note is never touched here. A row is regenerable metadata; a note
+ * may hold hours of someone's writing, and the two must not share a delete button.
+ */
+export function rowDeleteRoute(): Route<BridgeContext> {
+  return {
+    method: "POST",
+    path: "/row/delete",
+    permission: "write",
+    handler: async (request, context) => {
+      const body = (request.body ?? {}) as RowDeleteRequest;
+      const viewId = (body.viewId ?? "").trim();
+      const rowRef = (body.rowRef ?? "").trim();
+      if (viewId === "" || rowRef === "") return badRequest("Which row, in which view?");
+      if (context.deleteRows === undefined) {
+        return { status: 503, body: { error: "Deleting rows isn't available in this vault." } };
+      }
+      const profile = exposedProfiles(context).find((p) => p.id === viewId);
+      if (profile === undefined) return { status: 404, body: { error: "No such view." } };
+      const { rows } = await context.viewData(profile);
+      const row = findRowByRef(rows, rowRef);
+      if (row === null) {
+        const stale: RowDeleteResponse = { ok: false, reason: "That row has changed or is already gone." };
+        return { status: 409, body: stale };
+      }
+      const removed = await context.deleteRows([row]);
+      context.onCaptured(row.provenance.filePath);
+      const response: RowDeleteResponse =
+        removed > 0 ? { ok: true } : { ok: false, reason: "The row couldn't be removed from its file." };
+      return { status: removed > 0 ? 200 : 500, body: response };
+    },
+  };
+}
+
+/**
+ * `POST /note/delete` — the page's dedicated note goes to the vault's trash. Trash, not deletion:
+ * a note is writing, and writing deserves an undo.
+ */
+export function noteDeleteRoute(): Route<BridgeContext> {
+  return {
+    method: "POST",
+    path: "/note/delete",
+    permission: "write",
+    handler: async (request, context) => {
+      const body = (request.body ?? {}) as NoteDeleteRequest;
+      const url = (body.url ?? "").trim();
+      if (url === "") return badRequest("Which page?");
+      if (context.trashNoteForUrl === undefined) {
+        return { status: 503, body: { error: "Deleting notes isn't available in this vault." } };
+      }
+      const trashed = await context.trashNoteForUrl(url);
+      const response: NoteDeleteResponse =
+        trashed !== null
+          ? { ok: true, trashedPath: trashed }
+          : { ok: false, reason: "No dedicated note exists for this page." };
+      return { status: trashed !== null ? 200 : 404, body: response };
+    },
+  };
+}
+
+/** `POST /annotations/clear` — every highlight for a page, gone from the sidecar in one call. */
+export function annotationsClearRoute(): Route<BridgeContext> {
+  return {
+    method: "POST",
+    path: "/annotations/clear",
+    permission: "write",
+    handler: async (request, context) => {
+      const body = (request.body ?? {}) as AnnotationsClearRequest;
+      const url = (body.url ?? "").trim();
+      if (url === "") return badRequest("Which page?");
+      if (context.webAnnotations === undefined) {
+        return { status: 503, body: { error: "Annotations aren't available in this vault." } };
+      }
+      const removed = await context.webAnnotations.removeAll(url);
+      const response: AnnotationsClearResponse = { ok: true, removed };
+      return { status: 200, body: response };
+    },
+  };
+}
+
 /** `POST /pair` — exchange a short code shown in settings for a lasting token. */
 export function pairRoute(): Route<BridgeContext> {
   return {
@@ -872,6 +976,9 @@ export function defaultRoutes(): readonly Route<BridgeContext>[] {
     annotateRoute(),
     annotationsRoute(),
     annotateRemoveRoute(),
+    rowDeleteRoute(),
+    noteDeleteRoute(),
+    annotationsClearRoute(),
     updateRoute(),
     searchRoute(),
   ];

@@ -47,6 +47,12 @@ export interface LookupMatch {
   readonly filePath: string;
 }
 
+export interface LookupResponse {
+  readonly matches: readonly LookupMatch[];
+  /** The page's dedicated note when one exists by identity, whether or not any row links it. */
+  readonly note?: { readonly path: string };
+}
+
 export interface CaptureRequest {
   readonly viewId: string;
   readonly fields: readonly { readonly key: string; readonly value: string }[];
@@ -405,4 +411,35 @@ export interface AnnotationRemoveRequest {
 export interface AnnotationRemoveResponse {
   readonly ok: boolean;
   readonly removedFromCell?: boolean;
+}
+
+export interface RowDeleteRequest {
+  readonly viewId: string;
+  readonly rowRef: string;
+}
+
+export interface RowDeleteResponse {
+  readonly ok: boolean;
+  readonly reason?: string;
+}
+
+export interface NoteDeleteRequest {
+  /** The page whose dedicated note should go, found by identity. */
+  readonly url: string;
+}
+
+export interface NoteDeleteResponse {
+  readonly ok: boolean;
+  /** Where it went — the vault's trash, so this is recoverable. */
+  readonly trashedPath?: string;
+  readonly reason?: string;
+}
+
+export interface AnnotationsClearRequest {
+  readonly url: string;
+}
+
+export interface AnnotationsClearResponse {
+  readonly ok: boolean;
+  readonly removed: number;
 }

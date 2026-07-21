@@ -644,6 +644,111 @@ describe("bridge · routes", () => {
     });
   });
 
+  describe("deleting from the browser", () => {
+    const routerWith = (): BridgeRouter<BridgeContext> =>
+      new BridgeRouter<BridgeContext>().registerAll(defaultRoutes());
+    const aRow = {
+      cells: { Title: "A", URL: "https://x/a" },
+      provenance: { filePath: "L.md", extractor: "table", locator: { row: 0 }, fingerprint: "f0" },
+    };
+    const ref = rowRefOf(aRow.provenance);
+
+    it("deletes a row by handle, through the shared writer", async () => {
+      const deleted: unknown[] = [];
+      const ctx = makeContext({
+        viewData: () => Promise.resolve({ rows: [aRow] as never, columns }),
+        deleteRows: (rows: unknown[]) => {
+          deleted.push(...rows);
+          return Promise.resolve(1);
+        },
+      }).context as unknown as BridgeContext;
+      const res = await routerWith().dispatch(
+        req({ method: "POST", path: "/row/delete", body: { viewId: "papers", rowRef: ref } }),
+        settings(),
+        ctx,
+      );
+      expect(res.status).toBe(200);
+      expect(deleted).toHaveLength(1);
+    });
+
+    it("refuses a stale handle rather than deleting whatever is there now", async () => {
+      const ctx = makeContext({
+        viewData: () => Promise.resolve({ rows: [aRow] as never, columns }),
+        deleteRows: () => Promise.resolve(1),
+      }).context as unknown as BridgeContext;
+      const res = await routerWith().dispatch(
+        req({ method: "POST", path: "/row/delete", body: { viewId: "papers", rowRef: "forged" } }),
+        settings(),
+        ctx,
+      );
+      expect(res.status).toBe(409);
+    });
+
+    it("every delete needs write permission", async () => {
+      const ctx = makeContext({
+        viewData: () => Promise.resolve({ rows: [aRow] as never, columns }),
+        deleteRows: () => Promise.resolve(1),
+        trashNoteForUrl: () => Promise.resolve("Notes/A.md"),
+        webAnnotations: {
+          list: () => Promise.resolve([]),
+          save: () => Promise.resolve(),
+          remove: () => Promise.resolve(null),
+          removeAll: () => Promise.resolve(2),
+          appendToDedicatedNote: () => Promise.resolve(false),
+        },
+      }).context as unknown as BridgeContext;
+      for (const path of ["/row/delete", "/note/delete", "/annotations/clear"]) {
+        const res = await routerWith().dispatch(
+          req({ method: "POST", path, body: { viewId: "papers", rowRef: ref, url: "https://x/a" } }),
+          settings({ allowWrite: false }),
+          ctx,
+        );
+        expect(res.status, path).toBe(403);
+      }
+    });
+
+    it("trashes the note rather than pretending one existed", async () => {
+      const ctx = makeContext({ trashNoteForUrl: () => Promise.resolve(null) }).context as unknown as BridgeContext;
+      const res = await routerWith().dispatch(
+        req({ method: "POST", path: "/note/delete", body: { url: "https://x/a" } }),
+        settings(),
+        ctx,
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it("clears a page's highlights and says how many went", async () => {
+      const ctx = makeContext({
+        webAnnotations: {
+          list: () => Promise.resolve([]),
+          save: () => Promise.resolve(),
+          remove: () => Promise.resolve(null),
+          removeAll: () => Promise.resolve(3),
+          appendToDedicatedNote: () => Promise.resolve(false),
+        },
+      }).context as unknown as BridgeContext;
+      const res = await routerWith().dispatch(
+        req({ method: "POST", path: "/annotations/clear", body: { url: "https://x/a" } }),
+        settings(),
+        ctx,
+      );
+      expect(res.body).toEqual({ ok: true, removed: 3 });
+    });
+
+    it("lookup reports the page's dedicated note even when no row links it", async () => {
+      const ctx = makeContext({
+        viewData: () => Promise.resolve({ rows: [] as never[], columns }),
+        noteForUrl: () => "Notes/A.md",
+      }).context as unknown as BridgeContext;
+      const res = await routerWith().dispatch(
+        req({ method: "POST", path: "/lookup", body: { url: "https://x/a" } }),
+        settings(),
+        ctx,
+      );
+      expect((res.body as { note?: { path: string } }).note?.path).toBe("Notes/A.md");
+    });
+  });
+
   describe("annotating a page", () => {
     const routerWith = (): BridgeRouter<BridgeContext> =>
       new BridgeRouter<BridgeContext>().registerAll(defaultRoutes());

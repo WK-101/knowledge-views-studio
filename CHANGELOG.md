@@ -5,6 +5,37 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 163 — capture starts with where things already are
+
+The capture screen used to lead with the machinery of adding — a destination picker and a form — when the
+question a person actually starts with is *do I already have this?* It now leads with the answer.
+
+**The status card.** Opening capture first shows every view whose row names this page — the full list, not
+the first match, because per-view source binding exists precisely so the same page can legitimately live in
+several places. Each match shows its view and title, the file the row lives in, and its actions: open in
+the view (landed on the row), open the file, edit, delete. Below that, the page's dedicated note with its
+own open and delete, and the page's highlight count with a clear-all. Only then, the ways to add.
+
+**Nothing shows a button for a state it isn't in.** "Create its note" appears only on a row without one;
+"Create its row" only when a note exists rowless (lookup now reports the dedicated note by identity even
+when no row links it — the "note first" state is finally visible); every delete only when its target
+exists. A delete for a note that doesn't exist is noise at best and a lie at worst.
+
+**Open in view means *at the row*.** Table rows now carry the same opaque handle the bridge issues, and an
+`obsidian://kvs-open` handler parks a one-shot focus request the table consumes on render: the view opens,
+scrolls to the row, and flashes it briefly so the eye lands where the link pointed. On very long virtualized
+tables the landing uses estimated row heights — near the row, with the flash doing the final pointing.
+
+**Deletion, scoped the way the data deserves.** Three separate operations, never one button: the row
+(through the shared writer, snapshot first, undoable from Obsidian's edit menu like any in-app deletion);
+the dedicated note (to the vault's *trash*, recoverable — notes are writing, and writing deserves an undo);
+the highlights (sidecar only, count reported). Each write-gated, each confirming with a second click, and
+deleting a note that isn't there says so rather than pretending.
+
+1315 tests (was 1309): row deletion by handle through the shared writer; stale handles refused rather than
+deleting whatever is there now; write permission on all three deletes; trash refusing to pretend; the
+highlight clear-count; and lookup reporting the page's note when no row links it.
+
 ## Phase 162 — the two halves now check they match
 
 The three "still broken" reports had one cause, and it wasn't in any of the features: the vault was running

@@ -35,6 +35,7 @@ import {
 import { PromotionService } from "./services/notes/promote-service";
 import { WebAnnotationService } from "./services/web-annotations/web-annotation-service";
 import type { StoredAnnotation } from "../shared/annotations";
+import { findDedicatedNote } from "./services/notes/dedicated-note";
 import { referencesToNote, type ImportedRef, DataService, ARCHIVE_EXTENSION, KVS_PACK_EXTENSION, KVS_VIEW_EXTENSION, ProfileStore, UndoManager, WriterService, createProfile, migrateData, xlsxExtractor } from "./services/index";
 import { ObsidianVaultGateway } from "./obsidian/index";
 import {
@@ -48,6 +49,7 @@ import {
 import { ViewBlockController, type ProcessorDeps } from "./codeblock/processor";
 import { registerKvsBasesViews } from "./obsidian/bases/register";
 import { DashboardView, DASHBOARD_VIEW_TYPE } from "./workspace/dashboard-view";
+import { pendingFocusStore } from "./views/view-state";
 import { registerAttachmentPanel } from "./workspace/attachment-panel";
 import { registerAnnotationDecorator } from "./workspace/annotation-decorator";
 import { syncPaperAnnotations } from "./workspace/annotation-sync";
@@ -144,6 +146,20 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     });
 
     this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new DashboardView(leaf, deps));
+
+    // obsidian://kvs-open?view=<id>&ref=<rowRef> — the browser companion's "open in view, at this row".
+    // The focus request is parked in a one-shot store the table consumes on render, because at this moment
+    // the view may not even exist yet, let alone have rendered the row.
+    this.registerObsidianProtocolHandler("kvs-open", (params) => {
+      const viewId = typeof params["view"] === "string" ? params["view"] : "";
+      const ref = typeof params["ref"] === "string" ? params["ref"] : "";
+      if (viewId === "" && ref === "") return;
+      if (viewId !== "" && this.profileStore?.getProfile(viewId)) {
+        this.profileStore.setActiveProfile(viewId);
+        if (ref !== "") pendingFocusStore.set(viewId, ref);
+      }
+      void this.activateDashboard();
+    });
     // Saved view files (.kvsview) open in this same view, file-backed — KVS's take on .base
     // files: a complete, self-contained dashboard that can be opened in its own pane.
     this.registerExtensions([KVS_VIEW_EXTENSION], DASHBOARD_VIEW_TYPE);
@@ -287,10 +303,35 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
             list: (url: string) => service.list(url),
             save: (annotation: StoredAnnotation) => service.save(annotation),
             remove: (url: string, id: string) => service.remove(url, id),
+            removeAll: (url: string) => service.removeAll(url),
             appendToDedicatedNote: (matchKey: string, matchValue: string, annotation: StoredAnnotation) =>
               service.appendToDedicatedNote(matchKey, matchValue, annotation),
           };
         })(),
+        // Deletion through the same writer as every other edit — snapshot first, so it shares undo.
+        deleteRows: async (rows) => {
+          const paths = [...new Set(rows.map((r) => r.provenance.filePath))];
+          const snapshot = await renderDeps.writer.snapshot(paths);
+          const result = await renderDeps.writer.deleteRows(rows.map((r) => r.provenance));
+          if (!result.ok) return 0;
+          renderDeps.undo.push({
+            label: "Delete row (from browser)",
+            undo: async () => {
+              await renderDeps.writer.restore(snapshot);
+              for (const path of snapshot.keys()) renderDeps.dataService.invalidate(path);
+            },
+          });
+          return rows.length;
+        },
+        noteForUrl: (url: string) => findDedicatedNote(this.app, "source", url)?.path ?? null,
+        // The page's dedicated note goes to the vault's trash — recoverable, because notes are writing.
+        trashNoteForUrl: async (url: string) => {
+          const note = findDedicatedNote(this.app, "source", url);
+          if (note === null) return null;
+          const path = note.path;
+          await this.app.fileManager.trashFile(note);
+          return path;
+        },
         // Promotion through the same writer as every other edit, so the link backfill shares its undo path.
         promote: (profile, row, columns) => {
           const service = new PromotionService({

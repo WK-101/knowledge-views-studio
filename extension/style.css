@@ -325,3 +325,14 @@ body.options { max-width: 640px; }
 }
 .opt-pane > .card > h2 { margin-top: 0; }
 .pane-intro { color: var(--muted); font-size: 12px; margin: 2px 0 10px; }
+
+/* ---- Status card: where this page already is ---------------------------- */
+.status-card { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 10px; }
+.status-line { font-size: 13px; }
+.status-title { color: var(--muted); }
+.status-sub { font-size: 11px; color: var(--muted); margin-top: 1px; overflow-wrap: anywhere; }
+.status-match { padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; }
+.status-actions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; align-items: center; }
+.status-actions a.mini { text-decoration: none; }
+.status-add { margin-top: 2px; }
+.mini.danger { color: #c0392b; border-color: rgba(192, 57, 43, 0.4); }
