@@ -36,6 +36,7 @@ import {
 } from "../../shared/sticky";
 import { renderMarkdown } from "./lib/markdown-mini";
 import { matchAutoAction, normalizeSiteAutoActions, type SiteAutoAction } from "./lib/auto-actions";
+import { colorForKey, dotTop, keyForColor } from "./lib/minimap";
 import {
   FORMAT_FILE,
   exportCsv,
@@ -138,6 +139,15 @@ let stickyLauncherEnabled = false;
 
 /** The per-site auto-action for this page, if any — resolved once on load from the site rules. */
 let activeAutoAction: SiteAutoAction | null = null;
+
+/** Whether the edge minimap of highlights is shown. Read from preferences on load. */
+let minimapEnabled = true;
+/** Whether number keys 1-8 highlight the selection. Read from preferences on load. */
+let colorKeysEnabled = true;
+/** The colour a new highlight defaults to (and the one starred in the toolbar). */
+let defaultColor: Color = "yellow";
+/** Continuous "brush" mode: when on, selecting text highlights it at once, no toolbar. Session-only. */
+let brushMode = false;
 
 interface ChoiceStorage {
   local: { get(keys: string[]): Promise<Record<string, unknown>>; set(items: Record<string, unknown>): Promise<void> };
@@ -368,12 +378,17 @@ function ensureShell(): ShadowRoot {
       transform-origin: top left;
     }
     .swatch {
+      position: relative;
       width: 17px; height: 17px;
       border-radius: 50%;
       border: 2px solid ${dark() ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.10)"};
       cursor: pointer;
       padding: 0;
       transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+    .swatch.default::after {
+      content: "★"; position: absolute; top: -7px; right: -5px; font-size: 9px; line-height: 1;
+      color: ${t.accent}; text-shadow: 0 0 2px ${t.bg}, 0 0 2px ${t.bg};
     }
     .swatch:hover { transform: scale(1.18); box-shadow: 0 0 0 3px ${dark() ? "rgba(143,116,255,0.25)" : "rgba(124,92,255,0.18)"}; }
     .swatch.selected { box-shadow: 0 0 0 3px ${t.accent}; }
@@ -623,9 +638,14 @@ function showToolbar(rect: DOMRect): void {
       group.className = "swatch-group";
       for (const color of Object.keys(PAINT) as Color[]) {
         const swatch = document.createElement("button");
-        swatch.className = "swatch";
+        swatch.className = color === defaultColor ? "swatch default" : "swatch";
         swatch.dataset["color"] = color;
-        swatch.title = `${style === "underline" ? "Underline" : "Highlight"} ${color}`;
+        const key = keyForColor(color);
+        // The number-key shortcut is advertised in the tooltip; a star marks the configured default.
+        swatch.title =
+          `${style === "underline" ? "Underline" : "Highlight"} ${color}` +
+          (colorKeysEnabled && key !== "" ? ` (${key})` : "") +
+          (color === defaultColor ? " · default" : "");
         swatch.addEventListener("mousedown", (event) => {
           event.preventDefault();
           highlightSelection(color, style, undefined, intensity);
@@ -1298,6 +1318,9 @@ void choiceStorage()
           islandSettings?: unknown;
           searchTargets?: unknown;
           autoActions?: unknown;
+          highlightMinimap?: boolean;
+          colorKeys?: boolean;
+          defaultHighlightColor?: string;
         }
       | undefined;
     sidebarEnabled = prefs?.annotationSidebar === true;
@@ -1306,9 +1329,18 @@ void choiceStorage()
     islandSettings = normalizeIslandSettings(prefs?.islandSettings);
     searchTargets = normalizeSearchTargets(prefs?.searchTargets);
     activeAutoAction = matchAutoAction(normalizeSiteAutoActions(prefs?.autoActions), location.href);
+    minimapEnabled = prefs?.highlightMinimap !== false;
+    colorKeysEnabled = prefs?.colorKeys !== false;
+    if (typeof prefs?.defaultHighlightColor === "string" && prefs.defaultHighlightColor in PAINT) {
+      defaultColor = prefs.defaultHighlightColor as Color;
+      // A fresh install starts from the configured default; a stored last-used choice still wins when it
+      // loads (both set lastChoice, and last-used is the more specific signal).
+      lastChoice = { ...lastChoice, color: defaultColor };
+    }
     if (sidebarEnabled) mountLauncher();
     if (stickyLauncherEnabled) mountStickyLauncher();
     applyPageLoadAutoActions();
+    renderMinimap();
   })
   .catch(() => undefined);
 
@@ -1417,6 +1449,14 @@ function renderSidebar(): void {
   count.textContent = String(live.size);
   title.appendChild(count);
   header.appendChild(title);
+  // Brush mode — flip continuous highlighting on/off, WuCai-style, from the reading-tools surface.
+  const brushBtn = document.createElement("button");
+  brushBtn.className = brushMode ? "kvs-sb-brush kvs-sb-brush-on" : "kvs-sb-brush";
+  brushBtn.type = "button";
+  brushBtn.title = "Brush mode — select text to highlight it instantly";
+  brushBtn.textContent = "✏ Brush";
+  brushBtn.addEventListener("click", () => toggleBrush(brushBtn));
+  header.appendChild(brushBtn);
   // Export all — the sidebar is the page's highlight list, so "copy/export everything" belongs right here.
   const exportBtn = document.createElement("button");
   exportBtn.className = "kvs-sb-export";
@@ -1453,6 +1493,8 @@ function renderSidebar(): void {
 function sidebarItem(annotation: WireAnnotation): HTMLElement {
   const item = document.createElement("div");
   item.className = "kvs-sb-item";
+  // Carried so the page can find and flash this row (page → sidebar sync).
+  item.dataset["kvsSb"] = annotation.id;
 
   const bar = document.createElement("span");
   bar.className = "kvs-sb-bar";
@@ -1529,6 +1571,156 @@ function flashMark(id: string): void {
 function refreshSidebar(): void {
   refreshLauncher();
   if (sidebarOpen) renderSidebar();
+  renderMinimap();
+}
+
+/**
+ * Page → sidebar sync: flash and scroll the sidebar row for a highlight, when the sidebar is open. The
+ * companion of the existing sidebar → page jump, so clicking a highlight (or a minimap dot) lights up its
+ * entry in the list rather than leaving the two surfaces out of step.
+ */
+function syncSidebarTo(id: string): void {
+  if (!sidebarOpen || panel === null) return;
+  const row = panel.querySelector(`[data-kvs-sb="${id}"]`);
+  if (!(row instanceof HTMLElement)) return;
+  row.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  row.classList.add("kvs-sb-flash");
+  window.setTimeout(() => row.classList.remove("kvs-sb-flash"), 1200);
+}
+
+// ----------------------------------------------------------------- edge minimap
+//
+// A slim rail of colour-coded dots down the page edge, one per highlight, at the highlight's proportional
+// place in the document — a glanceable map of your own attention, and a click-to-jump index. It's the
+// single highest-polish annotation affordance (Web Highlights and WuCai both lead with it). Its own
+// persistent, fixed shadow host, so it's independent of the sidebar and the transient toolbar; on by
+// default, and only visible when the page actually has highlights.
+
+let minimapShell: HTMLElement | null = null;
+let minimapShadow: ShadowRoot | null = null;
+let minimapTip: HTMLElement | null = null;
+
+function ensureMinimapShell(): ShadowRoot {
+  if (minimapShadow !== null) return minimapShadow;
+  minimapShell = document.createElement("div");
+  minimapShell.style.position = "fixed";
+  minimapShell.style.zIndex = "2147483644";
+  minimapShell.style.top = "0";
+  minimapShell.style.right = "0";
+  minimapShell.style.width = "0";
+  minimapShell.style.height = "0";
+  minimapShadow = minimapShell.attachShadow({ mode: "closed" });
+  const style = document.createElement("style");
+  style.textContent = minimapStyles();
+  minimapShadow.appendChild(style);
+  document.documentElement.appendChild(minimapShell);
+  return minimapShadow;
+}
+
+/** How far in from the top/bottom the rail is inset, leaving room for the corner launchers. */
+const MINIMAP_MARGIN = 60;
+
+/** Rebuild the rail of dots from the page's painted highlights. Cheap; called whenever they change. */
+function renderMinimap(): void {
+  if (!minimapEnabled || live.size === 0) {
+    if (minimapShell !== null) minimapShell.style.display = "none";
+    return;
+  }
+  const root = ensureMinimapShell();
+  if (minimapShell !== null) minimapShell.style.display = "block";
+  hideMinimapTip();
+  for (const child of Array.from(root.children)) {
+    if (child.tagName !== "STYLE") root.removeChild(child);
+  }
+  const railHeight = Math.max(0, window.innerHeight - MINIMAP_MARGIN * 2);
+  const docHeight = Math.max(document.documentElement.scrollHeight, 1);
+  const rail = document.createElement("div");
+  rail.className = "mm-rail";
+
+  for (const [id, annotation] of live) {
+    const mark = document.querySelector(`[${HL_ATTR}="${id}"]`);
+    if (!(mark instanceof HTMLElement)) continue;
+    const docTopPx = mark.getBoundingClientRect().top + window.scrollY;
+    const top = dotTop(docTopPx, docHeight, railHeight);
+    const dot = document.createElement("button");
+    dot.className = "mm-dot";
+    dot.style.top = `${String(top)}px`;
+    dot.style.background = (PAINT[annotation.color as Color] ?? PAINT.yellow).solid;
+    const quote = quoteOf(annotation);
+    const note = annotation.note;
+    dot.addEventListener("mouseenter", () => showMinimapTip(top, quote, note));
+    dot.addEventListener("mouseleave", () => hideMinimapTip());
+    dot.addEventListener("click", () => {
+      if (mark instanceof HTMLElement) {
+        mark.scrollIntoView({ behavior: "smooth", block: "center" });
+        flashMark(id);
+        syncSidebarTo(id);
+      }
+    });
+    rail.appendChild(dot);
+  }
+  root.appendChild(rail);
+}
+
+/** The hover preview beside a dot — the highlight's quote and note, so the map reads without clicking. */
+function showMinimapTip(top: number, quote: string, note: string | undefined): void {
+  const root = ensureMinimapShell();
+  if (minimapTip === null) {
+    minimapTip = document.createElement("div");
+    minimapTip.className = "mm-tip";
+  }
+  minimapTip.textContent = "";
+  const q = document.createElement("div");
+  q.className = "mm-tip-quote";
+  q.textContent = quote;
+  minimapTip.appendChild(q);
+  if (note !== undefined && note.trim() !== "") {
+    const n = document.createElement("div");
+    n.className = "mm-tip-note";
+    n.textContent = note.trim();
+    minimapTip.appendChild(n);
+  }
+  minimapTip.style.top = `${String(top + MINIMAP_MARGIN)}px`;
+  if (minimapTip.parentNode === null) root.appendChild(minimapTip);
+  minimapTip.style.display = "block";
+}
+
+function hideMinimapTip(): void {
+  if (minimapTip !== null) minimapTip.style.display = "none";
+}
+
+function minimapStyles(): string {
+  const t = inPageTheme(dark());
+  return `
+    :host { all: initial; }
+    * { box-sizing: border-box; font-family: ${t.font}; }
+    .mm-rail {
+      position: fixed; right: 3px; top: ${String(MINIMAP_MARGIN)}px; bottom: ${String(MINIMAP_MARGIN)}px;
+      width: 12px;
+    }
+    .mm-dot {
+      position: absolute; right: 2px; width: 8px; height: 8px; padding: 0; border-radius: 50%;
+      border: 1px solid ${dark() ? "rgba(0,0,0,0.35)" : "rgba(0,0,0,0.14)"}; cursor: pointer;
+      box-shadow: 0 0 0 1px ${dark() ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.7)"};
+      transition: transform 0.1s ease;
+    }
+    .mm-dot:hover { transform: scale(1.7); }
+    .mm-tip {
+      position: fixed; right: 22px; max-width: 280px; padding: 8px 11px; border-radius: ${t.radiusSmall};
+      background: ${t.bg}; color: ${t.fg}; border: 1px solid ${t.line}; box-shadow: ${t.shadow};
+      font-size: 12px; line-height: 1.45; pointer-events: none; transform: translateY(-50%); display: none;
+    }
+    .mm-tip-quote { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .mm-tip-note { margin-top: 4px; color: ${t.muted}; font-size: 11px;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  `;
+}
+
+/** Toggle brush (continuous highlight) mode, and reflect it on the button that asked. */
+function toggleBrush(button: HTMLButtonElement): void {
+  brushMode = !brushMode;
+  button.classList.toggle("kvs-sb-brush-on", brushMode);
+  toast(brushMode ? "Brush mode on — selecting text highlights it right away." : "Brush mode off.");
 }
 
 /** Drag by the header, staying within the viewport. */
@@ -1619,6 +1811,14 @@ function sidebarStyles(): string {
       font: inherit; font-size: 11.5px; font-weight: 600; padding: 2px 9px; border-radius: 7px; margin-left: auto;
     }
     .kvs-sb-export:hover { background: ${hover}; color: ${fg}; }
+    .kvs-sb-brush {
+      border: 1px solid ${line}; background: transparent; color: ${muted}; cursor: pointer;
+      font: inherit; font-size: 11.5px; font-weight: 600; padding: 2px 9px; border-radius: 7px; margin-left: auto;
+    }
+    .kvs-sb-brush:hover { background: ${hover}; color: ${fg}; }
+    .kvs-sb-brush-on { background: ${accent}; color: #fff; border-color: ${accent}; }
+    .kvs-sb-export { margin-left: 6px; }
+    .kvs-sb-item.kvs-sb-flash { background: ${accent}1f; box-shadow: inset 0 0 0 1px ${accent}55; }
     .kvs-sb-list { overflow-y: auto; padding: 6px; }
     .kvs-sb-list::-webkit-scrollbar { width: 8px; }
     .kvs-sb-list::-webkit-scrollbar-thumb { background: ${line}; border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
@@ -2223,6 +2423,11 @@ if (scope[marker] !== true) {
         return;
       }
       const rect = selection.getRangeAt(0).getBoundingClientRect();
+      // Brush mode is the most explicit intent — highlight the selection at once, no toolbar, no menu.
+      if (brushMode) {
+        highlightSelection(lastChoice.color, lastChoice.style, undefined, lastChoice.intensity);
+        return;
+      }
       // A per-site rule can act on the selection directly instead of raising the toolbar.
       if (activeAutoAction !== null && activeAutoAction.onSelect !== "none") {
         performAutoSelect(rect, text);
@@ -2231,6 +2436,30 @@ if (scope[marker] !== true) {
       showToolbar(rect);
     }, 10);
   });
+
+  // Number keys 1-8 highlight the current selection in a palette colour — a power-user accelerator, gated
+  // so it never fires while typing (an input, textarea, or contenteditable) or without a real selection.
+  document.addEventListener("keydown", (event) => {
+    if (!colorKeysEnabled || event.metaKey || event.ctrlKey || event.altKey) return;
+    const color = colorForKey(event.key);
+    if (color === null) return;
+    const active = document.activeElement;
+    if (
+      active instanceof HTMLInputElement ||
+      active instanceof HTMLTextAreaElement ||
+      (active instanceof HTMLElement && active.isContentEditable)
+    ) {
+      return;
+    }
+    const selection = window.getSelection();
+    if (selection === null || selection.isCollapsed || selection.toString().trim() === "") return;
+    if (selectionInEditable(selection)) return;
+    event.preventDefault();
+    highlightSelection(color, lastChoice.style, undefined, lastChoice.intensity);
+  });
+
+  // The minimap is a scale model of the page height, so it re-lays-out when the viewport changes.
+  window.addEventListener("resize", () => renderMinimap(), { passive: true });
 
   // The toolbar is pinned in place, so it lingers when the page scrolls out from under it. Dismiss it on
   // scroll when the person has asked for that; otherwise leave it (the default, and the old behaviour).

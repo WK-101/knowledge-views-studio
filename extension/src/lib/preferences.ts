@@ -1,4 +1,5 @@
 import type { DomainRule } from "../../../shared/rules";
+import { HIGHLIGHT_COLORS, type HighlightColor } from "../../../shared/annotations";
 import {
   DEFAULT_ISLAND_ACTIONS,
   normalizeIslandActions,
@@ -72,6 +73,12 @@ export interface Preferences {
   readonly annotationSidebar: boolean;
   /** Show the launcher button that drops a new sticky note on any highlight-enabled page. */
   readonly stickyLauncher: boolean;
+  /** Show the edge minimap — a rail of colour-coded dots, one per highlight, mapping the page. */
+  readonly highlightMinimap: boolean;
+  /** Let number keys 1-8 highlight the selection in a palette colour. */
+  readonly colorKeys: boolean;
+  /** The colour a new highlight starts from, and the one starred in the toolbar. */
+  readonly defaultHighlightColor: HighlightColor;
   /** Offer a hover action on data tables to capture their rows or copy them, without opening the popup. */
   readonly tableCapture: boolean;
   /** The selection toolbar's actions — which show, and in what order. See island-actions.ts. */
@@ -104,6 +111,9 @@ export const DEFAULT_PREFERENCES: Preferences = {
   annotationBullets: false,
   annotationSidebar: false,
   stickyLauncher: false,
+  highlightMinimap: true,
+  colorKeys: true,
+  defaultHighlightColor: "yellow",
   tableCapture: false,
   islandActions: DEFAULT_ISLAND_ACTIONS,
   islandSettings: DEFAULT_ISLAND_SETTINGS,
@@ -183,6 +193,13 @@ export function normalizePreferences(raw: unknown): Preferences {
     annotationBullets: value["annotationBullets"] === true,
     annotationSidebar: value["annotationSidebar"] === true,
     stickyLauncher: value["stickyLauncher"] === true,
+    highlightMinimap: value["highlightMinimap"] !== false,
+    colorKeys: value["colorKeys"] !== false,
+    defaultHighlightColor:
+      typeof value["defaultHighlightColor"] === "string" &&
+      (HIGHLIGHT_COLORS as readonly string[]).includes(value["defaultHighlightColor"])
+        ? (value["defaultHighlightColor"] as HighlightColor)
+        : "yellow",
     tableCapture: value["tableCapture"] === true,
     islandActions: normalizeIslandActions(value["islandActions"]),
     islandSettings: normalizeIslandSettings(value["islandSettings"]),

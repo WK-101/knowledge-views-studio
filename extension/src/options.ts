@@ -9,7 +9,7 @@ import {
   saveConnection,
 } from "./lib/bridge-client";
 import { parsePairingInput } from "../../shared/protocol";
-import { loadPreferences, savePreferences, type Preferences } from "./lib/preferences";
+import { loadPreferences, savePreferences, normalizePreferences, type Preferences } from "./lib/preferences";
 import { ISLAND_ACTIONS } from "./lib/island-actions";
 import type { IslandSettings, IslandSize, IslandTheme, IslandTrigger } from "./lib/island-settings";
 import { CUSTOM_ENGINE_PREFIX, isUsableTemplate, resolveEngine } from "./lib/search-targets";
@@ -529,6 +529,9 @@ async function wirePreferences(): Promise<void> {
   byId<HTMLInputElement>("annotationBullets").checked = prefs.annotationBullets;
   byId<HTMLInputElement>("annotationSidebar").checked = prefs.annotationSidebar;
   byId<HTMLInputElement>("stickyLauncher").checked = prefs.stickyLauncher;
+  byId<HTMLSelectElement>("defaultHighlightColor").value = prefs.defaultHighlightColor;
+  byId<HTMLInputElement>("highlightMinimap").checked = prefs.highlightMinimap;
+  byId<HTMLInputElement>("colorKeys").checked = prefs.colorKeys;
   drawRules(prefs);
   renderIslandActions(prefs);
   byId<HTMLInputElement>("searchVault").checked = prefs.searchTargets.vault;
@@ -569,6 +572,12 @@ async function wirePreferences(): Promise<void> {
   bind("annotationBullets", () => ({ annotationBullets: byId<HTMLInputElement>("annotationBullets").checked }));
   bind("annotationSidebar", () => ({ annotationSidebar: byId<HTMLInputElement>("annotationSidebar").checked }));
   bind("stickyLauncher", () => ({ stickyLauncher: byId<HTMLInputElement>("stickyLauncher").checked }));
+  bind("highlightMinimap", () => ({ highlightMinimap: byId<HTMLInputElement>("highlightMinimap").checked }));
+  bind("colorKeys", () => ({ colorKeys: byId<HTMLInputElement>("colorKeys").checked }));
+  bind("defaultHighlightColor", () => {
+    const value = byId<HTMLSelectElement>("defaultHighlightColor").value;
+    return { defaultHighlightColor: normalizePreferences({ defaultHighlightColor: value }).defaultHighlightColor };
+  });
   bind("searchMode", () => {
     const value = byId<HTMLSelectElement>("searchMode").value;
     return { searchMode: value === "meaning" || value === "ask" ? value : "keyword" };

@@ -201,6 +201,34 @@
         </section>
 
     <section class="card">
+      <h2>Highlighting extras</h2>
+      <label class="field">
+        <span>Default highlight colour</span>
+        <select id="defaultHighlightColor">
+          <option value="yellow">yellow</option>
+          <option value="red">red</option>
+          <option value="green">green</option>
+          <option value="blue">blue</option>
+          <option value="purple">purple</option>
+          <option value="magenta">magenta</option>
+          <option value="orange">orange</option>
+          <option value="gray">gray</option>
+        </select>
+      </label>
+      <p class="hint">The colour a new highlight starts from, and the one starred in the selection toolbar.</p>
+      <label class="checkline">
+        <input id="highlightMinimap" type="checkbox" />
+        <span>Show the highlight minimap — a rail of colour dots down the page edge, one per highlight</span>
+      </label>
+      <p class="hint">Each dot sits where its highlight is in the page; hover to preview it, click to jump there. Appears only on pages that have highlights. Reload a page after changing this.</p>
+      <label class="checkline">
+        <input id="colorKeys" type="checkbox" />
+        <span>Let number keys 1–8 highlight the selection in a palette colour</span>
+      </label>
+      <p class="hint">With text selected (and not while typing in a field), press 1–8 to highlight it in that colour without the toolbar.</p>
+    </section>
+
+    <section class="card">
       <h2>Toolbar actions</h2>
       <p class="hint">
         Choose which controls the selection toolbar shows, and drag to reorder them. Turn off anything you

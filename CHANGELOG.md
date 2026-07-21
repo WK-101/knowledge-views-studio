@@ -5,6 +5,37 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 187 — the chrome UI redesign, part 2 (in-page polish: minimap, brush, shortcuts)
+
+Companion 0.10.0, extension-only. Part 2 of the redesign turns to the *in-page* annotator, adopting the
+highest-polish ideas from the teardown — the ones Web Highlights and WuCai build their identity on.
+
+- **The edge minimap** — a slim rail of colour-coded dots down the page edge, one per highlight, each placed
+  at its highlight's proportional position in the document, so a long article becomes a glanceable map of
+  your own attention. Hover a dot → a preview of the highlight's quote and note; click → smooth-scroll there
+  and flash it. It's a scale model of the page (the dot arithmetic is a pure, unit-tested module,
+  `minimap.ts`), in its own persistent fixed shadow host, on by default and visible only when the page
+  actually has highlights. Toggleable in settings.
+- **Page → sidebar sync** — the missing half of the loop. Clicking a highlight on the page (or a minimap dot)
+  now flashes and scrolls its row in the highlights sidebar into view, so the two surfaces stay in step
+  rather than only syncing one way.
+- **Number-key colour shortcuts** — with text selected (and not while typing in a field), press **1–8** to
+  highlight it in that palette colour without the toolbar. Advertised in each swatch's tooltip. Toggleable.
+- **A configurable default colour** — a new "Default highlight colour" setting; a new highlight starts from
+  it, and it's marked with a **★ star** on its swatch in the selection toolbar. A fresh install starts from
+  it; a stored last-used choice still wins.
+- **Brush (continuous) mode** — a toggle in the highlights-sidebar header: while on, selecting text
+  highlights it instantly in the current colour, no toolbar — WuCai's pen-on-paper metaphor, for dense study
+  reading. Session-only (it doesn't persist across reloads).
+
+Verified, again, beyond types: the built content script was injected into a real page headless
+(Chromium/Playwright) with mocked bridge messaging, confirming three highlights paint and the minimap rail
+renders its dots at the right positions and colours, in light and dark. The pure logic (dot positioning,
+number-key → colour mapping) has 5 new unit tests; 1463 pass in total. tsc clean on both halves, eslint at
+the 37-warning baseline. Three new preferences (`highlightMinimap`, `colorKeys`, `defaultHighlightColor`),
+each independently toggleable with sensible defaults; the sidebar/minimap DOM and the brush toggle are
+browser surfaces, so eyeball them on a real page.
+
 ## Phase 186 — the chrome UI redesign, part 1 (icons, identity, preview-first capture)
 
 Companion 0.9.0, extension-only. After a competitive teardown (Obsidian Web Clipper, Web Highlights, WuCai,
