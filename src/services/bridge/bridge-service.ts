@@ -23,6 +23,8 @@ export interface BridgeServiceOptions {
   /** Persist a settings change (the token, after pairing). */
   readonly saveSettings: (patch: Partial<BridgeSettings>) => void | Promise<void>;
   readonly context: () => Omit<BridgeContext, "settings" | "vaultName" | "pair">;
+  /** The plugin's manifest version, so the bridge can tell companions what it is. */
+  readonly pluginVersion?: string;
 }
 
 export class BridgeService {
@@ -58,6 +60,11 @@ export class BridgeService {
     return {
       ...this.options.context(),
       vaultName: this.options.app.vault.getName(),
+      // The version travels with every context, assembled HERE — the one place a context is actually
+      // built. v0.162 put this on a context literal that didn't exist: the scripted edit matched nothing,
+      // printed success anyway, and the optional field made the typechecker equally silent. The result was
+      // a version gate that reported every plugin, 0.163 included, as "an older version".
+      ...(this.options.pluginVersion !== undefined ? { pluginVersion: this.options.pluginVersion } : {}),
       settings: () => this.options.settings(),
       pair: (code) => this.completePairing(code),
     };

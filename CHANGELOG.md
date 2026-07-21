@@ -5,6 +5,30 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 164 — the version gate that called every version old
+
+Updating both halves to 0.163 produced: *"Your vault is running an older version… this companion needs
+0.162.0 or newer"* — with Obsidian plainly showing 0.163.0. The report was correct about one thing: the
+plugin genuinely wasn't reporting a version, and never had been.
+
+The 0.162 change wired `pluginVersion` into a bridge-context literal in `main.ts` — a literal that doesn't
+exist. Contexts are assembled in one place, `BridgeService.buildContext`, and the scripted edit that
+targeted the wrong file matched nothing, printed success anyway, and the field being optional kept the
+typechecker equally quiet. The routes were ready to send a version no context ever carried, so the
+companion read absence — which, by its own (correct) rule, means "too old". The gate built to catch
+mismatches shipped as a false alarm on every version including the newest.
+
+The version now travels from the manifest through `BridgeService` into the one real context assembly — and
+two route-level tests pin the wiring itself, not just the comparison function: schema and ping must carry a
+version the context provides, and must omit the field rather than send emptiness without one. The pure
+comparison was tested from day one; it was the plumbing that had no witness, which is exactly where the
+last three silent failures in this project have lived.
+
+The companion now requires 0.164.0 — the first version that actually reports — rather than naming a
+requirement nothing could satisfy.
+
+1315 → 1317 tests.
+
 ## Phase 163 — capture starts with where things already are
 
 The capture screen used to lead with the machinery of adding — a destination picker and a form — when the

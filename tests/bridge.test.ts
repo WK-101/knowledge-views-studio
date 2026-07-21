@@ -644,6 +644,29 @@ describe("bridge · routes", () => {
     });
   });
 
+  describe("the vault naming its version", () => {
+    it("schema and ping carry pluginVersion when the context provides it", async () => {
+      // The pure comparison was tested from day one; the WIRING wasn't, and an edit that matched nothing
+      // shipped a version gate that called 0.163 "an older version". This test fails if the field ever
+      // falls out of the assembled context again.
+      const ctx = makeContext({ pluginVersion: "9.9.9" }).context as unknown as BridgeContext;
+      const router = new BridgeRouter<BridgeContext>().registerAll(defaultRoutes());
+      const schema = await router.dispatch(req({ method: "GET", path: "/schema" }), settings(), ctx);
+      expect(schema.status).toBe(200);
+      expect((schema.body as { pluginVersion?: string }).pluginVersion).toBe("9.9.9");
+      const ping = await router.dispatch(req({ method: "GET", path: "/ping" }), settings(), ctx);
+      expect((ping.body as { pluginVersion?: string }).pluginVersion).toBe("9.9.9");
+    });
+
+    it("omits the field rather than sending emptiness when unset", async () => {
+      const ctx = makeContext({}).context as unknown as BridgeContext;
+      const router = new BridgeRouter<BridgeContext>().registerAll(defaultRoutes());
+      const schema = await router.dispatch(req({ method: "GET", path: "/schema" }), settings(), ctx);
+      expect(schema.status).toBe(200);
+      expect("pluginVersion" in (schema.body as object)).toBe(false);
+    });
+  });
+
   describe("deleting from the browser", () => {
     const routerWith = (): BridgeRouter<BridgeContext> =>
       new BridgeRouter<BridgeContext>().registerAll(defaultRoutes());

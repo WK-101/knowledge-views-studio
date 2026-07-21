@@ -7,8 +7,13 @@
  * never ran, invisible precisely because nothing compared versions and said so.
  */
 
-/** The oldest plugin this companion fully works with. */
-export const REQUIRED_PLUGIN_VERSION = "0.162.0";
+/**
+ * The oldest plugin this companion fully works with.
+ *
+ * 0.164.0, not 0.162.0 as first shipped: version reporting itself only works from 0.164 (the 0.162 wiring
+ * silently never ran), so requiring anything older names a version that cannot satisfy the check.
+ */
+export const REQUIRED_PLUGIN_VERSION = "0.164.0";
 
 function triple(version: string): [number, number, number] | null {
   const match = /^(\d+)\.(\d+)\.(\d+)/.exec(version.trim());

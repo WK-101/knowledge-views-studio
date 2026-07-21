@@ -275,6 +275,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
     const captureService = new CaptureService(this.app);
     this.bridge = new BridgeService({
       app: this.app,
+      pluginVersion: this.manifest.version,
       settings: () => store.getSettings().bridge,
       saveSettings: (patch) => {
         const current = store.getSettings().bridge;
