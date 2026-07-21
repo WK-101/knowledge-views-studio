@@ -32,6 +32,7 @@ function readAllSource(dir: string): string {
 const DYNAMIC_STEMS = [
   "kvs-attach-", // `kvs-attach-${att.kind}` — pdf/word/excel/…
   "kvs-rows-", //   `kvs-rows-${rowHeight}`  — compact/comfortable/…
+  "kvs-mark-", //   `kvs-mark-${annotation.color}` — highlight colour on a rendered <mark>
 ];
 
 /**

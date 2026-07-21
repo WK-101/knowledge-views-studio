@@ -5,6 +5,39 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 177 — the standardized colours, now visible inside the dashboards
+
+The last two rounds standardised the palette and made it overridable, but a highlight still arrived in a
+dashboard cell as `==quote==` — and Obsidian paints every `==` highlight in one single default colour. So the
+colours were consistent everywhere *except* the one place you look at them most: the KVS views. This closes
+that gap. A highlight's real colour now shows in the dashboard.
+
+The reason it didn't before is that `==` markup carries no colour — every `==` renders identically, so there
+was nothing for the palette to hook onto. The cell now writes the quote as a `<mark>` that names its colour:
+`<mark class="kvs-mark-green">…</mark>`. KVS cells already render through Obsidian's markdown pipeline with the
+plugin's styles loaded, so that mark shows up green — the actual palette green — in the table, the gallery,
+and anywhere else a cell is shown, and in the note in reading mode too.
+
+The colour rides as a *class*, not a baked-in hex, on purpose. The plugin drives eight CSS variables
+(`--kvs-mark-*`) from the vault's active palette and refreshes them the instant a setting changes, so:
+
+  - by default the marks are Zotero's eight — the same shades the annotator and the PDF swatches use;
+  - a custom palette override recolours every existing highlight at once, with nothing rewritten on disk,
+    because the stored class is stable and only the variable behind it moves;
+  - the text stays dark on the pastel so it's readable in both light and dark themes, and a highlight that
+    wraps across lines is painted on every line, not just the first.
+
+Two details for safety. The quote is HTML-escaped inside the mark, so a stray `<` or `&` in the highlighted
+text can't break the tag or the surrounding cell — the note and any tags stay *outside* the mark, as plain
+markdown, exactly as before. And removal was taught the new shape: it strips the colour-mark form it now
+writes, and still recognises and strips the old `==quote==` form, so highlights made before this update delete
+cleanly. Those old highlights keep showing in Obsidian's default colour until they're remade — the class only
+attaches to newly written cells — which is the honest limit of a change that doesn't rewrite your vault.
+
+Imported Zotero/PDF annotations, which render as callouts in note bodies rather than as cell marks, are a
+separate rendering path and unchanged here; recolouring those to the exact palette is a possible next step if
+you want it. This round is plugin-only — the companion is untouched.
+
 ## Phase 176 — a per-vault palette override: keep Zotero's eight, or set your own
 
 Last round standardised every highlight on Zotero's eight colours. This round adds the other half of that

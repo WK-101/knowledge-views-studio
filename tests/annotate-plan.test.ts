@@ -143,13 +143,13 @@ describe("annotate · declared columns override the guess", () => {
 describe("annotate · bullet cell text", () => {
   it("prefixes a bullet only when asked", () => {
     const a = ann({ note: "" });
-    expect(annotationCellText(a)).toBe("==quoted words==");
-    expect(annotationCellText(a, true)).toBe("- ==quoted words==");
+    expect(annotationCellText(a)).toBe('<mark class="kvs-mark-yellow">quoted words</mark>');
+    expect(annotationCellText(a, true)).toBe('- <mark class="kvs-mark-yellow">quoted words</mark>');
   });
 
   it("keeps the note and the bullet together", () => {
     const a = ann({ note: "my thought" });
-    expect(annotationCellText(a, true)).toBe("- ==quoted words== — my thought");
+    expect(annotationCellText(a, true)).toBe('- <mark class="kvs-mark-yellow">quoted words</mark> — my thought');
   });
 
   it("removal finds the line whether it was written plain or bulleted", () => {
@@ -157,6 +157,16 @@ describe("annotate · bullet cell text", () => {
     expect(cellWithoutAnnotation("==quoted words==", a)).toBe("");
     expect(cellWithoutAnnotation("- ==quoted words==", a)).toBe("");
     expect(cellWithoutAnnotation("keep me<br>- ==quoted words==", a)).toBe("keep me");
+  });
+
+  it("removal strips the current colour-mark form it now writes, round-trip", () => {
+    const a = ann({ note: "" });
+    // What annotationCellText emits today must be exactly what removal takes away.
+    expect(cellWithoutAnnotation(annotationCellText(a), a)).toBe("");
+    expect(cellWithoutAnnotation(annotationCellText(a, true), a)).toBe("");
+    const withNote = ann({ note: "a thought" });
+    const cell = `${annotationCellText(withNote)}<br><mark class="kvs-mark-green">other</mark>`;
+    expect(cellWithoutAnnotation(cell, withNote)).toBe('<mark class="kvs-mark-green">other</mark>');
   });
 });
 
@@ -200,17 +210,17 @@ describe("write-back · configurable note and tag destinations", () => {
 
   it("cell: note on, tags on — hashtags follow the note, spaces hyphenated", () => {
     expect(annotationCellText(withTags, { note: true, tags: true })).toBe(
-      "==quoted words== — my thought #deep-work #focus",
+      '<mark class="kvs-mark-yellow">quoted words</mark> — my thought #deep-work #focus',
     );
   });
 
   it("cell: note off, tags on — just quote and hashtags", () => {
-    expect(annotationCellText(withTags, { note: false, tags: true })).toBe("==quoted words== #deep-work #focus");
+    expect(annotationCellText(withTags, { note: false, tags: true })).toBe('<mark class="kvs-mark-yellow">quoted words</mark> #deep-work #focus');
   });
 
   it("cell: tags off (default) matches the old plain form", () => {
-    expect(annotationCellText(withTags)).toBe("==quoted words== — my thought");
-    expect(annotationCellText(withTags, true)).toBe("- ==quoted words== — my thought"); // boolean = bullet, still works
+    expect(annotationCellText(withTags)).toBe('<mark class="kvs-mark-yellow">quoted words</mark> — my thought');
+    expect(annotationCellText(withTags, true)).toBe('- <mark class="kvs-mark-yellow">quoted words</mark> — my thought'); // boolean = bullet, still works
   });
 
   it("note block: tags can be omitted while the note stays", () => {

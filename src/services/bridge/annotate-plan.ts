@@ -3,6 +3,7 @@ import { getField } from "../../domain/fields";
 import { normalizeUrl } from "../../../shared/protocol";
 import {
   annotationCellText,
+  legacyCellText,
   annotationNoteBlock,
   coerceAnnotation,
   type StoredAnnotation,
@@ -86,7 +87,10 @@ export function cellWithoutAnnotation(cell: string, annotation: StoredAnnotation
   for (const bullet of [false, true]) {
     for (const note of [false, true]) {
       for (const tags of [false, true]) {
+        // Both the current colour-carrying <mark> form and the pre-colour ==quote== form, so a highlight made
+        // before cells carried colour is still found and stripped cleanly.
         forms.add(annotationCellText(annotation, { bullet, note, tags }));
+        forms.add(legacyCellText(annotation, { bullet, note, tags }));
       }
     }
   }

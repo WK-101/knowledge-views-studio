@@ -932,8 +932,9 @@ describe("bridge · routes", () => {
         ctx,
       );
       const first = (edits[0] as { column: string; value: string }[])[0];
-      expect(first?.value).toBe("==quoted words== — my thought");
-      expect(first?.value).not.toContain("yellow");
+      expect(first?.value).toBe('<mark class="kvs-mark-yellow">quoted words</mark> — my thought');
+      // The colour rides in the mark class (that's what colours the cell); the opaque id never leaks.
+      expect(first?.value).toContain('class="kvs-mark-yellow"');
       expect(first?.value).not.toContain("abcdefghij");
     });
 

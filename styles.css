@@ -3560,6 +3560,28 @@
   color: var(--text-on-accent);
 }
 
+/* Highlight colours in rendered content — dashboards and notes alike. The standardized palette (Zotero's
+   eight by default, or a custom override supplied through the --kvs-mark-* variables the plugin sets) so a
+   highlight shows its real colour rather than Obsidian's single default highlight. Dark text on the pastel
+   stays readable in both light and dark themes; box-decoration-break keeps a wrapped highlight painted on
+   every line. The hex in each var() is the Zotero fallback, used until the plugin sets the variable. */
+mark.kvs-mark-yellow  { background-color: var(--kvs-mark-yellow,  #ffd400); }
+mark.kvs-mark-red     { background-color: var(--kvs-mark-red,     #ff6666); }
+mark.kvs-mark-green   { background-color: var(--kvs-mark-green,   #5fb236); }
+mark.kvs-mark-blue    { background-color: var(--kvs-mark-blue,    #2ea8e5); }
+mark.kvs-mark-purple  { background-color: var(--kvs-mark-purple,  #a28ae5); }
+mark.kvs-mark-magenta { background-color: var(--kvs-mark-magenta, #e56eee); }
+mark.kvs-mark-orange  { background-color: var(--kvs-mark-orange,  #f19837); }
+mark.kvs-mark-gray    { background-color: var(--kvs-mark-gray,    #aaaaaa); }
+mark[class^="kvs-mark-"],
+mark[class*=" kvs-mark-"] {
+  color: #1a1a1a;
+  padding: 0 0.15em;
+  border-radius: 3px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
 /* Instant highlight feedback overlay (bridges the save/reload) */
 .kvs-hl-flash-layer {
   position: fixed;

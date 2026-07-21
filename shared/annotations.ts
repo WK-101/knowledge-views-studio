@@ -244,7 +244,31 @@ function tagHashtags(annotation: StoredAnnotation): string {
  * those, and a table full of machine bookkeeping would be unusable. The second argument accepts a bare
  * boolean for backward compatibility, read as `{ bullet }`.
  */
+/** Escape the three characters that would break inline HTML, leaving markdown formatting chars untouched. */
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 export function annotationCellText(annotation: StoredAnnotation, opts: CellTextOptions | boolean = {}): string {
+  const o: CellTextOptions = typeof opts === "boolean" ? { bullet: opts } : opts;
+  const quote = oneLine(annotation.anchor.exact);
+  const note = o.note === false ? "" : oneLine(annotation.note ?? "");
+  const tags = o.tags === true ? tagHashtags(annotation) : "";
+  // The quote is wrapped in a <mark> carrying its colour as a class, so a dashboard cell shows the highlight
+  // in its actual palette colour rather than Obsidian's one default highlight. The class (not a baked-in hex)
+  // means the colour tracks the vault's palette — including a custom override — without rewriting stored rows.
+  // Note and tags sit *outside* the mark: only the quote is the highlight.
+  let body = `<mark class="kvs-mark-${annotation.color}">${escapeHtml(quote)}</mark>`;
+  if (note !== "") body += ` — ${note}`;
+  if (tags !== "") body += ` ${tags}`;
+  return o.bullet === true ? `- ${body}` : body;
+}
+
+/**
+ * The pre-colour cell form — a bare `==quote==` highlight. Kept only so removal can still find and strip
+ * highlights written before cells carried colour; nothing writes this form any more.
+ */
+export function legacyCellText(annotation: StoredAnnotation, opts: CellTextOptions | boolean = {}): string {
   const o: CellTextOptions = typeof opts === "boolean" ? { bullet: opts } : opts;
   const quote = oneLine(annotation.anchor.exact);
   const note = o.note === false ? "" : oneLine(annotation.note ?? "");

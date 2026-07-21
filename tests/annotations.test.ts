@@ -83,20 +83,28 @@ describe("annotations · reading whatever the sidecar file holds", () => {
 });
 
 describe("annotations · the row cell copy", () => {
-  it("marks the quote and appends the note after a dash", () => {
-    expect(annotationCellText(ann({ note: "my thought" }))).toBe("==The important claim.== — my thought");
-    expect(annotationCellText(ann())).toBe("==The important claim.==");
+  it("wraps the quote in a colour mark and appends the note after a dash", () => {
+    expect(annotationCellText(ann({ note: "my thought" }))).toBe(
+      '<mark class="kvs-mark-yellow">The important claim.</mark> — my thought',
+    );
+    expect(annotationCellText(ann())).toBe('<mark class="kvs-mark-yellow">The important claim.</mark>');
+    // The colour name rides in the class, so the cell shows the highlight's real colour.
+    expect(annotationCellText(ann({ color: "green" }))).toContain('class="kvs-mark-green"');
   });
 
   it("stays on one line whatever the quote contained — a cell must", () => {
     const multi = ann({ anchor: { exact: "line one\nline two" } });
-    expect(annotationCellText(multi)).toBe("==line one line two==");
+    expect(annotationCellText(multi)).toBe('<mark class="kvs-mark-yellow">line one line two</mark>');
     expect(annotationCellText(multi)).not.toContain("\n");
   });
 
-  it("never leaks machine bookkeeping into the cell", () => {
+  it("escapes HTML in the quote so the mark can't be broken, and keeps the note outside the mark", () => {
+    const text = annotationCellText(ann({ anchor: { exact: "a < b & c > d" }, note: "outside" }));
+    expect(text).toBe('<mark class="kvs-mark-yellow">a &lt; b &amp; c &gt; d</mark> — outside');
+  });
+
+  it("never leaks the id or anchor context into the cell", () => {
     const text = annotationCellText(ann({ note: "n" }));
-    expect(text).not.toContain("yellow");
     expect(text).not.toContain("abc123defg");
     expect(text).not.toContain("before it");
   });
