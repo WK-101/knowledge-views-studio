@@ -34,6 +34,8 @@ export interface Preferences {
   readonly serpMarks: boolean;
   /** Whether the in-page highlighter runs. Needs page access, asked for when this is turned on. */
   readonly annotations: boolean;
+  /** The view highlights land in. Empty = decided per site (rule, then default, then last used). */
+  readonly annotationViewId: string;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -49,6 +51,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   recallBadge: false,
   serpMarks: false,
   annotations: false,
+  annotationViewId: "",
 };
 
 const KEY = "preferences";
@@ -95,6 +98,7 @@ export function normalizePreferences(raw: unknown): Preferences {
     recallBadge: value["recallBadge"] === true,
     serpMarks: value["serpMarks"] === true,
     annotations: value["annotations"] === true,
+    annotationViewId: typeof value["annotationViewId"] === "string" ? value["annotationViewId"] : "",
   };
 }
 

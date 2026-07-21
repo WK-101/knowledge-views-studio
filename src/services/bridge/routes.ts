@@ -308,8 +308,22 @@ export function captureRoute(): Route<BridgeContext> {
       }
       if (written.path !== undefined) context.onCaptured(written.path);
 
+      // A write can succeed into a file the view never reads — a capture target outside the view's scope
+      // — and from the outside that is indistinguishable from silent data loss: "I saved it and it isn't
+      // there." Re-reading the view and checking makes the misconfiguration speak at the moment it
+      // happens, naming both the file and the fix.
+      let warning: string | undefined;
+      if (written.path !== undefined && target.shape !== "note") {
+        const after = await context.viewData(profile);
+        const visible = after.rows.some((r) => r.provenance.filePath === written.path);
+        if (!visible) {
+          warning = `Saved to “${written.path}”, but that file isn't one this view reads — the row won't appear in “${profile.name}”. Add the file to the view's sources, or point the view's capture target at a file it reads.`;
+        }
+      }
+
       const response: CaptureResponse = {
         ok: true,
+        ...(warning !== undefined ? { warning } : {}),
         ...(written.path !== undefined ? { path: written.path } : {}),
         ...(written.createdTable === true ? { createdTable: true } : {}),
         ...(duplicate !== null

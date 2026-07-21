@@ -89,6 +89,8 @@ export interface CaptureRequest {
 
 export interface CaptureResponse {
   readonly ok: boolean;
+  /** Written, but something is worth knowing — e.g. the file written isn't one the view reads. */
+  readonly warning?: string;
   /** How many rows were written, when several were sent. */
   readonly written?: number;
   readonly path?: string;

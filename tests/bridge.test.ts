@@ -591,6 +591,59 @@ describe("bridge · routes", () => {
     });
   });
 
+  describe("a capture the view will never show", () => {
+    it("warns when the written file isn't one the view reads", async () => {
+      // "I saved it and it isn't there" — a write into a file outside the view's sources is
+      // indistinguishable from data loss unless the response says so at the moment it happens.
+      const ctx = makeContext({
+        viewData: () => Promise.resolve({ rows: [] as never[], columns }),
+        capture: {
+          commit: () => Promise.resolve({ ok: true, path: "Elsewhere/Captured.md" }),
+          linkExistingNote: (v: unknown) => v,
+        },
+      }).context as unknown as BridgeContext;
+      const router = new BridgeRouter<BridgeContext>().registerAll(defaultRoutes());
+      const res = await router.dispatch(
+        req({
+          method: "POST",
+          path: "/capture",
+          body: { viewId: "papers", url: "https://x/a", fields: [{ key: "Title", value: "T" }] },
+        }),
+        settings(),
+        ctx,
+      );
+      const body = res.body as { ok: boolean; warning?: string };
+      expect(body.ok).toBe(true);
+      expect(body.warning).toContain("Elsewhere/Captured.md");
+      expect(body.warning).toContain("won't appear");
+    });
+
+    it("stays silent when the row is visible where it was written", async () => {
+      const visibleRow = {
+        cells: { Title: "T" },
+        provenance: { filePath: "Library.md", extractor: "table", locator: { row: 0 }, fingerprint: "f" },
+      };
+      const ctx = makeContext({
+        viewData: () => Promise.resolve({ rows: [visibleRow] as never, columns }),
+        capture: {
+          commit: () => Promise.resolve({ ok: true, path: "Library.md" }),
+          linkExistingNote: (v: unknown) => v,
+        },
+      }).context as unknown as BridgeContext;
+      const router = new BridgeRouter<BridgeContext>().registerAll(defaultRoutes());
+      const res = await router.dispatch(
+        req({
+          method: "POST",
+          path: "/capture",
+          body: { viewId: "papers", url: "https://x/a", fields: [{ key: "Title", value: "T" }] },
+        }),
+        settings(),
+        ctx,
+      );
+      expect((res.body as { warning?: string }).warning).toBeUndefined();
+    });
+  });
+
   describe("annotating a page", () => {
     const routerWith = (): BridgeRouter<BridgeContext> =>
       new BridgeRouter<BridgeContext>().registerAll(defaultRoutes());

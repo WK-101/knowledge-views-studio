@@ -260,13 +260,15 @@ runtimeMessaging?.onMessage.addListener((message, _sender, sendResponse) => {
 async function viewForAnnotation(url: string): Promise<string | null> {
   const prefs = await loadPreferences();
   const rule = matchRule(prefs.rules, url);
+  // An explicitly chosen annotation view outranks everything — that's what "explicit" means.
+  const chosen = prefs.annotationViewId;
   const connection = await loadConnection();
   if (connection.token === null) return null;
   try {
     const schema = await fetchSchema(connection);
     // `capture` is always present in schema entries; writability is the real question.
     const writable = schema.views.filter((v) => v.capture.writable);
-    const preferred = [rule?.viewId, prefs.defaultViewId, prefs.rememberLastView ? prefs.lastViewId : ""]
+    const preferred = [chosen, rule?.viewId, prefs.defaultViewId, prefs.rememberLastView ? prefs.lastViewId : ""]
       .filter((id): id is string => typeof id === "string" && id !== "")
       .find((id) => writable.some((v) => v.id === id));
     return preferred ?? writable[0]?.id ?? null;
@@ -316,9 +318,11 @@ runtimeMessaging?.onMessage.addListener((message, _sender, sendResponse) => {
         annotation: request.annotation as never,
         fields,
       });
-      sendResponse({ ok: result.ok });
-    } catch {
-      sendResponse(request.type === "kvs-annotations-for" ? { annotations: [] } : { ok: false });
+      sendResponse({ ok: result.ok, ...(result.reason !== undefined ? { reason: result.reason } : {}) });
+    } catch (error) {
+      // The reason is the difference between a fixable setting and a mystery; it must reach the page.
+      const reason = error instanceof BridgeError ? error.message : "Couldn't reach your vault.";
+      sendResponse(request.type === "kvs-annotations-for" ? { annotations: [] } : { ok: false, reason });
     }
   })();
   return true;

@@ -302,7 +302,7 @@ async function start(): Promise<void> {
   });
 
   selectionText = snapshot.selection ?? "";
-  const fields = extractFields(snapshot);
+  let fields = extractFields(snapshot);
   const draw = (): void => {
     current = writable.find((v) => v.id === picker.value) ?? writable[0] ?? null;
     if (current === null) return;
@@ -313,6 +313,29 @@ async function start(): Promise<void> {
   };
   picker.addEventListener("change", draw);
   draw();
+
+  // The popup reads the page at the moment it opens — which is right after you selected something. The
+  // sidebar started long ago: whatever you've selected or navigated to since isn't in its snapshot, which
+  // is why it never offered "Use selection" and went stale after navigation. Re-reading is one click.
+  if (mode === "sidebar") {
+    const controls = document.getElementById("controls");
+    const refresh = el("button", { class: "mini", type: "button", title: "Read the page again — picks up your current selection and the page you're on now" }, "↻ Re-read page");
+    refresh.addEventListener("click", () => {
+      void (async () => {
+        try {
+          const fresh = await readPage();
+          snapshot = fresh;
+          selectionText = fresh.selection ?? "";
+          fields = extractFields(fresh);
+          draw();
+          show(selectionText !== "" ? "Re-read — your selection is available below." : "Re-read this page.", "ok");
+        } catch {
+          show("Couldn't re-read the page. Try reloading it.", "error");
+        }
+      })();
+    });
+    controls?.insertBefore(refresh, controls.firstChild);
+  }
 
   document.getElementById("controls")?.classList.remove("hidden");
 
@@ -428,11 +451,18 @@ async function submit(): Promise<void> {
       button.disabled = false;
       return;
     }
+    // A warning means it was written but won't be seen — worth more attention than a success, and the
+    // popup must not close itself before it can be read.
+    if (result.warning !== undefined) {
+      show(result.warning, "error");
+      button.disabled = false;
+      return;
+    }
     const notes: string[] = ["Saved"];
     if (result.createdTable === true) notes.push("(created the table)");
     if (result.duplicate !== undefined) notes.push(`· also matched an existing row on ${result.duplicate.on}`);
     show(notes.join(" "), "ok");
-    window.setTimeout(() => window.close(), 1200);
+    if (mode === "popup") window.setTimeout(() => window.close(), 1200);
   } catch (error) {
     if (error instanceof BridgeError && error.offline) {
       // Obsidian isn't running. Hold onto it rather than losing what they meant to keep.

@@ -270,20 +270,48 @@ function pageMetadataFields(): { key: string; value: string }[] {
   return fields.filter((f) => f.value.trim() !== "");
 }
 
-async function saveAnnotation(annotation: WireAnnotation): Promise<boolean> {
+interface SaveResult {
+  readonly ok: boolean;
+  readonly reason?: string;
+}
+
+async function saveAnnotation(annotation: WireAnnotation): Promise<SaveResult> {
   const api = messenger();
-  if (api === null) return false;
+  if (api === null) return { ok: false, reason: "The extension isn't available on this page." };
   try {
     const reply = (await api.runtime.sendMessage({
       type: "kvs-annotate",
       url: location.href,
       annotation,
       fields: pageMetadataFields(),
-    })) as { ok?: boolean } | undefined;
-    return reply?.ok === true;
+    })) as { ok?: boolean; reason?: string } | undefined;
+    return { ok: reply?.ok === true, ...(reply?.reason !== undefined ? { reason: reply.reason } : {}) };
   } catch {
-    return false;
+    return { ok: false, reason: "Couldn't reach the extension." };
   }
+}
+
+/**
+ * A brief message on the page, for when something didn't work.
+ *
+ * The alternative was what actually shipped first: the highlight silently unpainting itself, which reads as
+ * a glitch and hides a fixable cause. Unpainting is right — the page must never show a highlight the vault
+ * refused — but doing it wordlessly turned every configuration problem into a mystery.
+ */
+function toast(message: string): void {
+  const root = ensureShell();
+  clearUi();
+  const box = document.createElement("div");
+  box.className = "bar";
+  box.style.maxWidth = "340px";
+  box.textContent = message;
+  box.style.left = "16px";
+  box.style.bottom = "16px";
+  box.style.top = "auto";
+  root.appendChild(box);
+  window.setTimeout(() => {
+    if (box.parentNode !== null) box.parentNode.removeChild(box);
+  }, 6000);
 }
 
 async function removeAnnotation(id: string): Promise<void> {
@@ -338,10 +366,11 @@ function highlightSelection(color: Color, style: Style, note?: string): void {
   selection.removeAllRanges();
   clearUi();
 
-  void saveAnnotation(annotation).then((ok) => {
-    if (!ok) {
+  void saveAnnotation(annotation).then((result) => {
+    if (!result.ok) {
       unpaint(annotation.id);
       live.delete(annotation.id);
+      toast(`Highlight not saved: ${result.reason ?? "your vault refused it."} It was removed from the page so it doesn't pretend to exist.`);
     }
   });
 }

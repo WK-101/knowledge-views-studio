@@ -53,3 +53,11 @@ describe("preferences · reading whatever is in storage", () => {
     }
   });
 });
+
+describe("preferences · the annotation view", () => {
+  it("keeps a chosen annotation view and defaults to deciding per site", () => {
+    expect(normalizePreferences({ annotationViewId: "web" }).annotationViewId).toBe("web");
+    expect(normalizePreferences({}).annotationViewId).toBe("");
+    expect(normalizePreferences({ annotationViewId: 7 }).annotationViewId).toBe("");
+  });
+})

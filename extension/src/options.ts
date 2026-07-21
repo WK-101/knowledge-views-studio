@@ -191,10 +191,21 @@ function fillViewPickers(): void {
     return list;
   };
   const def = byId<HTMLSelectElement>("defaultView");
-  const chosen = def.value;
   def.replaceChildren(...options(true));
-  def.value = chosen;
   byId<HTMLSelectElement>("ruleView").replaceChildren(...options(false));
+  const annView = byId<HTMLSelectElement>("annotationView");
+  const annBlank = document.createElement("option");
+  annBlank.value = "";
+  annBlank.textContent = "— decide per site (rules, then default) —";
+  annView.replaceChildren(annBlank, ...options(false));
+
+  // The saved choices are re-applied AFTER the options exist. Setting a select's value before its options
+  // arrive silently does nothing — which made every saved view choice look like it hadn't stuck: the
+  // preference was saved fine and displayed as "— first available —" anyway.
+  void loadPreferences().then((prefs) => {
+    def.value = prefs.defaultViewId;
+    annView.value = prefs.annotationViewId;
+  });
 }
 
 /** A view's name, or a plain statement that it's gone — never a bare identifier. */
@@ -258,6 +269,7 @@ async function wirePreferences(): Promise<void> {
   byId<HTMLInputElement>("alwaysTags").value = prefs.alwaysTags;
   byId<HTMLSelectElement>("searchMode").value = prefs.searchMode;
   byId<HTMLInputElement>("annotations").checked = prefs.annotations;
+  byId<HTMLSelectElement>("annotationView").value = prefs.annotationViewId;
   drawRules(prefs);
 
   const bind = (id: string, read: () => Partial<Preferences>, event = "change"): void => {
@@ -272,6 +284,7 @@ async function wirePreferences(): Promise<void> {
     selectionStyle: byId<HTMLSelectElement>("selectionStyle").value === "plain" ? "plain" : "quote",
   }));
   bind("alwaysTags", () => ({ alwaysTags: byId<HTMLInputElement>("alwaysTags").value.trim() }));
+  bind("annotationView", () => ({ annotationViewId: byId<HTMLSelectElement>("annotationView").value }));
   bind("searchMode", () => {
     const value = byId<HTMLSelectElement>("searchMode").value;
     return { searchMode: value === "meaning" || value === "ask" ? value : "keyword" };

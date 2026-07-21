@@ -5,6 +5,42 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 161 — the vanishing explained, and captures that say where they went
+
+Four reports from real use, and the pattern across all four is the same lesson: features were behaving
+lawfully and saying nothing, which from the outside is indistinguishable from being broken.
+
+**A capture now says so when its view will never show it.** A capture target is a file path, and nothing
+required it to be a file the view actually reads — so a save could succeed into a file outside the view's
+sources, and "I saved it and it isn't there" looked exactly like data loss. After writing, the view is
+re-read; if the new row isn't visible in it, the response says which file was written and what to change
+(add the file to the view's sources, or repoint the capture target). The surface treats that warning as
+more important than the success it accompanies, and no longer closes before it can be read. This is the
+likeliest explanation for rows that "disappeared", and it will now name itself.
+
+**A refused highlight now says why.** On save failure the highlight unpaints — that's correct; the page must
+never show a highlight the vault refused — but it did so wordlessly, so every configuration problem
+(writing turned off, no writable view, a view with no matching columns) read as a glitch. The reason now
+travels the whole way: route → background → a small toast on the page, alongside the unpaint.
+
+**Highlights have a home you choose.** A "Highlights go to" view picker in the Highlighting settings,
+outranking the per-site resolution when set — plus, in plain words, where each highlight actually lands
+(row cell, dedicated note, plugin store) and that a page with no row gets one automatically.
+
+**Saved view choices now *look* saved.** The settings page applied saved values to the view pickers before
+the view list had arrived, and setting a select's value before its options exist silently does nothing — so
+every saved choice displayed as "— first available —", which read precisely as "changing the default view
+does nothing". The values are now re-applied after the options exist. (The preference itself was always
+saved; only its reflection was broken — but a setting that doesn't look saved may as well not be.)
+
+**The sidebar can re-read the page.** It reads the page once, when it starts — which is why it never
+offered "Use selection" (your selection didn't exist yet) and went stale when you navigated. One button
+re-reads: current page, current selection, redrawn form. The popup never needed this because opening it
+*is* the moment of capture; the sidebar's whole point is staying open, so it needs the moment back.
+
+1301 → 1304 tests: the annotation-view preference surviving normalization; the invisible-capture warning
+firing when the written file isn't among the view's rows and staying silent when it is.
+
 ## Phase 160 — a richer annotator, and settings with a shape
 
 **The settings page now works like the plugin's own**: a nav of sections — Connection, Captures,
