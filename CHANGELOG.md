@@ -5,6 +5,36 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 178 — imported-annotation callouts, recoloured to the exact palette
+
+The last round put the standardized colours into dashboard cells. This finishes the job for the other place a
+highlight shows up: the callouts that imported Zotero and PDF annotations render as, in a note's body.
+
+Those callouts were already colour-*coded*, but only approximately. Each highlight colour was mapped onto a
+built-in Obsidian callout type — yellow onto `quote`, red onto `warning`, blue onto `info`, and so on — and
+the callout then took *that type's* colour. Obsidian's type colours happen to sit roughly in the right hue,
+which is why it looked close, but "roughly red" is not Zotero's red, an override to a custom red didn't reach
+it at all, and magenta had no mapping. So an imported highlight and the same colour highlighted on the web
+didn't quite match.
+
+Now the callout carries the highlight's colour directly. Instead of a semantic type, it renders as a
+colour-named callout — `[!kvs-mark-green]` — that the stylesheet paints with the vault's exact palette green,
+the same `--kvs-mark-*` palette the inline highlights and the annotator use. The result: a green Zotero
+highlight, a green PDF highlight, a green web highlight, and a green highlight in a dashboard cell are now all
+the *same* green — and a custom palette override recolours every one of them at once, callouts included,
+because they read the same live variables (RGB triples the plugin now also publishes, since a callout's accent
+wants `r, g, b`, not a hex).
+
+The colour now carries the meaning, so all annotation callouts share one highlighter icon rather than a
+different icon per mapped type — but nothing semantic is lost: the callout's title still spells out the page,
+the theme (from your colour-theme labels), and the source. Removing or editing a callout was never tied to its
+type — both work off the block id — so this changes only how a callout looks, not how it's managed, and
+callouts written before this update re-render in the new colours with no migration.
+
+For anyone who preferred the old semantic types, the mapping isn't gone: it's kept as an opt-in, so a caller
+can still ask for `quote`/`info`/`warning` callouts instead of colour ones. Plugin-only round — the companion
+is untouched.
+
 ## Phase 177 — the standardized colours, now visible inside the dashboards
 
 The last two rounds standardised the palette and made it overridable, but a highlight still arrived in a

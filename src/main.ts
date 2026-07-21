@@ -108,9 +108,11 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
       document.body.style.setProperty("--kvs-img-max-h", s.imageMaxHeight > 0 ? `${s.imageMaxHeight}px` : "none");
       document.body.style.setProperty("--kvs-img-max-w", s.imageMaxWidth > 0 ? `${s.imageMaxWidth}px` : "100%");
       // Drive the highlight `<mark>` colours from the vault's active palette, so a dashboard highlight shows
-      // its real colour — Zotero's, or a custom override — and updates the moment the palette changes.
+      // its real colour — Zotero's, or a custom override — and updates the moment the palette changes. The
+      // hex feeds the inline marks; the RGB triple feeds the imported-annotation callouts' --callout-color.
       for (const c of effectivePalette(s.paletteOverride)) {
         document.body.style.setProperty(`--kvs-mark-${c.name}`, c.hex);
+        document.body.style.setProperty(`--kvs-mark-rgb-${c.name}`, c.rgb.join(", "));
       }
     };
     applyImageVars();

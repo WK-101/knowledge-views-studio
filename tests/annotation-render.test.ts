@@ -12,14 +12,33 @@ describe("annotation rendering", () => {
   it("renders a colour-mapped callout with a block id and deep link", () => {
     const md = renderAnnotationsMarkdown([hi({ comment: "key claim" })], { linkFor: () => "p.pdf#page=3" });
     expect(md).toContain("## Annotations");
-    expect(md).toContain("> [!quote] p.3 · yellow · PDF ^anno-");
+    expect(md).toContain("> [!kvs-mark-yellow] p.3 · yellow · PDF ^anno-");
     expect(md).toContain("> self-attention is all you need");
     expect(md).toContain("> **Note:** key claim");
     expect(md).toContain("> [Open ▸](p.pdf#page=3)");
   });
 
-  it("maps colour to callout type (blue → info)", () => {
-    expect(renderAnnotationsMarkdown([hi({ color: "#2e6cb0" })])).toContain("[!info]");
+  it("encodes the highlight colour in the callout type, for every palette colour", () => {
+    // The type is what the stylesheet recolours to the exact palette; each colour must map to its own type.
+    const cases: [string, string][] = [
+      ["#ffd400", "kvs-mark-yellow"],
+      ["#ff6666", "kvs-mark-red"],
+      ["#5fb236", "kvs-mark-green"],
+      ["#2ea8e5", "kvs-mark-blue"],
+      ["#a28ae5", "kvs-mark-purple"],
+      ["#e56eee", "kvs-mark-magenta"],
+      ["#f19837", "kvs-mark-orange"],
+      ["#aaaaaa", "kvs-mark-gray"],
+    ];
+    for (const [hex, type] of cases) {
+      expect(renderAnnotationsMarkdown([hi({ color: hex })])).toContain(`[!${type}]`);
+    }
+  });
+
+  it("still maps colour onto a semantic Obsidian callout type when a caller opts in via colorToCallout", () => {
+    const md = renderAnnotationsMarkdown([hi({ color: "#2ea8e5" })], { colorToCallout: { blue: "info" } });
+    expect(md).toContain("[!info]");
+    expect(md).not.toContain("[!kvs-mark-blue]");
   });
 
   it("shows a placeholder when there are no annotations", () => {

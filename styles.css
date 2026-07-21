@@ -3582,6 +3582,23 @@ mark[class*=" kvs-mark-"] {
   box-decoration-break: clone;
 }
 
+/* Imported-annotation callouts (Zotero / PDF), recoloured to the exact palette so they match the inline
+   highlights above. The accent comes from --kvs-mark-rgb-* (RGB triples the plugin sets from the active
+   palette, so a custom override recolours these callouts too); the value in each var() is the Zotero RGB
+   fallback, used until the plugin sets the variable. One highlighter icon for all — the colour carries the
+   meaning, and the callout's title still names the page, theme, and source. */
+.callout[data-callout^="kvs-mark-"] {
+  --callout-icon: lucide-highlighter;
+}
+.callout[data-callout="kvs-mark-yellow"]  { --callout-color: var(--kvs-mark-rgb-yellow,  255, 212, 0); }
+.callout[data-callout="kvs-mark-red"]     { --callout-color: var(--kvs-mark-rgb-red,     255, 102, 102); }
+.callout[data-callout="kvs-mark-green"]   { --callout-color: var(--kvs-mark-rgb-green,   95, 178, 54); }
+.callout[data-callout="kvs-mark-blue"]    { --callout-color: var(--kvs-mark-rgb-blue,    46, 168, 229); }
+.callout[data-callout="kvs-mark-purple"]  { --callout-color: var(--kvs-mark-rgb-purple,  162, 138, 229); }
+.callout[data-callout="kvs-mark-magenta"] { --callout-color: var(--kvs-mark-rgb-magenta, 229, 110, 238); }
+.callout[data-callout="kvs-mark-orange"]  { --callout-color: var(--kvs-mark-rgb-orange,  241, 152, 55); }
+.callout[data-callout="kvs-mark-gray"]    { --callout-color: var(--kvs-mark-rgb-gray,    170, 170, 170); }
+
 /* Instant highlight feedback overlay (bridges the save/reload) */
 .kvs-hl-flash-layer {
   position: fixed;

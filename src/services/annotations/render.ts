@@ -4,13 +4,18 @@ import { themeForColor } from "./themes";
 export const ANNOTATIONS_START = "%% kvs:annotations:start %%";
 export const ANNOTATIONS_END = "%% kvs:annotations:end %%";
 
-/** Default colour → Obsidian callout type. Configurable later; drives the visual + the "meaning". */
+/**
+ * Legacy colour → semantic Obsidian callout type. No longer the default — callouts now carry the highlight's
+ * palette colour directly (see renderAnnotation) — but kept so a caller can opt back into semantic types via
+ * RenderOptions.colorToCallout.
+ */
 export const DEFAULT_COLOR_CALLOUT: Readonly<Record<string, string>> = {
   yellow: "quote",
   blue: "info",
   green: "success",
   red: "warning",
   purple: "abstract",
+  magenta: "example",
   orange: "example",
   gray: "quote",
 };
@@ -47,7 +52,12 @@ function quote(text: string): string {
 /** Render one annotation as an Obsidian callout with colour mapping, a block id, and a deep link. */
 export function renderAnnotation(a: KvsAnnotation, options: RenderOptions = {}): string {
   const name = colorName(a.color);
-  const callout = (options.colorToCallout ?? DEFAULT_COLOR_CALLOUT)[name] ?? "quote";
+  // By default the callout type encodes the highlight's colour ("kvs-mark-green"), which the stylesheet
+  // recolours to the vault's exact palette colour — the same shade the inline highlights and the annotator
+  // use — so an imported Zotero/PDF highlight shows in its real colour rather than an approximating callout
+  // type (info-blue, warning-red…). A caller may still pass colorToCallout to map colours onto semantic
+  // Obsidian callout types instead.
+  const callout = options.colorToCallout ? (options.colorToCallout[name] ?? "quote") : `kvs-mark-${name}`;
   const label = (options.themeMap && themeForColor(name, options.themeMap)) || name;
   const block = `${options.blockPrefix ?? "anno"}-${a.id.slice(0, 8)}`;
   const loc = a.source === "docx" ? "" : DOC_SOURCES.has(a.source) && a.pageLabel && a.pageLabel.trim() !== "" ? a.pageLabel : `p.${a.page}`;
