@@ -5,6 +5,37 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 185 — copy-all / export (island redesign, part 7, last of the arc)
+
+Companion 0.8.0, extension-only. The last item on the island roadmap: take a whole page's highlights and
+sticky notes out at once — copy to the clipboard, or download a file — in a format rich enough to stand on
+its own, the way the KVS view export produces real documents rather than dumping raw text.
+
+Four formats, all built by a new pure module (`export-highlights.ts`), all from what's already loaded on the
+page (no round-trip):
+
+  - **Markdown** — and this is the one that matters: each highlight is rendered as the *same*
+    `> [!kvs-mark-{colour}]` coloured callout the plugin writes for imported annotations, with its meta line,
+    a stable `^anno-` block id, its note, and its tags. Paste an export straight into a vault and it lands as
+    native KVS-styled colour callouts, not flat quotes — the export round-trips back into Obsidian.
+  - **HTML** — a standalone, styled document (light/dark aware), each highlight a colour-tinted card, sticky
+    notes with their markdown bodies rendered (reusing `markdown-mini`). Openable, printable to PDF,
+    shareable.
+  - **CSV** — highlights and notes in one table, told apart by a Kind column, RFC-4180 quoting and CRLF
+    endings like the view's own CSV export, for a spreadsheet.
+  - **JSON** — the machine copy: source, timestamp, and every field each annotation carries, for re-import.
+
+Reached two ways: a new **Export all** island action (auto-appears in everyone's toolbar-actions list), and
+an **Export** button right in the highlights sidebar header — the natural home, since the sidebar already
+*is* the page's highlight list. Both open the same menu: per format, Copy (for the text formats) and
+Download. The menu names the counts ("Export 12 highlights · 3 notes") and, when the page has nothing yet,
+says so instead of producing an empty file. Everything the exporters do — the callout form, the HTML
+escaping and palette tinting, the CSV quoting, the slugified filename — is pure and unit-tested (8 new); the
+menu, the sidebar button, and the download plumbing are browser DOM, unverified until run.
+
+That completes the island redesign: configurable actions, appearance & behaviour, copy, search, sticky
+notes, per-site auto-actions, and now export.
+
 ## Phase 184 — per-site auto-actions (island redesign, part 6)
 
 Companion 0.7.0, extension-only (the plugin is untouched — every effect is client-side, over endpoints that

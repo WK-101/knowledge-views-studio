@@ -36,6 +36,18 @@ import {
 } from "../../shared/sticky";
 import { renderMarkdown } from "./lib/markdown-mini";
 import { matchAutoAction, normalizeSiteAutoActions, type SiteAutoAction } from "./lib/auto-actions";
+import {
+  FORMAT_FILE,
+  exportCsv,
+  exportHtml,
+  exportJson,
+  exportMarkdown,
+  slugify,
+  type ExportFormat,
+  type ExportHighlight,
+  type ExportStickyNote,
+  type PageExport,
+} from "./lib/export-highlights";
 
 /**
  * The annotator, on the page.
@@ -415,6 +427,7 @@ function ensureShell(): ShadowRoot {
     .col { display: flex; flex-direction: column; gap: 7px; }
     .row { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
     .row.end { justify-content: flex-end; }
+    .export-name { flex: 1 1 auto; font-weight: 600; min-width: 70px; }
   `;
   shadow.appendChild(style);
   document.documentElement.appendChild(shell);
@@ -707,6 +720,18 @@ function showToolbar(rect: DOMRect): void {
       });
       bar.appendChild(btn);
     },
+    export: () => {
+      const btn = document.createElement("button");
+      btn.className = "action";
+      btn.textContent = "⤓ all";
+      btn.title = "Copy or export every highlight and note on this page";
+      // Acts on the whole page, not the selection — but the toolbar is where it's reached from.
+      btn.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        showExportMenu(rect);
+      });
+      bar.appendChild(btn);
+    },
   };
 
   for (const action of islandActions) {
@@ -753,6 +778,137 @@ function showCopyMenu(rect: DOMRect, text: string): void {
     row.appendChild(button);
   }
   bar.appendChild(row);
+
+  placeNear(bar, rect);
+  root.appendChild(bar);
+}
+
+/** Gather the whole page's annotations — every painted highlight and every sticky note — for an export. */
+function collectPageExport(): PageExport {
+  const highlights: ExportHighlight[] = [...live.values()]
+    .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
+    .map((a) => ({
+      id: a.id,
+      color: a.color,
+      ...(a.style !== undefined ? { style: a.style } : {}),
+      ...(a.intensity !== undefined ? { intensity: a.intensity } : {}),
+      text: a.anchor.exact,
+      ...(a.note !== undefined ? { note: a.note } : {}),
+      ...(a.tags !== undefined && a.tags.length > 0 ? { tags: a.tags } : {}),
+      createdAt: a.createdAt,
+    }));
+  const notes: ExportStickyNote[] = [...stickies.values()]
+    .map((e) => e.note)
+    .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
+    .map((n) => ({ id: n.id, color: n.color, body: n.body, createdAt: n.createdAt }));
+  return {
+    meta: { title: document.title, url: location.href, exportedAt: new Date().toISOString() },
+    highlights,
+    notes,
+  };
+}
+
+/** Build the chosen format's text from the page's annotations. */
+function renderExport(format: ExportFormat, data: PageExport): string {
+  switch (format) {
+    case "markdown":
+      return exportMarkdown(data);
+    case "html":
+      return exportHtml(data, (name) => (name in PAINT ? PAINT[name as Color].solid : "#ffd400"));
+    case "csv":
+      return exportCsv(data);
+    case "json":
+      return exportJson(data);
+  }
+}
+
+/** Save a string to a file the browser downloads — the export's "download" half. */
+function downloadText(filename: string, mime: string, content: string): void {
+  const blob = new Blob([content], { type: `${mime};charset=utf-8` });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.documentElement.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+/**
+ * The export menu: copy or download the whole page's highlights and notes, in any of four rich formats.
+ * Markdown pastes into Obsidian as native KVS coloured callouts; HTML is a standalone document; CSV opens
+ * in a spreadsheet; JSON is the machine copy.
+ */
+function showExportMenu(rect: DOMRect): void {
+  const data = collectPageExport();
+  const total = data.highlights.length + data.notes.length;
+  const root = ensureShell();
+  clearUi();
+  const bar = document.createElement("div");
+  bar.className = "bar col";
+
+  if (total === 0) {
+    const empty = document.createElement("div");
+    empty.className = "menu-quote";
+    empty.textContent = "Nothing to export on this page yet.";
+    bar.appendChild(empty);
+    placeNear(bar, rect);
+    root.appendChild(bar);
+    return;
+  }
+
+  const heading = document.createElement("div");
+  heading.className = "menu-quote";
+  const hl = data.highlights.length;
+  const nt = data.notes.length;
+  heading.textContent = `Export ${String(hl)} highlight${hl === 1 ? "" : "s"}${nt > 0 ? ` · ${String(nt)} note${nt === 1 ? "" : "s"}` : ""}`;
+  bar.appendChild(heading);
+
+  const base = slugify(document.title);
+  const formats: { format: ExportFormat; label: string; canCopy: boolean }[] = [
+    { format: "markdown", label: "Markdown", canCopy: true },
+    { format: "html", label: "HTML", canCopy: false },
+    { format: "csv", label: "CSV", canCopy: true },
+    { format: "json", label: "JSON", canCopy: true },
+  ];
+  for (const entry of formats) {
+    const row = document.createElement("div");
+    row.className = "row";
+    const name = document.createElement("span");
+    name.className = "export-name";
+    name.textContent = entry.label;
+    row.appendChild(name);
+
+    if (entry.canCopy) {
+      const copy = document.createElement("button");
+      copy.className = "action";
+      copy.textContent = "Copy";
+      copy.title = `Copy as ${entry.label}`;
+      copy.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        const text = renderExport(entry.format, collectPageExport());
+        void navigator.clipboard.writeText(text).then(
+          () => toast(`Copied ${String(total)} item${total === 1 ? "" : "s"} as ${entry.label}.`),
+          () => toast("Couldn't copy to the clipboard."),
+        );
+      });
+      row.appendChild(copy);
+    }
+
+    const download = document.createElement("button");
+    download.className = "action";
+    download.textContent = "Download";
+    download.title = `Download as ${entry.label}`;
+    download.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      const file = FORMAT_FILE[entry.format];
+      downloadText(`${base}-highlights.${file.ext}`, file.mime, renderExport(entry.format, collectPageExport()));
+      toast(`Downloaded ${base}-highlights.${file.ext}.`);
+    });
+    row.appendChild(download);
+    bar.appendChild(row);
+  }
 
   placeNear(bar, rect);
   root.appendChild(bar);
@@ -1261,6 +1417,14 @@ function renderSidebar(): void {
   count.textContent = String(live.size);
   title.appendChild(count);
   header.appendChild(title);
+  // Export all — the sidebar is the page's highlight list, so "copy/export everything" belongs right here.
+  const exportBtn = document.createElement("button");
+  exportBtn.className = "kvs-sb-export";
+  exportBtn.type = "button";
+  exportBtn.title = "Copy or export all highlights and notes";
+  exportBtn.textContent = "Export";
+  exportBtn.addEventListener("click", () => showExportMenu(exportBtn.getBoundingClientRect()));
+  header.appendChild(exportBtn);
   const close = document.createElement("button");
   close.className = "kvs-sb-close";
   close.type = "button";
@@ -1450,6 +1614,11 @@ function sidebarStyles(): string {
       cursor: pointer; padding: 0 4px; border-radius: 6px;
     }
     .kvs-sb-close:hover { background: ${hover}; color: ${fg}; }
+    .kvs-sb-export {
+      border: 1px solid ${line}; background: transparent; color: ${muted}; cursor: pointer;
+      font: inherit; font-size: 11.5px; font-weight: 600; padding: 2px 9px; border-radius: 7px; margin-left: auto;
+    }
+    .kvs-sb-export:hover { background: ${hover}; color: ${fg}; }
     .kvs-sb-list { overflow-y: auto; padding: 6px; }
     .kvs-sb-list::-webkit-scrollbar { width: 8px; }
     .kvs-sb-list::-webkit-scrollbar-thumb { background: ${line}; border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }

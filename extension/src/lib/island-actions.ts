@@ -12,7 +12,7 @@
  */
 
 /** The actions the toolbar can offer. New ones are appended; ids are stable and stored, so don't rename. */
-export type IslandActionId = "colors" | "style" | "intensity" | "note" | "copy" | "search" | "sticky";
+export type IslandActionId = "colors" | "style" | "intensity" | "note" | "copy" | "search" | "sticky" | "export";
 
 export interface IslandActionMeta {
   readonly id: IslandActionId;
@@ -35,6 +35,7 @@ export const ISLAND_ACTIONS: readonly IslandActionMeta[] = [
   { id: "copy", label: "Copy", hint: "Copy the selection as a quote, a blockquote, or a link to the page." },
   { id: "search", label: "Search", hint: "Search the selection in your vault, or on the web engines you choose." },
   { id: "sticky", label: "Sticky note", hint: "Pin a draggable markdown note to the page, seeded with the selection." },
+  { id: "export", label: "Export all", hint: "Copy or export every highlight and note on the page — Markdown, HTML, CSV, or JSON." },
 ];
 
 /** One action's placement: whether it shows, and (by its position in the list) where. */
