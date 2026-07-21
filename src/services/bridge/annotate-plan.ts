@@ -3,6 +3,7 @@ import { getField } from "../../domain/fields";
 import { normalizeUrl } from "../../../shared/protocol";
 import {
   annotationCellText,
+  annotationNoteBlock,
   coerceAnnotation,
   type StoredAnnotation,
 } from "../../../shared/annotations";
@@ -67,4 +68,34 @@ export function cellWithoutAnnotation(cell: string, annotation: StoredAnnotation
   if (!parts.includes(line)) return null;
   const kept = parts.filter((part) => part !== line && part !== "");
   return kept.join("<br>");
+}
+
+/**
+ * A note with one annotation's blockquote removed.
+ *
+ * Same contract as the cell version: the block is matched whole — a blockquote someone has edited no longer
+ * matches and survives, because their writing outranks our bookkeeping. Null means the note doesn't contain
+ * the block and shouldn't be rewritten at all.
+ */
+export function noteWithoutAnnotation(content: string, annotation: StoredAnnotation): string | null {
+  const block = annotationNoteBlock(annotation);
+  // Matched on line boundaries, never as a substring: the block is a prefix of any hand-extended version
+  // of itself, and a substring match would carve our text out of the middle of theirs — mangling exactly
+  // the edit this function exists to protect.
+  let from = 0;
+  while (true) {
+    const at = content.indexOf(block, from);
+    if (at < 0) return null;
+    const startsLine = at === 0 || content[at - 1] === "\n";
+    const afterEnd = content.slice(at + block.length, at + block.length + 2);
+    const endsLine = afterEnd === "" || afterEnd.startsWith("\n") || afterEnd.startsWith("\r\n");
+    if (startsLine && endsLine) {
+      const before = content.slice(0, at);
+      // The block leaves with one of its surrounding blank lines, so removals don't accumulate gaps —
+      // and don't erase the gap that belongs to the neighbour either.
+      const after = content.slice(at + block.length).replace(/^(\r?\n){1,2}/, "");
+      return before + after;
+    }
+    from = at + 1;
+  }
 }

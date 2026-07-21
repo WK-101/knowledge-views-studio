@@ -698,6 +698,35 @@ describe("bridge · routes", () => {
     });
   });
 
+  describe("lookup matching the columns people actually have", () => {
+    it("finds a page whose row keeps its URL in a column called Link", async () => {
+      // The exact miss that kept a captured page reading "not in any of your views": lookup consulted
+      // only columns literally named url, while every other endpoint accepted Link and Source.
+      const linkColumns = [
+        { name: "Title", typeId: "text", role: "title" },
+        { name: "Link", typeId: "text" },
+      ];
+      const linkRow = {
+        cells: { Title: "T", Link: "https://www.x/a/?utm_source=mail" },
+        provenance: { filePath: "L.md", extractor: "table", locator: { row: 0 }, fingerprint: "f" },
+      };
+      const ctx = makeContext({
+        viewData: () => Promise.resolve({ rows: [linkRow] as never, columns: linkColumns }),
+      }).context as unknown as BridgeContext;
+      const router = new BridgeRouter<BridgeContext>().registerAll(defaultRoutes());
+      const res = await router.dispatch(
+        req({ method: "POST", path: "/lookup", body: { url: "https://x/a" } }),
+        settings(),
+        ctx,
+      );
+      // Both exposed fixture views share this dataset, and the full list is the contract — what matters
+      // here is that a Link-named column matches at all, on the url.
+      const body = res.body as { matches: { on: string }[] };
+      expect(body.matches.length).toBeGreaterThan(0);
+      expect(body.matches.every((m) => m.on === "url")).toBe(true);
+    });
+  });
+
   describe("deleting from the browser", () => {
     const routerWith = (): BridgeRouter<BridgeContext> =>
       new BridgeRouter<BridgeContext>().registerAll(defaultRoutes());
@@ -1191,3 +1220,4 @@ describe("bridge · ping and discovery", () => {
     expect(res.status).toBe(503);
   });
 })
+

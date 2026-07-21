@@ -142,6 +142,7 @@ function wrapSegment(node: Text, from: number, to: number, id: string, color: Co
   if (to < (node.nodeValue ?? "").length + from) target.splitText(to - from);
   const mark = document.createElement("mark");
   mark.setAttribute(HL_ATTR, id);
+  mark.title = "Click for options · Alt+click to remove";
   styleMark(mark, color, style);
   target.parentNode?.replaceChild(mark, target);
   mark.appendChild(target);
@@ -615,6 +616,9 @@ if (scope[marker] !== true) {
   document.addEventListener("mouseup", (event) => {
     // Our own UI must not retrigger or dismiss itself mid-click.
     if (shell !== null && event.composedPath().includes(shell)) return;
+    // Clicking a highlight is the click handler's business. The 10ms clear here used to race the menu that
+    // click was about to open — menu up, menu gone, reading as a flicker and a broken Remove.
+    if (event.target instanceof Element && event.target.closest(`[${HL_ATTR}]`) !== null) return;
     window.setTimeout(() => {
       const selection = window.getSelection();
       if (selection === null || selection.isCollapsed || selection.toString().trim() === "") {
@@ -634,6 +638,15 @@ if (scope[marker] !== true) {
     const id = mark.getAttribute(HL_ATTR);
     if (id === null) return;
     event.preventDefault();
+    // Alt+click: gone, no menu — the fastest honest delete there is. The menu's Remove stays for everyone
+    // who doesn't know the shortcut.
+    if (event.altKey) {
+      unpaint(id);
+      live.delete(id);
+      clearUi();
+      void removeAnnotation(id);
+      return;
+    }
     showHighlightMenu(id, mark.getBoundingClientRect());
   });
 

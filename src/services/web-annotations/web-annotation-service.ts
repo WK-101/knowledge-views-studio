@@ -9,6 +9,7 @@ import {
   type StoredAnnotation,
 } from "../../../shared/annotations";
 import { appendToNote } from "../capture/append-note";
+import { noteWithoutAnnotation } from "../bridge/annotate-plan";
 import { findDedicatedNote } from "../notes/dedicated-note";
 
 /**
@@ -118,6 +119,17 @@ export class WebAnnotationService {
       await this.persist();
     }
     return count;
+  }
+
+  /** Remove an annotation's blockquote from the page's dedicated note, matched whole. */
+  async removeFromDedicatedNote(url: string, annotation: StoredAnnotation): Promise<boolean> {
+    const note = findDedicatedNote(this.deps.app, "source", url);
+    if (note === null || !(note instanceof TFile)) return false;
+    const existing = await this.deps.app.vault.read(note);
+    const cleaned = noteWithoutAnnotation(existing, annotation);
+    if (cleaned === null) return false;
+    await this.deps.app.vault.modify(note, cleaned);
+    return true;
   }
 
   /**

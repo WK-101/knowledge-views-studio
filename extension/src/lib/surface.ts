@@ -13,6 +13,7 @@ import { hasPageAccess, requestPageAccess } from "./page-access";
 import { pluginIsCurrent, outdatedPluginMessage } from "./version";
 import { mountStatusCard } from "./status-card";
 import { prefillFor } from "./prefill";
+import { cached, remember, forget, statusKey, SCHEMA_KEY } from "./answer-cache";
 import { promote } from "./bridge-client";
 import { queueCapture } from "./queue-store";
 
@@ -252,7 +253,15 @@ async function start(): Promise<void> {
   }
 
   try {
-    schema = await fetchSchema(connection);
+    // Schema straight from cache when fresh — the view list changes rarely, and the settings page has an
+    // explicit refresh for when it does. This is most of the popup's opening wait.
+    const priorSchema = await cached<SchemaResponse>(SCHEMA_KEY);
+    if (priorSchema !== null && priorSchema.fresh) {
+      schema = priorSchema.value;
+    } else {
+      schema = await fetchSchema(connection);
+      void remember(SCHEMA_KEY, schema);
+    }
   } catch (error) {
     const message = error instanceof BridgeError ? error.message : "Couldn't reach your vault.";
     show(message, "error");
@@ -375,7 +384,7 @@ async function start(): Promise<void> {
           host: noteHost,
           view: () => current,
           setStatus: (message, kind) => show(message, kind),
-          onSaved: () => refreshStatusCard?.(),
+          onSaved: () => void forget([statusKey(snapshot?.url ?? "")]).then(() => refreshStatusCard?.()),
         });
       }
       (noteTab as HTMLElement | null)?.click();
@@ -464,7 +473,7 @@ async function start(): Promise<void> {
         host: noteHost,
         view: () => current,
         setStatus: (message, kind) => show(message, kind),
-        onSaved: () => refreshStatusCard?.(),
+        onSaved: () => void forget([statusKey(snapshot?.url ?? "")]).then(() => refreshStatusCard?.()),
       });
       // Jump straight there only when the view is meant for notes; otherwise it's an option, not the plan.
       if (prefersNote) (noteTab as HTMLElement | null)?.click();
@@ -563,14 +572,14 @@ async function submit(): Promise<void> {
     if (result.warning !== undefined) {
       show(result.warning, "error");
       button.disabled = false;
-      refreshStatusCard?.();
+      void forget([statusKey(snapshot?.url ?? "")]).then(() => refreshStatusCard?.());
       return;
     }
     const notes: string[] = ["Saved"];
     if (result.createdTable === true) notes.push("(created the table)");
     if (result.duplicate !== undefined) notes.push(`· also matched an existing row on ${result.duplicate.on}`);
     show(notes.join(" "), "ok");
-    refreshStatusCard?.();
+    void forget([statusKey(snapshot?.url ?? "")]).then(() => refreshStatusCard?.());
     if (mode === "popup") window.setTimeout(() => window.close(), 1200);
   } catch (error) {
     if (error instanceof BridgeError && error.offline) {

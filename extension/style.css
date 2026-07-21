@@ -366,3 +366,42 @@ body.options { max-width: 640px; }
 .mini { padding: 2px 8px; border-radius: 6px; font-size: 11px; line-height: 1.5; }
 #form .field { margin: 5px 0; }
 #status { min-height: 15px; }
+
+/* ---- The modern pass ----------------------------------------------------
+   Three root causes of "old": content wider than its box (horizontal scroll where none belongs), the
+   browser's default scrollbars (thick, dated), and inconsistent spacing. Fixed at the root, not per-spot:
+   every box sizes itself border-in, nothing may exceed the pane, and one scrollbar style everywhere. */
+*, *::before, *::after { box-sizing: border-box; }
+
+body.is-popup { overflow-x: hidden; }
+body.is-popup #panels, body.is-popup .panel { max-width: 100%; overflow-x: hidden; }
+#form input, #form textarea, #form select, .dest-row select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.status-card, .status-match, .result, .annot { max-width: 100%; min-width: 0; }
+.status-line, .result-head a { overflow-wrap: anywhere; }
+
+/* Thin, quiet scrollbars — visible when needed, chrome when not. */
+* { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--line); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
+*::-webkit-scrollbar-thumb:hover { background: var(--muted); border: 2px solid transparent; background-clip: content-box; }
+
+/* Focus that looks designed rather than defaulted. */
+input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-visible, .tab:focus-visible {
+  outline: 2px solid var(--accent, #7c5cff);
+  outline-offset: 1px;
+  border-radius: 6px;
+}
+
+/* Interactive things acknowledge the pointer. */
+button, .tab, .mini, .dest-btn, a.mini { transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease; }
+.status-match { transition: border-color 120ms ease; }
+.status-match:hover { border-color: var(--muted); }
+
+/* One vertical rhythm for the capture pane. */
+#tab-capture > * + * { margin-top: 8px; }
+#form { margin: 0; }

@@ -80,6 +80,7 @@ export interface BridgeContext {
     save(annotation: StoredAnnotation): Promise<void>;
     remove(url: string, id: string): Promise<StoredAnnotation | null>;
     removeAll(url: string): Promise<number>;
+    removeFromDedicatedNote?(url: string, annotation: StoredAnnotation): Promise<boolean>;
     appendToDedicatedNote(matchKey: string, matchValue: string, annotation: StoredAnnotation): Promise<boolean>;
   };
   /** Create or find a row's dedicated note. Absent when promotion isn't available. */
@@ -184,15 +185,21 @@ export function lookupRoute(): Route<BridgeContext> {
       for (const profile of exposedProfiles(context)) {
         if (wanted !== undefined && !wanted.includes(profile.id)) continue;
         const { rows, columns } = await context.viewData(profile);
-        const probe: Record<string, string> = {};
-        for (const column of columns) {
-          const name = column.name.toLowerCase().replace(/[\s_-]+/g, "");
-          if (url !== "" && (name === "url" || column.typeId === "url")) probe[column.name] = url;
-          if (doi !== "" && (name === "doi" || column.typeId === "doi")) probe[column.name] = doi;
+        // URL matching goes through the same matcher every other endpoint uses — one vocabulary
+        // (url-typed, or named url/link/source), one normalization. Lookup used to consult only columns
+        // literally named "url", so a view whose column was called Link answered "not captured" to a page
+        // whose row it was displaying — while the save path, using the wider vocabulary, saw nothing wrong.
+        // Two matchers with two vocabularies is how a page stays "not in any of your views" forever.
+        const urlRow = url !== "" ? rowForUrl(rows, columns, url) : null;
+        let hit: { row: Row; on: string } | null = urlRow !== null ? { row: urlRow, on: "url" } : null;
+        if (hit === null && doi !== "") {
+          const probe: Record<string, string> = {};
+          for (const column of columns) {
+            const name = column.name.toLowerCase().replace(/[\s_-]+/g, "");
+            if (name === "doi" || column.typeId === "doi") probe[column.name] = doi;
+          }
+          if (Object.keys(probe).length > 0) hit = findDuplicate(probe, columns, rows);
         }
-        if (Object.keys(probe).length === 0) continue;
-
-        const hit = findDuplicate(probe, columns, rows);
         if (hit !== null) {
           const titleColumn = columns.find((c) => c.role === "title") ?? columns[0];
           const linkColumn = noteLinkColumnName(
@@ -835,27 +842,36 @@ export function annotateRemoveRoute(): Route<BridgeContext> {
       const removed = await context.webAnnotations.remove(url, id);
       let removedFromCell = false;
 
-      const viewId = (body.viewId ?? "").trim();
-      if (removed !== null && viewId !== "" && context.editCells !== undefined) {
-        const profile = exposedProfiles(context).find((p) => p.id === viewId);
-        if (profile !== undefined) {
+      // The vault knows where the row is; the caller only guessed. The suggested view is tried first, then
+      // every exposed view — because a cell copy left behind after the highlight is gone reads as the
+      // deletion not working, and "the extension guessed the wrong view" is our problem, not the person's.
+      if (removed !== null && context.editCells !== undefined) {
+        const suggested = (body.viewId ?? "").trim();
+        const ordered = [...exposedProfiles(context)].sort((a, b) =>
+          a.id === suggested ? -1 : b.id === suggested ? 1 : 0,
+        );
+        for (const profile of ordered) {
           const { rows, columns } = await context.viewData(profile);
           const target = rowForUrl(rows, columns, url);
           const column = target !== null ? annotationColumn(columns) : null;
-          if (target !== null && column !== null) {
-            const cleaned = cellWithoutAnnotation(getField(target, column), removed);
-            if (cleaned !== null) {
-              const { allowed } = editableChanges(target, [{ key: column, value: cleaned }], columns);
-              if (allowed.length > 0) {
-                await context.editCells(
-                  allowed.map((c) => ({ provenance: target.provenance, column: c.column, value: c.value })),
-                );
-                context.onCaptured(target.provenance.filePath);
-                removedFromCell = true;
-              }
-            }
+          if (target === null || column === null) continue;
+          const cleaned = cellWithoutAnnotation(getField(target, column), removed);
+          if (cleaned === null) continue;
+          const { allowed } = editableChanges(target, [{ key: column, value: cleaned }], columns);
+          if (allowed.length > 0) {
+            await context.editCells(
+              allowed.map((c) => ({ provenance: target.provenance, column: c.column, value: c.value })),
+            );
+            context.onCaptured(target.provenance.filePath);
+            removedFromCell = true;
+            break;
           }
         }
+      }
+
+      // The note copy goes the same way, matched whole so an edited blockquote survives.
+      if (removed !== null && context.webAnnotations.removeFromDedicatedNote !== undefined) {
+        await context.webAnnotations.removeFromDedicatedNote(url, removed);
       }
 
       const response: AnnotationRemoveResponse = {

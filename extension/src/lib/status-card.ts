@@ -1,5 +1,6 @@
 import type { LookupResponse, SchemaResponse } from "../../../shared/protocol";
 import { loadPreferences } from "./preferences";
+import { cached, remember, forget, statusKey } from "./answer-cache";
 import { zoteroSave, type ZoteroSaveItem } from "./zotero-client";
 import {
   annotationsClear,
@@ -77,15 +78,37 @@ export async function mountStatusCard(
   const card = el("div", { class: "status-card" });
   host.appendChild(card);
 
-  let found: LookupResponse = { matches: [] };
-  let highlightCount = 0;
-  try {
-    const connection = await loadConnection();
-    found = await lookup(connection, { url });
-    highlightCount = (await annotationsFor(connection, { url })).annotations.length;
-  } catch {
-    card.appendChild(el("p", { class: "hint" }, "Couldn't check this page against your vault."));
-    return;
+  // The last known answer paints immediately; the fresh one replaces it when it arrives. Asking the vault
+  // three questions from scratch on every open — seconds apart, same unchanged page — was the whole of
+  // "the popup starts very slow".
+  type StatusBundle = { found: LookupResponse; highlightCount: number };
+  const key = statusKey(url);
+  const prior = await cached<StatusBundle>(key);
+
+  let found: LookupResponse = prior?.value.found ?? { matches: [] };
+  let highlightCount = prior?.value.highlightCount ?? 0;
+
+  if (prior === null || !prior.fresh) {
+    try {
+      const connection = await loadConnection();
+      found = await lookup(connection, { url });
+      highlightCount = (await annotationsFor(connection, { url })).annotations.length;
+      void remember(key, { found, highlightCount } satisfies StatusBundle);
+      if (prior !== null) {
+        // Painted stale, learned fresh: redraw with the truth rather than leaving the old answer up.
+        const changed = JSON.stringify(prior.value) !== JSON.stringify({ found, highlightCount });
+        if (changed) {
+          void forget([statusKey(url)]).then(() => actions.refresh());
+          return;
+        }
+      }
+    } catch {
+      if (prior === null) {
+        card.appendChild(el("p", { class: "hint" }, "Couldn't check this page against your vault."));
+        return;
+      }
+      // The stale answer stands; the vault being briefly unreachable shouldn't blank a card that knows.
+    }
   }
 
   // ---- Presence -----------------------------------------------------------
@@ -129,7 +152,7 @@ export async function mountStatusCard(
           } catch (error) {
             actions.setStatus(error instanceof Error ? error.message : "Couldn't delete that row.", "error");
           }
-          actions.refresh();
+          void forget([statusKey(url)]).then(() => actions.refresh());
         }),
       );
 
@@ -163,7 +186,7 @@ export async function mountStatusCard(
         } catch (error) {
           actions.setStatus(error instanceof Error ? error.message : "Couldn't delete the note.", "error");
         }
-        actions.refresh();
+        void forget([statusKey(url)]).then(() => actions.refresh());
       }),
     );
     entry.appendChild(buttons);
@@ -196,7 +219,7 @@ export async function mountStatusCard(
         } catch (error) {
           actions.setStatus(error instanceof Error ? error.message : "Couldn't remove the highlights.", "error");
         }
-        actions.refresh();
+        void forget([statusKey(url)]).then(() => actions.refresh());
       }),
     );
     entry.appendChild(buttons);

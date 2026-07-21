@@ -5,6 +5,41 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 167 — one matcher, one cache, and a menu that stops flickering
+
+**"Not in any of your views", found for real this time.** Lookup consulted only columns literally named
+`url` (or url-typed) — a view keeping its links in a column called `Link` or `Source` was never probed, so
+the card said "not captured" about a page whose row the view was displaying. Meanwhile the save-path check
+used the wider vocabulary and saw nothing wrong, which is why the save reported success while the card kept
+shrugging: two matchers, two vocabularies. There is now one — lookup goes through the same URL matcher as
+every other endpoint. (And to the question asked: matching uses the whole normalized URL — scheme, `www.`,
+trailing slash, and tracking parameters stripped; path and meaningful query kept — never just the domain.)
+
+**The popup opens fast because it stops re-asking.** Every open asked the vault three questions from scratch
+— schema, lookup, annotations — seconds apart, on the same unchanged page. Now the last known answer paints
+immediately and the fresh one replaces it when it differs; every write (capture, delete, highlight, note)
+invalidates the page's entry, because a cache that survives its own change lies. Schema is cached the same
+way — it changes rarely, and settings has an explicit refresh for when it does.
+
+**The highlight menu stops vanishing.** Clicking a highlight fired two handlers: the click opened the menu,
+and the mouseup's clear — ten milliseconds later — erased it. Menu up, menu gone: the flicker, and the
+"flimsy Remove". Mouseups on highlights now belong to the click handler alone. And **Alt+click removes a
+highlight instantly** — no menu, the fastest honest delete there is; each mark's tooltip says so.
+
+**Deleting a highlight now cleans everything it wrote.** The row-cell cleanup depended on the extension
+guessing the right view; a wrong guess left the cell line behind, reading as the deletion not working. The
+vault now checks the suggested view first, then every exposed view — it knows where the row is; the caller
+only guessed. And the dedicated note's blockquote goes too, matched on whole line boundaries: a blockquote
+someone edited no longer matches and survives, because a substring match would carve our text out of the
+middle of theirs — mangling exactly the edit the rule exists to protect.
+
+**And the popup looks like it was designed this decade.** Border-box sizing everywhere, nothing may exceed
+the pane (the horizontal scroll in capture is gone at the root, not patched per element), thin quiet
+scrollbars, designed focus rings, pointer transitions, one vertical rhythm.
+
+1339 tests (was 1335): the Link-column lookup case; note-block removal closing the gap, sparing edited
+blockquotes (the prefix-match trap), and refusing to rewrite a note that doesn't contain the block.
+
 ## Phase 166 — one line to add, forms that fill themselves, and the row that could never be recognised
 
 **The destination is one line now.** Under the status card: the view picker at seventy percent, `+ Row` and

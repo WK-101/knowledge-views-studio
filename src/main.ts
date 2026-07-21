@@ -305,6 +305,8 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
             save: (annotation: StoredAnnotation) => service.save(annotation),
             remove: (url: string, id: string) => service.remove(url, id),
             removeAll: (url: string) => service.removeAll(url),
+            removeFromDedicatedNote: (url: string, annotation: StoredAnnotation) =>
+              service.removeFromDedicatedNote(url, annotation),
             appendToDedicatedNote: (matchKey: string, matchValue: string, annotation: StoredAnnotation) =>
               service.appendToDedicatedNote(matchKey, matchValue, annotation),
           };

@@ -3,6 +3,7 @@ import { BridgeError, annotate, annotateRemove, annotationsFor, capture, fetchSc
 import { loadPreferences } from "./lib/preferences";
 import { matchRule } from "../../shared/rules";
 import { hasPageAccess, registerAnnotator } from "./lib/page-access";
+import { forget, statusKey } from "./lib/answer-cache";
 import { api } from "./lib/bridge-client";
 import { dropFromQueue, pruneQueue, readQueue, recordFailure } from "./lib/queue-store";
 import { hasSearchAccess, registerSearchScript } from "./lib/serp-permission";
@@ -300,6 +301,7 @@ runtimeMessaging?.onMessage.addListener((message, _sender, sendResponse) => {
       if (request.type === "kvs-annotate-remove") {
         const viewId = await viewForAnnotation(url);
         await annotateRemove(connection, { url, id: String(request.id ?? ""), ...(viewId !== null ? { viewId } : {}) });
+        void forget([statusKey(url)]);
         sendResponse({ ok: true });
         return;
       }
@@ -318,6 +320,7 @@ runtimeMessaging?.onMessage.addListener((message, _sender, sendResponse) => {
         annotation: request.annotation as never,
         fields,
       });
+      if (result.ok) void forget([statusKey(url)]);
       sendResponse({ ok: result.ok, ...(result.reason !== undefined ? { reason: result.reason } : {}) });
     } catch (error) {
       // The reason is the difference between a fixable setting and a mystery; it must reach the page.

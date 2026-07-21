@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  noteWithoutAnnotation,
   annotationColumn,
   rowForUrl,
   readWireAnnotation,
@@ -95,3 +96,22 @@ describe("annotate · removing a line from a cell", () => {
     expect(cellWithoutAnnotation("==quoted words== — my thought<br>==keep==", withNote)).toBe("==keep==");
   });
 });
+
+describe("annotate · removing a blockquote from the note", () => {
+  const withNote = ann({ note: "my thought" });
+
+  it("removes exactly the block it wrote and closes the gap", () => {
+    const content = "# T\n\n## Annotations\n\n> quoted words\n>\n> — my thought\n\n> another one\n";
+    const cleaned = noteWithoutAnnotation(content, withNote);
+    expect(cleaned).toBe("# T\n\n## Annotations\n\n> another one\n");
+  });
+
+  it("leaves an edited blockquote alone — their writing outranks our bookkeeping", () => {
+    const content = "## Annotations\n\n> quoted words, but rephrased by hand\n";
+    expect(noteWithoutAnnotation(content, ann())).toBeNull();
+  });
+
+  it("returns null when the block isn't there, so the note isn't rewritten for nothing", () => {
+    expect(noteWithoutAnnotation("## Annotations\n\n> something else\n", ann())).toBeNull();
+  });
+})
