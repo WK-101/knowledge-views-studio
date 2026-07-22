@@ -2,6 +2,7 @@ import { DEFAULT_THEME_SPEC } from "../annotations/themes";
 import { ZOTERO_PALETTE, type PaletteOverride } from "../../../shared/annotations";
 import type { CaptureTarget } from "../capture/types";
 import { STARTER_TEMPLATES, type NoteTemplate } from "../../../shared/note-templates";
+import type { TemplateRule } from "../../../shared/site-templates";
 import { DEFAULT_BRIDGE_SETTINGS, type BridgeSettings } from "../bridge/types";
 import { DEFAULT_RELEVANCE, type RelevanceWeights } from "../search/relevance";
 import type { ColumnMatchMode, RowMerge } from "../../domain/index";
@@ -276,9 +277,11 @@ export interface GlobalSettings {
   readonly literatureNotesFolder: string;
   /** Custom literature-note template with {{placeholders}}; empty means the built-in default. */
   readonly literatureNoteTemplate: string;
-  /** The reusable named note-template library. Views (and, later, per-site rules) reference these by id;
+  /** The reusable named note-template library. Views (and per-site rules) reference these by id;
    *  seeded from the starter gallery so it's never an empty blank. */
   readonly noteTemplates: readonly NoteTemplate[];
+  /** Per-site rules picking a note template by host (most-specific wins). Empty = no auto-selection. */
+  readonly noteTemplateRules: readonly TemplateRule[];
   /** Whether the first-run welcome has been shown (so it appears only once). */
   readonly onboardingSeen: boolean;
   /** Where highlight notes and tags are written back into the vault (notes and tags configured separately). */
@@ -342,6 +345,7 @@ export const DEFAULT_SETTINGS: GlobalSettings = {
   literatureNotesFolder: "Literature",
   literatureNoteTemplate: "",
   noteTemplates: STARTER_TEMPLATES,
+  noteTemplateRules: [],
   onboardingSeen: false,
   annotationWriteback: DEFAULT_ANNOTATION_WRITEBACK,
   paletteOverride: DEFAULT_PALETTE_OVERRIDE,

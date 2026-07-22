@@ -9,6 +9,7 @@ import { findDedicatedNote } from "../notes/dedicated-note";
 import { noteLinkColumnName } from "../../views/promoted-detect";
 import { periodicNotePath } from "./periodic";
 import { findNoteTemplate, type NoteTemplate } from "../../../shared/note-templates";
+import { matchTemplateRule, type TemplateRule } from "../../../shared/site-templates";
 import type {
   CaptureColumn,
   CapturePayload,
@@ -131,19 +132,33 @@ export function safeFileName(raw: string, fallback = "Captured"): string {
 
 export class CaptureService {
   /**
-   * `templates` is an optional live view of the named-template library (GlobalSettings.noteTemplates). It's
-   * a getter, not a snapshot, so it always reflects the current settings; row-only callers can omit it.
+   * `templates` / `siteRules` are optional live views of the named-template library and the per-site
+   * template rules (GlobalSettings). Getters, not snapshots, so they always reflect current settings;
+   * row-only callers can omit both.
    */
   constructor(
     private readonly app: App,
     private readonly templates?: () => readonly NoteTemplate[],
+    private readonly siteRules?: () => readonly TemplateRule[],
   ) {}
 
-  /** Resolve a note-shaped target's template: a named library template (by id) wins over the inline one. */
-  private resolveNoteTemplate(target: CaptureTarget): { body: string; filename: string } {
+  /**
+   * Resolve a note-shaped target's template.
+   *
+   * A per-site rule matching the captured URL selects the template automatically, overriding the view's
+   * default `noteTemplateId`; with no match, the view's default applies. Either way a named library template
+   * wins over the inline `noteTemplate`, and (in `commitNote`) a caller-supplied template still wins over all
+   * of it.
+   */
+  private resolveNoteTemplate(target: CaptureTarget, url?: string): { body: string; filename: string } {
+    const bySite =
+      url !== undefined && url !== "" && this.siteRules !== undefined
+        ? matchTemplateRule(this.siteRules(), url)?.templateId
+        : undefined;
+    const templateId = bySite !== undefined && bySite !== "" ? bySite : target.noteTemplateId;
     const named =
-      target.noteTemplateId !== undefined && target.noteTemplateId !== "" && this.templates !== undefined
-        ? findNoteTemplate(this.templates(), target.noteTemplateId)
+      templateId !== undefined && templateId !== "" && this.templates !== undefined
+        ? findNoteTemplate(this.templates(), templateId)
         : null;
     return {
       body: named !== null && named.body.trim() !== "" ? named.body : target.noteTemplate ?? "",
@@ -344,9 +359,9 @@ export class CaptureService {
     if (payload.url !== undefined && variables["url"] === undefined) variables["url"] = payload.url;
     if (variables["date"] === undefined) variables["date"] = new Date().toISOString();
 
-    // A named library template (target.noteTemplateId) resolves to a body/filename; a template sent by the
-    // caller (the companion's edited preview) still wins over it.
-    const resolved = this.resolveNoteTemplate(target);
+    // A per-site rule (by URL) or the view's default selects a named library template; a template sent by
+    // the caller (the companion's edited preview) still wins over it.
+    const resolved = this.resolveNoteTemplate(target, payload.url);
     const template = note?.template ?? resolved.body;
     const content =
       template.trim() === ""

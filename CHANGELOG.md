@@ -5,6 +5,38 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 192 — per-site template selection (redesign Phase D, part 2)
+
+Plugin 0.183.0. The library from Phase 191 gains automatic selection: a captured page's host picks the
+template, so a clip from arXiv becomes an "Academic paper" note and a clip from YouTube a "YouTube video"
+one without anyone choosing. No companion or bridge change — the matching happens plugin-side against the
+URL the capture already carries, so an existing companion benefits with no update.
+
+**Reuse the machinery, not a copy of it.** KVS already matches sites the same way for *which view* a capture
+lands in (`shared/rules.ts`: `hostOf`, most-specific-host-wins). Rather than couple template selection to
+that (a site's view and its note shape are genuinely separate choices — you might route every research site
+to one Library view but want arXiv and PubMed shaped differently), this adds a parallel, independent layer
+in a new `shared/site-templates.ts`: `TemplateRule{host, templateId}`, with `coerceTemplateRule` /
+`normalizeTemplateRules` and a `matchTemplateRule` that shares the exact tie-break — the longer host wins, so
+`scholar.google.com` can differ from `google.com`, and order in the list never matters.
+
+**Resolution.** The rules live in `GlobalSettings.noteTemplateRules` (migrated in; default empty = no
+auto-selection). `CaptureService` takes a second optional live provider alongside the library; `commitNote`
+now resolves the template as: a caller-supplied template (the companion's edited preview) → a per-site rule
+matched against the capture's URL → the view's own default `noteTemplateId` → the view's inline template →
+the built-in default. A matching site rule overrides the view's default, which is the whole point of
+"automatic"; row capture is untouched (the providers are only consulted for note-shaped captures).
+
+**Settings.** The Note-templates section gains a "Per-site templates" block under the library: each rule is
+a host field plus a dropdown of your templates, with add/delete, and a note that the most specific host
+wins and everything else falls back to the view's own template.
+
+7 new unit tests (`tests/site-templates.test.ts`) cover coercion, host de-duplication, subdomain matching,
+and the most-specific-wins tie-break. The settings DOM and the live capture path are Obsidian-only (eyeball:
+add a rule `arxiv.org → Academic paper`, capture a note from an arXiv page into a note-shaped view, and
+confirm the note uses that template). **Next in this arc:** editable frontmatter/properties preview in the
+companion popup (D3), then extended `{{meta:…}}` / `{{selector:…}}` / `{{schema:…}}` variables (D4).
+
 ## Phase 191 — a reusable note-template library (redesign Phase D, part 1)
 
 Plugin 0.182.0. The first slice of the note-authoring arc: templates stop being a single string buried in

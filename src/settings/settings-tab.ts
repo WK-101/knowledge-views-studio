@@ -26,6 +26,7 @@ import { hasUsableTarget, suggestCaptureTarget } from "../services/capture/sugge
 import { buildConnectionLink } from "../../shared/protocol";
 import { ZOTERO_PALETTE } from "../../shared/annotations";
 import { STARTER_TEMPLATES, type NoteTemplate } from "../../shared/note-templates";
+import type { TemplateRule } from "../../shared/site-templates";
 import { LocalIndexBackend, VaultIndexBackend } from "../workspace/index-backend";
 import type { ViewRegistry } from "../views/index";
 import { ProfileEditorModal } from "./profile-editor-modal";
@@ -325,6 +326,59 @@ export class KnowledgeViewsSettingTab extends PluginSettingTab {
         text: "Available: {{title}} {{url}} {{domain}} {{author}} {{published}} {{description}} {{content}} {{selection}} {{date}} {{image}} {{tags}} · filters: |upper |lower |truncate:N |date:\"YYYY-MM-DD\" |safe_name |list |tags |yaml |wikilink |blockquote |plain |slug",
       });
     }
+
+    this.renderTemplateRules(el, templates);
+  }
+
+  /** Per-site rules: pick a template automatically by the captured page's host (most-specific wins). */
+  private renderTemplateRules(el: HTMLElement, templates: readonly NoteTemplate[]): void {
+    const { store } = this.deps;
+    const rules = store.getSettings().noteTemplateRules;
+    const saveRules = (next: readonly TemplateRule[]): void =>
+      store.updateSettings({ noteTemplateRules: next });
+    const replaceRule = (index: number, patch: Partial<TemplateRule>): void =>
+      saveRules(rules.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+
+    new Setting(el)
+      .setName("Per-site templates")
+      .setHeading()
+      .setDesc("Choose a template automatically by the page's host — a capture from that site uses it without picking. The most specific host wins; captures from anywhere else use the view's own template.");
+
+    if (templates.length === 0) {
+      el.createDiv({ cls: "kvs-setting-note", text: "Add a template above first, then you can route sites to it." });
+      return;
+    }
+
+    rules.forEach((rule, index) => {
+      const row = new Setting(el).setName(`Rule ${String(index + 1)}`);
+
+      const hostInput = row.controlEl.createEl("input", { type: "text" });
+      hostInput.placeholder = "e.g. arxiv.org";
+      hostInput.value = rule.host;
+      hostInput.addEventListener("change", () => replaceRule(index, { host: hostInput.value.trim() }));
+
+      const select = row.controlEl.createEl("select", { cls: "dropdown" });
+      for (const t of templates) select.createEl("option", { value: t.id, text: t.name });
+      select.value = rule.templateId;
+      select.addEventListener("change", () => replaceRule(index, { templateId: select.value }));
+
+      row.addExtraButton((b) =>
+        b
+          .setIcon("trash-2")
+          .setTooltip("Delete this rule")
+          .onClick(() => {
+            saveRules(rules.filter((_, i) => i !== index));
+            this.renderBody();
+          }),
+      );
+    });
+
+    new Setting(el).addButton((b) =>
+      b.setButtonText("Add a site rule").onClick(() => {
+        saveRules([...rules, { host: "", templateId: templates[0]!.id }]);
+        this.renderBody();
+      }),
+    );
   }
 
   private renderGeneral(el: HTMLElement): void {

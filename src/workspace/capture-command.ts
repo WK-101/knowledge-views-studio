@@ -120,7 +120,11 @@ export async function captureFromClipboard(deps: CaptureCommandDeps): Promise<vo
       }
 
       const duplicate = findDuplicate(values, columns, result.rows);
-      const service = new CaptureService(app, () => store.getSettings().noteTemplates);
+      const service = new CaptureService(
+        app,
+        () => store.getSettings().noteTemplates,
+        () => store.getSettings().noteTemplateRules,
+      );
       const written = await service.commit(target, values, columns, payload);
       if (!written.ok) {
         new Notice(`Couldn't capture: ${written.reason ?? "unknown error"}`);

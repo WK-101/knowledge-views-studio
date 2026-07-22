@@ -21,6 +21,7 @@ import {
 import { normalizeWeights } from "../search/relevance";
 import { ZOTERO_PALETTE, hexToRgb255, type PaletteOverride } from "../../../shared/annotations";
 import { normalizeNoteTemplates } from "../../../shared/note-templates";
+import { normalizeTemplateRules } from "../../../shared/site-templates";
 
 export interface MigrationOutcome {
   readonly data: PluginData;
@@ -268,6 +269,7 @@ function normalizeSettings(raw: unknown): GlobalSettings {
     // emptied library stays empty).
     noteTemplates:
       raw.noteTemplates === undefined ? DEFAULT_SETTINGS.noteTemplates : normalizeNoteTemplates(raw.noteTemplates),
+    noteTemplateRules: normalizeTemplateRules(raw.noteTemplateRules),
     onboardingSeen: asBool(raw.onboardingSeen, DEFAULT_SETTINGS.onboardingSeen),
     annotationWriteback: normalizeWriteback(raw.annotationWriteback),
     paletteOverride: normalizePaletteOverride(raw.paletteOverride),
