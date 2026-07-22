@@ -8,6 +8,7 @@ import { appendToNote, capturedAppendBlock } from "./append-note";
 import { findDedicatedNote } from "../notes/dedicated-note";
 import { noteLinkColumnName } from "../../views/promoted-detect";
 import { periodicNotePath } from "./periodic";
+import { findNoteTemplate, type NoteTemplate } from "../../../shared/note-templates";
 import type {
   CaptureColumn,
   CapturePayload,
@@ -129,7 +130,29 @@ export function safeFileName(raw: string, fallback = "Captured"): string {
 }
 
 export class CaptureService {
-  constructor(private readonly app: App) {}
+  /**
+   * `templates` is an optional live view of the named-template library (GlobalSettings.noteTemplates). It's
+   * a getter, not a snapshot, so it always reflects the current settings; row-only callers can omit it.
+   */
+  constructor(
+    private readonly app: App,
+    private readonly templates?: () => readonly NoteTemplate[],
+  ) {}
+
+  /** Resolve a note-shaped target's template: a named library template (by id) wins over the inline one. */
+  private resolveNoteTemplate(target: CaptureTarget): { body: string; filename: string } {
+    const named =
+      target.noteTemplateId !== undefined && target.noteTemplateId !== "" && this.templates !== undefined
+        ? findNoteTemplate(this.templates(), target.noteTemplateId)
+        : null;
+    return {
+      body: named !== null && named.body.trim() !== "" ? named.body : target.noteTemplate ?? "",
+      filename:
+        target.fileNameTemplate !== undefined && target.fileNameTemplate.trim() !== ""
+          ? target.fileNameTemplate
+          : named?.filename ?? "",
+    };
+  }
 
   /**
    * Commit a prepared set of values to a view's capture target.
@@ -321,7 +344,10 @@ export class CaptureService {
     if (payload.url !== undefined && variables["url"] === undefined) variables["url"] = payload.url;
     if (variables["date"] === undefined) variables["date"] = new Date().toISOString();
 
-    const template = note?.template ?? target.noteTemplate ?? "";
+    // A named library template (target.noteTemplateId) resolves to a body/filename; a template sent by the
+    // caller (the companion's edited preview) still wins over it.
+    const resolved = this.resolveNoteTemplate(target);
+    const template = note?.template ?? resolved.body;
     const content =
       template.trim() === ""
         ? buildCapturedNote(values, {
@@ -332,10 +358,7 @@ export class CaptureService {
 
     // A name sent by the caller wins: they showed it to the person before saving.
     const fromCaller = (note?.fileName ?? "").trim();
-    const fromTemplate =
-      target.fileNameTemplate !== undefined && target.fileNameTemplate.trim() !== ""
-        ? renderTemplate(target.fileNameTemplate, variables)
-        : "";
+    const fromTemplate = resolved.filename.trim() !== "" ? renderTemplate(resolved.filename, variables) : "";
     const titleKey = Object.keys(values).find((k) => k.toLowerCase() === "title");
     const base = templateSafeName(
       fromCaller !== "" ? fromCaller : fromTemplate !== "" ? fromTemplate : (titleKey ? values[titleKey] ?? "" : ""),

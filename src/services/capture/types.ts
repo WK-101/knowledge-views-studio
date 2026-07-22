@@ -52,6 +52,11 @@ export interface CaptureTarget {
   /** shape "note": folder for captured notes. Empty = vault root. */
   readonly folder?: string;
   /**
+   * shape "note": id of a named template from the library (GlobalSettings.noteTemplates). When set and
+   * found, its body/filename are used; the inline `noteTemplate` below acts as the fallback/override.
+   */
+  readonly noteTemplateId?: string;
+  /**
    * shape "note": how the note is written. Uses the shared template syntax, which follows Obsidian Web
    * Clipper's, so a template written for that tool works here. Empty = a sensible default.
    */

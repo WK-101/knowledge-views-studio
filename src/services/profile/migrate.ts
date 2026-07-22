@@ -20,6 +20,7 @@ import {
 } from "./profile";
 import { normalizeWeights } from "../search/relevance";
 import { ZOTERO_PALETTE, hexToRgb255, type PaletteOverride } from "../../../shared/annotations";
+import { normalizeNoteTemplates } from "../../../shared/note-templates";
 
 export interface MigrationOutcome {
   readonly data: PluginData;
@@ -263,6 +264,10 @@ function normalizeSettings(raw: unknown): GlobalSettings {
     indexZotero: asBool(raw.indexZotero, DEFAULT_SETTINGS.indexZotero),
     literatureNotesFolder: asString(raw.literatureNotesFolder, DEFAULT_SETTINGS.literatureNotesFolder),
     literatureNoteTemplate: asString(raw.literatureNoteTemplate, DEFAULT_SETTINGS.literatureNoteTemplate),
+    // Absent (older data) = seed the starter gallery; present = coerce what's there (an intentionally
+    // emptied library stays empty).
+    noteTemplates:
+      raw.noteTemplates === undefined ? DEFAULT_SETTINGS.noteTemplates : normalizeNoteTemplates(raw.noteTemplates),
     onboardingSeen: asBool(raw.onboardingSeen, DEFAULT_SETTINGS.onboardingSeen),
     annotationWriteback: normalizeWriteback(raw.annotationWriteback),
     paletteOverride: normalizePaletteOverride(raw.paletteOverride),

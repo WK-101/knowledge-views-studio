@@ -5,6 +5,46 @@ each change, including the mistakes, because a changelog that only records what 
 
 For what the plugin does, see the [README](README.md).
 
+## Phase 191 — a reusable note-template library (redesign Phase D, part 1)
+
+Plugin 0.182.0. The first slice of the note-authoring arc: templates stop being a single string buried in
+one view and become a named, reusable library with a starter gallery. No companion or bridge change —
+`REQUIRED_PLUGIN_VERSION` is untouched (the resolution happens plugin-side, so an existing companion keeps
+working unchanged).
+
+**The problem.** A capture that writes a *note* took its template from a raw textarea on the view
+(`captureTarget.noteTemplate`). Fine for one view, but it couldn't be named, shared, or picked from — every
+view started at a blank box, and "the Academic paper layout" lived in exactly one place. The competitive
+teardown flagged this: WuCai's lesson is that novices want a starting point, not a syntax reference, and
+Web Clipper's is that templates should be first-class objects you point at.
+
+**Templates are now first-class.** A new shared module `shared/note-templates.ts` defines `NoteTemplate`
+(id, name, body, optional filename + description), a `STARTER_TEMPLATES` gallery (Article, Academic paper,
+Recipe, YouTube, Bookmark — each using only variables that resolve today and filters that exist, so pasting
+one and saving Just Works), and pure `coerceNoteTemplate` / `normalizeNoteTemplates` / `findNoteTemplate`
+helpers. The library lives in `GlobalSettings.noteTemplates`, seeded from the gallery; migration backfills
+the starters for existing vaults (absent = seed; a deliberately-emptied library stays empty).
+
+**Resolution reuses the existing engine.** A named template is just a stored body/filename fed to the same
+`shared/template.ts` renderer an inline one uses, so nothing about variables or filters changed. A view's
+`captureTarget` gains `noteTemplateId`; `CaptureService` takes an optional live view of the library and
+resolves it in `commitNote` — a named template wins over the inline one, and a template edited in the
+companion's preview (`payload.note.template`) still wins over both. Row capture is untouched (the provider
+is only consulted for note-shaped captures).
+
+**Two UI touch-points.** A new **Note templates** section in Settings (its own nav-rail entry) manages the
+library — edit name / description / filename / body in place, delete, add a blank, or restore a deleted
+starter from a menu. A view's **Capture → Template** picker then chooses a library template by name or falls
+back to "Custom (write below)" for a one-off inline template, hiding the inline editor when a named one is
+in use.
+
+8 new unit tests (`tests/note-templates.test.ts`) cover the gallery rendering through the real engine,
+coercion, de-duplication, and lookup. The settings/modal DOM is Obsidian-only and unverifiable headless
+(eyeball: Settings → Note templates shows the five starters; a note-capture view's Template dropdown lists
+them and a pick is honoured on capture). **Next in this arc:** per-site auto-template selection (D2),
+editable frontmatter preview in the popup (D3), and extended `{{meta:…}}` / `{{selector:…}}` / `{{schema:…}}`
+variables (D4).
+
 ## Phase 190 — capture into daily notes (periodic destinations)
 
 Plugin 0.181.0. Extends where a view's rows can land: not just one fixed note, but a recurring

@@ -284,7 +284,7 @@ export default class KnowledgeViewsStudioPlugin extends Plugin {
 
     // The local browser bridge. Constructed always, started only if switched on — so nothing about it costs
     // anything until someone asks for it.
-    const captureService = new CaptureService(this.app);
+    const captureService = new CaptureService(this.app, () => store.getSettings().noteTemplates);
     this.bridge = new BridgeService({
       app: this.app,
       pluginVersion: this.manifest.version,

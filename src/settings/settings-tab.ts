@@ -25,6 +25,7 @@ import type { BridgeService } from "../services/bridge/bridge-service";
 import { hasUsableTarget, suggestCaptureTarget } from "../services/capture/suggest-target";
 import { buildConnectionLink } from "../../shared/protocol";
 import { ZOTERO_PALETTE } from "../../shared/annotations";
+import { STARTER_TEMPLATES, type NoteTemplate } from "../../shared/note-templates";
 import { LocalIndexBackend, VaultIndexBackend } from "../workspace/index-backend";
 import type { ViewRegistry } from "../views/index";
 import { ProfileEditorModal } from "./profile-editor-modal";
@@ -201,6 +202,13 @@ export class KnowledgeViewsSettingTab extends PluginSettingTab {
         intro: "Where views read rows from, beyond the Markdown tables in your notes.",
         render: (el) => this.renderData(el),
       },
+      {
+        id: "templates",
+        label: "Note templates",
+        icon: "file-text",
+        intro: "Reusable templates for the notes a capture creates. A view's Capture settings point at one of these by name — edit it here and every view using it follows.",
+        render: (el) => this.renderNoteTemplates(el),
+      },
     ];
     if (this.deps.searchIndexer) {
       list.push({
@@ -227,6 +235,96 @@ export class KnowledgeViewsSettingTab extends PluginSettingTab {
       render: (el) => this.renderAdvanced(el),
     });
     return list;
+  }
+
+  /** The reusable note-template library: list, edit-in-place, delete, add blank, and restore starters. */
+  private renderNoteTemplates(el: HTMLElement): void {
+    const { store } = this.deps;
+    const templates = store.getSettings().noteTemplates;
+    const save = (next: readonly NoteTemplate[]): void => store.updateSettings({ noteTemplates: next });
+    const replace = (id: string, patch: Partial<NoteTemplate>): void =>
+      save(templates.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+
+    const bar = new Setting(el)
+      .setName("Your templates")
+      .setDesc("Used by captures that save a note. Each is written in Obsidian Web Clipper syntax.");
+    bar.addButton((b) =>
+      b
+        .setButtonText("New template")
+        .setCta()
+        .onClick(() => {
+          const id = `tpl-${Math.random().toString(36).slice(2, 9)}`;
+          save([...templates, { id, name: "Untitled template", body: "" }]);
+          this.renderBody();
+        }),
+    );
+    // Restore any starter the user has deleted (matched by id), so the gallery is never lost for good.
+    const missing = STARTER_TEMPLATES.filter((s) => !templates.some((t) => t.id === s.id));
+    if (missing.length > 0) {
+      bar.addButton((b) =>
+        b.setButtonText("Add a starter…").onClick((evt) => {
+          const menu = new Menu();
+          for (const s of missing) {
+            menu.addItem((item) =>
+              item.setTitle(s.name).onClick(() => {
+                save([...templates, s]);
+                this.renderBody();
+              }),
+            );
+          }
+          menu.showAtMouseEvent(evt);
+        }),
+      );
+    }
+
+    if (templates.length === 0) {
+      el.createDiv({
+        cls: "kvs-settings-intro",
+        text: "No templates yet. Add a blank one, or restore a starter from the gallery.",
+      });
+      return;
+    }
+
+    for (const t of templates) {
+      const card = el.createDiv({ cls: "kvs-template-card" });
+
+      const nameRow = new Setting(card).setName("Name");
+      const nameInput = nameRow.controlEl.createEl("input", { type: "text" });
+      nameInput.value = t.name;
+      nameInput.addEventListener("change", () => replace(t.id, { name: nameInput.value.trim() || "Untitled template" }));
+      nameRow.addExtraButton((b) =>
+        b
+          .setIcon("trash-2")
+          .setTooltip("Delete this template")
+          .onClick(() => {
+            save(templates.filter((x) => x.id !== t.id));
+            this.renderBody();
+          }),
+      );
+
+      const descRow = new Setting(card).setName("Description").setDesc("One line shown in the picker.");
+      const descInput = descRow.controlEl.createEl("input", { type: "text" });
+      descInput.value = t.description ?? "";
+      descInput.addEventListener("change", () => replace(t.id, { description: descInput.value.trim() }));
+
+      const fnRow = new Setting(card).setName("File name").setDesc("Empty = the page title.");
+      const fnInput = fnRow.controlEl.createEl("input", { type: "text" });
+      fnInput.placeholder = "{{title|safe_name|truncate:80}}";
+      fnInput.value = t.filename ?? "";
+      fnInput.addEventListener("change", () => replace(t.id, { filename: fnInput.value.trim() }));
+
+      const bodyRow = new Setting(card).setName("Body").setClass("kvs-template-body");
+      const bodyInput = bodyRow.controlEl.createEl("textarea");
+      bodyInput.rows = 8;
+      bodyInput.placeholder = "---\ntitle: {{title|yaml}}\nsource: {{url}}\n---\n\n{{content}}";
+      bodyInput.value = t.body;
+      bodyInput.addEventListener("change", () => replace(t.id, { body: bodyInput.value }));
+
+      card.createDiv({
+        cls: "kvs-setting-note",
+        text: "Available: {{title}} {{url}} {{domain}} {{author}} {{published}} {{description}} {{content}} {{selection}} {{date}} {{image}} {{tags}} · filters: |upper |lower |truncate:N |date:\"YYYY-MM-DD\" |safe_name |list |tags |yaml |wikilink |blockquote |plain |slug",
+      });
+    }
   }
 
   private renderGeneral(el: HTMLElement): void {

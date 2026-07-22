@@ -3329,6 +3329,26 @@
   font-size: var(--font-ui-smaller);
 }
 
+/* Note-template library cards (Settings -> Note templates) */
+.kvs-template-card {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  padding: 4px 14px 12px;
+  margin: 12px 0;
+  background: var(--background-secondary);
+}
+.kvs-template-card textarea {
+  width: 100%;
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+}
+.kvs-template-card .kvs-template-body {
+  display: block;
+}
+.kvs-template-card .kvs-template-body .setting-item-control {
+  width: 100%;
+}
+
 /* Duplicate-DOI resolver */
 .kvs-dedup-group {
   border: 1px solid var(--background-modifier-border);

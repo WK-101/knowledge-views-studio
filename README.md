@@ -3,7 +3,7 @@
 [![CI](https://github.com/WK-101/knowledge-views-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/WK-101/knowledge-views-studio/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/WK-101/knowledge-views-studio?display_name=tag&sort=semver)](https://github.com/WK-101/knowledge-views-studio/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/WK-101/knowledge-views-studio/blob/main/LICENSE)
-[![Tests](https://img.shields.io/badge/tests-1482%20passing-brightgreen)](https://github.com/WK-101/knowledge-views-studio#development)
+[![Tests](https://img.shields.io/badge/tests-1490%20passing-brightgreen)](https://github.com/WK-101/knowledge-views-studio#development)
 
 **Your notes are already a database. This makes them behave like one.**
 
@@ -224,7 +224,7 @@ Being honest about the edges:
 
 ## Status
 
-**New, and looking for people to break it.** The logic is covered by **1,482 unit tests**, the code is
+**New, and looking for people to break it.** The logic is covered by **1,490 unit tests**, the code is
 TypeScript in strict mode, and every release must pass typecheck, tests, build, and lint — including
 Obsidian's own reviewer rules (`eslint-plugin-obsidianmd`), which run in CI on every push.
 
