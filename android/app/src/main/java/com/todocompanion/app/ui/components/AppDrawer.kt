@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.ChecklistRtl
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Search
@@ -112,6 +113,7 @@ fun AppDrawer(
     onManageWorkspace: (com.todocompanion.app.data.entity.WorkspaceEntity) -> Unit,
     onEditFilter: (com.todocompanion.app.data.entity.FilterEntity?) -> Unit,
     onOpenStats: () -> Unit,
+    onOpenReview: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     val folders by vm.folders.collectAsState()
@@ -222,6 +224,7 @@ fun AppDrawer(
 
             SectionHeader("")
             DrawerRow(Icons.Filled.BarChart, "Statistics", onClick = onOpenStats)
+            DrawerRow(Icons.Filled.ChecklistRtl, "Weekly review", onClick = onOpenReview)
             DrawerRow(Icons.Filled.Settings, "Settings", onClick = onOpenSettings)
         }
     }

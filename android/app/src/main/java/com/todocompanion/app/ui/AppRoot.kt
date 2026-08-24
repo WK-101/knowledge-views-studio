@@ -169,6 +169,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         var manageWs by remember { mutableStateOf<com.todocompanion.app.data.entity.WorkspaceEntity?>(null) }
         var filterEdit by remember { mutableStateOf<com.todocompanion.app.data.entity.FilterEntity?>(null) }
         var showStats by remember { mutableStateOf(false) }
+        var showReview by remember { mutableStateOf(false) }
         var menu by remember { mutableStateOf(false) }
         // Hoisted per-tab controls, surfaced in the shared top bar to free screen space.
         var calMode by remember { mutableStateOf(settings.calendarDefaultMode) }
@@ -254,6 +255,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                     onManageWorkspace = { manageWs = it },
                     onEditFilter = { f -> filterEdit = f ?: com.todocompanion.app.data.entity.FilterEntity(id = java.util.UUID.randomUUID().toString(), name = "New filter", workspaceId = settings.activeWorkspaceId) },
                     onOpenStats = { showStats = true; scope.launch { drawerState.close() } },
+                    onOpenReview = { showReview = true; scope.launch { drawerState.close() } },
                     onOpenSettings = { tab = Tab.SETTINGS; scope.launch { drawerState.close() } },
                 )
             },
@@ -356,6 +358,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
 
         editing?.let { id -> TaskDetailScreen(vm, id, onBack = { editing = null }) }
         if (showStats) com.todocompanion.app.ui.screens.StatisticsScreen(vm, onBack = { showStats = false })
+        if (showReview) com.todocompanion.app.ui.screens.ReviewScreen(vm, onOpenTask = { showReview = false; openTask(it) }, onBack = { showReview = false })
         if (showQuickAdd) QuickAddSheet(vm, initialDue = quickAddDue, initialHasTime = quickAddWithTime, onDismiss = { showQuickAdd = false; quickAddDue = null; quickAddWithTime = false })
 
         newReq?.let { req ->
