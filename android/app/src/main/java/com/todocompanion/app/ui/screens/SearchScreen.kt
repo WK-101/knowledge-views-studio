@@ -56,20 +56,31 @@ fun SearchScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modif
                 Text("No matches for \"$query\"", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
-            LazyColumn(contentPadding = PaddingValues(bottom = 96.dp)) {
+            LazyColumn(contentPadding = PaddingValues(vertical = 4.dp, horizontal = 0.dp)) {
                 items(results, key = { it.id }) { task ->
-                    androidx.compose.foundation.layout.Row(
-                        Modifier.fillMaxWidth().clickable { onOpenTask(task.id) }.padding(horizontal = 14.dp, vertical = 11.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                    val level = com.todocompanion.app.domain.priority.PriorityLevel.from(task.importance, task.urgency)
+                    androidx.compose.material3.Surface(
+                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
                     ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(task.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
-                            val listName = lists.firstOrNull { it.id == task.listId }?.name ?: "Inbox"
-                            Text(listName + (if (task.completed) " · done" else ""), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        androidx.compose.foundation.layout.Row(
+                            Modifier.fillMaxWidth().clickable { onOpenTask(task.id) }.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            com.todocompanion.app.ui.components.Dot(
+                                if (level == com.todocompanion.app.domain.priority.PriorityLevel.NONE) MaterialTheme.colorScheme.outlineVariant
+                                else com.todocompanion.app.ui.components.priorityColor(level), 8,
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(task.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
+                                val listName = lists.firstOrNull { it.id == task.listId }?.name ?: "Inbox"
+                                Text(listName + (if (task.completed) " · done" else ""), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            task.dueDate?.let { Spacer(Modifier.width(6.dp)); DueChip(it) }
                         }
-                        task.dueDate?.let { Spacer(Modifier.width(6.dp)); DueChip(it) }
                     }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
                 }
             }
         }

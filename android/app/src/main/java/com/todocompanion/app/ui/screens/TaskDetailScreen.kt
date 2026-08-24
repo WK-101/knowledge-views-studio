@@ -64,6 +64,8 @@ import androidx.compose.ui.unit.dp
 import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.domain.priority.PriorityLevel
 import com.todocompanion.app.ui.AppViewModel
+import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.CardLabel
 import com.todocompanion.app.ui.components.DateTimePickerDialog
 import com.todocompanion.app.ui.components.formatDue
 import kotlin.math.roundToInt
@@ -116,102 +118,110 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
         )
     }) { padding ->
         if (task == null) { Column(Modifier.padding(padding).fillMaxSize()) {}; return@Scaffold }
-        Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-
+        Column(
+            Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             OutlinedTextField(task.title, { v -> update { it.copy(title = v) } }, label = { Text("Title") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-            Spacer(Modifier.height(10.dp))
-            OutlinedTextField(task.note, { v -> update { it.copy(note = v) } }, label = { Text("Note") }, modifier = Modifier.fillMaxWidth().height(110.dp))
+            OutlinedTextField(task.note, { v -> update { it.copy(note = v) } }, label = { Text("Note") }, modifier = Modifier.fillMaxWidth().height(100.dp))
 
-            // list
-            Spacer(Modifier.height(12.dp)); Label("List")
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val listName = lists.firstOrNull { it.id == task.listId }?.name ?: "Inbox"
-                TextButton(onClick = { listMenu = true }) { Text(listName) }
-                DropdownMenu(expanded = listMenu, onDismissRequest = { listMenu = false }) {
-                    lists.filter { !it.archived }.forEach { l ->
-                        DropdownMenuItem(text = { Text(l.name) }, onClick = { vm.moveToList(task, l.id); draft = task.copy(listId = l.id); listMenu = false })
+            AppCard {
+                CardLabel("Organize"); Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("List", Modifier.weight(1f))
+                    Box {
+                        TextButton(onClick = { listMenu = true }) { Text(lists.firstOrNull { it.id == task.listId }?.name ?: "Inbox") }
+                        DropdownMenu(expanded = listMenu, onDismissRequest = { listMenu = false }) {
+                            lists.filter { !it.archived }.forEach { l ->
+                                DropdownMenuItem(text = { Text(l.name) }, onClick = { vm.moveToList(task, l.id); draft = task.copy(listId = l.id); listMenu = false })
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                val level = PriorityLevel.from(task.importance, task.urgency)
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    PriorityLevel.entries.forEachIndexed { i, lvl ->
+                        SegmentedButton(selected = level == lvl, onClick = { update { it.copy(importance = lvl.importance, urgency = lvl.urgency) } },
+                            shape = SegmentedButtonDefaults.itemShape(i, PriorityLevel.entries.size)) { Text(lvl.label) }
+                    }
+                }
+                if (settings.advancedPriority) {
+                    Dial("Importance", task.importance) { v -> update { it.copy(importance = v) } }
+                    Dial("Urgency", task.urgency) { v -> update { it.copy(urgency = v) } }
+                }
+                Spacer(Modifier.height(10.dp)); CardLabel("Flag"); Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    FlagSwatch(null, task.flagColorArgb) { update { it.copy(flagColorArgb = null) } }
+                    FLAG_COLORS.forEach { c -> FlagSwatch(c, task.flagColorArgb) { update { it.copy(flagColorArgb = c) } } }
+                }
+            }
+
+            AppCard {
+                CardLabel("Schedule"); Spacer(Modifier.height(2.dp))
+                ScheduleRow("Due", task.dueDate, onSet = { showDue = true }, onClear = { update { it.copy(dueDate = null) } })
+                ScheduleRow("Start", task.startDate, onSet = { showStart = true }, onClear = { update { it.copy(startDate = null) } })
+                Spacer(Modifier.height(8.dp)); CardLabel("Reminders")
+                reminders.filter { it.taskId == task.id }.forEach { r ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(r.atTime?.let { formatDue(it) } ?: r.type, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        IconButton(onClick = { vm.deleteReminder(r, task) }) { Icon(Icons.Filled.Close, "Remove") }
+                    }
+                }
+                TextButton(onClick = { showReminder = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Icon(Icons.Filled.Add, null); Spacer(Modifier.width(4.dp)); Text("Add reminder") }
+            }
+
+            AppCard {
+                CardLabel("Checklist"); Spacer(Modifier.height(2.dp))
+                checklist.filter { it.taskId == task.id }.sortedBy { it.sortOrder }.forEach { item ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = item.checked, onCheckedChange = { vm.toggleChecklist(item) })
+                        Text(item.text, Modifier.weight(1f), color = if (item.checked) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
+                        IconButton(onClick = { vm.deleteChecklistItem(item.id) }) { Icon(Icons.Filled.Close, "Remove") }
+                    }
+                }
+                AddInline(newCheck, { newCheck = it }, "Add checklist item") { if (it.isNotBlank()) { vm.addChecklistItem(task.id, it.trim()); newCheck = "" } }
+            }
+
+            AppCard {
+                CardLabel("Tags"); Spacer(Modifier.height(6.dp))
+                val assignedTags = ttRefs.filter { it.taskId == task.id }.map { it.tagId }.toSet()
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    allTags.forEach { tag ->
+                        FilterChip(selected = tag.id in assignedTags, onClick = {
+                            val next = if (tag.id in assignedTags) assignedTags - tag.id else assignedTags + tag.id
+                            vm.setTags(task.id, next.toList())
+                        }, label = { Text(tag.name) })
+                    }
+                }
+                AddInline(newTag, { newTag = it }, "New tag") { if (it.isNotBlank()) { vm.createTag(it.trim()); newTag = "" } }
+                Spacer(Modifier.height(8.dp)); CardLabel("Contexts"); Spacer(Modifier.height(6.dp))
+                val assignedCtx = tcRefs.filter { it.taskId == task.id }.map { it.contextId }.toSet()
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    allContexts.forEach { c ->
+                        FilterChip(selected = c.id in assignedCtx, onClick = {
+                            val next = if (c.id in assignedCtx) assignedCtx - c.id else assignedCtx + c.id
+                            vm.setContexts(task.id, next.toList())
+                        }, label = { Text("@" + c.name) })
+                    }
+                }
+                AddInline(newContext, { newContext = it }, "New context") { if (it.isNotBlank()) { vm.createContext(it.trim()); newContext = "" } }
+            }
+
+            AppCard {
+                TextButton(onClick = { showMore = !showMore }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
+                    Text(if (showMore) "Show less" else "Show more — estimate · goal")
+                }
+                if (showMore) {
+                    Dial("Estimate (min)", (task.estimateMin ?: 0).coerceIn(0, 5)) { v -> update { it.copy(estimateMin = v * 15) } }
+                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Mark as goal", Modifier.weight(1f))
+                        Checkbox(checked = task.isGoal, onCheckedChange = { v -> update { it.copy(isGoal = v) } })
                     }
                 }
             }
 
-            Spacer(Modifier.height(8.dp)); Label("Priority")
-            val level = PriorityLevel.from(task.importance, task.urgency)
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                PriorityLevel.entries.forEachIndexed { i, lvl ->
-                    SegmentedButton(selected = level == lvl, onClick = { update { it.copy(importance = lvl.importance, urgency = lvl.urgency) } },
-                        shape = SegmentedButtonDefaults.itemShape(i, PriorityLevel.entries.size)) { Text(lvl.label) }
-                }
-            }
-            if (settings.advancedPriority) {
-                Spacer(Modifier.height(6.dp))
-                Dial("Importance", task.importance) { v -> update { it.copy(importance = v) } }
-                Dial("Urgency", task.urgency) { v -> update { it.copy(urgency = v) } }
-            }
-
-            Spacer(Modifier.height(12.dp)); Label("Flag")
-            Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                FlagSwatch(null, task.flagColorArgb) { update { it.copy(flagColorArgb = null) } }
-                FLAG_COLORS.forEach { c -> FlagSwatch(c, task.flagColorArgb) { update { it.copy(flagColorArgb = c) } } }
-            }
-
-            Spacer(Modifier.height(12.dp)); Label("Schedule")
-            ScheduleRow("Due", task.dueDate, onSet = { showDue = true }, onClear = { update { it.copy(dueDate = null) } })
-            ScheduleRow("Start", task.startDate, onSet = { showStart = true }, onClear = { update { it.copy(startDate = null) } })
-
-            Spacer(Modifier.height(10.dp)); Label("Reminders")
-            reminders.filter { it.taskId == task.id }.forEach { r ->
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(r.atTime?.let { formatDue(it) } ?: r.type, Modifier.weight(1f))
-                    IconButton(onClick = { vm.deleteReminder(r, task) }) { Icon(Icons.Filled.Close, "Remove") }
-                }
-            }
-            OutlinedButton(onClick = { showReminder = true }) { Icon(Icons.Filled.Add, null); Spacer(Modifier.width(4.dp)); Text("Add reminder") }
-
-            Spacer(Modifier.height(12.dp)); Label("Checklist")
-            checklist.filter { it.taskId == task.id }.sortedBy { it.sortOrder }.forEach { item ->
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = item.checked, onCheckedChange = { vm.toggleChecklist(item) })
-                    Text(item.text, Modifier.weight(1f), color = if (item.checked) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
-                    IconButton(onClick = { vm.deleteChecklistItem(item.id) }) { Icon(Icons.Filled.Close, "Remove") }
-                }
-            }
-            AddInline(newCheck, { newCheck = it }, "Add checklist item") { if (it.isNotBlank()) { vm.addChecklistItem(task.id, it.trim()); newCheck = "" } }
-
-            Spacer(Modifier.height(12.dp)); Label("Tags")
-            val assignedTags = ttRefs.filter { it.taskId == task.id }.map { it.tagId }.toSet()
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                allTags.forEach { tag ->
-                    FilterChip(selected = tag.id in assignedTags, onClick = {
-                        val next = if (tag.id in assignedTags) assignedTags - tag.id else assignedTags + tag.id
-                        vm.setTags(task.id, next.toList())
-                    }, label = { Text(tag.name) })
-                }
-            }
-            AddInline(newTag, { newTag = it }, "New tag") { if (it.isNotBlank()) { vm.createTag(it.trim()); newTag = "" } }
-
-            Spacer(Modifier.height(12.dp)); Label("Contexts")
-            val assignedCtx = tcRefs.filter { it.taskId == task.id }.map { it.contextId }.toSet()
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                allContexts.forEach { c ->
-                    FilterChip(selected = c.id in assignedCtx, onClick = {
-                        val next = if (c.id in assignedCtx) assignedCtx - c.id else assignedCtx + c.id
-                        vm.setContexts(task.id, next.toList())
-                    }, label = { Text("@" + c.name) })
-                }
-            }
-            AddInline(newContext, { newContext = it }, "New context") { if (it.isNotBlank()) { vm.createContext(it.trim()); newContext = "" } }
-
-            Spacer(Modifier.height(14.dp))
-            TextButton(onClick = { showMore = !showMore }) { Text(if (showMore) "Show less" else "Show more — estimate · goal · review") }
-            if (showMore) {
-                HorizontalDivider()
-                Dial("Estimate (min)", (task.estimateMin ?: 0).coerceIn(0, 5)) { v -> update { it.copy(estimateMin = v * 15) } }
-                Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Mark as goal", Modifier.weight(1f))
-                    Checkbox(checked = task.isGoal, onCheckedChange = { v -> update { it.copy(isGoal = v) } })
-                }
-            }
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(24.dp))
         }
     }
 

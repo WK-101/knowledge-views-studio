@@ -29,6 +29,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -44,8 +45,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.todocompanion.app.data.entity.TaskEntity
+import com.todocompanion.app.domain.priority.PriorityLevel
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.DueChip
+import com.todocompanion.app.ui.components.priorityColor
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -243,8 +246,16 @@ private fun AgendaView(dueByDate: Map<LocalDate, List<TaskEntity>>, onOpenTask: 
 
 @Composable
 private fun TaskLine(task: TaskEntity, onOpenTask: (String) -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable { onOpenTask(task.id) }.padding(horizontal = 16.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(task.title, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
-        task.dueDate?.let { Spacer(Modifier.size(6.dp)); DueChip(it) }
+    val level = PriorityLevel.from(task.importance, task.urgency)
+    Surface(
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
+        shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
+    ) {
+        Row(Modifier.clickable { onOpenTask(task.id) }.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(8.dp).clip(CircleShape).background(if (level == PriorityLevel.NONE) MaterialTheme.colorScheme.outlineVariant else priorityColor(level)))
+            Spacer(Modifier.size(10.dp))
+            Text(task.title, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+            task.dueDate?.let { Spacer(Modifier.size(6.dp)); DueChip(it) }
+        }
     }
 }
