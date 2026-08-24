@@ -1,10 +1,19 @@
 package com.todocompanion.app.ui.screens
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,16 +44,12 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -441,37 +446,44 @@ private fun AgendaView(dueByDate: Map<LocalDate, List<TaskEntity>>, onOpenTask: 
     }
 }
 
-/** TickTick-style calendar task pill: priority-tinted, swipeable (complete / trash), tap to edit. */
-@OptIn(ExperimentalMaterial3Api::class)
+/** TickTick-style calendar task pill: priority-tinted, swipeable (complete / trash), tap to edit.
+ *  Uses the same custom snap-back swipe as the task list — reliable and consistent, unlike the
+ *  SwipeToDismissBox pattern that fired mid-drag and could stick. */
 @Composable
 private fun TaskLine(task: TaskEntity, onOpenTask: (String) -> Unit, onToggle: (TaskEntity) -> Unit, onTrash: (TaskEntity) -> Unit) {
     val zone = ZoneId.systemDefault()
     val level = PriorityLevel.from(task.importance, task.urgency)
     val accent = if (level == PriorityLevel.NONE) MaterialTheme.colorScheme.primary else priorityColor(level)
-    val state = rememberSwipeToDismissBoxState(confirmValueChange = { v ->
-        when (v) {
-            SwipeToDismissBoxValue.StartToEnd -> { onToggle(task); false }
-            SwipeToDismissBoxValue.EndToStart -> { onTrash(task); false }
-            else -> false
+    val scope = rememberCoroutineScope()
+    val dens = LocalDensity.current
+    val thresholdPx = with(dens) { 84.dp.toPx() }
+    val maxPx = with(dens) { 150.dp.toPx() }
+    val offsetX = remember(task.id) { Animatable(0f) }
+    val goingRight = offsetX.value > 0
+
+    Box(Modifier.padding(horizontal = 12.dp, vertical = 3.dp)) {
+        if (offsetX.value != 0f) {
+            val (c, icon, align) = if (goingRight) Triple(Color(0xFF12A594), Icons.Filled.Check, Alignment.CenterStart)
+                else Triple(Color(0xFFE5484D), Icons.Filled.Delete, Alignment.CenterEnd)
+            Box(Modifier.matchParentSize().clip(RoundedCornerShape(12.dp)).background(c).padding(horizontal = 20.dp), contentAlignment = align) {
+                Icon(icon, null, tint = Color.White)
+            }
         }
-    })
-    SwipeToDismissBox(
-        state = state,
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 3.dp),
-        backgroundContent = {
-            val dir = state.dismissDirection
-            val (c, icon, align) = when (dir) {
-                SwipeToDismissBoxValue.StartToEnd -> Triple(Color(0xFF12A594), Icons.Filled.Check, Alignment.CenterStart)
-                SwipeToDismissBoxValue.EndToStart -> Triple(Color(0xFFE5484D), Icons.Filled.Delete, Alignment.CenterEnd)
-                else -> Triple(Color.Transparent, Icons.Filled.Check, Alignment.CenterStart)
-            }
-            Box(Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)).background(c).padding(horizontal = 20.dp), contentAlignment = align) {
-                if (dir != SwipeToDismissBoxValue.Settled) Icon(icon, null, tint = Color.White)
-            }
-        },
-    ) {
         Surface(
-            Modifier.fillMaxWidth(),
+            Modifier
+                .offset { IntOffset(offsetX.value.roundToInt(), 0) }
+                .fillMaxWidth()
+                .draggable(
+                    orientation = Orientation.Horizontal,
+                    state = rememberDraggableState { d -> scope.launch { offsetX.snapTo((offsetX.value + d).coerceIn(-maxPx, maxPx)) } },
+                    onDragStopped = {
+                        when {
+                            offsetX.value >= thresholdPx -> onToggle(task)
+                            offsetX.value <= -thresholdPx -> onTrash(task)
+                        }
+                        offsetX.animateTo(0f)
+                    },
+                ),
             shape = RoundedCornerShape(12.dp),
             color = if (level == PriorityLevel.NONE) MaterialTheme.colorScheme.surface else accent.copy(alpha = 0.09f),
             tonalElevation = if (level == PriorityLevel.NONE) 1.dp else 0.dp,
@@ -481,7 +493,7 @@ private fun TaskLine(task: TaskEntity, onOpenTask: (String) -> Unit, onToggle: (
                 com.todocompanion.app.ui.components.PriorityCheckbox(task.completed, level) { onToggle(task) }
                 Column(Modifier.weight(1f).padding(vertical = 9.dp)) {
                     Text(
-                        task.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
+                        task.title.ifBlank { "Untitled" }, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
                         textDecoration = if (task.completed) androidx.compose.ui.text.style.TextDecoration.LineThrough else androidx.compose.ui.text.style.TextDecoration.None,
                         color = if (task.completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                     )

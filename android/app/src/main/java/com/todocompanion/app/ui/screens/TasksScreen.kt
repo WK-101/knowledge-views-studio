@@ -49,7 +49,6 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.layout.offset
-import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -169,11 +168,14 @@ private fun ManualReorderList(
     ctxByTask: Map<String, List<Pair<String, Long?>>>, tagsByTask: Map<String, List<Pair<String, Long?>>>,
     listNameOf: (String) -> String?, onOpenTask: (String) -> Unit, modifier: Modifier,
 ) {
-    // Local working order; resynced when the set of tasks changes upstream (add / remove / complete).
-    var items by remember(tasks.map { it.id }.toSet()) { mutableStateOf(tasks) }
+    // Local working order for the drag gesture.
     val listState = rememberLazyListState()
     var draggingId by remember { mutableStateOf<String?>(null) }
     var delta by remember { mutableFloatStateOf(0f) }
+    var items by remember { mutableStateOf(tasks) }
+    // Resync with upstream whenever the tasks change (reorder, add/remove, OR an edited
+    // field like star/flag/title) — but never mid-drag, so the gesture isn't disrupted.
+    androidx.compose.runtime.LaunchedEffect(tasks) { if (draggingId == null) items = tasks }
 
     LazyColumn(
         state = listState,
@@ -215,17 +217,16 @@ private fun ReorderRow(
     val level = PriorityLevel.from(task.importance, task.urgency)
     val done = task.completed || task.abandoned
     Row(
-        Modifier.fillMaxWidth().clickable { onOpen() }.padding(start = 6.dp, end = 8.dp, top = rowVerticalPadding(density), bottom = rowVerticalPadding(density)),
+        // Long-press anywhere on the row starts the drag — no handle needed.
+        Modifier.fillMaxWidth().clickable { onOpen() }.padding(start = 8.dp, end = 8.dp, top = rowVerticalPadding(density), bottom = rowVerticalPadding(density)),
         verticalAlignment = Alignment.Top,
     ) {
-        Icon(Icons.Filled.DragIndicator, "Drag", tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(20.dp).padding(top = 8.dp))
-        Spacer(Modifier.width(2.dp))
-        PriorityCheckbox(task.completed, level) { onToggle() }
+        if (task.isNote) Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+            Icon(Icons.Outlined.Notes, "Note", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(20.dp))
+        } else PriorityCheckbox(task.completed, level) { onToggle() }
         Spacer(Modifier.width(2.dp))
         Column(Modifier.weight(1f).padding(top = 8.dp, bottom = 2.dp)) {
-            Text(task.title, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge,
-                textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None,
-                color = if (done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
+            TaskTitle(task, done)
             com.todocompanion.app.ui.components.TaskLeftMeta(task.dueDate, task.note, !task.rrule.isNullOrBlank())
         }
         Spacer(Modifier.width(6.dp))
@@ -322,6 +323,25 @@ private fun OutlineList(vm: AppViewModel, density: Density, onOpenTask: (String)
     }
 }
 
+/** Task title line, shared by every row. A bounded-width Row keeps the Text laying out
+ *  reliably (an unconstrained Row around an ellipsized Text could collapse to nothing). */
+@Composable
+private fun TaskTitle(task: TaskEntity, done: Boolean) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        if (task.pinned) {
+            Icon(Icons.Filled.PushPin, "Pinned", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(13.dp))
+            Spacer(Modifier.width(4.dp))
+        }
+        Text(
+            task.title.ifBlank { "Untitled" },
+            modifier = Modifier.weight(1f),
+            maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge,
+            textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None,
+            color = if (done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
 @Composable
 private fun GroupHeader(title: String, count: Int, open: Boolean, onToggle: () -> Unit) {
     val a by animateFloatAsState(if (open) 0f else -90f, label = "chev")
@@ -408,12 +428,7 @@ private fun TaskListItem(
             Spacer(Modifier.width(2.dp))
             // Left: title, date/repeat, note.
             Column(Modifier.weight(1f).padding(top = 8.dp, bottom = 2.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (task.pinned) { Icon(Icons.Filled.PushPin, "Pinned", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(13.dp)); Spacer(Modifier.width(4.dp)) }
-                    Text(task.title, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge,
-                        textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None,
-                        color = if (done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
-                }
+                TaskTitle(task, done)
                 com.todocompanion.app.ui.components.TaskLeftMeta(task.dueDate, task.note, !task.rrule.isNullOrBlank())
             }
             Spacer(Modifier.width(6.dp))
