@@ -1,19 +1,23 @@
 package com.todocompanion.app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,7 +51,6 @@ import androidx.compose.ui.unit.dp
 import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.domain.priority.PriorityLevel
 import com.todocompanion.app.ui.AppViewModel
-import com.todocompanion.app.ui.components.DueChip
 import com.todocompanion.app.ui.components.priorityColor
 import java.time.DayOfWeek
 import java.time.Instant
@@ -94,13 +97,14 @@ fun CalendarScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onAddOnDate: 
             }
         }
 
+        val onToggle: (TaskEntity) -> Unit = { vm.toggleComplete(it) }
         when (mode) {
-            "month" -> MonthView(anchor, selected, dueByDate, firstDow, onSelect = { selected = it }, onPrev = { anchor = anchor.minusMonths(1) }, onNext = { anchor = anchor.plusMonths(1) }, onToday = { anchor = LocalDate.now(); selected = LocalDate.now() }, onOpenTask = onOpenTask, onAdd = { onAddOnDate(selected) })
-            "week" -> MultiDayView(startOfWeek(anchor, firstDow), 7, dueByDate, onPrev = { anchor = anchor.minusWeeks(1) }, onNext = { anchor = anchor.plusWeeks(1) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask)
-            "3day" -> MultiDayView(anchor, 3, dueByDate, onPrev = { anchor = anchor.minusDays(3) }, onNext = { anchor = anchor.plusDays(3) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask)
-            "day" -> DayView(anchor, dueByDate, zone, onPrev = { anchor = anchor.minusDays(1) }, onNext = { anchor = anchor.plusDays(1) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask, onAdd = { onAddOnDate(anchor) })
+            "month" -> MonthView(anchor, selected, dueByDate, firstDow, onSelect = { selected = it }, onPrev = { anchor = anchor.minusMonths(1) }, onNext = { anchor = anchor.plusMonths(1) }, onToday = { anchor = LocalDate.now(); selected = LocalDate.now() }, onOpenTask = onOpenTask, onToggle = onToggle, onAdd = { onAddOnDate(selected) })
+            "week" -> MultiDayView(startOfWeek(anchor, firstDow), 7, dueByDate, onPrev = { anchor = anchor.minusWeeks(1) }, onNext = { anchor = anchor.plusWeeks(1) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask, onToggle = onToggle)
+            "3day" -> MultiDayView(anchor, 3, dueByDate, onPrev = { anchor = anchor.minusDays(3) }, onNext = { anchor = anchor.plusDays(3) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask, onToggle = onToggle)
+            "day" -> DayView(anchor, dueByDate, zone, onPrev = { anchor = anchor.minusDays(1) }, onNext = { anchor = anchor.plusDays(1) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask, onToggle = onToggle, onAdd = { onAddOnDate(anchor) })
             "year" -> YearView(anchor, dueByDate, onPrev = { anchor = anchor.minusYears(1) }, onNext = { anchor = anchor.plusYears(1) }, onMonth = { m -> anchor = m.atDay(1); mode = "month" })
-            else -> AgendaView(dueByDate, onOpenTask)
+            else -> AgendaView(dueByDate, onOpenTask, onToggle)
         }
     }
 }
@@ -121,7 +125,7 @@ private fun NavHeader(label: String, onPrev: () -> Unit, onNext: () -> Unit, onT
 }
 
 @Composable
-private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onOpenTask: (String) -> Unit, onAdd: () -> Unit) {
+private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onOpenTask: (String) -> Unit, onToggle: (TaskEntity) -> Unit, onAdd: () -> Unit) {
     val ym = YearMonth.from(anchor)
     NavHeader("${ym.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${ym.year}", onPrev, onNext, onToday)
     val labels = (0..6).map { firstDow.plus(it.toLong()) }
@@ -136,67 +140,125 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
         while (size % 7 != 0) add(null)
     }
     val today = LocalDate.now()
+    val primary = MaterialTheme.colorScheme.primary
     Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp).swipeNav(onPrev, onNext)) {
         cells.chunked(7).forEach { week ->
             Row(Modifier.fillMaxWidth()) {
                 week.forEach { date ->
+                    val isToday = date == today
+                    val isSelected = date == selected
+                    // TickTick grammar: today is a solid filled circle; a selected non-today day gets a ring.
+                    val ringMod = when {
+                        isToday -> Modifier.background(primary, CircleShape)
+                        isSelected -> Modifier.border(1.5.dp, primary, CircleShape)
+                        else -> Modifier
+                    }
                     Box(
-                        Modifier.weight(1f).aspectRatio(1f).padding(2.dp).clip(CircleShape)
-                            .background(when { date == selected -> MaterialTheme.colorScheme.primary; date == today -> MaterialTheme.colorScheme.primaryContainer; else -> androidx.compose.ui.graphics.Color.Transparent })
-                            .clickable(enabled = date != null) { date?.let(onSelect) },
+                        Modifier.weight(1f).aspectRatio(1f).padding(3.dp)
+                            .clip(CircleShape).clickable(enabled = date != null) { date?.let(onSelect) }
+                            .then(ringMod),
                         contentAlignment = Alignment.Center,
                     ) {
                         if (date != null) Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(date.dayOfMonth.toString(), style = MaterialTheme.typography.bodySmall, color = if (date == selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
-                            if (dueByDate.containsKey(date)) Box(Modifier.size(5.dp).clip(CircleShape).background(if (date == selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary))
+                            Text(
+                                date.dayOfMonth.toString(),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = when {
+                                    isToday -> MaterialTheme.colorScheme.onPrimary
+                                    date.month != anchor.month -> MaterialTheme.colorScheme.outline
+                                    else -> MaterialTheme.colorScheme.onSurface
+                                },
+                            )
+                            Spacer(Modifier.size(2.dp))
+                            if (dueByDate.containsKey(date)) Box(Modifier.size(5.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.onPrimary else primary))
+                            else Spacer(Modifier.size(5.dp))
                         }
                     }
                 }
             }
         }
     }
-    Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 8.dp, top = 12.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("Due on ${selected.dayOfMonth} ${selected.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())}", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+    Spacer(Modifier.size(6.dp))
+    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            if (selected == today) "TODAY" else "${selected.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()).uppercase()} ${selected.dayOfMonth} ${selected.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()).uppercase()}",
+            Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         TextButton(onClick = onAdd) { Text("＋ Add") }
     }
     val agenda = dueByDate[selected].orEmpty()
-    if (agenda.isEmpty()) Text("No tasks due", Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-    else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-        items(agenda, key = { it.id }) { TaskLine(it, onOpenTask) }
+    if (agenda.isEmpty()) Text("Nothing due — enjoy the day", Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 2.dp, bottom = 100.dp)) {
+        items(agenda, key = { it.id }) { TaskLine(it, onOpenTask, onToggle) }
     }
 }
 
 @Composable
-private fun MultiDayView(start: LocalDate, n: Int, dueByDate: Map<LocalDate, List<TaskEntity>>, onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onOpenTask: (String) -> Unit) {
+private fun MultiDayView(start: LocalDate, n: Int, dueByDate: Map<LocalDate, List<TaskEntity>>, onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onOpenTask: (String) -> Unit, onToggle: (TaskEntity) -> Unit) {
     val days = (0 until n).map { start.plusDays(it.toLong()) }
     NavHeader("${start.dayOfMonth} ${start.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} – ${days.last().dayOfMonth} ${days.last().month.getDisplayName(TextStyle.SHORT, Locale.getDefault())}", onPrev, onNext, onToday)
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)) {
+    LazyColumn(Modifier.fillMaxSize().swipeNav(onPrev, onNext), contentPadding = PaddingValues(start = 4.dp, end = 4.dp, top = 4.dp, bottom = 100.dp)) {
         days.forEach { d ->
-            item(key = d.toString()) {
-                Text("${d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${d.dayOfMonth}", Modifier.padding(top = 12.dp, bottom = 4.dp), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            }
+            item(key = d.toString()) { DayHeader(d) }
             val list = dueByDate[d].orEmpty()
-            if (list.isEmpty()) item(key = "empty$d") { Text("—", Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            else items(list, key = { "$d${it.id}" }) { TaskLine(it, onOpenTask) }
+            if (list.isEmpty()) item(key = "empty$d") { Text("Nothing due", Modifier.padding(start = 16.dp, top = 2.dp, bottom = 2.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline) }
+            else items(list, key = { "$d${it.id}" }) { TaskLine(it, onOpenTask, onToggle) }
         }
     }
 }
 
 @Composable
-private fun DayView(day: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, zone: ZoneId, onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onOpenTask: (String) -> Unit, onAdd: () -> Unit) {
+private fun DayHeader(d: LocalDate) {
+    val isToday = d == LocalDate.now()
+    val accent = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 14.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()), style = MaterialTheme.typography.labelLarge, color = accent)
+        Spacer(Modifier.size(6.dp))
+        Text(d.dayOfMonth.toString(), style = MaterialTheme.typography.labelLarge, color = accent)
+        if (isToday) { Spacer(Modifier.size(6.dp)); Box(Modifier.clip(RoundedCornerShape(999.dp)).background(MaterialTheme.colorScheme.primary).padding(horizontal = 7.dp, vertical = 1.dp)) { Text("Today", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary) } }
+    }
+}
+
+@Composable
+private fun DayView(day: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, zone: ZoneId, onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onOpenTask: (String) -> Unit, onToggle: (TaskEntity) -> Unit, onAdd: () -> Unit) {
     NavHeader("${day.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${day.dayOfMonth} ${day.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())}", onPrev, onNext, onToday)
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) { TextButton(onClick = onAdd) { Text("＋ Add on this day") } }
     val list = dueByDate[day].orEmpty()
-    val byHour = list.groupBy { Instant.ofEpochMilli(it.dueDate!!).atZone(zone).hour }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)) {
+    // "All day" = tasks with no explicit time (kept at the 9:00 default / all-day flag).
+    val allDay = list.filter { it.isAllDay || !hasTime(it.dueDate!!, zone) }
+    val timed = list.filter { !it.isAllDay && hasTime(it.dueDate!!, zone) }
+    val byHour = timed.groupBy { Instant.ofEpochMilli(it.dueDate!!).atZone(zone).hour }
+    val nowHour = if (day == LocalDate.now()) java.time.LocalTime.now().hour else -1
+
+    LazyColumn(Modifier.fillMaxSize().swipeNav(onPrev, onNext), contentPadding = PaddingValues(top = 2.dp, bottom = 100.dp)) {
+        if (allDay.isNotEmpty()) {
+            item(key = "allday") {
+                Column(Modifier.padding(horizontal = 8.dp, vertical = 2.dp)) {
+                    Text("ALL DAY", Modifier.padding(start = 54.dp, bottom = 2.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                }
+            }
+            items(allDay, key = { "ad${it.id}" }) { TaskLine(it, onOpenTask, onToggle) }
+            item(key = "adgap") { Spacer(Modifier.size(6.dp)) }
+        }
         items((6..22).toList(), key = { it }) { h ->
-            Row(Modifier.fillMaxWidth().height(46.dp)) {
-                Text("%02d:00".format(h), Modifier.width(46.dp).padding(top = 2.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.End)
+            Row(Modifier.fillMaxWidth().heightIn(min = 46.dp).padding(horizontal = 8.dp)) {
+                Text("%02d:00".format(h), Modifier.width(46.dp).padding(top = 1.dp), style = MaterialTheme.typography.labelSmall, color = if (h == nowHour) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, textAlign = TextAlign.End)
                 Spacer(Modifier.size(8.dp))
-                Column(Modifier.weight(1f).padding(top = 2.dp)) {
+                Column(Modifier.weight(1f)) {
+                    if (h == nowHour) Box(Modifier.fillMaxWidth().height(2.dp).background(MaterialTheme.colorScheme.error))
                     byHour[h].orEmpty().forEach { t ->
-                        Text(t.title, Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.primaryContainer).clickable { onOpenTask(t.id) }.padding(6.dp, 4.dp),
-                            style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val level = PriorityLevel.from(t.importance, t.urgency)
+                        val c = if (level == PriorityLevel.NONE) MaterialTheme.colorScheme.primary else priorityColor(level)
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 2.dp).clip(RoundedCornerShape(8.dp))
+                                .background(c.copy(alpha = 0.12f)).clickable { onOpenTask(t.id) }.padding(start = 0.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(Modifier.width(4.dp).height(26.dp).background(c))
+                            Spacer(Modifier.size(8.dp))
+                            Text(t.title, Modifier.weight(1f).padding(vertical = 5.dp), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(timeLabel(t.dueDate!!, zone), Modifier.padding(end = 8.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
             }
@@ -230,32 +292,51 @@ private fun YearView(anchor: LocalDate, dueByDate: Map<LocalDate, List<TaskEntit
 }
 
 @Composable
-private fun AgendaView(dueByDate: Map<LocalDate, List<TaskEntity>>, onOpenTask: (String) -> Unit) {
+private fun AgendaView(dueByDate: Map<LocalDate, List<TaskEntity>>, onOpenTask: (String) -> Unit, onToggle: (TaskEntity) -> Unit) {
     val days = dueByDate.keys.sorted()
     if (days.isEmpty()) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("No scheduled tasks", color = MaterialTheme.colorScheme.onSurfaceVariant) }; return }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 2.dp, bottom = 100.dp)) {
         days.forEach { d ->
-            item(key = "h$d") {
-                Text("${d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${d.dayOfMonth} ${d.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())}",
-                    Modifier.padding(start = 14.dp, top = 14.dp, bottom = 4.dp), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            }
-            items(dueByDate[d].orEmpty(), key = { it.id }) { TaskLine(it, onOpenTask) }
+            item(key = "h$d") { DayHeader(d) }
+            items(dueByDate[d].orEmpty(), key = { it.id }) { TaskLine(it, onOpenTask, onToggle) }
         }
     }
 }
 
+/** TickTick-style calendar task pill: priority-tinted, with a completion checkbox and a time label. */
 @Composable
-private fun TaskLine(task: TaskEntity, onOpenTask: (String) -> Unit) {
+private fun TaskLine(task: TaskEntity, onOpenTask: (String) -> Unit, onToggle: (TaskEntity) -> Unit) {
+    val zone = ZoneId.systemDefault()
     val level = PriorityLevel.from(task.importance, task.urgency)
+    val accent = if (level == PriorityLevel.NONE) MaterialTheme.colorScheme.primary else priorityColor(level)
     Surface(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
-        shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
+        shape = RoundedCornerShape(12.dp),
+        color = if (level == PriorityLevel.NONE) MaterialTheme.colorScheme.surface else accent.copy(alpha = 0.09f),
+        tonalElevation = if (level == PriorityLevel.NONE) 1.dp else 0.dp,
     ) {
-        Row(Modifier.clickable { onOpenTask(task.id) }.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(8.dp).clip(CircleShape).background(if (level == PriorityLevel.NONE) MaterialTheme.colorScheme.outlineVariant else priorityColor(level)))
-            Spacer(Modifier.size(10.dp))
-            Text(task.title, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
-            task.dueDate?.let { Spacer(Modifier.size(6.dp)); DueChip(it) }
+        Row(Modifier.height(IntrinsicSize.Min).clickable { onOpenTask(task.id) }, verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.width(4.dp).fillMaxHeight().background(accent))
+            com.todocompanion.app.ui.components.PriorityCheckbox(task.completed, level) { onToggle(task) }
+            Column(Modifier.weight(1f).padding(vertical = 9.dp)) {
+                Text(
+                    task.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
+                    textDecoration = if (task.completed) androidx.compose.ui.text.style.TextDecoration.LineThrough else androidx.compose.ui.text.style.TextDecoration.None,
+                    color = if (task.completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                )
+                if (task.note.isNotBlank()) Text(task.note.trim().lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            task.dueDate?.let { if (!task.isAllDay && hasTime(it, zone)) { Text(timeLabel(it, zone), Modifier.padding(end = 12.dp), style = MaterialTheme.typography.labelMedium, color = accent) } }
         }
     }
+}
+
+private fun hasTime(millis: Long, zone: ZoneId): Boolean {
+    val dt = Instant.ofEpochMilli(millis).atZone(zone)
+    return !(dt.hour == 9 && dt.minute == 0)
+}
+
+private fun timeLabel(millis: Long, zone: ZoneId): String {
+    val dt = Instant.ofEpochMilli(millis).atZone(zone)
+    return "%02d:%02d".format(dt.hour, dt.minute)
 }

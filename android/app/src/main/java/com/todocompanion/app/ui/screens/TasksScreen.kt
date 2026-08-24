@@ -65,9 +65,9 @@ import com.todocompanion.app.domain.priority.PriorityLevel
 import com.todocompanion.app.domain.view.SmartKind
 import com.todocompanion.app.domain.view.ViewRef
 import com.todocompanion.app.ui.AppViewModel
-import com.todocompanion.app.ui.components.DueChip
 import com.todocompanion.app.ui.components.FlagStar
 import com.todocompanion.app.ui.components.PriorityCheckbox
+import com.todocompanion.app.ui.components.TaskMeta
 import com.todocompanion.app.ui.components.rowVerticalPadding
 
 @Composable
@@ -82,6 +82,20 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
     val isTrash = (view as? ViewRef.Smart)?.kind == SmartKind.TRASH
     val collapsed = remember { mutableStateMapOf<String, Boolean>() }
 
+    // Per-task @context / #tag lookups, MLO-style detail on each row.
+    val allTags by vm.tags.collectAsState()
+    val allContexts by vm.contexts.collectAsState()
+    val tagRefs by vm.taskTags.collectAsState()
+    val ctxRefs by vm.taskContexts.collectAsState()
+    val tagsByTask = remember(tagRefs, allTags) {
+        val byId = allTags.associateBy { it.id }
+        tagRefs.groupBy { it.taskId }.mapValues { (_, refs) -> refs.mapNotNull { byId[it.tagId] }.map { it.name to it.colorArgb } }
+    }
+    val ctxByTask = remember(ctxRefs, allContexts) {
+        val byId = allContexts.associateBy { it.id }
+        ctxRefs.groupBy { it.taskId }.mapValues { (_, refs) -> refs.mapNotNull { byId[it.contextId] }.map { it.name to it.colorArgb } }
+    }
+
     if (groups.isEmpty() || groups.all { it.tasks.isEmpty() }) { EmptyState(view); return }
 
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(top = 6.dp, bottom = 100.dp)) {
@@ -95,6 +109,7 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
                             group.tasks.forEachIndexed { i, task ->
                                 if (i > 0) HorizontalDivider(Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
                                 TaskListItem(task, settings.density,
+                                    contexts = ctxByTask[task.id].orEmpty(), tags = tagsByTask[task.id].orEmpty(),
                                     rightAction = if (isTrash) SwipeAction.COMPLETE else settings.swipeRight,
                                     leftAction = if (isTrash) SwipeAction.TRASH else settings.swipeLeft, isTrash = isTrash,
                                     onOpen = { onOpenTask(task.id) },
@@ -188,7 +203,9 @@ private fun swipeVisual(action: SwipeAction, isTrashRestore: Boolean): Pair<Colo
 
 @Composable
 private fun TaskListItem(
-    task: TaskEntity, density: Density, rightAction: SwipeAction, leftAction: SwipeAction, isTrash: Boolean,
+    task: TaskEntity, density: Density,
+    contexts: List<Pair<String, Long?>>, tags: List<Pair<String, Long?>>,
+    rightAction: SwipeAction, leftAction: SwipeAction, isTrash: Boolean,
     onOpen: () -> Unit, onAct: (SwipeAction) -> Unit, onCycleFlag: () -> Unit, onToggleStar: () -> Unit,
 ) {
     val state = rememberSwipeToDismissBoxState(confirmValueChange = { v ->
@@ -221,12 +238,13 @@ private fun TaskListItem(
         ) {
             PriorityCheckbox(task.completed, level) { onAct(SwipeAction.COMPLETE) }
             Spacer(Modifier.width(2.dp))
-            Column(Modifier.weight(1f)) {
-                Text(task.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge,
+            Column(Modifier.weight(1f).padding(vertical = 1.dp)) {
+                Text(task.title, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge,
                     textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None,
                     color = if (done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
-                task.dueDate?.let { Spacer(Modifier.size(2.dp)); DueChip(it) }
+                TaskMeta(dueMillis = task.dueDate, contexts = contexts, tags = tags, note = task.note)
             }
+            Spacer(Modifier.width(2.dp))
             FlagStar(task.flagColorArgb, task.star, onCycleFlag, onToggleStar)
         }
     }

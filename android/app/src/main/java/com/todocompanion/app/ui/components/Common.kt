@@ -4,9 +4,14 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -17,8 +22,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.Notes
+import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -76,16 +82,20 @@ fun PriorityCheckbox(checked: Boolean, level: PriorityLevel, onCheckedChange: ()
     }
 }
 
-/** Trailing flag + star, MLO-style. Flag cycles colours; star toggles. */
+/**
+ * Trailing flag + star, MLO-style. Larger, with a light "ghost" outline when unset
+ * (transparent-filled) and a solid colour when set. Flag cycles colours; star toggles.
+ */
 @Composable
 fun FlagStar(flagArgb: Long?, starred: Boolean, onCycleFlag: () -> Unit, onToggleStar: () -> Unit) {
-    Box(Modifier.size(32.dp).clip(CircleShape).clickable { onCycleFlag() }, contentAlignment = Alignment.Center) {
-        if (flagArgb != null) Icon(Icons.Filled.Flag, "Flag", tint = Color(flagArgb), modifier = Modifier.size(17.dp))
-        else Icon(Icons.Outlined.Flag, "Flag", tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(17.dp))
+    val ghost = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)
+    Box(Modifier.size(40.dp).clip(CircleShape).clickable { onCycleFlag() }, contentAlignment = Alignment.Center) {
+        if (flagArgb != null) Icon(Icons.Filled.Flag, "Flag", tint = Color(flagArgb), modifier = Modifier.size(23.dp))
+        else Icon(Icons.Outlined.Flag, "Flag", tint = ghost, modifier = Modifier.size(23.dp))
     }
-    Box(Modifier.size(32.dp).clip(CircleShape).clickable { onToggleStar() }, contentAlignment = Alignment.Center) {
-        if (starred) Icon(Icons.Filled.Star, "Star", tint = Color(0xFFF5A623), modifier = Modifier.size(18.dp))
-        else Icon(Icons.Filled.StarBorder, "Star", tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(18.dp))
+    Box(Modifier.size(40.dp).clip(CircleShape).clickable { onToggleStar() }, contentAlignment = Alignment.Center) {
+        if (starred) Icon(Icons.Filled.Star, "Star", tint = Color(0xFFF5A623), modifier = Modifier.size(25.dp))
+        else Icon(Icons.Outlined.StarOutline, "Star", tint = ghost, modifier = Modifier.size(25.dp))
     }
 }
 
@@ -122,6 +132,54 @@ fun DueChip(millis: Long) {
 @Composable
 fun Dot(color: Color, sizeDp: Int = 8) {
     Box(Modifier.size(sizeDp.dp).clip(CircleShape).background(color))
+}
+
+/**
+ * MLO-style per-task detail block: an optional note/description preview line,
+ * then a wrapping meta line of due-date, @contexts and #tags. Renders nothing
+ * when there's nothing to show, so simple tasks stay compact.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun TaskMeta(
+    dueMillis: Long?,
+    contexts: List<Pair<String, Long?>>,
+    tags: List<Pair<String, Long?>>,
+    note: String,
+) {
+    val hasNote = note.isNotBlank()
+    val hasMeta = dueMillis != null || contexts.isNotEmpty() || tags.isNotEmpty()
+    if (!hasNote && !hasMeta) return
+
+    if (hasNote) {
+        Spacer(Modifier.size(3.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Outlined.Notes, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(13.dp))
+            Spacer(Modifier.size(4.dp))
+            Text(
+                note.trim().lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty(),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+    if (hasMeta) {
+        Spacer(Modifier.size(3.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            dueMillis?.let { DueChip(it) }
+            contexts.forEach { (name, argb) ->
+                Text("@$name", style = MaterialTheme.typography.labelMedium,
+                    color = argb?.let { Color(it) } ?: MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            tags.forEach { (name, argb) ->
+                Text("#$name", style = MaterialTheme.typography.labelMedium,
+                    color = argb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
 }
 
 /** A white rounded card on the grey ground — the app's core surface grammar. */
