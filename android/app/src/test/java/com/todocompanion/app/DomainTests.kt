@@ -22,7 +22,7 @@ private fun task(
     due: Long? = null,
     start: Long? = null,
 ) = TaskEntity(
-    id = id, parentId = parent, importance = importance, urgency = urgency,
+    id = id, listId = "l", parentId = parent, importance = importance, urgency = urgency,
     completed = completed, dueDate = due, startDate = start, title = id,
     createdAt = 0, updatedAt = 0,
 )

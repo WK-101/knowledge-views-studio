@@ -1,7 +1,10 @@
 package com.todocompanion.app.data
 
+import com.todocompanion.app.data.entity.ChecklistItemEntity
 import com.todocompanion.app.data.entity.ContextEntity
 import com.todocompanion.app.data.entity.DependencyEntity
+import com.todocompanion.app.data.entity.FolderEntity
+import com.todocompanion.app.data.entity.ListEntity
 import com.todocompanion.app.data.entity.ReminderEntity
 import com.todocompanion.app.data.entity.SettingEntity
 import com.todocompanion.app.data.entity.TagEntity
@@ -14,10 +17,13 @@ import com.todocompanion.app.domain.port.BackupFile
 import kotlinx.coroutines.flow.Flow
 import java.util.UUID
 
-/** Single source of truth over Room. All reads are reactive Flows; all writes are suspend. */
+/** Single source of truth over Room. Reads are reactive Flows; writes are suspend. */
 class AppRepository(private val db: AppDatabase) {
 
     private val tasks = db.taskDao()
+    private val folders = db.folderDao()
+    private val lists = db.listDao()
+    private val checklist = db.checklistDao()
     private val tags = db.tagDao()
     private val contexts = db.contextDao()
     private val reminders = db.reminderDao()
@@ -26,6 +32,9 @@ class AppRepository(private val db: AppDatabase) {
 
     // ----- reactive reads -----
     val allTasks: Flow<List<TaskEntity>> = tasks.observeAll()
+    val allFolders: Flow<List<FolderEntity>> = folders.observeAll()
+    val allLists: Flow<List<ListEntity>> = lists.observeAll()
+    val allChecklist: Flow<List<ChecklistItemEntity>> = checklist.observeAll()
     val allTags: Flow<List<TagEntity>> = tags.observeAll()
     val allContexts: Flow<List<ContextEntity>> = contexts.observeAll()
     val taskTagRefs: Flow<List<TaskTagCrossRef>> = tags.observeCrossRefs()
@@ -35,13 +44,14 @@ class AppRepository(private val db: AppDatabase) {
     val allSettings: Flow<List<SettingEntity>> = settings.observeAll()
 
     fun observeTask(id: String): Flow<TaskEntity?> = tasks.observeById(id)
-
     suspend fun getTask(id: String): TaskEntity? = tasks.getById(id)
 
-    // ----- task mutations -----
     private fun now() = System.currentTimeMillis()
+    private fun uid() = UUID.randomUUID().toString()
 
+    // ============ tasks ============
     suspend fun createTask(
+        listId: String,
         title: String,
         parentId: String? = null,
         importance: Int = 3,
@@ -49,11 +59,12 @@ class AppRepository(private val db: AppDatabase) {
         dueDate: Long? = null,
         startDate: Long? = null,
     ): String {
-        val id = UUID.randomUUID().toString()
-        val order = tasks.maxSortOrder(parentId) + 1.0
+        val id = uid()
+        val order = tasks.maxSortOrder(listId, parentId) + 1.0
         tasks.upsert(
             TaskEntity(
                 id = id,
+                listId = listId,
                 parentId = parentId,
                 sortOrder = order,
                 title = title.ifBlank { "Untitled" },
@@ -71,111 +82,194 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun saveTask(task: TaskEntity) = tasks.upsert(task.copy(updatedAt = now()))
 
     suspend fun setCompleted(task: TaskEntity, completed: Boolean) =
-        tasks.upsert(task.copy(completed = completed, completedAt = if (completed) now() else null, updatedAt = now()))
+        tasks.upsert(task.copy(completed = completed, completedAt = if (completed) now() else null, abandoned = false, updatedAt = now()))
+
+    suspend fun setAbandoned(task: TaskEntity, abandoned: Boolean) =
+        tasks.upsert(task.copy(abandoned = abandoned, completed = false, updatedAt = now()))
 
     suspend fun setCollapsed(task: TaskEntity, collapsed: Boolean) =
         tasks.upsert(task.copy(collapsed = collapsed, updatedAt = now()))
 
-    /** Delete a task and its whole subtree, plus links/reminders/deps. */
-    suspend fun deleteSubtree(rootId: String) {
-        val toDelete = mutableListOf(rootId)
+    private suspend fun subtreeIds(rootId: String): List<String> {
+        val out = mutableListOf(rootId)
         var frontier = listOf(rootId)
         var guard = 0
         while (frontier.isNotEmpty() && guard++ < 10_000) {
             val next = frontier.flatMap { tasks.childrenOf(it).map { c -> c.id } }
-            toDelete.addAll(next)
+            out.addAll(next)
             frontier = next
         }
-        for (id in toDelete) {
+        return out
+    }
+
+    /** Move a task (and subtree) to Trash, or restore it. */
+    suspend fun setTrashed(rootId: String, trashed: Boolean) {
+        val ids = subtreeIds(rootId)
+        for (id in ids) {
+            val t = tasks.getById(id) ?: continue
+            tasks.upsert(t.copy(trashed = trashed, trashedAt = if (trashed) now() else null, updatedAt = now()))
+        }
+    }
+
+    /** Permanently delete a task and its subtree. */
+    suspend fun deleteSubtree(rootId: String) {
+        for (id in subtreeIds(rootId)) {
             tags.unlinkAllForTask(id)
             contexts.unlinkAllForTask(id)
             reminders.deleteForTask(id)
             deps.removeAllInvolving(id)
+            checklist.deleteForTask(id)
             tasks.deleteById(id)
         }
     }
 
-    /** Make [task] a child of its immediate previous sibling. */
+    suspend fun emptyTrash() {
+        tasks.getAll().filter { it.trashed }.forEach { deleteSubtree(it.id) }
+    }
+
+    private suspend fun siblingsIn(listId: String, parentId: String?): List<TaskEntity> =
+        tasks.childrenIn(listId, parentId)
+
     suspend fun indent(task: TaskEntity) {
-        val siblings = childrenOfParent(task.parentId)
-        val idx = siblings.indexOfFirst { it.id == task.id }
+        val sibs = siblingsIn(task.listId, task.parentId)
+        val idx = sibs.indexOfFirst { it.id == task.id }
         if (idx <= 0) return
-        val newParent = siblings[idx - 1]
-        val order = tasks.maxSortOrder(newParent.id) + 1.0
+        val newParent = sibs[idx - 1]
+        val order = tasks.maxSortOrder(task.listId, newParent.id) + 1.0
         tasks.upsert(task.copy(parentId = newParent.id, sortOrder = order, updatedAt = now()))
     }
 
-    /** Move [task] up to become a sibling of its parent, just after it. */
     suspend fun outdent(task: TaskEntity) {
         val parentId = task.parentId ?: return
         val parent = tasks.getById(parentId) ?: return
-        val order = parent.sortOrder + 0.5
-        tasks.upsert(task.copy(parentId = parent.parentId, sortOrder = order, updatedAt = now()))
-        renormalize(parent.parentId)
+        tasks.upsert(task.copy(parentId = parent.parentId, sortOrder = parent.sortOrder + 0.5, updatedAt = now()))
+        renormalize(task.listId, parent.parentId)
     }
 
-    suspend fun moveUp(task: TaskEntity) = swapWithNeighbor(task, -1)
-    suspend fun moveDown(task: TaskEntity) = swapWithNeighbor(task, +1)
-
-    private suspend fun swapWithNeighbor(task: TaskEntity, dir: Int) {
-        val siblings = childrenOfParent(task.parentId)
-        val idx = siblings.indexOfFirst { it.id == task.id }
+    suspend fun moveUp(task: TaskEntity) = swap(task, -1)
+    suspend fun moveDown(task: TaskEntity) = swap(task, +1)
+    private suspend fun swap(task: TaskEntity, dir: Int) {
+        val sibs = siblingsIn(task.listId, task.parentId)
+        val idx = sibs.indexOfFirst { it.id == task.id }
         val j = idx + dir
-        if (idx < 0 || j < 0 || j >= siblings.size) return
-        val other = siblings[j]
+        if (idx < 0 || j < 0 || j >= sibs.size) return
+        val other = sibs[j]
         tasks.upsert(task.copy(sortOrder = other.sortOrder, updatedAt = now()))
         tasks.upsert(other.copy(sortOrder = task.sortOrder, updatedAt = now()))
     }
 
-    private suspend fun childrenOfParent(parentId: String?): List<TaskEntity> =
-        if (parentId == null) tasks.childrenOfRoot() else tasks.childrenOf(parentId)
-
-    private suspend fun renormalize(parentId: String?) {
-        val list = childrenOfParent(parentId).sortedBy { it.sortOrder }
-        list.forEachIndexed { i, t ->
+    private suspend fun renormalize(listId: String, parentId: String?) {
+        siblingsIn(listId, parentId).sortedBy { it.sortOrder }.forEachIndexed { i, t ->
             val target = (i + 1).toDouble()
             if (t.sortOrder != target) tasks.upsert(t.copy(sortOrder = target))
         }
     }
 
-    // ----- tags / contexts -----
+    /** Move a task and its whole subtree to another list; the root becomes a top-level task there. */
+    suspend fun moveToList(rootId: String, newListId: String) {
+        val ids = subtreeIds(rootId)
+        val rootOrder = tasks.maxSortOrder(newListId, null) + 1.0
+        for (id in ids) {
+            val t = tasks.getById(id) ?: continue
+            if (id == rootId) {
+                tasks.upsert(t.copy(listId = newListId, parentId = null, sortOrder = rootOrder, updatedAt = now()))
+            } else {
+                tasks.upsert(t.copy(listId = newListId, updatedAt = now()))
+            }
+        }
+    }
+
+    // ============ folders ============
+    suspend fun createFolder(name: String, parentId: String? = null): String {
+        val id = uid()
+        folders.upsert(FolderEntity(id = id, parentId = parentId, name = name, sortOrder = now().toDouble()))
+        return id
+    }
+
+    suspend fun saveFolder(folder: FolderEntity) = folders.upsert(folder)
+
+    /** Delete a folder; its lists and child folders move up to its parent. */
+    suspend fun deleteFolder(id: String) {
+        val f = folders.getAll().firstOrNull { it.id == id } ?: return
+        lists.getAll().filter { it.folderId == id }.forEach { lists.upsert(it.copy(folderId = f.parentId)) }
+        folders.getAll().filter { it.parentId == id }.forEach { folders.upsert(it.copy(parentId = f.parentId)) }
+        folders.deleteById(id)
+    }
+
+    // ============ lists ============
+    suspend fun ensureInbox() {
+        if (lists.getById(ListEntity.INBOX_ID) == null) {
+            lists.upsert(ListEntity(id = ListEntity.INBOX_ID, name = "Inbox", sortOrder = 0.0))
+        }
+    }
+
+    suspend fun createList(name: String, folderId: String? = null, colorArgb: Long? = null, emoji: String? = null): String {
+        val id = uid()
+        val order = lists.maxSortOrder() + 1.0
+        lists.upsert(ListEntity(id = id, folderId = folderId, name = name, colorArgb = colorArgb, emoji = emoji, sortOrder = order))
+        return id
+    }
+
+    suspend fun saveList(list: ListEntity) = lists.upsert(list)
+    suspend fun getList(id: String): ListEntity? = lists.getById(id)
+
+    /** Delete a list and permanently remove its tasks. */
+    suspend fun deleteList(id: String) {
+        if (id == ListEntity.INBOX_ID) return
+        tasks.getAll().filter { it.listId == id && it.parentId == null }.forEach { deleteSubtree(it.id) }
+        // any orphaned tasks with this listId (safety)
+        tasks.getAll().filter { it.listId == id }.forEach { tasks.deleteById(it.id) }
+        lists.deleteById(id)
+    }
+
+    // ============ checklist ============
+    suspend fun checklistFor(taskId: String): List<ChecklistItemEntity> = checklist.forTask(taskId)
+    suspend fun addChecklistItem(taskId: String, text: String) {
+        val order = checklist.maxSortOrder(taskId) + 1.0
+        checklist.upsert(ChecklistItemEntity(id = uid(), taskId = taskId, sortOrder = order, text = text))
+    }
+    suspend fun saveChecklistItem(item: ChecklistItemEntity) = checklist.upsert(item)
+    suspend fun deleteChecklistItem(id: String) = checklist.deleteById(id)
+
+    // ============ tags / contexts ============
     suspend fun getTagsOnce(): List<TagEntity> = tags.getAll()
     suspend fun getContextsOnce(): List<ContextEntity> = contexts.getAll()
     suspend fun upsertTag(tag: TagEntity) = tags.upsert(tag)
+    suspend fun deleteTag(id: String) = tags.deleteById(id)
     suspend fun setTaskTags(taskId: String, tagIds: List<String>) {
         tags.unlinkAllForTask(taskId)
         tags.linkAll(tagIds.map { TaskTagCrossRef(taskId, it) })
     }
-
     suspend fun upsertContext(context: ContextEntity) = contexts.upsert(context)
+    suspend fun deleteContext(id: String) = contexts.deleteById(id)
     suspend fun setTaskContexts(taskId: String, contextIds: List<String>) {
         contexts.unlinkAllForTask(taskId)
         contexts.linkAll(contextIds.map { TaskContextCrossRef(taskId, it) })
     }
 
-    // ----- reminders -----
+    // ============ reminders / deps ============
     suspend fun remindersFor(taskId: String): List<ReminderEntity> = reminders.forTask(taskId)
     suspend fun upsertReminder(reminder: ReminderEntity) = reminders.upsert(reminder)
     suspend fun deleteReminder(id: String) = reminders.deleteById(id)
     suspend fun allRemindersOnce(): List<ReminderEntity> = reminders.getAll()
-
-    // ----- dependencies -----
     suspend fun addDependency(taskId: String, dependsOn: String, mode: String = "AND") =
         deps.add(DependencyEntity(taskId, dependsOn, mode))
     suspend fun removeDependency(dep: DependencyEntity) = deps.remove(dep)
 
-    // ----- settings -----
+    // ============ settings ============
     suspend fun settingsSnapshot(): AppSettings =
         AppSettings.fromMap(settings.getAll().associate { it.key to it.value })
-
     suspend fun saveSettings(s: AppSettings) =
         settings.putAll(s.toMap().map { SettingEntity(it.key, it.value) })
 
-    // ----- export / import -----
-    suspend fun exportJson(): String {
-        val backup = BackupFile(
+    // ============ export / import ============
+    suspend fun exportJson(): String = Backup.encode(
+        BackupFile(
             exportedAt = now(),
+            folders = folders.getAll(),
+            lists = lists.getAll(),
             tasks = tasks.getAll(),
+            checklist = checklist.getAll(),
             tags = tags.getAll(),
             taskTags = tags.getCrossRefs(),
             contexts = contexts.getAll(),
@@ -184,20 +278,42 @@ class AppRepository(private val db: AppDatabase) {
             dependencies = deps.getAll(),
             settings = settings.getAll(),
         )
-        return Backup.encode(backup)
-    }
+    )
 
-    /** Replace the entire database with the contents of a backup file. */
     suspend fun importJsonReplace(text: String) {
         val b = Backup.decode(text)
-        tasks.clear(); tags.clear(); tags.clearCrossRefs()
-        contexts.clear(); contexts.clearCrossRefs()
+        tasks.clear(); folders.clear(); lists.clear(); checklist.clear()
+        tags.clear(); tags.clearCrossRefs(); contexts.clear(); contexts.clearCrossRefs()
         reminders.clear(); deps.clear(); settings.clear()
+        folders.upsertAll(b.folders)
+        lists.upsertAll(b.lists)
         tasks.upsertAll(b.tasks)
+        checklist.upsertAll(b.checklist)
         tags.upsertAll(b.tags); tags.linkAll(b.taskTags)
         contexts.upsertAll(b.contexts); contexts.linkAll(b.taskContexts)
         reminders.upsertAll(b.reminders)
         deps.addAll(b.dependencies)
         settings.putAll(b.settings)
+        ensureInbox()
+    }
+
+    // ============ first-run seed ============
+    suspend fun ensureSeed() {
+        ensureInbox()
+        if (tasks.getAll().isNotEmpty()) return
+        val work = createFolder("Work")
+        val personal = createFolder("Personal")
+        val quarterly = createList("Quarterly Report", folderId = work, colorArgb = 0xFFE5484D)
+        val admin = createList("Admin", folderId = work, colorArgb = 0xFFF59E0B)
+        val home = createList("Home", folderId = personal, colorArgb = 0xFF3E7BFA)
+
+        createTask(ListEntity.INBOX_ID, "Try quick-add: \"pay rent tomorrow 5pm !! #home\"")
+        createTask(ListEntity.INBOX_ID, "Everything is offline, private, and free")
+        val report = createTask(quarterly, "Draft summary for board deck", importance = 5, urgency = 4)
+        createTask(quarterly, "Collect figures", parentId = report, importance = 4)
+        createTask(quarterly, "Write exec overview", parentId = report)
+        createTask(admin, "File expense receipts", importance = 3, urgency = 4)
+        createTask(home, "Water the plants", importance = 2)
+        createTask(home, "Book dentist", importance = 3, urgency = 4)
     }
 }

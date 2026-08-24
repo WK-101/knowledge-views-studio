@@ -6,154 +6,155 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.todocompanion.app.domain.FirstView
+import com.todocompanion.app.domain.AppSettings
 import com.todocompanion.app.domain.ThemeMode
+import com.todocompanion.app.domain.TimeFormat
 import com.todocompanion.app.ui.AppViewModel
+import java.time.ZoneId
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
+    val s by vm.settings.collectAsState()
+    val context = LocalContext.current
+    var showZone by remember { mutableStateOf(false) }
+
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) vm.exportTo(uri) { ok -> Toast.makeText(context, if (ok) "Exported" else "Export failed", Toast.LENGTH_SHORT).show() }
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) vm.importFrom(uri) { ok -> Toast.makeText(context, if (ok) "Imported" else "Import failed", Toast.LENGTH_SHORT).show() }
+    }
+
+    Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
+
+        Section("Appearance")
+        Sub("Theme")
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            ThemeMode.entries.forEachIndexed { i, m ->
+                SegmentedButton(selected = s.themeMode == m, onClick = { vm.saveSettings(s.copy(themeMode = m)) },
+                    shape = SegmentedButtonDefaults.itemShape(i, ThemeMode.entries.size)) {
+                    Text(when (m) { ThemeMode.SYSTEM -> "System"; ThemeMode.LIGHT -> "Light"; ThemeMode.DARK -> "Dark"; ThemeMode.AMOLED -> "AMOLED" }, maxLines = 1)
+                }
+            }
+        }
+        Toggle("Dynamic color (Material You)", s.dynamicColor) { vm.saveSettings(s.copy(dynamicColor = it)) }
+        Toggle("Advanced priority (importance + urgency)", s.advancedPriority) { vm.saveSettings(s.copy(advancedPriority = it)) }
+
+        Spacer(Modifier.height(16.dp)); HorizontalDivider(); Spacer(Modifier.height(12.dp))
+        Section("Date & time")
+        Sub("Week starts on")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            val labels = listOf("System" to 0, "Mon" to 1, "Tue" to 2, "Wed" to 3, "Thu" to 4, "Fri" to 5, "Sat" to 6, "Sun" to 7)
+            labels.forEach { (label, v) ->
+                FilterChip(selected = s.weekStart == v, onClick = { vm.saveSettings(s.copy(weekStart = v)) }, label = { Text(label) })
+            }
+        }
+        Spacer(Modifier.height(10.dp)); Sub("Clock")
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            TimeFormat.entries.forEachIndexed { i, f ->
+                SegmentedButton(selected = s.timeFormat == f, onClick = { vm.saveSettings(s.copy(timeFormat = f)) },
+                    shape = SegmentedButtonDefaults.itemShape(i, TimeFormat.entries.size)) {
+                    Text(when (f) { TimeFormat.SYSTEM -> "System"; TimeFormat.H12 -> "12-hour"; TimeFormat.H24 -> "24-hour" })
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth().clickable { showZone = true }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Time zone", Modifier.weight(1f))
+            Text(s.timeZone.ifBlank { "Device (${ZoneId.systemDefault().id})" }, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
+        Spacer(Modifier.height(16.dp)); HorizontalDivider(); Spacer(Modifier.height(12.dp))
+        Section("Backup")
+        Action("Export all data (JSON)") { exportLauncher.launch("todo-companion-backup.json") }
+        Action("Import / restore (JSON)") { importLauncher.launch(arrayOf("application/json", "text/*", "*/*")) }
+        Text("Complete, lossless local backup. No account, no cloud, no network.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+
+        Spacer(Modifier.height(20.dp))
+        Text("ToDo Companion · Phase 1a · offline & private by construction (no network permission).",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+
+    if (showZone) ZonePickerDialog(current = s.timeZone, onDismiss = { showZone = false }) { z ->
+        vm.saveSettings(s.copy(timeZone = z)); showZone = false
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
-    val settings by vm.settings.collectAsState()
-    val context = LocalContext.current
-
-    val exportLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/json")
-    ) { uri ->
-        if (uri != null) vm.exportTo(uri) { ok ->
-            Toast.makeText(context, if (ok) "Exported" else "Export failed", Toast.LENGTH_SHORT).show()
-        }
-    }
-    val importLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri != null) vm.importFrom(uri) { ok ->
-            Toast.makeText(context, if (ok) "Imported" else "Import failed", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    Column(
-        modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp)
-    ) {
-        SectionLabel("First view")
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            SegmentedButton(
-                selected = settings.firstView == FirstView.MATRIX,
-                onClick = { vm.saveSettings(settings.copy(firstView = FirstView.MATRIX)) },
-                shape = SegmentedButtonDefaults.itemShape(0, 2),
-            ) { Text("Matrix") }
-            SegmentedButton(
-                selected = settings.firstView == FirstView.CALENDAR,
-                onClick = { vm.saveSettings(settings.copy(firstView = FirstView.CALENDAR)) },
-                shape = SegmentedButtonDefaults.itemShape(1, 2),
-            ) { Text("Calendar") }
-        }
-
-        Spacer(Modifier.height(20.dp))
-        SectionLabel("Theme")
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            ThemeMode.entries.forEachIndexed { i, mode ->
-                SegmentedButton(
-                    selected = settings.themeMode == mode,
-                    onClick = { vm.saveSettings(settings.copy(themeMode = mode)) },
-                    shape = SegmentedButtonDefaults.itemShape(i, ThemeMode.entries.size),
-                ) { Text(mode.name.lowercase().replaceFirstChar { it.uppercase() }) }
+private fun ZonePickerDialog(current: String, onDismiss: () -> Unit, onPick: (String) -> Unit) {
+    var query by remember { mutableStateOf("") }
+    val all = remember { listOf("") + ZoneId.getAvailableZoneIds().sorted() }
+    val filtered = remember(query) { all.filter { query.isBlank() || it.contains(query, ignoreCase = true) } }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        title = { Text("Time zone") },
+        text = {
+            Column {
+                OutlinedTextField(query, { query = it }, placeholder = { Text("Search zones…") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(Modifier.heightIn(max = 320.dp)) {
+                    items(filtered, key = { it }) { z ->
+                        val label = if (z.isBlank()) "Device (${ZoneId.systemDefault().id})" else z
+                        Text(label, Modifier.fillMaxWidth().clickable { onPick(z) }.padding(vertical = 11.dp),
+                            fontWeight = if (z == current) FontWeight.Bold else FontWeight.Normal)
+                    }
+                }
             }
-        }
-
-        Spacer(Modifier.height(12.dp))
-        ToggleRow(
-            title = "Dynamic color (Material You)",
-            checked = settings.dynamicColor,
-            onCheckedChange = { vm.saveSettings(settings.copy(dynamicColor = it)) },
-        )
-        ToggleRow(
-            title = "Advanced priority (importance + urgency)",
-            subtitle = "Show two 1–5 dials and the computed Do-Next ranking",
-            checked = settings.advancedPriority,
-            onCheckedChange = { vm.saveSettings(settings.copy(advancedPriority = it)) },
-        )
-
-        Spacer(Modifier.height(20.dp))
-        HorizontalDivider()
-        Spacer(Modifier.height(12.dp))
-        SectionLabel("Backup")
-        ActionRow("Export all data (JSON)") { exportLauncher.launch("todo-companion-backup.json") }
-        ActionRow("Import / restore (JSON)") { importLauncher.launch(arrayOf("application/json", "text/*", "*/*")) }
-        Text(
-            "Complete, lossless local backup. No account, no cloud, no network.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 4.dp),
-        )
-
-        Spacer(Modifier.height(24.dp))
-        Text(
-            "ToDo Companion — offline & private by construction (no network permission).",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-private fun SectionLabel(text: String) {
-    Text(text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-    Spacer(Modifier.height(8.dp))
-}
-
-@Composable
-private fun ToggleRow(
-    title: String,
-    subtitle: String? = null,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Column(Modifier.weight(1f).padding(end = 12.dp)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
-            if (subtitle != null) {
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
-    }
-}
-
-@Composable
-private fun ActionRow(title: String, onClick: () -> Unit) {
-    Text(
-        title,
-        Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 12.dp),
-        style = MaterialTheme.typography.bodyLarge,
-        color = MaterialTheme.colorScheme.primary,
+        },
     )
+}
+
+@Composable private fun Section(t: String) { Text(t, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary); Spacer(Modifier.height(8.dp)) }
+@Composable private fun Sub(t: String) { Text(t, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.height(6.dp)) }
+
+@Composable
+private fun Toggle(title: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(title, Modifier.weight(1f).padding(end = 12.dp))
+        Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+@Composable
+private fun Action(title: String, onClick: () -> Unit) {
+    Text(title, Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 12.dp),
+        style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
 }

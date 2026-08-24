@@ -13,19 +13,35 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.todocompanion.app.domain.ThemeMode
 
-private val Brand = Color(0xFF4C5BD4)
-private val BrandDark = Color(0xFFB6C0FF)
+private val Brand = Color(0xFF5B57D9)
+private val BrandDark = Color(0xFF8C86FF)
 
 private val LightColors = lightColorScheme(
     primary = Brand,
-    secondary = Color(0xFF5A6072),
+    secondary = Color(0xFF5A6472),
     tertiary = Color(0xFF735471),
+    background = Color(0xFFF4F5F8),
+    surface = Color(0xFFFFFFFF),
+    surfaceVariant = Color(0xFFECEEF3),
 )
 
 private val DarkColors = darkColorScheme(
     primary = BrandDark,
     secondary = Color(0xFFC1C6DD),
     tertiary = Color(0xFFE2BBDE),
+    background = Color(0xFF111319),
+    surface = Color(0xFF191C24),
+    surfaceVariant = Color(0xFF212530),
+)
+
+// True-black for OLED screens.
+private val AmoledColors = darkColorScheme(
+    primary = BrandDark,
+    secondary = Color(0xFFC1C6DD),
+    tertiary = Color(0xFFE2BBDE),
+    background = Color(0xFF000000),
+    surface = Color(0xFF0A0B0F),
+    surfaceVariant = Color(0xFF16181E),
 )
 
 val AppTypography = Typography()
@@ -36,13 +52,17 @@ fun AppTheme(
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit,
 ) {
+    val systemDark = isSystemInDarkTheme()
     val dark = when (themeMode) {
-        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.SYSTEM -> systemDark
         ThemeMode.LIGHT -> false
-        ThemeMode.DARK -> true
+        ThemeMode.DARK, ThemeMode.AMOLED -> true
     }
+    val dynamicAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val colors = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+        // AMOLED forces the true-black scheme (dynamic color can't guarantee pure black).
+        themeMode == ThemeMode.AMOLED -> AmoledColors
+        dynamicColor && dynamicAvailable -> {
             val ctx = LocalContext.current
             if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
         }

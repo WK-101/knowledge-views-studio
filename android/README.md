@@ -10,22 +10,29 @@ The app declares **no `INTERNET` permission**, so it cannot access the network. 
 only permissions are local: `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`,
 `USE_EXACT_ALARM`, `RECEIVE_BOOT_COMPLETED`, `VIBRATE` — all for on-device reminders.
 
-## Phase 1 (implemented)
+## Phase 1a (implemented)
 
-- **Outline** — unlimited nested tasks; collapse, complete, swipe to complete/delete.
-- **Do Next** — the MLO-style computed-priority list (importance + urgency + due
-  proximity + ancestor inheritance, with start/blocked/context gating).
-- **Planner** — **Matrix** (Eisenhower quadrants) and **Calendar** (month + agenda),
-  with the default set by Settings → First view.
-- **Quick-add** — natural-language capture: `Pay rent tomorrow 5pm !! #home @errands`.
-- **Task detail** — title, note, simple 4-level priority (advanced importance/urgency
-  dials optional), due date/time, reminders, tags, contexts, star.
+- **Navigation drawer** — nested **Folders → Lists**, the full **Smart Lists**
+  (Inbox, Today, Tomorrow, Next 7 Days, Do Next, Scheduled, Flagged, All, Completed,
+  Won't Do, Trash) with live counts, plus **Tags** and **Contexts**; create/manage
+  lists & folders.
+- **List view** — foldable groups (by date/priority), swipe to complete/trash.
+- **Outline view** — unlimited nested tasks per list; collapse, indent.
+- **Quick-add** — natural-language capture *plus* a tappable option toolbar
+  (Date · Priority · Tag · List · Reminder).
+- **Task detail** — title, note, priority (simple + advanced importance/urgency dials),
+  due/start, reminders, **checklist**, tags, contexts, move-to-list, star, Won't-Do.
+- **Search** — global search across titles and notes.
+- **Settings** — theme (System / Light / Dark / **AMOLED**) + Material You, week-start
+  (any day), 12/24h clock, **any time zone**, advanced priority, and JSON export/import.
 - **Reminders** — local exact alarms + notifications; rescheduled after reboot.
-- **Backup** — Settings → Export/Import: complete, versioned **JSON**, on-device (SAF).
-- Material 3 theming: system/light/dark + Material You dynamic color.
+
+Deferred to **Phase 1b**: the computed-priority Do-Next ranking screen polish, the
+**Matrix** and **Calendar** tabs (placeholders for now).
 
 Architecture: Compose UI → `AppViewModel` → pure-Kotlin domain (`PriorityEngine`,
-`QuickAddParser`, `Backup`) → `AppRepository` → Room. Unit tests cover the domain logic.
+`QuickAddParser`, `TaskViews`, `Backup`) → `AppRepository` → Room (11 entities).
+Unit tests cover the domain logic.
 
 ## Getting an installable APK
 

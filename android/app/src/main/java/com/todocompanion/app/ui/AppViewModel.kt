@@ -5,15 +5,26 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.todocompanion.app.App
+import com.todocompanion.app.data.entity.ChecklistItemEntity
 import com.todocompanion.app.data.entity.ContextEntity
+import com.todocompanion.app.data.entity.FolderEntity
+import com.todocompanion.app.data.entity.ListEntity
 import com.todocompanion.app.data.entity.ReminderEntity
 import com.todocompanion.app.data.entity.TagEntity
 import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.domain.AppSettings
 import com.todocompanion.app.domain.nlp.QuickAddParser
 import com.todocompanion.app.domain.priority.PriorityEngine
+import com.todocompanion.app.domain.priority.PriorityLevel
+import com.todocompanion.app.domain.view.GroupMode
+import com.todocompanion.app.domain.view.SmartKind
+import com.todocompanion.app.domain.view.SortMode
+import com.todocompanion.app.domain.view.TaskGroup
+import com.todocompanion.app.domain.view.TaskViews
+import com.todocompanion.app.domain.view.ViewRef
 import com.todocompanion.app.reminders.AlarmScheduler
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -23,12 +34,17 @@ import kotlinx.coroutines.launch
 import java.time.ZoneId
 import java.util.UUID
 
-/** A flattened, indented outline row for the tree UI. */
-data class OutlineRow(
-    val task: TaskEntity,
-    val depth: Int,
-    val hasChildren: Boolean,
-    val collapsed: Boolean,
+/** A flattened, indented outline row. */
+data class OutlineRow(val task: TaskEntity, val depth: Int, val hasChildren: Boolean, val collapsed: Boolean)
+
+/** Options captured by the quick-add option toolbar; override anything parsed from text. */
+data class QuickAddOptions(
+    val dueMillis: Long? = null,
+    val hasTime: Boolean = false,
+    val priority: PriorityLevel? = null,
+    val listId: String? = null,
+    val tagIds: List<String> = emptyList(),
+    val reminderMillis: Long? = null,
 )
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
@@ -40,124 +56,195 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initial)
 
     val settings: StateFlow<AppSettings> =
-        repo.allSettings.map { list -> AppSettings.fromMap(list.associate { it.key to it.value }) }
-            .state(AppSettings())
+        repo.allSettings.map { AppSettings.fromMap(it.associate { s -> s.key to s.value }) }.state(AppSettings())
 
     val tasks: StateFlow<List<TaskEntity>> = repo.allTasks.state(emptyList())
+    val folders = repo.allFolders.state(emptyList())
+    val lists = repo.allLists.state(emptyList())
     val tags: StateFlow<List<TagEntity>> = repo.allTags.state(emptyList())
     val contexts: StateFlow<List<ContextEntity>> = repo.allContexts.state(emptyList())
     val taskTags = repo.taskTagRefs.state(emptyList())
     val taskContexts = repo.taskContextRefs.state(emptyList())
+    val checklist = repo.allChecklist.state(emptyList())
     val reminders = repo.allReminders.state(emptyList())
 
-    val outline: StateFlow<List<OutlineRow>> =
-        repo.allTasks.map { buildOutline(it) }.state(emptyList())
+    val currentView = MutableStateFlow<ViewRef>(ViewRef.Smart(SmartKind.TODAY))
+    val groupMode = MutableStateFlow(GroupMode.DATE)
+    val sortMode = MutableStateFlow(SortMode.MANUAL)
+    val outlineMode = MutableStateFlow(false)
 
-    val doNext: StateFlow<List<PriorityEngine.Ranked>> =
-        combine(repo.allTasks, repo.allDependencies, repo.taskContextRefs, repo.allContexts) { t, d, tc, c ->
+    private val zone: ZoneId get() = ZoneId.systemDefault()
+
+    /** Live task count per smart list, for the drawer. */
+    val smartCounts: StateFlow<Map<SmartKind, Int>> =
+        combine(repo.allTasks, currentView) { t, _ ->
+            SmartKind.entries.associateWith { TaskViews.filterSmart(t, it, System.currentTimeMillis(), zone).size }
+        }.state(emptyMap())
+
+    private data class Cfg(val view: ViewRef, val group: GroupMode, val sort: SortMode)
+
+    val groups: StateFlow<List<TaskGroup>> =
+        combine(
+            repo.allTasks,
+            combine(currentView, groupMode, sortMode) { v, g, s -> Cfg(v, g, s) },
+            repo.taskTagRefs,
+            repo.taskContextRefs,
+        ) { all, cfg, ttRefs, tcRefs ->
             val now = System.currentTimeMillis()
-            val byParent = t.groupBy { it.parentId }
-            val byId = t.associateBy { it.id }
-            val blocked = PriorityEngine.computeBlocked(d, byId)
-            val ctxByTask = tc.groupBy { it.taskId }.mapValues { e -> e.value.map { it.contextId } }
-            val ctxById = c.associateBy { it.id }
-            PriorityEngine.doNext(
-                all = t,
-                now = now,
-                blocked = blocked,
-                hasIncompleteChild = { id -> byParent[id].orEmpty().any { !it.completed } },
-                contextAvailable = { id ->
-                    val cs = ctxByTask[id].orEmpty()
-                    cs.isEmpty() || cs.any { ctxById[it]?.active == true }
-                },
-            )
+            val filtered = when (val v = cfg.view) {
+                is ViewRef.Smart -> {
+                    val base = TaskViews.filterSmart(all, v.kind, now, zone)
+                    if (v.kind == SmartKind.DO_NEXT) rankDoNext(base, all, now) else base
+                }
+                is ViewRef.ListView -> all.filter { !it.trashed && !it.completed && !it.abandoned && it.listId == v.listId }
+                is ViewRef.TagView -> {
+                    val ids = ttRefs.filter { it.tagId == v.tagId }.map { it.taskId }.toSet()
+                    all.filter { it.id in ids && !it.trashed && !it.completed && !it.abandoned }
+                }
+                is ViewRef.ContextView -> {
+                    val ids = tcRefs.filter { it.contextId == v.contextId }.map { it.taskId }.toSet()
+                    all.filter { it.id in ids && !it.trashed && !it.completed && !it.abandoned }
+                }
+            }
+            val sorted = if ((cfg.view as? ViewRef.Smart)?.kind == SmartKind.DO_NEXT) filtered
+            else TaskViews.sort(filtered, cfg.sort)
+            TaskViews.group(sorted, if ((cfg.view as? ViewRef.Smart)?.kind == SmartKind.DO_NEXT) GroupMode.NONE else cfg.group, now, zone)
         }.state(emptyList())
+
+    val outlineRows: StateFlow<List<OutlineRow>> =
+        combine(repo.allTasks, currentView) { all, v ->
+            val listId = (v as? ViewRef.ListView)?.listId ?: return@combine emptyList()
+            buildOutline(all.filter { it.listId == listId && !it.trashed })
+        }.state(emptyList())
+
+    private fun rankDoNext(base: List<TaskEntity>, all: List<TaskEntity>, now: Long): List<TaskEntity> {
+        val byParent = all.groupBy { it.parentId }
+        return PriorityEngine.doNext(
+            all = base,
+            now = now,
+            blocked = emptySet(),
+            hasIncompleteChild = { id -> byParent[id].orEmpty().any { !it.completed && !it.trashed && !it.abandoned } },
+            contextAvailable = { true },
+        ).map { it.task }
+    }
 
     fun observeTask(id: String): Flow<TaskEntity?> = repo.observeTask(id)
 
+    // ---------- navigation ----------
+    fun select(view: ViewRef) {
+        currentView.value = view
+        groupMode.value = if (view is ViewRef.ListView) GroupMode.NONE else GroupMode.DATE
+        outlineMode.value = false
+    }
+
+    fun currentTitle(): String = when (val v = currentView.value) {
+        is ViewRef.Smart -> v.kind.title
+        is ViewRef.ListView -> lists.value.firstOrNull { it.id == v.listId }?.name ?: "List"
+        is ViewRef.TagView -> "#" + (tags.value.firstOrNull { it.id == v.tagId }?.name ?: "tag")
+        is ViewRef.ContextView -> "@" + (contexts.value.firstOrNull { it.id == v.contextId }?.name ?: "context")
+    }
+
+    fun canOutline(): Boolean = currentView.value is ViewRef.ListView
+
+    private fun targetListForAdd(): String =
+        (currentView.value as? ViewRef.ListView)?.listId ?: ListEntity.INBOX_ID
+
+    // ---------- quick add ----------
+    fun submitQuickAdd(text: String, opts: QuickAddOptions) = viewModelScope.launch {
+        val parsed = QuickAddParser.parse(text)
+        if (parsed.title.isBlank() && parsed.tags.isEmpty()) return@launch
+        val due = opts.dueMillis ?: parsed.dateTime?.atZone(zone)?.toInstant()?.toEpochMilli()
+        val level = opts.priority ?: parsed.priority
+        val imp = level?.importance ?: 3
+        val urg = level?.urgency ?: 3
+        val listId = opts.listId ?: targetListForAdd()
+        val id = repo.createTask(listId, parsed.title.ifBlank { "Untitled" }, importance = imp, urgency = urg, dueDate = due)
+
+        val tagIds = opts.tagIds.toMutableList()
+        if (parsed.tags.isNotEmpty()) {
+            val existing = repo.getTagsOnce().associateBy { it.name.lowercase() }
+            parsed.tags.forEach { name ->
+                tagIds += existing[name.lowercase()]?.id ?: UUID.randomUUID().toString().also { repo.upsertTag(TagEntity(it, name)) }
+            }
+        }
+        if (tagIds.isNotEmpty()) repo.setTaskTags(id, tagIds.distinct())
+
+        val reminderAt = opts.reminderMillis ?: (if (parsed.hasTime && due != null) due else null)
+        if (reminderAt != null) {
+            val r = ReminderEntity(UUID.randomUUID().toString(), taskId = id, type = "absolute", atTime = reminderAt)
+            repo.upsertReminder(r)
+            repo.getTask(id)?.let { AlarmScheduler.schedule(appCtx, r, it) }
+        }
+    }
+
+    // ---------- task actions ----------
+    fun addTask(listId: String, parentId: String? = null, title: String = "New task") =
+        viewModelScope.launch { repo.createTask(listId, title, parentId = parentId) }
+    fun toggleComplete(t: TaskEntity) = viewModelScope.launch { repo.setCompleted(t, !t.completed) }
+    fun setAbandoned(t: TaskEntity, v: Boolean) = viewModelScope.launch { repo.setAbandoned(t, v) }
+    fun toggleCollapsed(t: TaskEntity) = viewModelScope.launch { repo.setCollapsed(t, !t.collapsed) }
+    fun trash(t: TaskEntity) = viewModelScope.launch { repo.setTrashed(t.id, true) }
+    fun restore(t: TaskEntity) = viewModelScope.launch { repo.setTrashed(t.id, false) }
+    fun deleteForever(t: TaskEntity) = viewModelScope.launch { repo.deleteSubtree(t.id) }
+    fun emptyTrash() = viewModelScope.launch { repo.emptyTrash() }
+    fun indent(t: TaskEntity) = viewModelScope.launch { repo.indent(t) }
+    fun outdent(t: TaskEntity) = viewModelScope.launch { repo.outdent(t) }
+    fun moveUp(t: TaskEntity) = viewModelScope.launch { repo.moveUp(t) }
+    fun moveDown(t: TaskEntity) = viewModelScope.launch { repo.moveDown(t) }
+    fun moveToList(t: TaskEntity, listId: String) = viewModelScope.launch { repo.moveToList(t.id, listId) }
+    fun save(t: TaskEntity) = viewModelScope.launch { repo.saveTask(t) }
+
+    // ---------- checklist ----------
+    fun checklistFor(taskId: String) = checklist.value.filter { it.taskId == taskId }.sortedBy { it.sortOrder }
+    fun addChecklistItem(taskId: String, text: String) = viewModelScope.launch { repo.addChecklistItem(taskId, text) }
+    fun toggleChecklist(item: ChecklistItemEntity) = viewModelScope.launch { repo.saveChecklistItem(item.copy(checked = !item.checked)) }
+    fun deleteChecklistItem(id: String) = viewModelScope.launch { repo.deleteChecklistItem(id) }
+
+    // ---------- folders / lists ----------
+    fun createFolder(name: String) = viewModelScope.launch { repo.createFolder(name) }
+    fun renameFolder(f: FolderEntity, name: String) = viewModelScope.launch { repo.saveFolder(f.copy(name = name)) }
+    fun toggleFolder(f: FolderEntity) = viewModelScope.launch { repo.saveFolder(f.copy(collapsed = !f.collapsed)) }
+    fun deleteFolder(id: String) = viewModelScope.launch { repo.deleteFolder(id) }
+    fun createList(name: String, folderId: String?, colorArgb: Long?) = viewModelScope.launch { repo.createList(name, folderId, colorArgb) }
+    fun saveList(l: ListEntity) = viewModelScope.launch { repo.saveList(l) }
+    fun deleteList(id: String) = viewModelScope.launch { repo.deleteList(id) }
+
+    // ---------- tags / contexts ----------
     fun tagsForTask(taskId: String): List<TagEntity> {
         val ids = taskTags.value.filter { it.taskId == taskId }.map { it.tagId }.toSet()
         return tags.value.filter { it.id in ids }
     }
-
     fun contextsForTask(taskId: String): List<ContextEntity> {
         val ids = taskContexts.value.filter { it.taskId == taskId }.map { it.contextId }.toSet()
         return contexts.value.filter { it.id in ids }
     }
-
-    // ---------- actions ----------
-    fun quickAdd(text: String, parentId: String? = null) = viewModelScope.launch {
-        val parsed = QuickAddParser.parse(text)
-        if (parsed.title.isBlank() && parsed.tags.isEmpty()) return@launch
-        val imp = parsed.priority?.importance ?: 3
-        val urg = parsed.priority?.urgency ?: 3
-        val due = parsed.dateTime?.atZone(ZoneId.systemDefault())?.toInstant()?.toEpochMilli()
-        val id = repo.createTask(
-            title = parsed.title.ifBlank { "Untitled" },
-            parentId = parentId,
-            importance = imp,
-            urgency = urg,
-            dueDate = due,
-        )
-        if (parsed.tags.isNotEmpty()) {
-            val existing = repo.getTagsOnce().associateBy { it.name.lowercase() }
-            val ids = parsed.tags.map { name ->
-                existing[name.lowercase()]?.id ?: UUID.randomUUID().toString().also { newId ->
-                    repo.upsertTag(TagEntity(newId, name))
-                }
-            }
-            repo.setTaskTags(id, ids)
-        }
-        if (parsed.contexts.isNotEmpty()) {
-            val existing = repo.getContextsOnce().associateBy { it.name.lowercase() }
-            val ids = parsed.contexts.map { name ->
-                existing[name.lowercase()]?.id ?: UUID.randomUUID().toString().also { newId ->
-                    repo.upsertContext(ContextEntity(id = newId, name = name))
-                }
-            }
-            repo.setTaskContexts(id, ids)
-        }
-        if (parsed.hasTime && due != null) {
-            val reminder = ReminderEntity(UUID.randomUUID().toString(), taskId = id, type = "absolute", atTime = due)
-            repo.upsertReminder(reminder)
-            repo.getTask(id)?.let { AlarmScheduler.schedule(appCtx, reminder, it) }
-        }
-    }
-
-    fun addChild(parentId: String?) = viewModelScope.launch { repo.createTask("New task", parentId = parentId) }
-    fun toggleComplete(task: TaskEntity) = viewModelScope.launch { repo.setCompleted(task, !task.completed) }
-    fun toggleCollapsed(task: TaskEntity) = viewModelScope.launch { repo.setCollapsed(task, !task.collapsed) }
-    fun indent(task: TaskEntity) = viewModelScope.launch { repo.indent(task) }
-    fun outdent(task: TaskEntity) = viewModelScope.launch { repo.outdent(task) }
-    fun moveUp(task: TaskEntity) = viewModelScope.launch { repo.moveUp(task) }
-    fun moveDown(task: TaskEntity) = viewModelScope.launch { repo.moveDown(task) }
-    fun delete(task: TaskEntity) = viewModelScope.launch { repo.deleteSubtree(task.id) }
-    fun save(task: TaskEntity) = viewModelScope.launch { repo.saveTask(task) }
-
     fun setTags(taskId: String, tagIds: List<String>) = viewModelScope.launch { repo.setTaskTags(taskId, tagIds) }
     fun setContexts(taskId: String, ids: List<String>) = viewModelScope.launch { repo.setTaskContexts(taskId, ids) }
     fun createTag(name: String) = viewModelScope.launch { repo.upsertTag(TagEntity(UUID.randomUUID().toString(), name)) }
     fun createContext(name: String) = viewModelScope.launch { repo.upsertContext(ContextEntity(id = UUID.randomUUID().toString(), name = name)) }
 
-    fun saveSettings(s: AppSettings) = viewModelScope.launch { repo.saveSettings(s) }
-
-    // reminders on a task
-    fun remindersFor(taskId: String, cb: (List<ReminderEntity>) -> Unit) = viewModelScope.launch {
-        cb(repo.remindersFor(taskId))
-    }
-
+    // ---------- reminders ----------
     fun addAbsoluteReminder(task: TaskEntity, atMillis: Long) = viewModelScope.launch {
         val r = ReminderEntity(UUID.randomUUID().toString(), taskId = task.id, type = "absolute", atTime = atMillis)
         repo.upsertReminder(r)
         AlarmScheduler.schedule(appCtx, r, task)
     }
-
     fun deleteReminder(reminder: ReminderEntity, task: TaskEntity) = viewModelScope.launch {
         repo.deleteReminder(reminder.id)
         AlarmScheduler.cancel(appCtx, reminder, task)
     }
 
-    // export / import
+    // ---------- settings ----------
+    fun saveSettings(s: AppSettings) = viewModelScope.launch { repo.saveSettings(s) }
+
+    // ---------- search ----------
+    fun search(query: String): List<TaskEntity> {
+        val q = query.trim().lowercase()
+        if (q.isBlank()) return emptyList()
+        return tasks.value.filter { !it.trashed && (it.title.lowercase().contains(q) || it.note.lowercase().contains(q)) }
+    }
+
+    // ---------- export / import ----------
     fun exportTo(uri: Uri, onDone: (Boolean) -> Unit) = viewModelScope.launch {
         val ok = runCatching {
             val json = repo.exportJson()
@@ -165,11 +252,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }.isSuccess
         onDone(ok)
     }
-
     fun importFrom(uri: Uri, onDone: (Boolean) -> Unit) = viewModelScope.launch {
         val ok = runCatching {
-            val text = appCtx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-                ?: return@runCatching Unit
+            val text = appCtx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: return@runCatching
             repo.importJsonReplace(text)
             AlarmScheduler.rescheduleAll(appCtx, repo)
         }.isSuccess

@@ -6,8 +6,11 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Upsert
+import com.todocompanion.app.data.entity.ChecklistItemEntity
 import com.todocompanion.app.data.entity.ContextEntity
 import com.todocompanion.app.data.entity.DependencyEntity
+import com.todocompanion.app.data.entity.FolderEntity
+import com.todocompanion.app.data.entity.ListEntity
 import com.todocompanion.app.data.entity.ReminderEntity
 import com.todocompanion.app.data.entity.SettingEntity
 import com.todocompanion.app.data.entity.TagEntity
@@ -33,11 +36,11 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE parentId = :parentId ORDER BY sortOrder ASC")
     suspend fun childrenOf(parentId: String): List<TaskEntity>
 
-    @Query("SELECT * FROM tasks WHERE parentId IS NULL ORDER BY sortOrder ASC")
-    suspend fun childrenOfRoot(): List<TaskEntity>
+    @Query("SELECT * FROM tasks WHERE listId = :listId AND parentId IS :parentId ORDER BY sortOrder ASC")
+    suspend fun childrenIn(listId: String, parentId: String?): List<TaskEntity>
 
-    @Query("SELECT COALESCE(MAX(sortOrder), 0.0) FROM tasks WHERE parentId IS :parentId")
-    suspend fun maxSortOrder(parentId: String?): Double
+    @Query("SELECT COALESCE(MAX(sortOrder), 0.0) FROM tasks WHERE listId = :listId AND parentId IS :parentId")
+    suspend fun maxSortOrder(listId: String, parentId: String?): Double
 
     @Upsert
     suspend fun upsert(task: TaskEntity)
@@ -49,6 +52,84 @@ interface TaskDao {
     suspend fun deleteById(id: String)
 
     @Query("DELETE FROM tasks")
+    suspend fun clear()
+}
+
+@Dao
+interface FolderDao {
+    @Query("SELECT * FROM folders ORDER BY sortOrder")
+    fun observeAll(): Flow<List<FolderEntity>>
+
+    @Query("SELECT * FROM folders")
+    suspend fun getAll(): List<FolderEntity>
+
+    @Upsert
+    suspend fun upsert(folder: FolderEntity)
+
+    @Upsert
+    suspend fun upsertAll(folders: List<FolderEntity>)
+
+    @Query("DELETE FROM folders WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM folders")
+    suspend fun clear()
+}
+
+@Dao
+interface ListDao {
+    @Query("SELECT * FROM lists ORDER BY sortOrder")
+    fun observeAll(): Flow<List<ListEntity>>
+
+    @Query("SELECT * FROM lists")
+    suspend fun getAll(): List<ListEntity>
+
+    @Query("SELECT * FROM lists WHERE id = :id")
+    suspend fun getById(id: String): ListEntity?
+
+    @Query("SELECT COALESCE(MAX(sortOrder), 0.0) FROM lists")
+    suspend fun maxSortOrder(): Double
+
+    @Upsert
+    suspend fun upsert(list: ListEntity)
+
+    @Upsert
+    suspend fun upsertAll(lists: List<ListEntity>)
+
+    @Query("DELETE FROM lists WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM lists")
+    suspend fun clear()
+}
+
+@Dao
+interface ChecklistDao {
+    @Query("SELECT * FROM checklist_items ORDER BY sortOrder")
+    fun observeAll(): Flow<List<ChecklistItemEntity>>
+
+    @Query("SELECT * FROM checklist_items")
+    suspend fun getAll(): List<ChecklistItemEntity>
+
+    @Query("SELECT * FROM checklist_items WHERE taskId = :taskId ORDER BY sortOrder")
+    suspend fun forTask(taskId: String): List<ChecklistItemEntity>
+
+    @Query("SELECT COALESCE(MAX(sortOrder), 0.0) FROM checklist_items WHERE taskId = :taskId")
+    suspend fun maxSortOrder(taskId: String): Double
+
+    @Upsert
+    suspend fun upsert(item: ChecklistItemEntity)
+
+    @Upsert
+    suspend fun upsertAll(items: List<ChecklistItemEntity>)
+
+    @Query("DELETE FROM checklist_items WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM checklist_items WHERE taskId = :taskId")
+    suspend fun deleteForTask(taskId: String)
+
+    @Query("DELETE FROM checklist_items")
     suspend fun clear()
 }
 

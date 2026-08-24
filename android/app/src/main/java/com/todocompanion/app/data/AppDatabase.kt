@@ -4,14 +4,20 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.todocompanion.app.data.dao.ChecklistDao
 import com.todocompanion.app.data.dao.ContextDao
 import com.todocompanion.app.data.dao.DependencyDao
+import com.todocompanion.app.data.dao.FolderDao
+import com.todocompanion.app.data.dao.ListDao
 import com.todocompanion.app.data.dao.ReminderDao
 import com.todocompanion.app.data.dao.SettingDao
 import com.todocompanion.app.data.dao.TagDao
 import com.todocompanion.app.data.dao.TaskDao
+import com.todocompanion.app.data.entity.ChecklistItemEntity
 import com.todocompanion.app.data.entity.ContextEntity
 import com.todocompanion.app.data.entity.DependencyEntity
+import com.todocompanion.app.data.entity.FolderEntity
+import com.todocompanion.app.data.entity.ListEntity
 import com.todocompanion.app.data.entity.ReminderEntity
 import com.todocompanion.app.data.entity.SettingEntity
 import com.todocompanion.app.data.entity.TagEntity
@@ -21,7 +27,10 @@ import com.todocompanion.app.data.entity.TaskTagCrossRef
 
 @Database(
     entities = [
+        FolderEntity::class,
+        ListEntity::class,
         TaskEntity::class,
+        ChecklistItemEntity::class,
         TagEntity::class,
         TaskTagCrossRef::class,
         ContextEntity::class,
@@ -30,11 +39,14 @@ import com.todocompanion.app.data.entity.TaskTagCrossRef
         DependencyEntity::class,
         SettingEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
+    abstract fun folderDao(): FolderDao
+    abstract fun listDao(): ListDao
+    abstract fun checklistDao(): ChecklistDao
     abstract fun tagDao(): TagDao
     abstract fun contextDao(): ContextDao
     abstract fun reminderDao(): ReminderDao
@@ -52,7 +64,6 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "todocompanion.db",
                 )
-                    // Dev-phase: schema is not migrated; real backups are the JSON export.
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { INSTANCE = it }
