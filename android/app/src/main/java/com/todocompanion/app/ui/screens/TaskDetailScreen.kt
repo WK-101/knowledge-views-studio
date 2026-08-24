@@ -27,7 +27,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
@@ -85,6 +90,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
     val reminders by vm.reminders.collectAsState()
     val checklist by vm.checklist.collectAsState()
     val lists by vm.lists.collectAsState()
+    val allDeps by vm.dependencies.collectAsState()
+    val allTasks by vm.tasks.collectAsState()
 
     var showDue by remember { mutableStateOf(false) }
     var showStart by remember { mutableStateOf(false) }
@@ -94,6 +101,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
     var newCheck by remember { mutableStateOf("") }
     var listMenu by remember { mutableStateOf(false) }
     var showMore by remember { mutableStateOf(false) }
+    var showBlockPicker by remember { mutableStateOf(false) }
 
     fun update(block: (TaskEntity) -> TaskEntity) {
         val d = draft ?: return; val nd = block(d); draft = nd; vm.save(nd)
@@ -231,6 +239,24 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
             }
 
             AppCard {
+                CardLabel("Blocked by"); Spacer(Modifier.height(4.dp))
+                val myDeps = allDeps.filter { it.taskId == task.id }
+                val byId = allTasks.associateBy { it.id }
+                if (myDeps.isEmpty()) Text("Not blocked — this task can be done now.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                myDeps.forEach { dep ->
+                    val pred = byId[dep.dependsOnTaskId]
+                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(if (pred?.completed == true) Icons.Filled.CheckCircle else Icons.Filled.RadioButtonUnchecked, null,
+                            tint = if (pred?.completed == true) Color(0xFF12A594) else MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(pred?.title ?: "(deleted task)", Modifier.weight(1f), maxLines = 1)
+                        IconButton(onClick = { vm.removeDependency(dep) }) { Icon(Icons.Filled.Close, "Remove", modifier = Modifier.size(18.dp)) }
+                    }
+                }
+                TextButton(onClick = { showBlockPicker = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text("＋ Add a blocker") }
+            }
+
+            AppCard {
                 TextButton(onClick = { showMore = !showMore }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
                     Text(if (showMore) "Show less" else "Show more — estimate · goal")
                 }
@@ -250,6 +276,30 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
     if (showDue) DateTimePickerDialog(task?.dueDate, { showDue = false }) { m -> update { it.copy(dueDate = m) }; showDue = false }
     if (showStart) DateTimePickerDialog(task?.startDate, { showStart = false }) { m -> update { it.copy(startDate = m) }; showStart = false }
     if (showReminder) DateTimePickerDialog(task?.dueDate ?: System.currentTimeMillis(), { showReminder = false }) { m -> task?.let { vm.addAbsoluteReminder(it, m) }; showReminder = false }
+    if (showBlockPicker && task != null) {
+        val existing = allDeps.filter { it.taskId == task.id }.map { it.dependsOnTaskId }.toSet()
+        val candidates = allTasks.filter { it.id != task.id && it.id !in existing && !it.trashed && it.parentId != task.id }
+        BlockerPickerDialog(candidates, onDismiss = { showBlockPicker = false }) { picked ->
+            vm.addDependency(task.id, picked); showBlockPicker = false
+        }
+    }
+}
+
+@Composable
+private fun BlockerPickerDialog(candidates: List<TaskEntity>, onDismiss: () -> Unit, onPick: (String) -> Unit) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Blocked by which task?") },
+        text = {
+            if (candidates.isEmpty()) Text("No other tasks to depend on.")
+            else LazyColumn(Modifier.heightIn(max = 340.dp)) {
+                items(candidates, key = { it.id }) { t ->
+                    Text(t.title, Modifier.fillMaxWidth().clickable { onPick(t.id) }.padding(vertical = 12.dp), maxLines = 1)
+                }
+            }
+        },
+    )
 }
 
 @Composable

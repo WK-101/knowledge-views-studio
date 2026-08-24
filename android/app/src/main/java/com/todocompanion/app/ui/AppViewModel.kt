@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.todocompanion.app.App
 import com.todocompanion.app.data.entity.ChecklistItemEntity
 import com.todocompanion.app.data.entity.ContextEntity
+import com.todocompanion.app.data.entity.DependencyEntity
 import com.todocompanion.app.data.entity.FolderEntity
 import com.todocompanion.app.data.entity.ListEntity
 import com.todocompanion.app.data.entity.ReminderEntity
@@ -82,6 +83,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val taskContexts = repo.taskContextRefs.state(emptyList())
     val checklist = repo.allChecklist.state(emptyList())
     val reminders = repo.allReminders.state(emptyList())
+    val dependencies = repo.allDependencies.state(emptyList())
 
     val currentView = MutableStateFlow<ViewRef>(ViewRef.Smart(SmartKind.TODAY))
     val groupMode = MutableStateFlow(GroupMode.DATE)
@@ -109,12 +111,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             combine(currentView, groupMode, sortMode, settings) { v, g, s, set -> Cfg(v, g, s, set.priorityConfig()) },
             repo.taskTagRefs,
             repo.taskContextRefs,
-        ) { all, cfg, ttRefs, tcRefs ->
+            repo.allDependencies,
+        ) { all, cfg, ttRefs, tcRefs, deps ->
             val now = System.currentTimeMillis()
             val filtered = when (val v = cfg.view) {
                 is ViewRef.Smart -> {
                     val base = TaskViews.filterSmart(all, v.kind, now, zone)
-                    if (v.kind == SmartKind.DO_NEXT) rankDoNext(base, all, now, cfg.prio) else base
+                    if (v.kind == SmartKind.DO_NEXT) rankDoNext(base, all, now, cfg.prio, deps) else base
                 }
                 is ViewRef.ListView -> all.filter { !it.trashed && !it.completed && !it.abandoned && it.listId == v.listId }
                 is ViewRef.TagView -> {
@@ -137,12 +140,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             buildOutline(all.filter { it.listId == listId && !it.trashed })
         }.state(emptyList())
 
-    private fun rankDoNext(base: List<TaskEntity>, all: List<TaskEntity>, now: Long, cfg: PriorityEngine.Config): List<TaskEntity> {
+    private fun rankDoNext(base: List<TaskEntity>, all: List<TaskEntity>, now: Long, cfg: PriorityEngine.Config, deps: List<DependencyEntity>): List<TaskEntity> {
         val byParent = all.groupBy { it.parentId }
+        val blocked = PriorityEngine.computeBlocked(deps, all.associateBy { it.id })
         return PriorityEngine.doNext(
             all = base,
             now = now,
-            blocked = emptySet(),
+            blocked = blocked,
             hasIncompleteChild = { id -> byParent[id].orEmpty().any { !it.completed && !it.trashed && !it.abandoned } },
             contextAvailable = { true },
             cfg = cfg,
@@ -391,6 +395,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun moveContextToParent(contextId: String, parentId: String?) = viewModelScope.launch {
         contexts.value.firstOrNull { it.id == contextId }?.let { repo.upsertContext(it.copy(parentId = parentId)) }
     }
+
+    // ---------- dependencies ----------
+    fun dependenciesFor(taskId: String): List<DependencyEntity> = dependencies.value.filter { it.taskId == taskId }
+    fun addDependency(taskId: String, dependsOn: String, mode: String = "AND") = viewModelScope.launch { repo.addDependency(taskId, dependsOn, mode) }
+    fun removeDependency(dep: DependencyEntity) = viewModelScope.launch { repo.removeDependency(dep) }
 
     // ---------- reminders ----------
     fun addAbsoluteReminder(task: TaskEntity, atMillis: Long) = viewModelScope.launch {
