@@ -36,6 +36,7 @@ data class AppSettings(
     val matrixUrgencyThreshold: Int = 4,
     val matrixShowCompleted: Boolean = false,
     val matrixHideEmpty: Boolean = false,
+    val matrixNames: List<String> = listOf("Do first", "Schedule", "Delegate", "Later"),
     // Calendar
     val calendarDefaultMode: String = "month",
     // Reminders
@@ -60,6 +61,7 @@ data class AppSettings(
         Keys.MX_URG to matrixUrgencyThreshold.toString(),
         Keys.MX_DONE to matrixShowCompleted.toString(),
         Keys.MX_HIDE_EMPTY to matrixHideEmpty.toString(),
+        Keys.MX_NAMES to matrixNames.joinToString("|"),
         Keys.CAL_MODE to calendarDefaultMode,
         Keys.SUMMARY_ON to dailySummaryEnabled.toString(),
         Keys.SUMMARY_H to dailySummaryHour.toString(),
@@ -83,6 +85,7 @@ data class AppSettings(
         const val MX_URG = "mx_urg"
         const val MX_DONE = "mx_done"
         const val MX_HIDE_EMPTY = "mx_hide_empty"
+        const val MX_NAMES = "mx_names"
         const val CAL_MODE = "cal_mode"
         const val SUMMARY_ON = "summary_on"
         const val SUMMARY_H = "summary_h"
@@ -116,6 +119,7 @@ data class AppSettings(
             matrixUrgencyThreshold = m[Keys.MX_URG]?.toIntOrNull() ?: 4,
             matrixShowCompleted = m[Keys.MX_DONE]?.toBooleanStrictOrNull() ?: false,
             matrixHideEmpty = m[Keys.MX_HIDE_EMPTY]?.toBooleanStrictOrNull() ?: false,
+            matrixNames = m[Keys.MX_NAMES]?.split("|")?.takeIf { it.size == 4 } ?: listOf("Do first", "Schedule", "Delegate", "Later"),
             calendarDefaultMode = m[Keys.CAL_MODE] ?: "month",
             dailySummaryEnabled = m[Keys.SUMMARY_ON]?.toBooleanStrictOrNull() ?: false,
             dailySummaryHour = m[Keys.SUMMARY_H]?.toIntOrNull() ?: 8,

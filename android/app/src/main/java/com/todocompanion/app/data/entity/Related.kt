@@ -5,13 +5,15 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 
-/** Lightweight grouping label (TickTick-style). */
+/** Lightweight grouping label (TickTick-style). Nestable via [parentId]. */
 @Serializable
 @Entity(tableName = "tags")
 data class TagEntity(
     @PrimaryKey val id: String,
     val name: String,
     val colorArgb: Long? = null,
+    val parentId: String? = null,
+    val sortOrder: Double = 0.0,
 )
 
 /** Task ↔ Tag many-to-many. */

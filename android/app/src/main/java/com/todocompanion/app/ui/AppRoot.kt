@@ -115,6 +115,9 @@ fun AppRoot() {
         var manageFolder by remember { mutableStateOf<FolderEntity?>(null) }
         var moveList by remember { mutableStateOf<ListEntity?>(null) }
         var moveFolder by remember { mutableStateOf<FolderEntity?>(null) }
+        var newTag by remember { mutableStateOf<NewTagReq?>(null) }
+        var manageTag by remember { mutableStateOf<com.todocompanion.app.data.entity.TagEntity?>(null) }
+        var moveTag by remember { mutableStateOf<com.todocompanion.app.data.entity.TagEntity?>(null) }
         var menu by remember { mutableStateOf(false) }
 
         val currentView by vm.currentView.collectAsState()
@@ -165,6 +168,9 @@ fun AppRoot() {
                     onManageFolder = { manageFolder = it },
                     onMoveList = { moveList = it },
                     onMoveFolder = { moveFolder = it },
+                    onNewTag = { parent -> newTag = NewTagReq(parent) },
+                    onManageTag = { manageTag = it },
+                    onMoveTag = { moveTag = it },
                     onOpenSettings = { tab = Tab.SETTINGS; scope.launch { drawerState.close() } },
                 )
             },
@@ -253,7 +259,35 @@ fun AppRoot() {
                 vm.moveFolderToParent(f.id, target); moveFolder = null
             }
         }
+        newTag?.let { req ->
+            TextEntryDialog(title = if (req.parentId == null) "New tag" else "New sub-tag", placeholder = "Tag name", onDismiss = { newTag = null }) { name ->
+                vm.createTag(name, req.parentId); newTag = null
+            }
+        }
+        manageTag?.let { t ->
+            ManageTagDialog(t, onDismiss = { manageTag = null },
+                onRename = { vm.renameTag(t, it); manageTag = null },
+                onColor = { vm.setTagColor(t, it) },
+                onDelete = { vm.deleteTag(t); manageTag = null })
+        }
+        moveTag?.let { t ->
+            TagPickerDialog("Move tag to", tags, exclude = tagDescendantsOf(t.id, tags) + t.id, onDismiss = { moveTag = null }) { target ->
+                vm.moveTagToParent(t.id, target); moveTag = null
+            }
+        }
     }
+}
+
+private data class NewTagReq(val parentId: String?)
+
+private fun tagDescendantsOf(id: String, tags: List<com.todocompanion.app.data.entity.TagEntity>): Set<String> {
+    val out = mutableSetOf<String>()
+    var frontier = listOf(id)
+    while (frontier.isNotEmpty()) {
+        val next = tags.filter { it.parentId in frontier }.map { it.id }
+        out.addAll(next); frontier = next
+    }
+    return out
 }
 
 private fun descendantsOf(id: String, folders: List<FolderEntity>): Set<String> {
@@ -347,6 +381,58 @@ private fun FolderPickerDialog(title: String, folders: List<FolderEntity>, exclu
                 item { Text("Top level", Modifier.fillMaxWidth().clickable { onPick(null) }.padding(vertical = 12.dp)) }
                 items(folders.filter { it.id !in exclude }, key = { it.id }) { f ->
                     Text(f.name, Modifier.fillMaxWidth().clickable { onPick(f.id) }.padding(vertical = 12.dp))
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun TextEntryDialog(title: String, placeholder: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+    var name by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onConfirm(name.trim()) }) { Text("Create") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text(title) },
+        text = { OutlinedTextField(name, { name = it }, placeholder = { Text(placeholder) }, singleLine = true, modifier = Modifier.fillMaxWidth()) },
+    )
+}
+
+@Composable
+private fun ManageTagDialog(tag: com.todocompanion.app.data.entity.TagEntity, onDismiss: () -> Unit, onRename: (String) -> Unit, onColor: (Long?) -> Unit, onDelete: () -> Unit) {
+    var name by remember { mutableStateOf(tag.name) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onRename(name.trim()) }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDelete) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
+        title = { Text("Tag") },
+        text = {
+            Column {
+                OutlinedTextField(name, { name = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.size(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Box(Modifier.size(26.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant).clickable { onColor(null) }, contentAlignment = Alignment.Center) {
+                        Text("–", style = MaterialTheme.typography.labelMedium)
+                    }
+                    SWATCHES.forEach { c -> Box(Modifier.size(26.dp).clip(CircleShape).background(Color(c)).clickable { onColor(c) }) }
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun TagPickerDialog(title: String, tags: List<com.todocompanion.app.data.entity.TagEntity>, exclude: Set<String>, onDismiss: () -> Unit, onPick: (String?) -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text(title) },
+        text = {
+            LazyColumn(Modifier.heightIn(max = 320.dp)) {
+                item { Text("Top level", Modifier.fillMaxWidth().clickable { onPick(null) }.padding(vertical = 12.dp)) }
+                items(tags.filter { it.id !in exclude }, key = { it.id }) { t ->
+                    Text("#" + t.name, Modifier.fillMaxWidth().clickable { onPick(t.id) }.padding(vertical = 12.dp))
                 }
             }
         },

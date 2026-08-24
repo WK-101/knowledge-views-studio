@@ -251,7 +251,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun setTags(taskId: String, tagIds: List<String>) = viewModelScope.launch { repo.setTaskTags(taskId, tagIds) }
     fun setContexts(taskId: String, ids: List<String>) = viewModelScope.launch { repo.setTaskContexts(taskId, ids) }
-    fun createTag(name: String) = viewModelScope.launch { repo.upsertTag(TagEntity(UUID.randomUUID().toString(), name)) }
+    fun createTag(name: String, parentId: String? = null) = viewModelScope.launch { repo.upsertTag(TagEntity(UUID.randomUUID().toString(), name.trim(), parentId = parentId)) }
+    fun renameTag(tag: TagEntity, name: String) = viewModelScope.launch { repo.upsertTag(tag.copy(name = name.trim())) }
+    fun setTagColor(tag: TagEntity, argb: Long?) = viewModelScope.launch { repo.upsertTag(tag.copy(colorArgb = argb)) }
+    fun deleteTag(tag: TagEntity) = viewModelScope.launch {
+        // reparent children to this tag's parent so the subtree isn't orphaned
+        tags.value.filter { it.parentId == tag.id }.forEach { repo.upsertTag(it.copy(parentId = tag.parentId)) }
+        repo.deleteTag(tag.id)
+        if (currentView.value == ViewRef.TagView(tag.id)) select(ViewRef.Smart(SmartKind.TODAY))
+    }
+    fun moveTagToParent(tagId: String, parentId: String?) = viewModelScope.launch {
+        tags.value.firstOrNull { it.id == tagId }?.let { repo.upsertTag(it.copy(parentId = parentId)) }
+    }
     fun createContext(name: String) = viewModelScope.launch { repo.upsertContext(ContextEntity(id = UUID.randomUUID().toString(), name = name)) }
 
     // ---------- reminders ----------

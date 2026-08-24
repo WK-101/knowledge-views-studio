@@ -65,8 +65,8 @@ fun MatrixScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modif
         .mapValues { (_, list) -> list.sortedByDescending { maxOf(it.importance, it.urgency) } }
 
     Column(modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 6.dp, top = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Priority Matrix", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Matrix", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.weight(1f))
             IconButton(onClick = { showSettings = !showSettings }) { Icon(Icons.Filled.Tune, "Matrix settings") }
         }
@@ -76,19 +76,19 @@ fun MatrixScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modif
         }
 
         if (s.matrixHideEmpty) {
-            LazyColumn(Modifier.fillMaxSize().padding(horizontal = 10.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
+            LazyColumn(Modifier.fillMaxSize().padding(horizontal = 8.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
                 QUAD.indices.forEach { q ->
                     val list = byQuad[q].orEmpty()
-                    if (list.isNotEmpty()) item(key = "q$q") { QuadrantCard(q, list, onOpenTask, Modifier.fillMaxWidth().heightIn(min = 90.dp).padding(vertical = 5.dp)) }
+                    if (list.isNotEmpty()) item(key = "q$q") { QuadrantCard(q, s.matrixNames.getOrElse(q) { QUAD[q].first }, list, onOpenTask, Modifier.fillMaxWidth().heightIn(min = 90.dp).padding(vertical = 4.dp)) }
                 }
             }
         } else {
-            Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
+            Column(Modifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 2.dp)) {
                 for (rowIdx in 0..1) {
                     Row(Modifier.weight(1f).fillMaxWidth()) {
                         for (colIdx in 0..1) {
                             val q = rowIdx * 2 + colIdx
-                            QuadrantCard(q, byQuad[q].orEmpty(), onOpenTask, Modifier.weight(1f).fillMaxSize().padding(4.dp))
+                            QuadrantCard(q, s.matrixNames.getOrElse(q) { QUAD[q].first }, byQuad[q].orEmpty(), onOpenTask, Modifier.weight(1f).fillMaxSize().padding(3.dp))
                         }
                     }
                 }
@@ -98,8 +98,8 @@ fun MatrixScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modif
 }
 
 @Composable
-private fun QuadrantCard(q: Int, tasks: List<TaskEntity>, onOpenTask: (String) -> Unit, modifier: Modifier) {
-    val (title, subtitle, color) = QUAD[q]
+private fun QuadrantCard(q: Int, title: String, tasks: List<TaskEntity>, onOpenTask: (String) -> Unit, modifier: Modifier) {
+    val (_, subtitle, color) = QUAD[q]
     Column(
         modifier.clip(RoundedCornerShape(16.dp))
             .background(color.copy(alpha = .07f))
@@ -143,11 +143,32 @@ private fun QuadrantCard(q: Int, tasks: List<TaskEntity>, onOpenTask: (String) -
 @Composable
 private fun MatrixSettings(vm: AppViewModel, s: com.todocompanion.app.domain.AppSettings) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Text("Quadrant names", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(4.dp))
+        (0..3).forEach { q ->
+            NameRow(QUAD[q].third, s.matrixNames.getOrElse(q) { QUAD[q].first }) { newName ->
+                val names = s.matrixNames.toMutableList().also { while (it.size < 4) it.add(""); it[q] = newName }
+                vm.saveSettings(s.copy(matrixNames = names))
+            }
+        }
+        Spacer(Modifier.height(8.dp))
         ThresholdRow("Important when importance ≥", s.matrixImportanceThreshold) { vm.saveSettings(s.copy(matrixImportanceThreshold = it)) }
         ThresholdRow("Urgent when urgency ≥", s.matrixUrgencyThreshold) { vm.saveSettings(s.copy(matrixUrgencyThreshold = it)) }
         ToggleRow("Show completed", s.matrixShowCompleted) { vm.saveSettings(s.copy(matrixShowCompleted = it)) }
-        ToggleRow("Hide empty quadrants (list view)", s.matrixHideEmpty) { vm.saveSettings(s.copy(matrixHideEmpty = it)) }
+        ToggleRow("List view (hide empty quadrants)", s.matrixHideEmpty) { vm.saveSettings(s.copy(matrixHideEmpty = it)) }
         Spacer(Modifier.height(6.dp))
+    }
+}
+
+@Composable
+private fun NameRow(color: Color, value: String, onChange: (String) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(9.dp).clip(CircleShape).background(color))
+        Spacer(Modifier.width(8.dp))
+        androidx.compose.material3.OutlinedTextField(
+            value = value, onValueChange = onChange, singleLine = true,
+            modifier = Modifier.weight(1f), textStyle = MaterialTheme.typography.bodyMedium,
+        )
     }
 }
 

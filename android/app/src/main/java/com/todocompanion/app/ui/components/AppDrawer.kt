@@ -88,6 +88,9 @@ fun AppDrawer(
     onManageFolder: (FolderEntity) -> Unit,
     onMoveList: (ListEntity) -> Unit,
     onMoveFolder: (FolderEntity) -> Unit,
+    onNewTag: (String?) -> Unit,
+    onManageTag: (com.todocompanion.app.data.entity.TagEntity) -> Unit,
+    onMoveTag: (com.todocompanion.app.data.entity.TagEntity) -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     val folders by vm.folders.collectAsState()
@@ -136,9 +139,9 @@ fun AppDrawer(
                 ListRow(l, 0, current, vm, onSelect, onManageList, onMoveList)
             }
 
-            if (tags.isNotEmpty()) {
-                SectionHeader("Tags")
-                tags.forEach { t -> DrawerRow(Icons.Filled.Label, "#" + t.name, selected = (current as? ViewRef.TagView)?.tagId == t.id, onClick = { onSelect(ViewRef.TagView(t.id)) }) }
+            SectionHeader("Tags", onAdd = { onNewTag(null) })
+            tags.filter { it.parentId == null }.sortedWith(compareBy({ it.sortOrder }, { it.name })).forEach { t ->
+                TagNode(t, 0, tags, current, onSelect, onNewTag, onManageTag, onMoveTag)
             }
             if (contexts.isNotEmpty()) {
                 SectionHeader("Contexts")
@@ -214,6 +217,37 @@ private fun ListRow(list: ListEntity, depth: Int, current: ViewRef, vm: AppViewM
             }
         }
     }
+}
+
+@Composable
+private fun TagNode(
+    tag: com.todocompanion.app.data.entity.TagEntity, depth: Int, allTags: List<com.todocompanion.app.data.entity.TagEntity>, current: ViewRef,
+    onSelect: (ViewRef) -> Unit, onNewTag: (String?) -> Unit, onManageTag: (com.todocompanion.app.data.entity.TagEntity) -> Unit, onMoveTag: (com.todocompanion.app.data.entity.TagEntity) -> Unit,
+) {
+    var menu by remember { mutableStateOf(false) }
+    val selected = (current as? ViewRef.TagView)?.tagId == tag.id
+    val children = allTags.filter { it.parentId == tag.id }.sortedWith(compareBy({ it.sortOrder }, { it.name }))
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
+            .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+            .clickable { onSelect(ViewRef.TagView(tag.id)) }
+            .padding(start = (12 + depth * 16).dp, top = 9.dp, bottom = 9.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Filled.Label, null, tint = tag.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(11.dp))
+        Text("#" + tag.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+        Box {
+            Icon(Icons.Filled.MoreVert, "Tag menu", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp).clickable { menu = true })
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                MenuItem(Icons.Filled.Add, "New sub-tag") { onNewTag(tag.id); menu = false }
+                MenuItem(Icons.Filled.DriveFileMove, "Move to…") { onMoveTag(tag); menu = false }
+                MenuItem(Icons.Filled.Edit, "Rename / colour / delete") { onManageTag(tag); menu = false }
+            }
+        }
+    }
+    children.forEach { TagNode(it, depth + 1, allTags, current, onSelect, onNewTag, onManageTag, onMoveTag) }
 }
 
 @Composable
