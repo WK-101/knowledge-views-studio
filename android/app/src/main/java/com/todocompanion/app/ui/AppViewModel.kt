@@ -369,7 +369,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun search(query: String): List<TaskEntity> {
         val q = query.trim().lowercase()
         if (q.isBlank()) return emptyList()
-        return tasks.value.filter { !it.trashed && (it.title.lowercase().contains(q) || it.note.lowercase().contains(q)) }
+        val q2 = q.removePrefix("#").removePrefix("@")
+        val tagIds = tags.value.filter { it.name.lowercase().contains(q2) }.map { it.id }.toSet()
+        val ctxIds = contexts.value.filter { it.name.lowercase().contains(q2) }.map { it.id }.toSet()
+        val byTag = taskTags.value.filter { it.tagId in tagIds }.map { it.taskId }.toSet()
+        val byCtx = taskContexts.value.filter { it.contextId in ctxIds }.map { it.taskId }.toSet()
+        return tasks.value.filter {
+            !it.trashed && (it.title.lowercase().contains(q) || it.note.lowercase().contains(q) || it.id in byTag || it.id in byCtx)
+        }
     }
 
     // ---------- export / import ----------

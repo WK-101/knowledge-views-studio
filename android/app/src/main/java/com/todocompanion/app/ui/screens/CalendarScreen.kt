@@ -54,6 +54,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -361,23 +362,59 @@ private fun AllDayChip(task: TaskEntity, onOpenTask: (String) -> Unit) {
 @Composable
 private fun YearView(anchor: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, onPrev: () -> Unit, onNext: () -> Unit, onMonth: (YearMonth) -> Unit) {
     NavHeader(anchor.year.toString(), onPrev, onNext) {}
-    val countByMonth = remember(dueByDate, anchor.year) {
-        dueByDate.entries.filter { it.key.year == anchor.year }.groupBy { YearMonth.from(it.key) }.mapValues { e -> e.value.sumOf { it.value.size } }
+    val daysWithTasks = remember(dueByDate, anchor.year) {
+        dueByDate.keys.filter { it.year == anchor.year }.toSet()
     }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(10.dp)) {
+    LazyColumn(Modifier.fillMaxSize().swipeNav(onPrev, onNext), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp, )) {
         (1..12).chunked(3).forEach { rowMonths ->
             item(key = "r${rowMonths.first()}") {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     rowMonths.forEach { m ->
-                        val ym = YearMonth.of(anchor.year, m)
-                        val c = countByMonth[ym] ?: 0
-                        Column(Modifier.weight(1f).clip(RoundedCornerShape(11.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)).clickable { onMonth(ym) }.padding(10.dp)) {
-                            Text(ym.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()), style = MaterialTheme.typography.labelLarge)
-                            Text(if (c == 0) "—" else "$c due", style = MaterialTheme.typography.labelSmall, color = if (c == 0) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary)
+                        MiniMonth(YearMonth.of(anchor.year, m), daysWithTasks, Modifier.weight(1f).clickable { onMonth(YearMonth.of(anchor.year, m)) }.padding(vertical = 6.dp, horizontal = 2.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** A compact month calendar for the Year view — day numbers with a dot on task-days. */
+@Composable
+private fun MiniMonth(ym: YearMonth, daysWithTasks: Set<LocalDate>, modifier: Modifier) {
+    val today = LocalDate.now()
+    val first = ym.atDay(1)
+    val lead = (first.dayOfWeek.value - 1 + 7) % 7   // week starts Monday for the mini grid
+    val cells = buildList<LocalDate?> {
+        repeat(lead) { add(null) }
+        for (d in 1..ym.lengthOfMonth()) add(ym.atDay(d))
+        while (size % 7 != 0) add(null)
+    }
+    Column(modifier) {
+        Text(ym.month.getDisplayName(TextStyle.FULL, Locale.getDefault()),
+            style = MaterialTheme.typography.labelMedium,
+            color = if (YearMonth.from(today) == ym) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.size(3.dp))
+        cells.chunked(7).forEach { week ->
+            Row(Modifier.fillMaxWidth()) {
+                week.forEach { d ->
+                    Box(Modifier.weight(1f).aspectRatio(1f), contentAlignment = Alignment.Center) {
+                        if (d != null) {
+                            val isToday = d == today
+                            Box(
+                                Modifier.fillMaxSize().padding(1.dp).clip(CircleShape)
+                                    .background(if (isToday) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Transparent),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(d.dayOfMonth.toString(), style = MaterialTheme.typography.labelSmall,
+                                        color = if (isToday) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Box(Modifier.size(3.dp).clip(CircleShape).background(if (d in daysWithTasks && !isToday) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Transparent))
+                                }
+                            }
                         }
                     }
                 }
-                Spacer(Modifier.size(8.dp))
             }
         }
     }

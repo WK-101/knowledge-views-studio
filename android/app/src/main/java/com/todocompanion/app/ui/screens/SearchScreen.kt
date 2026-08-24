@@ -42,23 +42,52 @@ import androidx.compose.ui.unit.dp
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.DueChip
 
+/** Search result filters. */
+private enum class SF(val label: String) { ALL("All"), TODAY("Today"), OVERDUE("Overdue"), FLAGGED("Flagged"), HIGH("High priority"), DONE("Completed") }
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun SearchScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, query: String, modifier: Modifier = Modifier) {
     val tasks by vm.tasks.collectAsState()
     val results = remember(query, tasks) { vm.search(query) }
     val lists by vm.lists.collectAsState()
+    var filter by remember { mutableStateOf(SF.ALL) }
+    val zone = java.time.ZoneId.systemDefault()
+    val shown = remember(results, filter) {
+        val today = java.time.LocalDate.now(); val nowMs = System.currentTimeMillis()
+        results.filter { t ->
+            when (filter) {
+                SF.ALL -> true
+                SF.TODAY -> t.dueDate?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate() == today } == true
+                SF.OVERDUE -> t.dueDate?.let { it < nowMs && !t.completed } == true
+                SF.FLAGGED -> t.star
+                SF.HIGH -> com.todocompanion.app.domain.priority.PriorityLevel.from(t.importance, t.urgency) == com.todocompanion.app.domain.priority.PriorityLevel.HIGH
+                SF.DONE -> t.completed
+            }
+        }
+    }
 
     Column(modifier.fillMaxSize()) {
-        // The search field lives in the app top bar; this screen just renders results.
+        // The search field lives in the app top bar; this screen renders filters + results.
+        if (query.isNotBlank()) {
+            androidx.compose.foundation.layout.FlowRow(
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                SF.entries.forEach { f ->
+                    androidx.compose.material3.FilterChip(selected = filter == f, onClick = { filter = f }, label = { Text(f.label) })
+                }
+            }
+        }
         when {
             query.isBlank() -> SearchHint("Search everything", "Find any task by title, note, #tag or @context")
-            results.isEmpty() -> SearchHint("No matches", "Nothing found for “$query”", off = true)
+            shown.isEmpty() -> SearchHint("No matches", "Nothing found for “$query”", off = true)
             else -> {
-                Text("${results.size} result${if (results.size == 1) "" else "s"}",
+                Text("${shown.size} result${if (shown.size == 1) "" else "s"}",
                     Modifier.padding(start = 18.dp, top = 2.dp, bottom = 4.dp),
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
-                    items(results, key = { it.id }) { task ->
+                    items(shown, key = { it.id }) { task ->
                         val level = com.todocompanion.app.domain.priority.PriorityLevel.from(task.importance, task.urgency)
                         Surface(
                             Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
