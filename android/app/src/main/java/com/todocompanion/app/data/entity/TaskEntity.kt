@@ -58,6 +58,7 @@ data class TaskEntity(
     val isGoal: Boolean = false,
     val isProject: Boolean = false,
     val reviewEveryDays: Int? = null,
+    val reviewedAt: Long? = null,
     val completeInOrder: Boolean = false,
 
     val colorArgb: Long? = null,

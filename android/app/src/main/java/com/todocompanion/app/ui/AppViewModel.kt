@@ -183,7 +183,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         deps: List<DependencyEntity>, tcRefs: List<com.todocompanion.app.data.entity.TaskContextCrossRef>, ctxs: List<ContextEntity>,
     ): List<TaskEntity> {
         val byParent = all.groupBy { it.parentId }
-        val blocked = PriorityEngine.computeBlocked(deps, all.associateBy { it.id })
+        val byId = all.associateBy { it.id }
+        val blocked = PriorityEngine.computeBlocked(deps, byId)
+        // "Complete subtasks in order": a task is gated while an earlier sibling under the same
+        // ordered parent is still open — only the current step of the sequence surfaces.
+        fun orderBlocked(id: String): Boolean {
+            val t = byId[id] ?: return false
+            val parent = t.parentId?.let { byId[it] } ?: return false
+            if (!parent.completeInOrder) return false
+            val sibs = byParent[parent.id].orEmpty().filter { !it.trashed && !it.abandoned }.sortedBy { it.sortOrder }
+            val firstOpen = sibs.firstOrNull { !it.completed } ?: return false
+            return firstOpen.id != id
+        }
         // Context availability (open-hours), evaluated once for now.
         val dt = java.time.Instant.ofEpochMilli(now).atZone(zone)
         val dow = dt.dayOfWeek.value; val minute = dt.hour * 60 + dt.minute
@@ -198,6 +209,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 val ids = ctxByTask[id].orEmpty().map { it.contextId }
                 ids.isEmpty() || ids.any { availById[it] == true }
             },
+            orderBlocked = ::orderBlocked,
             cfg = cfg,
         ).map { it.task }
     }
@@ -543,6 +555,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun dependenciesFor(taskId: String): List<DependencyEntity> = dependencies.value.filter { it.taskId == taskId }
     fun addDependency(taskId: String, dependsOn: String, mode: String = "AND") = viewModelScope.launch { repo.addDependency(taskId, dependsOn, mode) }
     fun removeDependency(dep: DependencyEntity) = viewModelScope.launch { repo.removeDependency(dep) }
+    /** Set the blocking mode (AND = all must finish, OR = any one unblocks) for every blocker of a task. */
+    fun setDependencyMode(taskId: String, mode: String) = viewModelScope.launch {
+        dependencies.value.filter { it.taskId == taskId }.forEach { repo.removeDependency(it); repo.addDependency(it.taskId, it.dependsOnTaskId, mode) }
+    }
+    fun setCompleteInOrder(t: TaskEntity, v: Boolean) = viewModelScope.launch { repo.saveTask(t.copy(completeInOrder = v)) }
+    fun setProject(t: TaskEntity, v: Boolean) = viewModelScope.launch { repo.saveTask(t.copy(isProject = v)) }
+    fun setGoal(t: TaskEntity, v: Boolean) = viewModelScope.launch { repo.saveTask(t.copy(isGoal = v)) }
+    fun setReviewEvery(t: TaskEntity, days: Int?) = viewModelScope.launch { repo.saveTask(t.copy(reviewEveryDays = days)) }
+    fun markReviewed(t: TaskEntity) = viewModelScope.launch { repo.saveTask(t.copy(reviewedAt = System.currentTimeMillis())) }
 
     // ---------- reminders ----------
     fun addAbsoluteReminder(task: TaskEntity, atMillis: Long) = viewModelScope.launch {

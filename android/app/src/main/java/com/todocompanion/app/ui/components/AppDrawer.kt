@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EventAvailable
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Inbox
@@ -89,6 +90,7 @@ private fun smartIcon(k: SmartKind): ImageVector = when (k) {
     SmartKind.DO_NEXT -> Icons.Filled.Bolt
     SmartKind.SCHEDULED -> Icons.Filled.EventAvailable
     SmartKind.FLAGGED -> Icons.Filled.Star
+    SmartKind.GOALS -> Icons.Filled.EmojiEvents
     SmartKind.ALL -> Icons.Filled.AllInbox
     SmartKind.COMPLETED -> Icons.Filled.CheckCircle
     SmartKind.WONT_DO -> Icons.Filled.Cancel
@@ -172,7 +174,7 @@ fun AppDrawer(
             SectionHeader("Smart lists", open = open("smart"), onToggle = { toggle("smart") })
             if (open("smart")) listOf(
                 SmartKind.INBOX, SmartKind.TODAY, SmartKind.TOMORROW, SmartKind.NEXT7, SmartKind.DO_NEXT,
-                SmartKind.SCHEDULED, SmartKind.FLAGGED, SmartKind.ALL, SmartKind.COMPLETED, SmartKind.WONT_DO, SmartKind.TRASH,
+                SmartKind.SCHEDULED, SmartKind.FLAGGED, SmartKind.GOALS, SmartKind.ALL, SmartKind.COMPLETED, SmartKind.WONT_DO, SmartKind.TRASH,
             ).filter { k ->
                 when (settings.smartListVis[k] ?: SmartVis.SHOW) {
                     SmartVis.SHOW -> true

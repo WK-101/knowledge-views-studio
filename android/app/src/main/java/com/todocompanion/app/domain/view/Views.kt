@@ -23,6 +23,7 @@ enum class SmartKind(val title: String) {
     DO_NEXT("Do Next"),
     SCHEDULED("Scheduled"),
     FLAGGED("Flagged"),
+    GOALS("Goals"),
     ALL("All"),
     COMPLETED("Completed"),
     WONT_DO("Won't Do"),
@@ -73,6 +74,7 @@ object TaskViews {
             SmartKind.NEXT7 -> all.filter { isOpen(it) && it.dueDate != null && !localDate(it.dueDate!!, zone).isAfter(today.plusDays(7)) }
             SmartKind.SCHEDULED -> all.filter { isOpen(it) && it.dueDate != null }
             SmartKind.FLAGGED -> all.filter { isOpen(it) && it.star }
+            SmartKind.GOALS -> all.filter { isOpen(it) && it.isGoal }
             SmartKind.ALL -> all.filter { isOpen(it) }
             SmartKind.DO_NEXT -> all.filter { isOpen(it) }   // ranking applied separately by the engine
             SmartKind.COMPLETED -> all.filter { it.completed && !it.trashed }

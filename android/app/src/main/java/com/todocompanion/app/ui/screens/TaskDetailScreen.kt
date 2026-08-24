@@ -41,6 +41,7 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Switch
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -202,6 +203,20 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
 
+            // Effort-weighted project rollup — shown for any task that has subtasks.
+            val (doneW, totalW, doneN, totalN) = remember(allTasks, task.id) { projectRollup(task.id, allTasks) }
+            if (totalN > 0) {
+                AppCard {
+                    val pct = if (totalW > 0) (doneW / totalW) else 0.0
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CardLabel("Progress"); Spacer(Modifier.weight(1f))
+                        Text("${(pct * 100).toInt()}% · $doneN of $totalN", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    androidx.compose.material3.LinearProgressIndicator(progress = { pct.toFloat() }, modifier = Modifier.fillMaxWidth().height(7.dp).clip(RoundedCornerShape(4.dp)))
+                }
+            }
+
             AppCard {
                 CardLabel("Organize"); Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -337,18 +352,44 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                         IconButton(onClick = { vm.removeDependency(dep) }) { Icon(Icons.Filled.Close, "Remove", modifier = Modifier.size(18.dp)) }
                     }
                 }
+                // With 2+ blockers, choose whether all must finish or any one unblocks (MLO ALL/ANY).
+                if (myDeps.size >= 2) {
+                    val mode = myDeps.first().mode
+                    Row(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        FilterChip(selected = mode == "AND", onClick = { vm.setDependencyMode(task.id, "AND") }, label = { Text("All must finish") })
+                        FilterChip(selected = mode == "OR", onClick = { vm.setDependencyMode(task.id, "OR") }, label = { Text("Any one unblocks") })
+                    }
+                }
                 TextButton(onClick = { showBlockPicker = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text("＋ Add a blocker") }
             }
 
+            val hasChildren = allTasks.any { it.parentId == task.id && !it.trashed }
             AppCard {
                 TextButton(onClick = { showMore = !showMore }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
-                    Text(if (showMore) "Show less" else "Show more — estimate · goal")
+                    Text(if (showMore) "Show less" else "Show more — estimate · goal · project · review")
                 }
                 if (showMore) {
                     Dial("Estimate (min)", (task.estimateMin ?: 0).coerceIn(0, 5)) { v -> update { it.copy(estimateMin = v * 15) } }
-                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Mark as goal", Modifier.weight(1f))
-                        Checkbox(checked = task.isGoal, onCheckedChange = { v -> update { it.copy(isGoal = v) } })
+                    SwitchRow("Mark as goal", task.isGoal) { v -> update { it.copy(isGoal = v) } }
+                    SwitchRow("Mark as project", task.isProject) { v -> update { it.copy(isProject = v) } }
+                    if (hasChildren) SwitchRow("Complete subtasks in order", task.completeInOrder) { v -> update { it.copy(completeInOrder = v) } }
+
+                    // Per-item GTD review cadence.
+                    Spacer(Modifier.height(6.dp)); CardLabel("Review cadence")
+                    val reviewOpts = listOf(null to "Off", 1 to "Daily", 7 to "Weekly", 30 to "Monthly", 90 to "Quarterly")
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        reviewOpts.forEach { (days, label) ->
+                            FilterChip(selected = task.reviewEveryDays == days, onClick = { update { it.copy(reviewEveryDays = days) } }, label = { Text(label) })
+                        }
+                    }
+                    if (task.reviewEveryDays != null) {
+                        val last = task.reviewedAt ?: task.createdAt
+                        val dueIn = ((last + task.reviewEveryDays!! * 86_400_000L) - System.currentTimeMillis()) / 86_400_000L
+                        Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(if (dueIn <= 0) "Due for review" else "Next review in ${dueIn}d", Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodySmall, color = if (dueIn <= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                            TextButton(onClick = { update { it.copy(reviewedAt = System.currentTimeMillis()) } }) { Text("Mark reviewed") }
+                        }
                     }
                 }
             }
@@ -529,6 +570,14 @@ private fun ScheduleRow(name: String, value: Long?, onSet: () -> Unit, onClear: 
 }
 
 @Composable
+private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+@Composable
 private fun Dial(name: String, value: Int, onChange: (Int) -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text("$name: $value", Modifier.width(130.dp), style = MaterialTheme.typography.bodyMedium)
@@ -593,6 +642,28 @@ private fun attachmentGlyph(mime: String, name: String): Pair<androidx.compose.u
 private fun attachmentKind(mime: String, name: String): String {
     val ext = name.substringAfterLast('.', "").uppercase()
     return ext.ifBlank { mime.substringAfterLast('/', "file").uppercase() }
+}
+
+private data class Rollup(val doneWeight: Double, val totalWeight: Double, val doneCount: Int, val totalCount: Int)
+
+/** Effort-weighted completion across a task's whole subtree. Leaf tasks carry weight = their
+ *  estimate (default 15 min); a heavier subtask contributes more, matching MLO's rollup. */
+private fun projectRollup(taskId: String, all: List<TaskEntity>): Rollup {
+    val byParent = all.filter { !it.trashed }.groupBy { it.parentId }
+    var dw = 0.0; var tw = 0.0; var dc = 0; var tc = 0
+    fun walk(id: String) {
+        val kids = byParent[id].orEmpty()
+        for (c in kids) {
+            val grandkids = byParent[c.id].orEmpty()
+            if (grandkids.isEmpty()) {
+                val w = (c.estimateMin ?: 15).coerceAtLeast(1).toDouble()
+                tw += w; tc += 1
+                if (c.completed) { dw += w; dc += 1 }
+            } else walk(c.id)
+        }
+    }
+    walk(taskId)
+    return Rollup(dw, tw, dc, tc)
 }
 
 private fun formatBytes(n: Long): String = when {

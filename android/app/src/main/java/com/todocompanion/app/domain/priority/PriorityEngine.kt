@@ -131,6 +131,7 @@ object PriorityEngine {
         blocked: Set<String>,
         hasIncompleteChild: (String) -> Boolean,
         contextAvailable: (String) -> Boolean,
+        orderBlocked: (String) -> Boolean = { false },
         cfg: Config = DEFAULT,
     ): List<Ranked> {
         val byId = all.associateBy { it.id }
@@ -140,6 +141,7 @@ object PriorityEngine {
             .filter { !(it.hideInTodoUntilStart && it.startDate != null && it.startDate!! > now) }
             .filter { !(it.hideInTodoIfBlocked && it.id in blocked) }
             .filter { contextAvailable(it.id) }
+            .filter { !orderBlocked(it.id) }
             .map { Ranked(it, score(it, now, byId, cfg)) }
             .sortedByDescending { it.score }
             .toList()
