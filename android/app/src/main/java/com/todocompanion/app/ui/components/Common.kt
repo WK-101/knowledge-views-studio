@@ -67,14 +67,26 @@ fun rowVerticalPadding(d: Density): Dp = when (d) {
     Density.RELAXED -> 14.dp
 }
 
-/** A circular, priority-tinted checkbox that fills with an animated check — TickTick-style. */
+/**
+ * MLO-style priority checkbox: a rounded *square* whose fill is a translucent tint of the
+ * task's priority colour when unchecked (so high-priority rows read at a glance), filling to
+ * a solid colour with an animated tick when checked.
+ */
 @Composable
 fun PriorityCheckbox(checked: Boolean, level: PriorityLevel, onCheckedChange: () -> Unit) {
     val ring = if (level == PriorityLevel.NONE) MaterialTheme.colorScheme.outline else priorityColor(level)
     val prog by animateFloatAsState(if (checked) 1f else 0f, label = "check")
-    Box(Modifier.size(40.dp).clip(CircleShape).clickable { onCheckedChange() }, contentAlignment = Alignment.Center) {
+    val shape = RoundedCornerShape(6.dp)
+    // Unchecked: faint priority tint (stronger for higher priority). Checked: solid fill.
+    val restTint = when (level) {
+        PriorityLevel.NONE -> 0f
+        PriorityLevel.LOW -> 0.10f
+        PriorityLevel.MEDIUM -> 0.14f
+        PriorityLevel.HIGH -> 0.18f
+    }
+    Box(Modifier.size(40.dp).clip(shape).clickable { onCheckedChange() }, contentAlignment = Alignment.Center) {
         Box(
-            Modifier.size(22.dp).clip(CircleShape).background(ring.copy(alpha = prog)).border(2.dp, ring, CircleShape),
+            Modifier.size(22.dp).clip(shape).background(ring.copy(alpha = restTint + (1f - restTint) * prog)).border(2.dp, ring, shape),
             contentAlignment = Alignment.Center,
         ) {
             Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(15.dp).scale(prog))
@@ -161,9 +173,10 @@ fun TaskMeta(
     contexts: List<Pair<String, Long?>>,
     tags: List<Pair<String, Long?>>,
     note: String,
+    listName: String? = null,
 ) {
     val hasNote = note.isNotBlank()
-    val hasMeta = dueMillis != null || contexts.isNotEmpty() || tags.isNotEmpty()
+    val hasMeta = dueMillis != null || contexts.isNotEmpty() || tags.isNotEmpty() || listName != null
     if (!hasNote && !hasMeta) return
 
     if (hasNote) {
@@ -193,6 +206,8 @@ fun TaskMeta(
                     color = argb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            if (listName != null) Text(listName, style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

@@ -99,6 +99,10 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
         val byId = allContexts.associateBy { it.id }
         ctxRefs.groupBy { it.taskId }.mapValues { (_, refs) -> refs.mapNotNull { byId[it.contextId] }.map { it.name to it.colorArgb } }
     }
+    // In smart lists (which span lists), show each task's list as a detail — like MLO/TickTick.
+    val lists by vm.lists.collectAsState()
+    val showList = view is ViewRef.Smart
+    val listNameById = remember(lists) { lists.associate { it.id to it.name } }
 
     if (groups.isEmpty() || groups.all { it.tasks.isEmpty() }) { EmptyState(view); return }
 
@@ -114,6 +118,7 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
                                 if (i > 0) HorizontalDivider(Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
                                 TaskListItem(task, settings.density,
                                     contexts = ctxByTask[task.id].orEmpty(), tags = tagsByTask[task.id].orEmpty(),
+                                    listName = if (showList) listNameById[task.listId]?.takeIf { it != "Inbox" } else null,
                                     rightNear = if (isTrash) SwipeAction.COMPLETE else settings.swipeRight,
                                     rightFar = if (isTrash) SwipeAction.NONE else settings.swipeRightFar,
                                     leftNear = if (isTrash) SwipeAction.TRASH else settings.swipeLeft,
@@ -210,7 +215,7 @@ private fun swipeVisual(action: SwipeAction, isTrashRestore: Boolean): Pair<Colo
 @Composable
 private fun TaskListItem(
     task: TaskEntity, density: Density,
-    contexts: List<Pair<String, Long?>>, tags: List<Pair<String, Long?>>,
+    contexts: List<Pair<String, Long?>>, tags: List<Pair<String, Long?>>, listName: String?,
     rightNear: SwipeAction, rightFar: SwipeAction, leftNear: SwipeAction, leftFar: SwipeAction, isTrash: Boolean,
     onOpen: () -> Unit, onAct: (SwipeAction) -> Unit, onCycleFlag: () -> Unit, onToggleStar: () -> Unit,
 ) {
@@ -270,7 +275,7 @@ private fun TaskListItem(
                 Text(task.title, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge,
                     textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None,
                     color = if (done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
-                TaskMeta(dueMillis = task.dueDate, contexts = contexts, tags = tags, note = task.note)
+                TaskMeta(dueMillis = task.dueDate, contexts = contexts, tags = tags, note = task.note, listName = listName)
             }
             Spacer(Modifier.width(2.dp))
             FlagStar(task.flagColorArgb, task.star, onCycleFlag, onToggleStar)

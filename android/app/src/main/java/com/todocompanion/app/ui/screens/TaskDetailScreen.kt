@@ -114,6 +114,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                     Icon(Icons.Filled.Cancel, "Won't do", tint = if (task?.abandoned == true) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 IconButton(onClick = { task?.let { vm.trash(it) }; onBack() }) { Icon(Icons.Filled.Delete, "Trash") }
+                // Changes auto-save as you type; Done just confirms and closes.
+                TextButton(onClick = onBack) { Text("Done", fontWeight = FontWeight.SemiBold) }
             },
         )
     }) { padding ->

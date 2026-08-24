@@ -115,8 +115,6 @@ fun AppDrawer(
                 }
             }
 
-            DrawerRow(Icons.Filled.Search, "Search everything…", muted = true, onClick = onSearch)
-
             SectionHeader("Smart lists")
             listOf(
                 SmartKind.INBOX, SmartKind.TODAY, SmartKind.TOMORROW, SmartKind.NEXT7, SmartKind.DO_NEXT,

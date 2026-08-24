@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -55,6 +56,7 @@ private val QUAD = listOf(
 )
 private val ROMAN = listOf("I", "II", "III", "IV")
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MatrixScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifier = Modifier) {
     val s by vm.settings.collectAsState()
@@ -66,14 +68,9 @@ fun MatrixScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modif
         .mapValues { (_, list) -> list.sortedByDescending { maxOf(it.importance, it.urgency) } }
 
     Column(modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Matrix", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.weight(1f))
-            IconButton(onClick = { showSettings = !showSettings }) { Icon(Icons.Filled.Tune, "Matrix settings") }
-        }
-
-        if (showSettings) {
-            MatrixSettings(vm, s)
+        // Slim toolbar — the app bar already reads "Matrix", so the grid gets the space.
+        Row(Modifier.fillMaxWidth().padding(end = 4.dp), horizontalArrangement = Arrangement.End) {
+            IconButton(onClick = { showSettings = true }) { Icon(Icons.Filled.Tune, "Matrix settings") }
         }
 
         val onToggle: (TaskEntity) -> Unit = { vm.toggleComplete(it) }
@@ -81,20 +78,27 @@ fun MatrixScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modif
             LazyColumn(Modifier.fillMaxSize().padding(horizontal = 8.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
                 QUAD.indices.forEach { q ->
                     val list = byQuad[q].orEmpty()
-                    if (list.isNotEmpty()) item(key = "q$q") { QuadrantCard(q, s.matrixNames.getOrElse(q) { QUAD[q].first }, list, onOpenTask, onToggle, Modifier.fillMaxWidth().heightIn(min = 90.dp, max = 340.dp).padding(vertical = 4.dp)) }
+                    if (list.isNotEmpty()) item(key = "q$q") { QuadrantCard(q, s.matrixNames.getOrElse(q) { QUAD[q].first }, list, onOpenTask, onToggle, Modifier.fillMaxWidth().heightIn(min = 90.dp, max = 400.dp).padding(vertical = 4.dp)) }
                 }
             }
         } else {
-            Column(Modifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 2.dp)) {
+            Column(Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 2.dp)) {
                 for (rowIdx in 0..1) {
                     Row(Modifier.weight(1f).fillMaxWidth()) {
                         for (colIdx in 0..1) {
                             val q = rowIdx * 2 + colIdx
-                            QuadrantCard(q, s.matrixNames.getOrElse(q) { QUAD[q].first }, byQuad[q].orEmpty(), onOpenTask, onToggle, Modifier.weight(1f).fillMaxSize().padding(3.dp))
+                            QuadrantCard(q, s.matrixNames.getOrElse(q) { QUAD[q].first }, byQuad[q].orEmpty(), onOpenTask, onToggle, Modifier.weight(1f).fillMaxSize().padding(4.dp))
                         }
                     }
                 }
             }
+        }
+    }
+
+    if (showSettings) {
+        androidx.compose.material3.ModalBottomSheet(onDismissRequest = { showSettings = false }) {
+            MatrixSettings(vm, s)
+            Spacer(Modifier.height(20.dp))
         }
     }
 }
@@ -149,7 +153,9 @@ private fun QuadrantCard(q: Int, title: String, tasks: List<TaskEntity>, onOpenT
 
 @Composable
 private fun MatrixSettings(vm: AppViewModel, s: com.todocompanion.app.domain.AppSettings) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp)) {
+        Text("Matrix settings", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(14.dp))
         Text("Quadrant names", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(4.dp))
         (0..3).forEach { q ->
