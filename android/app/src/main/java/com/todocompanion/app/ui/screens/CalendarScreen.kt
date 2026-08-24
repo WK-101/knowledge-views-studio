@@ -506,8 +506,9 @@ private fun TaskLine(task: TaskEntity, onOpenTask: (String) -> Unit, onToggle: (
 }
 
 private fun hasTime(millis: Long, zone: ZoneId): Boolean {
+    // Midnight is the all-day sentinel; every other time is a real time.
     val dt = Instant.ofEpochMilli(millis).atZone(zone)
-    return !(dt.hour == 9 && dt.minute == 0)
+    return !(dt.hour == 0 && dt.minute == 0)
 }
 
 private fun timeLabel(millis: Long, zone: ZoneId): String {

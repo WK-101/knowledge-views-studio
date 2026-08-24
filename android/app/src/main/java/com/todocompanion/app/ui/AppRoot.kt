@@ -344,7 +344,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                             Tab.SEARCH -> SearchScreen(vm, ::openTask, searchQuery)
                             Tab.SETTINGS -> SettingsScreen(vm)
                             Tab.CALENDAR -> CalendarScreen(vm, ::openTask, calMode, { calMode = it }, onAddOnDate = { d ->
-                                openQuickAdd(d.atTime(9, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli())
+                                openQuickAdd(d.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli())
                             }, onAddAt = { d, minute ->
                                 openQuickAdd(d.atStartOfDay(ZoneId.systemDefault()).plusMinutes(minute.toLong()).toInstant().toEpochMilli(), withTime = true)
                             })

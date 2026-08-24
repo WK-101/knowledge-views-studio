@@ -253,6 +253,21 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                 CardLabel("Schedule"); Spacer(Modifier.height(2.dp))
                 ScheduleRow("Due", task.dueDate, onSet = { showDue = true }, onClear = { update { it.copy(dueDate = null) } })
                 ScheduleRow("Start", task.startDate, onSet = { showStart = true }, onClear = { update { it.copy(startDate = null) } })
+                // Duration sizes the block on the calendar timeline (only meaningful for a timed due).
+                if (task.dueDate != null && !task.isAllDay && (java.time.Instant.ofEpochMilli(task.dueDate!!).atZone(java.time.ZoneId.systemDefault()).let { it.hour != 0 || it.minute != 0 })) {
+                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Duration", Modifier.weight(1f))
+                        Box {
+                            var durMenu by remember { mutableStateOf(false) }
+                            TextButton(onClick = { durMenu = true }) { Text(task.durationMin?.let { "$it min" } ?: "30 min") }
+                            DropdownMenu(expanded = durMenu, onDismissRequest = { durMenu = false }) {
+                                listOf(15, 30, 45, 60, 90, 120, 180, 240).forEach { m ->
+                                    DropdownMenuItem(text = { Text("$m min") }, onClick = { update { it.copy(durationMin = m) }; durMenu = false })
+                                }
+                            }
+                        }
+                    }
+                }
                 RepeatRow(task.rrule) { rule -> update { it.copy(rrule = rule) } }
                 Spacer(Modifier.height(8.dp)); CardLabel("Reminders")
                 reminders.filter { it.taskId == task.id }.forEach { r ->

@@ -160,7 +160,7 @@ object QuickAddParser {
         val dateTime: LocalDateTime?
         val hasTime: Boolean
         when {
-            date != null -> { dateTime = LocalDateTime.of(date, time ?: LocalTime.of(9, 0)); hasTime = time != null }
+            date != null -> { dateTime = LocalDateTime.of(date, time ?: LocalTime.MIDNIGHT); hasTime = time != null }
             time != null -> { dateTime = LocalDateTime.of(today, time); hasTime = true }
             else -> { dateTime = null; hasTime = false }
         }

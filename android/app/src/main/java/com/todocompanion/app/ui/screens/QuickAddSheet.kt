@@ -67,7 +67,8 @@ fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Bo
     val lists by vm.lists.collectAsState()
     val tags by vm.tags.collectAsState()
 
-    fun dayMillis(d: java.time.LocalDate) = d.atTime(9, 0).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+    // Date-only entries use midnight (the all-day sentinel); a real time is set via the picker.
+    fun dayMillis(d: java.time.LocalDate) = d.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
 
     var text by remember { mutableStateOf("") }
     var due by remember { mutableStateOf(initialDue) }

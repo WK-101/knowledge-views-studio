@@ -63,7 +63,7 @@ fun ReviewScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> U
     val staleCutoff = now - 14L * 24 * 3600 * 1000
 
     fun dayOf(ms: Long) = Instant.ofEpochMilli(ms).atZone(zone).toLocalDate()
-    fun todayAt9() = today.atTime(9, 0).atZone(zone).toInstant().toEpochMilli()
+    fun todayAt9() = today.atStartOfDay(zone).toInstant().toEpochMilli()
 
     val active = allTasks.filter { !it.trashed && !it.completed && !it.abandoned }
     val dueForReview = active.filter { it.reviewEveryDays != null && (it.reviewedAt ?: it.createdAt) + it.reviewEveryDays!! * 86_400_000L <= now }
