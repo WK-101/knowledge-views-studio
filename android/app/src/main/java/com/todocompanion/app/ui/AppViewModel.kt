@@ -218,6 +218,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun moveDown(t: TaskEntity) = viewModelScope.launch { repo.moveDown(t) }
     fun moveToList(t: TaskEntity, listId: String) = viewModelScope.launch { repo.moveToList(t.id, listId) }
     fun save(t: TaskEntity) = viewModelScope.launch { repo.saveTask(t) }
+    /** Persist a manual drag reorder by writing each id's index as its sortOrder. */
+    fun setManualOrder(orderedIds: List<String>) = viewModelScope.launch {
+        val byId = tasks.value.associateBy { it.id }
+        orderedIds.forEachIndexed { i, id ->
+            byId[id]?.let { if (it.sortOrder != i.toDouble()) repo.saveTask(it.copy(sortOrder = i.toDouble())) }
+        }
+    }
 
     // ---------- checklist ----------
     fun checklistFor(taskId: String) = checklist.value.filter { it.taskId == taskId }.sortedBy { it.sortOrder }

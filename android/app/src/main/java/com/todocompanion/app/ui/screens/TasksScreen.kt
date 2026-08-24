@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cancel
@@ -42,14 +44,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.layout.offset
+import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalDensity
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
@@ -57,6 +64,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -106,6 +116,15 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
 
     if (groups.isEmpty() || groups.all { it.tasks.isEmpty() }) { EmptyState(view); return }
 
+    // Manual sort on a single ungrouped list → long-press drag to reorder.
+    val sortMode by vm.sortMode.collectAsState()
+    if (sortMode == com.todocompanion.app.domain.view.SortMode.MANUAL && groups.size == 1 && groups.first().title.isBlank() && !isTrash) {
+        ManualReorderList(vm, groups.first().tasks, settings.density, ctxByTask, tagsByTask,
+            listNameOf = { id -> if (showList) listNameById[id]?.takeIf { it != "Inbox" } else null },
+            onOpenTask = onOpenTask, modifier = modifier)
+        return
+    }
+
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(top = 6.dp, bottom = 100.dp)) {
         items(groups, key = { it.key }) { group ->
             val open = collapsed[group.key] != true
@@ -138,6 +157,111 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
 private fun onSwipe(vm: AppViewModel, action: SwipeAction, task: TaskEntity, isTrash: Boolean, onOpen: () -> Unit) {
     if (isTrash) { if (action == SwipeAction.COMPLETE) vm.restore(task) else vm.deleteForever(task); return }
     if (!vm.applyAction(action, task)) onOpen()
+}
+
+@Composable
+private fun ManualReorderList(
+    vm: AppViewModel, tasks: List<TaskEntity>, density: Density,
+    ctxByTask: Map<String, List<Pair<String, Long?>>>, tagsByTask: Map<String, List<Pair<String, Long?>>>,
+    listNameOf: (String) -> String?, onOpenTask: (String) -> Unit, modifier: Modifier,
+) {
+    // Local working order; resynced when the set of tasks changes upstream (add / remove / complete).
+    var items by remember(tasks.map { it.id }.toSet()) { mutableStateOf(tasks) }
+    val listState = rememberLazyListState()
+    var draggingId by remember { mutableStateOf<String?>(null) }
+    var delta by remember { mutableFloatStateOf(0f) }
+
+    LazyColumn(
+        state = listState,
+        modifier = modifier.fillMaxSize().androidx_pointerReorder(
+            listState = listState,
+            draggingId = { draggingId },
+            setDraggingId = { draggingId = it },
+            delta = { delta }, setDelta = { delta = it },
+            indexOfId = { id -> items.indexOfFirst { it.id == id } },
+            moveItem = { from, to -> items = items.toMutableList().also { it.add(to, it.removeAt(from)) } },
+            onCommit = { vm.setManualOrder(items.map { it.id }) },
+        ),
+        contentPadding = PaddingValues(top = 6.dp, bottom = 100.dp, start = 12.dp, end = 12.dp),
+    ) {
+        itemsIndexed(items, key = { _, t -> t.id }) { _, task ->
+            val dragging = task.id == draggingId
+            Surface(
+                Modifier
+                    .padding(vertical = 3.dp)
+                    .zIndex(if (dragging) 1f else 0f)
+                    .graphicsLayer { translationY = if (dragging) delta else 0f },
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surface,
+                shadowElevation = if (dragging) 8.dp else 1.dp,
+            ) {
+                ReorderRow(task, density, ctxByTask[task.id].orEmpty(), tagsByTask[task.id].orEmpty(), listNameOf(task.id),
+                    onOpen = { onOpenTask(task.id) }, onToggle = { vm.toggleComplete(task) },
+                    onCycleFlag = { vm.cycleFlag(task) }, onToggleStar = { vm.toggleStar(task) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReorderRow(
+    task: TaskEntity, density: Density, contexts: List<Pair<String, Long?>>, tags: List<Pair<String, Long?>>, listName: String?,
+    onOpen: () -> Unit, onToggle: () -> Unit, onCycleFlag: () -> Unit, onToggleStar: () -> Unit,
+) {
+    val level = PriorityLevel.from(task.importance, task.urgency)
+    val done = task.completed || task.abandoned
+    Row(
+        Modifier.fillMaxWidth().clickable { onOpen() }.padding(start = 6.dp, end = 8.dp, top = rowVerticalPadding(density), bottom = rowVerticalPadding(density)),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Filled.DragIndicator, "Drag", tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(2.dp))
+        PriorityCheckbox(task.completed, level) { onToggle() }
+        Spacer(Modifier.width(2.dp))
+        Column(Modifier.weight(1f).padding(vertical = 1.dp)) {
+            Text(task.title, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge,
+                textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None,
+                color = if (done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
+            TaskMeta(dueMillis = task.dueDate, contexts = contexts, tags = tags, note = task.note, listName = listName, repeating = !task.rrule.isNullOrBlank())
+        }
+        Spacer(Modifier.width(2.dp))
+        FlagStar(task.flagColorArgb, task.star, onCycleFlag, onToggleStar, iconSize = com.todocompanion.app.ui.components.flagStarSize(density))
+    }
+}
+
+/** Long-press reorder gesture for a LazyColumn, factored out to keep the list readable. */
+private fun Modifier.androidx_pointerReorder(
+    listState: androidx.compose.foundation.lazy.LazyListState,
+    draggingId: () -> String?, setDraggingId: (String?) -> Unit,
+    delta: () -> Float, setDelta: (Float) -> Unit,
+    indexOfId: (String) -> Int, moveItem: (Int, Int) -> Unit, onCommit: () -> Unit,
+): Modifier = this.pointerInput(Unit) {
+    detectDragGesturesAfterLongPress(
+        onDragStart = { off ->
+            val hit = listState.layoutInfo.visibleItemsInfo.firstOrNull { off.y.toInt() in it.offset..(it.offset + it.size) }
+            setDraggingId(hit?.key as? String); setDelta(0f)
+        },
+        onDragEnd = { if (draggingId() != null) onCommit(); setDraggingId(null); setDelta(0f) },
+        onDragCancel = { setDraggingId(null); setDelta(0f) },
+        onDrag = { change, drag ->
+            change.consume()
+            setDelta(delta() + drag.y)
+            val id = draggingId()
+            val info = listState.layoutInfo.visibleItemsInfo
+            val cur = id?.let { d -> info.firstOrNull { it.key == d } }
+            if (id != null && cur != null) {
+                val center = cur.offset + cur.size / 2 + delta()
+                val target = info.firstOrNull { it.key != id && center.toInt() in it.offset..(it.offset + it.size) }
+                if (target != null) {
+                    val from = indexOfId(id); val to = indexOfId(target.key as String)
+                    if (from >= 0 && to >= 0 && from != to) {
+                        moveItem(from, to)
+                        setDelta(delta() + (cur.offset - target.offset))
+                    }
+                }
+            }
+        },
+    )
 }
 
 @Composable
