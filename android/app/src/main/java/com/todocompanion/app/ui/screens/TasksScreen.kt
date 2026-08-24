@@ -40,15 +40,19 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalDensity
+import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -110,8 +114,10 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
                                 if (i > 0) HorizontalDivider(Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
                                 TaskListItem(task, settings.density,
                                     contexts = ctxByTask[task.id].orEmpty(), tags = tagsByTask[task.id].orEmpty(),
-                                    rightAction = if (isTrash) SwipeAction.COMPLETE else settings.swipeRight,
-                                    leftAction = if (isTrash) SwipeAction.TRASH else settings.swipeLeft, isTrash = isTrash,
+                                    rightNear = if (isTrash) SwipeAction.COMPLETE else settings.swipeRight,
+                                    rightFar = if (isTrash) SwipeAction.NONE else settings.swipeRightFar,
+                                    leftNear = if (isTrash) SwipeAction.TRASH else settings.swipeLeft,
+                                    leftFar = if (isTrash) SwipeAction.NONE else settings.swipeLeftFar, isTrash = isTrash,
                                     onOpen = { onOpenTask(task.id) },
                                     onAct = { a -> onSwipe(vm, a, task, isTrash) { onOpenTask(task.id) } },
                                     onCycleFlag = { vm.cycleFlag(task) }, onToggleStar = { vm.toggleStar(task) })
@@ -205,34 +211,56 @@ private fun swipeVisual(action: SwipeAction, isTrashRestore: Boolean): Pair<Colo
 private fun TaskListItem(
     task: TaskEntity, density: Density,
     contexts: List<Pair<String, Long?>>, tags: List<Pair<String, Long?>>,
-    rightAction: SwipeAction, leftAction: SwipeAction, isTrash: Boolean,
+    rightNear: SwipeAction, rightFar: SwipeAction, leftNear: SwipeAction, leftFar: SwipeAction, isTrash: Boolean,
     onOpen: () -> Unit, onAct: (SwipeAction) -> Unit, onCycleFlag: () -> Unit, onToggleStar: () -> Unit,
 ) {
-    val state = rememberSwipeToDismissBoxState(confirmValueChange = { v ->
-        when (v) {
-            SwipeToDismissBoxValue.StartToEnd -> { onAct(rightAction); false }
-            SwipeToDismissBoxValue.EndToStart -> { onAct(leftAction); false }
-            else -> false
+    val scope = rememberCoroutineScope()
+    val dens = LocalDensity.current
+    val nearPx = with(dens) { 76.dp.toPx() }
+    val farPx = with(dens) { 176.dp.toPx() }
+    val maxPx = with(dens) { 230.dp.toPx() }
+    val offsetX = remember(task.id) { Animatable(0f) }
+
+    // Which action the current offset would trigger, and its background visual.
+    val goingRight = offsetX.value > 0
+    val pendingAction = when {
+        goingRight && offsetX.value >= farPx && rightFar != SwipeAction.NONE -> rightFar
+        goingRight -> rightNear
+        !goingRight && -offsetX.value >= farPx && leftFar != SwipeAction.NONE -> leftFar
+        else -> leftNear
+    }
+    val (bgColor, bgIcon) = swipeVisual(pendingAction, isTrash && goingRight)
+
+    Box(Modifier.fillMaxWidth()) {
+        if (offsetX.value != 0f && pendingAction != SwipeAction.NONE) {
+            Box(
+                Modifier.matchParentSize().background(bgColor).padding(horizontal = 24.dp),
+                contentAlignment = if (goingRight) Alignment.CenterStart else Alignment.CenterEnd,
+            ) { Icon(bgIcon, null, tint = Color.White) }
         }
-    })
-    SwipeToDismissBox(
-        state = state,
-        backgroundContent = {
-            val dir = state.dismissDirection
-            val (color, icon, align) = when (dir) {
-                SwipeToDismissBoxValue.StartToEnd -> { val (c, i) = swipeVisual(rightAction, isTrash); Triple(c, i, Alignment.CenterStart) }
-                SwipeToDismissBoxValue.EndToStart -> { val (c, i) = swipeVisual(leftAction, false); Triple(c, i, Alignment.CenterEnd) }
-                else -> Triple(Color.Transparent, Icons.Filled.Check, Alignment.CenterStart)
-            }
-            Box(Modifier.fillMaxSize().background(color).padding(horizontal = 22.dp), contentAlignment = align) {
-                if (dir != SwipeToDismissBoxValue.Settled) Icon(icon, null, tint = Color.White)
-            }
-        },
-    ) {
         val level = PriorityLevel.from(task.importance, task.urgency)
         val done = task.completed || task.abandoned
         Row(
-            Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).clickable { onOpen() }
+            Modifier
+                .offset { androidx.compose.ui.unit.IntOffset(offsetX.value.roundToInt(), 0) }
+                .fillMaxWidth().background(MaterialTheme.colorScheme.surface)
+                .draggable(
+                    orientation = androidx.compose.foundation.gestures.Orientation.Horizontal,
+                    state = androidx.compose.foundation.gestures.rememberDraggableState { delta ->
+                        scope.launch { offsetX.snapTo((offsetX.value + delta).coerceIn(-maxPx, maxPx)) }
+                    },
+                    onDragStopped = {
+                        val v = offsetX.value
+                        when {
+                            v >= farPx && rightFar != SwipeAction.NONE -> onAct(rightFar)
+                            v >= nearPx -> onAct(rightNear)
+                            v <= -farPx && leftFar != SwipeAction.NONE -> onAct(leftFar)
+                            v <= -nearPx -> onAct(leftNear)
+                        }
+                        offsetX.animateTo(0f)
+                    },
+                )
+                .clickable { onOpen() }
                 .padding(start = 6.dp, end = 8.dp, top = rowVerticalPadding(density), bottom = rowVerticalPadding(density)),
             verticalAlignment = Alignment.CenterVertically,
         ) {

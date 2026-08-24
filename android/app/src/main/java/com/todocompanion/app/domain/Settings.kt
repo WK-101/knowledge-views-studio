@@ -29,14 +29,18 @@ data class AppSettings(
     val timeZone: String = "",
     val swipeRight: SwipeAction = SwipeAction.COMPLETE,
     val swipeLeft: SwipeAction = SwipeAction.TRASH,
+    val swipeRightFar: SwipeAction = SwipeAction.NONE,   // triggered by a longer right-swipe
+    val swipeLeftFar: SwipeAction = SwipeAction.NONE,    // triggered by a longer left-swipe
     // Sidebar: per-smart-list visibility (absent = Show)
     val smartListVis: Map<SmartKind, SmartVis> = emptyMap(),
+    // Bottom navigation: tab names hidden from the bar (TASKS is always shown)
+    val bottomTabsHidden: Set<String> = emptySet(),
     // Matrix
     val matrixImportanceThreshold: Int = 4,
     val matrixUrgencyThreshold: Int = 4,
     val matrixShowCompleted: Boolean = false,
     val matrixHideEmpty: Boolean = false,
-    val matrixNames: List<String> = listOf("Do first", "Schedule", "Delegate", "Later"),
+    val matrixNames: List<String> = listOf("Urgent & Important", "Not Urgent & Important", "Urgent & Unimportant", "Not Urgent & Unimportant"),
     // Calendar
     val calendarDefaultMode: String = "month",
     // Reminders
@@ -56,7 +60,10 @@ data class AppSettings(
         Keys.TIME_ZONE to timeZone,
         Keys.SWIPE_R to swipeRight.name,
         Keys.SWIPE_L to swipeLeft.name,
+        Keys.SWIPE_RF to swipeRightFar.name,
+        Keys.SWIPE_LF to swipeLeftFar.name,
         Keys.SMART_VIS to smartListVis.entries.joinToString(",") { "${it.key.name}:${it.value.name}" },
+        Keys.BOTTOM_HIDDEN to bottomTabsHidden.joinToString(","),
         Keys.MX_IMP to matrixImportanceThreshold.toString(),
         Keys.MX_URG to matrixUrgencyThreshold.toString(),
         Keys.MX_DONE to matrixShowCompleted.toString(),
@@ -80,7 +87,10 @@ data class AppSettings(
         const val TIME_ZONE = "time_zone"
         const val SWIPE_R = "swipe_r"
         const val SWIPE_L = "swipe_l"
+        const val SWIPE_RF = "swipe_rf"
+        const val SWIPE_LF = "swipe_lf"
         const val SMART_VIS = "smart_vis"
+        const val BOTTOM_HIDDEN = "bottom_hidden"
         const val MX_IMP = "mx_imp"
         const val MX_URG = "mx_urg"
         const val MX_DONE = "mx_done"
@@ -108,6 +118,8 @@ data class AppSettings(
             timeZone = m[Keys.TIME_ZONE] ?: "",
             swipeRight = parse(m[Keys.SWIPE_R], SwipeAction.COMPLETE),
             swipeLeft = parse(m[Keys.SWIPE_L], SwipeAction.TRASH),
+            swipeRightFar = parse(m[Keys.SWIPE_RF], SwipeAction.NONE),
+            swipeLeftFar = parse(m[Keys.SWIPE_LF], SwipeAction.NONE),
             smartListVis = (m[Keys.SMART_VIS] ?: "").split(",").mapNotNull { pair ->
                 val p = pair.split(":")
                 if (p.size != 2) return@mapNotNull null
@@ -115,11 +127,12 @@ data class AppSettings(
                 val v = runCatching { enumValueOf<SmartVis>(p[1]) }.getOrNull()
                 if (k != null && v != null) k to v else null
             }.toMap(),
+            bottomTabsHidden = (m[Keys.BOTTOM_HIDDEN] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             matrixImportanceThreshold = m[Keys.MX_IMP]?.toIntOrNull() ?: 4,
             matrixUrgencyThreshold = m[Keys.MX_URG]?.toIntOrNull() ?: 4,
             matrixShowCompleted = m[Keys.MX_DONE]?.toBooleanStrictOrNull() ?: false,
             matrixHideEmpty = m[Keys.MX_HIDE_EMPTY]?.toBooleanStrictOrNull() ?: false,
-            matrixNames = m[Keys.MX_NAMES]?.split("|")?.takeIf { it.size == 4 } ?: listOf("Do first", "Schedule", "Delegate", "Later"),
+            matrixNames = m[Keys.MX_NAMES]?.split("|")?.takeIf { it.size == 4 } ?: listOf("Urgent & Important", "Not Urgent & Important", "Urgent & Unimportant", "Not Urgent & Unimportant"),
             calendarDefaultMode = m[Keys.CAL_MODE] ?: "month",
             dailySummaryEnabled = m[Keys.SUMMARY_ON]?.toBooleanStrictOrNull() ?: false,
             dailySummaryHour = m[Keys.SUMMARY_H]?.toIntOrNull() ?: 8,

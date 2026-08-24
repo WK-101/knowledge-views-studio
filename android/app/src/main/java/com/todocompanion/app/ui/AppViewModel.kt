@@ -203,6 +203,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- folders / lists ----------
     fun createFolder(name: String, parentId: String? = null) = viewModelScope.launch { repo.createFolder(name, parentId) }
     fun renameFolder(f: FolderEntity, name: String) = viewModelScope.launch { repo.saveFolder(f.copy(name = name)) }
+    fun setFolderIcon(f: FolderEntity, icon: String?) = viewModelScope.launch { repo.saveFolder(f.copy(icon = icon)) }
     fun toggleFolder(f: FolderEntity) = viewModelScope.launch { repo.saveFolder(f.copy(collapsed = !f.collapsed)) }
     fun deleteFolder(id: String) = viewModelScope.launch { repo.deleteFolder(id) }
     fun createList(name: String, folderId: String?, colorArgb: Long?) = viewModelScope.launch { repo.createList(name, folderId, colorArgb) }

@@ -134,6 +134,21 @@ fun Dot(color: Color, sizeDp: Int = 8) {
     Box(Modifier.size(sizeDp.dp).clip(CircleShape).background(color))
 }
 
+/** A compact square checkbox (TickTick matrix style): coloured outline that fills with a tick when done. */
+@Composable
+fun SmallCheck(checked: Boolean, color: Color, onToggle: () -> Unit) {
+    Box(Modifier.size(30.dp).clip(CircleShape).clickable { onToggle() }, contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.size(18.dp).clip(RoundedCornerShape(5.dp))
+                .background(if (checked) color else Color.Transparent)
+                .border(1.5.dp, color, RoundedCornerShape(5.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (checked) Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(13.dp))
+        }
+    }
+}
+
 /**
  * MLO-style per-task detail block: an optional note/description preview line,
  * then a wrapping meta line of due-date, @contexts and #tags. Renders nothing

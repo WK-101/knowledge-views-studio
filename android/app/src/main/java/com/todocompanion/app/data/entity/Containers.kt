@@ -12,6 +12,7 @@ data class FolderEntity(
     @PrimaryKey val id: String,
     val parentId: String? = null,
     val name: String,
+    val icon: String? = null,   // optional emoji
     val sortOrder: Double = 0.0,
     val collapsed: Boolean = false,
 )

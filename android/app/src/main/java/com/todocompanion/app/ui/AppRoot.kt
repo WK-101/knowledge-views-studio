@@ -21,7 +21,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Add
@@ -201,8 +203,9 @@ fun AppRoot() {
                     )
                 },
                 bottomBar = {
+                    val visibleTabs = Tab.entries.filter { it == Tab.TASKS || it.name !in settings.bottomTabsHidden }
                     NavigationBar {
-                        Tab.entries.forEach { t ->
+                        visibleTabs.forEach { t ->
                             NavigationBarItem(selected = tab == t, onClick = { tab = t }, icon = { Icon(t.icon, t.label) }, label = { Text(t.label) })
                         }
                     }
@@ -247,6 +250,7 @@ fun AppRoot() {
         manageFolder?.let { f ->
             ManageFolderDialog(f, onDismiss = { manageFolder = null },
                 onRename = { vm.renameFolder(f, it); manageFolder = null },
+                onIcon = { vm.setFolderIcon(f, it) },
                 onDelete = { vm.deleteFolder(f.id); manageFolder = null })
         }
         moveList?.let { l ->
@@ -358,15 +362,35 @@ private fun ManageListDialog(list: ListEntity, onDismiss: () -> Unit, onRename: 
     )
 }
 
+private val FOLDER_EMOJIS = listOf("📁", "📂", "🗂️", "📥", "⭐", "🎯", "💼", "🏠", "🛒", "✈️", "📚", "💡", "❤️", "🔥", "✅", "🧠", "💪", "🎨", "🎵", "🍽️")
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun ManageFolderDialog(folder: FolderEntity, onDismiss: () -> Unit, onRename: (String) -> Unit, onDelete: () -> Unit) {
+private fun ManageFolderDialog(folder: FolderEntity, onDismiss: () -> Unit, onRename: (String) -> Unit, onIcon: (String?) -> Unit, onDelete: () -> Unit) {
     var name by remember { mutableStateOf(folder.name) }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onRename(name.trim()) }) { Text("Save") } },
         dismissButton = { TextButton(onClick = onDelete) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
         title = { Text("Folder") },
-        text = { OutlinedTextField(name, { name = it }, singleLine = true, modifier = Modifier.fillMaxWidth()) },
+        text = {
+            Column {
+                OutlinedTextField(name, { name = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.size(12.dp))
+                Text("Icon", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.size(6.dp))
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Box(Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(if (folder.icon == null) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant).clickable { onIcon(null) }, contentAlignment = Alignment.Center) {
+                        Icon(Icons.Filled.Folder, "No icon", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    FOLDER_EMOJIS.forEach { e ->
+                        Box(Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(if (folder.icon == e) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant).clickable { onIcon(e) }, contentAlignment = Alignment.Center) {
+                            Text(e, style = MaterialTheme.typography.titleMedium)
+                        }
+                    }
+                }
+            }
+        },
     )
 }
 

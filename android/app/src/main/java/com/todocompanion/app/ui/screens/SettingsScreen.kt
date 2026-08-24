@@ -111,7 +111,10 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
 
             Spacer(Modifier.height(12.dp)); Sub("Swipe actions")
             SwipeRow("Swipe right", s.swipeRight) { vm.saveSettings(s.copy(swipeRight = it)) }
+            SwipeRow("Swipe right — full", s.swipeRightFar) { vm.saveSettings(s.copy(swipeRightFar = it)) }
             SwipeRow("Swipe left", s.swipeLeft) { vm.saveSettings(s.copy(swipeLeft = it)) }
+            SwipeRow("Swipe left — full", s.swipeLeftFar) { vm.saveSettings(s.copy(swipeLeftFar = it)) }
+            Text("A short swipe runs the first action; a longer swipe runs the “full” action.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         Spacer(Modifier.height(18.dp))
@@ -123,6 +126,14 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 SmartVisRow(k.title, s.smartListVis[k] ?: SmartVis.SHOW) { v ->
                     val next = if (v == SmartVis.SHOW) s.smartListVis - k else s.smartListVis + (k to v)
                     vm.saveSettings(s.copy(smartListVis = next))
+                }
+            }
+            Spacer(Modifier.height(10.dp)); Sub("Bottom bar")
+            Text("Tasks always shows. Hidden tabs stay reachable from the menu.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
+            listOf("CALENDAR" to "Calendar", "MATRIX" to "Matrix", "SEARCH" to "Search", "SETTINGS" to "Settings").forEach { (key, label) ->
+                Toggle(label, key !in s.bottomTabsHidden) { on ->
+                    val next = if (on) s.bottomTabsHidden - key else s.bottomTabsHidden + key
+                    vm.saveSettings(s.copy(bottomTabsHidden = next))
                 }
             }
         }
@@ -236,7 +247,10 @@ private fun Action(title: String, onClick: () -> Unit) {
         style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
 }
 
-private val ACCENTS = listOf(0xFF5B57D9, 0xFF2F6BFF, 0xFF12A594, 0xFFE5484D, 0xFFF59E0B, 0xFF8B5CF6, 0xFFEC4899, 0xFF0EA371)
+private val ACCENTS = listOf(
+    0xFF5B57D9, 0xFF2F6BFF, 0xFF0EA5E9, 0xFF06B6D4, 0xFF12A594, 0xFF0EA371, 0xFF65A30D, 0xFFCA8A04,
+    0xFFF59E0B, 0xFFEA580C, 0xFFE5484D, 0xFFEC4899, 0xFFDB2777, 0xFF8B5CF6, 0xFF7C3AED, 0xFF64748B,
+)
 
 @Composable
 private fun AccentSwatch(color: Long, current: Long, onClick: () -> Unit) {
