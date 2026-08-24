@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -378,6 +379,8 @@ fun AppRoot() {
             ManageContextDialog(c, onDismiss = { manageCtx = null },
                 onRename = { vm.renameContext(c, it); manageCtx = null },
                 onColor = { vm.setContextColor(c, it) },
+                onActive = { vm.setContextActive(c, it) },
+                onHours = { vm.setContextHours(c, it) },
                 onDelete = { vm.deleteContext(c); manageCtx = null })
         }
         moveCtx?.let { c ->
@@ -642,9 +645,22 @@ private fun TagPickerDialog(title: String, tags: List<com.todocompanion.app.data
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ManageContextDialog(ctx: com.todocompanion.app.data.entity.ContextEntity, onDismiss: () -> Unit, onRename: (String) -> Unit, onColor: (Long?) -> Unit, onDelete: () -> Unit) {
+private fun ManageContextDialog(
+    ctx: com.todocompanion.app.data.entity.ContextEntity, onDismiss: () -> Unit,
+    onRename: (String) -> Unit, onColor: (Long?) -> Unit, onActive: (Boolean) -> Unit, onHours: (String?) -> Unit, onDelete: () -> Unit,
+) {
     var name by remember { mutableStateOf(ctx.name) }
+    val oh0 = com.todocompanion.app.domain.context.ContextAvailability.parse(ctx.openHoursJson)
+    var restricted by remember { mutableStateOf(oh0 != null) }
+    var days by remember { mutableStateOf(oh0?.days ?: setOf(1, 2, 3, 4, 5)) }
+    var startH by remember { mutableStateOf((oh0?.startMin ?: 540) / 60) }
+    var endH by remember { mutableStateOf((oh0?.endMin ?: 1020) / 60) }
+    fun persistHours() {
+        onHours(if (restricted) com.todocompanion.app.domain.context.ContextAvailability.encode(
+            com.todocompanion.app.domain.context.OpenHours(days, startH * 60, endH * 60)) else null)
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onRename(name.trim()) }) { Text("Save") } },
@@ -660,9 +676,44 @@ private fun ManageContextDialog(ctx: com.todocompanion.app.data.entity.ContextEn
                     }
                     SWATCHES.forEach { c -> Box(Modifier.size(26.dp).clip(CircleShape).background(Color(c)).clickable { onColor(c) }) }
                 }
+                Spacer(Modifier.size(14.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Active", Modifier.weight(1f))
+                    androidx.compose.material3.Switch(checked = ctx.active, onCheckedChange = onActive)
+                }
+                Text("Tasks in an inactive or closed context drop out of Do-Next.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.size(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Available only on a schedule", Modifier.weight(1f))
+                    androidx.compose.material3.Switch(checked = restricted, onCheckedChange = { restricted = it; persistHours() })
+                }
+                if (restricted) {
+                    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        val labels = listOf(1 to "M", 2 to "T", 3 to "W", 4 to "T", 5 to "F", 6 to "S", 7 to "S")
+                        labels.forEach { (d, l) ->
+                            androidx.compose.material3.FilterChip(selected = d in days, onClick = { days = if (d in days) days - d else days + d; persistHours() }, label = { Text(l) })
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("From", Modifier.padding(end = 6.dp))
+                        HourStepper(startH) { startH = it.coerceIn(0, endH); persistHours() }
+                        Spacer(Modifier.size(10.dp))
+                        Text("to", Modifier.padding(end = 6.dp))
+                        HourStepper(endH) { endH = it.coerceIn(startH, 24); persistHours() }
+                    }
+                }
             }
         },
     )
+}
+
+@Composable
+private fun HourStepper(hour: Int, onChange: (Int) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        TextButton(onClick = { onChange(hour - 1) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp)) { Text("−") }
+        Text("%02d:00".format(hour), style = MaterialTheme.typography.bodyMedium)
+        TextButton(onClick = { onChange(hour + 1) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp)) { Text("+") }
+    }
 }
 
 @Composable

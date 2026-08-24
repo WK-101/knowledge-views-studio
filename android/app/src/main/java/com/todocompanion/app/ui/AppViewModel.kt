@@ -110,14 +110,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             wsTasks,
             combine(currentView, groupMode, sortMode, settings) { v, g, s, set -> Cfg(v, g, s, set.priorityConfig()) },
             repo.taskTagRefs,
-            repo.taskContextRefs,
+            combine(repo.taskContextRefs, repo.allContexts) { r, c -> r to c },
             repo.allDependencies,
-        ) { all, cfg, ttRefs, tcRefs, deps ->
+        ) { all, cfg, ttRefs, tcInfo, deps ->
+            val (tcRefs, ctxEntities) = tcInfo
             val now = System.currentTimeMillis()
             val filtered = when (val v = cfg.view) {
                 is ViewRef.Smart -> {
                     val base = TaskViews.filterSmart(all, v.kind, now, zone)
-                    if (v.kind == SmartKind.DO_NEXT) rankDoNext(base, all, now, cfg.prio, deps) else base
+                    if (v.kind == SmartKind.DO_NEXT) rankDoNext(base, all, now, cfg.prio, deps, tcRefs, ctxEntities) else base
                 }
                 is ViewRef.ListView -> all.filter { !it.trashed && !it.completed && !it.abandoned && it.listId == v.listId }
                 is ViewRef.TagView -> {
@@ -140,15 +141,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             buildOutline(all.filter { it.listId == listId && !it.trashed })
         }.state(emptyList())
 
-    private fun rankDoNext(base: List<TaskEntity>, all: List<TaskEntity>, now: Long, cfg: PriorityEngine.Config, deps: List<DependencyEntity>): List<TaskEntity> {
+    private fun rankDoNext(
+        base: List<TaskEntity>, all: List<TaskEntity>, now: Long, cfg: PriorityEngine.Config,
+        deps: List<DependencyEntity>, tcRefs: List<com.todocompanion.app.data.entity.TaskContextCrossRef>, ctxs: List<ContextEntity>,
+    ): List<TaskEntity> {
         val byParent = all.groupBy { it.parentId }
         val blocked = PriorityEngine.computeBlocked(deps, all.associateBy { it.id })
+        // Context availability (open-hours), evaluated once for now.
+        val dt = java.time.Instant.ofEpochMilli(now).atZone(zone)
+        val dow = dt.dayOfWeek.value; val minute = dt.hour * 60 + dt.minute
+        val availById = ctxs.associate { it.id to com.todocompanion.app.domain.context.ContextAvailability.isAvailable(it, dow, minute) }
+        val ctxByTask = tcRefs.groupBy { it.taskId }
         return PriorityEngine.doNext(
             all = base,
             now = now,
             blocked = blocked,
             hasIncompleteChild = { id -> byParent[id].orEmpty().any { !it.completed && !it.trashed && !it.abandoned } },
-            contextAvailable = { true },
+            contextAvailable = { id ->
+                val ids = ctxByTask[id].orEmpty().map { it.contextId }
+                ids.isEmpty() || ids.any { availById[it] == true }
+            },
             cfg = cfg,
         ).map { it.task }
     }
@@ -387,6 +399,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun createContext(name: String, parentId: String? = null) = viewModelScope.launch { repo.upsertContext(ContextEntity(id = UUID.randomUUID().toString(), name = name.trim(), parentId = parentId)) }
     fun renameContext(c: ContextEntity, name: String) = viewModelScope.launch { repo.upsertContext(c.copy(name = name.trim())) }
     fun setContextColor(c: ContextEntity, argb: Long?) = viewModelScope.launch { repo.upsertContext(c.copy(colorArgb = argb)) }
+    fun setContextActive(c: ContextEntity, active: Boolean) = viewModelScope.launch { repo.upsertContext(c.copy(active = active)) }
+    fun setContextHours(c: ContextEntity, json: String?) = viewModelScope.launch { repo.upsertContext(c.copy(openHoursJson = json)) }
     fun deleteContext(c: ContextEntity) = viewModelScope.launch {
         contexts.value.filter { it.parentId == c.id }.forEach { repo.upsertContext(it.copy(parentId = c.parentId)) }
         repo.deleteContext(c.id)

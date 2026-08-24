@@ -142,6 +142,28 @@ class PriorityEngineTest {
     }
 }
 
+class ContextAvailabilityTest {
+    private val CA = com.todocompanion.app.domain.context.ContextAvailability
+    private fun oh(vararg d: Int) = com.todocompanion.app.domain.context.OpenHours(days = d.toSet(), startMin = 540, endMin = 1020)
+
+    @Test fun openOnlyWithinWindowAndDays() {
+        val h = oh(1, 2, 3, 4, 5)
+        assertTrue(CA.isOpen(h, 1, 600))    // Mon 10:00
+        assertFalse(CA.isOpen(h, 1, 1100))  // Mon 18:20 — after close
+        assertFalse(CA.isOpen(h, 6, 600))   // Sat — wrong day
+    }
+
+    @Test fun inactiveContextIsNeverAvailable() {
+        val c = com.todocompanion.app.data.entity.ContextEntity(id = "x", name = "Office", active = false)
+        assertFalse(CA.isAvailable(c, 1, 600))
+    }
+
+    @Test fun contextWithNoScheduleIsAlwaysAvailable() {
+        val c = com.todocompanion.app.data.entity.ContextEntity(id = "x", name = "Home", active = true)
+        assertTrue(CA.isAvailable(c, 6, 1300))
+    }
+}
+
 class BackupTest {
     @Test fun roundTrip() {
         val original = BackupFile(
