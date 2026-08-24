@@ -391,6 +391,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- row actions (flag / star / priority / swipes) ----------
     fun toggleStar(t: TaskEntity) = viewModelScope.launch { repo.saveTask(t.copy(star = !t.star)) }
     fun setPriority(t: TaskEntity, level: PriorityLevel) = viewModelScope.launch { repo.saveTask(t.copy(importance = level.importance, urgency = level.urgency)) }
+    fun togglePin(t: TaskEntity) = viewModelScope.launch { repo.saveTask(t.copy(pinned = !t.pinned)) }
+    fun toggleNote(t: TaskEntity) = viewModelScope.launch { repo.saveTask(t.copy(isNote = !t.isNote)) }
+    fun duplicateTask(t: TaskEntity) = viewModelScope.launch {
+        val nowMs = System.currentTimeMillis()
+        repo.saveTask(t.copy(id = UUID.randomUUID().toString(), title = t.title + " (copy)", completed = false, completedAt = null,
+            abandoned = false, trashed = false, sortOrder = t.sortOrder + 0.0001, createdAt = nowMs, updatedAt = nowMs))
+    }
     fun cycleFlag(t: TaskEntity) = viewModelScope.launch { repo.saveTask(t.copy(flagColorArgb = com.todocompanion.app.ui.components.nextFlagColor(t.flagColorArgb))) }
     fun setFlag(t: TaskEntity, argb: Long?) = viewModelScope.launch { repo.saveTask(t.copy(flagColorArgb = argb)) }
     fun cyclePriority(t: TaskEntity) = viewModelScope.launch {

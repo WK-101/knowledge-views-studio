@@ -114,6 +114,8 @@ object TaskViews {
             SortMode.DUE -> compareBy(nullsLast()) { it: TaskEntity -> it.dueDate }
             SortMode.TITLE -> compareBy<TaskEntity> { it.title.lowercase() }
         }
-        return tasks.sortedWith(cmp.then(tie))
+        // Pinned tasks always float to the top.
+        val pin = compareByDescending<TaskEntity> { it.pinned }
+        return tasks.sortedWith(pin.then(cmp).then(tie))
     }
 }

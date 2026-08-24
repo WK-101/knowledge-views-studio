@@ -37,7 +37,9 @@ import androidx.compose.material.icons.outlined.DoNotDisturb
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Notes
 import androidx.compose.material.icons.outlined.WbSunny
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -400,13 +402,18 @@ private fun TaskListItem(
                 .padding(start = 6.dp, end = 8.dp, top = rowVerticalPadding(density), bottom = rowVerticalPadding(density)),
             verticalAlignment = Alignment.Top,
         ) {
-            PriorityCheckbox(task.completed, level) { onAct(SwipeAction.COMPLETE) }
+            if (task.isNote) Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+                Icon(Icons.Outlined.Notes, "Note", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(20.dp))
+            } else PriorityCheckbox(task.completed, level) { onAct(SwipeAction.COMPLETE) }
             Spacer(Modifier.width(2.dp))
             // Left: title, date/repeat, note.
             Column(Modifier.weight(1f).padding(top = 8.dp, bottom = 2.dp)) {
-                Text(task.title, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge,
-                    textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None,
-                    color = if (done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (task.pinned) { Icon(Icons.Filled.PushPin, "Pinned", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(13.dp)); Spacer(Modifier.width(4.dp)) }
+                    Text(task.title, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge,
+                        textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None,
+                        color = if (done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
+                }
                 com.todocompanion.app.ui.components.TaskLeftMeta(task.dueDate, task.note, !task.rrule.isNullOrBlank())
             }
             Spacer(Modifier.width(6.dp))

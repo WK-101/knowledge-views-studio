@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -119,10 +120,15 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                 IconButton(onClick = { update { it.copy(star = !it.star) } }) {
                     Icon(if (task?.star == true) Icons.Filled.Star else Icons.Filled.StarBorder, "Star")
                 }
-                IconButton(onClick = { task?.let { vm.setAbandoned(it, !it.abandoned) } }) {
-                    Icon(Icons.Filled.Cancel, "Won't do", tint = if (task?.abandoned == true) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                var menu by remember { mutableStateOf(false) }
+                IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "More") }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(text = { Text(if (task?.pinned == true) "Unpin" else "Pin to top") }, onClick = { task?.let { vm.togglePin(it) }; menu = false })
+                    DropdownMenuItem(text = { Text(if (task?.isNote == true) "Convert to task" else "Convert to note") }, onClick = { task?.let { vm.toggleNote(it) }; menu = false })
+                    DropdownMenuItem(text = { Text("Duplicate") }, onClick = { task?.let { vm.duplicateTask(it) }; menu = false; onBack() })
+                    DropdownMenuItem(text = { Text(if (task?.abandoned == true) "Undo won't do" else "Won't do") }, onClick = { task?.let { vm.setAbandoned(it, !it.abandoned) }; menu = false })
+                    DropdownMenuItem(text = { Text("Delete", color = MaterialTheme.colorScheme.error) }, onClick = { task?.let { vm.trash(it) }; menu = false; onBack() })
                 }
-                IconButton(onClick = { task?.let { vm.trash(it) }; onBack() }) { Icon(Icons.Filled.Delete, "Trash") }
                 // Changes auto-save as you type; Done just confirms and closes.
                 TextButton(onClick = onBack) { Text("Done", fontWeight = FontWeight.SemiBold) }
             },

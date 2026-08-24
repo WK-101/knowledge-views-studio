@@ -52,6 +52,9 @@ data class TaskEntity(
     val starAt: Long? = null,
     val flagColorArgb: Long? = null,
 
+    val pinned: Boolean = false,
+    val isNote: Boolean = false,   // a "note" is a task with no checkbox
+
     val isGoal: Boolean = false,
     val isProject: Boolean = false,
     val reviewEveryDays: Int? = null,
