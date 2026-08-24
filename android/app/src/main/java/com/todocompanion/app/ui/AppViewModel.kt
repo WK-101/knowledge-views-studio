@@ -289,7 +289,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun moveTagToParent(tagId: String, parentId: String?) = viewModelScope.launch {
         tags.value.firstOrNull { it.id == tagId }?.let { repo.upsertTag(it.copy(parentId = parentId)) }
     }
-    fun createContext(name: String) = viewModelScope.launch { repo.upsertContext(ContextEntity(id = UUID.randomUUID().toString(), name = name)) }
+    fun createContext(name: String, parentId: String? = null) = viewModelScope.launch { repo.upsertContext(ContextEntity(id = UUID.randomUUID().toString(), name = name.trim(), parentId = parentId)) }
+    fun renameContext(c: ContextEntity, name: String) = viewModelScope.launch { repo.upsertContext(c.copy(name = name.trim())) }
+    fun setContextColor(c: ContextEntity, argb: Long?) = viewModelScope.launch { repo.upsertContext(c.copy(colorArgb = argb)) }
+    fun deleteContext(c: ContextEntity) = viewModelScope.launch {
+        contexts.value.filter { it.parentId == c.id }.forEach { repo.upsertContext(it.copy(parentId = c.parentId)) }
+        repo.deleteContext(c.id)
+        if (currentView.value == ViewRef.ContextView(c.id)) select(ViewRef.Smart(SmartKind.TODAY))
+    }
+    fun moveContextToParent(contextId: String, parentId: String?) = viewModelScope.launch {
+        contexts.value.firstOrNull { it.id == contextId }?.let { repo.upsertContext(it.copy(parentId = parentId)) }
+    }
 
     // ---------- reminders ----------
     fun addAbsoluteReminder(task: TaskEntity, atMillis: Long) = viewModelScope.launch {

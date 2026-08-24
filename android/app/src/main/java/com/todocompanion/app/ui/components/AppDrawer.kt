@@ -46,6 +46,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -92,6 +93,9 @@ fun AppDrawer(
     onNewTag: (String?) -> Unit,
     onManageTag: (com.todocompanion.app.data.entity.TagEntity) -> Unit,
     onMoveTag: (com.todocompanion.app.data.entity.TagEntity) -> Unit,
+    onNewContext: (String?) -> Unit,
+    onManageContext: (com.todocompanion.app.data.entity.ContextEntity) -> Unit,
+    onMoveContext: (com.todocompanion.app.data.entity.ContextEntity) -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     val folders by vm.folders.collectAsState()
@@ -115,8 +119,12 @@ fun AppDrawer(
                 }
             }
 
-            SectionHeader("Smart lists")
-            listOf(
+            val collapsed = remember { mutableStateMapOf<String, Boolean>() }
+            fun open(k: String) = collapsed[k] != true
+            fun toggle(k: String) { collapsed[k] = open(k) }
+
+            SectionHeader("Smart lists", open = open("smart"), onToggle = { toggle("smart") })
+            if (open("smart")) listOf(
                 SmartKind.INBOX, SmartKind.TODAY, SmartKind.TOMORROW, SmartKind.NEXT7, SmartKind.DO_NEXT,
                 SmartKind.SCHEDULED, SmartKind.FLAGGED, SmartKind.ALL, SmartKind.COMPLETED, SmartKind.WONT_DO, SmartKind.TRASH,
             ).filter { k ->
@@ -130,21 +138,24 @@ fun AppDrawer(
                     selected = (current as? ViewRef.Smart)?.kind == k, onClick = { onSelect(ViewRef.Smart(k)) })
             }
 
-            SectionHeader("Lists", onAdd = { onNewList(null) })
-            folders.filter { it.parentId == null }.sortedBy { it.sortOrder }.forEach { f ->
-                FolderNode(f, 0, folders, lists, current, vm, onSelect, onNewList, onNewFolder, onManageList, onManageFolder, onMoveList, onMoveFolder)
-            }
-            lists.filter { it.folderId == null && it.id != ListEntity.INBOX_ID && !it.archived }.sortedBy { it.sortOrder }.forEach { l ->
-                ListRow(l, 0, current, vm, onSelect, onManageList, onMoveList)
+            SectionHeader("Lists", open = open("lists"), onToggle = { toggle("lists") }, onAdd = { onNewList(null) })
+            if (open("lists")) {
+                folders.filter { it.parentId == null }.sortedBy { it.sortOrder }.forEach { f ->
+                    FolderNode(f, 0, folders, lists, current, vm, onSelect, onNewList, onNewFolder, onManageList, onManageFolder, onMoveList, onMoveFolder)
+                }
+                lists.filter { it.folderId == null && it.id != ListEntity.INBOX_ID && !it.archived }.sortedBy { it.sortOrder }.forEach { l ->
+                    ListRow(l, 0, current, vm, onSelect, onManageList, onMoveList)
+                }
             }
 
-            SectionHeader("Tags", onAdd = { onNewTag(null) })
-            tags.filter { it.parentId == null }.sortedWith(compareBy({ it.sortOrder }, { it.name })).forEach { t ->
+            SectionHeader("Tags", open = open("tags"), onToggle = { toggle("tags") }, onAdd = { onNewTag(null) })
+            if (open("tags")) tags.filter { it.parentId == null }.sortedWith(compareBy({ it.sortOrder }, { it.name })).forEach { t ->
                 TagNode(t, 0, tags, current, onSelect, onNewTag, onManageTag, onMoveTag)
             }
-            if (contexts.isNotEmpty()) {
-                SectionHeader("Contexts")
-                contexts.forEach { c -> DrawerRow(Icons.Filled.Place, "@" + c.name, selected = (current as? ViewRef.ContextView)?.contextId == c.id, onClick = { onSelect(ViewRef.ContextView(c.id)) }) }
+
+            SectionHeader("Contexts", open = open("contexts"), onToggle = { toggle("contexts") }, onAdd = { onNewContext(null) })
+            if (open("contexts")) contexts.filter { it.parentId == null }.sortedWith(compareBy({ it.name })).forEach { c ->
+                ContextNode(c, 0, contexts, current, onSelect, onNewContext, onManageContext, onMoveContext)
             }
 
             SectionHeader("")
@@ -256,14 +267,54 @@ private fun MenuItem(icon: ImageVector, label: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun SectionHeader(text: String, onAdd: (() -> Unit)? = null) {
-    Row(Modifier.fillMaxWidth().padding(start = 18.dp, end = 12.dp, top = 14.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun SectionHeader(text: String, open: Boolean = true, onToggle: (() -> Unit)? = null, onAdd: (() -> Unit)? = null) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).let { if (onToggle != null) it.clickable { onToggle() } else it }
+            .padding(start = 14.dp, end = 12.dp, top = 14.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (onToggle != null) {
+            Icon(if (open) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight, null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(4.dp))
+        }
         Text(text.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
         if (onAdd != null) {
             Spacer(Modifier.weight(1f))
             Icon(Icons.Filled.Add, "Add", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp).clickable { onAdd() })
         }
     }
+}
+
+@Composable
+private fun ContextNode(
+    ctx: com.todocompanion.app.data.entity.ContextEntity, depth: Int, all: List<com.todocompanion.app.data.entity.ContextEntity>, current: ViewRef,
+    onSelect: (ViewRef) -> Unit, onNew: (String?) -> Unit, onManage: (com.todocompanion.app.data.entity.ContextEntity) -> Unit, onMove: (com.todocompanion.app.data.entity.ContextEntity) -> Unit,
+) {
+    var menu by remember { mutableStateOf(false) }
+    val selected = (current as? ViewRef.ContextView)?.contextId == ctx.id
+    val children = all.filter { it.parentId == ctx.id }.sortedWith(compareBy({ it.name }))
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
+            .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+            .clickable { onSelect(ViewRef.ContextView(ctx.id)) }
+            .padding(start = (12 + depth * 16).dp, top = 9.dp, bottom = 9.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Filled.Place, null, tint = ctx.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(11.dp))
+        Text("@" + ctx.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+        Box {
+            Icon(Icons.Filled.MoreVert, "Context menu", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp).clickable { menu = true })
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                MenuItem(Icons.Filled.Add, "New sub-context") { onNew(ctx.id); menu = false }
+                MenuItem(Icons.Filled.DriveFileMove, "Move to…") { onMove(ctx); menu = false }
+                MenuItem(Icons.Filled.Edit, "Rename / colour / delete") { onManage(ctx); menu = false }
+            }
+        }
+    }
+    children.forEach { ContextNode(it, depth + 1, all, current, onSelect, onNew, onManage, onMove) }
 }
 
 @Composable

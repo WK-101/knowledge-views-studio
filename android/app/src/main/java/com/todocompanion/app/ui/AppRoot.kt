@@ -149,6 +149,9 @@ fun AppRoot() {
         var newTag by remember { mutableStateOf<NewTagReq?>(null) }
         var manageTag by remember { mutableStateOf<com.todocompanion.app.data.entity.TagEntity?>(null) }
         var moveTag by remember { mutableStateOf<com.todocompanion.app.data.entity.TagEntity?>(null) }
+        var newCtx by remember { mutableStateOf<NewTagReq?>(null) }
+        var manageCtx by remember { mutableStateOf<com.todocompanion.app.data.entity.ContextEntity?>(null) }
+        var moveCtx by remember { mutableStateOf<com.todocompanion.app.data.entity.ContextEntity?>(null) }
         var menu by remember { mutableStateOf(false) }
         // Hoisted per-tab controls, surfaced in the shared top bar to free screen space.
         var calMode by remember { mutableStateOf(settings.calendarDefaultMode) }
@@ -207,6 +210,9 @@ fun AppRoot() {
                     onNewTag = { parent -> newTag = NewTagReq(parent) },
                     onManageTag = { manageTag = it },
                     onMoveTag = { moveTag = it },
+                    onNewContext = { parent -> newCtx = NewTagReq(parent) },
+                    onManageContext = { manageCtx = it },
+                    onMoveContext = { moveCtx = it },
                     onOpenSettings = { tab = Tab.SETTINGS; scope.launch { drawerState.close() } },
                 )
             },
@@ -343,7 +349,33 @@ fun AppRoot() {
                 vm.moveTagToParent(t.id, target); moveTag = null
             }
         }
+        newCtx?.let { req ->
+            TextEntryDialog(title = if (req.parentId == null) "New context" else "New sub-context", placeholder = "Context name", onDismiss = { newCtx = null }) { name ->
+                vm.createContext(name, req.parentId); newCtx = null
+            }
+        }
+        manageCtx?.let { c ->
+            ManageContextDialog(c, onDismiss = { manageCtx = null },
+                onRename = { vm.renameContext(c, it); manageCtx = null },
+                onColor = { vm.setContextColor(c, it) },
+                onDelete = { vm.deleteContext(c); manageCtx = null })
+        }
+        moveCtx?.let { c ->
+            ContextPickerDialog("Move context to", contexts, exclude = ctxDescendantsOf(c.id, contexts) + c.id, onDismiss = { moveCtx = null }) { target ->
+                vm.moveContextToParent(c.id, target); moveCtx = null
+            }
+        }
     }
+}
+
+private fun ctxDescendantsOf(id: String, all: List<com.todocompanion.app.data.entity.ContextEntity>): Set<String> {
+    val out = mutableSetOf<String>()
+    var frontier = listOf(id)
+    while (frontier.isNotEmpty()) {
+        val next = all.filter { it.parentId in frontier }.map { it.id }
+        out.addAll(next); frontier = next
+    }
+    return out
 }
 
 private data class NewTagReq(val parentId: String?)
@@ -521,6 +553,46 @@ private fun TagPickerDialog(title: String, tags: List<com.todocompanion.app.data
                 item { Text("Top level", Modifier.fillMaxWidth().clickable { onPick(null) }.padding(vertical = 12.dp)) }
                 items(tags.filter { it.id !in exclude }, key = { it.id }) { t ->
                     Text("#" + t.name, Modifier.fillMaxWidth().clickable { onPick(t.id) }.padding(vertical = 12.dp))
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun ManageContextDialog(ctx: com.todocompanion.app.data.entity.ContextEntity, onDismiss: () -> Unit, onRename: (String) -> Unit, onColor: (Long?) -> Unit, onDelete: () -> Unit) {
+    var name by remember { mutableStateOf(ctx.name) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onRename(name.trim()) }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDelete) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
+        title = { Text("Context") },
+        text = {
+            Column {
+                OutlinedTextField(name, { name = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.size(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Box(Modifier.size(26.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant).clickable { onColor(null) }, contentAlignment = Alignment.Center) {
+                        Text("–", style = MaterialTheme.typography.labelMedium)
+                    }
+                    SWATCHES.forEach { c -> Box(Modifier.size(26.dp).clip(CircleShape).background(Color(c)).clickable { onColor(c) }) }
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun ContextPickerDialog(title: String, all: List<com.todocompanion.app.data.entity.ContextEntity>, exclude: Set<String>, onDismiss: () -> Unit, onPick: (String?) -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text(title) },
+        text = {
+            LazyColumn(Modifier.heightIn(max = 320.dp)) {
+                item { Text("Top level", Modifier.fillMaxWidth().clickable { onPick(null) }.padding(vertical = 12.dp)) }
+                items(all.filter { it.id !in exclude }, key = { it.id }) { c ->
+                    Text("@" + c.name, Modifier.fillMaxWidth().clickable { onPick(c.id) }.padding(vertical = 12.dp))
                 }
             }
         },
