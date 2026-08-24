@@ -157,7 +157,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val level = opts.priority ?: parsed.priority
         val imp = level?.importance ?: 3
         val urg = level?.urgency ?: 3
-        val listId = opts.listId ?: targetListForAdd()
+        // ~list resolves to an existing list by name (case-insensitive); otherwise fall back.
+        val listId = opts.listId
+            ?: parsed.list?.let { name -> lists.value.firstOrNull { !it.archived && it.name.equals(name, ignoreCase = true) }?.id }
+            ?: targetListForAdd()
         val id = repo.createTask(listId, parsed.title.ifBlank { "Untitled" }, importance = imp, urgency = urg, dueDate = due)
 
         val tagIds = opts.tagIds.toMutableList()
@@ -168,6 +171,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         if (tagIds.isNotEmpty()) repo.setTaskTags(id, tagIds.distinct())
+
+        // @contexts resolve to existing contexts by name, creating any that are new.
+        if (parsed.contexts.isNotEmpty()) {
+            val existingCtx = repo.getContextsOnce().associateBy { it.name.lowercase() }
+            val ctxIds = parsed.contexts.map { name ->
+                existingCtx[name.lowercase()]?.id ?: UUID.randomUUID().toString().also { repo.upsertContext(ContextEntity(id = it, name = name)) }
+            }
+            repo.setTaskContexts(id, ctxIds.distinct())
+        }
 
         val reminderAt = opts.reminderMillis ?: (if (parsed.hasTime && due != null) due else null)
         if (reminderAt != null) {

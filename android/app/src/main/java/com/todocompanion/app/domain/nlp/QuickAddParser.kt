@@ -14,6 +14,7 @@ data class ParsedQuickAdd(
     val priority: PriorityLevel? = null,
     val tags: List<String> = emptyList(),
     val contexts: List<String> = emptyList(),
+    val list: String? = null,
 ) {
     /** Compact chips for the quick-add UI. */
     fun chips(): List<Chip> = buildList {
@@ -68,6 +69,8 @@ object QuickAddParser {
             .onEach { strip.add(it.range) }.map { it.groupValues[1] }.toList()
         val contexts = Regex("(?<=\\s|^)@([\\p{L}0-9_-]+)").findAll(text)
             .onEach { strip.add(it.range) }.map { it.groupValues[1] }.toList()
+        // ~list
+        val list = Regex("(?<=\\s|^)~([\\p{L}0-9_-]+)").find(text)?.let { strip.add(it.range); it.groupValues[1] }
 
         // priority: p1..p4 or !!!/!!/!
         var priority: PriorityLevel? = null
@@ -170,6 +173,7 @@ object QuickAddParser {
             priority = priority,
             tags = tags,
             contexts = contexts,
+            list = list,
         )
     }
 

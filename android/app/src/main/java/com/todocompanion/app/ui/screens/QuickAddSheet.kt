@@ -94,10 +94,11 @@ fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, onDismiss: () -> U
             OutlinedTextField(
                 value = text, onValueChange = { text = it },
                 modifier = Modifier.fillMaxWidth().focusRequester(focus),
-                placeholder = { Text("e.g. Pay rent tomorrow 5pm !! #home") },
+                placeholder = { Text("e.g. Pay rent tomorrow 5pm !! ~Home #bills") },
                 trailingIcon = { IconButton(onClick = { submit() }) { Icon(Icons.Filled.Send, "Add") } },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { submit() }),
+                visualTransformation = QuickAddTransformation,
             )
 
             // selected-value chips
