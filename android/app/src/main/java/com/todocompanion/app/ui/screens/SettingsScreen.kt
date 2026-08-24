@@ -30,6 +30,8 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -53,6 +55,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     val s by vm.settings.collectAsState()
     val context = LocalContext.current
     var showZone by remember { mutableStateOf(false) }
+    var showTime by remember { mutableStateOf(false) }
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) vm.exportTo(uri) { ok -> Toast.makeText(context, if (ok) "Exported" else "Export failed", Toast.LENGTH_SHORT).show() }
@@ -100,6 +103,16 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         }
 
         Spacer(Modifier.height(16.dp)); HorizontalDivider(); Spacer(Modifier.height(12.dp))
+        Section("Reminders")
+        Toggle("Daily summary notification", s.dailySummaryEnabled) { vm.saveSettings(s.copy(dailySummaryEnabled = it)) }
+        if (s.dailySummaryEnabled) {
+            Row(Modifier.fillMaxWidth().clickable { showTime = true }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Summary time", Modifier.weight(1f))
+                Text("%02d:%02d".format(s.dailySummaryHour, s.dailySummaryMinute), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+
+        Spacer(Modifier.height(16.dp)); HorizontalDivider(); Spacer(Modifier.height(12.dp))
         Section("Backup")
         Action("Export all data (JSON)") { exportLauncher.launch("todo-companion-backup.json") }
         Action("Import / restore (JSON)") { importLauncher.launch(arrayOf("application/json", "text/*", "*/*")) }
@@ -113,6 +126,16 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
 
     if (showZone) ZonePickerDialog(current = s.timeZone, onDismiss = { showZone = false }) { z ->
         vm.saveSettings(s.copy(timeZone = z)); showZone = false
+    }
+    if (showTime) {
+        val ts = rememberTimePickerState(initialHour = s.dailySummaryHour, initialMinute = s.dailySummaryMinute)
+        AlertDialog(
+            onDismissRequest = { showTime = false },
+            confirmButton = { TextButton(onClick = { vm.saveSettings(s.copy(dailySummaryHour = ts.hour, dailySummaryMinute = ts.minute)); showTime = false }) { Text("OK") } },
+            dismissButton = { TextButton(onClick = { showTime = false }) { Text("Cancel") } },
+            title = { Text("Summary time") },
+            text = { TimePicker(state = ts) },
+        )
     }
 }
 

@@ -66,13 +66,17 @@ import com.todocompanion.app.domain.view.GroupMode
 import com.todocompanion.app.domain.view.SmartKind
 import com.todocompanion.app.domain.view.SortMode
 import com.todocompanion.app.domain.view.ViewRef
+import com.todocompanion.app.reminders.AlarmScheduler
 import com.todocompanion.app.ui.components.AppDrawer
+import com.todocompanion.app.ui.screens.CalendarScreen
+import com.todocompanion.app.ui.screens.MatrixScreen
 import com.todocompanion.app.ui.screens.QuickAddSheet
 import com.todocompanion.app.ui.screens.SearchScreen
 import com.todocompanion.app.ui.screens.SettingsScreen
 import com.todocompanion.app.ui.screens.TaskDetailScreen
 import com.todocompanion.app.ui.screens.TasksScreen
 import com.todocompanion.app.ui.theme.AppTheme
+import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
 
 private enum class Tab(val label: String, val icon: ImageVector) {
@@ -108,6 +112,12 @@ fun AppRoot() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val perm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
             LaunchedEffect(Unit) { perm.launch(android.Manifest.permission.POST_NOTIFICATIONS) }
+        }
+
+        val context = LocalContext.current
+        LaunchedEffect(settings.dailySummaryEnabled, settings.dailySummaryHour, settings.dailySummaryMinute) {
+            if (settings.dailySummaryEnabled) AlarmScheduler.scheduleDailySummary(context, settings.dailySummaryHour, settings.dailySummaryMinute)
+            else AlarmScheduler.cancelDailySummary(context)
         }
 
         fun openTask(id: String) { editing = id }
@@ -191,8 +201,8 @@ fun AppRoot() {
                         Tab.TASKS -> TasksScreen(vm, ::openTask)
                         Tab.SEARCH -> SearchScreen(vm, ::openTask)
                         Tab.SETTINGS -> SettingsScreen(vm)
-                        Tab.CALENDAR -> Placeholder("Calendar", "Month · Week · Day · Agenda — arriving in Phase 1b")
-                        Tab.MATRIX -> Placeholder("Matrix", "The Eisenhower matrix — arriving in Phase 1b")
+                        Tab.CALENDAR -> CalendarScreen(vm, ::openTask)
+                        Tab.MATRIX -> MatrixScreen(vm, ::openTask)
                     }
                 }
             }

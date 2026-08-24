@@ -103,10 +103,10 @@ object PriorityEngine {
             .toList()
     }
 
-    /** Eisenhower quadrant index for the Matrix view. */
-    fun quadrant(task: TaskEntity): Int {
-        val important = task.importance >= 4
-        val urgent = task.urgency >= 4
+    /** Eisenhower quadrant index for the Matrix view (configurable thresholds). */
+    fun quadrant(task: TaskEntity, importanceThreshold: Int = 4, urgencyThreshold: Int = 4): Int {
+        val important = task.importance >= importanceThreshold
+        val urgent = task.urgency >= urgencyThreshold
         return when {
             urgent && important -> 0   // Do first
             !urgent && important -> 1  // Schedule

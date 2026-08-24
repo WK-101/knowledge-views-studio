@@ -45,6 +45,10 @@ class AppRepository(private val db: AppDatabase) {
 
     fun observeTask(id: String): Flow<TaskEntity?> = tasks.observeById(id)
     suspend fun getTask(id: String): TaskEntity? = tasks.getById(id)
+    suspend fun allTasksOnce(): List<TaskEntity> = tasks.getAll()
+    suspend fun setCompletedById(id: String, completed: Boolean) {
+        tasks.getById(id)?.let { setCompleted(it, completed) }
+    }
 
     private fun now() = System.currentTimeMillis()
     private fun uid() = UUID.randomUUID().toString()

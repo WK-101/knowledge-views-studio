@@ -27,8 +27,16 @@ only permissions are local: `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`,
   (any day), 12/24h clock, **any time zone**, advanced priority, and JSON export/import.
 - **Reminders** — local exact alarms + notifications; rescheduled after reboot.
 
-Deferred to **Phase 1b**: the computed-priority Do-Next ranking screen polish, the
-**Matrix** and **Calendar** tabs (placeholders for now).
+## Phase 1b (implemented)
+
+- **Matrix** — configurable Eisenhower quadrants (importance/urgency thresholds, show
+  completed, hide-empty list mode) with an in-screen settings panel.
+- **Calendar** — six modes: **List · Day · 3-Day · Week · Month · Year**, honouring the
+  week-start setting; month grid with due-dots + per-day agenda.
+- **Do Next** — the computed-priority ranking (importance × urgency + due proximity,
+  with ancestor inheritance).
+- **Reminders** — notification **Done** / **Snooze 10m** actions, "annoying" re-fire,
+  and an optional **daily summary** notification at a chosen time; all rescheduled on boot.
 
 Architecture: Compose UI → `AppViewModel` → pure-Kotlin domain (`PriorityEngine`,
 `QuickAddParser`, `TaskViews`, `Backup`) → `AppRepository` → Room (11 entities).
