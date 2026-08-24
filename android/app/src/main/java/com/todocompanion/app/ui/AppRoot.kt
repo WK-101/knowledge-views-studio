@@ -74,6 +74,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -141,7 +142,7 @@ private fun CompactBottomBar(tabs: List<Tab>, current: Tab, onSelect: (Tab) -> U
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppRoot() {
+fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
     val vm: AppViewModel = viewModel()
     val settings by vm.settings.collectAsState()
 
@@ -205,6 +206,14 @@ fun AppRoot() {
         fun openTask(id: String) { editing = id }
         fun goTasks() { tab = Tab.TASKS }
         fun openQuickAdd(due: Long?) { quickAddDue = due; showQuickAdd = true }
+
+        // One-shot launch action from the home-screen widget's "＋ Add" button.
+        LaunchedEffect(launchAction.value) {
+            if (launchAction.value == com.todocompanion.app.MainActivity.ACTION_QUICK_ADD) {
+                openQuickAdd(null)
+                launchAction.value = null
+            }
+        }
 
         // Back from a secondary tab returns to Tasks instead of exiting.
         BackHandler(enabled = tab != Tab.TASKS && editing == null && !showQuickAdd) { tab = Tab.TASKS }

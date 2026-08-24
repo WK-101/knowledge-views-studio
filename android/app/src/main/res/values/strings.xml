@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">ToDo Companion</string>
+    <string name="widget_today_desc">Today\'s task count with a quick-add button</string>
 </resources>
