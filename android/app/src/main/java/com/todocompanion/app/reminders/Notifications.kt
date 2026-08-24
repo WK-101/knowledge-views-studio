@@ -61,6 +61,21 @@ object Notifications {
         runCatching { NotificationManagerCompat.from(context).cancel(taskId.hashCode()) }
     }
 
+    const val FOCUS_ID = 424243
+
+    fun showFocusDone(context: Context) {
+        ensureChannel(context)
+        val n = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setContentTitle("Focus session complete")
+            .setContentText("Nice work — time for a break.")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(openApp(context))
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(FOCUS_ID, n) }
+    }
+
     fun showSummary(context: Context, dueToday: Int) {
         ensureChannel(context)
         val text = if (dueToday == 0) "No tasks due today — enjoy!" else "You have $dueToday task${if (dueToday == 1) "" else "s"} due today."

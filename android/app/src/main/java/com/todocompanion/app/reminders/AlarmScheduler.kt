@@ -19,6 +19,7 @@ object AlarmScheduler {
     const val ACTION_SNOOZE = "com.todocompanion.app.action.SNOOZE"
     const val ACTION_DONE = "com.todocompanion.app.action.DONE"
     const val ACTION_SUMMARY = "com.todocompanion.app.action.SUMMARY"
+    const val ACTION_FOCUS_DONE = "com.todocompanion.app.action.FOCUS_DONE"
 
     const val EXTRA_TASK_ID = "taskId"
     const val EXTRA_TITLE = "title"
@@ -100,5 +101,18 @@ object AlarmScheduler {
     fun cancelDailySummary(context: Context) {
         val am = context.getSystemService(AlarmManager::class.java) ?: return
         am.cancel(broadcast(context, ACTION_SUMMARY, SUMMARY_REQ, emptyMap()))
+    }
+
+    private const val FOCUS_REQ = 918_274
+
+    /** Fire a "focus complete" notification at [atMillis] even if the app is backgrounded. */
+    fun scheduleFocusDone(context: Context, atMillis: Long) {
+        if (atMillis <= System.currentTimeMillis()) return
+        setAlarm(context, atMillis, broadcast(context, ACTION_FOCUS_DONE, FOCUS_REQ, emptyMap()))
+    }
+
+    fun cancelFocusDone(context: Context) {
+        val am = context.getSystemService(AlarmManager::class.java) ?: return
+        am.cancel(broadcast(context, ACTION_FOCUS_DONE, FOCUS_REQ, emptyMap()))
     }
 }

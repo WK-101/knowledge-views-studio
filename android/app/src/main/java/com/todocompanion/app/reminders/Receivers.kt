@@ -67,6 +67,8 @@ class ReminderReceiver : BroadcastReceiver() {
                     } finally { pending.finish() }
                 }
             }
+
+            AlarmScheduler.ACTION_FOCUS_DONE -> Notifications.showFocusDone(context)
         }
     }
 }
