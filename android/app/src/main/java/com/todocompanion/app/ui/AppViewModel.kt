@@ -310,7 +310,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val name = displayNameOf(uri) ?: "attachment"
         val bytes = withContext(Dispatchers.IO) { runCatching { cr.openInputStream(uri)?.use { it.readBytes() } }.getOrNull() }
         if (bytes == null) { toast("Could not read file"); return@launch }
-        if (!repo.addAttachment(taskId, name, mime, bytes)) toast("File too large (max 10 MB)")
+        if (!repo.addAttachment(taskId, name, mime, bytes)) toast("File too large (max 25 MB)")
     }
     fun removeAttachment(id: String) = viewModelScope.launch { repo.deleteAttachment(id) }
     /** Decode an attachment to a temp cache file and hand it to a local viewer app. */

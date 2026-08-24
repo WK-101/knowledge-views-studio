@@ -336,8 +336,10 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun deleteChecklistItem(id: String) = checklist.deleteById(id)
 
     // ============ attachments ============
-    /** Max attachment size accepted on import (10 MB). Bytes live Base64 in the DB. */
-    val maxAttachmentBytes = 10L * 1024 * 1024
+    /** Max attachment size accepted (25 MB). Bytes live Base64 in the DB and travel
+     *  losslessly in JSON backups. Any file type is accepted (images, PDF, Office docs,
+     *  epub, txt/md, etc.); the cap just keeps a single backup file sane. */
+    val maxAttachmentBytes = 25L * 1024 * 1024
     fun attachmentMeta(taskId: String): Flow<List<AttachmentMeta>> = attachments.observeMetaForTask(taskId)
     fun attachmentCount(taskId: String): Flow<Int> = attachments.observeCountForTask(taskId)
     suspend fun attachmentContent(id: String): String? = attachments.contentOf(id)
