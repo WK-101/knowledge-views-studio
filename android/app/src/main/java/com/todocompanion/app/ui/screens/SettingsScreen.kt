@@ -14,7 +14,9 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import com.todocompanion.app.domain.Density
+import com.todocompanion.app.domain.SmartVis
 import com.todocompanion.app.domain.SwipeAction
+import com.todocompanion.app.domain.view.SmartKind
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -110,6 +112,19 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Spacer(Modifier.height(12.dp)); Sub("Swipe actions")
             SwipeRow("Swipe right", s.swipeRight) { vm.saveSettings(s.copy(swipeRight = it)) }
             SwipeRow("Swipe left", s.swipeLeft) { vm.saveSettings(s.copy(swipeLeft = it)) }
+        }
+
+        Spacer(Modifier.height(18.dp))
+        Section("Sidebar")
+        AppCard {
+            Sub("Smart lists")
+            Text("Choose which smart lists appear in the navigation drawer.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+            SMART_KINDS.forEach { k ->
+                SmartVisRow(k.title, s.smartListVis[k] ?: SmartVis.SHOW) { v ->
+                    val next = if (v == SmartVis.SHOW) s.smartListVis - k else s.smartListVis + (k to v)
+                    vm.saveSettings(s.copy(smartListVis = next))
+                }
+            }
         }
 
         Spacer(Modifier.height(18.dp))
@@ -244,6 +259,25 @@ private fun SwipeRow(label: String, action: SwipeAction, onChange: (SwipeAction)
             TextButton(onClick = { menu = true }) { Text(action.label) }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 SwipeAction.entries.forEach { a -> DropdownMenuItem(text = { Text(a.label) }, onClick = { onChange(a); menu = false }) }
+            }
+        }
+    }
+}
+
+private val SMART_KINDS = listOf(
+    SmartKind.INBOX, SmartKind.TODAY, SmartKind.TOMORROW, SmartKind.NEXT7, SmartKind.DO_NEXT,
+    SmartKind.SCHEDULED, SmartKind.FLAGGED, SmartKind.ALL, SmartKind.COMPLETED, SmartKind.WONT_DO, SmartKind.TRASH,
+)
+
+@Composable
+private fun SmartVisRow(label: String, vis: SmartVis, onChange: (SmartVis) -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f))
+        Box {
+            TextButton(onClick = { menu = true }) { Text(vis.label) }
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                SmartVis.entries.forEach { v -> DropdownMenuItem(text = { Text(v.label) }, onClick = { onChange(v); menu = false }) }
             }
         }
     }

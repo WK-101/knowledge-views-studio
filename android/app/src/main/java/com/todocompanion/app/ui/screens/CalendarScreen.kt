@@ -339,9 +339,9 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onO
                     .clip(RoundedCornerShape(6.dp)).background(c.copy(alpha = 0.16f)).clickable { onOpenTask(p.task.id) },
             ) {
                 Box(Modifier.width(3.dp).fillMaxHeight().background(c))
-                Column(Modifier.padding(horizontal = 4.dp, vertical = 2.dp)) {
-                    Text(p.task.title, style = MaterialTheme.typography.labelSmall, maxLines = if (h > 40.dp) 2 else 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
-                    if (h >= 44.dp) Text(timeLabel(p.task.dueDate!!, zone), style = MaterialTheme.typography.labelSmall, color = c)
+                Column(Modifier.padding(horizontal = 5.dp, vertical = 3.dp)) {
+                    Text(p.task.title, style = MaterialTheme.typography.labelSmall, maxLines = if (h > 46.dp) 2 else 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
+                    if (h >= 50.dp) Text("${minLabel(p.startMin)} – ${minLabel(p.endMin)}", style = MaterialTheme.typography.labelSmall, color = c)
                 }
             }
         }
@@ -439,3 +439,5 @@ private fun timeLabel(millis: Long, zone: ZoneId): String {
     val dt = Instant.ofEpochMilli(millis).atZone(zone)
     return "%02d:%02d".format(dt.hour, dt.minute)
 }
+
+private fun minLabel(min: Int): String = "%02d:%02d".format(min / 60, min % 60)

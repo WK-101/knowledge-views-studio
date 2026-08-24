@@ -1,9 +1,14 @@
 package com.todocompanion.app.domain
 
+import com.todocompanion.app.domain.view.SmartKind
+
 enum class FirstView { MATRIX, CALENDAR }
 enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
 enum class TimeFormat { SYSTEM, H12, H24 }
 enum class Density { COMPACT, DEFAULT, RELAXED }
+
+/** How a smart list appears in the sidebar (TickTick-style). */
+enum class SmartVis(val label: String) { SHOW("Show"), AUTO("Show if not empty"), HIDE("Hide") }
 
 /** A swipe action that can be bound to a task-row swipe direction. */
 enum class SwipeAction(val label: String) {
@@ -24,6 +29,8 @@ data class AppSettings(
     val timeZone: String = "",
     val swipeRight: SwipeAction = SwipeAction.COMPLETE,
     val swipeLeft: SwipeAction = SwipeAction.TRASH,
+    // Sidebar: per-smart-list visibility (absent = Show)
+    val smartListVis: Map<SmartKind, SmartVis> = emptyMap(),
     // Matrix
     val matrixImportanceThreshold: Int = 4,
     val matrixUrgencyThreshold: Int = 4,
@@ -48,6 +55,7 @@ data class AppSettings(
         Keys.TIME_ZONE to timeZone,
         Keys.SWIPE_R to swipeRight.name,
         Keys.SWIPE_L to swipeLeft.name,
+        Keys.SMART_VIS to smartListVis.entries.joinToString(",") { "${it.key.name}:${it.value.name}" },
         Keys.MX_IMP to matrixImportanceThreshold.toString(),
         Keys.MX_URG to matrixUrgencyThreshold.toString(),
         Keys.MX_DONE to matrixShowCompleted.toString(),
@@ -70,6 +78,7 @@ data class AppSettings(
         const val TIME_ZONE = "time_zone"
         const val SWIPE_R = "swipe_r"
         const val SWIPE_L = "swipe_l"
+        const val SMART_VIS = "smart_vis"
         const val MX_IMP = "mx_imp"
         const val MX_URG = "mx_urg"
         const val MX_DONE = "mx_done"
@@ -96,6 +105,13 @@ data class AppSettings(
             timeZone = m[Keys.TIME_ZONE] ?: "",
             swipeRight = parse(m[Keys.SWIPE_R], SwipeAction.COMPLETE),
             swipeLeft = parse(m[Keys.SWIPE_L], SwipeAction.TRASH),
+            smartListVis = (m[Keys.SMART_VIS] ?: "").split(",").mapNotNull { pair ->
+                val p = pair.split(":")
+                if (p.size != 2) return@mapNotNull null
+                val k = runCatching { enumValueOf<SmartKind>(p[0]) }.getOrNull()
+                val v = runCatching { enumValueOf<SmartVis>(p[1]) }.getOrNull()
+                if (k != null && v != null) k to v else null
+            }.toMap(),
             matrixImportanceThreshold = m[Keys.MX_IMP]?.toIntOrNull() ?: 4,
             matrixUrgencyThreshold = m[Keys.MX_URG]?.toIntOrNull() ?: 4,
             matrixShowCompleted = m[Keys.MX_DONE]?.toBooleanStrictOrNull() ?: false,

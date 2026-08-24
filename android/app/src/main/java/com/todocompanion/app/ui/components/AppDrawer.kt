@@ -58,6 +58,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.todocompanion.app.data.entity.FolderEntity
 import com.todocompanion.app.data.entity.ListEntity
+import com.todocompanion.app.domain.SmartVis
 import com.todocompanion.app.domain.view.SmartKind
 import com.todocompanion.app.domain.view.ViewRef
 import com.todocompanion.app.ui.AppViewModel
@@ -95,6 +96,7 @@ fun AppDrawer(
     val contexts by vm.contexts.collectAsState()
     val counts by vm.smartCounts.collectAsState()
     val current by vm.currentView.collectAsState()
+    val settings by vm.settings.collectAsState()
 
     ModalDrawerSheet {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
@@ -115,7 +117,13 @@ fun AppDrawer(
             listOf(
                 SmartKind.INBOX, SmartKind.TODAY, SmartKind.TOMORROW, SmartKind.NEXT7, SmartKind.DO_NEXT,
                 SmartKind.SCHEDULED, SmartKind.FLAGGED, SmartKind.ALL, SmartKind.COMPLETED, SmartKind.WONT_DO, SmartKind.TRASH,
-            ).forEach { k ->
+            ).filter { k ->
+                when (settings.smartListVis[k] ?: SmartVis.SHOW) {
+                    SmartVis.SHOW -> true
+                    SmartVis.HIDE -> (current as? ViewRef.Smart)?.kind == k   // keep visible if it's the active view
+                    SmartVis.AUTO -> (counts[k] ?: 0) > 0 || (current as? ViewRef.Smart)?.kind == k
+                }
+            }.forEach { k ->
                 DrawerRow(smartIcon(k), k.title, count = counts[k]?.takeIf { it > 0 },
                     selected = (current as? ViewRef.Smart)?.kind == k, onClick = { onSelect(ViewRef.Smart(k)) })
             }
