@@ -70,6 +70,6 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TaskTree-release-apk
+          name: ToDoCompanion-release-apk
           path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error

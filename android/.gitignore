@@ -16,3 +16,6 @@ keystore.properties
 # IDE
 .idea/
 *.iml
+
+# Kotlin compiler artifacts
+.kotlin/

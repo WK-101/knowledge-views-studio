@@ -1,76 +1,62 @@
-# TaskTree (Android)
+# ToDo Companion (Android)
 
-A private, fully-offline task manager for Android — MyLifeOrganized-style outlining
-with a TickTick-grade UI. Native **Kotlin + Jetpack Compose (Material 3)**, local
-storage only, **no account, no network permission**.
-
-> Status: **skeleton** — this stage exists to prove the direct-install APK pipeline
-> end to end (build → sign → install → update). Real data model and features follow.
+A private, fully-offline task manager — MyLifeOrganized-style outlining with a
+TickTick-grade UI. Native **Kotlin + Jetpack Compose (Material 3)**, **Room/SQLite**,
+**no account, no network permission**, everything free, lossless JSON export/import.
 
 ## Privacy by construction
 
-The app declares **no `INTERNET` permission** in its manifest, so it is incapable of
-network access. The only permission present is an AndroidX-internal, signature-level
-self-permission (`DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`) that grants nothing
-network- or data-related.
+The app declares **no `INTERNET` permission**, so it cannot access the network. The
+only permissions are local: `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`,
+`USE_EXACT_ALARM`, `RECEIVE_BOOT_COMPLETED`, `VIBRATE` — all for on-device reminders.
+
+## Phase 1 (implemented)
+
+- **Outline** — unlimited nested tasks; collapse, complete, swipe to complete/delete.
+- **Do Next** — the MLO-style computed-priority list (importance + urgency + due
+  proximity + ancestor inheritance, with start/blocked/context gating).
+- **Planner** — **Matrix** (Eisenhower quadrants) and **Calendar** (month + agenda),
+  with the default set by Settings → First view.
+- **Quick-add** — natural-language capture: `Pay rent tomorrow 5pm !! #home @errands`.
+- **Task detail** — title, note, simple 4-level priority (advanced importance/urgency
+  dials optional), due date/time, reminders, tags, contexts, star.
+- **Reminders** — local exact alarms + notifications; rescheduled after reboot.
+- **Backup** — Settings → Export/Import: complete, versioned **JSON**, on-device (SAF).
+- Material 3 theming: system/light/dark + Material You dynamic color.
+
+Architecture: Compose UI → `AppViewModel` → pure-Kotlin domain (`PriorityEngine`,
+`QuickAddParser`, `Backup`) → `AppRepository` → Room. Unit tests cover the domain logic.
 
 ## Getting an installable APK
 
-### Option A — GitHub Actions (recommended, zero local setup)
+### GitHub Actions (recommended, zero setup)
+Every push touching `android/**` runs the **Android APK** workflow. Open the run →
+**Artifacts** → download **`ToDoCompanion-release-apk`** → unzip → install `app-release.apk`.
+You can also trigger it manually (Actions → Run workflow).
 
-Every push that touches `android/**` runs the **Android APK** workflow
-(`.github/workflows/android.yml`). Open the run → **Artifacts** → download
-**`TaskTree-release-apk`**, unzip, and transfer `app-release.apk` to your phone.
-
-You can also trigger it manually from the Actions tab (**Run workflow**).
-
-### Option B — Build locally
-
-Requires JDK 17+ and the Android SDK (platform 34, build-tools 34.0.0). With a
-`keystore.properties` present (see below) the release build is signed with your key;
-without it, it falls back to the debug key.
-
+### Build locally
+Requires JDK 17+ and the Android SDK (platform 34, build-tools 34.0.0):
 ```bash
 cd android
-./gradlew assembleRelease
-# -> app/build/outputs/apk/release/app-release.apk
+./gradlew assembleRelease   # -> app/build/outputs/apk/release/app-release.apk
+./gradlew testReleaseUnitTest
 ```
 
 ## Installing on your phone
-
-1. Copy `app-release.apk` to the device (USB, cloud drive, etc.).
-2. Open it with a file manager. Android will ask to allow **"Install unknown apps"**
-   for that app — enable it once. This is a per-source toggle, **not** signing and
-   **not** an account.
-3. Tap install.
+Copy `app-release.apk` to the device, open it with a file manager, allow **"Install
+unknown apps"** for that app once (a per-source toggle, not signing, not an account),
+then tap install.
 
 ## Signing — you never sign anything
-
-Signing is automated. There are two modes:
-
-- **Debug-key fallback (default, no setup):** builds are installable immediately, but
-  each build has a different signature, so a new version won't install *over* an old
-  one — you'd uninstall first.
-- **Stable release key (recommended):** sign every build with one fixed key so new
-  versions install *over* the previous one and your data is kept. To enable, add these
-  **repository secrets** (Settings → Secrets and variables → Actions):
-
-  | Secret | Value |
-  | --- | --- |
-  | `KEYSTORE_BASE64` | base64 of `app-signing.jks` |
-  | `KEYSTORE_PASSWORD` | keystore password |
-  | `KEY_ALIAS` | `tasktree` |
-  | `KEY_PASSWORD` | key password |
-
-The keystore itself is **never committed** (`*.jks`, `keystore.properties`, and
-`local.properties` are git-ignored).
+CI signs the APK. Add these repo secrets for a **stable** release key (so updates install
+over the previous version): `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`,
+`KEY_PASSWORD`. Without them, builds are signed with the debug key (still installable).
+Keystores are never committed (`*.jks`, `keystore.properties`, `local.properties` are ignored).
 
 ## App identity
-
-- **applicationId:** `com.tasktree.app` (kept stable so updates install in place; the
-  display name/label can change freely).
+- **applicationId:** `com.todocompanion.app` (stable, so updates install in place).
 - **minSdk 26** (Android 8.0), **targetSdk 34**.
 
 ## Toolchain
-
-AGP 8.5.2 · Gradle 8.9 · Kotlin 2.0.20 · Compose BOM 2024.09.02 · Material 3.
+AGP 8.5.2 · Gradle 8.9 · Kotlin 2.0.20 · Compose BOM 2024.09.02 · Room 2.6.1 ·
+kotlinx-serialization · Navigation-Compose.

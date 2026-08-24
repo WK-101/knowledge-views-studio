@@ -5,6 +5,8 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("org.jetbrains.kotlin.plugin.serialization")
+    id("com.google.devtools.ksp")
 }
 
 // Signing credentials come from either a local `keystore.properties` file (developer machine)
@@ -21,15 +23,16 @@ fun signingValue(propKey: String, envKey: String): String? =
 val runNumber = System.getenv("GITHUB_RUN_NUMBER")
 
 android {
-    namespace = "com.tasktree.app"
+    namespace = "com.todocompanion.app"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.tasktree.app"
+        applicationId = "com.todocompanion.app"
         minSdk = 26
         targetSdk = 34
         versionCode = runNumber?.toIntOrNull() ?: 1
-        versionName = "0.0.${runNumber ?: "1"}"
+        versionName = "0.1.${runNumber ?: "0"}"
+        vectorDrawables { useSupportLibrary = true }
     }
 
     signingConfigs {
@@ -52,7 +55,6 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Use the real release key when configured, otherwise the debug key (still installable).
             signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
@@ -67,6 +69,11 @@ android {
     buildFeatures {
         compose = true
     }
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
 }
 
 dependencies {
@@ -75,12 +82,28 @@ dependencies {
 
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
     implementation("androidx.activity:activity-compose:1.9.2")
+    implementation("androidx.navigation:navigation-compose:2.8.3")
 
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
+
+    // Persistence — Room (local SQLite only)
+    implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+    ksp("androidx.room:room-compiler:2.6.1")
+
+    // JSON export/import
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
 }

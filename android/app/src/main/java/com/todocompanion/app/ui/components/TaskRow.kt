@@ -1,0 +1,146 @@
+package com.todocompanion.app.ui.components
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import com.todocompanion.app.data.entity.TaskEntity
+import com.todocompanion.app.domain.priority.PriorityLevel
+import com.todocompanion.app.ui.OutlineRow
+
+@Composable
+fun TaskRow(
+    row: OutlineRow,
+    onClick: () -> Unit,
+    onToggleComplete: () -> Unit,
+    onToggleCollapse: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            when (value) {
+                SwipeToDismissBoxValue.StartToEnd -> { onToggleComplete(); false }
+                SwipeToDismissBoxValue.EndToStart -> { onDelete(); false }
+                else -> false
+            }
+        }
+    )
+
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {
+            val dir = dismissState.dismissDirection
+            val (color, icon, align) = when (dir) {
+                SwipeToDismissBoxValue.StartToEnd -> Triple(Color(0xFF2E7D32), Icons.Filled.Check, Alignment.CenterStart)
+                SwipeToDismissBoxValue.EndToStart -> Triple(Color(0xFFC62828), Icons.Filled.Delete, Alignment.CenterEnd)
+                else -> Triple(Color.Transparent, Icons.Filled.Check, Alignment.CenterStart)
+            }
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(color)
+                    .padding(horizontal = 20.dp),
+                contentAlignment = align,
+            ) {
+                if (dir != SwipeToDismissBoxValue.Settled) {
+                    Icon(icon, contentDescription = null, tint = Color.White)
+                }
+            }
+        },
+    ) {
+        TaskRowContent(row, onClick, onToggleComplete, onToggleCollapse)
+    }
+}
+
+@Composable
+private fun TaskRowContent(
+    row: OutlineRow,
+    onClick: () -> Unit,
+    onToggleComplete: () -> Unit,
+    onToggleCollapse: () -> Unit,
+) {
+    val task = row.task
+    val level = PriorityLevel.from(task.importance, task.urgency)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
+            .clickable { onClick() }
+            .padding(start = (8 + row.depth * 18).dp, end = 8.dp, top = 2.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (row.hasChildren) {
+            IconButton(onClick = onToggleCollapse, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    imageVector = if (row.collapsed) Icons.AutoMirrored.Filled.KeyboardArrowRight
+                    else Icons.Filled.KeyboardArrowDown,
+                    contentDescription = if (row.collapsed) "Expand" else "Collapse",
+                )
+            }
+        } else {
+            Spacer(Modifier.width(32.dp))
+        }
+
+        Checkbox(checked = task.completed, onCheckedChange = { onToggleComplete() })
+
+        if (level != PriorityLevel.NONE) {
+            Dot(priorityColor(level))
+            Spacer(Modifier.width(6.dp))
+        }
+
+        Text(
+            text = task.title,
+            style = MaterialTheme.typography.bodyLarge,
+            textDecoration = if (task.completed) TextDecoration.LineThrough else TextDecoration.None,
+            color = if (task.completed) MaterialTheme.colorScheme.onSurfaceVariant
+            else MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+
+        if (task.star) {
+            Icon(
+                Icons.Filled.Star,
+                contentDescription = "Starred",
+                tint = Color(0xFFFFC107),
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+        }
+
+        task.dueDate?.let {
+            Spacer(Modifier.width(4.dp))
+            DueChip(it)
+        }
+        Spacer(Modifier.width(4.dp))
+    }
+}
