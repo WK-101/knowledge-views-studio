@@ -170,6 +170,46 @@ fun SmallCheck(checked: Boolean, color: Color, onToggle: () -> Unit) {
     }
 }
 
+/** Left-side meta under the title (MLO layout): date + repeat glyph, then a note preview. */
+@Composable
+fun TaskLeftMeta(dueMillis: Long?, note: String, repeating: Boolean) {
+    if (dueMillis != null || repeating) {
+        Spacer(Modifier.size(3.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            dueMillis?.let { DueChip(it) }
+            if (repeating) { if (dueMillis != null) Spacer(Modifier.size(6.dp)); Icon(Icons.Filled.Repeat, "Repeats", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(13.dp)) }
+        }
+    }
+    if (note.isNotBlank()) {
+        Spacer(Modifier.size(3.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Outlined.Notes, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(13.dp))
+            Spacer(Modifier.size(4.dp))
+            Text(note.trim().lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty(),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+/** Right-side trailing labels under the flag+star (MLO layout): @contexts, #tags, list. */
+@Composable
+fun TaskTrailingLabels(contexts: List<Pair<String, Long?>>, tags: List<Pair<String, Long?>>, listName: String?) {
+    if (contexts.isEmpty() && tags.isEmpty() && listName == null) return
+    Spacer(Modifier.size(2.dp))
+    Column(horizontalAlignment = Alignment.End) {
+        contexts.take(2).forEach { (name, argb) ->
+            Text("@$name", style = MaterialTheme.typography.labelMedium,
+                color = argb?.let { Color(it) } ?: MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        tags.take(2).forEach { (name, argb) ->
+            Text("#$name", style = MaterialTheme.typography.labelMedium,
+                color = argb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        if (listName != null) Text(listName, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
 /**
  * MLO-style per-task detail block: an optional note/description preview line,
  * then a wrapping meta line of due-date, @contexts and #tags. Renders nothing

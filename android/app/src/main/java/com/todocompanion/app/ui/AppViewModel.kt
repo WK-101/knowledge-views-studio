@@ -47,10 +47,16 @@ data class QuickAddOptions(
     val reminderMillis: Long? = null,
 )
 
+enum class UndoKind { COMPLETED, ABANDONED, TRASHED }
+data class UndoEvent(val kind: UndoKind, val taskId: String, val message: String)
+
 class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private val appCtx get() = getApplication<App>()
     private val repo get() = appCtx.repository
+
+    /** One-shot events for the "Undo" snackbar after a completion / won't-do / trash. */
+    val undoEvents = kotlinx.coroutines.flow.MutableSharedFlow<UndoEvent>(extraBufferCapacity = 4)
 
     private fun <T> Flow<T>.state(initial: T): StateFlow<T> =
         stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initial)
@@ -204,11 +210,27 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 repo.upsertReminder(nr)
                 updated?.let { AlarmScheduler.schedule(appCtx, nr, it) }
             }
-        } else repo.setCompleted(t, !t.completed)
+        } else {
+            repo.setCompleted(t, !t.completed)
+            if (!t.completed) undoEvents.tryEmit(UndoEvent(UndoKind.COMPLETED, t.id, "Completed “${t.title.take(30)}”"))
+        }
     }
-    fun setAbandoned(t: TaskEntity, v: Boolean) = viewModelScope.launch { repo.setAbandoned(t, v) }
+    fun setAbandoned(t: TaskEntity, v: Boolean) = viewModelScope.launch {
+        repo.setAbandoned(t, v)
+        if (v) undoEvents.tryEmit(UndoEvent(UndoKind.ABANDONED, t.id, "Marked won't do"))
+    }
     fun toggleCollapsed(t: TaskEntity) = viewModelScope.launch { repo.setCollapsed(t, !t.collapsed) }
-    fun trash(t: TaskEntity) = viewModelScope.launch { repo.setTrashed(t.id, true) }
+    fun trash(t: TaskEntity) = viewModelScope.launch {
+        repo.setTrashed(t.id, true)
+        undoEvents.tryEmit(UndoEvent(UndoKind.TRASHED, t.id, "Moved to Trash"))
+    }
+    fun undo(e: UndoEvent) = viewModelScope.launch {
+        when (e.kind) {
+            UndoKind.COMPLETED -> repo.getTask(e.taskId)?.let { repo.setCompleted(it, false) }
+            UndoKind.ABANDONED -> repo.getTask(e.taskId)?.let { repo.setAbandoned(it, false) }
+            UndoKind.TRASHED -> repo.setTrashed(e.taskId, false)
+        }
+    }
     fun restore(t: TaskEntity) = viewModelScope.launch { repo.setTrashed(t.id, false) }
     fun deleteForever(t: TaskEntity) = viewModelScope.launch { repo.deleteSubtree(t.id) }
     fun emptyTrash() = viewModelScope.launch { repo.emptyTrash() }

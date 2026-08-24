@@ -103,10 +103,16 @@ object TaskViews {
         }
     }
 
-    fun sort(tasks: List<TaskEntity>, mode: SortMode): List<TaskEntity> = when (mode) {
-        SortMode.MANUAL -> tasks.sortedBy { it.sortOrder }
-        SortMode.PRIORITY -> tasks.sortedByDescending { maxOf(it.importance, it.urgency) }
-        SortMode.DUE -> tasks.sortedWith(compareBy(nullsLast()) { it.dueDate })
-        SortMode.TITLE -> tasks.sortedBy { it.title.lowercase() }
+    fun sort(tasks: List<TaskEntity>, mode: SortMode): List<TaskEntity> {
+        // A stable tiebreaker (createdAt, id) keeps order fixed when an unrelated field
+        // (star, flag, updatedAt) changes — otherwise rows visually swap on toggle.
+        val tie = compareBy<TaskEntity>({ it.createdAt }, { it.id })
+        val cmp = when (mode) {
+            SortMode.MANUAL -> compareBy<TaskEntity> { it.sortOrder }
+            SortMode.PRIORITY -> compareByDescending<TaskEntity> { maxOf(it.importance, it.urgency) }
+            SortMode.DUE -> compareBy(nullsLast()) { it: TaskEntity -> it.dueDate }
+            SortMode.TITLE -> compareBy<TaskEntity> { it.title.lowercase() }
+        }
+        return tasks.sortedWith(cmp.then(tie))
     }
 }

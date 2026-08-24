@@ -176,6 +176,14 @@ fun AppRoot() {
             else AlarmScheduler.cancelDailySummary(context)
         }
 
+        val snackbar = remember { androidx.compose.material3.SnackbarHostState() }
+        LaunchedEffect(Unit) {
+            vm.undoEvents.collect { e ->
+                val res = snackbar.showSnackbar(e.message, actionLabel = "Undo", duration = androidx.compose.material3.SnackbarDuration.Short)
+                if (res == androidx.compose.material3.SnackbarResult.ActionPerformed) vm.undo(e)
+            }
+        }
+
         fun openTask(id: String) { editing = id }
         fun goTasks() { tab = Tab.TASKS }
         fun openQuickAdd(due: Long?) { quickAddDue = due; showQuickAdd = true }
@@ -280,6 +288,7 @@ fun AppRoot() {
                     val visibleTabs = Tab.entries.filter { it == Tab.TASKS || it.name !in settings.bottomTabsHidden }
                     CompactBottomBar(visibleTabs, tab) { tab = it }
                 },
+                snackbarHost = { androidx.compose.material3.SnackbarHost(snackbar) },
                 floatingActionButton = {
                     if (tab == Tab.TASKS || tab == Tab.CALENDAR || tab == Tab.MATRIX) {
                         FloatingActionButton(onClick = { openQuickAdd(null) }) { Icon(Icons.Filled.Add, "Add task") }

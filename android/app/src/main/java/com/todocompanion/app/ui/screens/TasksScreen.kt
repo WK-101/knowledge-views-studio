@@ -134,6 +134,7 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
                     Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
                         Column {
                             group.tasks.forEachIndexed { i, task ->
+                              androidx.compose.runtime.key(task.id) {
                                 if (i > 0) HorizontalDivider(Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
                                 TaskListItem(task, settings.density,
                                     contexts = ctxByTask[task.id].orEmpty(), tags = tagsByTask[task.id].orEmpty(),
@@ -145,6 +146,7 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
                                     onOpen = { onOpenTask(task.id) },
                                     onAct = { a -> onSwipe(vm, a, task, isTrash) { onOpenTask(task.id) } },
                                     onCycleFlag = { vm.cycleFlag(task) }, onToggleStar = { vm.toggleStar(task) })
+                              }
                             }
                         }
                     }
@@ -212,20 +214,25 @@ private fun ReorderRow(
     val done = task.completed || task.abandoned
     Row(
         Modifier.fillMaxWidth().clickable { onOpen() }.padding(start = 6.dp, end = 8.dp, top = rowVerticalPadding(density), bottom = rowVerticalPadding(density)),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Top,
     ) {
-        Icon(Icons.Filled.DragIndicator, "Drag", tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(20.dp))
+        Icon(Icons.Filled.DragIndicator, "Drag", tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(20.dp).padding(top = 8.dp))
         Spacer(Modifier.width(2.dp))
         PriorityCheckbox(task.completed, level) { onToggle() }
         Spacer(Modifier.width(2.dp))
-        Column(Modifier.weight(1f).padding(vertical = 1.dp)) {
+        Column(Modifier.weight(1f).padding(top = 8.dp, bottom = 2.dp)) {
             Text(task.title, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge,
                 textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None,
                 color = if (done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
-            TaskMeta(dueMillis = task.dueDate, contexts = contexts, tags = tags, note = task.note, listName = listName, repeating = !task.rrule.isNullOrBlank())
+            com.todocompanion.app.ui.components.TaskLeftMeta(task.dueDate, task.note, !task.rrule.isNullOrBlank())
         }
-        Spacer(Modifier.width(2.dp))
-        FlagStar(task.flagColorArgb, task.star, onCycleFlag, onToggleStar, iconSize = com.todocompanion.app.ui.components.flagStarSize(density))
+        Spacer(Modifier.width(6.dp))
+        Column(horizontalAlignment = Alignment.End) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                FlagStar(task.flagColorArgb, task.star, onCycleFlag, onToggleStar, iconSize = com.todocompanion.app.ui.components.flagStarSize(density))
+            }
+            com.todocompanion.app.ui.components.TaskTrailingLabels(contexts, tags, listName)
+        }
     }
 }
 
@@ -391,18 +398,25 @@ private fun TaskListItem(
                 )
                 .clickable { onOpen() }
                 .padding(start = 6.dp, end = 8.dp, top = rowVerticalPadding(density), bottom = rowVerticalPadding(density)),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Top,
         ) {
             PriorityCheckbox(task.completed, level) { onAct(SwipeAction.COMPLETE) }
             Spacer(Modifier.width(2.dp))
-            Column(Modifier.weight(1f).padding(vertical = 1.dp)) {
+            // Left: title, date/repeat, note.
+            Column(Modifier.weight(1f).padding(top = 8.dp, bottom = 2.dp)) {
                 Text(task.title, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge,
                     textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None,
                     color = if (done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
-                TaskMeta(dueMillis = task.dueDate, contexts = contexts, tags = tags, note = task.note, listName = listName, repeating = !task.rrule.isNullOrBlank())
+                com.todocompanion.app.ui.components.TaskLeftMeta(task.dueDate, task.note, !task.rrule.isNullOrBlank())
             }
-            Spacer(Modifier.width(2.dp))
-            FlagStar(task.flagColorArgb, task.star, onCycleFlag, onToggleStar, iconSize = com.todocompanion.app.ui.components.flagStarSize(density))
+            Spacer(Modifier.width(6.dp))
+            // Right (MLO): flag + star, with @contexts / #tags / list beneath.
+            Column(horizontalAlignment = Alignment.End) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    FlagStar(task.flagColorArgb, task.star, onCycleFlag, onToggleStar, iconSize = com.todocompanion.app.ui.components.flagStarSize(density))
+                }
+                com.todocompanion.app.ui.components.TaskTrailingLabels(contexts, tags, listName)
+            }
         }
     }
 }
