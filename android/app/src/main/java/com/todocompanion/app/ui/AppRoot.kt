@@ -464,9 +464,10 @@ private fun FilterBuilderDialog(
     var levels by remember { mutableStateOf(q0.levels) }
     var flagged by remember { mutableStateOf(q0.flaggedOnly) }
     var dueWithin by remember { mutableStateOf(q0.dueWithinDays) }
+    var maxDur by remember { mutableStateOf(q0.maxDurationMin) }
 
     fun save() {
-        val q = com.todocompanion.app.domain.view.FilterQuery(matchAll, listIds, tagIds, ctxIds, levels, flagged, dueWithin, false)
+        val q = com.todocompanion.app.domain.view.FilterQuery(matchAll, listIds, tagIds, ctxIds, levels, flagged, dueWithin, maxDur, false)
         onSave(filter.copy(name = name.trim().ifBlank { "Filter" }, queryJson = com.todocompanion.app.domain.view.Filters.encode(q)))
     }
     AlertDialog(
@@ -503,6 +504,11 @@ private fun FilterBuilderDialog(
                 FilterGroup("Due within") {
                     listOf<Pair<Int?, String>>(null to "Any", 0 to "Today", 7 to "7 days", 30 to "30 days").forEach { (d, l) ->
                         FilterChip(selected = dueWithin == d, onClick = { dueWithin = d }, label = { Text(l) })
+                    }
+                }
+                FilterGroup("Time available") {
+                    listOf<Pair<Int?, String>>(null to "Any", 15 to "≤15 min", 30 to "≤30 min", 60 to "≤1 h").forEach { (m, l) ->
+                        FilterChip(selected = maxDur == m, onClick = { maxDur = m }, label = { Text(l) })
                     }
                 }
                 Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {

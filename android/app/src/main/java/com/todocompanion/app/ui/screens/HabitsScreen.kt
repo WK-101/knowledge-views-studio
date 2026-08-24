@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -73,7 +74,8 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 val hc = checkins.filter { it.habitId == h.id }
                 val todayCount = hc.firstOrNull { it.epochDay == today }?.count ?: 0
                 val doneDays = hc.filter { it.count >= h.targetPerDay }.map { it.epochDay }.toSet()
-                HabitRow(h, todayCount, HabitStats.streak(doneDays, today), HabitStats.rate(doneDays, today),
+                val countsByDay = hc.associate { it.epochDay to it.count }
+                HabitRow(h, todayCount, HabitStats.streak(doneDays, today), HabitStats.rate(doneDays, today), countsByDay, today,
                     onCycle = { vm.cycleHabit(h, today, todayCount) }, onEdit = { editing = h })
             }
             item { Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) { TextButton(onClick = { addOpen = true }) { Text("＋ New habit") } } }
@@ -89,14 +91,16 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun HabitRow(h: HabitEntity, todayCount: Int, streak: Int, rate: Float, onCycle: () -> Unit, onEdit: () -> Unit) {
+private fun HabitRow(h: HabitEntity, todayCount: Int, streak: Int, rate: Float, countsByDay: Map<Long, Int>, today: Long, onCycle: () -> Unit, onEdit: () -> Unit) {
     val color = h.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
     val done = todayCount >= h.targetPerDay
+    val emptyCell = MaterialTheme.colorScheme.surfaceVariant
     Surface(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
         shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
     ) {
-        Row(Modifier.fillMaxWidth().clickable { onEdit() }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+      Column(Modifier.fillMaxWidth().clickable { onEdit() }.padding(12.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             // Progress ring / emoji, tap to cycle today's progress.
             Box(
                 Modifier.size(44.dp).clip(CircleShape)
@@ -119,6 +123,21 @@ private fun HabitRow(h: HabitEntity, todayCount: Int, streak: Int, rate: Float, 
             }
             if (streak > 0) Text("🔥 $streak", style = MaterialTheme.typography.labelLarge, color = color)
         }
+        // 30-day completion heat strip.
+        Spacer(Modifier.size(10.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            (29 downTo 0).forEach { back ->
+                val day = today - back
+                val c = countsByDay[day] ?: 0
+                val cell = when {
+                    c >= h.targetPerDay -> color
+                    c > 0 -> color.copy(alpha = .4f)
+                    else -> emptyCell
+                }
+                Box(Modifier.weight(1f).height(14.dp).clip(RoundedCornerShape(3.dp)).background(cell))
+            }
+        }
+      }
     }
 }
 

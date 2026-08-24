@@ -21,10 +21,11 @@ data class FilterQuery(
     val levels: Set<String> = emptySet(),     // PriorityLevel names: HIGH/MEDIUM/LOW/NONE
     val flaggedOnly: Boolean = false,
     val dueWithinDays: Int? = null,           // null = ignore; N = due within N days (0 = today or overdue)
+    val maxDurationMin: Int? = null,          // null = ignore; N = task estimate fits within N minutes
     val includeCompleted: Boolean = false,
 ) {
     fun isEmpty(): Boolean =
-        listIds.isEmpty() && tagIds.isEmpty() && contextIds.isEmpty() && levels.isEmpty() && !flaggedOnly && dueWithinDays == null
+        listIds.isEmpty() && tagIds.isEmpty() && contextIds.isEmpty() && levels.isEmpty() && !flaggedOnly && dueWithinDays == null && maxDurationMin == null
 }
 
 object Filters {
@@ -49,6 +50,8 @@ object Filters {
                 !d.isAfter(today.plusDays(days.toLong()))
             }
         }
+        // "Time available": the task's estimate (default 15 min) fits the window.
+        q.maxDurationMin?.let { cap -> checks += (task.estimateMin ?: 15) <= cap }
         if (checks.isEmpty()) return true
         return if (q.matchAll) checks.all { it } else checks.any { it }
     }
