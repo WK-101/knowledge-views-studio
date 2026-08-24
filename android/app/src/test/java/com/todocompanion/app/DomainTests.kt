@@ -121,6 +121,25 @@ class PriorityEngineTest {
         val overdue = task("overdue", importance = 3, urgency = 3, due = now - 86_400_000)
         assertTrue(PriorityEngine.score(overdue, now, mapOf()) > PriorityEngine.score(soon, now, mapOf()))
     }
+
+    @Test fun importanceInheritsMultiplicatively() {
+        val now = 1_000L
+        // Two equally-important leaves; one under a high-importance parent (the MLO "snowball").
+        val bigParent = task("bp", importance = 5)
+        val underBig = task("ub", importance = 3, parent = "bp")
+        val flat = task("flat", importance = 3)
+        val byId = listOf(bigParent, underBig, flat).associateBy { it.id }
+        assertTrue(PriorityEngine.score(underBig, now, byId) > PriorityEngine.score(flat, now, byId))
+    }
+
+    @Test fun modeIgnoresUrgencyWhenImportanceOnly() {
+        val now = 1_000L
+        val impCfg = PriorityEngine.Config(mode = PriorityEngine.Mode.IMPORTANCE)
+        val lowUrg = task("a", importance = 4, urgency = 1)
+        val highUrg = task("b", importance = 4, urgency = 5)
+        // Importance-only mode: identical importance ⇒ equal base score (no due term here).
+        assertEquals(PriorityEngine.score(lowUrg, now, mapOf(), impCfg), PriorityEngine.score(highUrg, now, mapOf(), impCfg), 1e-9)
+    }
 }
 
 class BackupTest {

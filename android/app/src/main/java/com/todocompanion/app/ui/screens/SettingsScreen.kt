@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -115,6 +116,25 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             SwipeRow("Swipe left", s.swipeLeft) { vm.saveSettings(s.copy(swipeLeft = it)) }
             SwipeRow("Swipe left — full", s.swipeLeftFar) { vm.saveSettings(s.copy(swipeLeftFar = it)) }
             Text("A short swipe runs the first action; a longer swipe runs the “full” action.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
+        Spacer(Modifier.height(18.dp))
+        Section("Do-Next priority")
+        AppCard {
+            Sub("Weigh by")
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                val modes = listOf("importance" to "Importance", "urgency" to "Urgency", "both" to "Both")
+                modes.forEachIndexed { i, (k, label) ->
+                    SegmentedButton(selected = s.priorityMode == k, onClick = { vm.saveSettings(s.copy(priorityMode = k)) },
+                        shape = SegmentedButtonDefaults.itemShape(i, modes.size)) { Text(label) }
+                }
+            }
+            Text("Computed priority multiplies importance & urgency down the outline, then adds a date term. These weights tune how much dates matter.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp, bottom = 2.dp))
+            WeightRow("Due-date weight", s.priorityDueWeight) { vm.saveSettings(s.copy(priorityDueWeight = it)) }
+            WeightRow("Start-date weight", s.priorityStartWeight) { vm.saveSettings(s.copy(priorityStartWeight = it)) }
+            WeightRow("Weekly-goal weight", s.priorityGoalWeight) { vm.saveSettings(s.copy(priorityGoalWeight = it)) }
+            Toggle("Boost overdue tasks", s.priorityOverdueBoost) { vm.saveSettings(s.copy(priorityOverdueBoost = it)) }
         }
 
         Spacer(Modifier.height(18.dp))
@@ -238,6 +258,17 @@ private fun Toggle(title: String, checked: Boolean, onChange: (Boolean) -> Unit)
     Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
         Text(title, Modifier.weight(1f).padding(end = 12.dp))
         Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+@Composable
+private fun WeightRow(label: String, value: Double, onChange: (Double) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("$label  ${"%.1f".format(value)}", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        androidx.compose.material3.Slider(
+            value = value.toFloat(), onValueChange = { onChange((Math.round(it * 2f) / 2.0)) },
+            valueRange = 0f..10f, steps = 19, modifier = Modifier.width(150.dp),
+        )
     }
 }
 

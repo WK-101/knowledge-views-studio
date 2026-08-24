@@ -96,12 +96,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             SmartKind.entries.associateWith { TaskViews.filterSmart(t, it, System.currentTimeMillis(), zone).size }
         }.state(emptyMap())
 
-    private data class Cfg(val view: ViewRef, val group: GroupMode, val sort: SortMode)
+    private data class Cfg(val view: ViewRef, val group: GroupMode, val sort: SortMode, val prio: PriorityEngine.Config)
+
+    private fun AppSettings.priorityConfig() = PriorityEngine.Config(
+        mode = when (priorityMode) { "importance" -> PriorityEngine.Mode.IMPORTANCE; "urgency" -> PriorityEngine.Mode.URGENCY; else -> PriorityEngine.Mode.BOTH },
+        dueWeight = priorityDueWeight, startWeight = priorityStartWeight, goalWeight = priorityGoalWeight, overdueBoost = priorityOverdueBoost,
+    )
 
     val groups: StateFlow<List<TaskGroup>> =
         combine(
             wsTasks,
-            combine(currentView, groupMode, sortMode) { v, g, s -> Cfg(v, g, s) },
+            combine(currentView, groupMode, sortMode, settings) { v, g, s, set -> Cfg(v, g, s, set.priorityConfig()) },
             repo.taskTagRefs,
             repo.taskContextRefs,
         ) { all, cfg, ttRefs, tcRefs ->
@@ -109,7 +114,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val filtered = when (val v = cfg.view) {
                 is ViewRef.Smart -> {
                     val base = TaskViews.filterSmart(all, v.kind, now, zone)
-                    if (v.kind == SmartKind.DO_NEXT) rankDoNext(base, all, now) else base
+                    if (v.kind == SmartKind.DO_NEXT) rankDoNext(base, all, now, cfg.prio) else base
                 }
                 is ViewRef.ListView -> all.filter { !it.trashed && !it.completed && !it.abandoned && it.listId == v.listId }
                 is ViewRef.TagView -> {
@@ -132,7 +137,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             buildOutline(all.filter { it.listId == listId && !it.trashed })
         }.state(emptyList())
 
-    private fun rankDoNext(base: List<TaskEntity>, all: List<TaskEntity>, now: Long): List<TaskEntity> {
+    private fun rankDoNext(base: List<TaskEntity>, all: List<TaskEntity>, now: Long, cfg: PriorityEngine.Config): List<TaskEntity> {
         val byParent = all.groupBy { it.parentId }
         return PriorityEngine.doNext(
             all = base,
@@ -140,6 +145,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             blocked = emptySet(),
             hasIncompleteChild = { id -> byParent[id].orEmpty().any { !it.completed && !it.trashed && !it.abandoned } },
             contextAvailable = { true },
+            cfg = cfg,
         ).map { it.task }
     }
 

@@ -23,6 +23,12 @@ data class AppSettings(
     val dynamicColor: Boolean = true,
     val accentArgb: Long = 0L,           // 0 = default / dynamic
     val advancedPriority: Boolean = false,
+    // Computed-priority (Do-Next) engine weights, MLO-style.
+    val priorityMode: String = "both",       // both | importance | urgency
+    val priorityDueWeight: Double = 3.0,
+    val priorityStartWeight: Double = 2.0,
+    val priorityGoalWeight: Double = 5.0,
+    val priorityOverdueBoost: Boolean = true,
     val density: Density = Density.DEFAULT,
     val weekStart: Int = 0,
     val timeFormat: TimeFormat = TimeFormat.SYSTEM,
@@ -57,6 +63,11 @@ data class AppSettings(
         Keys.DYNAMIC_COLOR to dynamicColor.toString(),
         Keys.ACCENT to accentArgb.toString(),
         Keys.ADVANCED_PRIORITY to advancedPriority.toString(),
+        Keys.PRIO_MODE to priorityMode,
+        Keys.PRIO_DUE to priorityDueWeight.toString(),
+        Keys.PRIO_START to priorityStartWeight.toString(),
+        Keys.PRIO_GOAL to priorityGoalWeight.toString(),
+        Keys.PRIO_OVERDUE to priorityOverdueBoost.toString(),
         Keys.DENSITY to density.name,
         Keys.WEEK_START to weekStart.toString(),
         Keys.TIME_FORMAT to timeFormat.name,
@@ -97,6 +108,11 @@ data class AppSettings(
         const val SMART_VIS = "smart_vis"
         const val BOTTOM_HIDDEN = "bottom_hidden"
         const val ACTIVE_WS = "active_ws"
+        const val PRIO_MODE = "prio_mode"
+        const val PRIO_DUE = "prio_due"
+        const val PRIO_START = "prio_start"
+        const val PRIO_GOAL = "prio_goal"
+        const val PRIO_OVERDUE = "prio_overdue"
         const val MX_IMP = "mx_imp"
         const val MX_URG = "mx_urg"
         const val MX_DONE = "mx_done"
@@ -119,6 +135,11 @@ data class AppSettings(
             dynamicColor = m[Keys.DYNAMIC_COLOR]?.toBooleanStrictOrNull() ?: true,
             accentArgb = m[Keys.ACCENT]?.toLongOrNull() ?: 0L,
             advancedPriority = m[Keys.ADVANCED_PRIORITY]?.toBooleanStrictOrNull() ?: false,
+            priorityMode = m[Keys.PRIO_MODE] ?: "both",
+            priorityDueWeight = m[Keys.PRIO_DUE]?.toDoubleOrNull() ?: 3.0,
+            priorityStartWeight = m[Keys.PRIO_START]?.toDoubleOrNull() ?: 2.0,
+            priorityGoalWeight = m[Keys.PRIO_GOAL]?.toDoubleOrNull() ?: 5.0,
+            priorityOverdueBoost = m[Keys.PRIO_OVERDUE]?.toBooleanStrictOrNull() ?: true,
             density = parse(m[Keys.DENSITY], Density.DEFAULT),
             weekStart = m[Keys.WEEK_START]?.toIntOrNull() ?: 0,
             timeFormat = parse(m[Keys.TIME_FORMAT], TimeFormat.SYSTEM),
