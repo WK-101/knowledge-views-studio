@@ -306,6 +306,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (v) undoEvents.tryEmit(UndoEvent(UndoKind.ABANDONED, t.id, "Marked won't do"))
     }
     fun toggleCollapsed(t: TaskEntity) = viewModelScope.launch { repo.setCollapsed(t, !t.collapsed) }
+
+    // ---------- batch actions (multi-select) ----------
+    fun completeMany(ids: Set<String>) = viewModelScope.launch { ids.mapNotNull { repo.getTask(it) }.filter { !it.completed }.forEach { repo.setCompleted(it, true) } }
+    fun trashMany(ids: Set<String>) = viewModelScope.launch { ids.forEach { repo.setTrashed(it, true) } }
+    fun setPriorityMany(ids: Set<String>, level: PriorityLevel) = viewModelScope.launch {
+        ids.mapNotNull { repo.getTask(it) }.forEach { repo.saveTask(it.copy(importance = level.importance, urgency = level.urgency)) }
+    }
+    fun moveMany(ids: Set<String>, listId: String) = viewModelScope.launch { ids.forEach { repo.moveToList(it, listId) } }
     fun trash(t: TaskEntity) = viewModelScope.launch {
         repo.setTrashed(t.id, true)
         undoEvents.tryEmit(UndoEvent(UndoKind.TRASHED, t.id, "Moved to Trash"))

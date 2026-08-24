@@ -4,6 +4,11 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
+import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -127,33 +132,84 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
         return
     }
 
-    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(top = 6.dp, bottom = 100.dp)) {
-        items(groups, key = { it.key }) { group ->
-            val open = collapsed[group.key] != true
-            Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-                if (group.title.isNotBlank()) GroupHeader(group.title, group.tasks.size, open) { collapsed[group.key] = open }
-                AnimatedVisibility(visible = open) {
-                    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
-                        Column {
-                            group.tasks.forEachIndexed { i, task ->
-                              androidx.compose.runtime.key(task.id) {
-                                if (i > 0) HorizontalDivider(Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
-                                TaskListItem(task, settings.density,
-                                    contexts = ctxByTask[task.id].orEmpty(), tags = tagsByTask[task.id].orEmpty(),
-                                    listName = if (showList) listNameById[task.listId]?.takeIf { it != "Inbox" } else null,
-                                    rightNear = if (isTrash) SwipeAction.COMPLETE else settings.swipeRight,
-                                    rightFar = if (isTrash) SwipeAction.NONE else settings.swipeRightFar,
-                                    leftNear = if (isTrash) SwipeAction.TRASH else settings.swipeLeft,
-                                    leftFar = if (isTrash) SwipeAction.NONE else settings.swipeLeftFar, isTrash = isTrash,
-                                    onOpen = { onOpenTask(task.id) },
-                                    onAct = { a -> onSwipe(vm, a, task, isTrash) { onOpenTask(task.id) } },
-                                    onCycleFlag = { vm.cycleFlag(task) }, onToggleStar = { vm.toggleStar(task) })
-                              }
+    // Multi-select: long-press a row to enter selection mode; a bottom action bar batches edits.
+    var selected by remember { mutableStateOf(setOf<String>()) }
+    val selectionMode = selected.isNotEmpty()
+    fun toggleSel(id: String) { selected = if (id in selected) selected - id else selected + id }
+    val allLists by vm.lists.collectAsState()
+
+    Box(modifier.fillMaxSize()) {
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 6.dp, bottom = if (selectionMode) 120.dp else 100.dp)) {
+            items(groups, key = { it.key }) { group ->
+                val open = collapsed[group.key] != true
+                Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+                    if (group.title.isNotBlank()) GroupHeader(group.title, group.tasks.size, open) { collapsed[group.key] = open }
+                    AnimatedVisibility(visible = open) {
+                        Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+                            Column {
+                                group.tasks.forEachIndexed { i, task ->
+                                  androidx.compose.runtime.key(task.id) {
+                                    if (i > 0) HorizontalDivider(Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
+                                    TaskListItem(task, settings.density,
+                                        contexts = ctxByTask[task.id].orEmpty(), tags = tagsByTask[task.id].orEmpty(),
+                                        listName = if (showList) listNameById[task.listId]?.takeIf { it != "Inbox" } else null,
+                                        rightNear = if (isTrash) SwipeAction.COMPLETE else settings.swipeRight,
+                                        rightFar = if (isTrash) SwipeAction.NONE else settings.swipeRightFar,
+                                        leftNear = if (isTrash) SwipeAction.TRASH else settings.swipeLeft,
+                                        leftFar = if (isTrash) SwipeAction.NONE else settings.swipeLeftFar, isTrash = isTrash,
+                                        selected = task.id in selected, selectionMode = selectionMode, onLongPress = { toggleSel(task.id) },
+                                        onOpen = { if (selectionMode) toggleSel(task.id) else onOpenTask(task.id) },
+                                        onAct = { a -> onSwipe(vm, a, task, isTrash) { onOpenTask(task.id) } },
+                                        onCycleFlag = { vm.cycleFlag(task) }, onToggleStar = { vm.toggleStar(task) })
+                                  }
+                                }
                             }
                         }
                     }
                 }
             }
+        }
+        if (selectionMode) SelectionBar(
+            count = selected.size, lists = allLists.filter { !it.archived },
+            onComplete = { vm.completeMany(selected); selected = emptySet() },
+            onDelete = { vm.trashMany(selected); selected = emptySet() },
+            onPriority = { lvl -> vm.setPriorityMany(selected, lvl); selected = emptySet() },
+            onMove = { listId -> vm.moveMany(selected, listId); selected = emptySet() },
+            onClear = { selected = emptySet() },
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
+    }
+}
+
+@Composable
+private fun SelectionBar(
+    count: Int, lists: List<com.todocompanion.app.data.entity.ListEntity>,
+    onComplete: () -> Unit, onDelete: () -> Unit, onPriority: (PriorityLevel) -> Unit, onMove: (String) -> Unit, onClear: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface, shadowElevation = 12.dp, tonalElevation = 3.dp) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.IconButton(onClick = onClear) { Icon(Icons.Filled.Close, "Clear selection") }
+            Text("$count", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.weight(1f))
+            androidx.compose.material3.IconButton(onClick = onComplete) { Icon(Icons.Filled.Check, "Complete") }
+            var prioMenu by remember { mutableStateOf(false) }
+            Box {
+                androidx.compose.material3.IconButton(onClick = { prioMenu = true }) { Icon(Icons.Outlined.Flag, "Priority") }
+                androidx.compose.material3.DropdownMenu(expanded = prioMenu, onDismissRequest = { prioMenu = false }) {
+                    listOf(PriorityLevel.HIGH to "High", PriorityLevel.MEDIUM to "Medium", PriorityLevel.LOW to "Low", PriorityLevel.NONE to "None").forEach { (lvl, l) ->
+                        androidx.compose.material3.DropdownMenuItem(text = { Text(l) }, onClick = { prioMenu = false; onPriority(lvl) })
+                    }
+                }
+            }
+            var moveMenu by remember { mutableStateOf(false) }
+            Box {
+                androidx.compose.material3.IconButton(onClick = { moveMenu = true }) { Icon(Icons.AutoMirrored.Filled.DriveFileMove, "Move") }
+                androidx.compose.material3.DropdownMenu(expanded = moveMenu, onDismissRequest = { moveMenu = false }) {
+                    lists.forEach { l -> androidx.compose.material3.DropdownMenuItem(text = { Text(l.name) }, onClick = { moveMenu = false; onMove(l.id) }) }
+                }
+            }
+            androidx.compose.material3.IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, "Delete", tint = MaterialTheme.colorScheme.error) }
         }
     }
 }
@@ -367,11 +423,13 @@ private fun swipeVisual(action: SwipeAction, isTrashRestore: Boolean): Pair<Colo
     else -> Color.Transparent to Icons.Filled.Check
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun TaskListItem(
     task: TaskEntity, density: Density,
     contexts: List<Pair<String, Long?>>, tags: List<Pair<String, Long?>>, listName: String?,
     rightNear: SwipeAction, rightFar: SwipeAction, leftNear: SwipeAction, leftFar: SwipeAction, isTrash: Boolean,
+    selected: Boolean, selectionMode: Boolean, onLongPress: () -> Unit,
     onOpen: () -> Unit, onAct: (SwipeAction) -> Unit, onCycleFlag: () -> Unit, onToggleStar: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -403,9 +461,10 @@ private fun TaskListItem(
         Row(
             Modifier
                 .offset { androidx.compose.ui.unit.IntOffset(offsetX.value.roundToInt(), 0) }
-                .fillMaxWidth().background(MaterialTheme.colorScheme.surface)
+                .fillMaxWidth().background(if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface)
                 .draggable(
                     orientation = androidx.compose.foundation.gestures.Orientation.Horizontal,
+                    enabled = !selectionMode,
                     state = androidx.compose.foundation.gestures.rememberDraggableState { delta ->
                         scope.launch { offsetX.snapTo((offsetX.value + delta).coerceIn(-maxPx, maxPx)) }
                     },
@@ -420,11 +479,14 @@ private fun TaskListItem(
                         offsetX.animateTo(0f)
                     },
                 )
-                .clickable { onOpen() }
+                .combinedClickable(onClick = onOpen, onLongClick = onLongPress)
                 .padding(start = 6.dp, end = 8.dp, top = rowVerticalPadding(density), bottom = rowVerticalPadding(density)),
             verticalAlignment = Alignment.Top,
         ) {
-            if (task.isNote) Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+            if (selectionMode) Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+                Icon(if (selected) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked, null,
+                    tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, modifier = Modifier.size(24.dp))
+            } else if (task.isNote) Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
                 Icon(Icons.Outlined.Notes, "Note", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(20.dp))
             } else PriorityCheckbox(task.completed, level) { onAct(SwipeAction.COMPLETE) }
             Spacer(Modifier.width(2.dp))
