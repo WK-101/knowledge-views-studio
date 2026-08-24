@@ -13,11 +13,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -28,11 +32,15 @@ import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CalendarViewMonth
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
@@ -99,6 +107,27 @@ private enum class Tab(val label: String, val icon: ImageVector) {
 
 private data class NewReq(val isFolder: Boolean, val parentId: String?)
 
+private val CAL_MODES = listOf("list" to "List", "day" to "Day", "3day" to "3-Day", "week" to "Week", "month" to "Month", "year" to "Year")
+
+/** Compact, icon-only bottom navigation (TickTick-style) — shorter than the Material NavigationBar. */
+@Composable
+private fun CompactBottomBar(tabs: List<Tab>, current: Tab, onSelect: (Tab) -> Unit) {
+    androidx.compose.material3.Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 10.dp, tonalElevation = 2.dp) {
+        Row(
+            Modifier.fillMaxWidth().navigationBarsPadding().height(56.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            tabs.forEach { t ->
+                val selected = t == current
+                Box(Modifier.weight(1f).fillMaxHeight().clickable { onSelect(t) }, contentAlignment = Alignment.Center) {
+                    Icon(t.icon, t.label, tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(25.dp))
+                }
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppRoot() {
@@ -121,6 +150,11 @@ fun AppRoot() {
         var manageTag by remember { mutableStateOf<com.todocompanion.app.data.entity.TagEntity?>(null) }
         var moveTag by remember { mutableStateOf<com.todocompanion.app.data.entity.TagEntity?>(null) }
         var menu by remember { mutableStateOf(false) }
+        // Hoisted per-tab controls, surfaced in the shared top bar to free screen space.
+        var calMode by remember { mutableStateOf(settings.calendarDefaultMode) }
+        var calMenu by remember { mutableStateOf(false) }
+        var matrixSettings by remember { mutableStateOf(false) }
+        var searchQuery by remember { mutableStateOf("") }
 
         val currentView by vm.currentView.collectAsState()
         val lists by vm.lists.collectAsState()
@@ -180,35 +214,65 @@ fun AppRoot() {
             Scaffold(
                 topBar = {
                     TopAppBar(
-                        title = { Text(title, maxLines = 1) },
+                        windowInsets = androidx.compose.material3.TopAppBarDefaults.windowInsets,
+                        title = {
+                            if (tab == Tab.SEARCH) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Filled.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                                    Spacer(Modifier.width(10.dp))
+                                    Box(Modifier.weight(1f)) {
+                                        if (searchQuery.isEmpty()) Text("Search tasks, #tags, @contexts…", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
+                                        androidx.compose.foundation.text.BasicTextField(
+                                            value = searchQuery, onValueChange = { searchQuery = it }, singleLine = true,
+                                            textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                                            cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
+                                            modifier = Modifier.fillMaxWidth(),
+                                        )
+                                    }
+                                }
+                            } else Text(title, maxLines = 1)
+                        },
                         navigationIcon = { IconButton(onClick = { scope.launch { drawerState.open() } }) { Icon(Icons.Filled.Menu, "Menu") } },
                         actions = {
                             if (canOutline) IconButton(onClick = { vm.outlineMode.value = !outlineMode }) {
                                 Icon(if (outlineMode) Icons.AutoMirrored.Filled.FormatListBulleted else Icons.Filled.AccountTree, if (outlineMode) "List view" else "Outline view")
                             }
-                            if (tab == Tab.TASKS) {
-                                IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Sort & group") }
-                                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                                    Text("Group by", Modifier.padding(12.dp, 8.dp, 12.dp, 2.dp), style = MaterialTheme.typography.labelSmall)
-                                    listOf("None" to GroupMode.NONE, "Date" to GroupMode.DATE, "Priority" to GroupMode.PRIORITY).forEach { (l, m) ->
-                                        DropdownMenuItem(text = { Text(l) }, onClick = { vm.groupMode.value = m; menu = false })
-                                    }
-                                    Text("Sort by", Modifier.padding(12.dp, 8.dp, 12.dp, 2.dp), style = MaterialTheme.typography.labelSmall)
-                                    listOf("Manual" to SortMode.MANUAL, "Priority" to SortMode.PRIORITY, "Due" to SortMode.DUE, "Title" to SortMode.TITLE).forEach { (l, m) ->
-                                        DropdownMenuItem(text = { Text(l) }, onClick = { vm.sortMode.value = m; menu = false })
+                            when (tab) {
+                                Tab.TASKS -> {
+                                    IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Sort & group") }
+                                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                                        Text("Group by", Modifier.padding(12.dp, 8.dp, 12.dp, 2.dp), style = MaterialTheme.typography.labelSmall)
+                                        listOf("None" to GroupMode.NONE, "Date" to GroupMode.DATE, "Priority" to GroupMode.PRIORITY).forEach { (l, m) ->
+                                            DropdownMenuItem(text = { Text(l) }, onClick = { vm.groupMode.value = m; menu = false })
+                                        }
+                                        Text("Sort by", Modifier.padding(12.dp, 8.dp, 12.dp, 2.dp), style = MaterialTheme.typography.labelSmall)
+                                        listOf("Manual" to SortMode.MANUAL, "Priority" to SortMode.PRIORITY, "Due" to SortMode.DUE, "Title" to SortMode.TITLE).forEach { (l, m) ->
+                                            DropdownMenuItem(text = { Text(l) }, onClick = { vm.sortMode.value = m; menu = false })
+                                        }
                                     }
                                 }
+                                Tab.CALENDAR -> {
+                                    IconButton(onClick = { calMenu = true }) { Icon(Icons.Filled.CalendarViewMonth, "Calendar view") }
+                                    DropdownMenu(expanded = calMenu, onDismissRequest = { calMenu = false }) {
+                                        CAL_MODES.forEach { (k, label) ->
+                                            DropdownMenuItem(
+                                                text = { Text(label) },
+                                                leadingIcon = { if (calMode == k) Icon(Icons.Filled.Check, null) else Spacer(Modifier.width(24.dp)) },
+                                                onClick = { calMode = k; calMenu = false },
+                                            )
+                                        }
+                                    }
+                                }
+                                Tab.MATRIX -> IconButton(onClick = { matrixSettings = true }) { Icon(Icons.Filled.Tune, "Matrix settings") }
+                                Tab.SEARCH -> if (searchQuery.isNotEmpty()) IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Filled.Close, "Clear") }
+                                else -> {}
                             }
                         },
                     )
                 },
                 bottomBar = {
                     val visibleTabs = Tab.entries.filter { it == Tab.TASKS || it.name !in settings.bottomTabsHidden }
-                    NavigationBar {
-                        visibleTabs.forEach { t ->
-                            NavigationBarItem(selected = tab == t, onClick = { tab = t }, icon = { Icon(t.icon, t.label) }, label = { Text(t.label) })
-                        }
-                    }
+                    CompactBottomBar(visibleTabs, tab) { tab = it }
                 },
                 floatingActionButton = {
                     if (tab == Tab.TASKS || tab == Tab.CALENDAR || tab == Tab.MATRIX) {
@@ -220,12 +284,12 @@ fun AppRoot() {
                     Crossfade(targetState = tab, animationSpec = tween(180), label = "tab") { t ->
                         when (t) {
                             Tab.TASKS -> TasksScreen(vm, ::openTask)
-                            Tab.SEARCH -> SearchScreen(vm, ::openTask)
+                            Tab.SEARCH -> SearchScreen(vm, ::openTask, searchQuery)
                             Tab.SETTINGS -> SettingsScreen(vm)
-                            Tab.CALENDAR -> CalendarScreen(vm, ::openTask, onAddOnDate = { d ->
+                            Tab.CALENDAR -> CalendarScreen(vm, ::openTask, calMode, { calMode = it }, onAddOnDate = { d ->
                                 openQuickAdd(d.atTime(9, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli())
                             })
-                            Tab.MATRIX -> MatrixScreen(vm, ::openTask)
+                            Tab.MATRIX -> MatrixScreen(vm, ::openTask, matrixSettings, { matrixSettings = false })
                         }
                     }
                 }

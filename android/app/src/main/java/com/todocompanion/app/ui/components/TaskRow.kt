@@ -88,7 +88,7 @@ fun TaskRow(
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             task.dueDate?.let { DueChip(it); Spacer(Modifier.width(2.dp)) }
-            FlagStar(task.flagColorArgb, task.star, onCycleFlag, onToggleStar)
+            FlagStar(task.flagColorArgb, task.star, onCycleFlag, onToggleStar, iconSize = flagStarSize(density))
         }
     }
 }

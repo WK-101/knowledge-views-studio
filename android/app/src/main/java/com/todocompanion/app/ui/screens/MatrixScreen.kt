@@ -58,21 +58,16 @@ private val ROMAN = listOf("I", "II", "III", "IV")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MatrixScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifier = Modifier) {
+fun MatrixScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, showSettings: Boolean, onDismissSettings: () -> Unit, modifier: Modifier = Modifier) {
     val s by vm.settings.collectAsState()
     val tasks by vm.tasks.collectAsState()
-    var showSettings by remember { mutableStateOf(false) }
 
     val visible = tasks.filter { !it.trashed && !it.abandoned && (s.matrixShowCompleted || !it.completed) }
     val byQuad = visible.groupBy { PriorityEngine.quadrant(it, s.matrixImportanceThreshold, s.matrixUrgencyThreshold) }
         .mapValues { (_, list) -> list.sortedByDescending { maxOf(it.importance, it.urgency) } }
 
-    Column(modifier.fillMaxSize()) {
-        // Slim toolbar — the app bar already reads "Matrix", so the grid gets the space.
-        Row(Modifier.fillMaxWidth().padding(end = 4.dp), horizontalArrangement = Arrangement.End) {
-            IconButton(onClick = { showSettings = true }) { Icon(Icons.Filled.Tune, "Matrix settings") }
-        }
-
+    // The settings button lives in the app top bar now, so the grid uses the full screen.
+    Column(modifier.fillMaxSize().padding(top = 4.dp)) {
         val onToggle: (TaskEntity) -> Unit = { vm.toggleComplete(it) }
         if (s.matrixHideEmpty) {
             LazyColumn(Modifier.fillMaxSize().padding(horizontal = 8.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
@@ -96,7 +91,7 @@ fun MatrixScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modif
     }
 
     if (showSettings) {
-        androidx.compose.material3.ModalBottomSheet(onDismissRequest = { showSettings = false }) {
+        androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismissSettings) {
             MatrixSettings(vm, s)
             Spacer(Modifier.height(20.dp))
         }

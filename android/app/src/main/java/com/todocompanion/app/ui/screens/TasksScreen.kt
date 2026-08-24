@@ -278,7 +278,7 @@ private fun TaskListItem(
                 TaskMeta(dueMillis = task.dueDate, contexts = contexts, tags = tags, note = task.note, listName = listName, repeating = !task.rrule.isNullOrBlank())
             }
             Spacer(Modifier.width(2.dp))
-            FlagStar(task.flagColorArgb, task.star, onCycleFlag, onToggleStar)
+            FlagStar(task.flagColorArgb, task.star, onCycleFlag, onToggleStar, iconSize = com.todocompanion.app.ui.components.flagStarSize(density))
         }
     }
 }

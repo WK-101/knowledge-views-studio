@@ -95,20 +95,28 @@ fun PriorityCheckbox(checked: Boolean, level: PriorityLevel, onCheckedChange: ()
     }
 }
 
+/** Flag/star icon size scaled to the row density, MLO-style (bigger in roomier rows). */
+fun flagStarSize(d: Density): Dp = when (d) {
+    Density.COMPACT -> 22.dp
+    Density.DEFAULT -> 26.dp
+    Density.RELAXED -> 30.dp
+}
+
 /**
- * Trailing flag + star, MLO-style. Larger, with a light "ghost" outline when unset
+ * Trailing flag + star, MLO-style. Large, with a light "ghost" outline when unset
  * (transparent-filled) and a solid colour when set. Flag cycles colours; star toggles.
  */
 @Composable
-fun FlagStar(flagArgb: Long?, starred: Boolean, onCycleFlag: () -> Unit, onToggleStar: () -> Unit) {
-    val ghost = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)
-    Box(Modifier.size(40.dp).clip(CircleShape).clickable { onCycleFlag() }, contentAlignment = Alignment.Center) {
-        if (flagArgb != null) Icon(Icons.Filled.Flag, "Flag", tint = Color(flagArgb), modifier = Modifier.size(23.dp))
-        else Icon(Icons.Outlined.Flag, "Flag", tint = ghost, modifier = Modifier.size(23.dp))
+fun FlagStar(flagArgb: Long?, starred: Boolean, onCycleFlag: () -> Unit, onToggleStar: () -> Unit, iconSize: Dp = 26.dp) {
+    val ghost = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+    val box = iconSize + 16.dp
+    Box(Modifier.size(box).clip(CircleShape).clickable { onCycleFlag() }, contentAlignment = Alignment.Center) {
+        if (flagArgb != null) Icon(Icons.Filled.Flag, "Flag", tint = Color(flagArgb), modifier = Modifier.size(iconSize))
+        else Icon(Icons.Outlined.Flag, "Flag", tint = ghost, modifier = Modifier.size(iconSize))
     }
-    Box(Modifier.size(40.dp).clip(CircleShape).clickable { onToggleStar() }, contentAlignment = Alignment.Center) {
-        if (starred) Icon(Icons.Filled.Star, "Star", tint = Color(0xFFF5A623), modifier = Modifier.size(25.dp))
-        else Icon(Icons.Outlined.StarOutline, "Star", tint = ghost, modifier = Modifier.size(25.dp))
+    Box(Modifier.size(box).clip(CircleShape).clickable { onToggleStar() }, contentAlignment = Alignment.Center) {
+        if (starred) Icon(Icons.Filled.Star, "Star", tint = Color(0xFFF5A623), modifier = Modifier.size(iconSize + 1.dp))
+        else Icon(Icons.Outlined.StarOutline, "Star", tint = ghost, modifier = Modifier.size(iconSize + 1.dp))
     }
 }
 

@@ -43,37 +43,13 @@ import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.DueChip
 
 @Composable
-fun SearchScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifier = Modifier) {
-    var query by remember { mutableStateOf("") }
+fun SearchScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, query: String, modifier: Modifier = Modifier) {
     val tasks by vm.tasks.collectAsState()
     val results = remember(query, tasks) { vm.search(query) }
     val lists by vm.lists.collectAsState()
 
     Column(modifier.fillMaxSize()) {
-        // Clean filled search bar — no hard outlined box.
-        Surface(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
-            shape = RoundedCornerShape(14.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .6f),
-        ) {
-            Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(10.dp))
-                Box(Modifier.weight(1f)) {
-                    if (query.isEmpty()) Text("Search tasks, notes, #tags…", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge)
-                    BasicTextField(
-                        value = query, onValueChange = { query = it },
-                        singleLine = true,
-                        textStyle = LocalTextStyle.current.copy(color = MaterialTheme.colorScheme.onSurface, fontSize = MaterialTheme.typography.bodyLarge.fontSize),
-                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-                if (query.isNotEmpty()) Icon(Icons.Filled.Close, "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp).clip(RoundedCornerShape(10.dp)).clickable { query = "" })
-            }
-        }
-
+        // The search field lives in the app top bar; this screen just renders results.
         when {
             query.isBlank() -> SearchHint("Search everything", "Find any task by title, note, #tag or @context")
             results.isEmpty() -> SearchHint("No matches", "Nothing found for “$query”", off = true)

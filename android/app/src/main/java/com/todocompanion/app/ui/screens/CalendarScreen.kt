@@ -70,20 +70,17 @@ import java.time.format.TextStyle
 import java.time.temporal.WeekFields
 import java.util.Locale
 
-private val MODES = listOf("list" to "List", "day" to "Day", "3day" to "3-Day", "week" to "Week", "month" to "Month", "year" to "Year")
-
 private fun Modifier.swipeNav(onPrev: () -> Unit, onNext: () -> Unit): Modifier = pointerInput(onPrev, onNext) {
     var total = 0f
     detectHorizontalDragGestures(onDragEnd = { if (total > 80) onPrev() else if (total < -80) onNext(); total = 0f }) { _, dragAmount -> total += dragAmount }
 }
 
 @Composable
-fun CalendarScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onAddOnDate: (LocalDate) -> Unit, modifier: Modifier = Modifier) {
+fun CalendarScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, mode: String, onModeChange: (String) -> Unit, onAddOnDate: (LocalDate) -> Unit, modifier: Modifier = Modifier) {
     val s by vm.settings.collectAsState()
     val tasks by vm.tasks.collectAsState()
     val zone = ZoneId.systemDefault()
 
-    var mode by remember { mutableStateOf(s.calendarDefaultMode) }
     var anchor by remember { mutableStateOf(LocalDate.now()) }
     var selected by remember { mutableStateOf(LocalDate.now()) }
 
@@ -94,18 +91,6 @@ fun CalendarScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onAddOnDate: 
     }
 
     Column(modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            MODES.forEach { (k, label) ->
-                val on = mode == k
-                Text(label,
-                    Modifier.clip(RoundedCornerShape(999.dp))
-                        .background(if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
-                        .clickable { mode = k }.padding(horizontal = 13.dp, vertical = 7.dp),
-                    color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelLarge)
-            }
-        }
-
         val onToggle: (TaskEntity) -> Unit = { vm.toggleComplete(it) }
         val onTrash: (TaskEntity) -> Unit = { vm.trash(it) }
         when (mode) {
@@ -116,7 +101,7 @@ fun CalendarScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onAddOnDate: 
             }
             "3day" -> TimelineView((0..2).map { anchor.plusDays(it.toLong()) }, dueByDate, zone, rangeTitle(anchor, anchor.plusDays(2)), onPrev = { anchor = anchor.minusDays(3) }, onNext = { anchor = anchor.plusDays(3) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate)
             "day" -> TimelineView(listOf(anchor), dueByDate, zone, "${anchor.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${anchor.dayOfMonth} ${anchor.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())}", onPrev = { anchor = anchor.minusDays(1) }, onNext = { anchor = anchor.plusDays(1) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate)
-            "year" -> YearView(anchor, dueByDate, onPrev = { anchor = anchor.minusYears(1) }, onNext = { anchor = anchor.plusYears(1) }, onMonth = { m -> anchor = m.atDay(1); mode = "month" })
+            "year" -> YearView(anchor, dueByDate, onPrev = { anchor = anchor.minusYears(1) }, onNext = { anchor = anchor.plusYears(1) }, onMonth = { m -> anchor = m.atDay(1); onModeChange("month") })
             else -> AgendaView(dueByDate, onOpenTask, onToggle, onTrash)
         }
     }
