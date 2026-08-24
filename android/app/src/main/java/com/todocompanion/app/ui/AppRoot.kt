@@ -166,6 +166,7 @@ fun AppRoot() {
         var newWs by remember { mutableStateOf(false) }
         var manageWs by remember { mutableStateOf<com.todocompanion.app.data.entity.WorkspaceEntity?>(null) }
         var filterEdit by remember { mutableStateOf<com.todocompanion.app.data.entity.FilterEntity?>(null) }
+        var showStats by remember { mutableStateOf(false) }
         var menu by remember { mutableStateOf(false) }
         // Hoisted per-tab controls, surfaced in the shared top bar to free screen space.
         var calMode by remember { mutableStateOf(settings.calendarDefaultMode) }
@@ -242,6 +243,7 @@ fun AppRoot() {
                     onNewWorkspace = { newWs = true },
                     onManageWorkspace = { manageWs = it },
                     onEditFilter = { f -> filterEdit = f ?: com.todocompanion.app.data.entity.FilterEntity(id = java.util.UUID.randomUUID().toString(), name = "New filter", workspaceId = settings.activeWorkspaceId) },
+                    onOpenStats = { showStats = true; scope.launch { drawerState.close() } },
                     onOpenSettings = { tab = Tab.SETTINGS; scope.launch { drawerState.close() } },
                 )
             },
@@ -341,6 +343,7 @@ fun AppRoot() {
         }
 
         editing?.let { id -> TaskDetailScreen(vm, id, onBack = { editing = null }) }
+        if (showStats) com.todocompanion.app.ui.screens.StatisticsScreen(vm, onBack = { showStats = false })
         if (showQuickAdd) QuickAddSheet(vm, initialDue = quickAddDue, onDismiss = { showQuickAdd = false; quickAddDue = null })
 
         newReq?.let { req ->
