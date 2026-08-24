@@ -118,12 +118,31 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
         )
     }) { padding ->
         if (task == null) { Column(Modifier.padding(padding).fillMaxSize()) {}; return@Scaffold }
+        val plevel = PriorityLevel.from(task.importance, task.urgency)
         Column(
-            Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            OutlinedTextField(task.title, { v -> update { it.copy(title = v) } }, label = { Text("Title") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-            OutlinedTextField(task.note, { v -> update { it.copy(note = v) } }, label = { Text("Note") }, modifier = Modifier.fillMaxWidth().height(100.dp))
+            // Borderless title with an inline completion checkbox (TickTick-style).
+            Row(verticalAlignment = Alignment.Top) {
+                com.todocompanion.app.ui.components.PriorityCheckbox(task.completed, plevel) {
+                    update { it.copy(completed = !it.completed, completedAt = if (!it.completed) System.currentTimeMillis() else null) }
+                }
+                Spacer(Modifier.width(2.dp))
+                BorderlessField(
+                    task.title, { v -> update { it.copy(title = v) } }, "Task title",
+                    textStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface),
+                    strikethrough = task.completed,
+                    modifier = Modifier.weight(1f).padding(top = 8.dp),
+                )
+            }
+            BorderlessField(
+                task.note, { v -> update { it.copy(note = v) } }, "Notes",
+                textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                singleLine = false,
+                modifier = Modifier.fillMaxWidth().padding(start = 42.dp),
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
 
             AppCard {
                 CardLabel("Organize"); Spacer(Modifier.height(6.dp))
@@ -231,8 +250,22 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
 }
 
 @Composable
-private fun Label(text: String) =
-    Text(text, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+private fun BorderlessField(
+    value: String, onValueChange: (String) -> Unit, placeholder: String,
+    textStyle: androidx.compose.ui.text.TextStyle, modifier: Modifier = Modifier,
+    singleLine: Boolean = true, strikethrough: Boolean = false,
+) {
+    Box(modifier) {
+        if (value.isEmpty()) Text(placeholder, style = textStyle.copy(color = MaterialTheme.colorScheme.outline))
+        androidx.compose.foundation.text.BasicTextField(
+            value = value, onValueChange = onValueChange,
+            textStyle = textStyle.copy(textDecoration = if (strikethrough) androidx.compose.ui.text.style.TextDecoration.LineThrough else androidx.compose.ui.text.style.TextDecoration.None),
+            singleLine = singleLine,
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
 
 @Composable
 private fun FlagSwatch(color: Long?, current: Long?, onClick: () -> Unit) {
@@ -271,8 +304,10 @@ private fun Dial(name: String, value: Int, onChange: (Int) -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddInline(value: String, onValueChange: (String) -> Unit, placeholder: String, onAdd: (String) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        OutlinedTextField(value, onValueChange, placeholder = { Text(placeholder) }, singleLine = true, modifier = Modifier.weight(1f))
-        TextButton(onClick = { onAdd(value) }) { Text("Add") }
+    Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Filled.Add, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(10.dp))
+        BorderlessField(value, onValueChange, placeholder, textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface), modifier = Modifier.weight(1f))
+        if (value.isNotBlank()) TextButton(onClick = { onAdd(value) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)) { Text("Add") }
     }
 }
