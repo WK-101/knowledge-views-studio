@@ -20,6 +20,7 @@ import com.todocompanion.app.data.entity.TaskTagCrossRef
 import com.todocompanion.app.data.entity.FilterEntity
 import com.todocompanion.app.data.entity.HabitEntity
 import com.todocompanion.app.data.entity.HabitCheckinEntity
+import com.todocompanion.app.data.entity.FocusSessionEntity
 import com.todocompanion.app.data.entity.WorkspaceEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -57,6 +58,16 @@ interface TaskDao {
 
     @Query("DELETE FROM tasks")
     suspend fun clear()
+}
+
+@Dao
+interface FocusDao {
+    @Query("SELECT * FROM focus_sessions ORDER BY startMillis DESC")
+    fun observeAll(): Flow<List<FocusSessionEntity>>
+    @Query("SELECT * FROM focus_sessions") suspend fun getAll(): List<FocusSessionEntity>
+    @Upsert suspend fun upsert(s: FocusSessionEntity)
+    @Upsert suspend fun upsertAll(s: List<FocusSessionEntity>)
+    @Query("DELETE FROM focus_sessions") suspend fun clear()
 }
 
 @Dao

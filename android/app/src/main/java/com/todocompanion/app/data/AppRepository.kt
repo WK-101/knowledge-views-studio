@@ -6,6 +6,7 @@ import com.todocompanion.app.data.entity.DependencyEntity
 import com.todocompanion.app.data.entity.FilterEntity
 import com.todocompanion.app.data.entity.HabitEntity
 import com.todocompanion.app.data.entity.HabitCheckinEntity
+import com.todocompanion.app.data.entity.FocusSessionEntity
 import com.todocompanion.app.data.entity.FolderEntity
 import com.todocompanion.app.data.entity.ListEntity
 import com.todocompanion.app.data.entity.ReminderEntity
@@ -62,6 +63,11 @@ class AppRepository(private val db: AppDatabase) {
         if (next > target) habits.deleteCheckin(habitId, epochDay)
         else habits.upsertCheckin(HabitCheckinEntity(habitId, epochDay, next))
     }
+
+    private val focus = db.focusDao()
+    val allFocusSessions: Flow<List<FocusSessionEntity>> = focus.observeAll()
+    suspend fun addFocusSession(epochDay: Long, startMillis: Long, minutes: Int, kind: String) =
+        focus.upsert(FocusSessionEntity(uid(), epochDay, startMillis, minutes, kind))
 
     private val filters = db.filterDao()
     val allFilters: Flow<List<FilterEntity>> = filters.observeAll()
@@ -365,6 +371,7 @@ class AppRepository(private val db: AppDatabase) {
             filters = filters.getAll(),
             habits = habits.getAll(),
             habitCheckins = habits.getCheckins(),
+            focusSessions = focus.getAll(),
             folders = folders.getAll(),
             lists = lists.getAll(),
             tasks = tasks.getAll(),
@@ -384,7 +391,7 @@ class AppRepository(private val db: AppDatabase) {
         tasks.clear(); folders.clear(); lists.clear(); checklist.clear()
         tags.clear(); tags.clearCrossRefs(); contexts.clear(); contexts.clearCrossRefs()
         reminders.clear(); deps.clear(); settings.clear(); workspaces.clear(); filters.clear()
-        habits.clear(); habits.clearCheckins()
+        habits.clear(); habits.clearCheckins(); focus.clear()
         folders.upsertAll(b.folders)
         lists.upsertAll(b.lists)
         tasks.upsertAll(b.tasks)
@@ -397,6 +404,7 @@ class AppRepository(private val db: AppDatabase) {
         workspaces.upsertAll(b.workspaces)
         filters.upsertAll(b.filters)
         habits.upsertAll(b.habits); habits.upsertCheckins(b.habitCheckins)
+        focus.upsertAll(b.focusSessions)
         ensureDefaultWorkspace()
         ensureInbox()
     }

@@ -9,6 +9,7 @@ import com.todocompanion.app.data.dao.ContextDao
 import com.todocompanion.app.data.dao.DependencyDao
 import com.todocompanion.app.data.dao.FilterDao
 import com.todocompanion.app.data.dao.HabitDao
+import com.todocompanion.app.data.dao.FocusDao
 import com.todocompanion.app.data.dao.FolderDao
 import com.todocompanion.app.data.dao.ListDao
 import com.todocompanion.app.data.dao.WorkspaceDao
@@ -29,6 +30,7 @@ import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.data.entity.FilterEntity
 import com.todocompanion.app.data.entity.HabitEntity
 import com.todocompanion.app.data.entity.HabitCheckinEntity
+import com.todocompanion.app.data.entity.FocusSessionEntity
 import com.todocompanion.app.data.entity.TaskTagCrossRef
 import com.todocompanion.app.data.entity.WorkspaceEntity
 import androidx.room.migration.Migration
@@ -40,6 +42,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         FilterEntity::class,
         HabitEntity::class,
         HabitCheckinEntity::class,
+        FocusSessionEntity::class,
         FolderEntity::class,
         ListEntity::class,
         TaskEntity::class,
@@ -52,7 +55,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         DependencyEntity::class,
         SettingEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -60,6 +63,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun workspaceDao(): WorkspaceDao
     abstract fun filterDao(): FilterDao
     abstract fun habitDao(): HabitDao
+    abstract fun focusDao(): FocusDao
     abstract fun folderDao(): FolderDao
     abstract fun listDao(): ListDao
     abstract fun checklistDao(): ChecklistDao
@@ -101,6 +105,16 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v7→v8 adds the focus-sessions table without wiping existing data. */
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `focus_sessions` (`id` TEXT NOT NULL, `epochDay` INTEGER NOT NULL, " +
+                        "`startMillis` INTEGER NOT NULL, `minutes` INTEGER NOT NULL, `kind` TEXT NOT NULL, PRIMARY KEY(`id`))",
+                )
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -108,7 +122,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "todocompanion.db",
                 )
-                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7)
+                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { INSTANCE = it }

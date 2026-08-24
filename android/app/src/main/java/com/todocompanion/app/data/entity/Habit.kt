@@ -28,3 +28,14 @@ data class HabitCheckinEntity(
     val epochDay: Long,
     val count: Int = 1,
 )
+
+/** A completed focus (Pomodoro / stopwatch) session, for the focus tab + statistics. */
+@Serializable
+@Entity(tableName = "focus_sessions")
+data class FocusSessionEntity(
+    @PrimaryKey val id: String,
+    val epochDay: Long,
+    val startMillis: Long,
+    val minutes: Int,
+    val kind: String = "pomo",
+)

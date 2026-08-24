@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
@@ -109,6 +110,7 @@ private enum class Tab(val label: String, val icon: ImageVector) {
     CALENDAR("Calendar", Icons.Filled.CalendarMonth),
     MATRIX("Matrix", Icons.Filled.GridView),
     HABITS("Habits", Icons.Filled.LocalFireDepartment),
+    FOCUS("Focus", Icons.Filled.Timer),
     SEARCH("Search", Icons.Filled.Search),
     SETTINGS("Settings", Icons.Filled.Settings),
 }
@@ -326,6 +328,7 @@ fun AppRoot() {
                             })
                             Tab.MATRIX -> MatrixScreen(vm, ::openTask, matrixSettings, { matrixSettings = false })
                             Tab.HABITS -> com.todocompanion.app.ui.screens.HabitsScreen(vm)
+                            Tab.FOCUS -> com.todocompanion.app.ui.screens.FocusScreen(vm)
                         }
                     }
                 }

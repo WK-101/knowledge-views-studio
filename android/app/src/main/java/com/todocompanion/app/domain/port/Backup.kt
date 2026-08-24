@@ -25,6 +25,7 @@ data class BackupFile(
     val filters: List<com.todocompanion.app.data.entity.FilterEntity> = emptyList(),
     val habits: List<com.todocompanion.app.data.entity.HabitEntity> = emptyList(),
     val habitCheckins: List<com.todocompanion.app.data.entity.HabitCheckinEntity> = emptyList(),
+    val focusSessions: List<com.todocompanion.app.data.entity.FocusSessionEntity> = emptyList(),
     val folders: List<FolderEntity> = emptyList(),
     val lists: List<ListEntity> = emptyList(),
     val tasks: List<TaskEntity> = emptyList(),

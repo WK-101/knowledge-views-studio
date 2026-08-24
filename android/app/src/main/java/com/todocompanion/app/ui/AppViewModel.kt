@@ -82,6 +82,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val filters = combine(repo.allFilters, activeWs) { f, ws -> f.filter { it.workspaceId == ws } }.state(emptyList())
     val habits = combine(repo.allHabits, activeWs) { h, ws -> h.filter { it.workspaceId == ws && !it.archived } }.state(emptyList())
     val habitCheckins = repo.allCheckins.state(emptyList())
+    val focusSessions = repo.allFocusSessions.state(emptyList())
     val taskTags = repo.taskTagRefs.state(emptyList())
     val taskContexts = repo.taskContextRefs.state(emptyList())
     val checklist = repo.allChecklist.state(emptyList())
@@ -329,6 +330,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteHabit(id: String) = viewModelScope.launch { repo.deleteHabit(id) }
     fun cycleHabit(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, current: Int) = viewModelScope.launch {
         repo.cycleCheckin(h.id, epochDay, h.targetPerDay, current)
+    }
+
+    // ---------- focus ----------
+    fun recordFocus(startMillis: Long, minutes: Int, kind: String) = viewModelScope.launch {
+        if (minutes <= 0) return@launch
+        val day = java.time.Instant.ofEpochMilli(startMillis).atZone(zone).toLocalDate().toEpochDay()
+        repo.addFocusSession(day, startMillis, minutes, kind)
     }
 
     // ---------- saved filters ----------
