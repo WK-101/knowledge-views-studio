@@ -41,6 +41,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -337,19 +338,99 @@ private fun FlagSwatch(color: Long?, current: Long?, onClick: () -> Unit) {
 
 @Composable
 private fun RepeatRow(rule: String?, onChange: (String?) -> Unit) {
-    var menu by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    var show by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth().clickable { show = true }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Text("Repeat", Modifier.weight(1f))
-        Box {
-            TextButton(onClick = { menu = true }) {
-                Text(com.todocompanion.app.domain.recurrence.Recurrence.label(rule) ?: "Does not repeat")
-            }
-            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                com.todocompanion.app.domain.recurrence.Recurrence.PRESETS.forEach { (r, label) ->
-                    DropdownMenuItem(text = { Text(label) }, onClick = { onChange(r); menu = false })
+        Text(com.todocompanion.app.domain.recurrence.Recurrence.label(rule) ?: "Does not repeat", color = MaterialTheme.colorScheme.primary)
+    }
+    if (show) RepeatDialog(rule, onDismiss = { show = false }) { onChange(it); show = false }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RepeatDialog(rule: String?, onDismiss: () -> Unit, onSave: (String?) -> Unit) {
+    val r0 = com.todocompanion.app.domain.recurrence.Recurrence.parse(rule)
+    var freq by remember { mutableStateOf(r0?.freq) }   // null = does not repeat
+    var interval by remember { mutableStateOf(r0?.interval ?: 1) }
+    var days by remember { mutableStateOf(r0?.byDays ?: emptySet<Int>()) }
+    // end: 0 never, 1 until, 2 count
+    var endMode by remember { mutableStateOf(if (r0?.untilEpochDay != null) 1 else if (r0?.count != null) 2 else 0) }
+    var until by remember { mutableStateOf(r0?.untilEpochDay ?: java.time.LocalDate.now().plusMonths(3).toEpochDay()) }
+    var count by remember { mutableStateOf(r0?.count ?: 10) }
+    var showUntil by remember { mutableStateOf(false) }
+
+    fun build(): String? {
+        val f = freq ?: return null
+        return com.todocompanion.app.domain.recurrence.Recurrence.encode(
+            com.todocompanion.app.domain.recurrence.Recur(
+                freq = f, interval = interval.coerceAtLeast(1),
+                byDays = if (f == com.todocompanion.app.domain.recurrence.Freq.WEEKLY) days else emptySet(),
+                untilEpochDay = if (endMode == 1) until else null,
+                count = if (endMode == 2) count.coerceAtLeast(1) else null,
+            )
+        )
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = { onSave(build()) }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Repeat") },
+        text = {
+            Column {
+                val freqs = listOf<Pair<com.todocompanion.app.domain.recurrence.Freq?, String>>(
+                    null to "None",
+                    com.todocompanion.app.domain.recurrence.Freq.DAILY to "Daily",
+                    com.todocompanion.app.domain.recurrence.Freq.WEEKDAYS to "Weekday",
+                    com.todocompanion.app.domain.recurrence.Freq.WEEKLY to "Weekly",
+                    com.todocompanion.app.domain.recurrence.Freq.MONTHLY to "Monthly",
+                    com.todocompanion.app.domain.recurrence.Freq.YEARLY to "Yearly",
+                )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    freqs.forEach { (f, l) -> FilterChip(selected = freq == f, onClick = { freq = f }, label = { Text(l) }) }
+                }
+                if (freq != null && freq != com.todocompanion.app.domain.recurrence.Freq.WEEKDAYS) {
+                    Spacer(Modifier.size(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Every", Modifier.padding(end = 8.dp))
+                        Stepper(interval) { interval = it.coerceIn(1, 99) }
+                    }
+                }
+                if (freq == com.todocompanion.app.domain.recurrence.Freq.WEEKLY) {
+                    Spacer(Modifier.size(8.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf(1 to "M", 2 to "T", 3 to "W", 4 to "T", 5 to "F", 6 to "S", 7 to "S").forEach { (d, l) ->
+                            FilterChip(selected = d in days, onClick = { days = if (d in days) days - d else days + d }, label = { Text(l) })
+                        }
+                    }
+                }
+                if (freq != null) {
+                    Spacer(Modifier.size(12.dp)); Text("Ends", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(0 to "Never", 1 to "On date", 2 to "After N").forEachIndexed { _, (m, l) ->
+                            FilterChip(selected = endMode == m, onClick = { endMode = m }, label = { Text(l) })
+                        }
+                    }
+                    if (endMode == 1) TextButton(onClick = { showUntil = true }) { Text("Until " + java.time.LocalDate.ofEpochDay(until)) }
+                    if (endMode == 2) Row(verticalAlignment = Alignment.CenterVertically) { Text("After", Modifier.padding(end = 8.dp)); Stepper(count) { count = it.coerceIn(1, 999) }; Text(" times", Modifier.padding(start = 6.dp)) }
                 }
             }
+        },
+    )
+    if (showUntil) {
+        val z = java.time.ZoneId.systemDefault()
+        DateTimePickerDialog(java.time.LocalDate.ofEpochDay(until).atStartOfDay(z).toInstant().toEpochMilli(), { showUntil = false }) { m ->
+            until = java.time.Instant.ofEpochMilli(m).atZone(z).toLocalDate().toEpochDay(); showUntil = false
         }
+    }
+}
+
+@Composable
+private fun Stepper(value: Int, onChange: (Int) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        TextButton(onClick = { onChange(value - 1) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp)) { Text("−") }
+        Text(value.toString(), style = MaterialTheme.typography.titleMedium)
+        TextButton(onClick = { onChange(value + 1) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp)) { Text("+") }
     }
 }
 

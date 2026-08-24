@@ -230,11 +230,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun addTask(listId: String, parentId: String? = null, title: String = "New task") =
         viewModelScope.launch { repo.createTask(listId, title, parentId = parentId) }
     fun toggleComplete(t: TaskEntity) = viewModelScope.launch {
-        // Completing a repeating task rolls it forward to the next occurrence instead of closing it.
-        if (!t.completed && !t.rrule.isNullOrBlank() && t.dueDate != null) {
-            val nextDue = com.todocompanion.app.domain.recurrence.Recurrence.next(t.rrule!!, t.dueDate!!, zone)
+        // Completing a repeating task rolls it forward to the next occurrence instead of closing it
+        // — unless its recurrence has ended (until-date reached or count exhausted).
+        val (nextDue, newRule) = if (!t.completed && !t.rrule.isNullOrBlank() && t.dueDate != null)
+            com.todocompanion.app.domain.recurrence.Recurrence.advance(t.rrule!!, t.dueDate!!, zone) else null to null
+        if (nextDue != null) {
             val delta = nextDue - t.dueDate!!
-            repo.saveTask(t.copy(dueDate = nextDue, startDate = t.startDate?.plus(delta), completed = false, completedAt = null))
+            repo.saveTask(t.copy(dueDate = nextDue, startDate = t.startDate?.plus(delta), rrule = newRule, completed = false, completedAt = null))
             val updated = repo.getTask(t.id)
             reminders.value.filter { it.taskId == t.id && it.atTime != null }.forEach { r ->
                 val nr = r.copy(atTime = r.atTime!! + delta)

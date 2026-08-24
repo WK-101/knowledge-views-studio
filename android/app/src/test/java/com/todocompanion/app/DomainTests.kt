@@ -81,6 +81,24 @@ class RecurrenceTest {
         assertEquals("Every 2 weeks", com.todocompanion.app.domain.recurrence.Recurrence.label("WEEKLY:2"))
         assertEquals(null, com.todocompanion.app.domain.recurrence.Recurrence.label(null))
     }
+
+    @Test fun weeklyOnSpecificDays() {
+        // 2026-01-01 is a Thursday. Repeat Mon/Wed/Fri → next is Fri the 2nd.
+        val rule = com.todocompanion.app.domain.recurrence.Recurrence.encode(
+            com.todocompanion.app.domain.recurrence.Recur(com.todocompanion.app.domain.recurrence.Freq.WEEKLY, 1, byDays = setOf(1, 3, 5)))
+        assertEquals(ms(2026, 1, 2), com.todocompanion.app.domain.recurrence.Recurrence.next(rule, ms(2026, 1, 1), zone))
+    }
+
+    @Test fun countExhaustsAndUntilStops() {
+        val once = com.todocompanion.app.domain.recurrence.Recurrence.encode(
+            com.todocompanion.app.domain.recurrence.Recur(com.todocompanion.app.domain.recurrence.Freq.DAILY, 1, count = 1))
+        assertEquals(null, com.todocompanion.app.domain.recurrence.Recurrence.advance(once, ms(2026, 1, 1), zone).first)
+
+        val untilPast = com.todocompanion.app.domain.recurrence.Recurrence.encode(
+            com.todocompanion.app.domain.recurrence.Recur(com.todocompanion.app.domain.recurrence.Freq.DAILY, 1,
+                untilEpochDay = java.time.LocalDate.of(2026, 1, 1).toEpochDay()))
+        assertEquals(null, com.todocompanion.app.domain.recurrence.Recurrence.advance(untilPast, ms(2026, 1, 1), zone).first)
+    }
 }
 
 class PriorityEngineTest {
