@@ -284,10 +284,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         // Completing a repeating task rolls it forward to the next occurrence instead of closing it
         // — unless its recurrence has ended (until-date reached or count exhausted).
         val (nextDue, newRule) = if (!t.completed && !t.rrule.isNullOrBlank() && t.dueDate != null)
-            com.todocompanion.app.domain.recurrence.Recurrence.advance(t.rrule!!, t.dueDate!!, zone) else null to null
+            com.todocompanion.app.domain.recurrence.Recurrence.advance(t.rrule!!, t.dueDate!!, zone, System.currentTimeMillis()) else null to null
         if (nextDue != null) {
             val delta = nextDue - t.dueDate!!
             repo.saveTask(t.copy(dueDate = nextDue, startDate = t.startDate?.plus(delta), rrule = newRule, completed = false, completedAt = null))
+            // Reset the subtasks of a recurring task so the routine starts fresh each cycle.
+            tasks.value.filter { it.parentId == t.id && it.completed && !it.trashed }.forEach { repo.setCompleted(it, false) }
             val updated = repo.getTask(t.id)
             reminders.value.filter { it.taskId == t.id && it.atTime != null }.forEach { r ->
                 val nr = r.copy(atTime = r.atTime!! + delta)

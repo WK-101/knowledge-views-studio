@@ -20,6 +20,11 @@ data class Recur(
     val byDays: Set<Int> = emptySet(),   // ISO weekday 1=Mon..7=Sun (WEEKLY only)
     val untilEpochDay: Long? = null,
     val count: Int? = null,
+    // Monthly "nth weekday" (e.g. 3rd Tuesday, last Friday): pos 1..4 or -1 for last, + ISO weekday.
+    val bySetPos: Int? = null,
+    val byWeekday: Int? = null,
+    // Regenerate the next occurrence from the completion date rather than the fixed schedule.
+    val fromCompletion: Boolean = false,
 )
 
 object Recurrence {
@@ -39,6 +44,9 @@ object Recurrence {
         append("FREQ=").append(r.freq.name)
         append(";INT=").append(r.interval)
         if (r.byDays.isNotEmpty()) append(";DAYS=").append(r.byDays.sorted().joinToString(","))
+        r.bySetPos?.let { append(";POS=").append(it) }
+        r.byWeekday?.let { append(";WD=").append(it) }
+        if (r.fromCompletion) append(";COMP=1")
         r.untilEpochDay?.let { append(";UNTIL=").append(it) }
         r.count?.let { append(";COUNT=").append(it) }
     }
@@ -57,6 +65,9 @@ object Recurrence {
             freq = freq,
             interval = m["INT"]?.toIntOrNull() ?: 1,
             byDays = m["DAYS"]?.split(",")?.mapNotNull { it.toIntOrNull() }?.toSet() ?: emptySet(),
+            bySetPos = m["POS"]?.toIntOrNull(),
+            byWeekday = m["WD"]?.toIntOrNull(),
+            fromCompletion = m["COMP"] == "1",
             untilEpochDay = m["UNTIL"]?.toLongOrNull(),
             count = m["COUNT"]?.toIntOrNull(),
         )
@@ -72,18 +83,37 @@ object Recurrence {
                 val days = if (r.byDays.isEmpty()) "" else " on " + r.byDays.sorted().joinToString(", ") { DAY_ABBR[it - 1] }
                 (if (r.interval == 1) "Weekly" else "Every ${every}weeks") + days
             }
-            Freq.MONTHLY -> if (r.interval == 1) "Monthly" else "Every ${every}months"
+            Freq.MONTHLY -> {
+                val head = if (r.interval == 1) "Monthly" else "Every ${every}months"
+                if (r.bySetPos != null && r.byWeekday != null) "$head on the ${posLabel(r.bySetPos)} ${DAY_ABBR[r.byWeekday - 1]}" else head
+            }
             Freq.YEARLY -> if (r.interval == 1) "Yearly" else "Every ${every}years"
         }
+        val comp = if (r.fromCompletion) ", after completion" else ""
         val end = when {
             r.count != null -> ", ×${r.count}"
             r.untilEpochDay != null -> ", until " + java.time.LocalDate.ofEpochDay(r.untilEpochDay).toString()
             else -> ""
         }
-        return base + end
+        return base + comp + end
     }
 
+    fun posLabel(pos: Int): String = when (pos) { 1 -> "1st"; 2 -> "2nd"; 3 -> "3rd"; 4 -> "4th"; else -> "last" }
+
     private val DAY_ABBR = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+    /** The date of the nth (or last) [weekday] in the given year-month. */
+    private fun nthWeekdayOf(ym: java.time.YearMonth, pos: Int, weekday: Int): java.time.LocalDate {
+        if (pos < 0) {
+            var d = ym.atEndOfMonth()
+            while (d.dayOfWeek.value != weekday) d = d.minusDays(1)
+            return d
+        }
+        var d = ym.atDay(1)
+        while (d.dayOfWeek.value != weekday) d = d.plusDays(1)
+        val candidate = d.plusWeeks((pos - 1).toLong())
+        return if (candidate.month == ym.month) candidate else d // clamp: fall back to first if nth overflows
+    }
 
     /** Next occurrence strictly after [fromMillis], preserving time-of-day. Ignores end conditions. */
     fun next(rule: String, fromMillis: Long, zone: ZoneId): Long {
@@ -91,7 +121,14 @@ object Recurrence {
         val dt = Instant.ofEpochMilli(fromMillis).atZone(zone)
         val nd = when (r.freq) {
             Freq.DAILY -> dt.plusDays(r.interval.toLong())
-            Freq.MONTHLY -> dt.plusMonths(r.interval.toLong())
+            Freq.MONTHLY -> {
+                if (r.bySetPos != null && r.byWeekday != null) {
+                    // Advance whole months, then land on the nth (or last) weekday of that month.
+                    val ym = java.time.YearMonth.from(dt).plusMonths(r.interval.toLong())
+                    val date = nthWeekdayOf(ym, r.bySetPos, r.byWeekday)
+                    date.atTime(dt.toLocalTime()).atZone(zone)
+                } else dt.plusMonths(r.interval.toLong())
+            }
             Freq.YEARLY -> dt.plusYears(r.interval.toLong())
             Freq.WEEKDAYS -> {
                 var d = dt.plusDays(1)
@@ -116,9 +153,16 @@ object Recurrence {
      * Roll a repeating task forward on completion. Returns the next due-millis and the (possibly
      * updated) rule, or `null` next when the recurrence has ended and the task should just complete.
      */
-    fun advance(rule: String, fromMillis: Long, zone: ZoneId): Pair<Long?, String?> {
+    fun advance(rule: String, fromMillis: Long, zone: ZoneId, completionMillis: Long? = null): Pair<Long?, String?> {
         val r = parse(rule) ?: return null to null
-        val nextMs = next(rule, fromMillis, zone)
+        // "After completion": count the interval from when it was actually completed, keeping the
+        // original time-of-day. Otherwise roll forward on the fixed schedule from the due date.
+        val base = if (r.fromCompletion && completionMillis != null) {
+            val dueTime = Instant.ofEpochMilli(fromMillis).atZone(zone).toLocalTime()
+            val compDate = Instant.ofEpochMilli(completionMillis).atZone(zone).toLocalDate()
+            compDate.atTime(dueTime).atZone(zone).toInstant().toEpochMilli()
+        } else fromMillis
+        val nextMs = next(rule, base, zone)
         val nextDay = Instant.ofEpochMilli(nextMs).atZone(zone).toLocalDate().toEpochDay()
         if (r.untilEpochDay != null && nextDay > r.untilEpochDay) return null to null
         if (r.count != null) {

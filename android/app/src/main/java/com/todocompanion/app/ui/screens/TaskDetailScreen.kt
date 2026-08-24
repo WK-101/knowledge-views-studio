@@ -482,13 +482,22 @@ private fun RepeatDialog(rule: String?, onDismiss: () -> Unit, onSave: (String?)
     var until by remember { mutableStateOf(r0?.untilEpochDay ?: java.time.LocalDate.now().plusMonths(3).toEpochDay()) }
     var count by remember { mutableStateOf(r0?.count ?: 10) }
     var showUntil by remember { mutableStateOf(false) }
+    // Monthly "nth weekday" + regenerate-from-completion.
+    var byWeekdayMode by remember { mutableStateOf(r0?.bySetPos != null && r0.byWeekday != null) }
+    var pos by remember { mutableStateOf(r0?.bySetPos ?: 1) }
+    var weekday by remember { mutableStateOf(r0?.byWeekday ?: 1) }
+    var fromCompletion by remember { mutableStateOf(r0?.fromCompletion ?: false) }
 
     fun build(): String? {
         val f = freq ?: return null
+        val monthly = f == com.todocompanion.app.domain.recurrence.Freq.MONTHLY && byWeekdayMode
         return com.todocompanion.app.domain.recurrence.Recurrence.encode(
             com.todocompanion.app.domain.recurrence.Recur(
                 freq = f, interval = interval.coerceAtLeast(1),
                 byDays = if (f == com.todocompanion.app.domain.recurrence.Freq.WEEKLY) days else emptySet(),
+                bySetPos = if (monthly) pos else null,
+                byWeekday = if (monthly) weekday else null,
+                fromCompletion = fromCompletion,
                 untilEpochDay = if (endMode == 1) until else null,
                 count = if (endMode == 2) count.coerceAtLeast(1) else null,
             )
@@ -526,6 +535,34 @@ private fun RepeatDialog(rule: String?, onDismiss: () -> Unit, onSave: (String?)
                         listOf(1 to "M", 2 to "T", 3 to "W", 4 to "T", 5 to "F", 6 to "S", 7 to "S").forEach { (d, l) ->
                             FilterChip(selected = d in days, onClick = { days = if (d in days) days - d else days + d }, label = { Text(l) })
                         }
+                    }
+                }
+                if (freq == com.todocompanion.app.domain.recurrence.Freq.MONTHLY) {
+                    Spacer(Modifier.size(8.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        FilterChip(selected = !byWeekdayMode, onClick = { byWeekdayMode = false }, label = { Text("On day of month") })
+                        FilterChip(selected = byWeekdayMode, onClick = { byWeekdayMode = true }, label = { Text("On a weekday") })
+                    }
+                    if (byWeekdayMode) {
+                        Spacer(Modifier.size(6.dp))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            listOf(1 to "1st", 2 to "2nd", 3 to "3rd", 4 to "4th", -1 to "Last").forEach { (p, l) ->
+                                FilterChip(selected = pos == p, onClick = { pos = p }, label = { Text(l) })
+                            }
+                        }
+                        Spacer(Modifier.size(4.dp))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            listOf(1 to "M", 2 to "T", 3 to "W", 4 to "T", 5 to "F", 6 to "S", 7 to "S").forEach { (d, l) ->
+                                FilterChip(selected = weekday == d, onClick = { weekday = d }, label = { Text(l) })
+                            }
+                        }
+                    }
+                }
+                if (freq != null) {
+                    Spacer(Modifier.size(10.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Repeat after completion", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        Switch(checked = fromCompletion, onCheckedChange = { fromCompletion = it })
                     }
                 }
                 if (freq != null) {

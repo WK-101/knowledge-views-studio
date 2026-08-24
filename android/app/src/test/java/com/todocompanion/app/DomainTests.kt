@@ -99,6 +99,28 @@ class RecurrenceTest {
                 untilEpochDay = java.time.LocalDate.of(2026, 1, 1).toEpochDay()))
         assertEquals(null, com.todocompanion.app.domain.recurrence.Recurrence.advance(untilPast, ms(2026, 1, 1), zone).first)
     }
+
+    @Test fun monthlyNthWeekday() {
+        // "3rd Tuesday" — from 2026-01-20 (3rd Tue of Jan) next is 2026-02-17 (3rd Tue of Feb).
+        val rule = com.todocompanion.app.domain.recurrence.Recurrence.encode(
+            com.todocompanion.app.domain.recurrence.Recur(com.todocompanion.app.domain.recurrence.Freq.MONTHLY, 1, bySetPos = 3, byWeekday = 2))
+        assertEquals(ms(2026, 2, 17), com.todocompanion.app.domain.recurrence.Recurrence.next(rule, ms(2026, 1, 20), zone))
+    }
+
+    @Test fun lastWeekdayOfMonth() {
+        // "last Friday" — from 2026-01-30 (last Fri of Jan) next is 2026-02-27 (last Fri of Feb).
+        val rule = com.todocompanion.app.domain.recurrence.Recurrence.encode(
+            com.todocompanion.app.domain.recurrence.Recur(com.todocompanion.app.domain.recurrence.Freq.MONTHLY, 1, bySetPos = -1, byWeekday = 5))
+        assertEquals(ms(2026, 2, 27), com.todocompanion.app.domain.recurrence.Recurrence.next(rule, ms(2026, 1, 30), zone))
+    }
+
+    @Test fun regenerateFromCompletion() {
+        // "every 3 days after completion": due Jan 1, completed late on Jan 5 → next due Jan 8.
+        val rule = com.todocompanion.app.domain.recurrence.Recurrence.encode(
+            com.todocompanion.app.domain.recurrence.Recur(com.todocompanion.app.domain.recurrence.Freq.DAILY, 3, fromCompletion = true))
+        val next = com.todocompanion.app.domain.recurrence.Recurrence.advance(rule, ms(2026, 1, 1), zone, ms(2026, 1, 5)).first
+        assertEquals(ms(2026, 1, 8), next)
+    }
 }
 
 class PriorityEngineTest {
