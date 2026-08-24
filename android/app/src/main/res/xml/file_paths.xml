@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Decoded attachments are written here transiently to hand to a viewer app. -->
+    <cache-path name="shared" path="shared/" />
+</paths>

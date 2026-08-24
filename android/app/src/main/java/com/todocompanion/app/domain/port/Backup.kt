@@ -37,6 +37,7 @@ data class BackupFile(
     val reminders: List<ReminderEntity> = emptyList(),
     val dependencies: List<DependencyEntity> = emptyList(),
     val settings: List<SettingEntity> = emptyList(),
+    val attachments: List<com.todocompanion.app.data.entity.AttachmentEntity> = emptyList(),
 ) {
     companion object {
         const val FORMAT = "todo-companion"

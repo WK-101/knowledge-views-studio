@@ -32,6 +32,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.time.ZoneId
 import java.util.UUID
 
@@ -298,6 +300,43 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun addChecklistItem(taskId: String, text: String) = viewModelScope.launch { repo.addChecklistItem(taskId, text) }
     fun toggleChecklist(item: ChecklistItemEntity) = viewModelScope.launch { repo.saveChecklistItem(item.copy(checked = !item.checked)) }
     fun deleteChecklistItem(id: String) = viewModelScope.launch { repo.deleteChecklistItem(id) }
+
+    // ---------- attachments ----------
+    fun attachmentMeta(taskId: String) = repo.attachmentMeta(taskId)
+    suspend fun attachmentContent(id: String): String? = repo.attachmentContent(id)
+    fun addAttachment(taskId: String, uri: Uri) = viewModelScope.launch {
+        val cr = appCtx.contentResolver
+        val mime = cr.getType(uri) ?: "application/octet-stream"
+        val name = displayNameOf(uri) ?: "attachment"
+        val bytes = withContext(Dispatchers.IO) { runCatching { cr.openInputStream(uri)?.use { it.readBytes() } }.getOrNull() }
+        if (bytes == null) { toast("Could not read file"); return@launch }
+        if (!repo.addAttachment(taskId, name, mime, bytes)) toast("File too large (max 10 MB)")
+    }
+    fun removeAttachment(id: String) = viewModelScope.launch { repo.deleteAttachment(id) }
+    /** Decode an attachment to a temp cache file and hand it to a local viewer app. */
+    fun openAttachment(id: String, fileName: String, mime: String) = viewModelScope.launch {
+        val b64 = repo.attachmentContent(id) ?: return@launch
+        val uri = withContext(Dispatchers.IO) {
+            runCatching {
+                val bytes = android.util.Base64.decode(b64, android.util.Base64.NO_WRAP)
+                val dir = java.io.File(appCtx.cacheDir, "shared").apply { mkdirs() }
+                val safe = fileName.replace(Regex("[^A-Za-z0-9._-]"), "_").ifBlank { "attachment" }
+                val f = java.io.File(dir, safe).apply { writeBytes(bytes) }
+                androidx.core.content.FileProvider.getUriForFile(appCtx, "${appCtx.packageName}.fileprovider", f)
+            }.getOrNull()
+        } ?: return@launch
+        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, mime)
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        runCatching { appCtx.startActivity(intent) }.onFailure { toast("No app can open this file") }
+    }
+    private fun displayNameOf(uri: Uri): String? = runCatching {
+        appCtx.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+            if (c.moveToFirst()) c.getString(0) else null
+        }
+    }.getOrNull()
+    private fun toast(msg: String) = android.widget.Toast.makeText(appCtx, msg, android.widget.Toast.LENGTH_SHORT).show()
 
     // ---------- folders / lists ----------
     fun createFolder(name: String, parentId: String? = null) = viewModelScope.launch { repo.createFolder(name, parentId, settings.value.activeWorkspaceId) }

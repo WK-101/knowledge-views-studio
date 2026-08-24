@@ -22,6 +22,8 @@ import com.todocompanion.app.data.entity.HabitEntity
 import com.todocompanion.app.data.entity.HabitCheckinEntity
 import com.todocompanion.app.data.entity.FocusSessionEntity
 import com.todocompanion.app.data.entity.WorkspaceEntity
+import com.todocompanion.app.data.entity.AttachmentEntity
+import com.todocompanion.app.data.entity.AttachmentMeta
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -364,5 +366,36 @@ interface SettingDao {
     suspend fun putAll(settings: List<SettingEntity>)
 
     @Query("DELETE FROM settings")
+    suspend fun clear()
+}
+
+@Dao
+interface AttachmentDao {
+    /** Metadata only (no Base64 bytes) so the observed flow stays cheap. */
+    @Query("SELECT id, taskId, fileName, mime, sizeBytes, isImage, addedAt FROM attachments WHERE taskId = :taskId ORDER BY addedAt")
+    fun observeMetaForTask(taskId: String): Flow<List<AttachmentMeta>>
+
+    @Query("SELECT contentBase64 FROM attachments WHERE id = :id")
+    suspend fun contentOf(id: String): String?
+
+    @Query("SELECT * FROM attachments")
+    suspend fun getAll(): List<AttachmentEntity>
+
+    @Query("SELECT COUNT(*) FROM attachments WHERE taskId = :taskId")
+    fun observeCountForTask(taskId: String): Flow<Int>
+
+    @Upsert
+    suspend fun upsert(a: AttachmentEntity)
+
+    @Upsert
+    suspend fun upsertAll(items: List<AttachmentEntity>)
+
+    @Query("DELETE FROM attachments WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM attachments WHERE taskId = :taskId")
+    suspend fun deleteForTask(taskId: String)
+
+    @Query("DELETE FROM attachments")
     suspend fun clear()
 }

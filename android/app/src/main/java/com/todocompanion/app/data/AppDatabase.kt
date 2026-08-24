@@ -17,6 +17,7 @@ import com.todocompanion.app.data.dao.ReminderDao
 import com.todocompanion.app.data.dao.SettingDao
 import com.todocompanion.app.data.dao.TagDao
 import com.todocompanion.app.data.dao.TaskDao
+import com.todocompanion.app.data.dao.AttachmentDao
 import com.todocompanion.app.data.entity.ChecklistItemEntity
 import com.todocompanion.app.data.entity.ContextEntity
 import com.todocompanion.app.data.entity.DependencyEntity
@@ -33,6 +34,7 @@ import com.todocompanion.app.data.entity.HabitCheckinEntity
 import com.todocompanion.app.data.entity.FocusSessionEntity
 import com.todocompanion.app.data.entity.TaskTagCrossRef
 import com.todocompanion.app.data.entity.WorkspaceEntity
+import com.todocompanion.app.data.entity.AttachmentEntity
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
@@ -54,8 +56,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ReminderEntity::class,
         DependencyEntity::class,
         SettingEntity::class,
+        AttachmentEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -72,6 +75,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun reminderDao(): ReminderDao
     abstract fun dependencyDao(): DependencyDao
     abstract fun settingDao(): SettingDao
+    abstract fun attachmentDao(): AttachmentDao
 
     companion object {
         @Volatile
@@ -123,6 +127,19 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v9→v10 adds the attachments table without wiping existing data. */
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `attachments` (`id` TEXT NOT NULL, `taskId` TEXT NOT NULL, " +
+                        "`fileName` TEXT NOT NULL, `mime` TEXT NOT NULL, `sizeBytes` INTEGER NOT NULL, " +
+                        "`isImage` INTEGER NOT NULL, `addedAt` INTEGER NOT NULL, `contentBase64` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_attachments_taskId` ON `attachments` (`taskId`)")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -130,7 +147,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "todocompanion.db",
                 )
-                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { INSTANCE = it }

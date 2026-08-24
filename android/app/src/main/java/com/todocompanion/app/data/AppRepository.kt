@@ -16,6 +16,8 @@ import com.todocompanion.app.data.entity.TaskContextCrossRef
 import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.data.entity.TaskTagCrossRef
 import com.todocompanion.app.data.entity.WorkspaceEntity
+import com.todocompanion.app.data.entity.AttachmentEntity
+import com.todocompanion.app.data.entity.AttachmentMeta
 import com.todocompanion.app.domain.AppSettings
 import com.todocompanion.app.domain.port.Backup
 import com.todocompanion.app.domain.port.BackupFile
@@ -34,6 +36,7 @@ class AppRepository(private val db: AppDatabase) {
     private val reminders = db.reminderDao()
     private val deps = db.dependencyDao()
     private val settings = db.settingDao()
+    private val attachments = db.attachmentDao()
 
     // ----- reactive reads -----
     val allTasks: Flow<List<TaskEntity>> = tasks.observeAll()
@@ -332,6 +335,27 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun saveChecklistItem(item: ChecklistItemEntity) = checklist.upsert(item)
     suspend fun deleteChecklistItem(id: String) = checklist.deleteById(id)
 
+    // ============ attachments ============
+    /** Max attachment size accepted on import (10 MB). Bytes live Base64 in the DB. */
+    val maxAttachmentBytes = 10L * 1024 * 1024
+    fun attachmentMeta(taskId: String): Flow<List<AttachmentMeta>> = attachments.observeMetaForTask(taskId)
+    fun attachmentCount(taskId: String): Flow<Int> = attachments.observeCountForTask(taskId)
+    suspend fun attachmentContent(id: String): String? = attachments.contentOf(id)
+    /** Store raw bytes as a task attachment. Returns false if it exceeds the size cap. */
+    suspend fun addAttachment(taskId: String, fileName: String, mime: String, bytes: ByteArray): Boolean {
+        if (bytes.size > maxAttachmentBytes) return false
+        val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+        attachments.upsert(
+            AttachmentEntity(
+                id = uid(), taskId = taskId, fileName = fileName, mime = mime,
+                sizeBytes = bytes.size.toLong(), isImage = mime.startsWith("image/"),
+                addedAt = now(), contentBase64 = b64,
+            ),
+        )
+        return true
+    }
+    suspend fun deleteAttachment(id: String) = attachments.deleteById(id)
+
     // ============ tags / contexts ============
     suspend fun getTagsOnce(): List<TagEntity> = tags.getAll()
     suspend fun getContextsOnce(): List<ContextEntity> = contexts.getAll()
@@ -383,6 +407,7 @@ class AppRepository(private val db: AppDatabase) {
             reminders = reminders.getAll(),
             dependencies = deps.getAll(),
             settings = settings.getAll(),
+            attachments = attachments.getAll(),
         )
     )
 
@@ -391,7 +416,7 @@ class AppRepository(private val db: AppDatabase) {
         tasks.clear(); folders.clear(); lists.clear(); checklist.clear()
         tags.clear(); tags.clearCrossRefs(); contexts.clear(); contexts.clearCrossRefs()
         reminders.clear(); deps.clear(); settings.clear(); workspaces.clear(); filters.clear()
-        habits.clear(); habits.clearCheckins(); focus.clear()
+        habits.clear(); habits.clearCheckins(); focus.clear(); attachments.clear()
         folders.upsertAll(b.folders)
         lists.upsertAll(b.lists)
         tasks.upsertAll(b.tasks)
@@ -405,6 +430,7 @@ class AppRepository(private val db: AppDatabase) {
         filters.upsertAll(b.filters)
         habits.upsertAll(b.habits); habits.upsertCheckins(b.habitCheckins)
         focus.upsertAll(b.focusSessions)
+        attachments.upsertAll(b.attachments)
         ensureDefaultWorkspace()
         ensureInbox()
     }

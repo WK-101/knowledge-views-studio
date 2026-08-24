@@ -34,6 +34,17 @@
             </intent-filter>
         </activity>
 
+        <!-- Shares a decoded attachment with a local viewer app. Grants are per-URI + temporary. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <!-- Home-screen "Today" widget: task count + quick-add. Offline, reads local DB. -->
         <receiver
             android:name=".widget.TodayWidget"
