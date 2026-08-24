@@ -241,6 +241,27 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun createList(name: String, folderId: String?, colorArgb: Long?) = viewModelScope.launch { repo.createList(name, folderId, colorArgb) }
     fun saveList(l: ListEntity) = viewModelScope.launch { repo.saveList(l) }
     fun deleteList(id: String) = viewModelScope.launch { repo.deleteList(id) }
+
+    /** Convert a list into a folder, preserving its tasks in a same-named list inside it. */
+    fun convertListToFolder(list: ListEntity) = viewModelScope.launch {
+        val folderId = repo.createFolder(list.name, parentId = list.folderId)
+        val newListId = repo.createList(list.name, folderId, list.colorArgb)
+        tasks.value.filter { it.listId == list.id && it.parentId == null }.forEach { repo.moveToList(it.id, newListId) }
+        repo.deleteList(list.id)
+        if (currentView.value == ViewRef.ListView(list.id)) select(ViewRef.ListView(newListId))
+    }
+
+    /** Convert an empty folder into a list. Returns false (no-op) if the folder still has contents. */
+    fun convertFolderToList(folder: FolderEntity): Boolean {
+        val hasChildren = folders.value.any { it.parentId == folder.id } || lists.value.any { it.folderId == folder.id }
+        if (hasChildren) return false
+        viewModelScope.launch {
+            val id = repo.createList(folder.name, folder.parentId, null)
+            repo.deleteFolder(folder.id)
+            select(ViewRef.ListView(id))
+        }
+        return true
+    }
     fun moveListOrder(l: ListEntity, dir: Int) = viewModelScope.launch { repo.moveListOrder(l, dir) }
     fun moveFolderOrder(f: FolderEntity, dir: Int) = viewModelScope.launch { repo.moveFolderOrder(f, dir) }
     fun moveListToFolder(listId: String, folderId: String?) = viewModelScope.launch { repo.moveListToFolder(listId, folderId) }

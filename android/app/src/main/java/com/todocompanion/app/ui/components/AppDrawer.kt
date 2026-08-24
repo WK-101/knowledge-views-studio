@@ -1,7 +1,9 @@
 package com.todocompanion.app.ui.components
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -171,6 +173,7 @@ private fun FolderNode(
     onManageList: (ListEntity) -> Unit, onManageFolder: (FolderEntity) -> Unit, onMoveList: (ListEntity) -> Unit, onMoveFolder: (FolderEntity) -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
             .clickable { vm.toggleFolder(folder) }.padding(start = (10 + depth * 16).dp, top = 9.dp, bottom = 9.dp, end = 4.dp),
@@ -190,7 +193,11 @@ private fun FolderNode(
                 MenuItem(Icons.Filled.KeyboardArrowUp, "Move up") { vm.moveFolderOrder(folder, -1); menu = false }
                 MenuItem(Icons.Filled.KeyboardArrowDown, "Move down") { vm.moveFolderOrder(folder, +1); menu = false }
                 MenuItem(Icons.Filled.DriveFileMove, "Move to…") { onMoveFolder(folder); menu = false }
-                MenuItem(Icons.Filled.Edit, "Rename / delete") { onManageFolder(folder); menu = false }
+                MenuItem(Icons.AutoMirrored.Filled.FormatListBulleted, "Convert to list") {
+                    if (!vm.convertFolderToList(folder)) Toast.makeText(ctx, "Empty the folder first", Toast.LENGTH_SHORT).show()
+                    menu = false
+                }
+                MenuItem(Icons.Filled.Edit, "Rename / icon / delete") { onManageFolder(folder); menu = false }
             }
         }
     }
@@ -224,6 +231,7 @@ private fun ListRow(list: ListEntity, depth: Int, current: ViewRef, vm: AppViewM
                 MenuItem(Icons.Filled.KeyboardArrowUp, "Move up") { vm.moveListOrder(list, -1); menu = false }
                 MenuItem(Icons.Filled.KeyboardArrowDown, "Move down") { vm.moveListOrder(list, +1); menu = false }
                 MenuItem(Icons.Filled.DriveFileMove, "Move to folder…") { onMoveList(list); menu = false }
+                MenuItem(Icons.Filled.Folder, "Convert to folder") { vm.convertListToFolder(list); menu = false }
                 MenuItem(Icons.Filled.Edit, "Rename / colour / delete") { onManageList(list); menu = false }
             }
         }
