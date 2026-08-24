@@ -1,6 +1,8 @@
 package com.todocompanion.app.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
@@ -8,18 +10,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.outlined.Flag
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -39,7 +43,6 @@ fun priorityColor(level: PriorityLevel): Color = when (level) {
     PriorityLevel.NONE -> Color(0xFF9AA3B2)
 }
 
-/** Flag colours cycled by tapping a row's flag (MLO-style). */
 val FLAG_COLORS = listOf(0xFFE5484D, 0xFFF59E0B, 0xFF12A594, 0xFF3E7BFA, 0xFF8B5CF6)
 
 fun nextFlagColor(current: Long?): Long? {
@@ -49,30 +52,34 @@ fun nextFlagColor(current: Long?): Long? {
 }
 
 fun rowVerticalPadding(d: Density): Dp = when (d) {
-    Density.COMPACT -> 5.dp
-    Density.DEFAULT -> 9.dp
-    Density.RELAXED -> 13.dp
+    Density.COMPACT -> 6.dp
+    Density.DEFAULT -> 10.dp
+    Density.RELAXED -> 14.dp
 }
 
-/** A checkbox whose outline/fill is tinted by task priority — replaces a separate colour dot. */
+/** A circular, priority-tinted checkbox that fills with an animated check — TickTick-style. */
 @Composable
 fun PriorityCheckbox(checked: Boolean, level: PriorityLevel, onCheckedChange: () -> Unit) {
-    val c = if (level == PriorityLevel.NONE) MaterialTheme.colorScheme.outline else priorityColor(level)
-    Checkbox(
-        checked = checked,
-        onCheckedChange = { onCheckedChange() },
-        colors = CheckboxDefaults.colors(checkedColor = c, uncheckedColor = c, checkmarkColor = Color.White),
-    )
+    val ring = if (level == PriorityLevel.NONE) MaterialTheme.colorScheme.outline else priorityColor(level)
+    val prog by animateFloatAsState(if (checked) 1f else 0f, label = "check")
+    Box(Modifier.size(40.dp).clip(CircleShape).clickable { onCheckedChange() }, contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.size(22.dp).clip(CircleShape).background(ring.copy(alpha = prog)).border(2.dp, ring, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(15.dp).scale(prog))
+        }
+    }
 }
 
 /** Trailing flag + star, MLO-style. Flag cycles colours; star toggles. */
 @Composable
 fun FlagStar(flagArgb: Long?, starred: Boolean, onCycleFlag: () -> Unit, onToggleStar: () -> Unit) {
-    Box(Modifier.size(30.dp).clip(CircleShape).clickable { onCycleFlag() }, contentAlignment = androidx.compose.ui.Alignment.Center) {
+    Box(Modifier.size(32.dp).clip(CircleShape).clickable { onCycleFlag() }, contentAlignment = Alignment.Center) {
         if (flagArgb != null) Icon(Icons.Filled.Flag, "Flag", tint = Color(flagArgb), modifier = Modifier.size(17.dp))
         else Icon(Icons.Outlined.Flag, "Flag", tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(17.dp))
     }
-    Box(Modifier.size(30.dp).clip(CircleShape).clickable { onToggleStar() }, contentAlignment = androidx.compose.ui.Alignment.Center) {
+    Box(Modifier.size(32.dp).clip(CircleShape).clickable { onToggleStar() }, contentAlignment = Alignment.Center) {
         if (starred) Icon(Icons.Filled.Star, "Star", tint = Color(0xFFF5A623), modifier = Modifier.size(18.dp))
         else Icon(Icons.Filled.StarBorder, "Star", tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(18.dp))
     }
@@ -96,14 +103,16 @@ fun formatDue(millis: Long): String {
 
 fun isOverdue(millis: Long): Boolean = millis < System.currentTimeMillis()
 
+/** Compact, borderless date label (TickTick-style): coloured text, no chip background. */
 @Composable
 fun DueChip(millis: Long) {
     val overdue = isOverdue(millis)
-    val bg = if (overdue) Color(0xFFE5484D).copy(alpha = 0.15f) else MaterialTheme.colorScheme.secondaryContainer
-    val fg = if (overdue) Color(0xFFE5484D) else MaterialTheme.colorScheme.onSecondaryContainer
-    Box(Modifier.clip(RoundedCornerShape(6.dp)).background(bg).padding(horizontal = 6.dp, vertical = 2.dp)) {
-        Text(formatDue(millis), style = MaterialTheme.typography.labelSmall, color = fg, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
+    Text(
+        formatDue(millis),
+        style = MaterialTheme.typography.labelMedium,
+        color = if (overdue) Color(0xFFE5484D) else MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1, overflow = TextOverflow.Ellipsis,
+    )
 }
 
 @Composable
