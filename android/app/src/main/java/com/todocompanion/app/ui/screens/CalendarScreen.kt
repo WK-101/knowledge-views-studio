@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.runtime.rememberCoroutineScope
@@ -101,14 +102,15 @@ fun CalendarScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, mode: String,
     Column(modifier.fillMaxSize()) {
         val onToggle: (TaskEntity) -> Unit = { vm.toggleComplete(it) }
         val onTrash: (TaskEntity) -> Unit = { vm.trash(it) }
+        val onResize: (String, Int) -> Unit = { id, dur -> vm.setDuration(id, dur) }
         when (mode) {
             "month" -> MonthView(anchor, selected, dueByDate, firstDow, onSelect = { selected = it }, onPrev = { anchor = anchor.minusMonths(1) }, onNext = { anchor = anchor.plusMonths(1) }, onToday = { anchor = LocalDate.now(); selected = LocalDate.now() }, onOpenTask = onOpenTask, onToggle = onToggle, onTrash = onTrash, onAdd = { onAddOnDate(selected) })
             "week" -> {
                 val start = startOfWeek(anchor, firstDow)
-                TimelineView((0..6).map { start.plusDays(it.toLong()) }, dueByDate, zone, rangeTitle(start, start.plusDays(6)), onPrev = { anchor = anchor.minusWeeks(1) }, onNext = { anchor = anchor.plusWeeks(1) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt)
+                TimelineView((0..6).map { start.plusDays(it.toLong()) }, dueByDate, zone, rangeTitle(start, start.plusDays(6)), onPrev = { anchor = anchor.minusWeeks(1) }, onNext = { anchor = anchor.plusWeeks(1) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize)
             }
-            "3day" -> TimelineView((0..2).map { anchor.plusDays(it.toLong()) }, dueByDate, zone, rangeTitle(anchor, anchor.plusDays(2)), onPrev = { anchor = anchor.minusDays(3) }, onNext = { anchor = anchor.plusDays(3) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt)
-            "day" -> TimelineView(listOf(anchor), dueByDate, zone, "${anchor.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${anchor.dayOfMonth} ${anchor.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())}", onPrev = { anchor = anchor.minusDays(1) }, onNext = { anchor = anchor.plusDays(1) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt)
+            "3day" -> TimelineView((0..2).map { anchor.plusDays(it.toLong()) }, dueByDate, zone, rangeTitle(anchor, anchor.plusDays(2)), onPrev = { anchor = anchor.minusDays(3) }, onNext = { anchor = anchor.plusDays(3) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize)
+            "day" -> TimelineView(listOf(anchor), dueByDate, zone, "${anchor.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${anchor.dayOfMonth} ${anchor.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())}", onPrev = { anchor = anchor.minusDays(1) }, onNext = { anchor = anchor.plusDays(1) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize)
             "year" -> YearView(anchor, dueByDate, onPrev = { anchor = anchor.minusYears(1) }, onNext = { anchor = anchor.plusYears(1) }, onMonth = { m -> anchor = m.atDay(1); onModeChange("month") })
             else -> AgendaView(dueByDate, onOpenTask, onToggle, onTrash)
         }
@@ -257,7 +259,7 @@ private fun layoutEvents(tasks: List<TaskEntity>, zone: ZoneId): List<Placed> {
 private fun TimelineView(
     days: List<LocalDate>, dueByDate: Map<LocalDate, List<TaskEntity>>, zone: ZoneId, title: String,
     onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onOpenTask: (String) -> Unit, onAddOnDate: (LocalDate) -> Unit,
-    onAddAt: (LocalDate, Int) -> Unit,
+    onAddAt: (LocalDate, Int) -> Unit, onResize: (String, Int) -> Unit,
 ) {
     NavHeader(title, onPrev, onNext, onToday)
 
@@ -308,15 +310,16 @@ private fun TimelineView(
             }
             days.forEach { d ->
                 val timed = dueByDate[d].orEmpty().filter { !it.isAllDay && hasTime(it.dueDate!!, zone) }
-                DayColumn(d, timed, zone, onOpenTask, onAddAt, Modifier.weight(1f))
+                DayColumn(d, timed, zone, onOpenTask, onAddAt, onResize, Modifier.weight(1f))
             }
         }
     }
 }
 
 @Composable
-private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onOpenTask: (String) -> Unit, onAddAt: (LocalDate, Int) -> Unit, modifier: Modifier) {
+private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onOpenTask: (String) -> Unit, onAddAt: (LocalDate, Int) -> Unit, onResize: (String, Int) -> Unit, modifier: Modifier) {
     val placed = remember(timed, zone) { layoutEvents(timed, zone) }
+    val dens = LocalDensity.current
     val isToday = day == LocalDate.now()
     val nowMin = if (isToday) java.time.LocalTime.now().let { it.hour * 60 + it.minute } else -1
     androidx.compose.foundation.layout.BoxWithConstraints(
@@ -341,7 +344,9 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onO
             val c = if (level == PriorityLevel.NONE) MaterialTheme.colorScheme.primary else priorityColor(level)
             val laneW = (colW - 2.dp) / p.lanes
             val top = (HOUR_DP * p.startMin / 60f).dp
-            val h = ((HOUR_DP * (p.endMin - p.startMin) / 60f).dp).coerceAtLeast(24.dp)
+            // Live duration while dragging the resize handle; resets when the saved span changes.
+            var liveDur by remember(p.task.id, p.endMin - p.startMin) { mutableStateOf(p.endMin - p.startMin) }
+            val h = ((HOUR_DP * liveDur / 60f).dp).coerceAtLeast(24.dp)
             Row(
                 Modifier.offset(x = laneW * p.lane + 1.dp, y = top).width(laneW - 1.dp).height(h - 2.dp)
                     .clip(RoundedCornerShape(6.dp)).background(c.copy(alpha = 0.16f)).clickable { onOpenTask(p.task.id) },
@@ -349,9 +354,21 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onO
                 Box(Modifier.width(3.dp).fillMaxHeight().background(c))
                 Column(Modifier.padding(horizontal = 5.dp, vertical = 3.dp)) {
                     Text(p.task.title, style = MaterialTheme.typography.labelSmall, maxLines = if (h > 46.dp) 2 else 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
-                    if (h >= 50.dp) Text("${minLabel(p.startMin)} – ${minLabel(p.endMin)}", style = MaterialTheme.typography.labelSmall, color = c)
+                    if (h >= 50.dp) Text("${minLabel(p.startMin)} – ${minLabel(p.startMin + liveDur)}", style = MaterialTheme.typography.labelSmall, color = c)
                 }
             }
+            // Bottom drag handle: resize the block to change the task's duration (snapped to 15 min).
+            val hourPx = with(dens) { HOUR_DP.dp.toPx() }
+            Box(
+                Modifier.offset(x = laneW * p.lane + 1.dp, y = top + h - 9.dp).width(laneW - 1.dp).height(12.dp)
+                    .pointerInput(p.task.id) {
+                        detectVerticalDragGestures(
+                            onVerticalDrag = { _, dy -> liveDur = (liveDur + (dy / hourPx * 60f)).toInt().coerceIn(15, 24 * 60) },
+                            onDragEnd = { onResize(p.task.id, (liveDur / 15) * 15) },
+                        )
+                    },
+                contentAlignment = Alignment.Center,
+            ) { Box(Modifier.width(22.dp).height(3.dp).clip(RoundedCornerShape(2.dp)).background(c.copy(alpha = .6f))) }
         }
         // Current-time line
         if (nowMin >= 0) {
