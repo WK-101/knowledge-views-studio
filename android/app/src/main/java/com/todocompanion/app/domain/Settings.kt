@@ -45,6 +45,7 @@ data class AppSettings(
     val matrixNames: List<String> = listOf("Urgent & Important", "Not Urgent & Important", "Urgent & Unimportant", "Not Urgent & Unimportant"),
     // Calendar
     val calendarDefaultMode: String = "month",
+    val calendarListFilter: Set<String> = emptySet(),   // empty = all lists
     // Reminders
     val dailySummaryEnabled: Boolean = false,
     val dailySummaryHour: Int = 8,
@@ -73,6 +74,7 @@ data class AppSettings(
         Keys.MX_HIDE_EMPTY to matrixHideEmpty.toString(),
         Keys.MX_NAMES to matrixNames.joinToString("|"),
         Keys.CAL_MODE to calendarDefaultMode,
+        Keys.CAL_FILTER to calendarListFilter.joinToString(","),
         Keys.SUMMARY_ON to dailySummaryEnabled.toString(),
         Keys.SUMMARY_H to dailySummaryHour.toString(),
         Keys.SUMMARY_M to dailySummaryMinute.toString(),
@@ -101,6 +103,7 @@ data class AppSettings(
         const val MX_HIDE_EMPTY = "mx_hide_empty"
         const val MX_NAMES = "mx_names"
         const val CAL_MODE = "cal_mode"
+        const val CAL_FILTER = "cal_filter"
         const val SUMMARY_ON = "summary_on"
         const val SUMMARY_H = "summary_h"
         const val SUMMARY_M = "summary_m"
@@ -139,6 +142,7 @@ data class AppSettings(
             matrixHideEmpty = m[Keys.MX_HIDE_EMPTY]?.toBooleanStrictOrNull() ?: false,
             matrixNames = m[Keys.MX_NAMES]?.split("|")?.takeIf { it.size == 4 } ?: listOf("Urgent & Important", "Not Urgent & Important", "Urgent & Unimportant", "Not Urgent & Unimportant"),
             calendarDefaultMode = m[Keys.CAL_MODE] ?: "month",
+            calendarListFilter = (m[Keys.CAL_FILTER] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             dailySummaryEnabled = m[Keys.SUMMARY_ON]?.toBooleanStrictOrNull() ?: false,
             dailySummaryHour = m[Keys.SUMMARY_H]?.toIntOrNull() ?: 8,
             dailySummaryMinute = m[Keys.SUMMARY_M]?.toIntOrNull() ?: 0,

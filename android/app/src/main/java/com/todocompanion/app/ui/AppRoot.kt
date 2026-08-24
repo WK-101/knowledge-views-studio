@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CalendarViewMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
@@ -49,6 +50,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationBar
@@ -76,6 +78,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.todocompanion.app.data.entity.FolderEntity
@@ -160,6 +163,7 @@ fun AppRoot() {
         var calMenu by remember { mutableStateOf(false) }
         var matrixSettings by remember { mutableStateOf(false) }
         var searchQuery by remember { mutableStateOf("") }
+        var calFilter by remember { mutableStateOf(false) }
 
         val currentView by vm.currentView.collectAsState()
         val lists by vm.lists.collectAsState()
@@ -270,6 +274,9 @@ fun AppRoot() {
                                     }
                                 }
                                 Tab.CALENDAR -> {
+                                    IconButton(onClick = { calFilter = true }) {
+                                        Icon(Icons.Filled.FilterList, "Filter lists", tint = if (settings.calendarListFilter.isEmpty()) LocalContentColor.current else MaterialTheme.colorScheme.primary)
+                                    }
                                     IconButton(onClick = { calMenu = true }) { Icon(Icons.Filled.CalendarViewMonth, "Calendar view") }
                                     DropdownMenu(expanded = calMenu, onDismissRequest = { calMenu = false }) {
                                         CAL_MODES.forEach { (k, label) ->
@@ -378,6 +385,11 @@ fun AppRoot() {
                 vm.moveContextToParent(c.id, target); moveCtx = null
             }
         }
+        if (calFilter) {
+            CalendarFilterDialog(lists.filter { !it.archived }, settings.calendarListFilter, onDismiss = { calFilter = false }) { sel ->
+                vm.saveSettings(settings.copy(calendarListFilter = sel))
+            }
+        }
         if (newWs) {
             TextEntryDialog(title = "New workspace", placeholder = "Workspace name", onDismiss = { newWs = false }) { name ->
                 vm.createWorkspace(name); newWs = false
@@ -389,6 +401,33 @@ fun AppRoot() {
                 onDelete = { vm.deleteWorkspace(w.id); manageWs = null })
         }
     }
+}
+
+@Composable
+private fun CalendarFilterDialog(lists: List<ListEntity>, selected: Set<String>, onDismiss: () -> Unit, onApply: (Set<String>) -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+        dismissButton = { TextButton(onClick = { onApply(emptySet()) }) { Text("Show all") } },
+        title = { Text("Filter calendar") },
+        text = {
+            LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                item {
+                    Text("All lists", Modifier.fillMaxWidth().clickable { onApply(emptySet()) }.padding(vertical = 12.dp),
+                        color = if (selected.isEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        fontWeight = if (selected.isEmpty()) FontWeight.SemiBold else FontWeight.Normal)
+                }
+                items(lists, key = { it.id }) { l ->
+                    val on = l.id in selected
+                    Row(Modifier.fillMaxWidth().clickable { onApply(if (on) selected - l.id else selected + l.id) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.Checkbox(checked = on, onCheckedChange = { onApply(if (on) selected - l.id else selected + l.id) })
+                        Spacer(Modifier.width(6.dp))
+                        Text(l.name)
+                    }
+                }
+            }
+        },
+    )
 }
 
 @Composable

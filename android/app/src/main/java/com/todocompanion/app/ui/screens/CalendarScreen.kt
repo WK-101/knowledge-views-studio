@@ -86,8 +86,9 @@ fun CalendarScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, mode: String,
     var selected by remember { mutableStateOf(LocalDate.now()) }
 
     val firstDow = if (s.weekStart in 1..7) DayOfWeek.of(s.weekStart) else WeekFields.of(Locale.getDefault()).firstDayOfWeek
-    val dueByDate = remember(tasks) {
-        tasks.filter { !it.trashed && !it.completed && !it.abandoned && it.dueDate != null }
+    val listFilter = s.calendarListFilter
+    val dueByDate = remember(tasks, listFilter) {
+        tasks.filter { !it.trashed && !it.completed && !it.abandoned && it.dueDate != null && (listFilter.isEmpty() || it.listId in listFilter) }
             .groupBy { Instant.ofEpochMilli(it.dueDate!!).atZone(zone).toLocalDate() }
     }
 
