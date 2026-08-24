@@ -37,6 +37,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -104,6 +106,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
     var listMenu by remember { mutableStateOf(false) }
     var showMore by remember { mutableStateOf(false) }
     var showBlockPicker by remember { mutableStateOf(false) }
+    var notePreview by remember(taskId) { mutableStateOf(true) }
 
     fun update(block: (TaskEntity) -> TaskEntity) {
         val d = draft ?: return; val nd = block(d); draft = nd; vm.save(nd)
@@ -153,12 +156,29 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                     modifier = Modifier.weight(1f).padding(top = 8.dp),
                 )
             }
-            BorderlessField(
-                task.note, { v -> update { it.copy(note = v) } }, "Notes",
-                textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
-                singleLine = false,
-                modifier = Modifier.fillMaxWidth().padding(start = 42.dp),
-            )
+            Row(Modifier.fillMaxWidth().padding(start = 42.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Notes", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                if (task.note.isNotBlank()) {
+                    IconButton(onClick = { notePreview = !notePreview }, modifier = Modifier.size(32.dp)) {
+                        if (notePreview) Icon(Icons.Outlined.Edit, "Edit notes", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        else Icon(Icons.Outlined.Visibility, "Preview notes", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+            if (task.note.isNotBlank() && notePreview) {
+                com.todocompanion.app.ui.components.MarkdownText(
+                    task.note,
+                    modifier = Modifier.fillMaxWidth().padding(start = 42.dp, end = 4.dp, bottom = 4.dp)
+                        .clickable { notePreview = false },
+                )
+            } else {
+                BorderlessField(
+                    task.note, { v -> update { it.copy(note = v) } }, "Notes — Markdown supported",
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                    singleLine = false,
+                    modifier = Modifier.fillMaxWidth().padding(start = 42.dp),
+                )
+            }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
 
             AppCard {
