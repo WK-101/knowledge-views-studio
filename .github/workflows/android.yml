@@ -1,0 +1,75 @@
+name: Android APK
+
+# Builds an installable release APK and uploads it as a downloadable artifact.
+# You never sign anything: if the signing secrets below are set, the APK is signed
+# with your stable release key (so updates install over the top). If they are not
+# set, the APK is signed with the debug key instead — still installable, but each
+# build has a different signature, so you would need to uninstall before updating.
+#
+# Optional repo secrets for stable release signing:
+#   KEYSTORE_BASE64     base64 of your app-signing.jks
+#   KEYSTORE_PASSWORD   keystore password
+#   KEY_ALIAS           key alias (e.g. tasktree)
+#   KEY_PASSWORD        key password
+
+on:
+  push:
+    branches:
+      - "claude/android-task-management-app-7wrdny"
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build release APK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Configure signing (if secrets are present)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/app-signing.jks"
+            {
+              echo "KEYSTORE_FILE=$RUNNER_TEMP/app-signing.jks"
+              echo "KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+              echo "KEY_ALIAS=$KEY_ALIAS"
+              echo "KEY_PASSWORD=$KEY_PASSWORD"
+            } >> "$GITHUB_ENV"
+            echo "Release signing key configured."
+          else
+            echo "No KEYSTORE_BASE64 secret set — signing release with the debug key."
+            echo "The APK is still installable; add the secrets for stable update-in-place."
+          fi
+
+      - name: Build release APK
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TaskTree-release-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error

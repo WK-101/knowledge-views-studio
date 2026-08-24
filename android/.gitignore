@@ -1,0 +1,18 @@
+# Android / Gradle build outputs
+.gradle/
+build/
+app/build/
+captures/
+.cxx/
+
+# Local machine config
+local.properties
+
+# Signing material — never commit these
+*.jks
+*.keystore
+keystore.properties
+
+# IDE
+.idea/
+*.iml
