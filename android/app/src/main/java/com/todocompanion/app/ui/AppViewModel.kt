@@ -93,6 +93,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val groupMode = MutableStateFlow(GroupMode.DATE)
     val sortMode = MutableStateFlow(SortMode.MANUAL)
     val outlineMode = MutableStateFlow(false)
+    val boardMode = MutableStateFlow(false)
 
     private val zone: ZoneId get() = ZoneId.systemDefault()
 
@@ -389,6 +390,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- row actions (flag / star / priority / swipes) ----------
     fun toggleStar(t: TaskEntity) = viewModelScope.launch { repo.saveTask(t.copy(star = !t.star)) }
+    fun setPriority(t: TaskEntity, level: PriorityLevel) = viewModelScope.launch { repo.saveTask(t.copy(importance = level.importance, urgency = level.urgency)) }
     fun cycleFlag(t: TaskEntity) = viewModelScope.launch { repo.saveTask(t.copy(flagColorArgb = com.todocompanion.app.ui.components.nextFlagColor(t.flagColorArgb))) }
     fun setFlag(t: TaskEntity, argb: Long?) = viewModelScope.launch { repo.saveTask(t.copy(flagColorArgb = argb)) }
     fun cyclePriority(t: TaskEntity) = viewModelScope.launch {

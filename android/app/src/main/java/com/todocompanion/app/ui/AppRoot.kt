@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.ViewColumn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
@@ -180,6 +181,7 @@ fun AppRoot() {
         val contexts by vm.contexts.collectAsState()
         val filtersList by vm.filters.collectAsState()
         val outlineMode by vm.outlineMode.collectAsState()
+        val boardMode by vm.boardMode.collectAsState()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val perm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
@@ -267,7 +269,10 @@ fun AppRoot() {
                         },
                         navigationIcon = { IconButton(onClick = { scope.launch { drawerState.open() } }) { Icon(Icons.Filled.Menu, "Menu") } },
                         actions = {
-                            if (canOutline) IconButton(onClick = { vm.outlineMode.value = !outlineMode }) {
+                            if (tab == Tab.TASKS) IconButton(onClick = { vm.boardMode.value = !boardMode }) {
+                                Icon(Icons.Filled.ViewColumn, if (boardMode) "List view" else "Board view", tint = if (boardMode) MaterialTheme.colorScheme.primary else LocalContentColor.current)
+                            }
+                            if (canOutline && !boardMode) IconButton(onClick = { vm.outlineMode.value = !outlineMode }) {
                                 Icon(if (outlineMode) Icons.AutoMirrored.Filled.FormatListBulleted else Icons.Filled.AccountTree, if (outlineMode) "List view" else "Outline view")
                             }
                             when (tab) {
@@ -320,7 +325,7 @@ fun AppRoot() {
                 Box(Modifier.padding(padding).fillMaxSize()) {
                     Crossfade(targetState = tab, animationSpec = tween(180), label = "tab") { t ->
                         when (t) {
-                            Tab.TASKS -> TasksScreen(vm, ::openTask)
+                            Tab.TASKS -> if (boardMode) com.todocompanion.app.ui.screens.KanbanScreen(vm, ::openTask) else TasksScreen(vm, ::openTask)
                             Tab.SEARCH -> SearchScreen(vm, ::openTask, searchQuery)
                             Tab.SETTINGS -> SettingsScreen(vm)
                             Tab.CALENDAR -> CalendarScreen(vm, ::openTask, calMode, { calMode = it }, onAddOnDate = { d ->
