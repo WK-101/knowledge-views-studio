@@ -152,6 +152,8 @@ fun AppRoot() {
         var newCtx by remember { mutableStateOf<NewTagReq?>(null) }
         var manageCtx by remember { mutableStateOf<com.todocompanion.app.data.entity.ContextEntity?>(null) }
         var moveCtx by remember { mutableStateOf<com.todocompanion.app.data.entity.ContextEntity?>(null) }
+        var newWs by remember { mutableStateOf(false) }
+        var manageWs by remember { mutableStateOf<com.todocompanion.app.data.entity.WorkspaceEntity?>(null) }
         var menu by remember { mutableStateOf(false) }
         // Hoisted per-tab controls, surfaced in the shared top bar to free screen space.
         var calMode by remember { mutableStateOf(settings.calendarDefaultMode) }
@@ -221,6 +223,8 @@ fun AppRoot() {
                     onNewContext = { parent -> newCtx = NewTagReq(parent) },
                     onManageContext = { manageCtx = it },
                     onMoveContext = { moveCtx = it },
+                    onNewWorkspace = { newWs = true },
+                    onManageWorkspace = { manageWs = it },
                     onOpenSettings = { tab = Tab.SETTINGS; scope.launch { drawerState.close() } },
                 )
             },
@@ -374,7 +378,38 @@ fun AppRoot() {
                 vm.moveContextToParent(c.id, target); moveCtx = null
             }
         }
+        if (newWs) {
+            TextEntryDialog(title = "New workspace", placeholder = "Workspace name", onDismiss = { newWs = false }) { name ->
+                vm.createWorkspace(name); newWs = false
+            }
+        }
+        manageWs?.let { w ->
+            ManageWorkspaceDialog(w, onDismiss = { manageWs = null },
+                onRename = { vm.renameWorkspace(w, it); manageWs = null },
+                onDelete = { vm.deleteWorkspace(w.id); manageWs = null })
+        }
     }
+}
+
+@Composable
+private fun ManageWorkspaceDialog(w: com.todocompanion.app.data.entity.WorkspaceEntity, onDismiss: () -> Unit, onRename: (String) -> Unit, onDelete: () -> Unit) {
+    var name by remember { mutableStateOf(w.name) }
+    val isDefault = w.id == com.todocompanion.app.data.entity.WorkspaceEntity.DEFAULT_ID
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onRename(name.trim()) }) { Text("Save") } },
+        dismissButton = {
+            if (!isDefault) TextButton(onClick = onDelete) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+            else TextButton(onClick = onDismiss) { Text("Close") }
+        },
+        title = { Text("Workspace") },
+        text = {
+            Column {
+                OutlinedTextField(name, { name = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                if (!isDefault) Text("Deleting moves its lists & folders back to the default workspace.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+            }
+        },
+    )
 }
 
 private fun ctxDescendantsOf(id: String, all: List<com.todocompanion.app.data.entity.ContextEntity>): Set<String> {

@@ -64,9 +64,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val settings: StateFlow<AppSettings> =
         repo.allSettings.map { AppSettings.fromMap(it.associate { s -> s.key to s.value }) }.state(AppSettings())
 
-    val tasks: StateFlow<List<TaskEntity>> = repo.allTasks.state(emptyList())
-    val folders = repo.allFolders.state(emptyList())
-    val lists = repo.allLists.state(emptyList())
+    // ---------- workspaces ----------
+    val workspaces = repo.allWorkspaces.state(emptyList())
+    private val activeWs: Flow<String> = settings.map { it.activeWorkspaceId }
+    /** The single isolation choke point: list ids belonging to the active workspace (+ the shared Inbox). */
+    private val activeListIds: Flow<Set<String>> =
+        combine(repo.allLists, activeWs) { all, ws -> all.filter { it.workspaceId == ws }.map { it.id }.toSet() + ListEntity.INBOX_ID }
+    private val wsTasks: Flow<List<TaskEntity>> =
+        combine(repo.allTasks, activeListIds) { all, ids -> all.filter { it.listId in ids } }
+
+    val tasks: StateFlow<List<TaskEntity>> = wsTasks.state(emptyList())
+    val folders = combine(repo.allFolders, activeWs) { f, ws -> f.filter { it.workspaceId == ws } }.state(emptyList())
+    val lists = combine(repo.allLists, activeWs) { l, ws -> l.filter { it.workspaceId == ws || it.id == ListEntity.INBOX_ID } }.state(emptyList())
     val tags: StateFlow<List<TagEntity>> = repo.allTags.state(emptyList())
     val contexts: StateFlow<List<ContextEntity>> = repo.allContexts.state(emptyList())
     val taskTags = repo.taskTagRefs.state(emptyList())
@@ -83,7 +92,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Live task count per smart list, for the drawer. */
     val smartCounts: StateFlow<Map<SmartKind, Int>> =
-        combine(repo.allTasks, currentView) { t, _ ->
+        combine(wsTasks, currentView) { t, _ ->
             SmartKind.entries.associateWith { TaskViews.filterSmart(t, it, System.currentTimeMillis(), zone).size }
         }.state(emptyMap())
 
@@ -91,7 +100,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     val groups: StateFlow<List<TaskGroup>> =
         combine(
-            repo.allTasks,
+            wsTasks,
             combine(currentView, groupMode, sortMode) { v, g, s -> Cfg(v, g, s) },
             repo.taskTagRefs,
             repo.taskContextRefs,
@@ -118,7 +127,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }.state(emptyList())
 
     val outlineRows: StateFlow<List<OutlineRow>> =
-        combine(repo.allTasks, currentView) { all, v ->
+        combine(wsTasks, currentView) { all, v ->
             val listId = (v as? ViewRef.ListView)?.listId ?: return@combine emptyList()
             buildOutline(all.filter { it.listId == listId && !it.trashed })
         }.state(emptyList())
@@ -255,12 +264,28 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteChecklistItem(id: String) = viewModelScope.launch { repo.deleteChecklistItem(id) }
 
     // ---------- folders / lists ----------
-    fun createFolder(name: String, parentId: String? = null) = viewModelScope.launch { repo.createFolder(name, parentId) }
+    fun createFolder(name: String, parentId: String? = null) = viewModelScope.launch { repo.createFolder(name, parentId, settings.value.activeWorkspaceId) }
     fun renameFolder(f: FolderEntity, name: String) = viewModelScope.launch { repo.saveFolder(f.copy(name = name)) }
     fun setFolderIcon(f: FolderEntity, icon: String?) = viewModelScope.launch { repo.saveFolder(f.copy(icon = icon)) }
     fun toggleFolder(f: FolderEntity) = viewModelScope.launch { repo.saveFolder(f.copy(collapsed = !f.collapsed)) }
     fun deleteFolder(id: String) = viewModelScope.launch { repo.deleteFolder(id) }
-    fun createList(name: String, folderId: String?, colorArgb: Long?) = viewModelScope.launch { repo.createList(name, folderId, colorArgb) }
+    fun createList(name: String, folderId: String?, colorArgb: Long?) = viewModelScope.launch { repo.createList(name, folderId, colorArgb, workspaceId = settings.value.activeWorkspaceId) }
+
+    // ---------- workspaces ----------
+    fun createWorkspace(name: String) = viewModelScope.launch {
+        val id = repo.createWorkspace(name.trim())
+        repo.saveSettings(settings.value.copy(activeWorkspaceId = id))
+        currentView.value = ViewRef.Smart(SmartKind.TODAY)
+    }
+    fun switchWorkspace(id: String) = viewModelScope.launch {
+        repo.saveSettings(settings.value.copy(activeWorkspaceId = id))
+        currentView.value = ViewRef.Smart(SmartKind.TODAY)
+    }
+    fun renameWorkspace(w: com.todocompanion.app.data.entity.WorkspaceEntity, name: String) = viewModelScope.launch { repo.upsertWorkspace(w.copy(name = name.trim())) }
+    fun deleteWorkspace(id: String) = viewModelScope.launch {
+        repo.deleteWorkspace(id)
+        if (settings.value.activeWorkspaceId == id) repo.saveSettings(settings.value.copy(activeWorkspaceId = com.todocompanion.app.data.entity.WorkspaceEntity.DEFAULT_ID))
+    }
     fun saveList(l: ListEntity) = viewModelScope.launch { repo.saveList(l) }
     fun deleteList(id: String) = viewModelScope.launch { repo.deleteList(id) }
 

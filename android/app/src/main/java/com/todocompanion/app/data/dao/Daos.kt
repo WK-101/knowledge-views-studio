@@ -17,6 +17,7 @@ import com.todocompanion.app.data.entity.TagEntity
 import com.todocompanion.app.data.entity.TaskContextCrossRef
 import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.data.entity.TaskTagCrossRef
+import com.todocompanion.app.data.entity.WorkspaceEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -52,6 +53,27 @@ interface TaskDao {
     suspend fun deleteById(id: String)
 
     @Query("DELETE FROM tasks")
+    suspend fun clear()
+}
+
+@Dao
+interface WorkspaceDao {
+    @Query("SELECT * FROM workspaces ORDER BY sortOrder")
+    fun observeAll(): Flow<List<WorkspaceEntity>>
+
+    @Query("SELECT * FROM workspaces")
+    suspend fun getAll(): List<WorkspaceEntity>
+
+    @Upsert
+    suspend fun upsert(w: WorkspaceEntity)
+
+    @Upsert
+    suspend fun upsertAll(w: List<WorkspaceEntity>)
+
+    @Query("DELETE FROM workspaces WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM workspaces")
     suspend fun clear()
 }
 

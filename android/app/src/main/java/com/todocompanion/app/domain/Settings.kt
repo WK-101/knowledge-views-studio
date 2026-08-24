@@ -35,6 +35,8 @@ data class AppSettings(
     val smartListVis: Map<SmartKind, SmartVis> = emptyMap(),
     // Bottom navigation: tab names hidden from the bar (TASKS is always shown)
     val bottomTabsHidden: Set<String> = emptySet(),
+    // Active workspace (MLO-style separate space)
+    val activeWorkspaceId: String = "default",
     // Matrix
     val matrixImportanceThreshold: Int = 4,
     val matrixUrgencyThreshold: Int = 4,
@@ -64,6 +66,7 @@ data class AppSettings(
         Keys.SWIPE_LF to swipeLeftFar.name,
         Keys.SMART_VIS to smartListVis.entries.joinToString(",") { "${it.key.name}:${it.value.name}" },
         Keys.BOTTOM_HIDDEN to bottomTabsHidden.joinToString(","),
+        Keys.ACTIVE_WS to activeWorkspaceId,
         Keys.MX_IMP to matrixImportanceThreshold.toString(),
         Keys.MX_URG to matrixUrgencyThreshold.toString(),
         Keys.MX_DONE to matrixShowCompleted.toString(),
@@ -91,6 +94,7 @@ data class AppSettings(
         const val SWIPE_LF = "swipe_lf"
         const val SMART_VIS = "smart_vis"
         const val BOTTOM_HIDDEN = "bottom_hidden"
+        const val ACTIVE_WS = "active_ws"
         const val MX_IMP = "mx_imp"
         const val MX_URG = "mx_urg"
         const val MX_DONE = "mx_done"
@@ -128,6 +132,7 @@ data class AppSettings(
                 if (k != null && v != null) k to v else null
             }.toMap(),
             bottomTabsHidden = (m[Keys.BOTTOM_HIDDEN] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
+            activeWorkspaceId = m[Keys.ACTIVE_WS]?.ifBlank { "default" } ?: "default",
             matrixImportanceThreshold = m[Keys.MX_IMP]?.toIntOrNull() ?: 4,
             matrixUrgencyThreshold = m[Keys.MX_URG]?.toIntOrNull() ?: 4,
             matrixShowCompleted = m[Keys.MX_DONE]?.toBooleanStrictOrNull() ?: false,

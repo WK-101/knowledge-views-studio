@@ -9,6 +9,7 @@ import com.todocompanion.app.data.dao.ContextDao
 import com.todocompanion.app.data.dao.DependencyDao
 import com.todocompanion.app.data.dao.FolderDao
 import com.todocompanion.app.data.dao.ListDao
+import com.todocompanion.app.data.dao.WorkspaceDao
 import com.todocompanion.app.data.dao.ReminderDao
 import com.todocompanion.app.data.dao.SettingDao
 import com.todocompanion.app.data.dao.TagDao
@@ -24,9 +25,11 @@ import com.todocompanion.app.data.entity.TagEntity
 import com.todocompanion.app.data.entity.TaskContextCrossRef
 import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.data.entity.TaskTagCrossRef
+import com.todocompanion.app.data.entity.WorkspaceEntity
 
 @Database(
     entities = [
+        WorkspaceEntity::class,
         FolderEntity::class,
         ListEntity::class,
         TaskEntity::class,
@@ -39,11 +42,12 @@ import com.todocompanion.app.data.entity.TaskTagCrossRef
         DependencyEntity::class,
         SettingEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
+    abstract fun workspaceDao(): WorkspaceDao
     abstract fun folderDao(): FolderDao
     abstract fun listDao(): ListDao
     abstract fun checklistDao(): ChecklistDao

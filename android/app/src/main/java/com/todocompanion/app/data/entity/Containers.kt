@@ -5,6 +5,19 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 
+/** A separate space (MLO-style) — its own folders, lists and tasks. */
+@Serializable
+@Entity(tableName = "workspaces")
+data class WorkspaceEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    val sortOrder: Double = 0.0,
+) {
+    companion object {
+        const val DEFAULT_ID = "default"
+    }
+}
+
 /** A folder groups lists (and other folders) in the sidebar. Nestable via [parentId]. */
 @Serializable
 @Entity(tableName = "folders", indices = [Index("parentId")])
@@ -15,6 +28,7 @@ data class FolderEntity(
     val icon: String? = null,   // optional emoji
     val sortOrder: Double = 0.0,
     val collapsed: Boolean = false,
+    val workspaceId: String = WorkspaceEntity.DEFAULT_ID,
 )
 
 /** A list / project: the primary container that holds a task outline. */
@@ -29,6 +43,7 @@ data class ListEntity(
     val sortOrder: Double = 0.0,
     val viewMode: String = "list", // "list" | "outline"
     val archived: Boolean = false,
+    val workspaceId: String = WorkspaceEntity.DEFAULT_ID,
 ) {
     companion object {
         /** Well-known id of the default Inbox list. */

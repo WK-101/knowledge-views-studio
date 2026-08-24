@@ -11,6 +11,7 @@ import com.todocompanion.app.data.entity.TagEntity
 import com.todocompanion.app.data.entity.TaskContextCrossRef
 import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.data.entity.TaskTagCrossRef
+import com.todocompanion.app.data.entity.WorkspaceEntity
 import com.todocompanion.app.domain.AppSettings
 import com.todocompanion.app.domain.port.Backup
 import com.todocompanion.app.domain.port.BackupFile
@@ -183,10 +184,32 @@ class AppRepository(private val db: AppDatabase) {
         }
     }
 
-    // ============ folders ============
-    suspend fun createFolder(name: String, parentId: String? = null): String {
+    // ============ workspaces ============
+    val allWorkspaces: Flow<List<WorkspaceEntity>> = db.workspaceDao().observeAll()
+    private val workspaces = db.workspaceDao()
+    suspend fun ensureDefaultWorkspace() {
+        if (workspaces.getAll().none { it.id == WorkspaceEntity.DEFAULT_ID }) {
+            workspaces.upsert(WorkspaceEntity(WorkspaceEntity.DEFAULT_ID, "Personal", 0.0))
+        }
+    }
+    suspend fun upsertWorkspace(w: WorkspaceEntity) = workspaces.upsert(w)
+    suspend fun createWorkspace(name: String): String {
         val id = uid()
-        folders.upsert(FolderEntity(id = id, parentId = parentId, name = name, sortOrder = now().toDouble()))
+        workspaces.upsert(WorkspaceEntity(id, name, now().toDouble()))
+        return id
+    }
+    /** Delete a workspace, reassigning its folders/lists (and thus tasks) to the default space. */
+    suspend fun deleteWorkspace(id: String) {
+        if (id == WorkspaceEntity.DEFAULT_ID) return
+        folders.getAll().filter { it.workspaceId == id }.forEach { folders.upsert(it.copy(workspaceId = WorkspaceEntity.DEFAULT_ID)) }
+        lists.getAll().filter { it.workspaceId == id }.forEach { lists.upsert(it.copy(workspaceId = WorkspaceEntity.DEFAULT_ID)) }
+        workspaces.deleteById(id)
+    }
+
+    // ============ folders ============
+    suspend fun createFolder(name: String, parentId: String? = null, workspaceId: String = WorkspaceEntity.DEFAULT_ID): String {
+        val id = uid()
+        folders.upsert(FolderEntity(id = id, parentId = parentId, name = name, sortOrder = now().toDouble(), workspaceId = workspaceId))
         return id
     }
 
@@ -207,10 +230,10 @@ class AppRepository(private val db: AppDatabase) {
         }
     }
 
-    suspend fun createList(name: String, folderId: String? = null, colorArgb: Long? = null, emoji: String? = null): String {
+    suspend fun createList(name: String, folderId: String? = null, colorArgb: Long? = null, emoji: String? = null, workspaceId: String = WorkspaceEntity.DEFAULT_ID): String {
         val id = uid()
         val order = lists.maxSortOrder() + 1.0
-        lists.upsert(ListEntity(id = id, folderId = folderId, name = name, colorArgb = colorArgb, emoji = emoji, sortOrder = order))
+        lists.upsert(ListEntity(id = id, folderId = folderId, name = name, colorArgb = colorArgb, emoji = emoji, sortOrder = order, workspaceId = workspaceId))
         return id
     }
 
@@ -309,6 +332,7 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun exportJson(): String = Backup.encode(
         BackupFile(
             exportedAt = now(),
+            workspaces = workspaces.getAll(),
             folders = folders.getAll(),
             lists = lists.getAll(),
             tasks = tasks.getAll(),
@@ -327,7 +351,7 @@ class AppRepository(private val db: AppDatabase) {
         val b = Backup.decode(text)
         tasks.clear(); folders.clear(); lists.clear(); checklist.clear()
         tags.clear(); tags.clearCrossRefs(); contexts.clear(); contexts.clearCrossRefs()
-        reminders.clear(); deps.clear(); settings.clear()
+        reminders.clear(); deps.clear(); settings.clear(); workspaces.clear()
         folders.upsertAll(b.folders)
         lists.upsertAll(b.lists)
         tasks.upsertAll(b.tasks)
@@ -337,11 +361,14 @@ class AppRepository(private val db: AppDatabase) {
         reminders.upsertAll(b.reminders)
         deps.addAll(b.dependencies)
         settings.putAll(b.settings)
+        workspaces.upsertAll(b.workspaces)
+        ensureDefaultWorkspace()
         ensureInbox()
     }
 
     // ============ first-run seed ============
     suspend fun ensureSeed() {
+        ensureDefaultWorkspace()
         ensureInbox()
         if (tasks.getAll().isNotEmpty()) return
         val work = createFolder("Work")

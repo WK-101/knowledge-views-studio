@@ -11,6 +11,7 @@ import com.todocompanion.app.data.entity.TagEntity
 import com.todocompanion.app.data.entity.TaskContextCrossRef
 import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.data.entity.TaskTagCrossRef
+import com.todocompanion.app.data.entity.WorkspaceEntity
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -20,6 +21,7 @@ data class BackupFile(
     val format: String = FORMAT,
     val version: Int = VERSION,
     val exportedAt: Long,
+    val workspaces: List<WorkspaceEntity> = emptyList(),
     val folders: List<FolderEntity> = emptyList(),
     val lists: List<ListEntity> = emptyList(),
     val tasks: List<TaskEntity> = emptyList(),

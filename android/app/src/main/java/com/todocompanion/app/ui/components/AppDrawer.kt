@@ -98,6 +98,8 @@ fun AppDrawer(
     onNewContext: (String?) -> Unit,
     onManageContext: (com.todocompanion.app.data.entity.ContextEntity) -> Unit,
     onMoveContext: (com.todocompanion.app.data.entity.ContextEntity) -> Unit,
+    onNewWorkspace: () -> Unit,
+    onManageWorkspace: (com.todocompanion.app.data.entity.WorkspaceEntity) -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     val folders by vm.folders.collectAsState()
@@ -108,16 +110,37 @@ fun AppDrawer(
     val current by vm.currentView.collectAsState()
     val settings by vm.settings.collectAsState()
 
+    val workspaces by vm.workspaces.collectAsState()
+    val activeWsId = settings.activeWorkspaceId
+    val activeWs = workspaces.firstOrNull { it.id == activeWsId } ?: workspaces.firstOrNull()
+
     ModalDrawerSheet {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
-            Row(Modifier.padding(20.dp, 22.dp, 16.dp, 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.CheckCircle, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(22.dp))
+            var wsMenu by remember { mutableStateOf(false) }
+            Box {
+                Row(Modifier.fillMaxWidth().clickable { wsMenu = true }.padding(20.dp, 22.dp, 12.dp, 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Filled.CheckCircle, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(22.dp))
+                    }
+                    Spacer(Modifier.width(11.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(activeWs?.name ?: "ToDo Companion", fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("Workspace · offline · free", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Icon(Icons.Filled.KeyboardArrowDown, "Workspaces", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Spacer(Modifier.width(11.dp))
-                Column {
-                    Text("ToDo Companion", fontWeight = FontWeight.SemiBold)
-                    Text("Offline · private · free", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                DropdownMenu(expanded = wsMenu, onDismissRequest = { wsMenu = false }) {
+                    Text("WORKSPACES", Modifier.padding(14.dp, 8.dp, 14.dp, 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    workspaces.forEach { w ->
+                        DropdownMenuItem(
+                            text = { Text(w.name) },
+                            leadingIcon = { if (w.id == activeWsId) Icon(Icons.Filled.CheckCircle, null, modifier = Modifier.size(18.dp)) else Spacer(Modifier.width(18.dp)) },
+                            trailingIcon = { Icon(Icons.Filled.MoreVert, "Manage", modifier = Modifier.size(18.dp).clickable { wsMenu = false; onManageWorkspace(w) }) },
+                            onClick = { vm.switchWorkspace(w.id); wsMenu = false },
+                        )
+                    }
+                    androidx.compose.material3.HorizontalDivider()
+                    DropdownMenuItem(text = { Text("New workspace") }, leadingIcon = { Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp)) }, onClick = { wsMenu = false; onNewWorkspace() })
                 }
             }
 
