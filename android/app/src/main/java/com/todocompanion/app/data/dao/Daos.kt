@@ -18,6 +18,8 @@ import com.todocompanion.app.data.entity.TaskContextCrossRef
 import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.data.entity.TaskTagCrossRef
 import com.todocompanion.app.data.entity.FilterEntity
+import com.todocompanion.app.data.entity.HabitEntity
+import com.todocompanion.app.data.entity.HabitCheckinEntity
 import com.todocompanion.app.data.entity.WorkspaceEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -55,6 +57,27 @@ interface TaskDao {
 
     @Query("DELETE FROM tasks")
     suspend fun clear()
+}
+
+@Dao
+interface HabitDao {
+    @Query("SELECT * FROM habits ORDER BY sortOrder")
+    fun observeAll(): Flow<List<HabitEntity>>
+    @Query("SELECT * FROM habits")
+    suspend fun getAll(): List<HabitEntity>
+    @Upsert suspend fun upsert(h: HabitEntity)
+    @Upsert suspend fun upsertAll(h: List<HabitEntity>)
+    @Query("DELETE FROM habits WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM habits") suspend fun clear()
+
+    @Query("SELECT * FROM habit_checkins")
+    fun observeCheckins(): Flow<List<HabitCheckinEntity>>
+    @Query("SELECT * FROM habit_checkins") suspend fun getCheckins(): List<HabitCheckinEntity>
+    @Upsert suspend fun upsertCheckin(c: HabitCheckinEntity)
+    @Upsert suspend fun upsertCheckins(c: List<HabitCheckinEntity>)
+    @Query("DELETE FROM habit_checkins WHERE habitId = :habitId AND epochDay = :day") suspend fun deleteCheckin(habitId: String, day: Long)
+    @Query("DELETE FROM habit_checkins WHERE habitId = :habitId") suspend fun clearHabit(habitId: String)
+    @Query("DELETE FROM habit_checkins") suspend fun clearCheckins()
 }
 
 @Dao

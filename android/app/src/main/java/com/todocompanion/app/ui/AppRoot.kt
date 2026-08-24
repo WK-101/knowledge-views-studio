@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
@@ -107,6 +108,7 @@ private enum class Tab(val label: String, val icon: ImageVector) {
     TASKS("Tasks", Icons.AutoMirrored.Filled.FormatListBulleted),
     CALENDAR("Calendar", Icons.Filled.CalendarMonth),
     MATRIX("Matrix", Icons.Filled.GridView),
+    HABITS("Habits", Icons.Filled.LocalFireDepartment),
     SEARCH("Search", Icons.Filled.Search),
     SETTINGS("Settings", Icons.Filled.Settings),
 }
@@ -323,6 +325,7 @@ fun AppRoot() {
                                 openQuickAdd(d.atTime(9, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli())
                             })
                             Tab.MATRIX -> MatrixScreen(vm, ::openTask, matrixSettings, { matrixSettings = false })
+                            Tab.HABITS -> com.todocompanion.app.ui.screens.HabitsScreen(vm)
                         }
                     }
                 }

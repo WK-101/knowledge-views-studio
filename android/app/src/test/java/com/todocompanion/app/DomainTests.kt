@@ -160,6 +160,19 @@ class PriorityEngineTest {
     }
 }
 
+class HabitStatsTest {
+    @Test fun streakCountsBackFromTodayOrYesterday() {
+        val today = 100L
+        // Done 98, 99, 100 → streak 3.
+        assertEquals(3, com.todocompanion.app.domain.habit.HabitStats.streak(setOf(98L, 99L, 100L), today))
+        // Today not done but 97,98,99 done → streak counts from yesterday = 3.
+        assertEquals(3, com.todocompanion.app.domain.habit.HabitStats.streak(setOf(97L, 98L, 99L), today))
+        // Gap breaks it: 100 done, 98 done, 99 missing → streak 1.
+        assertEquals(1, com.todocompanion.app.domain.habit.HabitStats.streak(setOf(98L, 100L), today))
+        assertEquals(0, com.todocompanion.app.domain.habit.HabitStats.streak(emptySet(), today))
+    }
+}
+
 class FilterQueryTest {
     private val zone = java.time.ZoneId.of("UTC")
     private fun t(id: String, listId: String = "l", imp: Int = 3, urg: Int = 3, star: Boolean = false) =

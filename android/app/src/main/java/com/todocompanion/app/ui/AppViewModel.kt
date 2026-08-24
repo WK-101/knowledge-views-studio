@@ -80,6 +80,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val tags: StateFlow<List<TagEntity>> = repo.allTags.state(emptyList())
     val contexts: StateFlow<List<ContextEntity>> = repo.allContexts.state(emptyList())
     val filters = combine(repo.allFilters, activeWs) { f, ws -> f.filter { it.workspaceId == ws } }.state(emptyList())
+    val habits = combine(repo.allHabits, activeWs) { h, ws -> h.filter { it.workspaceId == ws && !it.archived } }.state(emptyList())
+    val habitCheckins = repo.allCheckins.state(emptyList())
     val taskTags = repo.taskTagRefs.state(emptyList())
     val taskContexts = repo.taskContextRefs.state(emptyList())
     val checklist = repo.allChecklist.state(emptyList())
@@ -317,6 +319,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteWorkspace(id: String) = viewModelScope.launch {
         repo.deleteWorkspace(id)
         if (settings.value.activeWorkspaceId == id) repo.saveSettings(settings.value.copy(activeWorkspaceId = com.todocompanion.app.data.entity.WorkspaceEntity.DEFAULT_ID))
+    }
+
+    // ---------- habits ----------
+    fun createHabit(name: String, emoji: String?, colorArgb: Long?, target: Int) = viewModelScope.launch {
+        repo.createHabit(name.trim(), emoji, colorArgb, target, settings.value.activeWorkspaceId)
+    }
+    fun saveHabit(h: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch { repo.upsertHabit(h) }
+    fun deleteHabit(id: String) = viewModelScope.launch { repo.deleteHabit(id) }
+    fun cycleHabit(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, current: Int) = viewModelScope.launch {
+        repo.cycleCheckin(h.id, epochDay, h.targetPerDay, current)
     }
 
     // ---------- saved filters ----------

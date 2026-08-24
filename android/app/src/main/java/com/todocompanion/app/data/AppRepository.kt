@@ -4,6 +4,8 @@ import com.todocompanion.app.data.entity.ChecklistItemEntity
 import com.todocompanion.app.data.entity.ContextEntity
 import com.todocompanion.app.data.entity.DependencyEntity
 import com.todocompanion.app.data.entity.FilterEntity
+import com.todocompanion.app.data.entity.HabitEntity
+import com.todocompanion.app.data.entity.HabitCheckinEntity
 import com.todocompanion.app.data.entity.FolderEntity
 import com.todocompanion.app.data.entity.ListEntity
 import com.todocompanion.app.data.entity.ReminderEntity
@@ -44,6 +46,23 @@ class AppRepository(private val db: AppDatabase) {
     val allReminders: Flow<List<ReminderEntity>> = reminders.observeAll()
     val allDependencies: Flow<List<DependencyEntity>> = deps.observeAll()
     val allSettings: Flow<List<SettingEntity>> = settings.observeAll()
+    private val habits = db.habitDao()
+    val allHabits: Flow<List<HabitEntity>> = habits.observeAll()
+    val allCheckins: Flow<List<HabitCheckinEntity>> = habits.observeCheckins()
+    suspend fun createHabit(name: String, emoji: String?, colorArgb: Long?, target: Int, workspaceId: String): String {
+        val id = uid()
+        habits.upsert(HabitEntity(id = id, name = name, emoji = emoji, colorArgb = colorArgb, targetPerDay = target.coerceAtLeast(1), sortOrder = now().toDouble(), workspaceId = workspaceId, createdAt = now()))
+        return id
+    }
+    suspend fun upsertHabit(h: HabitEntity) = habits.upsert(h)
+    suspend fun deleteHabit(id: String) { habits.clearHabit(id); habits.deleteById(id) }
+    /** Cycle today's progress: +1 up to target, then back to 0 (removes the check-in). */
+    suspend fun cycleCheckin(habitId: String, epochDay: Long, target: Int, current: Int) {
+        val next = current + 1
+        if (next > target) habits.deleteCheckin(habitId, epochDay)
+        else habits.upsertCheckin(HabitCheckinEntity(habitId, epochDay, next))
+    }
+
     private val filters = db.filterDao()
     val allFilters: Flow<List<FilterEntity>> = filters.observeAll()
     suspend fun upsertFilter(f: FilterEntity) = filters.upsert(f)
@@ -344,6 +363,8 @@ class AppRepository(private val db: AppDatabase) {
             exportedAt = now(),
             workspaces = workspaces.getAll(),
             filters = filters.getAll(),
+            habits = habits.getAll(),
+            habitCheckins = habits.getCheckins(),
             folders = folders.getAll(),
             lists = lists.getAll(),
             tasks = tasks.getAll(),
@@ -363,6 +384,7 @@ class AppRepository(private val db: AppDatabase) {
         tasks.clear(); folders.clear(); lists.clear(); checklist.clear()
         tags.clear(); tags.clearCrossRefs(); contexts.clear(); contexts.clearCrossRefs()
         reminders.clear(); deps.clear(); settings.clear(); workspaces.clear(); filters.clear()
+        habits.clear(); habits.clearCheckins()
         folders.upsertAll(b.folders)
         lists.upsertAll(b.lists)
         tasks.upsertAll(b.tasks)
@@ -374,6 +396,7 @@ class AppRepository(private val db: AppDatabase) {
         settings.putAll(b.settings)
         workspaces.upsertAll(b.workspaces)
         filters.upsertAll(b.filters)
+        habits.upsertAll(b.habits); habits.upsertCheckins(b.habitCheckins)
         ensureDefaultWorkspace()
         ensureInbox()
     }
