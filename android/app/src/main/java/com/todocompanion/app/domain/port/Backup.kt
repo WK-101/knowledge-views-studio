@@ -22,6 +22,7 @@ data class BackupFile(
     val version: Int = VERSION,
     val exportedAt: Long,
     val workspaces: List<WorkspaceEntity> = emptyList(),
+    val filters: List<com.todocompanion.app.data.entity.FilterEntity> = emptyList(),
     val folders: List<FolderEntity> = emptyList(),
     val lists: List<ListEntity> = emptyList(),
     val tasks: List<TaskEntity> = emptyList(),

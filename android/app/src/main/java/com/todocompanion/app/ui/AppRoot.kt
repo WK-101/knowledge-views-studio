@@ -47,7 +47,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -158,6 +160,7 @@ fun AppRoot() {
         var moveCtx by remember { mutableStateOf<com.todocompanion.app.data.entity.ContextEntity?>(null) }
         var newWs by remember { mutableStateOf(false) }
         var manageWs by remember { mutableStateOf<com.todocompanion.app.data.entity.WorkspaceEntity?>(null) }
+        var filterEdit by remember { mutableStateOf<com.todocompanion.app.data.entity.FilterEntity?>(null) }
         var menu by remember { mutableStateOf(false) }
         // Hoisted per-tab controls, surfaced in the shared top bar to free screen space.
         var calMode by remember { mutableStateOf(settings.calendarDefaultMode) }
@@ -171,6 +174,7 @@ fun AppRoot() {
         val folders by vm.folders.collectAsState()
         val tags by vm.tags.collectAsState()
         val contexts by vm.contexts.collectAsState()
+        val filtersList by vm.filters.collectAsState()
         val outlineMode by vm.outlineMode.collectAsState()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -204,6 +208,7 @@ fun AppRoot() {
                 is ViewRef.ListView -> lists.firstOrNull { it.id == v.listId }?.name ?: "List"
                 is ViewRef.TagView -> "#" + (tags.firstOrNull { it.id == v.tagId }?.name ?: "")
                 is ViewRef.ContextView -> "@" + (contexts.firstOrNull { it.id == v.contextId }?.name ?: "")
+                is ViewRef.FilterView -> filtersList.firstOrNull { it.id == v.filterId }?.name ?: "Filter"
             }
             else -> tab.label
         }
@@ -230,6 +235,7 @@ fun AppRoot() {
                     onMoveContext = { moveCtx = it },
                     onNewWorkspace = { newWs = true },
                     onManageWorkspace = { manageWs = it },
+                    onEditFilter = { f -> filterEdit = f ?: com.todocompanion.app.data.entity.FilterEntity(id = java.util.UUID.randomUUID().toString(), name = "New filter", workspaceId = settings.activeWorkspaceId) },
                     onOpenSettings = { tab = Tab.SETTINGS; scope.launch { drawerState.close() } },
                 )
             },
@@ -403,7 +409,88 @@ fun AppRoot() {
                 onRename = { vm.renameWorkspace(w, it); manageWs = null },
                 onDelete = { vm.deleteWorkspace(w.id); manageWs = null })
         }
+        filterEdit?.let { f ->
+            FilterBuilderDialog(f, lists.filter { !it.archived }, tags, contexts,
+                onDismiss = { filterEdit = null },
+                onDelete = { vm.deleteFilter(f); filterEdit = null },
+                onSave = { updated -> vm.saveFilter(updated); vm.select(ViewRef.FilterView(updated.id)); tab = Tab.TASKS; filterEdit = null })
+        }
     }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FilterBuilderDialog(
+    filter: com.todocompanion.app.data.entity.FilterEntity,
+    lists: List<ListEntity>, tags: List<com.todocompanion.app.data.entity.TagEntity>, contexts: List<com.todocompanion.app.data.entity.ContextEntity>,
+    onDismiss: () -> Unit, onDelete: () -> Unit, onSave: (com.todocompanion.app.data.entity.FilterEntity) -> Unit,
+) {
+    val q0 = com.todocompanion.app.domain.view.Filters.parse(filter.queryJson)
+    var name by remember { mutableStateOf(filter.name) }
+    var matchAll by remember { mutableStateOf(q0.matchAll) }
+    var listIds by remember { mutableStateOf(q0.listIds) }
+    var tagIds by remember { mutableStateOf(q0.tagIds) }
+    var ctxIds by remember { mutableStateOf(q0.contextIds) }
+    var levels by remember { mutableStateOf(q0.levels) }
+    var flagged by remember { mutableStateOf(q0.flaggedOnly) }
+    var dueWithin by remember { mutableStateOf(q0.dueWithinDays) }
+
+    fun save() {
+        val q = com.todocompanion.app.domain.view.FilterQuery(matchAll, listIds, tagIds, ctxIds, levels, flagged, dueWithin, false)
+        onSave(filter.copy(name = name.trim().ifBlank { "Filter" }, queryJson = com.todocompanion.app.domain.view.Filters.encode(q)))
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = { save() }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDelete) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
+        title = { Text("Filter") },
+        text = {
+            androidx.compose.foundation.rememberScrollState().let { sc ->
+            Column(Modifier.heightIn(max = 460.dp).verticalScroll(sc)) {
+                OutlinedTextField(name, { name = it }, singleLine = true, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.size(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Match", Modifier.padding(end = 8.dp))
+                    SingleChoiceSegmentedButtonRow {
+                        SegmentedButton(selected = matchAll, onClick = { matchAll = true }, shape = SegmentedButtonDefaults.itemShape(0, 2)) { Text("All") }
+                        SegmentedButton(selected = !matchAll, onClick = { matchAll = false }, shape = SegmentedButtonDefaults.itemShape(1, 2)) { Text("Any") }
+                    }
+                }
+                FilterGroup("Lists") {
+                    lists.forEach { l -> FilterChip(selected = l.id in listIds, onClick = { listIds = if (l.id in listIds) listIds - l.id else listIds + l.id }, label = { Text(l.name) }) }
+                }
+                if (tags.isNotEmpty()) FilterGroup("Tags") {
+                    tags.forEach { t -> FilterChip(selected = t.id in tagIds, onClick = { tagIds = if (t.id in tagIds) tagIds - t.id else tagIds + t.id }, label = { Text("#" + t.name) }) }
+                }
+                if (contexts.isNotEmpty()) FilterGroup("Contexts") {
+                    contexts.forEach { c -> FilterChip(selected = c.id in ctxIds, onClick = { ctxIds = if (c.id in ctxIds) ctxIds - c.id else ctxIds + c.id }, label = { Text("@" + c.name) }) }
+                }
+                FilterGroup("Priority") {
+                    listOf("HIGH" to "High", "MEDIUM" to "Medium", "LOW" to "Low", "NONE" to "None").forEach { (k, l) ->
+                        FilterChip(selected = k in levels, onClick = { levels = if (k in levels) levels - k else levels + k }, label = { Text(l) })
+                    }
+                }
+                FilterGroup("Due within") {
+                    listOf<Pair<Int?, String>>(null to "Any", 0 to "Today", 7 to "7 days", 30 to "30 days").forEach { (d, l) ->
+                        FilterChip(selected = dueWithin == d, onClick = { dueWithin = d }, label = { Text(l) })
+                    }
+                }
+                Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Flagged only", Modifier.weight(1f))
+                    androidx.compose.material3.Switch(checked = flagged, onCheckedChange = { flagged = it })
+                }
+            }
+            }
+        },
+    )
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FilterGroup(label: String, content: @Composable androidx.compose.foundation.layout.FlowRowScope.() -> Unit) {
+    Spacer(Modifier.size(10.dp))
+    Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), content = content)
 }
 
 @Composable

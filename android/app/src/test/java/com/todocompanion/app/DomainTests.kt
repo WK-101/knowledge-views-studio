@@ -160,6 +160,25 @@ class PriorityEngineTest {
     }
 }
 
+class FilterQueryTest {
+    private val zone = java.time.ZoneId.of("UTC")
+    private fun t(id: String, listId: String = "l", imp: Int = 3, urg: Int = 3, star: Boolean = false) =
+        TaskEntity(id = id, listId = listId, title = id, importance = imp, urgency = urg, star = star, createdAt = 0, updatedAt = 0)
+
+    @Test fun matchAllRequiresEveryGroup() {
+        val q = com.todocompanion.app.domain.view.FilterQuery(matchAll = true, listIds = setOf("work"), flaggedOnly = true)
+        assertTrue(com.todocompanion.app.domain.view.Filters.matches(q, t("a", listId = "work", star = true), emptySet(), emptySet(), 0, zone))
+        assertFalse(com.todocompanion.app.domain.view.Filters.matches(q, t("b", listId = "work", star = false), emptySet(), emptySet(), 0, zone))
+    }
+
+    @Test fun matchAnyNeedsOneGroup() {
+        val q = com.todocompanion.app.domain.view.FilterQuery(matchAll = false, tagIds = setOf("home"), flaggedOnly = true)
+        assertTrue(com.todocompanion.app.domain.view.Filters.matches(q, t("a", star = true), emptySet(), emptySet(), 0, zone))       // flagged
+        assertTrue(com.todocompanion.app.domain.view.Filters.matches(q, t("b"), setOf("home"), emptySet(), 0, zone))                 // tag
+        assertFalse(com.todocompanion.app.domain.view.Filters.matches(q, t("c"), setOf("other"), emptySet(), 0, zone))               // neither
+    }
+}
+
 class ContextAvailabilityTest {
     private val CA = com.todocompanion.app.domain.context.ContextAvailability
     private fun oh(vararg d: Int) = com.todocompanion.app.domain.context.OpenHours(days = d.toSet(), startMin = 540, endMin = 1020)

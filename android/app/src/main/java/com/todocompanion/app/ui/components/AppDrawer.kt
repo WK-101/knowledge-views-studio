@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -108,6 +109,7 @@ fun AppDrawer(
     onMoveContext: (com.todocompanion.app.data.entity.ContextEntity) -> Unit,
     onNewWorkspace: () -> Unit,
     onManageWorkspace: (com.todocompanion.app.data.entity.WorkspaceEntity) -> Unit,
+    onEditFilter: (com.todocompanion.app.data.entity.FilterEntity?) -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     val folders by vm.folders.collectAsState()
@@ -183,6 +185,32 @@ fun AppDrawer(
             SectionHeader("Tags", open = open("tags"), onToggle = { toggle("tags") }, onAdd = { onNewTag(null) })
             if (open("tags")) tags.filter { it.parentId == null }.sortedWith(compareBy({ it.sortOrder }, { it.name })).forEach { t ->
                 TagNode(t, 0, tags, current, onSelect, onNewTag, onManageTag, onMoveTag)
+            }
+
+            val filters by vm.filters.collectAsState()
+            if (filters.isNotEmpty() || open("filters")) {
+                SectionHeader("Filters", open = open("filters"), onToggle = { toggle("filters") }, onAdd = { onEditFilter(null) })
+                if (open("filters")) filters.sortedBy { it.sortOrder }.forEach { f ->
+                    var menu by remember(f.id) { mutableStateOf(false) }
+                    val selected = (current as? ViewRef.FilterView)?.filterId == f.id
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
+                            .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+                            .clickable { onSelect(ViewRef.FilterView(f.id)) }.padding(start = 12.dp, top = 9.dp, bottom = 9.dp, end = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Filled.FilterList, null, tint = f.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(11.dp))
+                        Text(f.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+                        Box {
+                            Icon(Icons.Filled.MoreVert, "Filter menu", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp).clickable { menu = true })
+                            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                                MenuItem(Icons.Filled.Edit, "Edit filter") { onEditFilter(f); menu = false }
+                            }
+                        }
+                    }
+                }
             }
 
             SectionHeader("Contexts", open = open("contexts"), onToggle = { toggle("contexts") }, onAdd = { onNewContext(null) })

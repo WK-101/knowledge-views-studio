@@ -82,3 +82,15 @@ data class SettingEntity(
     @PrimaryKey val key: String,
     val value: String,
 )
+
+/** A saved custom filter (smart list): a name + a serialized [FilterQuery] in [queryJson]. */
+@Serializable
+@Entity(tableName = "filters")
+data class FilterEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    val sortOrder: Double = 0.0,
+    val workspaceId: String = WorkspaceEntity.DEFAULT_ID,
+    val queryJson: String = "",
+    val colorArgb: Long? = null,
+)

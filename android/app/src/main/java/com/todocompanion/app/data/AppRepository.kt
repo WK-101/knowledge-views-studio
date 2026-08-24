@@ -3,6 +3,7 @@ package com.todocompanion.app.data
 import com.todocompanion.app.data.entity.ChecklistItemEntity
 import com.todocompanion.app.data.entity.ContextEntity
 import com.todocompanion.app.data.entity.DependencyEntity
+import com.todocompanion.app.data.entity.FilterEntity
 import com.todocompanion.app.data.entity.FolderEntity
 import com.todocompanion.app.data.entity.ListEntity
 import com.todocompanion.app.data.entity.ReminderEntity
@@ -43,6 +44,15 @@ class AppRepository(private val db: AppDatabase) {
     val allReminders: Flow<List<ReminderEntity>> = reminders.observeAll()
     val allDependencies: Flow<List<DependencyEntity>> = deps.observeAll()
     val allSettings: Flow<List<SettingEntity>> = settings.observeAll()
+    private val filters = db.filterDao()
+    val allFilters: Flow<List<FilterEntity>> = filters.observeAll()
+    suspend fun upsertFilter(f: FilterEntity) = filters.upsert(f)
+    suspend fun deleteFilter(id: String) = filters.deleteById(id)
+    suspend fun createFilter(name: String, workspaceId: String): String {
+        val id = uid()
+        filters.upsert(FilterEntity(id = id, name = name, sortOrder = now().toDouble(), workspaceId = workspaceId))
+        return id
+    }
 
     fun observeTask(id: String): Flow<TaskEntity?> = tasks.observeById(id)
     suspend fun getTask(id: String): TaskEntity? = tasks.getById(id)
@@ -333,6 +343,7 @@ class AppRepository(private val db: AppDatabase) {
         BackupFile(
             exportedAt = now(),
             workspaces = workspaces.getAll(),
+            filters = filters.getAll(),
             folders = folders.getAll(),
             lists = lists.getAll(),
             tasks = tasks.getAll(),
@@ -351,7 +362,7 @@ class AppRepository(private val db: AppDatabase) {
         val b = Backup.decode(text)
         tasks.clear(); folders.clear(); lists.clear(); checklist.clear()
         tags.clear(); tags.clearCrossRefs(); contexts.clear(); contexts.clearCrossRefs()
-        reminders.clear(); deps.clear(); settings.clear(); workspaces.clear()
+        reminders.clear(); deps.clear(); settings.clear(); workspaces.clear(); filters.clear()
         folders.upsertAll(b.folders)
         lists.upsertAll(b.lists)
         tasks.upsertAll(b.tasks)
@@ -362,6 +373,7 @@ class AppRepository(private val db: AppDatabase) {
         deps.addAll(b.dependencies)
         settings.putAll(b.settings)
         workspaces.upsertAll(b.workspaces)
+        filters.upsertAll(b.filters)
         ensureDefaultWorkspace()
         ensureInbox()
     }

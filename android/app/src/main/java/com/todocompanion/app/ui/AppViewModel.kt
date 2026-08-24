@@ -79,6 +79,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val lists = combine(repo.allLists, activeWs) { l, ws -> l.filter { it.workspaceId == ws || it.id == ListEntity.INBOX_ID } }.state(emptyList())
     val tags: StateFlow<List<TagEntity>> = repo.allTags.state(emptyList())
     val contexts: StateFlow<List<ContextEntity>> = repo.allContexts.state(emptyList())
+    val filters = combine(repo.allFilters, activeWs) { f, ws -> f.filter { it.workspaceId == ws } }.state(emptyList())
     val taskTags = repo.taskTagRefs.state(emptyList())
     val taskContexts = repo.taskContextRefs.state(emptyList())
     val checklist = repo.allChecklist.state(emptyList())
@@ -110,15 +111,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             wsTasks,
             combine(currentView, groupMode, sortMode, settings) { v, g, s, set -> Cfg(v, g, s, set.priorityConfig()) },
             repo.taskTagRefs,
-            combine(repo.taskContextRefs, repo.allContexts) { r, c -> r to c },
+            combine(repo.taskContextRefs, repo.allContexts, repo.allFilters) { r, c, f -> Triple(r, c, f) },
             repo.allDependencies,
         ) { all, cfg, ttRefs, tcInfo, deps ->
-            val (tcRefs, ctxEntities) = tcInfo
+            val (tcRefs, ctxEntities, filterList) = tcInfo
             val now = System.currentTimeMillis()
             val filtered = when (val v = cfg.view) {
                 is ViewRef.Smart -> {
                     val base = TaskViews.filterSmart(all, v.kind, now, zone)
                     if (v.kind == SmartKind.DO_NEXT) rankDoNext(base, all, now, cfg.prio, deps, tcRefs, ctxEntities) else base
+                }
+                is ViewRef.FilterView -> {
+                    val q = com.todocompanion.app.domain.view.Filters.parse(filterList.firstOrNull { it.id == v.filterId }?.queryJson)
+                    val tagsByTask = ttRefs.groupBy { it.taskId }.mapValues { e -> e.value.map { it.tagId }.toSet() }
+                    val ctxByTask = tcRefs.groupBy { it.taskId }.mapValues { e -> e.value.map { it.contextId }.toSet() }
+                    all.filter { com.todocompanion.app.domain.view.Filters.matches(q, it, tagsByTask[it.id].orEmpty(), ctxByTask[it.id].orEmpty(), now, zone) }
                 }
                 is ViewRef.ListView -> all.filter { !it.trashed && !it.completed && !it.abandoned && it.listId == v.listId }
                 is ViewRef.TagView -> {
@@ -179,6 +186,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         is ViewRef.ListView -> lists.value.firstOrNull { it.id == v.listId }?.name ?: "List"
         is ViewRef.TagView -> "#" + (tags.value.firstOrNull { it.id == v.tagId }?.name ?: "tag")
         is ViewRef.ContextView -> "@" + (contexts.value.firstOrNull { it.id == v.contextId }?.name ?: "context")
+        is ViewRef.FilterView -> filters.value.firstOrNull { it.id == v.filterId }?.name ?: "Filter"
     }
 
     fun canOutline(): Boolean = currentView.value is ViewRef.ListView
@@ -309,6 +317,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteWorkspace(id: String) = viewModelScope.launch {
         repo.deleteWorkspace(id)
         if (settings.value.activeWorkspaceId == id) repo.saveSettings(settings.value.copy(activeWorkspaceId = com.todocompanion.app.data.entity.WorkspaceEntity.DEFAULT_ID))
+    }
+
+    // ---------- saved filters ----------
+    fun createFilter(name: String) = viewModelScope.launch {
+        val id = repo.createFilter(name.trim(), settings.value.activeWorkspaceId)
+        currentView.value = ViewRef.FilterView(id)
+    }
+    fun saveFilter(f: com.todocompanion.app.data.entity.FilterEntity) = viewModelScope.launch { repo.upsertFilter(f) }
+    fun deleteFilter(f: com.todocompanion.app.data.entity.FilterEntity) = viewModelScope.launch {
+        repo.deleteFilter(f.id)
+        if (currentView.value == ViewRef.FilterView(f.id)) currentView.value = ViewRef.Smart(SmartKind.TODAY)
     }
     fun saveList(l: ListEntity) = viewModelScope.launch { repo.saveList(l) }
     fun deleteList(id: String) = viewModelScope.launch { repo.deleteList(id) }
