@@ -91,15 +91,27 @@ fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, onDismiss: () -> U
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 14.dp, vertical = 4.dp)) {
-            OutlinedTextField(
-                value = text, onValueChange = { text = it },
-                modifier = Modifier.fillMaxWidth().focusRequester(focus),
-                placeholder = { Text("e.g. Pay rent tomorrow 5pm !! ~Home #bills") },
-                trailingIcon = { IconButton(onClick = { submit() }) { Icon(Icons.Filled.Send, "Add") } },
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { submit() }),
-                visualTransformation = QuickAddTransformation,
-            )
+            // Borderless capture field with live token highlighting — modern, box-free.
+            Row(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) {
+                    if (text.isEmpty()) Text("Pay rent tomorrow 5pm !! ~Home #bills",
+                        color = MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.titleMedium, maxLines = 2)
+                    androidx.compose.foundation.text.BasicTextField(
+                        value = text, onValueChange = { text = it },
+                        modifier = Modifier.fillMaxWidth().focusRequester(focus),
+                        textStyle = MaterialTheme.typography.titleMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                        cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { submit() }),
+                        visualTransformation = QuickAddTransformation,
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Box(Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape).background(if (text.isBlank()) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primary).clickable { submit() }, contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.Send, "Add", tint = if (text.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp))
+                }
+            }
+            androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
 
             // selected-value chips
             FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
