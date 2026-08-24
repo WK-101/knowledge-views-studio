@@ -52,6 +52,35 @@ class QuickAddParserTest {
         assertEquals(PriorityLevel.HIGH, QuickAddParser.parse("do it !!!", now).priority)
         assertEquals(PriorityLevel.LOW, QuickAddParser.parse("meh ! today", now).priority)
     }
+
+    @Test fun parsesListToken() {
+        val p = QuickAddParser.parse("email boss ~Work tomorrow", now)
+        assertEquals("Work", p.list)
+        assertEquals("email boss", p.title)
+    }
+}
+
+class RecurrenceTest {
+    private val zone = java.time.ZoneId.of("UTC")
+    private fun ms(y: Int, mo: Int, d: Int, h: Int = 9) =
+        java.time.LocalDateTime.of(y, mo, d, h, 0).atZone(zone).toInstant().toEpochMilli()
+
+    @Test fun weeklyAdvancesSevenDays() {
+        val next = com.todocompanion.app.domain.recurrence.Recurrence.next("WEEKLY:1", ms(2026, 1, 1), zone)
+        assertEquals(ms(2026, 1, 8), next)
+    }
+
+    @Test fun weekdaysSkipsWeekend() {
+        // 2026-01-02 is a Friday → next weekday is Monday the 5th
+        val next = com.todocompanion.app.domain.recurrence.Recurrence.next("WEEKDAYS:1", ms(2026, 1, 2), zone)
+        assertEquals(ms(2026, 1, 5), next)
+    }
+
+    @Test fun labels() {
+        assertEquals("Weekly", com.todocompanion.app.domain.recurrence.Recurrence.label("WEEKLY:1"))
+        assertEquals("Every 2 weeks", com.todocompanion.app.domain.recurrence.Recurrence.label("WEEKLY:2"))
+        assertEquals(null, com.todocompanion.app.domain.recurrence.Recurrence.label(null))
+    }
 }
 
 class PriorityEngineTest {

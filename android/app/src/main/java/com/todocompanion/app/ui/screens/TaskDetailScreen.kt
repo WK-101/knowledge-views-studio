@@ -182,6 +182,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                 CardLabel("Schedule"); Spacer(Modifier.height(2.dp))
                 ScheduleRow("Due", task.dueDate, onSet = { showDue = true }, onClear = { update { it.copy(dueDate = null) } })
                 ScheduleRow("Start", task.startDate, onSet = { showStart = true }, onClear = { update { it.copy(startDate = null) } })
+                RepeatRow(task.rrule) { rule -> update { it.copy(rrule = rule) } }
                 Spacer(Modifier.height(8.dp)); CardLabel("Reminders")
                 reminders.filter { it.taskId == task.id }.forEach { r ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -282,6 +283,24 @@ private fun FlagSwatch(color: Long?, current: Long?, onClick: () -> Unit) {
             )
             .clickable { onClick() },
     )
+}
+
+@Composable
+private fun RepeatRow(rule: String?, onChange: (String?) -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text("Repeat", Modifier.weight(1f))
+        Box {
+            TextButton(onClick = { menu = true }) {
+                Text(com.todocompanion.app.domain.recurrence.Recurrence.label(rule) ?: "Does not repeat")
+            }
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                com.todocompanion.app.domain.recurrence.Recurrence.PRESETS.forEach { (r, label) ->
+                    DropdownMenuItem(text = { Text(label) }, onClick = { onChange(r); menu = false })
+                }
+            }
+        }
+    }
 }
 
 @Composable

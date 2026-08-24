@@ -275,7 +275,7 @@ private fun TaskListItem(
                 Text(task.title, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge,
                     textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None,
                     color = if (done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
-                TaskMeta(dueMillis = task.dueDate, contexts = contexts, tags = tags, note = task.note, listName = listName)
+                TaskMeta(dueMillis = task.dueDate, contexts = contexts, tags = tags, note = task.note, listName = listName, repeating = !task.rrule.isNullOrBlank())
             }
             Spacer(Modifier.width(2.dp))
             FlagStar(task.flagColorArgb, task.star, onCycleFlag, onToggleStar)

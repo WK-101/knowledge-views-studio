@@ -21,6 +21,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Notes
@@ -174,9 +175,10 @@ fun TaskMeta(
     tags: List<Pair<String, Long?>>,
     note: String,
     listName: String? = null,
+    repeating: Boolean = false,
 ) {
     val hasNote = note.isNotBlank()
-    val hasMeta = dueMillis != null || contexts.isNotEmpty() || tags.isNotEmpty() || listName != null
+    val hasMeta = dueMillis != null || contexts.isNotEmpty() || tags.isNotEmpty() || listName != null || repeating
     if (!hasNote && !hasMeta) return
 
     if (hasNote) {
@@ -196,6 +198,7 @@ fun TaskMeta(
         Spacer(Modifier.size(3.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             dueMillis?.let { DueChip(it) }
+            if (repeating) Icon(Icons.Filled.Repeat, "Repeats", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(13.dp))
             contexts.forEach { (name, argb) ->
                 Text("@$name", style = MaterialTheme.typography.labelMedium,
                     color = argb?.let { Color(it) } ?: MaterialTheme.colorScheme.onSurfaceVariant,
