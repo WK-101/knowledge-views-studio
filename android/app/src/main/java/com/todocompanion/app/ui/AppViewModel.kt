@@ -201,13 +201,44 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteChecklistItem(id: String) = viewModelScope.launch { repo.deleteChecklistItem(id) }
 
     // ---------- folders / lists ----------
-    fun createFolder(name: String) = viewModelScope.launch { repo.createFolder(name) }
+    fun createFolder(name: String, parentId: String? = null) = viewModelScope.launch { repo.createFolder(name, parentId) }
     fun renameFolder(f: FolderEntity, name: String) = viewModelScope.launch { repo.saveFolder(f.copy(name = name)) }
     fun toggleFolder(f: FolderEntity) = viewModelScope.launch { repo.saveFolder(f.copy(collapsed = !f.collapsed)) }
     fun deleteFolder(id: String) = viewModelScope.launch { repo.deleteFolder(id) }
     fun createList(name: String, folderId: String?, colorArgb: Long?) = viewModelScope.launch { repo.createList(name, folderId, colorArgb) }
     fun saveList(l: ListEntity) = viewModelScope.launch { repo.saveList(l) }
     fun deleteList(id: String) = viewModelScope.launch { repo.deleteList(id) }
+    fun moveListOrder(l: ListEntity, dir: Int) = viewModelScope.launch { repo.moveListOrder(l, dir) }
+    fun moveFolderOrder(f: FolderEntity, dir: Int) = viewModelScope.launch { repo.moveFolderOrder(f, dir) }
+    fun moveListToFolder(listId: String, folderId: String?) = viewModelScope.launch { repo.moveListToFolder(listId, folderId) }
+    fun moveFolderToParent(folderId: String, parentId: String?) = viewModelScope.launch { repo.moveFolderToParent(folderId, parentId) }
+
+    // ---------- row actions (flag / star / priority / swipes) ----------
+    fun toggleStar(t: TaskEntity) = viewModelScope.launch { repo.saveTask(t.copy(star = !t.star)) }
+    fun cycleFlag(t: TaskEntity) = viewModelScope.launch { repo.saveTask(t.copy(flagColorArgb = com.todocompanion.app.ui.components.nextFlagColor(t.flagColorArgb))) }
+    fun setFlag(t: TaskEntity, argb: Long?) = viewModelScope.launch { repo.saveTask(t.copy(flagColorArgb = argb)) }
+    fun cyclePriority(t: TaskEntity) = viewModelScope.launch {
+        val next = when (PriorityLevel.from(t.importance, t.urgency)) {
+            PriorityLevel.NONE -> PriorityLevel.LOW
+            PriorityLevel.LOW -> PriorityLevel.MEDIUM
+            PriorityLevel.MEDIUM -> PriorityLevel.HIGH
+            PriorityLevel.HIGH -> PriorityLevel.NONE
+        }
+        repo.saveTask(t.copy(importance = next.importance, urgency = next.urgency))
+    }
+    /** Apply a configured swipe action. EDIT returns false so the caller can open the editor. */
+    fun applyAction(action: com.todocompanion.app.domain.SwipeAction, t: TaskEntity): Boolean {
+        when (action) {
+            com.todocompanion.app.domain.SwipeAction.COMPLETE -> toggleComplete(t)
+            com.todocompanion.app.domain.SwipeAction.TRASH -> trash(t)
+            com.todocompanion.app.domain.SwipeAction.STAR -> toggleStar(t)
+            com.todocompanion.app.domain.SwipeAction.WONT_DO -> setAbandoned(t, !t.abandoned)
+            com.todocompanion.app.domain.SwipeAction.CYCLE_PRIORITY -> cyclePriority(t)
+            com.todocompanion.app.domain.SwipeAction.EDIT -> return false
+            com.todocompanion.app.domain.SwipeAction.NONE -> {}
+        }
+        return true
+    }
 
     // ---------- tags / contexts ----------
     fun tagsForTask(taskId: String): List<TagEntity> {

@@ -62,13 +62,15 @@ import com.todocompanion.app.ui.components.priorityColor
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun QuickAddSheet(vm: AppViewModel, onDismiss: () -> Unit) {
+fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, onDismiss: () -> Unit) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val lists by vm.lists.collectAsState()
     val tags by vm.tags.collectAsState()
 
+    fun dayMillis(d: java.time.LocalDate) = d.atTime(9, 0).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+
     var text by remember { mutableStateOf("") }
-    var due by remember { mutableStateOf<Long?>(null) }
+    var due by remember { mutableStateOf(initialDue) }
     var hasTime by remember { mutableStateOf(false) }
     var priority by remember { mutableStateOf<PriorityLevel?>(null) }
     var listId by remember { mutableStateOf<String?>(null) }
@@ -107,6 +109,15 @@ fun QuickAddSheet(vm: AppViewModel, onDismiss: () -> Unit) {
                 listId?.let { id -> lists.firstOrNull { it.id == id }?.let { AssistChip(onClick = { listMenu = true }, label = { Text(it.name) }) } }
                 reminder?.let { AssistChip(onClick = { showReminder = true }, label = { Text("🔔 " + formatDue(it)) }) }
                 tagIds.forEach { id -> tags.firstOrNull { it.id == id }?.let { AssistChip(onClick = { tagMenu = true }, label = { Text("#" + it.name) }) } }
+            }
+
+            // quick date chips
+            FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                val today = java.time.LocalDate.now()
+                AssistChip(onClick = { due = dayMillis(today); hasTime = false }, label = { Text("Today") })
+                AssistChip(onClick = { due = dayMillis(today.plusDays(1)); hasTime = false }, label = { Text("Tomorrow") })
+                AssistChip(onClick = { due = dayMillis(today.with(java.time.temporal.TemporalAdjusters.next(java.time.DayOfWeek.MONDAY))); hasTime = false }, label = { Text("Next Mon") })
+                if (due != null) AssistChip(onClick = { due = null; hasTime = false }, label = { Text("Clear") })
             }
 
             // option toolbar (icons)

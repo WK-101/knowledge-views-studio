@@ -1,10 +1,20 @@
 package com.todocompanion.app.ui.screens
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import com.todocompanion.app.ui.components.FLAG_COLORS
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -87,6 +97,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
         val d = draft ?: return; val nd = block(d); draft = nd; vm.save(nd)
     }
 
+    BackHandler { onBack() }
+
     val task = draft
     Scaffold(topBar = {
         TopAppBar(
@@ -134,6 +146,12 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                 Spacer(Modifier.height(6.dp))
                 Dial("Importance", task.importance) { v -> update { it.copy(importance = v) } }
                 Dial("Urgency", task.urgency) { v -> update { it.copy(urgency = v) } }
+            }
+
+            Spacer(Modifier.height(12.dp)); Label("Flag")
+            Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                FlagSwatch(null, task.flagColorArgb) { update { it.copy(flagColorArgb = null) } }
+                FLAG_COLORS.forEach { c -> FlagSwatch(c, task.flagColorArgb) { update { it.copy(flagColorArgb = c) } } }
             }
 
             Spacer(Modifier.height(12.dp)); Label("Schedule")
@@ -205,6 +223,21 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
 @Composable
 private fun Label(text: String) =
     Text(text, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+
+@Composable
+private fun FlagSwatch(color: Long?, current: Long?, onClick: () -> Unit) {
+    val selected = color == current
+    Box(
+        Modifier.size(28.dp).clip(CircleShape)
+            .background(color?.let { Color(it) } ?: Color.Transparent)
+            .border(
+                width = if (selected) 3.dp else 2.dp,
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                shape = CircleShape,
+            )
+            .clickable { onClick() },
+    )
+}
 
 @Composable
 private fun ScheduleRow(name: String, value: Long?, onSet: () -> Unit, onClear: () -> Unit) {

@@ -226,6 +226,45 @@ class AppRepository(private val db: AppDatabase) {
         lists.deleteById(id)
     }
 
+    // ============ drawer reordering / nesting ============
+    suspend fun moveListOrder(list: ListEntity, dir: Int) {
+        val sibs = lists.getAll().filter { it.folderId == list.folderId && it.id != ListEntity.INBOX_ID && !it.archived }.sortedBy { it.sortOrder }
+        val idx = sibs.indexOfFirst { it.id == list.id }
+        val j = idx + dir
+        if (idx < 0 || j < 0 || j >= sibs.size) return
+        val other = sibs[j]
+        lists.upsert(list.copy(sortOrder = other.sortOrder))
+        lists.upsert(other.copy(sortOrder = list.sortOrder))
+    }
+
+    suspend fun moveFolderOrder(folder: FolderEntity, dir: Int) {
+        val sibs = folders.getAll().filter { it.parentId == folder.parentId }.sortedBy { it.sortOrder }
+        val idx = sibs.indexOfFirst { it.id == folder.id }
+        val j = idx + dir
+        if (idx < 0 || j < 0 || j >= sibs.size) return
+        val other = sibs[j]
+        folders.upsert(folder.copy(sortOrder = other.sortOrder))
+        folders.upsert(other.copy(sortOrder = folder.sortOrder))
+    }
+
+    suspend fun moveListToFolder(listId: String, folderId: String?) {
+        lists.getById(listId)?.let { lists.upsert(it.copy(folderId = folderId, sortOrder = now().toDouble())) }
+    }
+
+    suspend fun moveFolderToParent(folderId: String, parentId: String?) {
+        if (folderId == parentId) return
+        // prevent cycles: parentId must not be a descendant of folderId
+        val all = folders.getAll()
+        val descendants = mutableSetOf(folderId)
+        var changed = true
+        while (changed) {
+            changed = false
+            all.forEach { if (it.parentId in descendants && it.id !in descendants) { descendants.add(it.id); changed = true } }
+        }
+        if (parentId != null && parentId in descendants) return
+        all.firstOrNull { it.id == folderId }?.let { folders.upsert(it.copy(parentId = parentId, sortOrder = now().toDouble())) }
+    }
+
     // ============ checklist ============
     suspend fun checklistFor(taskId: String): List<ChecklistItemEntity> = checklist.forTask(taskId)
     suspend fun addChecklistItem(taskId: String, text: String) {

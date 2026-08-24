@@ -3,7 +3,18 @@ package com.todocompanion.app.ui.screens
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import com.todocompanion.app.domain.Density
+import com.todocompanion.app.domain.SwipeAction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -78,6 +89,26 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         }
         Toggle("Dynamic color (Material You)", s.dynamicColor) { vm.saveSettings(s.copy(dynamicColor = it)) }
         Toggle("Advanced priority (importance + urgency)", s.advancedPriority) { vm.saveSettings(s.copy(advancedPriority = it)) }
+
+        Spacer(Modifier.height(10.dp)); Sub("Accent colour")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            AccentSwatch(0L, s.accentArgb) { vm.saveSettings(s.copy(accentArgb = 0L)) }
+            ACCENTS.forEach { c -> AccentSwatch(c, s.accentArgb) { vm.saveSettings(s.copy(accentArgb = c)) } }
+        }
+
+        Spacer(Modifier.height(12.dp)); Sub("Task density")
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            Density.entries.forEachIndexed { i, d ->
+                SegmentedButton(selected = s.density == d, onClick = { vm.saveSettings(s.copy(density = d)) },
+                    shape = SegmentedButtonDefaults.itemShape(i, Density.entries.size)) {
+                    Text(d.name.lowercase().replaceFirstChar { it.uppercase() })
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp)); Sub("Swipe actions")
+        SwipeRow("Swipe right", s.swipeRight) { vm.saveSettings(s.copy(swipeRight = it)) }
+        SwipeRow("Swipe left", s.swipeLeft) { vm.saveSettings(s.copy(swipeLeft = it)) }
 
         Spacer(Modifier.height(16.dp)); HorizontalDivider(); Spacer(Modifier.height(12.dp))
         Section("Date & time")
@@ -180,4 +211,32 @@ private fun Toggle(title: String, checked: Boolean, onChange: (Boolean) -> Unit)
 private fun Action(title: String, onClick: () -> Unit) {
     Text(title, Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 12.dp),
         style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
+}
+
+private val ACCENTS = listOf(0xFF5B57D9, 0xFF2F6BFF, 0xFF12A594, 0xFFE5484D, 0xFFF59E0B, 0xFF8B5CF6, 0xFFEC4899, 0xFF0EA371)
+
+@Composable
+private fun AccentSwatch(color: Long, current: Long, onClick: () -> Unit) {
+    val selected = color == current
+    Box(
+        Modifier.size(30.dp).clip(CircleShape)
+            .background(if (color == 0L) MaterialTheme.colorScheme.surfaceVariant else Color(color))
+            .border(if (selected) 3.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, CircleShape)
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center,
+    ) { if (color == 0L) Text("A", style = MaterialTheme.typography.labelMedium) }
+}
+
+@Composable
+private fun SwipeRow(label: String, action: SwipeAction, onChange: (SwipeAction) -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f))
+        Box {
+            TextButton(onClick = { menu = true }) { Text(action.label) }
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                SwipeAction.entries.forEach { a -> DropdownMenuItem(text = { Text(a.label) }, onClick = { onChange(a); menu = false }) }
+            }
+        }
+    }
 }

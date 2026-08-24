@@ -2,6 +2,8 @@ package com.todocompanion.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,8 +57,13 @@ import java.util.Locale
 
 private val MODES = listOf("list" to "List", "day" to "Day", "3day" to "3-Day", "week" to "Week", "month" to "Month", "year" to "Year")
 
+private fun Modifier.swipeNav(onPrev: () -> Unit, onNext: () -> Unit): Modifier = pointerInput(onPrev, onNext) {
+    var total = 0f
+    detectHorizontalDragGestures(onDragEnd = { if (total > 80) onPrev() else if (total < -80) onNext(); total = 0f }) { _, dragAmount -> total += dragAmount }
+}
+
 @Composable
-fun CalendarScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifier = Modifier) {
+fun CalendarScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onAddOnDate: (LocalDate) -> Unit, modifier: Modifier = Modifier) {
     val s by vm.settings.collectAsState()
     val tasks by vm.tasks.collectAsState()
     val zone = ZoneId.systemDefault()
@@ -85,10 +92,10 @@ fun CalendarScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Mod
         }
 
         when (mode) {
-            "month" -> MonthView(anchor, selected, dueByDate, firstDow, onSelect = { selected = it }, onPrev = { anchor = anchor.minusMonths(1) }, onNext = { anchor = anchor.plusMonths(1) }, onToday = { anchor = LocalDate.now(); selected = LocalDate.now() }, onOpenTask = onOpenTask)
+            "month" -> MonthView(anchor, selected, dueByDate, firstDow, onSelect = { selected = it }, onPrev = { anchor = anchor.minusMonths(1) }, onNext = { anchor = anchor.plusMonths(1) }, onToday = { anchor = LocalDate.now(); selected = LocalDate.now() }, onOpenTask = onOpenTask, onAdd = { onAddOnDate(selected) })
             "week" -> MultiDayView(startOfWeek(anchor, firstDow), 7, dueByDate, onPrev = { anchor = anchor.minusWeeks(1) }, onNext = { anchor = anchor.plusWeeks(1) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask)
             "3day" -> MultiDayView(anchor, 3, dueByDate, onPrev = { anchor = anchor.minusDays(3) }, onNext = { anchor = anchor.plusDays(3) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask)
-            "day" -> DayView(anchor, dueByDate, zone, onPrev = { anchor = anchor.minusDays(1) }, onNext = { anchor = anchor.plusDays(1) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask)
+            "day" -> DayView(anchor, dueByDate, zone, onPrev = { anchor = anchor.minusDays(1) }, onNext = { anchor = anchor.plusDays(1) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask, onAdd = { onAddOnDate(anchor) })
             "year" -> YearView(anchor, dueByDate, onPrev = { anchor = anchor.minusYears(1) }, onNext = { anchor = anchor.plusYears(1) }, onMonth = { m -> anchor = m.atDay(1); mode = "month" })
             else -> AgendaView(dueByDate, onOpenTask)
         }
@@ -111,7 +118,7 @@ private fun NavHeader(label: String, onPrev: () -> Unit, onNext: () -> Unit, onT
 }
 
 @Composable
-private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onOpenTask: (String) -> Unit) {
+private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onOpenTask: (String) -> Unit, onAdd: () -> Unit) {
     val ym = YearMonth.from(anchor)
     NavHeader("${ym.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${ym.year}", onPrev, onNext, onToday)
     val labels = (0..6).map { firstDow.plus(it.toLong()) }
@@ -126,7 +133,7 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
         while (size % 7 != 0) add(null)
     }
     val today = LocalDate.now()
-    Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp).swipeNav(onPrev, onNext)) {
         cells.chunked(7).forEach { week ->
             Row(Modifier.fillMaxWidth()) {
                 week.forEach { date ->
@@ -145,7 +152,10 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
             }
         }
     }
-    Text("Due on ${selected.dayOfMonth} ${selected.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())}", Modifier.padding(14.dp), style = MaterialTheme.typography.labelLarge)
+    Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 8.dp, top = 12.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("Due on ${selected.dayOfMonth} ${selected.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())}", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+        TextButton(onClick = onAdd) { Text("＋ Add") }
+    }
     val agenda = dueByDate[selected].orEmpty()
     if (agenda.isEmpty()) Text("No tasks due", Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
     else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -170,8 +180,9 @@ private fun MultiDayView(start: LocalDate, n: Int, dueByDate: Map<LocalDate, Lis
 }
 
 @Composable
-private fun DayView(day: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, zone: ZoneId, onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onOpenTask: (String) -> Unit) {
+private fun DayView(day: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, zone: ZoneId, onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onOpenTask: (String) -> Unit, onAdd: () -> Unit) {
     NavHeader("${day.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${day.dayOfMonth} ${day.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())}", onPrev, onNext, onToday)
+    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) { TextButton(onClick = onAdd) { Text("＋ Add on this day") } }
     val list = dueByDate[day].orEmpty()
     val byHour = list.groupBy { Instant.ofEpochMilli(it.dueDate!!).atZone(zone).hour }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)) {
