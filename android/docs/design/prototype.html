@@ -1,0 +1,874 @@
+<title>ToDo Companion Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap">
+
+<style>
+:root{
+  --ground:#F6F7F9; --surface:#FFFFFF; --surface-2:#F1F3F6; --ink:#1B2330; --muted:#5B6472;
+  --faint:#8A93A2; --line:#E6E9EE; --line-strong:#D8DDE5;
+  --primary:#0F766E; --primary-ink:#0B5A54; --primary-soft:#D8F1ED; --on-primary:#FFFFFF;
+  --p-high:#E5484D; --p-med:#F59E0B; --p-low:#3B82F6; --p-none:#94A3B8;
+  --star:#F5B301; --good:#0EA371;
+  --shadow:0 1px 2px rgba(19,28,43,.06),0 8px 24px rgba(19,28,43,.08);
+  --radius:16px; --radius-sm:11px;
+  --font-ui:"Hanken Grotesk",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  --font-display:"Bricolage Grotesque","Hanken Grotesk",system-ui,sans-serif;
+}
+:root:not([data-theme="light"]){
+  @media (prefers-color-scheme:dark){
+    --ground:#0E1116; --surface:#171E26; --surface-2:#1E262F; --ink:#E7ECF2; --muted:#9AA6B4;
+    --faint:#77828F; --line:#26303B; --line-strong:#313C48;
+    --primary:#2DD4BF; --primary-ink:#5EEAD9; --primary-soft:#123932; --on-primary:#04120F;
+    --p-high:#FF6169; --p-med:#FBBF4D; --p-low:#5B9BFF; --p-none:#7A8695;
+    --star:#FFCB3D; --good:#34D399;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0E1116; --surface:#171E26; --surface-2:#1E262F; --ink:#E7ECF2; --muted:#9AA6B4;
+  --faint:#77828F; --line:#26303B; --line-strong:#313C48;
+  --primary:#2DD4BF; --primary-ink:#5EEAD9; --primary-soft:#123932; --on-primary:#04120F;
+  --p-high:#FF6169; --p-med:#FBBF4D; --p-low:#5B9BFF; --p-none:#7A8695;
+  --star:#FFCB3D; --good:#34D399;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--ground);color:var(--ink);font-family:var(--font-ui);
+  -webkit-font-smoothing:antialiased;line-height:1.4}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:none}
+.tnum{font-variant-numeric:tabular-nums}
+
+/* ---------- page shell ---------- */
+.stage{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+  padding:28px 16px 64px;gap:22px}
+.pagehead{width:100%;max-width:900px;display:flex;flex-wrap:wrap;align-items:flex-end;
+  justify-content:space-between;gap:16px}
+.pagehead h1{font-family:var(--font-display);font-weight:700;font-size:clamp(24px,3.4vw,34px);
+  letter-spacing:-.02em;text-wrap:balance}
+.pagehead p{color:var(--muted);max-width:52ch;margin-top:6px;font-size:14.5px}
+.controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.controls select,.controls button.ctl{border:1px solid var(--line-strong);background:var(--surface);
+  color:var(--ink);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:600;box-shadow:var(--shadow)}
+.controls .ctl:hover{border-color:var(--primary)}
+
+/* ---------- phone ---------- */
+.phone{position:relative;width:390px;max-width:94vw;height:812px;max-height:86vh;
+  background:var(--ground);border-radius:42px;border:10px solid #0b0e13;
+  box-shadow:0 40px 80px -30px rgba(10,14,20,.55),0 0 0 2px rgba(255,255,255,.03) inset;
+  overflow:hidden;display:flex;flex-direction:column;flex:0 0 auto}
+[data-theme="dark"] .phone,:root:not([data-theme="light"]) .phone{border-color:#05070a}
+.statusbar{height:34px;flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;font-size:12px;font-weight:700;color:var(--ink);opacity:.85}
+.statusbar .dots{display:flex;gap:5px;align-items:center}
+.statusbar .dots span{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.5}
+
+/* app bar */
+.appbar{height:56px;flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:0 8px 0 6px;
+  background:var(--ground)}
+.appbar .title{font-family:var(--font-display);font-weight:600;font-size:20px;letter-spacing:-.01em;
+  flex:1;padding-left:4px;display:flex;align-items:center;gap:8px}
+.appbar .title .accent{width:10px;height:10px;border-radius:3px;background:var(--primary)}
+.iconbtn{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;color:var(--ink)}
+.iconbtn:hover{background:var(--surface-2)}
+.iconbtn svg{width:22px;height:22px;stroke:currentColor;stroke-width:1.9;fill:none;
+  stroke-linecap:round;stroke-linejoin:round}
+.iconbtn.sm{width:34px;height:34px}.iconbtn.sm svg{width:19px;height:19px}
+
+/* screen scroll area */
+.screenwrap{position:relative;flex:1 1 auto;overflow:hidden}
+.screen{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
+  display:none;padding-bottom:96px}
+.screen.active{display:block}
+.screen::-webkit-scrollbar{width:0}
+
+/* bottom nav */
+.bottomnav{position:absolute;left:0;right:0;bottom:0;height:64px;display:flex;
+  background:var(--surface);border-top:1px solid var(--line);z-index:20}
+.navitem{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  color:var(--faint);font-size:10.5px;font-weight:600;letter-spacing:.01em}
+.navitem svg{width:23px;height:23px;stroke:currentColor;stroke-width:1.9;fill:none;
+  stroke-linecap:round;stroke-linejoin:round}
+.navitem.active{color:var(--primary)}
+.navitem.active .navdot{opacity:1}
+.navdot{width:5px;height:5px;border-radius:50%;background:var(--primary);opacity:0;margin-top:-2px}
+
+/* FAB */
+.fab{position:absolute;right:18px;bottom:80px;width:56px;height:56px;border-radius:19px;
+  background:var(--primary);color:var(--on-primary);display:grid;place-items:center;z-index:21;
+  box-shadow:0 8px 22px -6px color-mix(in srgb,var(--primary) 70%,transparent)}
+.fab svg{width:26px;height:26px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round}
+
+/* ---------- task list ---------- */
+.grouphdr{display:flex;align-items:center;gap:8px;padding:16px 18px 7px;
+  font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint)}
+.grouphdr .count{margin-left:auto;background:var(--surface-2);border-radius:999px;padding:1px 8px;
+  color:var(--muted);font-size:11px}
+.grouphdr .chev{transition:transform .18s}
+.card{background:var(--surface);margin:0 12px 8px;border-radius:var(--radius);box-shadow:var(--shadow)}
+.task{display:flex;gap:11px;padding:12px 13px;align-items:flex-start}
+.task+.task{border-top:1px solid var(--line)}
+.check{flex:0 0 auto;width:21px;height:21px;border-radius:7px;border:2px solid var(--p-none);margin-top:1px;
+  display:grid;place-items:center;position:relative}
+.check.high{border-color:var(--p-high)}.check.med{border-color:var(--p-med)}.check.low{border-color:var(--p-low)}
+.check svg{width:13px;height:13px;stroke:#fff;stroke-width:2.6;fill:none;opacity:0}
+.task.done .check{background:var(--good);border-color:var(--good)}
+.task.done .check svg{opacity:1}
+.task.done .t-title{color:var(--faint);text-decoration:line-through}
+.t-main{flex:1;min-width:0}
+.t-title{font-size:15px;font-weight:500;letter-spacing:-.005em}
+.t-sub{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;
+  padding:2px 8px;border-radius:7px;background:var(--surface-2);color:var(--muted)}
+.chip.due{background:color-mix(in srgb,var(--p-low) 15%,transparent);color:var(--p-low)}
+.chip.over{background:color-mix(in srgb,var(--p-high) 15%,transparent);color:var(--p-high)}
+.chip.tag{color:var(--primary);background:var(--primary-soft)}
+.chip svg{width:12px;height:12px;stroke:currentColor;stroke-width:2;fill:none}
+.dotp{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
+.t-star{color:var(--star);margin-left:2px}.t-star svg{width:15px;height:15px;fill:currentColor;stroke:none}
+.t-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.subcount{font-size:11px;color:var(--faint);display:inline-flex;gap:3px;align-items:center}
+.subcount svg{width:12px;height:12px;stroke:currentColor;stroke-width:2;fill:none}
+
+/* outline */
+.otask{display:flex;align-items:center;gap:8px;padding:9px 10px;border-bottom:1px solid var(--line)}
+.guide{width:2px;align-self:stretch;background:var(--line);border-radius:2px;flex:0 0 auto}
+.ochev{width:22px;height:22px;display:grid;place-items:center;color:var(--faint);flex:0 0 auto}
+.ochev svg{width:16px;height:16px;stroke:currentColor;stroke-width:2.2;fill:none}
+.ochev.leaf{visibility:hidden}
+.odrag{margin-left:auto;color:var(--faint);opacity:.6}.odrag svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none}
+
+/* ---------- drawer ---------- */
+.scrim{position:absolute;inset:0;background:rgba(10,14,20,.44);opacity:0;visibility:hidden;
+  transition:opacity .22s;z-index:30}
+.scrim.show{opacity:1;visibility:visible}
+.drawer{position:absolute;top:0;bottom:0;left:0;width:314px;max-width:86%;background:var(--surface);
+  z-index:31;transform:translateX(-102%);transition:transform .26s cubic-bezier(.3,.7,.3,1);
+  display:flex;flex-direction:column;box-shadow:var(--shadow)}
+.drawer.show{transform:none}
+.dw-head{padding:26px 18px 14px;display:flex;align-items:center;gap:11px;border-bottom:1px solid var(--line)}
+.dw-logo{width:40px;height:40px;border-radius:12px;background:var(--primary);color:var(--on-primary);
+  display:grid;place-items:center;font-family:var(--font-display);font-weight:700;font-size:19px}
+.dw-head .n{font-family:var(--font-display);font-weight:600;font-size:16px}
+.dw-head .s{font-size:11.5px;color:var(--faint)}
+.dw-scroll{flex:1;overflow-y:auto;padding:10px 8px 8px}
+.dw-search{margin:6px 8px 12px;background:var(--surface-2);border-radius:12px;padding:9px 12px;
+  display:flex;gap:8px;align-items:center;color:var(--faint);font-size:13.5px}
+.dw-search svg{width:17px;height:17px;stroke:currentColor;stroke-width:2;fill:none}
+.dw-sec{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);
+  padding:12px 12px 6px;display:flex;align-items:center}
+.dw-sec .add{margin-left:auto;color:var(--primary)}
+.row{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:11px;font-size:14px;font-weight:500}
+.row:hover{background:var(--surface-2)}
+.row.sel{background:var(--primary-soft);color:var(--primary-ink);font-weight:600}
+.row .ico{width:22px;height:22px;display:grid;place-items:center;color:var(--muted)}
+.row.sel .ico{color:var(--primary)}
+.row .ico svg{width:19px;height:19px;stroke:currentColor;stroke-width:1.9;fill:none}
+.row .cnt{margin-left:auto;font-size:12px;color:var(--faint)}
+.row .cdot{width:11px;height:11px;border-radius:4px;flex:0 0 auto}
+.folder>.row .fchev{transition:transform .18s}.folder.open>.row .fchev{transform:rotate(90deg)}
+.folder .children{padding-left:20px;overflow:hidden;max-height:0;transition:max-height .24s ease}
+.folder.open .children{max-height:340px}
+.dw-foot{border-top:1px solid var(--line);padding:8px;display:flex;gap:6px}
+.dw-foot .row{flex:1;justify-content:center;font-size:13px}
+
+/* ---------- quick add ---------- */
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--surface);z-index:33;
+  border-radius:22px 22px 0 0;transform:translateY(102%);transition:transform .26s cubic-bezier(.3,.7,.3,1);
+  box-shadow:0 -10px 40px rgba(10,14,20,.28);padding:8px 14px calc(14px + env(safe-area-inset-bottom))}
+.sheet.show{transform:none}
+.grab{width:38px;height:4px;border-radius:2px;background:var(--line-strong);margin:6px auto 12px}
+.qa-input{font-size:16px;font-weight:500;padding:4px 6px 12px;outline:none;min-height:26px}
+.qa-input .hl-date{color:var(--p-low);font-weight:600}
+.qa-input .hl-pri{color:var(--p-high);font-weight:700}
+.qa-input .hl-tag{color:var(--primary);font-weight:600}
+.qa-chips{display:flex;gap:6px;flex-wrap:wrap;padding:0 4px 12px}
+.qa-chips .chip{background:var(--surface-2)}
+.qa-tools{display:flex;gap:6px;align-items:center;border-top:1px solid var(--line);padding:12px 2px 4px;
+  overflow-x:auto}
+.tool{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:11px;background:var(--surface-2);
+  color:var(--muted);font-size:12.5px;font-weight:600;white-space:nowrap;flex:0 0 auto}
+.tool.on{background:var(--primary-soft);color:var(--primary-ink)}
+.tool svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none}
+.tool.send{margin-left:auto;background:var(--primary);color:var(--on-primary);width:42px;height:42px;
+  justify-content:center;padding:0;border-radius:14px;position:sticky;right:0}
+.qa-pop{margin:2px 4px 0;background:var(--surface-2);border-radius:14px;padding:12px;display:none}
+.qa-pop.show{display:block}
+.qa-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.qa-grid button{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 6px;
+  font-size:12.5px;font-weight:600;color:var(--ink)}
+.qa-grid button.pri-h{color:var(--p-high)}.qa-grid button.pri-m{color:var(--p-med)}.qa-grid button.pri-l{color:var(--p-low)}
+.qa-tabs{display:flex;gap:6px;margin-top:10px}
+.qa-tabs span{font-size:11px;font-weight:700;color:var(--faint);padding:5px 9px;border-radius:8px;background:var(--surface)}
+
+/* ---------- detail ---------- */
+.detail{position:absolute;inset:0;background:var(--ground);z-index:34;transform:translateX(102%);
+  transition:transform .24s cubic-bezier(.3,.7,.3,1);display:flex;flex-direction:column}
+.detail.show{transform:none}
+.d-body{flex:1;overflow-y:auto;padding:6px 16px 40px}
+.d-title{display:flex;gap:12px;align-items:flex-start;padding:10px 2px 16px}
+.d-title .check{width:24px;height:24px}
+.d-title h2{font-size:21px;font-weight:600;letter-spacing:-.01em;font-family:var(--font-display)}
+.d-metarow{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px}
+.block{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden}
+.block .bh{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);
+  padding:13px 14px 3px}
+.block .bi{display:flex;align-items:center;gap:11px;padding:11px 14px;font-size:14.5px}
+.block .bi+.bi{border-top:1px solid var(--line)}
+.block .bi svg{width:19px;height:19px;stroke:var(--muted);stroke-width:1.9;fill:none;flex:0 0 auto}
+.block .bi .v{margin-left:auto;color:var(--muted);font-size:13.5px;display:flex;gap:6px;align-items:center}
+.note{padding:12px 14px;color:var(--muted);font-size:14px}
+.checkitem{display:flex;align-items:center;gap:10px;padding:9px 14px;font-size:14px}
+.checkitem+.checkitem{border-top:1px solid var(--line)}
+.mini{width:18px;height:18px;border-radius:6px;border:2px solid var(--p-none);flex:0 0 auto;display:grid;place-items:center}
+.mini.on{background:var(--good);border-color:var(--good)}.mini.on svg{width:11px;opacity:1;stroke:#fff}
+.mini svg{width:11px;opacity:0;stroke-width:2.6;fill:none}
+.seg{display:flex;background:var(--surface-2);border-radius:11px;padding:3px;gap:2px}
+.seg button{flex:1;padding:7px 4px;border-radius:8px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.dial{padding:6px 14px 14px}
+.dial .lab{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);margin:8px 0 5px}
+.track{height:6px;border-radius:4px;background:var(--surface-2);position:relative}
+.track i{position:absolute;top:-4px;width:16px;height:14px;border-radius:5px;background:var(--primary)}
+.showmore{color:var(--primary);font-weight:600;font-size:13.5px;padding:10px 4px}
+
+/* ---------- calendar ---------- */
+.cal-modes{display:flex;gap:6px;padding:6px 12px 10px;overflow-x:auto}
+.cal-modes button{flex:0 0 auto;padding:7px 13px;border-radius:999px;font-size:12.5px;font-weight:600;
+  background:var(--surface-2);color:var(--muted)}
+.cal-modes button.on{background:var(--primary);color:var(--on-primary)}
+.calview{padding:0 12px}
+.mgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.mgrid .wd{text-align:center;font-size:10.5px;font-weight:700;color:var(--faint);padding:4px 0}
+.mcell{aspect-ratio:1;border-radius:10px;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:3px;font-size:13px;font-weight:600;color:var(--ink);position:relative}
+.mcell.dim{color:var(--faint);opacity:.5}
+.mcell.today{background:var(--primary-soft);color:var(--primary-ink)}
+.mcell.sel{background:var(--primary);color:var(--on-primary)}
+.mcell .pips{display:flex;gap:2px}.mcell .pips i{width:4px;height:4px;border-radius:50%;background:var(--primary)}
+.mcell.sel .pips i{background:var(--on-primary)}
+.agenda-day{font-size:12px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;padding:14px 4px 8px}
+.hourrow{display:grid;grid-template-columns:46px 1fr;gap:8px;min-height:52px}
+.hourrow .h{font-size:11px;color:var(--faint);text-align:right;padding-top:2px}
+.hourrow .slot{border-top:1px solid var(--line);position:relative;padding:4px 0}
+.ev{border-radius:8px;padding:6px 9px;font-size:12px;font-weight:600;color:#fff;margin-bottom:4px}
+.wk-grid{display:grid;grid-template-columns:36px repeat(3,1fr);gap:4px}
+.wk-grid .wh{font-size:10px;color:var(--faint);text-align:center;font-weight:700}
+.wk-col{background:var(--surface);border-radius:9px;min-height:150px;padding:4px;display:flex;flex-direction:column;gap:4px}
+.wk-ev{border-radius:7px;padding:5px 6px;font-size:10.5px;font-weight:600;color:#fff}
+.ygrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:4px}
+.ymini{background:var(--surface);border-radius:12px;padding:9px;box-shadow:var(--shadow)}
+.ymini .ym{font-size:12px;font-weight:700;margin-bottom:6px}
+.ymini .yd{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.ymini .yd i{aspect-ratio:1;border-radius:2px;background:var(--surface-2)}
+.ymini .yd i.a{background:color-mix(in srgb,var(--primary) 45%,transparent)}
+.ymini .yd i.b{background:var(--primary)}
+
+/* ---------- matrix ---------- */
+.mx-wrap{padding:12px}
+.mx-grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:10px;height:520px}
+.quad{border-radius:16px;padding:11px;display:flex;flex-direction:column;background:var(--surface);
+  box-shadow:var(--shadow);border-top:3px solid var(--qc)}
+.quad h3{font-size:12.5px;font-weight:700;color:var(--qc);display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.quad h3 .c{margin-left:auto;color:var(--faint);font-weight:600}
+.quad .qtasks{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px}
+.qtask{font-size:12px;font-weight:500;background:var(--surface-2);border-radius:8px;padding:7px 8px;
+  display:flex;gap:6px;align-items:center}
+.q1{--qc:var(--p-high)}.q2{--qc:var(--p-low)}.q3{--qc:var(--p-med)}.q4{--qc:var(--p-none)}
+.mx-set{padding:14px}
+.setrow{display:flex;align-items:center;gap:10px;padding:12px 2px;border-bottom:1px solid var(--line);font-size:14px}
+.setrow .v{margin-left:auto;color:var(--muted);font-size:13px}
+.toggle{width:42px;height:25px;border-radius:999px;background:var(--line-strong);position:relative;flex:0 0 auto}
+.toggle.on{background:var(--primary)}
+.toggle i{position:absolute;top:3px;left:3px;width:19px;height:19px;border-radius:50%;background:#fff;transition:left .18s}
+.toggle.on i{left:20px}
+.checkbox{width:22px;height:22px;border-radius:6px;border:2px solid var(--line-strong);display:grid;place-items:center}
+.checkbox.on{background:var(--primary);border-color:var(--primary)}
+.checkbox svg{width:13px;stroke:#fff;stroke-width:2.6;fill:none;opacity:0}.checkbox.on svg{opacity:1}
+
+/* ---------- search ---------- */
+.searchbar{margin:6px 12px 12px;background:var(--surface);border:1px solid var(--line-strong);border-radius:14px;
+  padding:11px 14px;display:flex;gap:10px;align-items:center;box-shadow:var(--shadow)}
+.searchbar svg{width:19px;height:19px;stroke:var(--muted);stroke-width:2;fill:none}
+.searchbar input{border:none;outline:none;background:none;color:var(--ink);font:inherit;flex:1;font-size:15px}
+.scopes{display:flex;gap:7px;padding:0 12px 12px;overflow-x:auto}
+.scopes button{flex:0 0 auto;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;
+  background:var(--surface-2);color:var(--muted)}
+.scopes button.on{background:var(--primary);color:var(--on-primary)}
+
+/* ---------- settings ---------- */
+.set-list{padding:6px 12px}
+.set-group{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden}
+.set-item{display:flex;align-items:center;gap:13px;padding:14px;font-size:15px}
+.set-item+.set-item{border-top:1px solid var(--line)}
+.set-item .ico{width:34px;height:34px;border-radius:10px;background:var(--primary-soft);color:var(--primary);
+  display:grid;place-items:center;flex:0 0 auto}
+.set-item .ico svg{width:19px;height:19px;stroke:currentColor;stroke-width:1.9;fill:none}
+.set-item .meta{margin-left:auto;color:var(--faint);font-size:13px;display:flex;align-items:center;gap:6px}
+.set-item .meta svg{width:17px;height:17px;stroke:currentColor;stroke-width:2;fill:none}
+.set-sub{padding:2px 14px 14px}
+.pillrow{display:flex;flex-wrap:wrap;gap:7px;padding:4px 0 2px}
+.pill{padding:7px 12px;border-radius:999px;font-size:12.5px;font-weight:600;background:var(--surface-2);color:var(--muted)}
+.pill.on{background:var(--primary);color:var(--on-primary)}
+.legend{max-width:900px;width:100%;color:var(--muted);font-size:13px;line-height:1.6;
+  border-top:1px solid var(--line);padding-top:18px}
+.legend b{color:var(--ink)}
+.legend .k{display:inline-flex;align-items:center;gap:6px;margin-right:14px}
+.legend .k i{width:10px;height:10px;border-radius:3px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="stage">
+  <header class="pagehead">
+    <div>
+      <h1>ToDo Companion — Interactive Prototype</h1>
+      <p>Tap through the real structure: the side drawer, quick-add toolbar, task detail, all six
+         calendar modes, the matrix &amp; its settings, search, and settings. This is a clickable
+         wireframe to review before we build Phase&nbsp;1a.</p>
+    </div>
+    <div class="controls">
+      <select id="jump" aria-label="Jump to screen">
+        <option value="tasks">▸ Tasks (list)</option>
+        <option value="tasks-outline">▸ Tasks (outline)</option>
+        <option value="drawer">▸ Side drawer</option>
+        <option value="quickadd">▸ Quick-add</option>
+        <option value="detail">▸ Task detail</option>
+        <option value="calendar">▸ Calendar</option>
+        <option value="matrix">▸ Matrix</option>
+        <option value="matrix-set">▸ Matrix settings</option>
+        <option value="search">▸ Search</option>
+        <option value="settings">▸ Settings</option>
+      </select>
+      <button class="ctl" id="themebtn">◐ Theme</button>
+    </div>
+  </header>
+
+  <div class="phone" id="phone">
+    <div class="statusbar"><span>9:41</span><span class="dots"><span></span><span></span><span></span> ToDo</span></div>
+
+    <div class="appbar">
+      <button class="iconbtn" data-action="drawer" aria-label="Menu">
+        <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <div class="title" id="appTitle"><span class="accent"></span><span id="appTitleText">Today</span></div>
+      <button class="iconbtn sm" id="viewSwitch" data-action="toggleview" aria-label="Switch view" title="List / Outline">
+        <svg viewBox="0 0 24 24" id="viewIcon"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg></button>
+      <button class="iconbtn sm" aria-label="Sort and group"><svg viewBox="0 0 24 24"><path d="M4 6h16M6 12h12M9 18h6"/></svg></button>
+      <button class="iconbtn sm" aria-label="More"><svg viewBox="0 0 24 24"><path d="M12 5h.01M12 12h.01M12 19h.01"/></svg></button>
+    </div>
+
+    <div class="screenwrap">
+      <!-- ============ TASKS ============ -->
+      <section class="screen active" id="screen-tasks">
+        <div id="listView">
+          <div class="grouphdr">Overdue <span class="count tnum">2</span></div>
+          <div class="card">
+            <div class="task" data-action="detail">
+              <div class="check high"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></div>
+              <div class="t-main"><div class="t-title">Send quarterly report to finance</div>
+                <div class="t-sub"><span class="chip over"><svg viewBox="0 0 24 24"><path d="M12 7v5l3 2"/><circle cx="12" cy="12" r="9"/></svg>Yesterday 17:00</span>
+                  <span class="chip tag">#work</span><span class="dotp" style="background:var(--p-high)"></span></div></div>
+              <div class="t-right"><span class="t-star"><svg viewBox="0 0 24 24"><path d="M12 2l3 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.9 21l1.2-6.8-5-4.9 6.9-1z"/></svg></span></div>
+            </div>
+            <div class="task" data-action="detail">
+              <div class="check med"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></div>
+              <div class="t-main"><div class="t-title">Renew car insurance</div>
+                <div class="t-sub"><span class="chip over">2 days ago</span><span class="chip">@Errands</span></div></div>
+            </div>
+          </div>
+
+          <div class="grouphdr">Today <span class="count tnum">5</span></div>
+          <div class="card">
+            <div class="task" data-action="detail">
+              <div class="check high"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></div>
+              <div class="t-main"><div class="t-title">Draft summary for board deck</div>
+                <div class="t-sub"><span class="chip due"><svg viewBox="0 0 24 24"><path d="M12 7v5l3 2"/><circle cx="12" cy="12" r="9"/></svg>17:00</span>
+                  <span class="chip tag">#work</span></div></div>
+              <div class="t-right"><span class="subcount"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg>1/3</span></div>
+            </div>
+            <div class="task" data-action="detail">
+              <div class="check low"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></div>
+              <div class="t-main"><div class="t-title">Water the plants</div>
+                <div class="t-sub"><span class="chip">@Home</span></div></div>
+            </div>
+            <div class="task done" data-action="detail">
+              <div class="check"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></div>
+              <div class="t-main"><div class="t-title">Morning standup</div></div>
+            </div>
+          </div>
+
+          <div class="grouphdr">No date <span class="count tnum">3</span></div>
+          <div class="card">
+            <div class="task" data-action="detail">
+              <div class="check low"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></div>
+              <div class="t-main"><div class="t-title">Research standing desks</div>
+                <div class="t-sub"><span class="chip tag">#home</span><span class="subcount"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>2 subtasks</span></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- outline view -->
+        <div id="outlineView" style="display:none">
+          <div class="otask"><span class="ochev"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span>
+            <div class="check med"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></div>
+            <div class="t-title" data-action="detail">Quarterly report</div>
+            <span class="odrag"><svg viewBox="0 0 24 24"><path d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01"/></svg></span></div>
+          <div class="otask"><span class="guide"></span><span class="ochev leaf"></span>
+            <div class="check high"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></div>
+            <div class="t-title">Collect figures from finance</div></div>
+          <div class="otask"><span class="guide"></span><span class="ochev"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span>
+            <div class="check low"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></div>
+            <div class="t-title">Draft summary</div></div>
+          <div class="otask"><span class="guide" style="opacity:.5"></span><span class="guide"></span><span class="ochev leaf"></span>
+            <div class="mini"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></div>
+            <div class="t-title" style="font-size:14px">Executive overview paragraph</div></div>
+          <div class="otask"><span class="guide"></span><span class="ochev leaf"></span>
+            <div class="check"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></div>
+            <div class="t-title">Send for review</div></div>
+          <div class="otask"><span class="ochev"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span>
+            <div class="check"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></div>
+            <div class="t-title">Admin &amp; expenses</div></div>
+        </div>
+      </section>
+
+      <!-- ============ CALENDAR ============ -->
+      <section class="screen" id="screen-calendar">
+        <div class="cal-modes" id="calModes">
+          <button data-cal="list">List</button><button data-cal="day">Day</button>
+          <button data-cal="3day">3-Day</button><button data-cal="week">Week</button>
+          <button class="on" data-cal="month">Month</button><button data-cal="year">Year</button>
+        </div>
+        <div class="calview" id="calView"></div>
+      </section>
+
+      <!-- ============ MATRIX ============ -->
+      <section class="screen" id="screen-matrix">
+        <div class="mx-wrap" id="matrixMain">
+          <div style="display:flex;align-items:center;padding:2px 2px 12px">
+            <div style="font-family:var(--font-display);font-weight:600;font-size:16px">Priority Matrix</div>
+            <button class="iconbtn sm" data-action="matrixset" style="margin-left:auto" aria-label="Matrix settings">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1l2-1.5-2-3.4-2.3 1a7 7 0 00-1.7-1l-.3-2.5h-4l-.3 2.5a7 7 0 00-1.7 1l-2.3-1-2 3.4L4.1 11a7 7 0 000 2l-2 1.5 2 3.4 2.3-1a7 7 0 001.7 1l.3 2.5h4l.3-2.5a7 7 0 001.7-1l2.3 1 2-3.4-2-1.5a7 7 0 00.1-1z"/></svg></button>
+          </div>
+          <div class="mx-grid">
+            <div class="quad q1"><h3>Do first <span class="c tnum">3</span></h3><div class="qtasks">
+              <div class="qtask" data-action="detail"><span class="dotp" style="background:var(--p-high)"></span>Send quarterly report</div>
+              <div class="qtask"><span class="dotp" style="background:var(--p-high)"></span>Fix prod bug</div>
+              <div class="qtask"><span class="dotp" style="background:var(--p-high)"></span>Call the bank</div></div></div>
+            <div class="quad q2"><h3>Schedule <span class="c tnum">4</span></h3><div class="qtasks">
+              <div class="qtask"><span class="dotp" style="background:var(--p-low)"></span>Plan Q3 roadmap</div>
+              <div class="qtask"><span class="dotp" style="background:var(--p-low)"></span>Dentist checkup</div>
+              <div class="qtask"><span class="dotp" style="background:var(--p-low)"></span>Read design book</div></div></div>
+            <div class="quad q3"><h3>Delegate <span class="c tnum">2</span></h3><div class="qtasks">
+              <div class="qtask"><span class="dotp" style="background:var(--p-med)"></span>Reply to vendor</div>
+              <div class="qtask"><span class="dotp" style="background:var(--p-med)"></span>Schedule team lunch</div></div></div>
+            <div class="quad q4"><h3>Later <span class="c tnum">5</span></h3><div class="qtasks">
+              <div class="qtask"><span class="dotp" style="background:var(--p-none)"></span>Research desks</div>
+              <div class="qtask"><span class="dotp" style="background:var(--p-none)"></span>Sort photo library</div></div></div>
+          </div>
+        </div>
+        <div class="mx-set" id="matrixSet" style="display:none">
+          <div style="display:flex;align-items:center;padding:2px 0 8px">
+            <button class="iconbtn sm" data-action="matrixback" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+            <div style="font-family:var(--font-display);font-weight:600;font-size:16px">Matrix settings</div>
+          </div>
+          <div class="dw-sec">Lists included</div>
+          <div class="setrow"><span class="checkbox on"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></span>All lists</div>
+          <div class="setrow"><span class="checkbox on"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></span><span class="cdot" style="background:#E5484D;width:11px;height:11px;border-radius:4px"></span> Work</div>
+          <div class="setrow"><span class="checkbox on"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></span><span class="cdot" style="background:#3B82F6;width:11px;height:11px;border-radius:4px"></span> Personal</div>
+          <div class="dw-sec">Thresholds</div>
+          <div class="dial"><div class="lab"><span>Important when importance ≥</span><b>4</b></div><div class="track"><i style="left:66%"></i></div></div>
+          <div class="dial"><div class="lab"><span>Urgent when urgency ≥</span><b>4</b></div><div class="track"><i style="left:66%"></i></div></div>
+          <div class="dw-sec">Display</div>
+          <div class="setrow">Show completed <span class="toggle" data-toggle></span></div>
+          <div class="setrow">Hide empty quadrants <span class="toggle on" data-toggle><i></i></span></div>
+          <div class="setrow">Sort within quadrant <span class="v">Computed ▾</span></div>
+        </div>
+      </section>
+
+      <!-- ============ SEARCH ============ -->
+      <section class="screen" id="screen-search">
+        <div class="searchbar"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+          <input placeholder="Search tasks, notes, tags, lists…" value="report"></div>
+        <div class="scopes"><button class="on">All</button><button>Tasks</button><button>Notes</button>
+          <button>Tags</button><button>Lists</button><button>Contexts</button></div>
+        <div class="grouphdr">Tasks <span class="count tnum">3</span></div>
+        <div class="card">
+          <div class="task" data-action="detail"><div class="check high"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></div>
+            <div class="t-main"><div class="t-title">Send quarterly <mark style="background:var(--primary-soft);color:var(--primary-ink);border-radius:3px">report</mark> to finance</div>
+              <div class="t-sub"><span class="chip">Work</span><span class="chip over">Overdue</span></div></div></div>
+          <div class="task"><div class="check low"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></div>
+            <div class="t-main"><div class="t-title">Read incident <mark style="background:var(--primary-soft);color:var(--primary-ink);border-radius:3px">report</mark></div>
+              <div class="t-sub"><span class="chip">Inbox</span></div></div></div>
+        </div>
+        <div class="grouphdr">Notes <span class="count tnum">1</span></div>
+        <div class="card"><div class="task"><div class="t-main"><div class="t-title" style="font-weight:500">Weekly <mark style="background:var(--primary-soft);color:var(--primary-ink);border-radius:3px">report</mark> template…</div>
+          <div class="t-sub"><span class="chip">in “Admin” · note</span></div></div></div></div>
+        <div class="grouphdr">Lists <span class="count tnum">1</span></div>
+        <div class="card"><div class="task"><span class="cdot" style="background:#E5484D;width:12px;height:12px;border-radius:4px;margin-top:3px"></span>
+          <div class="t-main"><div class="t-title">Reporting &amp; metrics</div><div class="t-sub"><span class="chip">List · 8 tasks</span></div></div></div></div>
+      </section>
+
+      <!-- ============ SETTINGS ============ -->
+      <section class="screen" id="screen-settings">
+        <div class="set-list" id="setList"></div>
+      </section>
+    </div>
+
+    <!-- bottom nav -->
+    <nav class="bottomnav" id="bottomnav">
+      <button class="navitem active" data-tab="tasks"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg><span class="navdot"></span>Tasks</button>
+      <button class="navitem" data-tab="calendar"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg><span class="navdot"></span>Calendar</button>
+      <button class="navitem" data-tab="matrix"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18M3 12h18"/></svg><span class="navdot"></span>Matrix</button>
+      <button class="navitem" data-tab="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><span class="navdot"></span>Search</button>
+      <button class="navitem" data-tab="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a7.9 7.9 0 000-2l2-1.5-2-3.5-2.4 1a8 8 0 00-1.7-1L15 3H9l-.3 2.5a8 8 0 00-1.7 1l-2.4-1-2 3.5L4.6 11a7.9 7.9 0 000 2l-2 1.5 2 3.5 2.4-1a8 8 0 001.7 1L9 21h6l.3-2.5a8 8 0 001.7-1l2.4 1 2-3.5-2-1.5z"/></svg><span class="navdot"></span>Settings</button>
+    </nav>
+
+    <button class="fab" id="fab" data-action="quickadd" aria-label="Add task"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+
+    <!-- drawer -->
+    <div class="scrim" id="scrim" data-action="closeoverlays"></div>
+    <aside class="drawer" id="drawer">
+      <div class="dw-head"><div class="dw-logo">t</div><div><div class="n">ToDo Companion</div><div class="s">Offline · private · free</div></div>
+        <button class="iconbtn sm" data-tab="settings" data-action="closeoverlays" style="margin-left:auto" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a7.9 7.9 0 000-2l2-1.5-2-3.5-2.4 1a8 8 0 00-1.7-1L15 3H9l-.3 2.5a8 8 0 00-1.7 1l-2.4-1-2 3.5L4.6 11a7.9 7.9 0 000 2l-2 1.5 2 3.5 2.4-1a8 8 0 001.7 1L9 21h6l.3-2.5a8 8 0 001.7-1l2.4 1 2-3.5-2-1.5z"/></svg></button></div>
+      <div class="dw-scroll">
+        <div class="dw-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>Search everything…</div>
+        <div class="dw-sec">Smart lists</div>
+        <div class="row" data-list="Inbox"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 12h5l2 3h4l2-3h5"/><path d="M4 6h16v12H4z"/></svg></span>Inbox<span class="cnt tnum">3</span></div>
+        <div class="row sel" data-list="Today"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg></span>Today<span class="cnt tnum">5</span></div>
+        <div class="row" data-list="Tomorrow"><span class="ico"><svg viewBox="0 0 24 24"><path d="M4 12h13M13 6l6 6-6 6"/></svg></span>Tomorrow<span class="cnt tnum">2</span></div>
+        <div class="row" data-list="Next 7 Days"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg></span>Next 7 Days<span class="cnt tnum">12</span></div>
+        <div class="row" data-list="Do Next"><span class="ico" style="color:var(--primary)"><svg viewBox="0 0 24 24"><path d="M13 3L4 14h7l-1 7 9-11h-7z"/></svg></span>Do Next<span class="cnt" style="color:var(--primary)">★</span></div>
+        <div class="row" data-list="Scheduled"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M7 13h4"/></svg></span>Scheduled<span class="cnt tnum">18</span></div>
+        <div class="row" data-list="Flagged"><span class="ico" style="color:var(--star)"><svg viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M12 2l3 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.9 21l1.2-6.8-5-4.9 6.9-1z"/></svg></span>Flagged<span class="cnt tnum">1</span></div>
+        <div class="row" data-list="All"><span class="ico"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></span>All<span class="cnt tnum">42</span></div>
+        <div class="row" data-list="Completed"><span class="ico" style="color:var(--good)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg></span>Completed<span class="cnt tnum">316</span></div>
+        <div class="row" data-list="Won't Do"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg></span>Won't Do<span class="cnt tnum">7</span></div>
+        <div class="row" data-list="Trash"><span class="ico"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></span>Trash<span class="cnt tnum">4</span></div>
+
+        <div class="dw-sec">Lists <span class="add">＋</span></div>
+        <div class="folder open" data-folder>
+          <div class="row"><span class="ico fchev"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span>Work<span class="cnt tnum">7</span></div>
+          <div class="children">
+            <div class="row" data-list="Quarterly Report"><span class="cdot" style="background:#E5484D"></span>Quarterly Report<span class="cnt tnum">4</span></div>
+            <div class="row" data-list="Admin"><span class="cdot" style="background:#F59E0B"></span>Admin<span class="cnt tnum">3</span></div>
+            <div class="folder" data-folder>
+              <div class="row"><span class="ico fchev"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span>Clients<span class="cnt tnum">5</span></div>
+              <div class="children">
+                <div class="row" data-list="Acme"><span class="cdot" style="background:#8B5CF6"></span>Acme<span class="cnt tnum">2</span></div>
+                <div class="row" data-list="Globex"><span class="cdot" style="background:#0EA371"></span>Globex<span class="cnt tnum">3</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="folder open" data-folder>
+          <div class="row"><span class="ico fchev"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span>Personal<span class="cnt tnum">9</span></div>
+          <div class="children">
+            <div class="row" data-list="Home"><span class="cdot" style="background:#3B82F6"></span>Home<span class="cnt tnum">5</span></div>
+            <div class="row" data-list="Health"><span class="cdot" style="background:#EC4899"></span>Health<span class="cnt tnum">4</span></div>
+          </div>
+        </div>
+
+        <div class="dw-sec">Filters <span class="add">＋</span></div>
+        <div class="row" data-list="High @ Errands"><span class="ico"><svg viewBox="0 0 24 24"><path d="M4 6h16l-6 7v5l-4 2v-7z"/></svg></span>High @ Errands<span class="cnt tnum">3</span></div>
+        <div class="dw-sec">Tags <span class="add">＋</span></div>
+        <div class="row" data-list="#work"><span class="ico" style="color:var(--primary)">#</span>work<span class="cnt tnum">14</span></div>
+        <div class="row" data-list="#home"><span class="ico" style="color:var(--primary)">#</span>home<span class="cnt tnum">9</span></div>
+        <div class="dw-sec">Contexts <span class="add">＋</span></div>
+        <div class="row" data-list="@Office"><span class="ico">@</span>Office<span class="cnt tnum">6</span></div>
+        <div class="row" data-list="@Errands"><span class="ico">@</span>Errands · <span style="color:var(--good);font-size:11px">&nbsp;available</span><span class="cnt tnum">4</span></div>
+      </div>
+      <div class="dw-foot">
+        <button class="row"><span class="ico"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>Add</button>
+        <button class="row" data-tab="settings" data-action="closeoverlays"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a7.9 7.9 0 000-2l2-1.5-2-3.5-2.4 1a8 8 0 00-1.7-1L15 3H9l-.3 2.5a8 8 0 00-1.7 1l-2.4-1-2 3.5L4.6 11a7.9 7.9 0 000 2l-2 1.5 2 3.5 2.4-1a8 8 0 001.7 1L9 21h6l.3-2.5a8 8 0 001.7-1l2.4 1 2-3.5-2-1.5z"/></svg></span>Settings</button>
+      </div>
+    </aside>
+
+    <!-- quick add -->
+    <div class="sheet" id="quickadd">
+      <div class="grab"></div>
+      <div class="qa-input"><span>Draft summary </span><span class="hl-date">tomorrow 5pm</span> <span class="hl-pri">!!</span> <span class="hl-tag">#work</span></div>
+      <div class="qa-chips"><span class="chip due">Tomorrow 17:00</span><span class="chip" style="color:var(--p-med)">High</span><span class="chip tag">#work</span><span class="chip">List: Work</span></div>
+      <div class="qa-pop" id="qaPop">
+        <div class="qa-grid">
+          <button>Today</button><button>Tomorrow</button><button>Next Mon</button>
+          <button>Next Week</button><button>Pick date…</button><button>Clear</button>
+        </div>
+        <div class="qa-tabs"><span>Time</span><span>Reminder</span><span>Repeat</span><span>Duration</span><span>All-day</span></div>
+      </div>
+      <div class="qa-tools">
+        <button class="tool on" data-qatool><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>Date</button>
+        <button class="tool"><svg viewBox="0 0 24 24"><path d="M4 6h16l-6 7v5l-4 2v-7z"/></svg>Priority</button>
+        <button class="tool"># Tag</button>
+        <button class="tool"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>List</button>
+        <button class="tool"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 1112 0c0 7 3 7 3 9H3c0-2 3-2 3-9z"/></svg>Remind</button>
+        <button class="tool"><svg viewBox="0 0 24 24"><path d="M17 2l4 4-4 4M3 11V9a4 4 0 014-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 01-4 4H3"/></svg>Repeat</button>
+        <button class="tool send" data-action="closeoverlays" aria-label="Add"><svg viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-3-6-7-2z"/></svg></button>
+      </div>
+    </div>
+
+    <!-- detail -->
+    <div class="detail" id="detail">
+      <div class="appbar">
+        <button class="iconbtn" data-action="closeoverlays" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+        <div class="title" style="font-size:15px;color:var(--muted)"><span class="cdot" style="background:#E5484D;width:10px;height:10px;border-radius:3px"></span>Work · Quarterly Report</div>
+        <button class="iconbtn sm" aria-label="Star"><svg viewBox="0 0 24 24" style="fill:var(--star);stroke:none"><path d="M12 2l3 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.9 21l1.2-6.8-5-4.9 6.9-1z"/></svg></button>
+        <button class="iconbtn sm" aria-label="More"><svg viewBox="0 0 24 24"><path d="M12 5h.01M12 12h.01M12 19h.01"/></svg></button>
+      </div>
+      <div class="d-body">
+        <div class="d-title"><div class="check med"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></div>
+          <h2>Draft summary for board deck</h2></div>
+        <div class="d-metarow"><span class="chip due"><svg viewBox="0 0 24 24"><path d="M12 7v5l3 2"/><circle cx="12" cy="12" r="9"/></svg>Today 17:00</span>
+          <span class="chip" style="color:var(--p-med)">High</span><span class="chip tag">#work</span><span class="chip">@Office</span></div>
+
+        <div class="block"><div class="note">Pull the three headline charts and write a one-paragraph exec overview. Keep under one page.</div></div>
+
+        <div class="block"><div class="bh">Subtasks · 1 / 3</div>
+          <div class="checkitem"><span class="mini on"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></span><span style="color:var(--faint);text-decoration:line-through">Collect figures</span></div>
+          <div class="checkitem"><span class="mini"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></span>Write exec overview</div>
+          <div class="checkitem"><span class="mini"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></span>Send for review</div>
+          <div class="checkitem" style="color:var(--primary)"><span class="mini" style="border-color:var(--primary)"><svg viewBox="0 0 24 24" style="opacity:1;stroke:var(--primary)"><path d="M12 5v14M5 12h14"/></svg></span>Add subtask</div></div>
+
+        <div class="block"><div class="bh">Schedule</div>
+          <div class="bi"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg>Start<span class="v">Today 09:00</span></div>
+          <div class="bi"><svg viewBox="0 0 24 24"><path d="M12 7v5l3 2"/><circle cx="12" cy="12" r="9"/></svg>Due<span class="v">Today 17:00</span></div>
+          <div class="bi"><svg viewBox="0 0 24 24"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg>Duration<span class="v">45 min</span></div>
+          <div class="bi"><svg viewBox="0 0 24 24"><path d="M17 2l4 4-4 4M3 11V9a4 4 0 014-4h14"/></svg>Repeat<span class="v">None</span></div></div>
+
+        <div class="block"><div class="bh">Reminders</div>
+          <div class="bi"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 1112 0c0 7 3 7 3 9H3c0-2 3-2 3-9z"/></svg>30 min before due<span class="v">🔔</span></div>
+          <div class="bi" style="color:var(--primary)"><svg viewBox="0 0 24 24" style="stroke:var(--primary)"><path d="M12 5v14M5 12h14"/></svg>Add reminder</div></div>
+
+        <div class="block"><div class="bh">Priority</div>
+          <div style="padding:10px 12px 4px"><div class="seg"><button>None</button><button>Low</button><button class="on">High</button><button>Urgent</button></div></div>
+          <div class="dial"><div class="lab"><span>Importance</span><b>4 / 5</b></div><div class="track"><i style="left:70%"></i></div>
+            <div class="lab" style="margin-top:12px"><span>Urgency</span><b>5 / 5</b></div><div class="track"><i style="left:92%"></i></div></div></div>
+
+        <div class="block"><div class="bi"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>List<span class="v"><span class="cdot" style="background:#E5484D;width:9px;height:9px;border-radius:3px"></span>Work ›</span></div>
+          <div class="bi"><svg viewBox="0 0 24 24"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>Tags<span class="v">#work ›</span></div>
+          <div class="bi"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.5-7-10a7 7 0 0114 0c0 5.5-7 10-7 10z"/><circle cx="12" cy="11" r="2.5"/></svg>Contexts<span class="v">@Office ›</span></div></div>
+
+        <button class="showmore">Show more — dependencies · goal · review · color ▾</button>
+      </div>
+    </div>
+
+  </div><!-- /phone -->
+
+  <div class="legend">
+    <div style="margin-bottom:8px"><span class="k"><i style="background:#E5484D"></i><b>High</b></span>
+      <span class="k"><i style="background:#F59E0B"></i>Medium</span>
+      <span class="k"><i style="background:#3B82F6"></i>Low</span>
+      <span class="k"><i style="background:#94A3B8"></i>None</span></div>
+    Use the phone: tap the <b>☰</b> for the drawer, the <b>＋</b> for quick-add, any task to open <b>detail</b>,
+    the header <b>list icon</b> to switch List↔Outline, the <b>Calendar</b> tab to try all six modes, and the
+    <b>gear</b> in Matrix for its settings. Content is representative sample data. Everything here is a wireframe of
+    Phase&nbsp;1 — tell me what to change and I'll adjust before building.
+  </div>
+</div>
+
+<script>
+(function(){
+  var root=document.documentElement, phone=document.getElementById('phone');
+  function q(s,el){return (el||document).querySelector(s);}
+  function qa(s,el){return Array.prototype.slice.call((el||document).querySelectorAll(s));}
+
+  // theme toggle (light <-> dark)
+  q('#themebtn').addEventListener('click',function(){
+    var cur=root.getAttribute('data-theme');
+    var next = cur==='dark' ? 'light' : (cur==='light' ? 'dark' :
+      (matchMedia('(prefers-color-scheme: dark)').matches?'light':'dark'));
+    root.setAttribute('data-theme',next);
+  });
+
+  var titles={tasks:'Today',calendar:'Calendar',matrix:'Matrix',search:'Search',settings:'Settings'};
+  function setTab(tab){
+    qa('.screen').forEach(function(s){s.classList.remove('active');});
+    var scr=document.getElementById('screen-'+tab); if(scr)scr.classList.add('active');
+    qa('.navitem').forEach(function(n){n.classList.toggle('active',n.dataset.tab===tab);});
+    q('#appTitleText').textContent=titles[tab]||'';
+    // app bar controls only relevant on tasks
+    var onTasks=tab==='tasks';
+    q('#viewSwitch').style.display=onTasks?'':'none';
+    q('#fab').style.display=(tab==='settings')?'none':'';
+    q('.appbar').style.display = (tab==='settings'||tab==='search')?'flex':'flex';
+  }
+  qa('[data-tab]').forEach(function(b){b.addEventListener('click',function(){setTab(b.dataset.tab);});});
+
+  // overlays
+  function openDrawer(){q('#drawer').classList.add('show');q('#scrim').classList.add('show');}
+  function openQuick(){q('#quickadd').classList.add('show');q('#scrim').classList.add('show');}
+  function openDetail(){q('#detail').classList.add('show');}
+  function closeOverlays(){
+    q('#drawer').classList.remove('show');q('#quickadd').classList.remove('show');
+    q('#scrim').classList.remove('show');q('#detail').classList.remove('show');
+    q('#qaPop').classList.remove('show');
+  }
+  document.addEventListener('click',function(e){
+    var t=e.target.closest('[data-action]'); if(!t)return;
+    var a=t.dataset.action;
+    if(a==='drawer')openDrawer();
+    else if(a==='quickadd')openQuick();
+    else if(a==='detail')openDetail();
+    else if(a==='closeoverlays')closeOverlays();
+    else if(a==='matrixset'){q('#matrixMain').style.display='none';q('#matrixSet').style.display='block';}
+    else if(a==='matrixback'){q('#matrixMain').style.display='block';q('#matrixSet').style.display='none';}
+  });
+
+  // quick-add tool popover
+  qa('[data-qatool]').forEach(function(b){b.addEventListener('click',function(){q('#qaPop').classList.toggle('show');});});
+
+  // list<->outline
+  var outline=false;
+  q('#viewSwitch').addEventListener('click',function(){
+    outline=!outline;
+    q('#listView').style.display=outline?'none':'';
+    q('#outlineView').style.display=outline?'':'none';
+    q('#viewIcon').innerHTML = outline
+      ? '<path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6l1.5 1.5M4.5 12H3M4.5 18H3"/>'
+      : '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>';
+  });
+
+  // drawer list selection
+  qa('#drawer [data-list]').forEach(function(r){r.addEventListener('click',function(e){
+    e.stopPropagation();
+    qa('#drawer .row').forEach(function(x){x.classList.remove('sel');});
+    r.classList.add('sel');
+    q('#appTitleText').textContent=r.dataset.list;
+    setTab('tasks'); closeOverlays();
+  });});
+  // folders collapse
+  qa('#drawer .folder > .row').forEach(function(r){r.addEventListener('click',function(e){
+    if(e.target.closest('[data-list]'))return;
+    e.stopPropagation(); r.parentElement.classList.toggle('open');
+  });});
+
+  // toggles
+  qa('[data-toggle]').forEach(function(t){t.addEventListener('click',function(){
+    t.classList.toggle('on'); if(!q('i',t)){var i=document.createElement('i');t.appendChild(i);} });});
+
+  // ---------- calendar renderer ----------
+  var calView=q('#calView');
+  var evColors=['#0F766E','#E5484D','#3B82F6','#F59E0B','#8B5CF6'];
+  function monthHTML(){
+    var wd=['M','T','W','T','F','S','S'], cells='';
+    for(var i=0;i<wd.length;i++)cells+='<div class="wd">'+wd[i]+'</div>';
+    var start=3; // offset
+    for(var d=1-start; d<=35-start; d++){
+      var day=d, cls='mcell';
+      if(day<1||day>31){cls+=' dim'; day=((day+31-1)%31)+1;}
+      else if(day===12)cls+=' today';
+      if(day===17&&d>0&&d<32)cls+=' sel';
+      var pips=''; if([3,8,12,15,17,22,26].indexOf(day)>-1&&!/dim/.test(cls)){pips='<div class="pips"><i></i>'+(day%2?'<i></i>':'')+'</div>';}
+      cells+='<div class="'+cls+'">'+day+pips+'</div>';
+    }
+    return '<div class="mgrid">'+cells+'</div>'+
+      '<div class="agenda-day">Wed 17 — 3 tasks</div>'+
+      taskRow('Send quarterly report','17:00','#E5484D')+
+      taskRow('Team sync','11:00','#0F766E')+
+      taskRow('Dentist','15:30','#3B82F6');
+  }
+  function taskRow(t,time,c){return '<div class="task" style="background:var(--surface);border-radius:12px;margin:0 0 8px;box-shadow:var(--shadow)">'+
+    '<span class="dotp" style="background:'+c+';margin:5px 2px 0"></span><div class="t-main"><div class="t-title" style="font-size:14px">'+t+'</div></div>'+
+    '<div class="t-right"><span class="chip due">'+time+'</span></div></div>';}
+  function listHTML(){
+    return '<div class="agenda-day">Today · Wed 17 Sep</div>'+taskRow('Draft summary','17:00','#F59E0B')+taskRow('Water plants','—','#3B82F6')+
+      '<div class="agenda-day">Tomorrow · Thu 18</div>'+taskRow('Quarterly review','10:00','#E5484D')+taskRow('Gym','18:00','#0F766E')+
+      '<div class="agenda-day">Fri 19</div>'+taskRow('Pay invoices','—','#F59E0B');
+  }
+  function dayHTML(hours,cols){
+    var h='';
+    var evs={9:['Standup','#0F766E'],11:['1:1 with Sam','#8B5CF6'],15:['Draft summary','#F59E0B'],17:['Send report','#E5484D']};
+    for(var i=8;i<=18;i++){
+      var e = evs[i]?'<div class="ev" style="background:'+evs[i][1]+'">'+evs[i][0]+'</div>':'';
+      h+='<div class="hourrow"><div class="h">'+i+':00</div><div class="slot">'+e+'</div></div>';
+    }
+    return h;
+  }
+  function multiHTML(n){
+    var days=n===3?['Wed','Thu','Fri']:['M','T','W','T','F','S','S'];
+    var head='<div class="wh"></div>', cols='';
+    for(var i=0;i<days.length;i++)head+='<div class="wh">'+days[i]+'</div>';
+    var rows='';
+    for(var hr=9;hr<=17;hr+=2){
+      rows+='<div class="wh" style="align-self:center">'+hr+'</div>';
+      for(var d=0;d<days.length;d++){
+        var ev='';
+        if(hr===9&&d===0)ev='<div class="wk-ev" style="background:#0F766E">Standup</div>';
+        if(hr===15&&d===(n===3?0:2))ev='<div class="wk-ev" style="background:#F59E0B">Draft</div>';
+        if(hr===11&&d===(n===3?1:3))ev='<div class="wk-ev" style="background:#E5484D">Report</div>';
+        rows+='<div class="wk-col" style="min-height:52px">'+ev+'</div>';
+      }
+    }
+    return '<div class="wk-grid" style="grid-template-columns:32px repeat('+days.length+',1fr)">'+head+rows+'</div>';
+  }
+  function yearHTML(){
+    var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],h='';
+    for(var m=0;m<12;m++){
+      var days='';
+      for(var d=0;d<28;d++){var c=Math.random()<0.12?'b':(Math.random()<0.2?'a':'');days+='<i class="'+c+'"></i>';}
+      h+='<div class="ymini"><div class="ym">'+months[m]+'</div><div class="yd">'+days+'</div></div>';
+    }
+    return '<div class="ygrid">'+h+'</div>';
+  }
+  function renderCal(mode){
+    if(mode==='month')calView.innerHTML=monthHTML();
+    else if(mode==='list')calView.innerHTML=listHTML();
+    else if(mode==='day')calView.innerHTML='<div class="agenda-day">Wed 17 September</div>'+dayHTML();
+    else if(mode==='3day')calView.innerHTML=multiHTML(3);
+    else if(mode==='week')calView.innerHTML=multiHTML(7);
+    else if(mode==='year')calView.innerHTML=yearHTML();
+  }
+  qa('#calModes button').forEach(function(b){b.addEventListener('click',function(){
+    qa('#calModes button').forEach(function(x){x.classList.remove('on');});
+    b.classList.add('on'); renderCal(b.dataset.cal);
+  });});
+  renderCal('month');
+
+  // ---------- settings renderer ----------
+  var groups=[
+    ['Personalization',[
+      ['General','first view, week start, default list & priority','tune'],
+      ['Appearance','theme, Material You, accent, density','paint'],
+      ['Navigation & tabs','show/hide/reorder bottom tabs','tabs'],
+      ['Quick add','default list, parsing, button order','plus']]],
+    ['Behaviour',[
+      ['Smart lists','show/hide, ordering, show completed','list'],
+      ['Priority engine','mode & weights (due / start / goal / overdue)','bolt'],
+      ['Calendar','default mode, week start, color by','cal'],
+      ['Matrix','included lists, thresholds, display','grid']]],
+    ['Dates, time & reminders',[
+      ['Date & time','week start = any day · 12/24h · time zone','clock'],
+      ['Reminders','defaults, daily summary, tone, annoying alert','bell']]],
+    ['Data & security',[
+      ['Backup','export / import JSON — offline, no cloud','save'],
+      ['App lock','biometric / PIN','lock'],
+      ['About','v0.1 · no network permission','info']]]
+  ];
+  var ic={
+    tune:'<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/>',
+    paint:'<path d="M4 20h16M6 16l6-12 6 12"/>',tabs:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 5v14"/>',
+    plus:'<path d="M12 5v14M5 12h14"/>',list:'<path d="M4 6h16M4 12h16M4 18h16"/>',
+    bolt:'<path d="M13 3L4 14h7l-1 7 9-11h-7z"/>',cal:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/>',
+    grid:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18M3 12h18"/>',
+    clock:'<circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/>',bell:'<path d="M6 8a6 6 0 1112 0c0 7 3 7 3 9H3c0-2 3-2 3-9z"/>',
+    save:'<path d="M5 3h11l3 3v15H5zM8 3v5h7"/>',lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 118 0v3"/>',
+    info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>'
+  };
+  var chev='<div class="meta"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>';
+  var html='';
+  groups.forEach(function(g){
+    html+='<div class="dw-sec" style="padding:14px 6px 6px">'+g[0]+'</div><div class="set-group">';
+    g[1].forEach(function(it){
+      html+='<div class="set-item"><span class="ico"><svg viewBox="0 0 24 24">'+ic[it[2]]+'</svg></span>'+
+        '<div><div>'+it[0]+'</div><div style="font-size:12px;color:var(--faint)">'+it[1]+'</div></div>'+chev+'</div>';
+    });
+    html+='</div>';
+    if(g[0]==='Dates, time & reminders'){
+      html+='<div class="set-group"><div class="bh" style="padding:12px 14px 2px;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)">Week starts on</div>'+
+        '<div class="set-sub"><div class="pillrow">'+['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(function(d,i){return '<span class="pill'+(i===1?' on':'')+'">'+d+'</span>';}).join('')+'</div>'+
+        '<div class="pillrow">'+['12-hour','24-hour'].map(function(d,i){return '<span class="pill'+(i===1?' on':'')+'">'+d+'</span>';}).join('')+'</div>'+
+        '<div class="pillrow"><span class="pill on">Time zone: Asia/Karachi ▾</span><span class="pill">Auto</span></div></div></div>';
+    }
+  });
+  q('#setList').innerHTML=html;
+})();
+</script>
