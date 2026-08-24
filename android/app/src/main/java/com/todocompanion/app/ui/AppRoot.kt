@@ -2,6 +2,8 @@ package com.todocompanion.app.ui
 
 import android.os.Build
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -206,14 +208,16 @@ fun AppRoot() {
                 },
             ) { padding ->
                 Box(Modifier.padding(padding).fillMaxSize()) {
-                    when (tab) {
-                        Tab.TASKS -> TasksScreen(vm, ::openTask)
-                        Tab.SEARCH -> SearchScreen(vm, ::openTask)
-                        Tab.SETTINGS -> SettingsScreen(vm)
-                        Tab.CALENDAR -> CalendarScreen(vm, ::openTask, onAddOnDate = { d ->
-                            openQuickAdd(d.atTime(9, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli())
-                        })
-                        Tab.MATRIX -> MatrixScreen(vm, ::openTask)
+                    Crossfade(targetState = tab, animationSpec = tween(180), label = "tab") { t ->
+                        when (t) {
+                            Tab.TASKS -> TasksScreen(vm, ::openTask)
+                            Tab.SEARCH -> SearchScreen(vm, ::openTask)
+                            Tab.SETTINGS -> SettingsScreen(vm)
+                            Tab.CALENDAR -> CalendarScreen(vm, ::openTask, onAddOnDate = { d ->
+                                openQuickAdd(d.atTime(9, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli())
+                            })
+                            Tab.MATRIX -> MatrixScreen(vm, ::openTask)
+                        }
                     }
                 }
             }

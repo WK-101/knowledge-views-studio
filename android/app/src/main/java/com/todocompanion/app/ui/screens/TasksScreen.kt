@@ -28,6 +28,14 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Coffee
+import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.DoNotDisturb
+import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.Inbox
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -74,7 +82,7 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
     val isTrash = (view as? ViewRef.Smart)?.kind == SmartKind.TRASH
     val collapsed = remember { mutableStateMapOf<String, Boolean>() }
 
-    if (groups.isEmpty() || groups.all { it.tasks.isEmpty() }) { EmptyState(); return }
+    if (groups.isEmpty() || groups.all { it.tasks.isEmpty() }) { EmptyState(view); return }
 
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(top = 6.dp, bottom = 100.dp)) {
         items(groups, key = { it.key }) { group ->
@@ -107,12 +115,28 @@ private fun onSwipe(vm: AppViewModel, action: SwipeAction, task: TaskEntity, isT
 }
 
 @Composable
-private fun EmptyState() {
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(Icons.Outlined.CheckCircle, null, tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(56.dp))
-        Spacer(Modifier.size(10.dp))
-        Text("All clear", style = MaterialTheme.typography.titleMedium)
-        Text("Tap + to add a task", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun EmptyState(view: ViewRef? = null) {
+    val kind = (view as? ViewRef.Smart)?.kind
+    val (icon, title, subtitle) = when (kind) {
+        SmartKind.INBOX -> Triple(Icons.Outlined.Inbox, "Inbox zero", "Nothing waiting to be sorted")
+        SmartKind.TODAY -> Triple(Icons.Outlined.WbSunny, "Nothing due today", "Enjoy the clear day")
+        SmartKind.TOMORROW -> Triple(Icons.Outlined.Coffee, "Tomorrow is open", "No tasks scheduled yet")
+        SmartKind.NEXT7 -> Triple(Icons.Outlined.DateRange, "The week ahead is clear", "Nothing due in the next 7 days")
+        SmartKind.COMPLETED -> Triple(Icons.Outlined.CheckCircle, "No completed tasks", "Finished tasks will collect here")
+        SmartKind.WONT_DO -> Triple(Icons.Outlined.DoNotDisturb, "Nothing dropped", "Tasks you won't do will land here")
+        SmartKind.TRASH -> Triple(Icons.Outlined.Delete, "Trash is empty", "Deleted tasks stay here for a while")
+        SmartKind.FLAGGED -> Triple(Icons.Outlined.Flag, "Nothing flagged", "Flag a task to keep it in view")
+        SmartKind.SCHEDULED -> Triple(Icons.Outlined.Schedule, "Nothing scheduled", "Tasks with a date will appear here")
+        else -> Triple(Icons.Outlined.CheckCircle, "All clear", "Tap + to add a task")
+    }
+    Column(Modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(88.dp).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f), androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(42.dp))
+        }
+        Spacer(Modifier.size(16.dp))
+        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.size(4.dp))
+        Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
     }
 }
 

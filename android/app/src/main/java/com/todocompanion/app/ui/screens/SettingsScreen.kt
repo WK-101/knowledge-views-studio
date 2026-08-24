@@ -32,7 +32,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
@@ -58,6 +57,7 @@ import com.todocompanion.app.domain.AppSettings
 import com.todocompanion.app.domain.ThemeMode
 import com.todocompanion.app.domain.TimeFormat
 import com.todocompanion.app.ui.AppViewModel
+import com.todocompanion.app.ui.components.AppCard
 import java.time.ZoneId
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -78,77 +78,85 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
 
         Section("Appearance")
-        Sub("Theme")
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            ThemeMode.entries.forEachIndexed { i, m ->
-                SegmentedButton(selected = s.themeMode == m, onClick = { vm.saveSettings(s.copy(themeMode = m)) },
-                    shape = SegmentedButtonDefaults.itemShape(i, ThemeMode.entries.size)) {
-                    Text(when (m) { ThemeMode.SYSTEM -> "System"; ThemeMode.LIGHT -> "Light"; ThemeMode.DARK -> "Dark"; ThemeMode.AMOLED -> "AMOLED" }, maxLines = 1)
+        AppCard {
+            Sub("Theme")
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                ThemeMode.entries.forEachIndexed { i, m ->
+                    SegmentedButton(selected = s.themeMode == m, onClick = { vm.saveSettings(s.copy(themeMode = m)) },
+                        shape = SegmentedButtonDefaults.itemShape(i, ThemeMode.entries.size)) {
+                        Text(when (m) { ThemeMode.SYSTEM -> "System"; ThemeMode.LIGHT -> "Light"; ThemeMode.DARK -> "Dark"; ThemeMode.AMOLED -> "AMOLED" }, maxLines = 1)
+                    }
                 }
             }
-        }
-        Toggle("Dynamic color (Material You)", s.dynamicColor) { vm.saveSettings(s.copy(dynamicColor = it)) }
-        Toggle("Advanced priority (importance + urgency)", s.advancedPriority) { vm.saveSettings(s.copy(advancedPriority = it)) }
+            Toggle("Dynamic color (Material You)", s.dynamicColor) { vm.saveSettings(s.copy(dynamicColor = it)) }
+            Toggle("Advanced priority (importance + urgency)", s.advancedPriority) { vm.saveSettings(s.copy(advancedPriority = it)) }
 
-        Spacer(Modifier.height(10.dp)); Sub("Accent colour")
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            AccentSwatch(0L, s.accentArgb) { vm.saveSettings(s.copy(accentArgb = 0L)) }
-            ACCENTS.forEach { c -> AccentSwatch(c, s.accentArgb) { vm.saveSettings(s.copy(accentArgb = c)) } }
-        }
+            Spacer(Modifier.height(10.dp)); Sub("Accent colour")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                AccentSwatch(0L, s.accentArgb) { vm.saveSettings(s.copy(accentArgb = 0L)) }
+                ACCENTS.forEach { c -> AccentSwatch(c, s.accentArgb) { vm.saveSettings(s.copy(accentArgb = c)) } }
+            }
 
-        Spacer(Modifier.height(12.dp)); Sub("Task density")
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            Density.entries.forEachIndexed { i, d ->
-                SegmentedButton(selected = s.density == d, onClick = { vm.saveSettings(s.copy(density = d)) },
-                    shape = SegmentedButtonDefaults.itemShape(i, Density.entries.size)) {
-                    Text(d.name.lowercase().replaceFirstChar { it.uppercase() })
+            Spacer(Modifier.height(12.dp)); Sub("Task density")
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                Density.entries.forEachIndexed { i, d ->
+                    SegmentedButton(selected = s.density == d, onClick = { vm.saveSettings(s.copy(density = d)) },
+                        shape = SegmentedButtonDefaults.itemShape(i, Density.entries.size)) {
+                        Text(d.name.lowercase().replaceFirstChar { it.uppercase() })
+                    }
                 }
             }
+
+            Spacer(Modifier.height(12.dp)); Sub("Swipe actions")
+            SwipeRow("Swipe right", s.swipeRight) { vm.saveSettings(s.copy(swipeRight = it)) }
+            SwipeRow("Swipe left", s.swipeLeft) { vm.saveSettings(s.copy(swipeLeft = it)) }
         }
 
-        Spacer(Modifier.height(12.dp)); Sub("Swipe actions")
-        SwipeRow("Swipe right", s.swipeRight) { vm.saveSettings(s.copy(swipeRight = it)) }
-        SwipeRow("Swipe left", s.swipeLeft) { vm.saveSettings(s.copy(swipeLeft = it)) }
-
-        Spacer(Modifier.height(16.dp)); HorizontalDivider(); Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(18.dp))
         Section("Date & time")
-        Sub("Week starts on")
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            val labels = listOf("System" to 0, "Mon" to 1, "Tue" to 2, "Wed" to 3, "Thu" to 4, "Fri" to 5, "Sat" to 6, "Sun" to 7)
-            labels.forEach { (label, v) ->
-                FilterChip(selected = s.weekStart == v, onClick = { vm.saveSettings(s.copy(weekStart = v)) }, label = { Text(label) })
+        AppCard {
+            Sub("Week starts on")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                val labels = listOf("System" to 0, "Mon" to 1, "Tue" to 2, "Wed" to 3, "Thu" to 4, "Fri" to 5, "Sat" to 6, "Sun" to 7)
+                labels.forEach { (label, v) ->
+                    FilterChip(selected = s.weekStart == v, onClick = { vm.saveSettings(s.copy(weekStart = v)) }, label = { Text(label) })
+                }
+            }
+            Spacer(Modifier.height(10.dp)); Sub("Clock")
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                TimeFormat.entries.forEachIndexed { i, f ->
+                    SegmentedButton(selected = s.timeFormat == f, onClick = { vm.saveSettings(s.copy(timeFormat = f)) },
+                        shape = SegmentedButtonDefaults.itemShape(i, TimeFormat.entries.size)) {
+                        Text(when (f) { TimeFormat.SYSTEM -> "System"; TimeFormat.H12 -> "12-hour"; TimeFormat.H24 -> "24-hour" })
+                    }
+                }
+            }
+            Row(Modifier.fillMaxWidth().clickable { showZone = true }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Time zone", Modifier.weight(1f))
+                Text(s.timeZone.ifBlank { "Device (${ZoneId.systemDefault().id})" }, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        Spacer(Modifier.height(10.dp)); Sub("Clock")
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            TimeFormat.entries.forEachIndexed { i, f ->
-                SegmentedButton(selected = s.timeFormat == f, onClick = { vm.saveSettings(s.copy(timeFormat = f)) },
-                    shape = SegmentedButtonDefaults.itemShape(i, TimeFormat.entries.size)) {
-                    Text(when (f) { TimeFormat.SYSTEM -> "System"; TimeFormat.H12 -> "12-hour"; TimeFormat.H24 -> "24-hour" })
+
+        Spacer(Modifier.height(18.dp))
+        Section("Reminders")
+        AppCard {
+            Toggle("Daily summary notification", s.dailySummaryEnabled) { vm.saveSettings(s.copy(dailySummaryEnabled = it)) }
+            if (s.dailySummaryEnabled) {
+                Row(Modifier.fillMaxWidth().clickable { showTime = true }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Summary time", Modifier.weight(1f))
+                    Text("%02d:%02d".format(s.dailySummaryHour, s.dailySummaryMinute), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
-        Row(Modifier.fillMaxWidth().clickable { showZone = true }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Time zone", Modifier.weight(1f))
-            Text(s.timeZone.ifBlank { "Device (${ZoneId.systemDefault().id})" }, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
 
-        Spacer(Modifier.height(16.dp)); HorizontalDivider(); Spacer(Modifier.height(12.dp))
-        Section("Reminders")
-        Toggle("Daily summary notification", s.dailySummaryEnabled) { vm.saveSettings(s.copy(dailySummaryEnabled = it)) }
-        if (s.dailySummaryEnabled) {
-            Row(Modifier.fillMaxWidth().clickable { showTime = true }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Summary time", Modifier.weight(1f))
-                Text("%02d:%02d".format(s.dailySummaryHour, s.dailySummaryMinute), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-
-        Spacer(Modifier.height(16.dp)); HorizontalDivider(); Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(18.dp))
         Section("Backup")
-        Action("Export all data (JSON)") { exportLauncher.launch("todo-companion-backup.json") }
-        Action("Import / restore (JSON)") { importLauncher.launch(arrayOf("application/json", "text/*", "*/*")) }
-        Text("Complete, lossless local backup. No account, no cloud, no network.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+        AppCard {
+            Action("Export all data (JSON)") { exportLauncher.launch("todo-companion-backup.json") }
+            Action("Import / restore (JSON)") { importLauncher.launch(arrayOf("application/json", "text/*", "*/*")) }
+            Text("Complete, lossless local backup. No account, no cloud, no network.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+        }
 
         Spacer(Modifier.height(20.dp))
         Text("ToDo Companion · Phase 1a · offline & private by construction (no network permission).",

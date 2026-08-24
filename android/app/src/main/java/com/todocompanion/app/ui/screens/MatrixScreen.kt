@@ -1,6 +1,7 @@
 package com.todocompanion.app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -98,27 +99,42 @@ fun MatrixScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modif
 
 @Composable
 private fun QuadrantCard(q: Int, tasks: List<TaskEntity>, onOpenTask: (String) -> Unit, modifier: Modifier) {
-    val (title, _, color) = QUAD[q]
+    val (title, subtitle, color) = QUAD[q]
     Column(
-        modifier.clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)).padding(10.dp),
+        modifier.clip(RoundedCornerShape(16.dp))
+            .background(color.copy(alpha = .07f))
+            .border(1.dp, color.copy(alpha = .16f), RoundedCornerShape(16.dp))
+            .padding(12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(9.dp).clip(CircleShape).background(color))
             Spacer(Modifier.size(6.dp))
             Text(title, style = MaterialTheme.typography.labelLarge, color = color, fontWeight = FontWeight.Bold)
             Spacer(Modifier.weight(1f))
-            Text(tasks.size.toString(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Box(Modifier.clip(CircleShape).background(color.copy(alpha = .14f)).padding(horizontal = 7.dp, vertical = 1.dp)) {
+                Text(tasks.size.toString(), style = MaterialTheme.typography.labelSmall, color = color, fontWeight = FontWeight.Bold)
+            }
         }
-        Spacer(Modifier.size(4.dp))
-        LazyColumn(Modifier.weight(1f, fill = false).fillMaxWidth().heightIn(max = 240.dp)) {
-            items(tasks, key = { it.id }) { t ->
-                Text(
-                    t.title,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth().clickable { onOpenTask(t.id) }.padding(vertical = 4.dp),
-                    color = if (t.completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-                )
+        Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.size(6.dp))
+        if (tasks.isEmpty()) {
+            Box(Modifier.fillMaxWidth().weight(1f, fill = false).heightIn(min = 40.dp), contentAlignment = Alignment.Center) {
+                Text("Empty", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .5f))
+            }
+        } else {
+            LazyColumn(Modifier.weight(1f, fill = false).fillMaxWidth().heightIn(max = 240.dp)) {
+                items(tasks, key = { it.id }) { t ->
+                    Row(Modifier.fillMaxWidth().clickable { onOpenTask(t.id) }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(4.dp).clip(CircleShape).background(color.copy(alpha = if (t.completed) .3f else .7f)))
+                        Spacer(Modifier.size(7.dp))
+                        Text(
+                            t.title,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            color = if (t.completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
             }
         }
     }
