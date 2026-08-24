@@ -1,327 +1,318 @@
-# TickTick — Reverse-Engineering Analysis
+# TickTick (Android) — Build-Grade UX Teardown
 
-> Evidence-backed teardown of the TickTick Android APK, produced to guide a **new, fully-offline, account-free, native Kotlin/Jetpack Compose** task app that wants TickTick's UI/UX polish and feature breadth on top of a stronger outliner core.
->
-> Sources: apktool-decoded resources (`dec/ticktick/`), `AndroidManifest.xml`, `res/values/strings.xml` (~5,877 lines), `res/xml/*` preference screens, `res/layout/*` (1,360 layouts), `res/values/arrays.xml`, decoded `assets/`, and DEX class descriptors (`tt_classes.txt`, 13,518 unique `com.ticktick.task.*` classes). Where a claim is inferred rather than directly stated, it is flagged `inferred from <evidence>`.
+Reverse-engineered from a decoded APK (apktool resources + `classes*.dex` descriptors, selected jadx single-class decompiles). The app is R8-obfuscated: **data classes, resource names, and string keys retain real names** and are the primary evidence; obfuscated helper classes are cited only where their names survived. Package: `com.ticktick.task`. Main screen activity: `com.ticktick.task.activity.MeTaskActivity`.
 
----
-
-## 1. Identity & Build
-
-| Property | Value | Evidence |
-|---|---|---|
-| Package | `com.ticktick.task` | `aapt dump badging` |
-| App label | TickTick | `application-label:'TickTick'` |
-| Version | `8.1.2.0` (versionCode `8120`) | `apktool.yml`, badging |
-| minSdk / targetSdk / compileSdk | **21 / 36 / 36** (Android 5.0 → 16) | `apktool.yml`, badging |
-| APK size | ~41 MB (`ticktick.apk` = 41,008,105 bytes) | filesystem |
-| Native ABI | **arm64-v8a only** | `native-code: 'arm64-v8a'` |
-| DEX | 6 classes*.dex (multidex, ~42 MB uncompressed) | filesystem |
-| Obfuscation | R8/ProGuard partial — package tree `com.ticktick.task.*` retains readable names; leaf helpers renamed to `a`, `b`, `p$c`, etc. Entities/DAOs/Activities are **not** obfuscated. | `tt_classes.txt` |
-
-**Sister app / white-label.** Assets include a full `dida365/` tree and many `..._dida` strings (`invite_you_to_join_dida`, `guide_to_download_dida`). "Dida" (滴答清单) is the Chinese-market twin of the same codebase; the build ships both brand skins. `project_id` = `appest.com:ticktick`.
-
-**Native libraries** (`lib/arm64-v8a/`):
-- `libnative_parser.so` (2.1 MB) — the **natural-language date/time parser** for quick-add (see §4). Confirmed by the `com.ticktick.task.ai`/`quickadd` packages and `smart_date_parsing_tips`.
-- `libmmkv.so` — Tencent **MMKV** key-value store (fast prefs/config persistence).
-- `libbugsnag-ndk.so`, `libbugsnag-plugin-android-anr.so`, `libbugsnag-root-detection.so` — **Bugsnag** crash/ANR/root reporting.
-- `libsecuritychecknativelib.so` — anti-tamper / signature check (`com.ticktick.task.securitychecknativelib`).
-
-**Key third-party SDKs** (from `AndroidManifest.xml` meta-data + component names):
-- **Google Play Billing** (`com.android.billingclient.*`, `ProxyBillingActivityV2`, `BillingOverrideService`) — subscription paywall.
-- **Firebase** full stack: Messaging (push), Crashlytics, Performance, Remote Config, Installations, Analytics connector, **ML Kit** (`CommonComponentRegistrar` — likely for image/text scanning; see "Scan Documents").
-- **Google Analytics** (`AnalyticsService`, `CampaignTrackingService`) + **Ad Services** (AD_ID, attribution).
-- **Facebook SDK** (`com.facebook.sdk.ApplicationId`) — social login / share.
-- **Google Maps v2** (`com.google.android.maps.v2.API_KEY`, `com.ticktick.task.location`) — location reminders / map picker.
-- **Lottie** — animation JSONs throughout `assets/` (see §4).
-- greenDAO ORM (`com.ticktick.task.greendao.*`, 100+ `*Dao` classes) over SQLite.
-- Protobuf (`google/protobuf/*.proto` in `unknownFiles`).
-
-**This is a cloud/account app.** Sign-in is central: `sync_with_ticktick_com` ("Sign in now"), `newbie_show_login_in_toast` ("Data can be permanently stored in Cloud account"), `MANAGE_ACCOUNTS`/`GET_ACCOUNTS` permissions, `sync/` package (973 classes), and — critically — **archived tasks live only in the cloud**: `search_empty_info` ("Tasks archived long ago will be saved in cloud server… Please try to search on the web"), `search_in_cloud` "CLOUD SEARCH". Local-only use is possible but degraded and constantly nudged toward login. This is the single biggest divergence from our offline/no-account goal.
+Evidence conventions: `layout/foo.xml` = `res/layout/foo.xml`; `@string/foo` = a `res/values/strings.xml` key; `Class` = a `com.ticktick.task.*` class; `res/xml/foo.xml` = a preference/appwidget descriptor.
 
 ---
 
-## 2. Feature Inventory (comprehensive)
+## 1. Organizational Hierarchy (container model) — CRITICAL
 
-### 2.1 Capture / Quick-add
-- **Quick-add bar** with inline **natural-language parsing** (`libnative_parser.so`). Recognizes **date & time**, **`#`tags**, **URLs**, and can optionally strip the parsed text from the title (`preference_smart_date_parse.xml`: `prefkey_enable_date_parsing`, `prefkey_remove_text_in_tasks`, `prefkey_remove_tag_in_tasks`, `prefkey_url_parsing`). `smart_date_parsing_tips`: "…date & time information will be automatically parsed as a reminder."
-- **Quick-add defaults** the box pre-fills (from `quickadd/defaults/`): `TitleDefault`, `ContentDefault`, `DueDataDefault`, `PriorityDefault`, `ProjectDefault`, `TagsDefault`, `ColumnDefault`, `AssignDefault`, `ParentDefault`, `PinDefault`, `PositionDefault` (`TopBottomDefault`), `NoteDefault`, `TaskKindDefault`. i.e. quick-add can set list, priority, tags, section, assignee, parent, pin, and where in the list it lands.
-- **Full-screen quick-add** and **template insertion** (`quickadd_full_screen`, `quickadd_more_tooltip`: "Template, Full-Screen moved here").
-- Off-screen capture surfaces: **Quick Ball** floating bubble (`quick_ball`, premium), **home-screen Quick-Add widget** (`widget_quick_add`), **notification-bar quick add / status bar** (`prefkey_notification_ongoing`, `status_bar_display_type`), **add-from-clipboard** (`prefkey_add_via_clipboard`), **text-selection "Process Text"** action (`ProcessTextActivity`, `prefkey_process_text`), voice input, `QuickAddActivity`.
-- **AI capture** (`com.ticktick.task.ai`, 81 classes): "Break Down into Subtask" (`ai_break_into_subtasks`), "Completion Suggestion" (`ai_complete`), daily "Important Tasks" recommendations (`ai_recommend_key_tasks`). Token-metered (`ai_error_token_usage_exceed_limit`).
+### 1.1 The container graph
 
-### 2.2 Organize
-- **Lists** (called "Lists" in UI, `Project` internally). Special/system lists: **Inbox** (`project_name_inbox`), **Today**, **Next 7 Days** (`project_name_week`), **Assigned to Me** (`assigned_to_me_list_label`), **Tags**, **Completed**, **Won't Do** / "Abandoned" (`project_name_abandoned`), **Trash**. `SpecialProject` entity.
-- **Folders** (a.k.a. "list groups" — `ProjectGroup`, `list_group` = "Folder", `list_group_add_new_fold` "New Folder"). One-level grouping of lists.
-- **Tags** (`Tag`, hierarchical — `TagDao` + `move_to_personal_tags`; tags can have sort order `TagSortType`). `#`-prefixed, colored, and support nesting (parent tags — inferred from `move_to_personal_tags` and tag tree UI).
-- **Smart Lists / Filters** (`Filter` entity, `filter/` = 238 classes). Custom saved filters combining conditions: keywords, **Lists**, **Tags**, **Assignee**, **Priority**, **Date**, **Task type**, **Repeat**, with **AND/OR logic** (`filter_conditions`, `logic`, `filter_include`, `filter_task_type`). Custom Smart Lists are **premium** (`pro_custom_smart_list`).
-- **List customization**: per-list color (`list_color`), emoji icon (`emoji_title_add` "Select Icon"), and **List Background** — none / color / gradient / image (`list_background_*`, entities `ColorProjectBackground`, `GradientProjectBackground`, `ImageProjectBackground`).
-- **Archive list** (`project_close_warn_dialog` → "Archived Lists" folder) vs **Delete**.
+```
+Team (shared workspace, optional)
+  └─ ProjectGroup   ("Folder")           class com.ticktick.task.data.ProjectGroup
+        └─ Project  ("List")             class com.ticktick.task.data.Project
+              └─ Column ("Kanban column")class com.ticktick.task.data.Column   (only when viewMode = kanban)
+              └─ Task2  ("Task")         class com.ticktick.task.data.Task2
+                    ├─ subtasks          (Task2.parentSid / Task2.childIds — real child Task2 rows)
+                    └─ ChecklistItem[]   (Task2.checklistItems — lightweight in-task checklist)
+Tag                                       class com.ticktick.task.tags.Tag       (cross-cutting, hierarchical)
+Filter ("Custom Smart List")              class com.ticktick.task.data.Filter    (saved rule query)
+```
 
-### 2.3 Views (per-list, switchable)
-`list_view_type` / `view_mode`. Available modes:
-- **List View** (`list_mode`, default) — grouped, sortable.
-- **Kanban / Board** (`kanban_mode`, `kanban_view`, `Column` entity, `ColumnDao`) — sections as columns, drag cards between them (`drag_here_to_change_column`, `move_to_column`).
-- **Timeline** (`timeline_view`, `TimelineTipView`, `timeline/` = 54 classes) — Gantt-like horizontal schedule; not available for note lists (`note_list_not_support_timeline`). **Premium**.
-- **Calendar / Agenda** (`CalendarViewActivity`, `calendar/` package): Day, **3-Day**, Week, Month, **Year**, and **Agenda** list styles. Drag tasks onto the calendar to schedule (`drag_schedule_calendar_tips`, `drag_onto the calendar`). Multi-day / Month / Daily-timeline calendar views are **premium** (`pro_monthly_calendar_view`, `pro_daily_calendar_view`, `pro_three_day_calendar_view`).
-- **Eisenhower Matrix** (`eisenhower_matrix`, `matrix/` package, `MatrixActivity`) — four quadrants (Urgent&Important … Not-urgent&Not-important, `important_urgent`, `matrix_empty_tip_0..3`); rule-driven auto-categorization; multiple saved matrix "Views" (`matrix_manage_views`). **Premium** (`pro_feature_description_matrix`).
+All confirmed field-by-field from the decompiled classes below.
 
-### 2.4 Scheduling
-- **Dates**: start date, **due date**, and **task duration / time span** (`DueData` entity, `pro_title_task_duration`, `pro_desc_task_duration` "Meeting from 8 to 9 o'clock…"). All-day vs timed (`task_default_reminder_mode` = Due Time / All Day).
-- **Recurrence** (RRULE-style; `RepeatInstance`, `RepeatInstanceDao`): None, Daily, Every Weekday (Mon-Fri), Weekly, Monthly (by date **or** by nth-weekday), Yearly, **Yearly Lunar** (`g_repeats` array). "Repeat by": Each / On the… / Workday (`repeat_by`). **Repeat-from**: Due Date / Completion Date / Optional Date (`repeat_from_name`). Ends: never / after N times / on date (`repeat_end_count`, `repeat_end_date`). **Lunar repeat** supported (`lunar_repeat`, `monthly_on_lunar`). Skip/complete-all across occurrences (`repeat_skip_all`, `repeat_complete_all`, `repeat_all_instance`, `repeat_from_now_instance`).
-- **Reminders** (`Reminder`, `TaskReminder`, `ChecklistReminder`, `HabitReminder`, `CountdownReminder`, `LocationReminder`): multiple per task (**up to 5 — premium**, `pro_more_reminders`); relative offsets ("%1$s early"), at-due, at-end-time (`reminder_at_the_end`). Per-checklist-item reminders (**premium**, `pro_desc_check_item_reminder`). Reminders **for subtasks** = premium (`pro_reminder_for_sub_tasks`).
-- **"Annoying Alert"** (`annoying_alert`) — persistent alarm that re-rings: "the alarm will continue to play for a minute and will ring again after two minutes if not handled." **Premium-gated** (`annoying_alert_close_no_pro_user_ensure_msg`).
-- **Location reminders** (`LocationReminder`, `FavLocation`): remind on **arrive** / **leave** a place (`location_arrive_remind`, `location_leave_remind`), geofence-based, Google Maps picker.
+### 1.2 Project (a "List") — `com.ticktick.task.data.Project`
 
-### 2.5 Prioritization, sort & manual order
-- **Priority**: High / Medium / Low / None (`pick_priority_name`, `priority_label_ticktick`).
-- **Sort by**: Custom (manual), Time/Date, Priority, Title, Tag, List, Assignee, Created Time, Modified Time (`sort_by_*`), with **ascending/descending** direction (`sort_direction_title`, `sort_rule_*`).
-- **Group by** (`group_by`, `group_sort`): e.g. by date, priority, list, tag, or **custom Sections** (`section`, `Column`).
-- **Manual order** persisted per context via dedicated tables: `TaskSortOrderInDate`, `TaskSortOrderInList`, `TaskSortOrderInPriority`, `TaskSortOrderInTag`, `TaskSortOrderInPinned`, `SortOrderInSection`. Drag-to-reorder (see §4). **Pin** to top (`PinDefault`, `TaskSortOrderInPinned`).
+Key fields (from jadx decompile):
+- Identity/display: `sid`, `name`, `color`, `sortOrder`, `displayOrder`, `kind`, `muted`, `closed` (archived), `defaultProject`, `showInAll`, `showType`.
+- **Folder membership: `String projectGroupSid`** — the ONLY link from a list up to its folder. A null/empty `projectGroupSid` = ungrouped (top-level) list.
+- Sharing: `team`, `teamId`, `permission`, `teamMemberPermission`, `openToTeam`, `userCount`.
+- Background/theme: `backgroundInfo` (drives per-list `ColorProjectBackground` / `GradientProjectBackground` / `ImageProjectBackground`, all `data/*ProjectBackground`).
+- **View + sort config (per list):** `String viewMode` (`Constants.ViewMode`: `"list"`, `"kanban"`, `"timeline"`), `Constants.SortType sortType`, `Constants.SortType groupBy`, `Constants.SortType orderBy`, and a parallel timeline triplet `timelineSortType` / `timelineGroupBy` / `timelineOrderBy`. `String defaultColumn` = default kanban column sid.
+- Sync: `etag`, `modifiedTime`, `createdTime`, `deleted`, `needPullTasks`.
 
-### 2.6 Focus / Pomodoro (`focus/` = 178 classes)
-- Two modes: **Pomodoro timer** and **Stopwatch** (`pomo_timer`, `stopwatch`). `Pomodoro`, `PomodoroConfig`, `PomodoroSummary`, `Timer` entities; `PomodoroActivity`, `StopwatchFinishActivity`.
-- Configurable Pomo duration, **Short/Long break**, pomos-per-long-break, **auto-start of break / next pomo** (`preference_pomodoro`).
-- **Estimate**: estimated Pomo count and estimated duration per task (`estimated_pomo`, `estimated_duration`; **premium** `pro_estimate_duration`). Compares actual vs estimate.
-- **White noise / focus ambience** — 17 sounds: Rain, Forest, Campfire, Drizzle, Storm, Stream, Wave, Seagull, Spring, Chirp, Clock, Windbell, Wooden fish, Biscuit, Lava, Timer, None (`sound_*`). **Premium** (`pro_desc_premium_exclusives_2`).
-- **Strict Focus Mode + Allowlist** (`pomo_focus_mode`, `pomo_white_list_*`): leaving the app (to a non-allowlisted app) abandons the pomo; uses **Usage Access** permission.
-- **Flip-to-start** (`flip_start`), **Floating window** timer (`focus_floating_window`, premium), **Auto full-screen**, **cross-device focus sync** (`focus_auto_sync`), **anti-burn-in**.
-- **Focus notes** per session (`focus_note`), manual record entry, **Focus Records** timeline, and **Study Room** — a shared/social focus room (`study_room`, `invite_friends_to_join_study_room`).
+### 1.3 ProjectGroup (a "Folder") — `com.ticktick.task.data.ProjectGroup`
 
-### 2.7 Habits (`habit/` icons + `Habit`,`HabitCheckIn`,`HabitRecord`,`HabitConfig`,`HabitSection`)
-- **Boolean** ("Achieve it all") or **quantitative** goals ("Reach a certain amount", `goal_value_unit` "%1$s %2$s daily") with custom units.
-- **Streaks** (`habit_best_streak` "Best Streak", `statistics_best_streak`), **goal cycles** (`goal_days_description` — e.g. 7-day cycles yielding achievements), **skip** (`habit_checkin_skip`), archive.
-- **Annual heatmap** of check-ins (`pro_annual_heatmap`, **premium**), habit sections, sort-by-check-in-status, show-in-Today/Next-7-days, app-badge count. ~40 preset habits with dedicated Lottie animations (`assets/habit_animations/*.json.zip`: drink_water, meditation, exercise, reading, …).
+Fields: `sid`, `name`, `sortOrder`, `boolean isFolded` (collapsed state), `boolean showAll` (whether a synthetic "All tasks in folder" row shows), `int taskCount`, `viewMode`, `sortType`/`groupBy`/`orderBy` (+ timeline triplet), `team`/`teamId`, `deleted`, `etag`. A folder is a flat, one-level container — **folders do not nest** (a Project has exactly one `projectGroupSid`; ProjectGroup has no parent pointer). The synthetic "all tasks in this folder" pseudo-list uses id `SpecialListUtils.SPECIAL_LIST_PROJECT_GROUP_ALL_TASKS_ID = -10009`.
 
-### 2.8 Statistics & Gamification
-- **Achievement Score** + **Levels** (`achievement_score`, `achievement_level` "LV.%1$d"), "More productive than %1$s of users" (`achievement_more_diligent`), shareable awards (`achievement_check_awards`).
-- **Trends** over time: weekly/monthly completion rate (`statistics_month_completion`, `statistics_weekly`), historical statistics (**premium** `pro_history_statistics`).
-- **Yearly Report** (`assets/yearly_report/`, `com.ticktick.task.annualreport`) — animated year-in-review.
-- `HistoricalStatisticsData`, `RecentStatisticsData`, `RankInfo` entities.
+### 1.4 Task2 (a "Task") — `com.ticktick.task.data.Task2`
 
-### 2.9 Notes & Attachments
-- **Task ↔ Note duality**: any list can be a **Note list**; tasks convert to notes and back (`convert_to_note`/`convert_to_task`, `TaskKindDefault`). Notes are prioritization-exempt (`note_move_fail`).
-- **Rich text / Markdown** editing, **checklist items** inside a task, `note_content_hint`.
-- **Note templates** built in: Meeting Note, Reading Note, Weekly Review (`note_template_*`).
-- **Attachments** (`Attachment`, `AttachmentDao`): **Photo**, **Records** (voice, `soundrecorder/`), **Scan Documents** (ML Kit doc scan), and other files (`attach_choice_*`). Daily upload cap; **99/day is premium** (`pro_more_attachments`).
+The workhorse row (`ParcelableTask2` is its parcelable transport). Fields grouped:
+- Content: `sid`, `String title`, `String content` (note/description body, markdown), `String desc`, `Constants.Kind kind` (`TEXT(1)`, `CHECKLIST(2)`, `NOTE(3)`), `progress`, `Integer priority`, `status`/`taskStatus`, `Integer deleted`.
+- **Hierarchy:** `String parentSid`, `List<String> childIds` (real subtasks), `List<ChecklistItem> checklistItems` (in-task checklist), `collapsed`.
+- **List membership:** `Project project` / `Long projectId` / `String projectSid`.
+- **Kanban:** `Column column` / `String columnId` / `Long columnUid`.
+- **Tags:** `Set<String> tags`.
+- Scheduling: `Date startDate`, `Date dueDate`, `boolean isAllDay`, `boolean isFloating` (floating time zone), `serverStartDate`/`serverDueDate`, `Date completedTime`, `Date pinnedTime`, `localUnpinned`.
+- Reminders/recurrence: `String reminder`, `List<TaskReminder> reminders`, `Integer annoyingAlert`, `Date snoozeRemindTime`, `String repeatFlag` (RRULE), `String repeatFrom` (recur from due vs completion), `Date repeatFirstDate`, `repeatTaskId`, `Set<String> exDate` (skipped instances), `repeatReminderTime`.
+- Rich content: `List<Attachment> originalAttachments`, `hasAttachment`, `List<PomodoroSummary> pomodoroSummaries`, `commentCount`, `List<Location> locationList` + `Location displayLocation`, `notionBlock` (Notion sync), `imgMode`.
+- Assignment (shared lists): `long assignee`, `assigneeName`, `long creator`, `isOwner`.
 
-### 2.10 Widgets (26 configurable types, `res/xml/ticktick_appwidget_info_*`)
-Standard task list, Compact, 4x4, Grid/Month, Week, 3-Day/Timeline, Today-Calendar, **Quick-Add**, **Pomo timer** (start focus from home screen), **Eisenhower Matrix**, **Habit** (today/week/month/progress/single), **Countdown** (single + list), **Focus distribution** (2x2/4x2/4x4), **Task-completion**, **Course/timetable**, **Undone count**. Calendar & Pomo widgets are **premium**.
+Task type constants: `Task2.TASK = 1`, `Task2.CALENDAR = 2` (a `CalendarEvent` masquerading as a task in list/calendar views).
 
-### 2.11 Collaboration / Sharing (`share/` = 140 classes)
-- **Shared lists** with members (`Team`, `TeamMember`, `Assignment`, `Attendee` entities). Invite by email / phone / link / contacts / WeChat / team (`invite_*`).
-- **Assignees** (`assign_to`, `Assignment`), **per-task/list Comments** (`Comment`, `TaskCommentActivity`) with **@mentions** and replies (`notification_comment_mention`).
-- **Permissions**: Can Edit / Can Comment (`permission_can_edit`, `permission_can_comment`), owner approval to join.
-- **Agendas** (`agenda_*`) — shared meeting entries with attendees.
-- Member counts are **premium-scaled** (`pro_more_sharing_members`).
+### 1.5 Tag — `com.ticktick.task.tags.Tag`
 
-### 2.12 Integrations, Import & Calendar Sync
-- **Two-way calendar**: **Google Calendar** (`calendar_connect_integration_with_google_calendar`), **Outlook** (`sync_with_outlook_calendar`), **CalDAV** (`caldav_*`, `BindCalDavAccountsActivity`). Subscribe to external calendars incl. **iCal .ics URL subscription** (`ics_tip`).
-- **Notion** two-way DB sync (`notion_integrate`, `detail_list_item_notion*` layouts). **Premium** (`pro_connect_to_notion_upgrade_summary`).
-- **Import** on-device from: **Google Tasks / GTasks**, **Any.DO**, **Wunderlist**, **Todoist** (`import_gtasks_title`, `pref_title_import_todoist`, `import_from_wunderlist_hint`, `dialog_title_import_anydo`). Also **holidays** and **contact birthdays** import (`import_holiday`, `import_birthday`).
-- **Course timetable** for students (`course_*`, `TimetableDao`, `CourseDetailDao`): import a class schedule from **image OCR** or **school portal** (`import_timetable_by_image_orc`, `import_timetable_by_school_website_parse`), overlaid on the calendar.
-- **Export**: **no first-class local export** on Android — only **Print** (`print`) and **Save-as-image** share (`save_to_gallery`). Full CSV/backup export is **web-only** (see §6).
+Obfuscated field names but structurally: a tag has a name/label, a **`parent` pointer (hierarchical/nested tags)**, a `color`, its own `Constants.SortType` group (five SortType fields → tag has independent sort/group/order + timeline config just like a Project), and a sort order. Sync model twin: `com.ticktick.task.network.sync.model.Tag`. Tag sort mode enum: `data/TagSortType`. Tags are stored on tasks as `Task2.tags: Set<String>` and joined via `data/TaskId2Tag`.
 
-### 2.13 Countdown (`Countdown`, `CountdownDao`)
-Anniversary/countdown tracker (birthdays, exams, deadlines) with day/week/month/year display units, backgrounds, recommendations, and dedicated widgets.
+### 1.6 Filter ("Custom Smart List") — `com.ticktick.task.data.Filter`
 
-### 2.14 Wearables & Reach
-- **Wear OS / Android Wear** (`wear/` = 205 classes, `res/drawable-watch/`, `wear_select_list`) and **Huawei Watch** (`send_data_to_huawei_wear`), Apple Watch on iOS.
-- Home-screen **shortcuts** (`shortcut_config_preferences.xml`, `shortcut/`).
+A saved, rule-based query (Premium). Fields: `sid`, `name`, `rule` (serialized), `FilterModel filterModel`, and typed rule lists: `duedateRules`, `priorityRules`, `assigneeRules`, `keywordsRules`, `taskTypeRules` (each `List<FilterRule>`), plus `List<String> tags`, `projectIds`, `groupSids`, `teamSids`, `boolean filterHiddenTasks`. Also carries its own `viewMode` + `sortType`/`groupBy`/`orderBy` (+ timeline). Edited via `com.ticktick.task.filter.FilterEditActivity` / previewed via `FilterPreviewActivity`; layouts `normal_filter_edit_layout.xml`, `fragment_advance_filter_edit.xml`.
 
-### 2.15 Customization
-- **Themes**: Light, Dark (multiple dark variants — Dark Cyan/Green/Pink/Purple/Yellow), **Material You** (`theme_variety`), plus premium theme packs — Color Series, **City Series**, **Seasons Series**, Photograph Series, Ink, Matcha, Lilac, Peach, Navy, Pearl, Pebble… (`theme_*`, `pro_premium_themes`).
-- **Sidebar styles**: Classic / Modern / Minimal (`sidebar_*`).
-- **Alternate app icons** — ~54 `activity-alias` entries in the manifest (subset are launcher-icon aliases; `app_icon` "App icons").
-- **Custom fonts** shipped (`assets/DIN_Numbers.ttf`, `roboto_numbers_regular.ttf` for the timer; `gulzar.ttf`, `sans_light.ttf`).
-- **Custom swipe actions**, **configurable tab bar**, **configurable task-detail page** (see §4).
+### 1.7 Built-in Smart Lists (evidence: `SpecialListUtils`, `Constants.SmartProjectNameKey`)
 
-### 2.16 Security
-Pattern lock + **fingerprint** (`lock_preferences.xml`: `patternlock_enabled`, `prekey_fingerprint`, `lock_widget`, lock start-time). App-level privacy gate independent of account.
+Each has a stable synthetic SID (`_special_id_*`) and a negative long id. `SmartProjectNameKey.getNameKey()` maps ids → name keys:
+
+| Smart List | SID (`SpecialListUtils`) | long id | display `@string` | name key |
+|---|---|---|---|---|
+| Inbox | (real Project — `getInbox(userId)`) | user inbox id | `@string/project_name_inbox` "Inbox" | `inbox` |
+| Today | `_special_id_today` | `SPECIAL_LIST_TODAY_ID` | `@string/project_name_today` "Today" | `today` |
+| Tomorrow | `_special_id_tomorrow` | `SPECIAL_LIST_TOMORROW_ID` | `@string/tomorrow` "Tomorrow" | `tomorrow` |
+| Next 7 Days | `_special_id_week` | `SPECIAL_LIST_WEEK_ID` | `@string/project_name_week` "Next 7 Days" | `n7ds` |
+| All | `_special_id_all` | `SPECIAL_LIST_ALL_ID = -1` | `@string/widget_tasklist_all_label` "All" | `all` |
+| Assigned to Me | `_special_id_assignToMe` | `SPECIAL_LIST_ASSIGNED_LIST_ID = -10011` | `@string/assigned_to_me_list_label` "Assigned to Me" | `assignee` |
+| Completed | `_special_id_completed` | `SPECIAL_LIST_COMPLETED_ID = -10003` | `@string/project_name_completed` "Completed" | `completed` |
+| Won't Do | `_special_id_abandoned` | `SPECIAL_LIST_ABANDONED_ID` | `@string/project_name_abandoned` "Won't Do" | `abandoned` |
+| Trash | `_special_id_trash` | `SPECIAL_LIST_TRASH_ID = -10006` | `@string/project_name_trash` "Trash" | `trash` |
+| Tags (group) | `_special_id_tags` | `SPECIAL_LIST_TAGS_ID = -10004` | `@string/project_name_tags` "Tags" | `tag` |
+| Scheduled | `_special_id_scheduled` | — | — | `scheduled` |
+| Calendar group | `_special_id_calendar_group` | `SPECIAL_LIST_CALENDAR_GROUP_ID` | — | `calendar` |
+| Closed/Archived group | `_special_id_closed` | `SPECIAL_LIST_CLOSED_GROUP_ID = -10010` | — | `closed` |
+
+Calendar/date pseudo-lists also exist: `_special_id_grid` (month grid), `_special_id_one_day_calendar`, `_special_id_three_day_calendar`, `_special_id_seven_day_calendar`, `_special_id_all_calendar_event`, `_special_id_system_calendar_event`. **Summary** (daily review) is `@string/summary` "Summary". The visibility of each smart list is user-controlled: `Constants.SmartProjectVisibility { AUTO, SHOW, HIDE }` (strings `@string/smart_list_always_show`, `@string/smart_list_not_show`, `@string/smart_list_on_the_day`).
+
+`SpecialProject` (`data/SpecialProject`) is the runtime object rendered for these in the sidebar (via `SpecialProjectViewBinder`).
 
 ---
 
-## 3. Data Model (inferred from greenDAO DAOs + `data/` entities)
+## 2. Side Navigation Panel / Drawer — CRITICAL
 
-The DB is SQLite via greenDAO; **~100 tables** (`*Dao`). Core graph:
+Fragment: `com.ticktick.task.activity.fragment.slidemenu.TickTickSlideMenuFragment` (drawer styling `ISlideMenuStyle` → `AppThemeSlideMenuStyle` / `TaskListThemeSlideMenuStyle`; overlay `com.ticktick.task.view.DrawerLayoutWhiteMaskView`). Root layout **`layout/menu_fragment_layout.xml`**. Data assembled by `SlideProjectDataProvider` (+ `SlideProjectDataProvider.SlideMenuFoldStateProvider` for per-folder collapse state, persisted via `data/SectionFoldedStatus` and `data/SlideMenuPinned`).
 
-### Task (`Task2` / `Task2Dao`)
-The primary entity (named `Task2` after a schema migration). Fields inferred from entities/strings: `title`, `content`/notes (Markdown), `priority` (0/1/3/5 → None/Low/Medium/High, inferred), `status` (open / completed / **won't-do/abandoned**), `dueData` (`DueData`: start, due, isAllDay, duration/timezone), `projectId`, `columnId` (kanban section), `parentId` (**nested subtask link**), `sortOrder` (multiple, per context), `pinned`, `kind` (TEXT/CHECKLIST/NOTE), `tags` (via `TaskId2Tag` join), `assignee`, `repeatFlag` (RRULE), `reminders`.
-- **`TaskExtraData`** / `TaskExtraDataService` — side-car (e.g. Notion props, extra metadata).
-- **`TaskContentBackup`**, **`TaskDragBackup`** — undo/redo & drag safety (`undo/` package).
-- **`TaskSyncedJson`** — raw server JSON cache per task (sync).
-- **`TaskTemplate`** / `ProjectTemplate` — reusable templates.
-- **`TaskDefaultParam`** — per-list default date/priority/reminder for new tasks.
+### 2.1 Structure (top → bottom)
 
-### The two "sub-item" concepts (critical for our outliner)
-1. **Checklist items** — `ChecklistItem` / `ChecklistItemDao`, a *flat* list of sub-steps inside one task, each with its own completion + optional `ChecklistReminder`. **Cannot be dragged/reordered freely** (`checklist_item_long_click_toast` "Can't drag checklist item.") and **cannot be nested**. This is the *free* sub-item.
-2. **Subtasks (nested tasks)** — real `Task2` rows with `parentId` pointing at a parent task (`parent_task`, `parent_task_added`). This is **"Task Nesting"**, gated as **premium** (`nested_task_upgrade_title` "New Feature: Task Nesting"). Nested tasks can't be converted to notes (`nested_tasks_cant_be_converted`).
-   → **Net effect: TickTick's hierarchy is shallow** — one checklist level (free) or a limited nesting level (premium). It is *not* a true infinite outliner. **This is our opening.**
+1. **Background layers** — `@id/slide_menu_image` (custom background image) + `@id/slide_menu_mask` (theme mask). Supports per-drawer custom background (`@string/custom_background`).
+2. **Account header** — `<include layout="@layout/menu_head_item">` (id `user_info_menu_head_layout`). Contents (`layout/menu_head_item.xml`):
+   - `@id/avatar` — `UserAvatarView` with Pro badge (`app:proIcon="@drawable/ic_pro_small"`) and streak/count-day badge overlay.
+   - `@id/account_username` + email row, or `@id/sign_in_up_btn` ("Sign in / Sign up", `@string/dailog_title_cal_sub_remind_ticktick`) when logged out; `@id/need_verify_email_ll` verify-email nag.
+   - Right icon cluster (`@id/iconlayout`): `@id/search_btn` (`ic_svg_actionbar_search_v8`), `@id/notification_button` (`ic_svg_actionbar_notification_v8` + `@id/notification_button_text` unread badge → `NotificationCenterActivity`), `@id/settings_btn` (`ic_svg_actionbar_settings_v8` + `@id/red_point` update dot → Settings).
+3. **Scrolling body** — `@id/recyclerView` (`ScrollBarFixRecyclerView`). A heterogeneous list built from `adapter/viewbinder/slidemenu/*` view binders, in this logical order:
+   - **`SpecialProjectViewBinder`** — the Smart Lists block (Today, Tomorrow, Next 7 Days, Inbox, All, Assigned to Me, Summary, Tags, Completed, Won't Do, Trash — subject to per-item visibility from §1.7). `menu_project_item.xml`.
+   - **`TitleViewBinder`** — collapsible section headers (e.g. "Lists").
+   - **`ProjectGroupViewBinder`** — a Folder row: name + aggregate `@id/task_count` + expand/collapse chevron (`@id/right` = `ic_svg_common_arrow_right`); folds/unfolds its child `Project` rows (`ProjectGroup.isFolded`). `ProjectGroupDividerViewBinder` draws drag dividers.
+   - **`ProjectViewBinder` / `BaseProjectViewBinder`** — a List row (`menu_project_item.xml`): `@id/view_project_color` (color dot), `@id/left` (icon/emoji), `@id/name`, `@id/tv_desc`, `@id/task_count` (undone count), `@id/icon_error_info` (sync warning), `@id/item_bg_selected` (selection highlight). Indented when inside a folder.
+   - **`FilterViewBinder`** — Custom Smart List (Filter) rows.
+   - **`TagListViewBinder`** — Tags rows (expandable, nested via Tag.parent).
+   - **`CalendarListViewBinder` / `CalendarInfoViewBinder`** — subscribed calendars group (Google/CalDAV/URL).
+   - **`TeamViewBinder` / `EmptyTeamViewBinder`** — team workspaces (shared).
+   - **`PinEntityViewBinder`** — pinned lists/filters/tags at the very top (`data/SlideMenuPinned`).
+   - **`GroupViewBinder` / `ActionViewBinder`** — group affordances / inline "add" actions.
+4. **Bottom bar** — `@id/layout_bottom` (fixed, 56dp): **`@id/layout_add_project`** = "+ Add" (`@id/iv_add_project` = `ic_svg_common_slide_add_v8`, `@id/tv_add_list` = `@string/add`) opening an add sheet for **List / Folder / Filter / Tag** (`@string/add_folder` "Add Folder", `@string/add_smart_list` "Add Smart List"); and **`@id/iv_manage_project`** (`ic_svg_slidemenu_manage_list_v8`) → `ProjectManageActivity` ("Manage Lists", reorder/drag lists into folders via `ProjectItemTouchHelperCallback.SlideMenuEditModeCallback`).
 
-### Containers
-- **`Project`** (= List) → `ProjectDao`. Fields: name, color, `groupId` (folder), `viewMode` (list/kanban/timeline), sortType, `permission`, `closed`(archived), background (`ProjectBackground`), `ProjectSyncedJson`, `ProjectPermissionItem`.
-- **`ProjectGroup`** (= Folder) → `ProjectGroupDao`. One level of list grouping.
-- **`Column`** (kanban Section) → `ColumnDao`; ordered; `SectionFoldedStatus`.
-- **`Filter`** (Smart List) → `FilterDao`; stores serialized rule (`FilterSyncedJson`, `FilterDataProvider`, `logic` AND/OR).
-- **`Tag`** → `TagDao` (+ `TagSortType`, `TaskId2Tag` join, `TagSyncedJson`). Supports hierarchy & per-tag sort.
+### 2.2 Density / style (3 options)
 
-### Scheduling / reminder entities
-`DueData`, `Reminder` + `ReminderKey` (dedup), `TaskReminder`, `ChecklistReminder`, `LocationReminder` (+ `Location`, `FavLocation`), `DelayReminder`/`RecentReminder` (snooze), `AnnoyingAlert`, `RepeatInstance` (+ `RepeatInstanceFetchPoint` — materialized occurrences of recurring tasks).
+Sidebar visual density is a setting with three named styles (`@string/sidebar_xx` "Sidebar: %s"):
+- `@string/sidebar_classic_simple` — **Classic**
+- `@string/sidebar_minimal_simple` — **Minimal**
+- `@string/sidebar_modern_simple` — **Modern**
 
-### Feature entities
-- Focus: `Pomodoro`, `PomodoroConfig`, `PomodoroSummary`, `PomodoroTaskBrief`, `Timer`, `RecentFocusEntity`, `FocusOptionModel`.
-- Habit: `Habit`, `HabitCheckIn`, `HabitRecord`, `HabitConfig`, `HabitSection`, `SkippedHabit`, `FrozenHabitData`, `HabitSyncCheckInStamp`.
-- Collab: `Team`, `TeamMember`, `Assignment`, `Attendee`, `EventAttendee`, `Comment`, `CommentAttach`, `Conference`.
-- Calendar: `CalendarEvent`, `Calendars`, `BindCalendarAccount`, `CalendarSubscribeProfile`, `CalendarInfo`, `CalendarRefProject`, `TaskCalendarEventMap`, `Holiday`/`JapanHoliday`/`PresetHoliday`.
-- Countdown: `Countdown`, `CountdownReminder`, `CountdownSection`, `PinnedCountdown`.
-- Course: `Timetable`, `CourseDetail`, `CourseReminder`.
-- Misc: `Attachment`, `User`/`UserProfile`/`UserPublicProfile`, `RankInfo`, `SearchHistory`, `WidgetConfiguration`/`WidgetExtensibleConfig`, `Promotion`, `Limits` (server-driven free/premium quotas), `SyncStatus` (per-entity dirty tracking).
+Task-count display style separately: `@string/sidemenu_task_count_style` "Sidebar Count".
 
-**Sync architecture (inferred):** every syncable entity has a paired `*SyncedJson` table (raw server payload) + a `SyncStatus`/dirty flag; `sync/` (973 classes) does delta push/pull. All ordering, filters, and configs are server-synced JSON — meaning **the canonical model assumes a server**. For our offline app this whole `*SyncedJson`/`SyncStatus` layer is unnecessary; we keep just the clean local entities.
+### 2.3 Drag-to-reorder & folders
 
----
+Lists reorder and drop **into folders** via `ProjectItemTouchHelperCallback` (edit mode `SlideMenuEditModeCallback`). Folders created/edited with `ProjectEditActivity` / `edit_folder_layout.xml` (`@string/add_folder`, `@string/edit_folder`). Folder collapse persists in `ProjectGroup.isFolded` + `SlideMenuFoldStateProvider`.
 
-## 4. UI/UX & Interaction Design *(emphasis)*
+### 2.4 Configurable bottom tab bar
 
-### 4.1 Navigation architecture
-- **Configurable bottom Tab Bar** (`tabbars/`, `TabBarConfigActivity`, `layout_slide_tabbar.xml`, `section_title_tab_bar`). The user picks up to ~4 visible tabs + a **"More"** overflow (`section_tab_bar_toast` "You can add up to 4 tabs to the tab bar"; `section_title_more_desc` "%s+ tabs will show in More tab"). Candidate tabs: **Tasks, Calendar, Focus/Pomo, Habit, Matrix, Countdown, Search, Settings** (`navigation_calendar`, `navigation_pomo`, `navigation_habit`, `tab_bar_*`).
-- **Left drawer / sidebar** for the list tree (Inbox, smart lists, folders, lists, tags, filters), with **three visual densities**: Classic / Modern / Minimal (`sidebar_*`). `SlideMenuPinned` lets users pin favorite lists to the top.
-- **Tablet/foldable**: dedicated `PadNavigationController` (two-pane).
-- Main host: `MeTaskActivity` (the "Me/Tasks" home), `TaskListFragment` renders a list; tab fragments swap the content pane.
-- **Takeaway for us:** Compose `NavigationBar` (Material3) with a user-editable set of destinations backed by a settings list; a `ModalNavigationDrawer` for the list/tag tree; `ListDetailPaneScaffold` for tablets.
-
-### 4.2 The quick-add box & NLP chips
-The signature interaction. A single text field parses as you type and surfaces **tappable chips**: date button, project button, priority, tag, matrix quadrant (`item_quick_add_date_button.xml`, `item_quick_add_project_button.xml`, `item_quick_add_matrix_button.xml`, `item_quick_add_icon_button.xml`). Parsed date/`#tag`/URL are highlighted inline and can be auto-removed from the title. A `QuickDateConfigActivity` lets users define what the "date" chip pre-selects; default date options are No-date / Today / Tomorrow / Day-after / Next-week (`default_duedate_option_value_name`).
-- **Takeaway:** Compose `TextField` + a span-annotated `VisualTransformation` to highlight recognized tokens, a `Row` of `AssistChip`/`InputChip` below it (date, list, priority, tags), a bottom-anchored input that rises with the IME. This is the highest-ROI pattern to copy.
-
-### 4.3 Swipe gestures (`custom_swipe_layout.xml`, `SwipeRelativeLayout`)
-Each row supports **left, middle, right** swipe slots (`swipe_left_option`/`swipe_middle_option`/`swipe_right_option`), each bindable to: **None, Complete Task, Date, Priority, Move to, Delete Task, Start focus, Estimated duration, Add Tag** (`preference_custom_swipe_entries_with_pomo`). Defaults are free; **fully customizing them is premium** (`pro_custom_swipe_options`). Short swipe reveals an action button; long swipe commits. Lottie `assets/animation_swipe.json` teaches the gesture on first run (`newbie_try_swiping_left_and_right`).
-- **Takeaway:** Compose `SwipeToDismissBox` with custom start/end backgrounds; make the action set user-configurable (offer it free — it's cheap and TickTick paywalls it).
-
-### 4.4 Drag-and-drop reorder
-Extensive: reorder within a list, drag between kanban sections (`drag_here_to_change_column`), drag a task **onto the calendar** to schedule (`drag_schedule_calendar_tips`), drag chips in task detail to reorder the action menu (`drag_task_details_menu_tip`), drag to reorder tab bar. Guardrails: dragging is disabled under non-custom sort/group and the app tells the user why (`dragging_not_supported_in_sorting_hint`, `dragging_not_supported_in_grouping_hint`). Backed by `TaskDragBackup` for safe undo. Custom views `DragView`, `DragChipOverlay`, `CancelDragTargetView`.
-- **Takeaway:** `androidx.compose` reorderable list (LazyColumn + `detectDragGesturesAfterLongPress` or the reorderable lib); disable + explain when sort ≠ manual, exactly as TickTick does.
-
-### 4.5 Micro-interactions & "polish" (Lottie/asset evidence)
-- **Checkbox completion** — `assets/animation_checkbox_click.json` (Lottie tick draw-on) + completion **sounds** (`res/raw/completion_sound_{drip,jingle,knock,spiral}.aac`, `ticktick_pop.ogg`, `dida_bells.mp3`). Choosable completion sound (`prefkey_completion_task_sound`).
-- **Pull-to-refresh** — bespoke multi-stage Lottie (`assets/refresh/{start,progress,done}.json`) instead of the stock spinner.
-- **Loading** — `assets/loading/{enter,exit,indeterminate}.json`.
-- **Screen-rotate / calendar mode switch** — `assets/screen_rotate/*.json` (light+dark variants).
-- **Number rendering** — dedicated DIN/Roboto number fonts for the focus timer (crisp, monospaced digits).
-- **Onboarding** — full-motion `res/raw/introduce_{task,calendar,countdown,focus,habit,matrix}.mp4` + `tick_onboarding.mp4`; guided Lottie for Matrix (`matrix_guide_en.json`) and the v7 feature tour (`assets/v7guide/`).
-- **Custom checkbox states per priority** (colored ring), habit rings/heatmaps (`SectorProgressView`, `LineProgress`, `MonthLineProgressChartView`, `TaskProgressBar`).
-- **Takeaway:** these small, consistent motions are *what makes it feel premium.* Compose equivalents: `airbnb/lottie-compose` for check/refresh; `animateFloatAsState`/`Animatable` for ring fills; `SoundPool` for completion chimes; theme-aware asset pairs (light/dark) as we already do with tokens.
-
-### 4.6 Task-detail screen
-- **Two presentation modes** the user chooses: full **Page** or lightweight **Dialog/bottom-sheet** (`task_detail_mode_config_tip`, `task_detail_page_mode`). Layouts `layout_task_detail_input.xml`, `detail_list_*` (title, text, tags, date-info, checklist item, subtask item, attachment image/other, agenda, Notion property rows).
-- Rendered as a **RecyclerView of typed rows** (`detail_task_list_item`, `detail_subtask_list_item`, `detail_list_checklist_item`, `detail_list_item_tags`, `detail_list_date_info`) — i.e. title, description, checklist/subtasks, tags, date, attachments each a reorderable block.
-- A **configurable action menu** (`TaskDetailMenuEditActivity`, `fragment_task_detail_menu.xml`, `item_task_detail_edit_menu.xml`): users drag their most-used actions to the top row (`drag_task_details_menu_tip`). Actions include complete, priority, date, move, duplicate, pin, start focus, add subtask, convert to note/event, copy link, won't-do, delete.
-- **Takeaway:** Compose `LazyColumn` of typed detail blocks; offer both a `ModalBottomSheet` quick-edit and a full screen; let users reorder the action row (store order in prefs).
-
-### 4.7 Date-picker UX
-Custom calendar stack (`CalendarSetLayout`, `CalendarViewPager`, `SimpleCalendarView`, `MultiCalendarViewPager`) — not the stock dialog. Supports quick chips (Today/Tomorrow/Next week), time, duration, reminder offset, repeat, **lunar** overlay, and skip-to-adjacent by long-press (`newbie_tips_skip_date`). "Set Reminder" and "Repeat" are inline sub-sheets.
-- **Takeaway:** build a single scheduling bottom sheet combining quick chips + month grid + time/repeat/reminder, rather than chaining Material date+time dialogs.
-
-### 4.8 Empty states, onboarding, theming
-- **Empty states** everywhere with tailored copy (`matrix_empty_tip_*`, `focus_timeline_no_record`, `notification_empty_text`, `EmptyPlaceholder`/`emptyimage` package).
-- **Onboarding** flow: choose features → choose lists → choose theme (`newbie_choose_feature/list/theme`), backed by intro videos.
-- **Theming** is token-driven with **light + many dark variants**, **Material You** dynamic color, and per-list background images/gradients. Uses `res/drawable-night/` for dark assets.
-- **Bottom sheets** are the dominant modal (`design_bottom_sheet_dialog*`), including full-screen and match-height variants — echo Material's `ModalBottomSheet`.
+Separate from the drawer, `MeTaskActivity` hosts a bottom tab bar (`layout/layout_slide_tabbar.xml`, item `item_slide_tabbar.xml` / `item_slide_focus_tabbar.xml`; overflow `fragment_tab_bar_more_item.xml`). Configured in `com.ticktick.task.tabbars.TabBarConfigActivity` (`activity_tab_bar_config.xml`; `@string/preference_navigation_bar`, `@string/navigation_preference_tips` "You can choose to show/hide the following options from the tab bar"). Selectable tabs — `TabBarKey` enum: **`TASK`, `CALENDAR`, `POMO`(Focus), `HABIT`, `SEARCH`, `SETTING`** (labels `@string/navigation_calendar`, `@string/navigation_pomo` "Focus", `@string/navigation_habit`, `@string/navigation_search`, `@string/navigation_settings`; plus `@string/tab_bar_pomodoro`, `@string/tab_bar_habit_tracker`, `@string/tab_bar_countdown` and Matrix `@string/matrix_tab_bar_desc` available as tab targets). Tab model `data/TabBarItem`; pad layout via `tabbars/PadNavigationController`.
 
 ---
 
-## 5. Notifications & Reminders UX
+## 3. Quick-Add Input Bar — CRITICAL
 
-- **Rich reminder pop-up** (`ReminderPopupActivity`, `reminder_popup_visibility`: No pop-ups / Always / Except-fullscreen) — a full-screen-intent alarm-style dialog (`USE_FULL_SCREEN_INTENT`) with actions: **Complete**, **Snooze**, "Remind Now", "Completed '%s'?" (`reminder_if_completed`).
-- **Snooze** presets 15 / 60 / 180 / 1440 min (`snooze_minutes`) + custom "Remind me later" (`SnoozePopupActivity`, `DelayReminder`).
-- **"Annoying Alert"** persistent re-ringing alarm (premium) — for reminders you must not miss.
-- **Per-priority ringtones**: distinct High/Medium/Low reminder tones (`advance_reminder_preferences.xml`).
-- **Override Do-Not-Disturb** for reminders (`prefkey_override_not_disturb_priority`).
-- **Daily Notification / Summary** at a fixed time (`preferences_daily_summary`, `daily_reminder_*`): morning/afternoon/evening/night slots (up to 3/day), lists today + overdue + all-day tasks, can **skip weekends/holidays** (`daily_reminder_skip_holidays`).
-- **Ongoing/persistent bar**: status-bar quick-add + running **Pomo timer notification** (`pomo_status_bar`, `notification_in_pomo`), recording notification, `FOREGROUND_SERVICE_*` (media playback, microphone, special-use).
-- **Notification grouping** (`group_notification`), **turn-on-screen** (`notifications_turn_on_screen`), **completion sound**, **short vibrate**.
-- **Alternate delivery channels**: **Email** and **WeChat** reminders (`pref_email_reminder`, `pref_wechat_reminder`), plus mirror to the **system calendar** (`prefkey_notification_by_system_calendar`).
-- **Reliability plumbing** — the reason for the huge OEM permission list. A whole "reminders not working" help flow (`reminders_not_working`, `reminder_banner_tips`, `reminder_improve_stability`) walks users through **battery-optimization exemption** (`ignore_battery_optimization_preference.xml`, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` via `pure_background`) and OEM auto-start whitelists: **Oppo/ColorOS** (`com.coloros.permission.*`, `oppo.permission.OPPO_COMPONENT_SAFE`), **Vivo** (`com.vivo.aiengine.*`, `com.vivo.devicerpc.notify`), **Huawei/Honor** (`com.huawei.permission.external_app_settings.*`, `hihonor.healthservice`), Samsung survey. Uses **`USE_EXACT_ALARM`/`SCHEDULE_EXACT_ALARM`** + `RECEIVE_BOOT_COMPLETED` to reschedule after reboot.
-- **Takeaway:** for an offline app we still need exact alarms + boot reschedule + battery-exemption prompt + full-screen-intent reminder UI; the per-priority tone, snooze grid, and daily-summary patterns are all worth copying. Skip email/WeChat/system-calendar mirroring.
+Primary UI: fragment `com.ticktick.task.quickadd.QuickAddActivity` / `layout/fragment_quick_add.xml`. Config/model: `model/quickAdd/QuickAddConfig(+Builder)`, `TaskInitData`, `QuickAddHelper`, `QuickAddResultData`, and variant configs `TaskListAddConfig`, `MatrixAddConfig`, `CalendarConfig`, `DetailAddConfig`. Task defaults applied from `data/TaskDefaultParam`.
 
----
+### 3.1 Layout (`fragment_quick_add.xml`)
 
-## 6. Import / Export / Sync
+- `@id/layout_quick_add_background` — scrim/background.
+- `@id/input_view` → `@id/edit_input_layout`:
+  - `@id/et_title` — `com.ticktick.task.view.OnSectionChangedEditText`, hint `@string/editor_hint_note`. The **`OnSectionChangedEditText` is the natural-language field**: it live-highlights recognized "sections" (date phrases, `#tags`, `!priority`, `~list`) as colored chips while you type (parse driven by the Smart Date/Tag recognition engine, §6/§8).
+  - `@id/et_content` — second line, description/note.
+  - `@id/list_attachment` — thumbnail row for attached images/files.
+- **`@id/list_buttons`** — horizontal RecyclerView = the **option toolbar** (the tappable option buttons; see §3.2). Its rows are produced by `adapter/viewbinder/quickadd/*ViewBinder`.
+- `@id/iv_voice` — microphone (`ic_svg_microphone_v8`) → voice add (`fragment_voice_add_task.xml`, `voice_input_dialog_layout.xml`).
+- `@id/iv_save` — send (`ic_save_button`).
 
-**Sync** (the app's backbone, but *against TickTick's own cloud*):
-- Proprietary account sync via `sync/` (973 classes) + `*SyncedJson`/`SyncStatus` tables.
-- **Two-way calendar sync**: Google Calendar, **Outlook**, **CalDAV** (generic servers). Subscribe to external **iCal `.ics`** URLs (read-only).
-- **Notion** two-way database sync (premium).
+### 3.2 Option buttons in `list_buttons` (each → its picker)
 
-**Import (on-device, into a TickTick account):** Google Tasks, **Any.DO**, **Wunderlist**, **Todoist** (each requires login), plus holidays and contact birthdays, and course timetables (image OCR / school portal).
+Enumerated from the quick-add view binders and item layouts:
 
-**Export (Android): effectively none locally.** The only in-app "output" is **Print** (`print`) and **Save-as-Image** for shares (`save_to_gallery`). There is **no CSV/JSON/OPML/backup export string in the Android resources.** TickTick's real backup/CSV export lives on the **web app** only, and old data is offloaded to the cloud (`search_empty_info`, `search_in_cloud`).
-- **Implication for our offline/no-loss goal:** TickTick is effectively **cloud-locked** — a user cannot get a complete local file of their data from the phone. Our app should treat **local, open export/import (JSON + Markdown/OPML + `.ics`) as a first-class, free feature**, since it is precisely where TickTick is weakest. We can offer a **TickTick importer** by consuming the CSV a user exports from TickTick's web app.
+| Button | ViewBinder / item layout | Icon | Opens |
+|---|---|---|---|
+| **Date / time** (smart date) | `DateButtonViewBinder` / `item_quick_add_date_button.xml` (`@id/iv_date` = `ic_svg_quickdate_pick_date_v8`, `@id/tv_date` shows parsed text, `@id/iv_date_subicon`) | calendar | The **Quick Date picker** (`fragment_quick_date_normal_config.xml`) — a smart-date suggestion grid: Today, Tomorrow, Next Monday, Next Week, custom "Pick Date", Clear (`@string/pick_date_*`), All-day toggle (`@string/quick_date_all_day`), plus **Switch to Advanced** (`@string/quick_date_advanced`) → sub-tabs for **Time**, **Reminder**, **Repeat**, **Duration** (`dialog_fragment_quick_date_advanced_pick.xml`: `@id/tv_time_info`, `@id/tv_repeat_info`; delta/duration `dialog_fragment_quick_date_delta_picker.xml`). If the title already contains a parsed date, this button shows it and stays editable — **natural-language parse and the button coexist** (typing "tomorrow 3pm" fills the button; tapping the button overrides it). |
+| **Priority** (flag) | `IconButtonViewBinder` + `PriorityLabelItemViewBinder` / `item_quick_add_icon_button.xml` | priority flag | Priority popup — levels `Constants.PriorityLevel.PRIORITIES = {5=High, 3=Medium, 1=Low, 0=None}`. |
+| **Tag** (`#`) | `IconButtonViewBinder` + `PopupTagItemViewBinder` (`data/PopupTagItem`) | `ic_svg_detail_md_tags_v8` | Tag chooser popup (search + create); typing `#` inline does the same. |
+| **List / project** | `ProjectButtonViewBinder` / `item_quick_add_project_button.xml` (`@id/iv_project_icon` = `ProjectIconView`, `@id/tv_project_name`) | list icon/emoji | Project picker (choose destination list; Inbox default). |
+| **Reminder / bell** | reminder branch of the Date advanced picker (`item_item_reminder`; icon `ic_svg_om_reminder_v8`) | bell | Reminder time list (on time / 5 min / …/ custom) + multiple reminders (§6). |
+| **Repeat** | repeat branch of Date advanced (`ic_svg_quickdate_repeat_v8`) | loop | Recurrence picker (§6). |
+| **Eisenhower quadrant** (when adding from Matrix) | `MatrixButtonViewBinder` / `item_quick_add_matrix_button.xml` (`@id/tv_matrix_emoji`, `@id/iv_matrix_icon` = `ic_matrix_1..4`, `@id/tv_matrix_title`) | quadrant | Quadrant picker Q1–Q4 (`MatrixLabelItemViewBinder`). |
+| **Assignee** (shared lists) | `PopupTeamMemberItemViewBinder` (`model/quickAdd/AssignValues`) | avatar | Assign-to-member popup. |
+| **Template** | via `iv_task_template` (in detail input) | template | Insert from `data/TaskTemplate`. |
+| **Edit/configure toolbar** | `EditQuickAddButtonViewBinder` → `com.ticktick.task.quickadd.controller.AddTaskButtonSettingsActivity` (`activity_add_task_button_settings.xml`, previews `@id/list_buttons` + editable `@id/list`) | ⋯ | Reorder / show-hide which option buttons appear. |
 
----
-
-## 7. Strengths & Weaknesses
-
-### Strengths (what TickTick nails)
-- **Best-in-class capture**: NLP quick-add with inline chips + off-app entry points (quick ball, widget, notification, text-selection, clipboard, voice). Fast, low-friction.
-- **View breadth per list**: List / Kanban / Timeline / Calendar (Day/3-Day/Week/Month/Year/Agenda) / Eisenhower Matrix — same data, many lenses.
-- **Deep, reliable reminders**: multiple reminders, location, recurrence incl. **lunar**, per-priority tones, annoying-alert, daily summary, and heroic OEM-background-reliability work.
-- **Integrated productivity suite**: Pomodoro+Stopwatch with white noise & strict mode, Habits with heatmaps, Countdown, Statistics/achievements, yearly report, student course timetable — all in one app.
-- **Polish**: consistent Lottie micro-interactions (checkbox, pull-to-refresh, loading), completion sounds, custom date pickers, rich theming (Material You + premium packs, per-list backgrounds), configurable tab bar / swipe / detail-menu.
-- **Collaboration**: shared lists, assignees, comments, mentions, permissions.
-- **Highly configurable** without feeling cluttered (progressive disclosure via "More" tab, bottom sheets, per-list settings).
-
-### Weaknesses (our openings)
-- **Shallow hierarchy.** Only flat **checklist items** (free, non-draggable) or one level of **nested subtasks** (premium). No true outliner (infinite indent, zoom-in, fold, mirror). *This is the core differentiator for our app.*
-- **Cloud/account lock-in.** Central login, cloud-only archived data, **no complete local export on Android**. Fails the "own your data / offline / private" bar.
-- **Aggressive premium paywall on arguably-core features** (list below).
-- Heavy third-party/telemetry footprint (Firebase, GA, Facebook, Bugsnag, Ad Services) — antithetical to a privacy-first app.
-- arm64-only, ~41 MB, and a very large surface (245 activities) → high complexity to match feature-for-feature.
-
-### What is premium-gated (from `pro_*` strings)
-Eisenhower **Matrix**; **Calendar views** (month / daily-timeline / 3-day / various); **Timeline** view; **Custom Smart Lists / advanced filters** (`pro_custom_smart_list`, `pro_filter_title`); **Custom swipe actions**; **Task duration** & **estimated Pomo/duration**; **≥ premium counts** of lists / tasks / **checklist items** / **subtasks (nesting)** / **reminders (5/task)** / **shared members** / **attachments (99/day, larger files)** (`pro_more_*`); **subtask & checklist-item reminders**; **Annoying Alert**; **calendar subscriptions & CalDAV/Notion**; **premium themes**, **per-list background** (partly); **Quick Ball**; **Pomo & Calendar widgets**; **Annual habit heatmap**; **historical statistics**; **list/task activity history**. Free tier is a usable but deliberately capped core.
+Widget quick-add twin: `AppWidgetProviderQuickAdd` / `ticktick_appwidget_quick_add.xml`, config persisted by `QuickAddPreferencesHelper` (keys `quick_add_preferences_helper_date/priority/tag/projectId/templateId`). Floating **Quick Ball** overlay: `QuickBallService` / `quick_ball_layout.xml` (Premium — `@string/feature_quick_ball_title`). Paste-to-tasks: `PasteQuickAddTasksHelper` (`@string/clipborad`). Voice widget: `voice_input_widget_layout.xml`, `layout_widget_confirm_voice_input.xml`.
 
 ---
 
-## 8. Takeaways for OUR App (offline, private, outliner-core)
+## 4. Task Detail Screen
 
-### Replicate (high value, offline-friendly) — with Compose mapping
-| TickTick pattern | Our Compose implementation |
+Activity `com.ticktick.task.activity.TaskActivity` (detail fragment); the body is a RecyclerView of `detail_list_item_*` rows, the bottom is an inline editor toolbar `layout_task_detail_input.xml`, and the ⋯ menu is `fragment_task_detail_menu.xml` (items `TaskDetailMenuItems` / `TaskDetailMenuHeader`, edited in `TaskDetailMenuEditActivity` / `activity_task_detail_menu_edit.xml`).
+
+### 4.1 Content rows (RecyclerView)
+
+- `detail_list_item_title.xml` — title (with checkbox / status circle).
+- `detail_list_item_text.xml` — **description / note, Markdown** (styles toolbar `ic_svg_detail_md_style_v8`; insert time `ic_svg_detail_md_insert_time_v8`; link task `ic_svg_detail_md_link_task_v8`).
+- `detail_list_checklist_item.xml` + `detail_subtask_list_item.xml` — **checklist / subtasks, reorderable** (`ic_svg_detail_arrow_updown_v8`, delete `ic_svg_detail_checklist_delete_v8`); task-kind toggle text↔checklist `ic_svg_detail_checklist_v8`.
+- `detail_list_date_info.xml` — date / duration / reminder / repeat summary (`ic_svg_detail_time_v8`, `ic_svg_detail_reminder_v8`).
+- `detail_list_item_tags.xml` — tag chips.
+- `detail_list_item_attachment_image.xml` / `_attachment_other.xml` — image / voice / file attachments (`ic_svg_menu_attachment_v8`; `data/Attachment`, image picker `view.customview.imagepicker.*`).
+- `detail_list_item_agenda.xml` — agenda / attendees (shared).
+- `detail_list_item_notion*.xml` — Notion-synced property blocks.
+- `detail_list_item_preset_gif.xml` / `_preset_video.xml` — preset/rich media (onboarding samples).
+
+### 4.2 Bottom input toolbar (`layout_task_detail_input.xml`)
+
+Buttons: `@id/layout_project` (move list, `ic_svg_om_move_project_v8`), `@id/iv_tag`/`@id/et_tag` (`ic_svg_detail_md_tags_v8`), `@id/iv_task_kind` (checklist toggle), `@id/iv_item_reminder` (`ic_svg_om_reminder_v8`), `@id/iv_note_date`, `@id/iv_summary` (**AI summary** `ic_svg_menu_md_summary_v8`), `@id/iv_task_template` (**save as template** `ic_svg_menu_save_template_v8`), `@id/iv_attachment`, `@id/iv_show_md_styles`, `@id/iv_undo`/`@id/iv_redo`, `@id/iv_close_keyboard`. Markdown mode strip: `@id/list_markdown` + `@id/iv_close_markdown` (`ic_svg_menu_md_normal_v8`).
+
+### 4.3 ⋯ / actions
+
+Pin, Priority, Move to list, Copy/**Duplicate**, Tags, **Won't Do** (`@string/project_name_abandoned`), Delete, Focus (Pomo `ic_svg_detail_pomodoro_v8` / Stopwatch `ic_svg_detail_stopwatch_v8`), add to Calendar, Print/Share (`TaskShareActivity`, `ic_svg_detail_share_x`), Comments/Activities (`TaskCommentActivity`, `data/Comment`; Premium `@string/feature_task_activities_title`), convert task↔note. Location reminder `ic_svg_detail_location_star_v8` (`data/LocationReminder`, `TaskMapActivity`).
+
+---
+
+## 5. Views & how each works
+
+Rendered by `MeTaskActivity` + `MeTaskViewModel` (`onTaskListViewCreated` / `onCalendarViewCreated`). `Project.viewMode` picks per-list mode.
+
+- **List** (`Constants.ViewMode.LIST`) — standard grouped list; row `menu_project_item`/list item viewbinders; checkbox anim §10.
+- **Kanban** (`Constants.ViewMode.KANBAN`) — horizontal **Columns** from `Task2.columnId`; columns are first-class `data/Column` (name, sortOrder, `isDefaultColumn`, `isPin`, `taskCount`). Managed via `activity.kanban.ColumnManageActivity` / `ColumnEditActivity`. Adding a task in a column sets `columnId`.
+- **Timeline** (`Constants.ViewMode.TIMELINE`, `@string/timeline`/`@string/timeline_view`) — Gantt-like; separate `timelineSortType/GroupBy/OrderBy`; options `TimelineViewOptionsActivity` / `res/xml/timeline_view_options.xml`, `TimelineTimeZoneActivity`. **Premium** (`@string/feature_time_line_title`).
+- **Calendar** — `CalendarViewActivity`; sub-modes: **Day** (`@string/day_view`), **3-Day** (`@string/three_day_view`), **Week** (`@string/week_view`), **Month/grid** (`@string/month_view`, `_special_id_grid`; **Premium** `@string/feature_grid_view_title`), **Schedule/Agenda**, plus **Year** (Premium `@string/feature_guide_calendar_year_title`). Options `res/xml/preference_calendar_view_options.xml`: color source, item style, show checkbox/details/completed/subtask/repeat-task/habit/focus-records/countdown/course, extra time zone. `CalendarWeekViewMode { DEFAULT, GRID }`.
+- **Eisenhower Matrix** — `matrix.ui.MatrixDetailListActivity` / `MatrixConditionActivity` / `MatrixEditActivity`; 4 quadrants (`ic_matrix_1..4`, guide `assets/matrix_guide_{cn,en}.json`), each quadrant is a saved condition (urgent×important). **Premium** (`@string/pro_feature_subtitle_matrix`).
+
+**Sort / group options** — `Constants.SortType`: `DUE_DATE("dueDate")`, `USER_ORDER` (manual/drag), `LEXICOGRAPHICAL("title")`, `PRIORITY`, `ASSIGNEE`, `TAG`, `PROJECT`, `CREATED_TIME`, `MODIFIED_TIME`, `COMPLETED_TIME`, `PROGRESS`, `TIMELINE`, `TASK_DATE`, `QUICK_SORT`, `NONE`; direction `ASC`/`DESC`. Persisted per container in `sortType`/`groupBy`/`orderBy`. Manual order stored in `data/TaskSortOrderInList` / `...InDate` / `...InPriority` / `...InTag` / `...InPinned` and `SortOrderInSection`. **Collapse rule:** section headers are collapsible only when sort = `USER_ORDER` (manual); other sort types render flat groups (fold state `data/SectionFoldedStatus`).
+
+---
+
+## 6. Scheduling, Reminders, Recurrence
+
+- **Date/time/duration** — `DueData` model; `startDate`/`dueDate`, `isAllDay`, `isFloating`. Duration/estimate is **Premium** (`@string/feature_time_duration_title`, `@string/feature_estimate_duration`); picker `dialog_fragment_quick_date_delta_picker.xml`.
+- **Reminders (multiple)** — `List<TaskReminder>` + `data/Reminder`, offsets set in advanced picker; multiple reminders **Premium** (`@string/feature_multiple_reminders_title` "More Reminders"). Advance defaults `res/xml/advance_reminder_preferences.xml`. Checklist-item reminders `data/ChecklistReminder` (Premium `@string/feature_sub_task_reminder_title`).
+- **Annoying Alert** — `data/AnnoyingAlert` / `IAnnoyingAlertItem`; `Task2.annoyingAlert`; `@string/annoying_alert` "Reminder Annoying Alert" — repeats the alarm for a minute and re-rings after two minutes (`@string/annoying_alert_hint`); toggling off is Premium-gated.
+- **Full-screen alarm & snooze** — `ReminderPopupActivity` / `SnoozePopupActivity`; snooze grid `@string/snooze`, `@string/snooze_tomorrow`, `snooze until %s`; `data/DelayReminder`, `data/RecentReminder`.
+- **Recurrence** — RRULE in `Task2.repeatFlag`; `repeatFrom` = **By Due Dates** (`@string/repeat_due_date`) vs **By Completion Date** (`@string/repeat_completion_date`); ends: never / **count** (`@string/repeat_end_count`) / **date** (`@string/repeat_end_date`); **Lunar Repeat** (`@string/lunar_repeat`, constraint `@string/lunar_unsupport_repeat_hint`); **Skip**: Skip Weekends (`@string/skip_weekend`), Skip Official Holidays (`@string/skip_public_holidays`), **Skip the Recurrence** (`@string/skip_current_recurrence`, `exDate` set); edit-scope prompts: This / All / All Future / All Unfinished (`@string/repeat_this_instance`, `_all_instance`, `_from_now_instance`, `_all_uncompleted_instance`). `data/RepeatInstance`.
+- **Location reminders** — `data/LocationReminder` / `data/Location` / `data/FavLocation`, `TaskMapActivity` (arrive/leave geofence).
+- **Daily summary** — `DailyTaskDisplayActivity` + `DailyReminderTimeActivity`; `@string/summary` "Summary" smart list.
+- **Smart date parsing** — `res/xml/preference_smart_date_parse.xml`: `@string/enable_date_parsing`, `@string/remove_text_in_tasks`, tag recognition `@string/remove_tags_in_task_name` (feeds the `OnSectionChangedEditText` in §3).
+
+---
+
+## 7. Focus/Pomodoro, Habits, Statistics, Countdown, Templates
+
+- **Focus / Pomodoro** — `PomodoroActivity`, `focus.ui.timer.*` (Stopwatch `AddTimerActivity`/`TimerDetailActivity`/`ArchiveTimersActivity`; full-screen `fullscreen.FullScreenTimerActivity`; exit `FocusExitConfirmActivity`). Pomo vs Stopwatch; **Focus Mode** (`@string/pomo_focus_mode` — leaving app not in allowlist ends focus), Focus Note (`@string/focus_note`), white-noise sounds (`ChoosePomoSoundActivity`), link focus to a task (`PomodoroTaskBrief`), summaries `data/PomodoroSummary`/`FocusSummaryHelper`. Prefs `res/xml/preference_pomodoro*.xml`. Overlay `PomoPopupActivity`, widget `AppWidgetProviderDailyFocused`.
+- **Habits** — `habit.HabitAddActivity`/`HabitEditActivity`/`HabitDetailActivity`/`HabitRecordActivity`/`AllHabitListActivity`; sections `HabitSectionManageActivity`. Models `data/Habit`, `HabitCheckIn`, `HabitConfig`, `HabitRecord`, `HabitReminder`, `SkippedHabit`, `FrozenHabitData`. Goal/step/cycle (`HabitCycleActivity`, `HabitCompleteCycleActivity`). Check-in Lottie: `assets/habit_animations/habit_animation_*.json.zip` (drink_water, exercise, jogging, early_to_rise, eat_breakfast, …). **Unlimited habits = Premium** (`@string/feature_unlimited_habit_numbers_title`). Prefs `preference_habit_settings.xml`.
+- **Statistics / Achievement** — `RankInfo`, `data/HistoricalStatisticsData` / `RecentStatisticsData`, `assets/statistics`; Achievement grades/levels `Constants.AchievementGrade`/`AchievementLevel`; medals `MedalShareActivity`/`MedalWebActivity`, share `AchievementSharePreviewActivity`; **Annual/Yearly Report** (`AnnualYearReportWebViewActivity`, `assets/yearly_report`, `YearlyReportBannerPreference`). **Historical statistics = Premium** (`@string/feature_history_statistics_title`).
+- **Countdown** — `countdown.CountdownDetailActivity` / `edit.CountdownEditActivity` / `ArchivedCountdownFragment`; models `data/Countdown`(+`Builder`/`Background`/`Reminder`/`Section`/`ListConfig`), `PinnedCountdown`. Widgets `single_countdown` / `countdown_list`; birthday import `CountdownBirthdayImportFragment`.
+- **Templates** — `data/TaskTemplate` / `ProjectTemplate` / `PresetTask*`; "Manage Templates" (`@string/manage_template`), save-as-template button §4.2. **Course/Timetable** module: `course.*`, `TimetableCreateActivity`/`Edit`/`Manage`/`Share`, prefs `TimetableSettingsActivity`.
+
+---
+
+## 8. Settings Tree
+
+Root `res/xml/preferences.xml` (host `SettingsPreferencesHelper`/`FragmentWrapActivity`). Top-level entries (key → `@string`):
+- `prefkey_current_account` (AccountInfoPreference) · `prefkey_yearly_report` · Pro banner (`Account7ProPreference`) → `GetProActivity`/`ProFeaturesActivity`.
+- `prefkey_navigation_setup` → `@string/preference_navigation_bar` (tab bar config, §2.4).
+- `prefkey_appearance` → **Appearance** (`ChooseAppearanceActivity` / `CustomThemeActivity`): themes `@string/theme_*` (Light, Dark, Blue, Navy, Lilac, Matcha, Ink, Dark Cyan/Green/Pink/Purple/Yellow…), Premium themes (`@string/feature_theme_title`), per-list color/background, list row style, fonts.
+- `prefkey_date_and_time` → `DateAndTimePreference` (`date_and_time_preference.xml`): week start, time zone, time format, smart date parse (`preference_smart_date_parse.xml`).
+- `prefkey_reminder` → **Sounds & Notifications** (`sound_reminder_and_notification_preferences.xml`, `NotificationSettingActivity`): ringtone (`@string/ringtone`), annoying alert, ongoing status bar, alert mode, per-Android-6 tips.
+- `prefkey_widgets` → widget settings (`widget_*_preference.xml`).
+- `prefkey_ai_features` → `preferences_ai_feature.xml` (AI summary/complete; `AiCompleteActivity`).
+- `prefkey_settings` → **General** (`more_settings_preferences.xml`): Shortcuts, Task Detail Page, Smart Recognition, **Task Quick Add** (`task_quick_add_preference.xml`: quick-add notification, clipboard add, status bar, **Quick Ball**, text-selection action), **Task Defaults**, Upload/Download attachments, Share list, **Manage Templates**, Wear, **Pattern Lock** (`lock_preferences.xml`, `ChooseLockPattern`), **Swipe Actions** (`CustomSwipePreference`, §10), Advanced (`more_advance_settings.xml`).
+- `provider_data_import` → Import & Integration (`DataImportPreferences`; Notion, calendars `CalendarManagerActivity`).
+- `services`, `prefkey_share_app`, `prefkey_guide` (newbie), `prefkey_help` (`help_preferences.xml`, `FeedbackPreferences`, `TicketActivity`), `prefkey_follow_us`, `prefkey_about` (`about_preferences.xml`), `prefkey_logout` (`@string/rank_sign_out`).
+
+---
+
+## 9. Widgets
+
+App-widget providers + `res/xml/ticktick_appwidget_info_*.xml`. Full set:
+- Task lists: `standard` (`ticktick_appwidget_standard.xml`), `4x4`, `compact`, `undone`, `grid` (month), `grid_week`, `three_day`, `week`, `today_calendar`.
+- Focus: `pomo`, `daily_focused`, `single_timer`, `focus_distribution2x2` / `4x2` / `4x4`, `task_completion`.
+- Habit: `habit`, `habit_week`, `habit_month`, `single_habit`, `habit_progress2x2` / `4x2`.
+- Other: `matrix` (Eisenhower), `quick_add` (§3), `countdown_list`, `single_countdown`, `course` (timetable).
+
+Each has a config preference fragment (`widget_*_config_preference_fragment.xml`) covering theme, alpha, list source, page-turn, completed visibility. Config host `WidgetConfiguration` / `SimpleWidgetConfig` / `WidgetExtensibleConfig`.
+
+---
+
+## 10. Interaction & Polish
+
+- **Swipe actions** (`CustomSwipePreference`, `@string/preference_custom_swipe_title` "Swipe Actions") — three positions **Left / Middle / Right** (`@string/swipe_left/right_option`, `swipe_middle_option`) with short vs long swipe (`@string/short_swipe_left`, `@string/long_swipe_right`). Assignable actions: Complete, Delete, Due Date, Estimated Duration, Move to, Priority, Start Focus, Add Tag, None (`@string/preference_custom_swipe_entries_*`). Customizing them is **Premium** (`@string/feature_custom_swipe_title`). `Constants.SwipeOption`.
+- **Drag reorder** — tasks (`data/TaskDragBackup`, sort-order tables §5) and lists-into-folders (`ProjectItemTouchHelperCallback`).
+- **Lottie micro-interactions** — checkbox complete: `assets/animation_checkbox_click.json`; swipe hint `assets/animation_swipe.json`; **pull-to-refresh stages**: `assets/refresh/start.json` → `assets/refresh/progress.json` → `assets/refresh/done.json` (+ `refresh/animation_swipe.json`); onboarding `assets/guide_circle.json`, `assets/matrix_guide_*.json`, `assets/back_and_arrow_down_{light,dark}.json`, `assets/screen_rotate`, `assets/login/banner_lottie_{light,dark}.json`.
+- **Bottom sheets / popups** — quick-add sheet, date/priority/tag pickers, `WidgetTaskListDialog`, `ReminderPopupActivity`, `SnoozePopupActivity`, `TokenTimeoutPopupActivity`.
+- **Theming** — many built-in themes (`@string/theme_*`), Premium themes; **per-list color & background** (`Project.backgroundInfo` → color/gradient/image `data/*ProjectBackground`, `@string/custom_background`); custom theme builder `CustomThemeActivity`; fonts bundled `assets/*.ttf` (DIN_Numbers, roboto_numbers_regular, sans_light, gulzar, icomoon). App icons/alt-icons via manifest activity-aliases.
+
+---
+
+## 11. Activities & Fragments (selected map)
+
+| Class | Purpose |
 |---|---|
-| NLP quick-add with inline chips | `TextField` + span `VisualTransformation` to highlight date/`#tag`/`!priority`/`~list`; `Row` of `InputChip`s; IME-anchored bar. Ship an on-device parser (rules or a small model) — *make it free*. |
-| Configurable bottom tab bar + drawer list tree | Material3 `NavigationBar` (user-editable destinations) + `ModalNavigationDrawer`; `ListDetailPaneScaffold` on tablets. |
-| Swipe actions (L/M/R, user-mapped) | `SwipeToDismissBox` with custom backgrounds; expose the full action map free. |
-| Drag reorder + "disabled under non-manual sort" guard | Reorderable `LazyColumn`; show the same explanatory toast. |
-| Checkbox Lottie + completion sound | `lottie-compose` tick; `SoundPool` chime; per-priority colored checkbox ring via `Canvas`. |
-| Custom pull-to-refresh / loading motion | `lottie-compose` staged animation (or `PullToRefreshBox` for a lighter take). |
-| Combined scheduling bottom sheet (date+time+repeat+reminder, quick chips) | One `ModalBottomSheet` with a month grid, quick chips, RRULE builder, reminder-offset picker. |
-| Task detail as typed blocks + reorderable action row | `LazyColumn` of block composables; both a bottom-sheet quick-edit and a full screen. |
-| Rich reminders: multiple, snooze grid, per-priority tone, daily summary, full-screen-intent | `AlarmManager` exact alarms + boot reschedule + battery-exemption onboarding; full-screen reminder activity; `snooze` presets. |
-| Token-driven theming, Material You, light/dark asset pairs, per-list color/icon | Extend our existing token system; `dynamicColorScheme`; emoji/icon per list. |
-| Empty states, onboarding "choose features/lists/theme" | Tailored empty composables; a short first-run flow. |
-| Pomodoro + white noise + stats; Habits + heatmap; Countdown | Optional modules, each a tab the user can enable — mirror TickTick's opt-in tab bar. |
-
-### Adopt but improve (our differentiators)
-- **True outliner core**: infinite nesting, fold/expand, zoom-into-node ("hoist"), node mirroring/links, drag to re-indent. Where TickTick stops at checklist-vs-1-level-subtask, we make hierarchy the spine. Keep TickTick's checklist *ergonomics* (Enter = new sibling item, Tab/Shift-Tab = indent) but remove the depth cap and the paywall.
-- **Local-first data & open export/import as free, first-class**: JSON backup, Markdown/OPML outline export, `.ics` for dated items, and a TickTick-CSV importer. Directly attacks TickTick's cloud-lock weakness.
-- **Views over the outline**: reuse the outline as the source for List/Board(Kanban via a "section" field)/Calendar/Matrix lenses — but never gate them behind a subscription.
-
-### Skip (for an offline personal app)
-- Account/sync backend, shared lists, assignees, comments, teams, Study Room (all inherently multi-user/cloud).
-- Email/WeChat/system-calendar reminder mirroring; Notion/CalDAV two-way sync (optional later, not core).
-- Telemetry stack (Firebase/GA/Facebook/Bugsnag/Ad Services) — omit entirely for privacy.
-- WeChat/Dida market-specific plumbing; achievement "more productive than X% of users" social ranking.
-- Consider deferring: student course timetable, countdown, wearable apps — nice-to-have, not core.
-
-### Concrete free-vs-premium inversion
-Everything TickTick paywalls that is *client-side and offline-computable* — Matrix, all calendar/timeline views, custom smart-list filters, custom swipe, task duration/estimates, unlimited nesting, multiple reminders, themes, widgets, habit heatmap, historical stats — costs us nothing to run locally and should simply be **free**. Our monetization (if any) should not gate the productivity surface.
+| `MeTaskActivity` | Main shell: drawer + task/calendar/kanban/timeline views + bottom tab bar |
+| `activity.fragment.slidemenu.TickTickSlideMenuFragment` | Side navigation drawer (§2) |
+| `quickadd.QuickAddActivity` | Quick-add task bar (§3) |
+| `quickadd.controller.AddTaskButtonSettingsActivity` | Configure quick-add option buttons |
+| `TaskActivity` / `TaskDetailMenuEditActivity` | Task detail + editable ⋯ menu (§4) |
+| `TaskCommentActivity` / `TaskActivitiesWebViewActivity` | Comments / activity log |
+| `CalendarViewActivity` / `CalendarViewOptionsActivity` | Calendar views + options (§5) |
+| `matrix.ui.MatrixDetailListActivity` / `MatrixConditionActivity` / `MatrixEditActivity` | Eisenhower Matrix |
+| `kanban.ColumnManageActivity` / `ColumnEditActivity` | Kanban columns |
+| `ProjectEditActivity` / `ProjectManageActivity` | Create/edit list & folder; manage/reorder |
+| `TagEditActivity` | Create/edit/nest tags |
+| `filter.FilterEditActivity` / `FilterPreviewActivity` / `search.SearchFilterActivity` | Custom Smart Lists (Filter) |
+| `QuickDateConfigActivity` | Customize quick-date suggestions |
+| `PomodoroActivity` / `focus.ui.timer.*` / `PomoPopupActivity` | Focus / Pomodoro / Stopwatch |
+| `habit.HabitAddActivity` / `HabitDetailActivity` / `AllHabitListActivity` | Habits |
+| `countdown.CountdownDetailActivity` / `edit.CountdownEditActivity` | Countdown |
+| `course.Timetable*Activity` | Timetable / course schedule |
+| `SearchActivity` | Global search (`ticktick_searchable.xml`) |
+| `NotificationCenterActivity` | In-app notifications |
+| `ReminderPopupActivity` / `SnoozePopupActivity` | Reminder alarm / snooze |
+| `calendarmanage.CalendarManagerActivity` / `LinkGoogleCalendarActivity` / `SubscribeCalendarActivity` | Calendar subscriptions |
+| `tabbars.TabBarConfigActivity` | Bottom tab bar config |
+| `preference.*` (Appearance, DateAndTime, CustomSwipe, Lock, DataImport, About…) | Settings screens (§8) |
+| `upgrade.ProFeaturesActivity` / `account.GetProActivity` / `payfor.PayUserInfoActivityV6` | Premium upsell / purchase |
+| `share.TaskShareActivity` / `TaskListShareActivity` / `AchievementSharePreviewActivity` | Sharing |
+| `account.LoginMainActivity` / `userguide.FirstLaunchGuideActivityV2` / `NewUserConfigActivity` | Login / onboarding |
+| `DispatchActivity` / `dispatch.InnerDispatch*Activity` | Deep-link / intent routing |
+| Services: `QuickBallService`, `AutoSyncJobService`, `NotificationOngoing` | Floating ball, sync, ongoing notif |
 
 ---
 
-### Appendix — Evidence pointers
-- Class list: `tt_classes.txt` (regenerate: `strings -n6 dec/ticktick/classes*.dex | grep -oE 'Lcom/ticktick/task/[A-Za-z0-9/_$]+;' | sort -u`).
-- Feature strings: `dec/ticktick/res/values/strings.xml`; option arrays: `res/values/arrays.xml`.
-- Settings tree: `res/xml/preferences.xml`, `more_settings_preferences.xml`, `preference_smart_date_parse.xml`, `preference_pomodoro.xml`, `advance_reminder_preferences.xml`, `sound_reminder_and_notification_preferences.xml`, `lock_preferences.xml`, `task_quick_add_preference.xml`, `date_and_time_preference.xml`.
-- Widgets: `res/xml/ticktick_appwidget_info_*` (26). UI layouts: `res/layout/{activity_quick_add,fragment_quick_add,custom_swipe_layout,layout_task_detail_input,detail_list_*,layout_slide_tabbar}.xml`.
-- Motion/assets: `assets/{animation_checkbox_click.json,animation_swipe.json,refresh/*,loading/*,screen_rotate/*,matrix_guide_*,habit_animations/*,yearly_report/*}`, `res/raw/{introduce_*.mp4,completion_sound_*.aac,pomo_end.aac}`.
-- DB schema: `com.ticktick.task.greendao.*Dao` (~100 tables); entities `com.ticktick.task.data.*`.
+## 12. Premium (Pro) Gating
+
+Paywalled features (evidence: `feature_*_title` / `pro_*` strings; enforced at `ProFeaturesActivity` / `GetProActivity`):
+
+- **Custom Smart Lists / Filters** (`@string/feature_custom_smart_list_title`, `@string/pro_filter_title`).
+- **Custom Swipe Options** (`@string/feature_custom_swipe_title`).
+- **Calendar views**: Month/grid (`feature_grid_view_title`), **Timeline** (`feature_time_line_title`), Year (`feature_guide_calendar_year_title`), calendar item style (`feature_guide_calendar_style_title`), **Calendar subscription** (`feature_subscribe_calendar_title`), calendar widgets/grid widget (`feature_grid_widget_title`).
+- **Duration / Estimated Duration** (`pro_title_task_duration`, `feature_time_duration_title`, `feature_estimate_duration`).
+- **More reminders** (`feature_multiple_reminders_title`) & **checklist-item reminders** (`feature_sub_task_reminder_title`); Annoying Alert toggle-off (`annoying_alert_close_no_pro_user_ensure_msg`).
+- **Larger capacity** (`pro_title_larger_capacity`): more lists/tasks/checklist items (`feature_over_project_or_task_title`), more sharing members (`feature_over_share_user_title`), more/larger attachments (`feature_over_upload_count_title`).
+- **Task/List Activities & comments history** (`feature_task_activities_title`, `feature_list_activities_title`).
+- **Historical Statistics** (`feature_history_statistics_title`), **Premium themes** (`feature_theme_title`), **Quick Ball** (`feature_quick_ball_title`), **Unlimited Habits** (`feature_unlimited_habit_numbers_title`), **Eisenhower Matrix** (`pro_feature_subtitle_matrix`), **Pomo widget** (`feature_pomo_widget`), Daily reminder / "Unlimited Plan" (`feature_daily_reminder_title`).
+
+Grouping on the paywall: `pro_title_premium_exclusives`, `pro_title_various_calendar_views`, `pro_title_calendar_extras`, `pro_title_larger_capacity`, `pro_title_list_task_activities`, `pro_title_task_duration`.
