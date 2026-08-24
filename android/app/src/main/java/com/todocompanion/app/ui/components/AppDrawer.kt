@@ -3,6 +3,7 @@ package com.todocompanion.app.ui.components
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,6 +49,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,7 +59,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -66,6 +73,7 @@ import com.todocompanion.app.domain.SmartVis
 import com.todocompanion.app.domain.view.SmartKind
 import com.todocompanion.app.domain.view.ViewRef
 import com.todocompanion.app.ui.AppViewModel
+import kotlin.math.roundToInt
 
 private fun smartIcon(k: SmartKind): ImageVector = when (k) {
     SmartKind.INBOX -> Icons.Filled.Inbox
@@ -168,9 +176,8 @@ fun AppDrawer(
                 folders.filter { it.parentId == null }.sortedBy { it.sortOrder }.forEach { f ->
                     FolderNode(f, 0, folders, lists, current, vm, onSelect, onNewList, onNewFolder, onManageList, onManageFolder, onMoveList, onMoveFolder)
                 }
-                lists.filter { it.folderId == null && it.id != ListEntity.INBOX_ID && !it.archived }.sortedBy { it.sortOrder }.forEach { l ->
-                    ListRow(l, 0, current, vm, onSelect, onManageList, onMoveList)
-                }
+                ReorderableListGroup(lists.filter { it.folderId == null && it.id != ListEntity.INBOX_ID && !it.archived }.sortedBy { it.sortOrder },
+                    0, current, vm, onSelect, onManageList, onMoveList)
             }
 
             SectionHeader("Tags", open = open("tags"), onToggle = { toggle("tags") }, onAdd = { onNewTag(null) })
@@ -228,8 +235,46 @@ private fun FolderNode(
         folders.filter { it.parentId == folder.id }.sortedBy { it.sortOrder }.forEach { child ->
             FolderNode(child, depth + 1, folders, lists, current, vm, onSelect, onNewList, onNewFolder, onManageList, onManageFolder, onMoveList, onMoveFolder)
         }
-        lists.filter { it.folderId == folder.id && !it.archived }.sortedBy { it.sortOrder }.forEach { l ->
-            ListRow(l, depth + 1, current, vm, onSelect, onManageList, onMoveList)
+        ReorderableListGroup(lists.filter { it.folderId == folder.id && !it.archived }.sortedBy { it.sortOrder },
+            depth + 1, current, vm, onSelect, onManageList, onMoveList)
+    }
+}
+
+@Composable
+private fun ReorderableListGroup(
+    lists0: List<ListEntity>, depth: Int, current: ViewRef, vm: AppViewModel,
+    onSelect: (ViewRef) -> Unit, onManageList: (ListEntity) -> Unit, onMoveList: (ListEntity) -> Unit,
+) {
+    var items by remember(lists0.map { it.id }.toSet()) { mutableStateOf(lists0) }
+    var dragId by remember { mutableStateOf<String?>(null) }
+    var delta by remember { mutableFloatStateOf(0f) }
+    var rowH by remember { mutableFloatStateOf(0f) }
+    Column {
+        items.forEach { l ->
+            key(l.id) {
+                val dragging = l.id == dragId
+                Box(
+                    Modifier
+                        .onSizeChanged { if (rowH == 0f) rowH = it.height.toFloat() }
+                        .zIndex(if (dragging) 1f else 0f)
+                        .graphicsLayer { translationY = if (dragging) delta else 0f }
+                        .pointerInput(l.id) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = { dragId = l.id; delta = 0f },
+                                onDragEnd = { if (dragId != null) vm.setListOrder(items.map { it.id }); dragId = null; delta = 0f },
+                                onDragCancel = { dragId = null; delta = 0f },
+                                onDrag = { ch, d ->
+                                    ch.consume(); delta += d.y
+                                    val from = items.indexOfFirst { it.id == dragId }
+                                    if (from >= 0 && rowH > 0f) {
+                                        val target = (from + (delta / rowH).roundToInt()).coerceIn(0, items.size - 1)
+                                        if (target != from) { items = items.toMutableList().also { it.add(target, it.removeAt(from)) }; delta -= (target - from) * rowH }
+                                    }
+                                },
+                            )
+                        },
+                ) { ListRow(l, depth, current, vm, onSelect, onManageList, onMoveList) }
+            }
         }
     }
 }

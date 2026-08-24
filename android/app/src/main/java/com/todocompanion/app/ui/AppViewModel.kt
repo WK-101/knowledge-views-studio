@@ -310,6 +310,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         return true
     }
     fun moveListOrder(l: ListEntity, dir: Int) = viewModelScope.launch { repo.moveListOrder(l, dir) }
+    /** Persist a drag reorder of sibling lists by writing each id's index as its sortOrder. */
+    fun setListOrder(orderedIds: List<String>) = viewModelScope.launch {
+        val byId = lists.value.associateBy { it.id }
+        orderedIds.forEachIndexed { i, id -> byId[id]?.let { if (it.sortOrder != i.toDouble()) repo.saveList(it.copy(sortOrder = i.toDouble())) } }
+    }
+    /** Persist a drag reorder of sibling folders. */
+    fun setFolderOrder(orderedIds: List<String>) = viewModelScope.launch {
+        val byId = folders.value.associateBy { it.id }
+        orderedIds.forEachIndexed { i, id -> byId[id]?.let { if (it.sortOrder != i.toDouble()) repo.saveFolder(it.copy(sortOrder = i.toDouble())) } }
+    }
     fun moveFolderOrder(f: FolderEntity, dir: Int) = viewModelScope.launch { repo.moveFolderOrder(f, dir) }
     fun moveListToFolder(listId: String, folderId: String?) = viewModelScope.launch { repo.moveListToFolder(listId, folderId) }
     fun moveFolderToParent(folderId: String, parentId: String?) = viewModelScope.launch { repo.moveFolderToParent(folderId, parentId) }
