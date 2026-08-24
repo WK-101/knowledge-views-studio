@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -77,7 +78,7 @@ private fun Modifier.swipeNav(onPrev: () -> Unit, onNext: () -> Unit): Modifier 
 }
 
 @Composable
-fun CalendarScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, mode: String, onModeChange: (String) -> Unit, onAddOnDate: (LocalDate) -> Unit, modifier: Modifier = Modifier) {
+fun CalendarScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, mode: String, onModeChange: (String) -> Unit, onAddOnDate: (LocalDate) -> Unit, onAddAt: (LocalDate, Int) -> Unit = { d, _ -> onAddOnDate(d) }, modifier: Modifier = Modifier) {
     val s by vm.settings.collectAsState()
     val tasks by vm.tasks.collectAsState()
     val zone = ZoneId.systemDefault()
@@ -99,10 +100,10 @@ fun CalendarScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, mode: String,
             "month" -> MonthView(anchor, selected, dueByDate, firstDow, onSelect = { selected = it }, onPrev = { anchor = anchor.minusMonths(1) }, onNext = { anchor = anchor.plusMonths(1) }, onToday = { anchor = LocalDate.now(); selected = LocalDate.now() }, onOpenTask = onOpenTask, onToggle = onToggle, onTrash = onTrash, onAdd = { onAddOnDate(selected) })
             "week" -> {
                 val start = startOfWeek(anchor, firstDow)
-                TimelineView((0..6).map { start.plusDays(it.toLong()) }, dueByDate, zone, rangeTitle(start, start.plusDays(6)), onPrev = { anchor = anchor.minusWeeks(1) }, onNext = { anchor = anchor.plusWeeks(1) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate)
+                TimelineView((0..6).map { start.plusDays(it.toLong()) }, dueByDate, zone, rangeTitle(start, start.plusDays(6)), onPrev = { anchor = anchor.minusWeeks(1) }, onNext = { anchor = anchor.plusWeeks(1) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt)
             }
-            "3day" -> TimelineView((0..2).map { anchor.plusDays(it.toLong()) }, dueByDate, zone, rangeTitle(anchor, anchor.plusDays(2)), onPrev = { anchor = anchor.minusDays(3) }, onNext = { anchor = anchor.plusDays(3) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate)
-            "day" -> TimelineView(listOf(anchor), dueByDate, zone, "${anchor.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${anchor.dayOfMonth} ${anchor.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())}", onPrev = { anchor = anchor.minusDays(1) }, onNext = { anchor = anchor.plusDays(1) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate)
+            "3day" -> TimelineView((0..2).map { anchor.plusDays(it.toLong()) }, dueByDate, zone, rangeTitle(anchor, anchor.plusDays(2)), onPrev = { anchor = anchor.minusDays(3) }, onNext = { anchor = anchor.plusDays(3) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt)
+            "day" -> TimelineView(listOf(anchor), dueByDate, zone, "${anchor.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${anchor.dayOfMonth} ${anchor.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())}", onPrev = { anchor = anchor.minusDays(1) }, onNext = { anchor = anchor.plusDays(1) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt)
             "year" -> YearView(anchor, dueByDate, onPrev = { anchor = anchor.minusYears(1) }, onNext = { anchor = anchor.plusYears(1) }, onMonth = { m -> anchor = m.atDay(1); onModeChange("month") })
             else -> AgendaView(dueByDate, onOpenTask, onToggle, onTrash)
         }
@@ -251,6 +252,7 @@ private fun layoutEvents(tasks: List<TaskEntity>, zone: ZoneId): List<Placed> {
 private fun TimelineView(
     days: List<LocalDate>, dueByDate: Map<LocalDate, List<TaskEntity>>, zone: ZoneId, title: String,
     onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onOpenTask: (String) -> Unit, onAddOnDate: (LocalDate) -> Unit,
+    onAddAt: (LocalDate, Int) -> Unit,
 ) {
     NavHeader(title, onPrev, onNext, onToday)
 
@@ -301,19 +303,25 @@ private fun TimelineView(
             }
             days.forEach { d ->
                 val timed = dueByDate[d].orEmpty().filter { !it.isAllDay && hasTime(it.dueDate!!, zone) }
-                DayColumn(d, timed, zone, onOpenTask, onAddOnDate, Modifier.weight(1f))
+                DayColumn(d, timed, zone, onOpenTask, onAddAt, Modifier.weight(1f))
             }
         }
     }
 }
 
 @Composable
-private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onOpenTask: (String) -> Unit, onAddOnDate: (LocalDate) -> Unit, modifier: Modifier) {
+private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onOpenTask: (String) -> Unit, onAddAt: (LocalDate, Int) -> Unit, modifier: Modifier) {
     val placed = remember(timed, zone) { layoutEvents(timed, zone) }
     val isToday = day == LocalDate.now()
     val nowMin = if (isToday) java.time.LocalTime.now().let { it.hour * 60 + it.minute } else -1
     androidx.compose.foundation.layout.BoxWithConstraints(
-        modifier.height((HOUR_DP * 24).dp).clickable { onAddOnDate(day) },
+        modifier.height((HOUR_DP * 24).dp).pointerInput(day) {
+            // Tap an empty slot to time-block a task at that half-hour.
+            detectTapGestures { offset ->
+                val minute = ((offset.y / size.height.toFloat()) * 1440f).toInt().coerceIn(0, 1439)
+                onAddAt(day, (minute / 30) * 30)
+            }
+        },
     ) {
         val colW = maxWidth
         // Hour gridlines

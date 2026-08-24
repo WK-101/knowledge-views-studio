@@ -62,7 +62,7 @@ import com.todocompanion.app.ui.components.priorityColor
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, onDismiss: () -> Unit) {
+fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Boolean = false, onDismiss: () -> Unit) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val lists by vm.lists.collectAsState()
     val tags by vm.tags.collectAsState()
@@ -71,7 +71,7 @@ fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, onDismiss: () -> U
 
     var text by remember { mutableStateOf("") }
     var due by remember { mutableStateOf(initialDue) }
-    var hasTime by remember { mutableStateOf(false) }
+    var hasTime by remember { mutableStateOf(initialHasTime) }
     var priority by remember { mutableStateOf<PriorityLevel?>(null) }
     var listId by remember { mutableStateOf<String?>(null) }
     var reminder by remember { mutableStateOf<Long?>(null) }

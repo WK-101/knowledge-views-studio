@@ -153,6 +153,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         var editing by remember { mutableStateOf<String?>(null) }
         var showQuickAdd by remember { mutableStateOf(false) }
         var quickAddDue by remember { mutableStateOf<Long?>(null) }
+        var quickAddWithTime by remember { mutableStateOf(false) }
         var newReq by remember { mutableStateOf<NewReq?>(null) }
         var manageList by remember { mutableStateOf<ListEntity?>(null) }
         var manageFolder by remember { mutableStateOf<FolderEntity?>(null) }
@@ -205,7 +206,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
 
         fun openTask(id: String) { editing = id }
         fun goTasks() { tab = Tab.TASKS }
-        fun openQuickAdd(due: Long?) { quickAddDue = due; showQuickAdd = true }
+        fun openQuickAdd(due: Long?, withTime: Boolean = false) { quickAddDue = due; quickAddWithTime = withTime; showQuickAdd = true }
 
         // One-shot launch action from the home-screen widget's "＋ Add" button.
         LaunchedEffect(launchAction.value) {
@@ -341,6 +342,8 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                             Tab.SETTINGS -> SettingsScreen(vm)
                             Tab.CALENDAR -> CalendarScreen(vm, ::openTask, calMode, { calMode = it }, onAddOnDate = { d ->
                                 openQuickAdd(d.atTime(9, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli())
+                            }, onAddAt = { d, minute ->
+                                openQuickAdd(d.atStartOfDay(ZoneId.systemDefault()).plusMinutes(minute.toLong()).toInstant().toEpochMilli(), withTime = true)
                             })
                             Tab.MATRIX -> MatrixScreen(vm, ::openTask, matrixSettings, { matrixSettings = false })
                             Tab.HABITS -> com.todocompanion.app.ui.screens.HabitsScreen(vm)
@@ -353,7 +356,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
 
         editing?.let { id -> TaskDetailScreen(vm, id, onBack = { editing = null }) }
         if (showStats) com.todocompanion.app.ui.screens.StatisticsScreen(vm, onBack = { showStats = false })
-        if (showQuickAdd) QuickAddSheet(vm, initialDue = quickAddDue, onDismiss = { showQuickAdd = false; quickAddDue = null })
+        if (showQuickAdd) QuickAddSheet(vm, initialDue = quickAddDue, initialHasTime = quickAddWithTime, onDismiss = { showQuickAdd = false; quickAddDue = null; quickAddWithTime = false })
 
         newReq?.let { req ->
             NewContainerDialog(req, folders, onDismiss = { newReq = null }) { name, isFolder, parentId ->
