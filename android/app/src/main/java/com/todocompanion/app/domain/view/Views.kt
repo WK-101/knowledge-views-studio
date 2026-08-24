@@ -9,6 +9,7 @@ import java.time.ZoneId
 sealed interface ViewRef {
     data class Smart(val kind: SmartKind) : ViewRef
     data class ListView(val listId: String) : ViewRef
+    data class FolderView(val folderId: String) : ViewRef
     data class TagView(val tagId: String) : ViewRef
     data class ContextView(val contextId: String) : ViewRef
     data class FilterView(val filterId: String) : ViewRef

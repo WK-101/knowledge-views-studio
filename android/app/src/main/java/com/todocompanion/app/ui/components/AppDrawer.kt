@@ -19,6 +19,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AllInbox
 import androidx.compose.material.icons.filled.Bolt
@@ -30,6 +32,7 @@ import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -161,6 +164,10 @@ fun AppDrawer(
             val collapsed = remember { mutableStateMapOf<String, Boolean>() }
             fun open(k: String) = collapsed[k] != true
             fun toggle(k: String) { collapsed[k] = open(k) }
+            // Expand state for nested lists (default expanded).
+            val listExpand = remember { mutableStateMapOf<String, Boolean>() }
+
+            PinnedFavourites(settings.pinnedRefs, lists, folders, tags, contexts, vm, current, onSelect)
 
             SectionHeader("Smart lists", open = open("smart"), onToggle = { toggle("smart") })
             if (open("smart")) listOf(
@@ -180,15 +187,15 @@ fun AppDrawer(
             SectionHeader("Lists", open = open("lists"), onToggle = { toggle("lists") }, onAdd = { onNewList(null) })
             if (open("lists")) {
                 folders.filter { it.parentId == null }.sortedBy { it.sortOrder }.forEach { f ->
-                    FolderNode(f, 0, folders, lists, current, vm, onSelect, onNewList, onNewFolder, onManageList, onManageFolder, onMoveList, onMoveFolder)
+                    FolderNode(f, 0, folders, lists, listExpand, current, vm, onSelect, onNewList, onNewFolder, onManageList, onManageFolder, onMoveList, onMoveFolder)
                 }
-                ReorderableListGroup(lists.filter { it.folderId == null && it.id != ListEntity.INBOX_ID && !it.archived }.sortedBy { it.sortOrder },
-                    0, current, vm, onSelect, onManageList, onMoveList)
+                ReorderableListGroup(lists.filter { it.folderId == null && it.parentListId == null && it.id != ListEntity.INBOX_ID && !it.archived }.sortedBy { it.sortOrder },
+                    lists, listExpand, 0, current, vm, onSelect, onManageList, onMoveList)
             }
 
             SectionHeader("Tags", open = open("tags"), onToggle = { toggle("tags") }, onAdd = { onNewTag(null) })
             if (open("tags")) tags.filter { it.parentId == null }.sortedWith(compareBy({ it.sortOrder }, { it.name })).forEach { t ->
-                TagNode(t, 0, tags, current, onSelect, onNewTag, onManageTag, onMoveTag)
+                TagNode(t, 0, tags, current, vm, onSelect, onNewTag, onManageTag, onMoveTag)
             }
 
             val filters by vm.filters.collectAsState()
@@ -210,6 +217,8 @@ fun AppDrawer(
                         Box {
                             Icon(Icons.Filled.MoreVert, "Filter menu", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp).clickable { menu = true })
                             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                                val pinRef = "filter:${f.id}"
+                                MenuItem(if (vm.isPinned(pinRef)) Icons.Filled.PushPin else Icons.Filled.PushPin, if (vm.isPinned(pinRef)) "Unpin from top" else "Pin to top") { vm.togglePinnedRef(pinRef); menu = false }
                                 MenuItem(Icons.Filled.Edit, "Edit filter") { onEditFilter(f); menu = false }
                             }
                         }
@@ -219,7 +228,7 @@ fun AppDrawer(
 
             SectionHeader("Contexts", open = open("contexts"), onToggle = { toggle("contexts") }, onAdd = { onNewContext(null) })
             if (open("contexts")) contexts.filter { it.parentId == null }.sortedWith(compareBy({ it.name })).forEach { c ->
-                ContextNode(c, 0, contexts, current, onSelect, onNewContext, onManageContext, onMoveContext)
+                ContextNode(c, 0, contexts, current, vm, onSelect, onNewContext, onManageContext, onMoveContext)
             }
 
             SectionHeader("")
@@ -232,26 +241,34 @@ fun AppDrawer(
 
 @Composable
 private fun FolderNode(
-    folder: FolderEntity, depth: Int, folders: List<FolderEntity>, lists: List<ListEntity>, current: ViewRef, vm: AppViewModel,
+    folder: FolderEntity, depth: Int, folders: List<FolderEntity>, lists: List<ListEntity>, listExpand: MutableMap<String, Boolean>, current: ViewRef, vm: AppViewModel,
     onSelect: (ViewRef) -> Unit, onNewList: (String?) -> Unit, onNewFolder: (String?) -> Unit,
     onManageList: (ListEntity) -> Unit, onManageFolder: (FolderEntity) -> Unit, onMoveList: (ListEntity) -> Unit, onMoveFolder: (FolderEntity) -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
     val ctx = androidx.compose.ui.platform.LocalContext.current
+    val selected = (current as? ViewRef.FolderView)?.folderId == folder.id
+    val pinRef = "folder:${folder.id}"
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
-            .clickable { vm.toggleFolder(folder) }.padding(start = (10 + depth * 16).dp, top = 9.dp, bottom = 9.dp, end = 4.dp),
+            .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+            .padding(start = (10 + depth * 16).dp, top = 9.dp, bottom = 9.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(if (folder.collapsed) Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.Filled.KeyboardArrowDown, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+        // Chevron toggles collapse; the rest of the row opens the folder (all its tasks).
+        Icon(if (folder.collapsed) Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.Filled.KeyboardArrowDown, if (folder.collapsed) "Expand" else "Collapse",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp).clip(CircleShape).clickable { vm.toggleFolder(folder) })
         Spacer(Modifier.width(3.dp))
         if (folder.icon != null) Text(folder.icon!!, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.size(20.dp).wrapContentSize(Alignment.Center))
         else Icon(Icons.Filled.Folder, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(19.dp))
         Spacer(Modifier.width(10.dp))
-        Text(folder.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+        Text(folder.name, Modifier.weight(1f).clip(RoundedCornerShape(6.dp)).clickable { onSelect(ViewRef.FolderView(folder.id)) },
+            maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
         Box {
             Icon(Icons.Filled.MoreVert, "Folder menu", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp).clickable { menu = true })
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                MenuItem(if (vm.isPinned(pinRef)) Icons.Filled.PushPin else Icons.Filled.PushPin, if (vm.isPinned(pinRef)) "Unpin from top" else "Pin to top") { vm.togglePinnedRef(pinRef); menu = false }
                 MenuItem(Icons.Filled.Add, "New list here") { onNewList(folder.id); menu = false }
                 MenuItem(Icons.Filled.Folder, "New folder here") { onNewFolder(folder.id); menu = false }
                 MenuItem(Icons.Filled.KeyboardArrowUp, "Move up") { vm.moveFolderOrder(folder, -1); menu = false }
@@ -267,71 +284,103 @@ private fun FolderNode(
     }
     if (!folder.collapsed) {
         folders.filter { it.parentId == folder.id }.sortedBy { it.sortOrder }.forEach { child ->
-            FolderNode(child, depth + 1, folders, lists, current, vm, onSelect, onNewList, onNewFolder, onManageList, onManageFolder, onMoveList, onMoveFolder)
+            FolderNode(child, depth + 1, folders, lists, listExpand, current, vm, onSelect, onNewList, onNewFolder, onManageList, onManageFolder, onMoveList, onMoveFolder)
         }
-        ReorderableListGroup(lists.filter { it.folderId == folder.id && !it.archived }.sortedBy { it.sortOrder },
-            depth + 1, current, vm, onSelect, onManageList, onMoveList)
+        ReorderableListGroup(lists.filter { it.folderId == folder.id && it.parentListId == null && !it.archived }.sortedBy { it.sortOrder },
+            lists, listExpand, depth + 1, current, vm, onSelect, onManageList, onMoveList)
     }
 }
 
 @Composable
 private fun ReorderableListGroup(
-    lists0: List<ListEntity>, depth: Int, current: ViewRef, vm: AppViewModel,
+    siblings: List<ListEntity>, allLists: List<ListEntity>, expand: MutableMap<String, Boolean>,
+    depth: Int, current: ViewRef, vm: AppViewModel,
     onSelect: (ViewRef) -> Unit, onManageList: (ListEntity) -> Unit, onMoveList: (ListEntity) -> Unit,
 ) {
-    var items by remember(lists0.map { it.id }.toSet()) { mutableStateOf(lists0) }
     var dragId by remember { mutableStateOf<String?>(null) }
+    var items by remember { mutableStateOf(siblings) }
+    // Resync from upstream (rename, colour, add/remove, reorder) except mid-drag.
+    androidx.compose.runtime.LaunchedEffect(siblings) { if (dragId == null) items = siblings }
     var delta by remember { mutableFloatStateOf(0f) }
     var rowH by remember { mutableFloatStateOf(0f) }
     Column {
         items.forEach { l ->
             key(l.id) {
+                val children = allLists.filter { it.parentListId == l.id && !it.archived }.sortedBy { it.sortOrder }
+                val expanded = expand[l.id] != false
                 val dragging = l.id == dragId
-                Box(
-                    Modifier
-                        .onSizeChanged { if (rowH == 0f) rowH = it.height.toFloat() }
-                        .zIndex(if (dragging) 1f else 0f)
-                        .graphicsLayer { translationY = if (dragging) delta else 0f }
-                        .pointerInput(l.id) {
-                            detectDragGesturesAfterLongPress(
-                                onDragStart = { dragId = l.id; delta = 0f },
-                                onDragEnd = { if (dragId != null) vm.setListOrder(items.map { it.id }); dragId = null; delta = 0f },
-                                onDragCancel = { dragId = null; delta = 0f },
-                                onDrag = { ch, d ->
-                                    ch.consume(); delta += d.y
-                                    val from = items.indexOfFirst { it.id == dragId }
-                                    if (from >= 0 && rowH > 0f) {
-                                        val target = (from + (delta / rowH).roundToInt()).coerceIn(0, items.size - 1)
-                                        if (target != from) { items = items.toMutableList().also { it.add(target, it.removeAt(from)) }; delta -= (target - from) * rowH }
-                                    }
-                                },
-                            )
-                        },
-                ) { ListRow(l, depth, current, vm, onSelect, onManageList, onMoveList) }
+                Column {
+                    // Only the row itself carries the drag gesture + height measurement, so nested
+                    // children rendered below don't distort the sibling reorder math.
+                    Box(
+                        Modifier
+                            .onSizeChanged { if (rowH == 0f) rowH = it.height.toFloat() }
+                            .zIndex(if (dragging) 1f else 0f)
+                            .graphicsLayer { translationY = if (dragging) delta else 0f }
+                            .pointerInput(l.id) {
+                                detectDragGesturesAfterLongPress(
+                                    onDragStart = { dragId = l.id; delta = 0f },
+                                    onDragEnd = { if (dragId != null) vm.setListOrder(items.map { it.id }); dragId = null; delta = 0f },
+                                    onDragCancel = { dragId = null; delta = 0f },
+                                    onDrag = { ch, d ->
+                                        ch.consume(); delta += d.y
+                                        val from = items.indexOfFirst { it.id == dragId }
+                                        if (from >= 0 && rowH > 0f) {
+                                            val target = (from + (delta / rowH).roundToInt()).coerceIn(0, items.size - 1)
+                                            if (target != from) { items = items.toMutableList().also { it.add(target, it.removeAt(from)) }; delta -= (target - from) * rowH }
+                                        }
+                                    },
+                                )
+                            },
+                    ) { ListRow(l, depth, children.isNotEmpty(), expanded, { expand[l.id] = !expanded }, current, vm, onSelect, onManageList, onMoveList) }
+                    if (children.isNotEmpty() && expanded) {
+                        ReorderableListGroup(children, allLists, expand, depth + 1, current, vm, onSelect, onManageList, onMoveList)
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun ListRow(list: ListEntity, depth: Int, current: ViewRef, vm: AppViewModel, onSelect: (ViewRef) -> Unit, onManageList: (ListEntity) -> Unit, onMoveList: (ListEntity) -> Unit) {
+private fun ListRow(
+    list: ListEntity, depth: Int, hasChildren: Boolean, expanded: Boolean, onToggleExpand: () -> Unit,
+    current: ViewRef, vm: AppViewModel, onSelect: (ViewRef) -> Unit, onManageList: (ListEntity) -> Unit, onMoveList: (ListEntity) -> Unit,
+) {
     var menu by remember { mutableStateOf(false) }
     val selected = (current as? ViewRef.ListView)?.listId == list.id
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
             .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
             .clickable { onSelect(ViewRef.ListView(list.id)) }
-            .padding(start = (14 + depth * 16).dp, top = 9.dp, bottom = 9.dp, end = 4.dp),
+            .padding(start = (10 + depth * 16).dp, top = 9.dp, bottom = 9.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (hasChildren) {
+            Icon(
+                if (expanded) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                if (expanded) "Collapse" else "Expand",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp).clip(CircleShape).clickable { onToggleExpand() },
+            )
+            Spacer(Modifier.width(3.dp))
+        } else {
+            Spacer(Modifier.width(21.dp))
+        }
         Box(Modifier.size(11.dp).clip(RoundedCornerShape(3.dp)).background(list.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.outline))
         Spacer(Modifier.width(11.dp))
-        Text(list.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+        Text(list.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
         Box {
             Icon(Icons.Filled.MoreVert, "List menu", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp).clickable { menu = true })
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                val pinRef = "list:${list.id}"
+                MenuItem(if (vm.isPinned(pinRef)) Icons.Filled.PushPin else Icons.Filled.PushPin, if (vm.isPinned(pinRef)) "Unpin from top" else "Pin to top") { vm.togglePinnedRef(pinRef); menu = false }
+                MenuItem(Icons.Filled.Add, "New sub-list here") { vm.createSubList(list); menu = false }
                 MenuItem(Icons.Filled.KeyboardArrowUp, "Move up") { vm.moveListOrder(list, -1); menu = false }
                 MenuItem(Icons.Filled.KeyboardArrowDown, "Move down") { vm.moveListOrder(list, +1); menu = false }
+                MenuItem(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Nest under list above") { vm.indentList(list); menu = false }
+                if (list.parentListId != null) MenuItem(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Un-nest") { vm.outdentList(list); menu = false }
                 MenuItem(Icons.Filled.DriveFileMove, "Move to folder…") { onMoveList(list); menu = false }
                 MenuItem(Icons.Filled.Folder, "Convert to folder") { vm.convertListToFolder(list); menu = false }
                 MenuItem(Icons.Filled.Edit, "Rename / colour / delete") { onManageList(list); menu = false }
@@ -342,7 +391,7 @@ private fun ListRow(list: ListEntity, depth: Int, current: ViewRef, vm: AppViewM
 
 @Composable
 private fun TagNode(
-    tag: com.todocompanion.app.data.entity.TagEntity, depth: Int, allTags: List<com.todocompanion.app.data.entity.TagEntity>, current: ViewRef,
+    tag: com.todocompanion.app.data.entity.TagEntity, depth: Int, allTags: List<com.todocompanion.app.data.entity.TagEntity>, current: ViewRef, vm: AppViewModel,
     onSelect: (ViewRef) -> Unit, onNewTag: (String?) -> Unit, onManageTag: (com.todocompanion.app.data.entity.TagEntity) -> Unit, onMoveTag: (com.todocompanion.app.data.entity.TagEntity) -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
@@ -362,13 +411,58 @@ private fun TagNode(
         Box {
             Icon(Icons.Filled.MoreVert, "Tag menu", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp).clickable { menu = true })
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                val pinRef = "tag:${tag.id}"
+                MenuItem(if (vm.isPinned(pinRef)) Icons.Filled.PushPin else Icons.Filled.PushPin, if (vm.isPinned(pinRef)) "Unpin from top" else "Pin to top") { vm.togglePinnedRef(pinRef); menu = false }
                 MenuItem(Icons.Filled.Add, "New sub-tag") { onNewTag(tag.id); menu = false }
                 MenuItem(Icons.Filled.DriveFileMove, "Move to…") { onMoveTag(tag); menu = false }
                 MenuItem(Icons.Filled.Edit, "Rename / colour / delete") { onManageTag(tag); menu = false }
             }
         }
     }
-    children.forEach { TagNode(it, depth + 1, allTags, current, onSelect, onNewTag, onManageTag, onMoveTag) }
+    children.forEach { TagNode(it, depth + 1, allTags, current, vm, onSelect, onNewTag, onManageTag, onMoveTag) }
+}
+
+/** MLO-style favourites pinned to the very top, with larger icons for quick access. */
+@Composable
+private fun PinnedFavourites(
+    refs: List<String>,
+    lists: List<ListEntity>, folders: List<FolderEntity>,
+    tags: List<com.todocompanion.app.data.entity.TagEntity>, contexts: List<com.todocompanion.app.data.entity.ContextEntity>,
+    vm: AppViewModel, current: ViewRef, onSelect: (ViewRef) -> Unit,
+) {
+    val filters by vm.filters.collectAsState()
+    data class Pin(val icon: ImageVector, val label: String, val color: Color?, val view: ViewRef, val ref: String)
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val resolved = refs.mapNotNull { ref ->
+        val id = ref.substringAfter(':')
+        when (ref.substringBefore(':')) {
+            "list" -> lists.firstOrNull { it.id == id }?.let { Pin(Icons.AutoMirrored.Filled.FormatListBulleted, it.name, it.colorArgb?.let(::Color), ViewRef.ListView(id), ref) }
+            "folder" -> folders.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.Folder, it.name, null, ViewRef.FolderView(id), ref) }
+            "tag" -> tags.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.Label, "#" + it.name, it.colorArgb?.let(::Color), ViewRef.TagView(id), ref) }
+            "context" -> contexts.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.Place, "@" + it.name, it.colorArgb?.let(::Color), ViewRef.ContextView(id), ref) }
+            "filter" -> filters.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.FilterList, it.name, it.colorArgb?.let(::Color), ViewRef.FilterView(id), ref) }
+            else -> null
+        }
+    }
+    if (resolved.isEmpty()) return
+    SectionHeader("Favourites")
+    resolved.forEach { p ->
+        val selected = current == p.view
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(12.dp))
+                .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+                .clickable { onSelect(p.view) }.padding(start = 10.dp, top = 8.dp, bottom = 8.dp, end = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background((p.color ?: MaterialTheme.colorScheme.primary).copy(alpha = .14f)), contentAlignment = Alignment.Center) {
+                Icon(p.icon, null, tint = p.color ?: MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+            Text(p.label, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)
+            Icon(Icons.Filled.PushPin, "Unpin", tint = muted, modifier = Modifier.size(17.dp).clip(CircleShape).clickable { vm.togglePinnedRef(p.ref) })
+        }
+    }
 }
 
 @Composable
@@ -398,7 +492,7 @@ private fun SectionHeader(text: String, open: Boolean = true, onToggle: (() -> U
 
 @Composable
 private fun ContextNode(
-    ctx: com.todocompanion.app.data.entity.ContextEntity, depth: Int, all: List<com.todocompanion.app.data.entity.ContextEntity>, current: ViewRef,
+    ctx: com.todocompanion.app.data.entity.ContextEntity, depth: Int, all: List<com.todocompanion.app.data.entity.ContextEntity>, current: ViewRef, vm: AppViewModel,
     onSelect: (ViewRef) -> Unit, onNew: (String?) -> Unit, onManage: (com.todocompanion.app.data.entity.ContextEntity) -> Unit, onMove: (com.todocompanion.app.data.entity.ContextEntity) -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
@@ -418,13 +512,15 @@ private fun ContextNode(
         Box {
             Icon(Icons.Filled.MoreVert, "Context menu", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp).clickable { menu = true })
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                val pinRef = "context:${ctx.id}"
+                MenuItem(if (vm.isPinned(pinRef)) Icons.Filled.PushPin else Icons.Filled.PushPin, if (vm.isPinned(pinRef)) "Unpin from top" else "Pin to top") { vm.togglePinnedRef(pinRef); menu = false }
                 MenuItem(Icons.Filled.Add, "New sub-context") { onNew(ctx.id); menu = false }
                 MenuItem(Icons.Filled.DriveFileMove, "Move to…") { onMove(ctx); menu = false }
                 MenuItem(Icons.Filled.Edit, "Rename / colour / delete") { onManage(ctx); menu = false }
             }
         }
     }
-    children.forEach { ContextNode(it, depth + 1, all, current, onSelect, onNew, onManage, onMove) }
+    children.forEach { ContextNode(it, depth + 1, all, current, vm, onSelect, onNew, onManage, onMove) }
 }
 
 @Composable

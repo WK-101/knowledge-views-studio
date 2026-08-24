@@ -56,6 +56,8 @@ data class AppSettings(
     val dailySummaryEnabled: Boolean = false,
     val dailySummaryHour: Int = 8,
     val dailySummaryMinute: Int = 0,
+    // Sidebar favourites, pinned to the top. Each token is "type:id" (list/folder/tag/context/filter/smart).
+    val pinnedRefs: List<String> = emptyList(),
 ) {
     fun toMap(): Map<String, String> = mapOf(
         Keys.FIRST_VIEW to firstView.name,
@@ -89,6 +91,7 @@ data class AppSettings(
         Keys.SUMMARY_ON to dailySummaryEnabled.toString(),
         Keys.SUMMARY_H to dailySummaryHour.toString(),
         Keys.SUMMARY_M to dailySummaryMinute.toString(),
+        Keys.PINNED to pinnedRefs.joinToString("|"),
     )
 
     object Keys {
@@ -123,6 +126,7 @@ data class AppSettings(
         const val SUMMARY_ON = "summary_on"
         const val SUMMARY_H = "summary_h"
         const val SUMMARY_M = "summary_m"
+        const val PINNED = "pinned_refs"
     }
 
     companion object {
@@ -164,6 +168,7 @@ data class AppSettings(
             matrixNames = m[Keys.MX_NAMES]?.split("|")?.takeIf { it.size == 4 } ?: listOf("Urgent & Important", "Not Urgent & Important", "Urgent & Unimportant", "Not Urgent & Unimportant"),
             calendarDefaultMode = m[Keys.CAL_MODE] ?: "month",
             calendarListFilter = (m[Keys.CAL_FILTER] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
+            pinnedRefs = (m[Keys.PINNED] ?: "").split("|").filter { it.isNotBlank() },
             dailySummaryEnabled = m[Keys.SUMMARY_ON]?.toBooleanStrictOrNull() ?: false,
             dailySummaryHour = m[Keys.SUMMARY_H]?.toIntOrNull() ?: 8,
             dailySummaryMinute = m[Keys.SUMMARY_M]?.toIntOrNull() ?: 0,

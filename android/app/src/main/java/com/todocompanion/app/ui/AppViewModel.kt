@@ -107,6 +107,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private data class Cfg(val view: ViewRef, val group: GroupMode, val sort: SortMode, val prio: PriorityEngine.Config)
 
+    /** Cross-ref + container context threaded into the groups combine. */
+    private data class ViewCtx(
+        val tcRefs: List<com.todocompanion.app.data.entity.TaskContextCrossRef>,
+        val contexts: List<ContextEntity>,
+        val filters: List<com.todocompanion.app.data.entity.FilterEntity>,
+        val lists: List<ListEntity>,
+        val folders: List<FolderEntity>,
+    )
+
+    /** All list ids inside a folder, including nested folders and nested lists. */
+    private fun folderListIds(folderId: String, lists: List<ListEntity>, folders: List<FolderEntity>): Set<String> {
+        val folderIds = mutableSetOf(folderId)
+        var changed = true
+        while (changed) {
+            changed = false
+            folders.forEach { if (it.parentId in folderIds && it.id !in folderIds) { folderIds.add(it.id); changed = true } }
+        }
+        return lists.filter { it.folderId in folderIds }.map { it.id }.toSet()
+    }
+
     private fun AppSettings.priorityConfig() = PriorityEngine.Config(
         mode = when (priorityMode) { "importance" -> PriorityEngine.Mode.IMPORTANCE; "urgency" -> PriorityEngine.Mode.URGENCY; else -> PriorityEngine.Mode.BOTH },
         dueWeight = priorityDueWeight, startWeight = priorityStartWeight, goalWeight = priorityGoalWeight, overdueBoost = priorityOverdueBoost,
@@ -117,10 +137,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             wsTasks,
             combine(currentView, groupMode, sortMode, settings) { v, g, s, set -> Cfg(v, g, s, set.priorityConfig()) },
             repo.taskTagRefs,
-            combine(repo.taskContextRefs, repo.allContexts, repo.allFilters) { r, c, f -> Triple(r, c, f) },
+            combine(repo.taskContextRefs, repo.allContexts, repo.allFilters, repo.allLists, repo.allFolders) { r, c, f, l, fo -> ViewCtx(r, c, f, l, fo) },
             repo.allDependencies,
-        ) { all, cfg, ttRefs, tcInfo, deps ->
-            val (tcRefs, ctxEntities, filterList) = tcInfo
+        ) { all, cfg, ttRefs, vc, deps ->
+            val tcRefs = vc.tcRefs; val ctxEntities = vc.contexts; val filterList = vc.filters
             val now = System.currentTimeMillis()
             val filtered = when (val v = cfg.view) {
                 is ViewRef.Smart -> {
@@ -134,6 +154,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     all.filter { com.todocompanion.app.domain.view.Filters.matches(q, it, tagsByTask[it.id].orEmpty(), ctxByTask[it.id].orEmpty(), now, zone) }
                 }
                 is ViewRef.ListView -> all.filter { !it.trashed && !it.completed && !it.abandoned && it.listId == v.listId }
+                is ViewRef.FolderView -> {
+                    val listIds = folderListIds(v.folderId, vc.lists, vc.folders)
+                    all.filter { !it.trashed && !it.completed && !it.abandoned && it.listId in listIds }
+                }
                 is ViewRef.TagView -> {
                     val ids = ttRefs.filter { it.tagId == v.tagId }.map { it.taskId }.toSet()
                     all.filter { it.id in ids && !it.trashed && !it.completed && !it.abandoned }
@@ -190,6 +214,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun currentTitle(): String = when (val v = currentView.value) {
         is ViewRef.Smart -> v.kind.title
         is ViewRef.ListView -> lists.value.firstOrNull { it.id == v.listId }?.name ?: "List"
+        is ViewRef.FolderView -> folders.value.firstOrNull { it.id == v.folderId }?.name ?: "Folder"
         is ViewRef.TagView -> "#" + (tags.value.firstOrNull { it.id == v.tagId }?.name ?: "tag")
         is ViewRef.ContextView -> "@" + (contexts.value.firstOrNull { it.id == v.contextId }?.name ?: "context")
         is ViewRef.FilterView -> filters.value.firstOrNull { it.id == v.filterId }?.name ?: "Filter"
@@ -345,6 +370,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleFolder(f: FolderEntity) = viewModelScope.launch { repo.saveFolder(f.copy(collapsed = !f.collapsed)) }
     fun deleteFolder(id: String) = viewModelScope.launch { repo.deleteFolder(id) }
     fun createList(name: String, folderId: String?, colorArgb: Long?) = viewModelScope.launch { repo.createList(name, folderId, colorArgb, workspaceId = settings.value.activeWorkspaceId) }
+    /** Create a nested list under [parent]. */
+    fun createSubList(parent: ListEntity, name: String = "New list") = viewModelScope.launch {
+        repo.createList(name, parent.folderId, null, workspaceId = settings.value.activeWorkspaceId, parentListId = parent.id)
+    }
+    /** Nest a list beneath the sibling directly above it (outline-style indent). */
+    fun indentList(list: ListEntity) = viewModelScope.launch {
+        val sibs = lists.value.filter { it.folderId == list.folderId && it.parentListId == list.parentListId && it.id != ListEntity.INBOX_ID && !it.archived }.sortedBy { it.sortOrder }
+        val idx = sibs.indexOfFirst { it.id == list.id }
+        if (idx > 0) repo.setListParent(list.id, sibs[idx - 1].id)
+    }
+    /** Move a nested list back up to its grandparent level. */
+    fun outdentList(list: ListEntity) = viewModelScope.launch {
+        val parent = lists.value.firstOrNull { it.id == list.parentListId } ?: return@launch
+        repo.setListParent(list.id, parent.parentListId)
+    }
 
     // ---------- workspaces ----------
     fun createWorkspace(name: String) = viewModelScope.launch {
@@ -517,6 +557,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- settings ----------
     fun saveSettings(s: AppSettings) = viewModelScope.launch { repo.saveSettings(s) }
+
+    // ---------- sidebar favourites (pin to top) ----------
+    fun isPinned(ref: String): Boolean = ref in settings.value.pinnedRefs
+    fun togglePinnedRef(ref: String) = viewModelScope.launch {
+        val cur = settings.value.pinnedRefs
+        repo.saveSettings(settings.value.copy(pinnedRefs = if (ref in cur) cur - ref else cur + ref))
+    }
 
     // ---------- search ----------
     fun search(query: String): List<TaskEntity> {

@@ -31,12 +31,14 @@ data class FolderEntity(
     val workspaceId: String = WorkspaceEntity.DEFAULT_ID,
 )
 
-/** A list / project: the primary container that holds a task outline. */
+/** A list / project: the primary container that holds a task outline.
+ *  Lists can be nested under other lists via [parentListId] (in addition to living in a folder). */
 @Serializable
-@Entity(tableName = "lists", indices = [Index("folderId")])
+@Entity(tableName = "lists", indices = [Index("folderId"), Index("parentListId")])
 data class ListEntity(
     @PrimaryKey val id: String,
     val folderId: String? = null,
+    val parentListId: String? = null,
     val name: String,
     val colorArgb: Long? = null,
     val emoji: String? = null,

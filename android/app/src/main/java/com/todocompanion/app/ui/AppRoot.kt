@@ -224,6 +224,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
             Tab.TASKS -> when (val v = currentView) {
                 is ViewRef.Smart -> v.kind.title
                 is ViewRef.ListView -> lists.firstOrNull { it.id == v.listId }?.name ?: "List"
+                is ViewRef.FolderView -> folders.firstOrNull { it.id == v.folderId }?.name ?: "Folder"
                 is ViewRef.TagView -> "#" + (tags.firstOrNull { it.id == v.tagId }?.name ?: "")
                 is ViewRef.ContextView -> "@" + (contexts.firstOrNull { it.id == v.contextId }?.name ?: "")
                 is ViewRef.FilterView -> filtersList.firstOrNull { it.id == v.filterId }?.name ?: "Filter"

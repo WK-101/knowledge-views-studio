@@ -268,19 +268,24 @@ class AppRepository(private val db: AppDatabase) {
         }
     }
 
-    suspend fun createList(name: String, folderId: String? = null, colorArgb: Long? = null, emoji: String? = null, workspaceId: String = WorkspaceEntity.DEFAULT_ID): String {
+    suspend fun createList(name: String, folderId: String? = null, colorArgb: Long? = null, emoji: String? = null, workspaceId: String = WorkspaceEntity.DEFAULT_ID, parentListId: String? = null): String {
         val id = uid()
         val order = lists.maxSortOrder() + 1.0
-        lists.upsert(ListEntity(id = id, folderId = folderId, name = name, colorArgb = colorArgb, emoji = emoji, sortOrder = order, workspaceId = workspaceId))
+        lists.upsert(ListEntity(id = id, folderId = folderId, parentListId = parentListId, name = name, colorArgb = colorArgb, emoji = emoji, sortOrder = order, workspaceId = workspaceId))
         return id
     }
 
     suspend fun saveList(list: ListEntity) = lists.upsert(list)
     suspend fun getList(id: String): ListEntity? = lists.getById(id)
 
-    /** Delete a list and permanently remove its tasks. */
+    /** Delete a list and permanently remove its tasks. Child lists are re-parented up
+     *  (to this list's own parent / folder root) so they aren't orphaned. */
     suspend fun deleteList(id: String) {
         if (id == ListEntity.INBOX_ID) return
+        val victim = lists.getById(id)
+        lists.getAll().filter { it.parentListId == id }.forEach {
+            lists.upsert(it.copy(parentListId = victim?.parentListId, folderId = victim?.folderId ?: it.folderId))
+        }
         tasks.getAll().filter { it.listId == id && it.parentId == null }.forEach { deleteSubtree(it.id) }
         // any orphaned tasks with this listId (safety)
         tasks.getAll().filter { it.listId == id }.forEach { tasks.deleteById(it.id) }
@@ -289,7 +294,7 @@ class AppRepository(private val db: AppDatabase) {
 
     // ============ drawer reordering / nesting ============
     suspend fun moveListOrder(list: ListEntity, dir: Int) {
-        val sibs = lists.getAll().filter { it.folderId == list.folderId && it.id != ListEntity.INBOX_ID && !it.archived }.sortedBy { it.sortOrder }
+        val sibs = lists.getAll().filter { it.folderId == list.folderId && it.parentListId == list.parentListId && it.id != ListEntity.INBOX_ID && !it.archived }.sortedBy { it.sortOrder }
         val idx = sibs.indexOfFirst { it.id == list.id }
         val j = idx + dir
         if (idx < 0 || j < 0 || j >= sibs.size) return
@@ -309,7 +314,26 @@ class AppRepository(private val db: AppDatabase) {
     }
 
     suspend fun moveListToFolder(listId: String, folderId: String?) {
-        lists.getById(listId)?.let { lists.upsert(it.copy(folderId = folderId, sortOrder = now().toDouble())) }
+        // Moving into a folder makes the list top-level there (clears any list nesting).
+        lists.getById(listId)?.let { lists.upsert(it.copy(folderId = folderId, parentListId = null, sortOrder = now().toDouble())) }
+    }
+
+    /** Nest a list under another list (or pass null to un-nest to folder root). Cycle-safe;
+     *  the child adopts the parent's folder so the subtree stays in one place. */
+    suspend fun setListParent(listId: String, parentListId: String?) {
+        if (listId == parentListId || listId == ListEntity.INBOX_ID) return
+        val all = lists.getAll()
+        val list = all.firstOrNull { it.id == listId } ?: return
+        // prevent cycles: parentListId must not be a descendant of listId
+        val descendants = mutableSetOf(listId)
+        var changed = true
+        while (changed) {
+            changed = false
+            all.forEach { if (it.parentListId in descendants && it.id !in descendants) { descendants.add(it.id); changed = true } }
+        }
+        if (parentListId != null && parentListId in descendants) return
+        val newFolder = if (parentListId != null) all.firstOrNull { it.id == parentListId }?.folderId else list.folderId
+        lists.upsert(list.copy(parentListId = parentListId, folderId = newFolder, sortOrder = now().toDouble()))
     }
 
     suspend fun moveFolderToParent(folderId: String, parentId: String?) {
