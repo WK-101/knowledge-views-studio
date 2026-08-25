@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -43,8 +44,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -67,6 +74,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.domain.priority.PriorityLevel
+import com.todocompanion.app.domain.SwipeAction
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.priorityColor
 import java.time.DayOfWeek
@@ -103,16 +111,30 @@ fun CalendarScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, mode: String,
         val onToggle: (TaskEntity) -> Unit = { vm.toggleComplete(it) }
         val onTrash: (TaskEntity) -> Unit = { vm.trash(it) }
         val onResize: (String, Int) -> Unit = { id, dur -> vm.setDuration(id, dur) }
+        val onMoveTaskTo: (LocalDate, String, Int) -> Unit = { d, id, min -> vm.rescheduleToMinute(id, d, min) }
+        val onJump: (YearMonth) -> Unit = { ym -> anchor = ym.atDay(1) }
+        // One swipe config for every calendar task row, straight from the global swipe settings.
+        val swipe = CalSwipe(s.swipeRight, s.swipeRightFar, s.swipeLeft, s.swipeLeftFar) { a, t ->
+            when (a) {
+                SwipeAction.COMPLETE -> vm.toggleComplete(t)
+                SwipeAction.TRASH -> vm.trash(t)
+                SwipeAction.STAR -> vm.toggleStar(t)
+                SwipeAction.WONT_DO -> vm.setAbandoned(t, !t.abandoned)
+                SwipeAction.CYCLE_PRIORITY -> vm.cyclePriority(t)
+                SwipeAction.EDIT -> onOpenTask(t.id)
+                SwipeAction.NONE -> {}
+            }
+        }
         when (mode) {
-            "month" -> MonthView(anchor, selected, dueByDate, firstDow, onSelect = { selected = it }, onPrev = { anchor = anchor.minusMonths(1) }, onNext = { anchor = anchor.plusMonths(1) }, onToday = { anchor = LocalDate.now(); selected = LocalDate.now() }, onOpenTask = onOpenTask, onToggle = onToggle, onTrash = onTrash, onAdd = { onAddOnDate(selected) })
+            "month" -> MonthView(anchor, selected, dueByDate, firstDow, onSelect = { selected = it }, onPrev = { anchor = anchor.minusMonths(1) }, onNext = { anchor = anchor.plusMonths(1) }, onToday = { anchor = LocalDate.now(); selected = LocalDate.now() }, onJump = onJump, onOpenTask = onOpenTask, swipe = swipe, onAdd = { onAddOnDate(selected) })
             "week" -> {
                 val start = startOfWeek(anchor, firstDow)
-                TimelineView((0..6).map { start.plusDays(it.toLong()) }, dueByDate, zone, rangeTitle(start, start.plusDays(6)), onPrev = { anchor = anchor.minusWeeks(1) }, onNext = { anchor = anchor.plusWeeks(1) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize)
+                TimelineView((0..6).map { start.plusDays(it.toLong()) }, dueByDate, zone, rangeTitle(start, start.plusDays(6)), onPrev = { anchor = anchor.minusWeeks(1) }, onNext = { anchor = anchor.plusWeeks(1) }, onToday = { anchor = LocalDate.now() }, onJump = onJump, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo)
             }
-            "3day" -> TimelineView((0..2).map { anchor.plusDays(it.toLong()) }, dueByDate, zone, rangeTitle(anchor, anchor.plusDays(2)), onPrev = { anchor = anchor.minusDays(3) }, onNext = { anchor = anchor.plusDays(3) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize)
-            "day" -> TimelineView(listOf(anchor), dueByDate, zone, "${anchor.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${anchor.dayOfMonth} ${anchor.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())}", onPrev = { anchor = anchor.minusDays(1) }, onNext = { anchor = anchor.plusDays(1) }, onToday = { anchor = LocalDate.now() }, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize)
-            "year" -> YearView(anchor, dueByDate, onPrev = { anchor = anchor.minusYears(1) }, onNext = { anchor = anchor.plusYears(1) }, onMonth = { m -> anchor = m.atDay(1); onModeChange("month") })
-            else -> AgendaView(dueByDate, onOpenTask, onToggle, onTrash)
+            "3day" -> TimelineView((0..2).map { anchor.plusDays(it.toLong()) }, dueByDate, zone, rangeTitle(anchor, anchor.plusDays(2)), onPrev = { anchor = anchor.minusDays(3) }, onNext = { anchor = anchor.plusDays(3) }, onToday = { anchor = LocalDate.now() }, onJump = onJump, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo)
+            "day" -> TimelineView(listOf(anchor), dueByDate, zone, "${anchor.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${anchor.dayOfMonth} ${anchor.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())}", onPrev = { anchor = anchor.minusDays(1) }, onNext = { anchor = anchor.plusDays(1) }, onToday = { anchor = LocalDate.now() }, onJump = onJump, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo)
+            "year" -> YearView(anchor, dueByDate, onPrev = { anchor = anchor.minusYears(1) }, onNext = { anchor = anchor.plusYears(1) }, onToday = { anchor = LocalDate.now() }, onMonth = { m -> anchor = m.atDay(1); onModeChange("month") }, onDay = { d -> anchor = d; onModeChange("day") })
+            else -> AgendaView(dueByDate, onOpenTask, swipe)
         }
     }
 }
@@ -128,20 +150,70 @@ private fun startOfWeek(d: LocalDate, firstDow: DayOfWeek): LocalDate {
     return d.minusDays(diff.toLong())
 }
 
+/** Compact one-row calendar header: prev · a clickable period label (opens a month/year picker) ·
+ *  next · an iconized Today. Replaces the old bulky centred banner + "Today" text button. */
 @Composable
-private fun NavHeader(label: String, onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun NavHeader(label: String, current: YearMonth, onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onPick: (YearMonth) -> Unit) {
+    var showPicker by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onPrev) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Previous") }
-        Text(label, Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.titleMedium)
+        Row(
+            Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable { showPicker = true }.padding(vertical = 6.dp, horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,
+        ) {
+            Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+            Icon(Icons.Filled.ArrowDropDown, "Pick month", modifier = Modifier.size(20.dp))
+        }
         IconButton(onClick = onNext) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next") }
-        TextButton(onClick = onToday) { Text("Today") }
+        IconButton(onClick = onToday) { Icon(Icons.Filled.Today, "Today") }
     }
+    if (showPicker) MonthYearPicker(current, onDismiss = { showPicker = false }) { ym -> onPick(ym); showPicker = false }
+}
+
+/** A quick month/year chooser: a year stepper over a 3×4 grid of month chips. */
+@Composable
+private fun MonthYearPicker(current: YearMonth, onDismiss: () -> Unit, onPick: (YearMonth) -> Unit) {
+    var year by remember { mutableStateOf(current.year) }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
+                IconButton(onClick = { year-- }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Previous year") }
+                Text(year.toString(), style = MaterialTheme.typography.titleLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                IconButton(onClick = { year++ }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next year") }
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                (0..3).forEach { r ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        (1..3).forEach { c ->
+                            val m = r * 3 + c
+                            val ym = YearMonth.of(year, m)
+                            val sel = ym == current
+                            Box(
+                                Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
+                                    .background(if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f))
+                                    .clickable { onPick(ym) }.padding(vertical = 12.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(java.time.Month.of(m).getDisplayName(TextStyle.SHORT, Locale.getDefault()),
+                                    color = if (sel) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = if (sel) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Medium)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+    )
 }
 
 @Composable
-private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onOpenTask: (String) -> Unit, onToggle: (TaskEntity) -> Unit, onTrash: (TaskEntity) -> Unit, onAdd: () -> Unit) {
+private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onJump: (YearMonth) -> Unit, onOpenTask: (String) -> Unit, swipe: CalSwipe, onAdd: () -> Unit) {
     val ym = YearMonth.from(anchor)
-    NavHeader("${ym.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${ym.year}", onPrev, onNext, onToday)
+    NavHeader("${ym.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${ym.year}", ym, onPrev, onNext, onToday, onJump)
     val labels = (0..6).map { firstDow.plus(it.toLong()) }
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
         labels.forEach { d -> Text(d.getDisplayName(TextStyle.NARROW, Locale.getDefault()), Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -203,7 +275,7 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
     val agenda = dueByDate[selected].orEmpty()
     if (agenda.isEmpty()) Text("Nothing due — enjoy the day", Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 2.dp, bottom = 100.dp)) {
-        items(agenda, key = { it.id }) { TaskLine(it, onOpenTask, onToggle, onTrash) }
+        items(agenda, key = { it.id }) { TaskLine(it, onOpenTask, swipe) }
     }
 }
 
@@ -258,10 +330,10 @@ private fun layoutEvents(tasks: List<TaskEntity>, zone: ZoneId): List<Placed> {
 @Composable
 private fun TimelineView(
     days: List<LocalDate>, dueByDate: Map<LocalDate, List<TaskEntity>>, zone: ZoneId, title: String,
-    onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onOpenTask: (String) -> Unit, onAddOnDate: (LocalDate) -> Unit,
-    onAddAt: (LocalDate, Int) -> Unit, onResize: (String, Int) -> Unit,
+    onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onJump: (YearMonth) -> Unit, onOpenTask: (String) -> Unit, onAddOnDate: (LocalDate) -> Unit,
+    onAddAt: (LocalDate, Int) -> Unit, onResize: (String, Int) -> Unit, onMoveAt: (LocalDate, String, Int) -> Unit,
 ) {
-    NavHeader(title, onPrev, onNext, onToday)
+    NavHeader(title, YearMonth.from(days.firstOrNull() ?: LocalDate.now()), onPrev, onNext, onToday, onJump)
 
     val allDayByDay = days.associateWith { d -> dueByDate[d].orEmpty().filter { it.isAllDay || !hasTime(it.dueDate!!, zone) } }
     val hasAllDay = allDayByDay.values.any { it.isNotEmpty() }
@@ -310,14 +382,14 @@ private fun TimelineView(
             }
             days.forEach { d ->
                 val timed = dueByDate[d].orEmpty().filter { !it.isAllDay && hasTime(it.dueDate!!, zone) }
-                DayColumn(d, timed, zone, onOpenTask, onAddAt, onResize, Modifier.weight(1f))
+                DayColumn(d, timed, zone, onOpenTask, onAddAt, onResize, onMoveAt = { id, min -> onMoveAt(d, id, min) }, Modifier.weight(1f))
             }
         }
     }
 }
 
 @Composable
-private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onOpenTask: (String) -> Unit, onAddAt: (LocalDate, Int) -> Unit, onResize: (String, Int) -> Unit, modifier: Modifier) {
+private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onOpenTask: (String) -> Unit, onAddAt: (LocalDate, Int) -> Unit, onResize: (String, Int) -> Unit, onMoveAt: (String, Int) -> Unit, modifier: Modifier) {
     val placed = remember(timed, zone) { layoutEvents(timed, zone) }
     val dens = LocalDensity.current
     val isToday = day == LocalDate.now()
@@ -339,36 +411,51 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onO
         // Right divider between day columns
         Box(Modifier.fillMaxHeight().width(1.dp).offset(x = colW - 1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = .35f)))
         // Events
+        val hourPx = with(dens) { HOUR_DP.dp.toPx() }
         placed.forEach { p ->
             val level = PriorityLevel.from(p.task.importance, p.task.urgency)
             val c = if (level == PriorityLevel.NONE) MaterialTheme.colorScheme.primary else priorityColor(level)
             val laneW = (colW - 2.dp) / p.lanes
-            val top = (HOUR_DP * p.startMin / 60f).dp
-            // Live duration while dragging the resize handle; resets when the saved span changes.
+            // Live start + duration while dragging (snapped to 15 min); reset when the saved span changes.
+            var liveStart by remember(p.task.id, p.startMin) { mutableStateOf(p.startMin) }
             var liveDur by remember(p.task.id, p.endMin - p.startMin) { mutableStateOf(p.endMin - p.startMin) }
+            var dragging by remember(p.task.id) { mutableStateOf(false) }
+            fun snap(v: Int) = ((v / 15f).roundToInt() * 15)
+            val top = (HOUR_DP * liveStart / 60f).dp
             val h = ((HOUR_DP * liveDur / 60f).dp).coerceAtLeast(24.dp)
             Row(
                 Modifier.offset(x = laneW * p.lane + 1.dp, y = top).width(laneW - 1.dp).height(h - 2.dp)
-                    .clip(RoundedCornerShape(6.dp)).background(c.copy(alpha = 0.16f)).clickable { onOpenTask(p.task.id) },
+                    .clip(RoundedCornerShape(6.dp)).background(c.copy(alpha = if (dragging) 0.30f else 0.16f))
+                    // Long-press then drag to move the block to another time; tap opens the task.
+                    .pointerInput(p.task.id) {
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = { dragging = true },
+                            onDrag = { _, off -> liveStart = snap((liveStart + (off.y / hourPx * 60f).toInt())).coerceIn(0, 1440 - liveDur) },
+                            onDragEnd = { dragging = false; onMoveAt(p.task.id, liveStart) },
+                            onDragCancel = { dragging = false },
+                        )
+                    }
+                    .clickable { onOpenTask(p.task.id) },
             ) {
                 Box(Modifier.width(3.dp).fillMaxHeight().background(c))
                 Column(Modifier.padding(horizontal = 5.dp, vertical = 3.dp)) {
                     Text(p.task.title, style = MaterialTheme.typography.labelSmall, maxLines = if (h > 46.dp) 2 else 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
-                    if (h >= 50.dp) Text("${minLabel(p.startMin)} – ${minLabel(p.startMin + liveDur)}", style = MaterialTheme.typography.labelSmall, color = c)
+                    if (h >= 50.dp || dragging) Text("${minLabel(liveStart)} – ${minLabel(liveStart + liveDur)}", style = MaterialTheme.typography.labelSmall, color = c)
                 }
             }
-            // Bottom drag handle: resize the block to change the task's duration (snapped to 15 min).
-            val hourPx = with(dens) { HOUR_DP.dp.toPx() }
+            // Bottom resize grip: a comfortable full-width target; drag to change duration (snapped 15 min).
             Box(
-                Modifier.offset(x = laneW * p.lane + 1.dp, y = top + h - 9.dp).width(laneW - 1.dp).height(12.dp)
+                Modifier.offset(x = laneW * p.lane + 1.dp, y = top + h - 16.dp).width(laneW - 1.dp).height(18.dp)
                     .pointerInput(p.task.id) {
                         detectVerticalDragGestures(
-                            onVerticalDrag = { _, dy -> liveDur = (liveDur + (dy / hourPx * 60f)).toInt().coerceIn(15, 24 * 60) },
-                            onDragEnd = { onResize(p.task.id, (liveDur / 15) * 15) },
+                            onDragStart = { dragging = true },
+                            onVerticalDrag = { _, dy -> liveDur = snap((liveDur + (dy / hourPx * 60f)).toInt()).coerceIn(15, 24 * 60 - liveStart) },
+                            onDragEnd = { dragging = false; onResize(p.task.id, liveDur) },
+                            onDragCancel = { dragging = false },
                         )
                     },
                 contentAlignment = Alignment.Center,
-            ) { Box(Modifier.width(22.dp).height(3.dp).clip(RoundedCornerShape(2.dp)).background(c.copy(alpha = .6f))) }
+            ) { Box(Modifier.width(26.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(c)) }
         }
         // Current-time line
         if (nowMin >= 0) {
@@ -391,8 +478,8 @@ private fun AllDayChip(task: TaskEntity, onOpenTask: (String) -> Unit) {
 }
 
 @Composable
-private fun YearView(anchor: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, onPrev: () -> Unit, onNext: () -> Unit, onMonth: (YearMonth) -> Unit) {
-    NavHeader(anchor.year.toString(), onPrev, onNext) {}
+private fun YearView(anchor: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onMonth: (YearMonth) -> Unit, onDay: (LocalDate) -> Unit) {
+    NavHeader(anchor.year.toString(), YearMonth.of(anchor.year, 1), onPrev, onNext, onToday, onPick = { ym -> onMonth(ym) })
     val daysWithTasks = remember(dueByDate, anchor.year) {
         dueByDate.keys.filter { it.year == anchor.year }.toSet()
     }
@@ -401,7 +488,7 @@ private fun YearView(anchor: LocalDate, dueByDate: Map<LocalDate, List<TaskEntit
             item(key = "r${rowMonths.first()}") {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     rowMonths.forEach { m ->
-                        MiniMonth(YearMonth.of(anchor.year, m), daysWithTasks, Modifier.weight(1f).clickable { onMonth(YearMonth.of(anchor.year, m)) }.padding(vertical = 6.dp, horizontal = 2.dp))
+                        MiniMonth(YearMonth.of(anchor.year, m), daysWithTasks, onMonth = onMonth, onDay = onDay, modifier = Modifier.weight(1f).padding(vertical = 6.dp, horizontal = 2.dp))
                     }
                 }
             }
@@ -409,9 +496,10 @@ private fun YearView(anchor: LocalDate, dueByDate: Map<LocalDate, List<TaskEntit
     }
 }
 
-/** A compact month calendar for the Year view — day numbers with a dot on task-days. */
+/** A compact month for the Year view. Task-days get a tinted circle; tap a day to open it,
+ *  or the month name to open the month. */
 @Composable
-private fun MiniMonth(ym: YearMonth, daysWithTasks: Set<LocalDate>, modifier: Modifier) {
+private fun MiniMonth(ym: YearMonth, daysWithTasks: Set<LocalDate>, onMonth: (YearMonth) -> Unit, onDay: (LocalDate) -> Unit, modifier: Modifier) {
     val today = LocalDate.now()
     val first = ym.atDay(1)
     val lead = (first.dayOfWeek.value - 1 + 7) % 7   // week starts Monday for the mini grid
@@ -422,6 +510,7 @@ private fun MiniMonth(ym: YearMonth, daysWithTasks: Set<LocalDate>, modifier: Mo
     }
     Column(modifier) {
         Text(ym.month.getDisplayName(TextStyle.FULL, Locale.getDefault()),
+            Modifier.clip(RoundedCornerShape(6.dp)).clickable { onMonth(ym) }.padding(horizontal = 2.dp, vertical = 1.dp),
             style = MaterialTheme.typography.labelMedium,
             color = if (YearMonth.from(today) == ym) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -432,16 +521,20 @@ private fun MiniMonth(ym: YearMonth, daysWithTasks: Set<LocalDate>, modifier: Mo
                     Box(Modifier.weight(1f).aspectRatio(1f), contentAlignment = Alignment.Center) {
                         if (d != null) {
                             val isToday = d == today
+                            val hasTasks = d in daysWithTasks
                             Box(
                                 Modifier.fillMaxSize().padding(1.dp).clip(CircleShape)
-                                    .background(if (isToday) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Transparent),
+                                    .background(when {
+                                        isToday -> MaterialTheme.colorScheme.primary
+                                        hasTasks -> MaterialTheme.colorScheme.primary.copy(alpha = .20f)
+                                        else -> androidx.compose.ui.graphics.Color.Transparent
+                                    })
+                                    .clickable { onDay(d) },
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(d.dayOfMonth.toString(), style = MaterialTheme.typography.labelSmall,
-                                        color = if (isToday) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Box(Modifier.size(3.dp).clip(CircleShape).background(if (d in daysWithTasks && !isToday) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Transparent))
-                                }
+                                Text(d.dayOfMonth.toString(), style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = if (hasTasks || isToday) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isToday) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -452,37 +545,59 @@ private fun MiniMonth(ym: YearMonth, daysWithTasks: Set<LocalDate>, modifier: Mo
 }
 
 @Composable
-private fun AgendaView(dueByDate: Map<LocalDate, List<TaskEntity>>, onOpenTask: (String) -> Unit, onToggle: (TaskEntity) -> Unit, onTrash: (TaskEntity) -> Unit) {
+private fun AgendaView(dueByDate: Map<LocalDate, List<TaskEntity>>, onOpenTask: (String) -> Unit, swipe: CalSwipe) {
     val days = dueByDate.keys.sorted()
     if (days.isEmpty()) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("No scheduled tasks", color = MaterialTheme.colorScheme.onSurfaceVariant) }; return }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 2.dp, bottom = 100.dp)) {
         days.forEach { d ->
             item(key = "h$d") { DayHeader(d) }
-            items(dueByDate[d].orEmpty(), key = { it.id }) { TaskLine(it, onOpenTask, onToggle, onTrash) }
+            items(dueByDate[d].orEmpty(), key = { it.id }) { TaskLine(it, onOpenTask, swipe) }
         }
     }
 }
 
-/** TickTick-style calendar task pill: priority-tinted, swipeable (complete / trash), tap to edit.
- *  Uses the same custom snap-back swipe as the task list — reliable and consistent, unlike the
- *  SwipeToDismissBox pattern that fired mid-drag and could stick. */
+/** Swipe config for calendar task rows, mirroring the global list swipe settings. */
+private data class CalSwipe(
+    val rightNear: SwipeAction, val rightFar: SwipeAction, val leftNear: SwipeAction, val leftFar: SwipeAction,
+    val onAct: (SwipeAction, TaskEntity) -> Unit,
+)
+
+private fun calSwipeVisual(action: SwipeAction): Pair<Color, androidx.compose.ui.graphics.vector.ImageVector> = when (action) {
+    SwipeAction.COMPLETE -> Color(0xFF12A594) to Icons.Filled.Check
+    SwipeAction.TRASH -> Color(0xFFE5484D) to Icons.Filled.Delete
+    SwipeAction.STAR -> Color(0xFFF5A623) to Icons.Filled.Star
+    SwipeAction.WONT_DO -> Color(0xFF64748B) to Icons.Filled.Close
+    SwipeAction.CYCLE_PRIORITY -> Color(0xFF3E7BFA) to Icons.Filled.Flag
+    SwipeAction.EDIT -> Color(0xFF5B57D9) to Icons.Filled.Edit
+    else -> Color.Transparent to Icons.Filled.Check
+}
+
+/** TickTick-style calendar task pill: priority-tinted, tap to edit, and a two-level swipe (near +
+ *  full, per direction) driven by the same global swipe settings as the task list. */
 @Composable
-private fun TaskLine(task: TaskEntity, onOpenTask: (String) -> Unit, onToggle: (TaskEntity) -> Unit, onTrash: (TaskEntity) -> Unit) {
+private fun TaskLine(task: TaskEntity, onOpenTask: (String) -> Unit, swipe: CalSwipe) {
     val zone = ZoneId.systemDefault()
     val level = PriorityLevel.from(task.importance, task.urgency)
     val accent = if (level == PriorityLevel.NONE) MaterialTheme.colorScheme.primary else priorityColor(level)
     val scope = rememberCoroutineScope()
     val dens = LocalDensity.current
-    val thresholdPx = with(dens) { 84.dp.toPx() }
-    val maxPx = with(dens) { 150.dp.toPx() }
+    val nearPx = with(dens) { 76.dp.toPx() }
+    val farPx = with(dens) { 176.dp.toPx() }
+    val maxPx = with(dens) { 230.dp.toPx() }
     val offsetX = remember(task.id) { Animatable(0f) }
     val goingRight = offsetX.value > 0
+    val pendingAction = when {
+        goingRight && offsetX.value >= farPx && swipe.rightFar != SwipeAction.NONE -> swipe.rightFar
+        goingRight -> swipe.rightNear
+        !goingRight && -offsetX.value >= farPx && swipe.leftFar != SwipeAction.NONE -> swipe.leftFar
+        else -> swipe.leftNear
+    }
 
     Box(Modifier.padding(horizontal = 12.dp, vertical = 3.dp)) {
-        if (offsetX.value != 0f) {
-            val (c, icon, align) = if (goingRight) Triple(Color(0xFF12A594), Icons.Filled.Check, Alignment.CenterStart)
-                else Triple(Color(0xFFE5484D), Icons.Filled.Delete, Alignment.CenterEnd)
-            Box(Modifier.matchParentSize().clip(RoundedCornerShape(12.dp)).background(c).padding(horizontal = 20.dp), contentAlignment = align) {
+        if (offsetX.value != 0f && pendingAction != SwipeAction.NONE) {
+            val (c, icon) = calSwipeVisual(pendingAction)
+            Box(Modifier.matchParentSize().clip(RoundedCornerShape(12.dp)).background(c).padding(horizontal = 20.dp),
+                contentAlignment = if (goingRight) Alignment.CenterStart else Alignment.CenterEnd) {
                 Icon(icon, null, tint = Color.White)
             }
         }
@@ -494,9 +609,12 @@ private fun TaskLine(task: TaskEntity, onOpenTask: (String) -> Unit, onToggle: (
                     orientation = Orientation.Horizontal,
                     state = rememberDraggableState { d -> scope.launch { offsetX.snapTo((offsetX.value + d).coerceIn(-maxPx, maxPx)) } },
                     onDragStopped = {
+                        val v = offsetX.value
                         when {
-                            offsetX.value >= thresholdPx -> onToggle(task)
-                            offsetX.value <= -thresholdPx -> onTrash(task)
+                            v >= farPx && swipe.rightFar != SwipeAction.NONE -> swipe.onAct(swipe.rightFar, task)
+                            v >= nearPx -> swipe.onAct(swipe.rightNear, task)
+                            v <= -farPx && swipe.leftFar != SwipeAction.NONE -> swipe.onAct(swipe.leftFar, task)
+                            v <= -nearPx -> swipe.onAct(swipe.leftNear, task)
                         }
                         offsetX.animateTo(0f)
                     },
@@ -507,7 +625,7 @@ private fun TaskLine(task: TaskEntity, onOpenTask: (String) -> Unit, onToggle: (
         ) {
             Row(Modifier.height(IntrinsicSize.Min).clickable { onOpenTask(task.id) }, verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.width(4.dp).fillMaxHeight().background(accent))
-                com.todocompanion.app.ui.components.PriorityCheckbox(task.completed, level, onCheckedChange = { onToggle(task) })
+                com.todocompanion.app.ui.components.PriorityCheckbox(task.completed, level, onCheckedChange = { swipe.onAct(SwipeAction.COMPLETE, task) })
                 Column(Modifier.weight(1f).padding(vertical = 9.dp)) {
                     Text(
                         task.title.ifBlank { "Untitled" }, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
