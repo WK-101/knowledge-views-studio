@@ -51,6 +51,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarViewMonth
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -221,22 +222,24 @@ fun CalHeader(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onOpenDrawer) { Icon(Icons.Filled.Menu, "Menu") }
-        if (showNav) IconButton(onClick = onPrev) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Previous") }
+        // The prev/next chevrons are gone — swipe the calendar body left/right to move periods.
+        // Dropping them gives the period label the full width it deserves.
         Row(
-            Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable(enabled = showNav) { showPicker = true }.padding(vertical = 4.dp, horizontal = 6.dp),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,
+            Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable(enabled = showNav) { showPicker = true }.padding(vertical = 4.dp, horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (showNav) { Spacer(Modifier.width(3.dp)); Icon(Icons.Filled.ArrowDropDown, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
-        if (showNav) IconButton(onClick = onNext) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next") }
         IconButton(onClick = onToday) { Icon(Icons.Filled.Today, "Today") }
         Box {
             IconButton(onClick = { typeMenu = true }) { Icon(Icons.Filled.CalendarViewMonth, "View type") }
             androidx.compose.material3.DropdownMenu(expanded = typeMenu, onDismissRequest = { typeMenu = false }) {
                 CAL_MODES.forEach { (k, l) ->
+                    val sel = mode == k
                     androidx.compose.material3.DropdownMenuItem(
-                        text = { Text(l) },
-                        leadingIcon = { if (mode == k) Icon(Icons.Filled.Check, null) else Spacer(Modifier.width(24.dp)) },
+                        text = { Text(l, color = if (sel) MaterialTheme.colorScheme.primary else androidx.compose.material3.LocalContentColor.current,
+                            fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Normal) },
                         onClick = { onModeChange(k); typeMenu = false },
                     )
                 }

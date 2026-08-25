@@ -295,17 +295,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     listOf(15, 30, 45, 60, 90, 120, 180, 240).map { it to "$it min" }) { m -> update { it.copy(durationMin = m) } }
             }
 
-            // A hard deadline is distinct from the work/plan date: it's the true drop-dead moment
-            // and the priority engine pulls harder as it nears (see PriorityEngine.dateTerm).
-            val deadlinePassed = task.deadlineDate?.let { it < System.currentTimeMillis() && !task.completed } == true
-            PropRow(Icons.Filled.Bolt, "Deadline", task.deadlineDate?.let { formatDue(it) } ?: "None",
-                valueColor = if (deadlinePassed) MaterialTheme.colorScheme.error else if (task.deadlineDate != null) MaterialTheme.colorScheme.tertiary else null,
-                onClear = if (task.deadlineDate != null) ({ update { it.copy(deadlineDate = null) } }) else null) { showDeadline = true }
-
-            // Energy tag — surfaced by the "right now" filter so you can match tasks to how you feel.
-            MenuRow("Energy", when (task.energy) { 1 -> "Low"; 2 -> "Medium"; 3 -> "High"; else -> "Any" },
-                listOf<Pair<Int?, String>>(null to "Any", 1 to "Low", 2 to "Medium", 3 to "High")) { e -> update { it.copy(energy = e) } }
-
+            // ---------- Priority & list (core, always shown) ----------
             Box {
                 PropRow(Icons.Filled.Flag, "Priority", level.label, valueColor = priorityColor(level)) { prioMenu = true }
                 DropdownMenu(expanded = prioMenu, onDismissRequest = { prioMenu = false }) {
@@ -336,23 +326,68 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     }
                 }
             }
-            Box {
-                PropRow(Icons.Filled.Flag, "Flag", allFlags.firstOrNull { it.id == task.flagId }?.name ?: "None", valueColor = task.flagColorArgb?.let { Color(it) }) { flagMenu = true }
-                DropdownMenu(expanded = flagMenu, onDismissRequest = { flagMenu = false }) {
-                    DropdownMenuItem(text = { Text("None") }, onClick = { update { it.copy(flagId = null, flagColorArgb = null) }; flagMenu = false })
-                    allFlags.forEach { f ->
-                        DropdownMenuItem(text = { Text(f.name) }, leadingIcon = { Icon(com.todocompanion.app.ui.components.FlagIcons.vector(f.icon), null, tint = Color(f.colorArgb), modifier = Modifier.size(18.dp)) },
-                            onClick = { update { it.copy(flagId = f.id, flagColorArgb = f.colorArgb) }; flagMenu = false })
-                    }
-                }
-            }
-            RepeatRow(task.rrule, hasChildren) { rule -> update { it.copy(rrule = rule) } }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
 
-            // ---------- Reminders ----------
+            // ---------- Optional fields — progressive disclosure (#114) ----------
+            // Order + per-field visibility come from Settings → Task editor. A field that already
+            // holds a value is always shown (its tier is ignored) so nothing you've set can hide.
+            val deadlinePassed = task.deadlineDate?.let { it < System.currentTimeMillis() && !task.completed } == true
             val myReminders = reminders.filter { it.taskId == task.id }
-            DetailSection("Reminders", if (myReminders.isEmpty()) null else "${myReminders.size}", myReminders.isNotEmpty()) {
+            val myCheck = checklist.filter { it.taskId == task.id }.sortedBy { it.sortOrder }
+            val attFlow = remember(task.id) { vm.attachmentMeta(task.id) }
+            val attachments by attFlow.collectAsState(initial = emptyList())
+            val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> if (uri != null) vm.addAttachment(task.id, uri) }
+            val assignedTags = ttRefs.filter { it.taskId == task.id }.map { it.tagId }.toSet()
+            val assignedCtx = tcRefs.filter { it.taskId == task.id }.map { it.contextId }.toSet()
+            val myDeps = allDeps.filter { it.taskId == task.id }
+            fun hasFieldValue(f: com.todocompanion.app.domain.EditorField): Boolean = when (f) {
+                com.todocompanion.app.domain.EditorField.REPEAT -> !task.rrule.isNullOrBlank()
+                com.todocompanion.app.domain.EditorField.REMINDERS -> myReminders.isNotEmpty()
+                com.todocompanion.app.domain.EditorField.CHECKLIST -> myCheck.isNotEmpty()
+                com.todocompanion.app.domain.EditorField.DEADLINE -> task.deadlineDate != null
+                com.todocompanion.app.domain.EditorField.ENERGY -> task.energy != null
+                com.todocompanion.app.domain.EditorField.FLAG -> task.flagId != null
+                com.todocompanion.app.domain.EditorField.ATTACHMENTS -> attachments.isNotEmpty()
+                com.todocompanion.app.domain.EditorField.TAGS -> assignedTags.isNotEmpty() || assignedCtx.isNotEmpty()
+                com.todocompanion.app.domain.EditorField.BLOCKED -> myDeps.isNotEmpty()
+                com.todocompanion.app.domain.EditorField.ACTIVITY -> activityLog.isNotEmpty()
+                com.todocompanion.app.domain.EditorField.ADVANCED -> task.estimateMin != null || task.isGoal || task.isProject || task.reviewEveryDays != null || (task.progressPct ?: 0) > 0
+            }
+            val orderedFields = settings.editorFieldsOrdered()
+            var moreExpanded by remember(task.id) { mutableStateOf(false) }
+            val anyCollapsed = orderedFields.any { settings.editorTier(it) == com.todocompanion.app.domain.AppSettings.TIER_MORE && !hasFieldValue(it) }
+            orderedFields.forEach { f ->
+                val tier = settings.editorTier(f)
+                val visible = tier == com.todocompanion.app.domain.AppSettings.TIER_ALWAYS || hasFieldValue(f) || (tier == com.todocompanion.app.domain.AppSettings.TIER_MORE && moreExpanded)
+                if (!visible) return@forEach
+                when (f) {
+                    com.todocompanion.app.domain.EditorField.DEADLINE ->
+                        // A hard deadline is distinct from the work/plan date: the true drop-dead moment;
+                        // the priority engine pulls harder as it nears (see PriorityEngine.dateTerm).
+                        PropRow(Icons.Filled.Bolt, "Deadline", task.deadlineDate?.let { formatDue(it) } ?: "None",
+                            valueColor = if (deadlinePassed) MaterialTheme.colorScheme.error else if (task.deadlineDate != null) MaterialTheme.colorScheme.tertiary else null,
+                            onClear = if (task.deadlineDate != null) ({ update { it.copy(deadlineDate = null) } }) else null) { showDeadline = true }
+                    com.todocompanion.app.domain.EditorField.ENERGY ->
+                        // Energy tag — surfaced by the "right now" filter so you can match tasks to how you feel.
+                        MenuRow("Energy", when (task.energy) { 1 -> "Low"; 2 -> "Medium"; 3 -> "High"; else -> "Any" },
+                            listOf<Pair<Int?, String>>(null to "Any", 1 to "Low", 2 to "Medium", 3 to "High")) { e -> update { it.copy(energy = e) } }
+                    com.todocompanion.app.domain.EditorField.FLAG ->
+                        Box {
+                            PropRow(Icons.Filled.Flag, "Flag", allFlags.firstOrNull { it.id == task.flagId }?.name ?: "None", valueColor = task.flagColorArgb?.let { Color(it) }) { flagMenu = true }
+                            DropdownMenu(expanded = flagMenu, onDismissRequest = { flagMenu = false }) {
+                                DropdownMenuItem(text = { Text("None") }, onClick = { update { it.copy(flagId = null, flagColorArgb = null) }; flagMenu = false })
+                                allFlags.forEach { fl ->
+                                    DropdownMenuItem(text = { Text(fl.name) }, leadingIcon = { Icon(com.todocompanion.app.ui.components.FlagIcons.vector(fl.icon), null, tint = Color(fl.colorArgb), modifier = Modifier.size(18.dp)) },
+                                        onClick = { update { it.copy(flagId = fl.id, flagColorArgb = fl.colorArgb) }; flagMenu = false })
+                                }
+                            }
+                        }
+                    com.todocompanion.app.domain.EditorField.REPEAT ->
+                        RepeatRow(task.rrule, hasChildren) { rule -> update { it.copy(rrule = rule) } }
+
+                    com.todocompanion.app.domain.EditorField.REMINDERS ->
+                     DetailSection("Reminders", if (myReminders.isEmpty()) null else "${myReminders.size}", myReminders.isNotEmpty()) {
                 myReminders.forEach { r ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(reminderLabel(r), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
@@ -387,9 +422,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 }
             }
 
-            // ---------- Subtasks / checklist ----------
-            val myCheck = checklist.filter { it.taskId == task.id }.sortedBy { it.sortOrder }
-            DetailSection("Checklist", if (myCheck.isEmpty()) null else "${myCheck.count { it.checked }}/${myCheck.size}", myCheck.isNotEmpty()) {
+                    com.todocompanion.app.domain.EditorField.CHECKLIST ->
+                     DetailSection("Checklist", if (myCheck.isEmpty()) null else "${myCheck.count { it.checked }}/${myCheck.size}", myCheck.isNotEmpty()) {
                 myCheck.forEach { item ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = item.checked, onCheckedChange = { vm.toggleChecklist(item) })
@@ -421,11 +455,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 }
             }
 
-            // ---------- Attachments ----------
-            val attFlow = remember(task.id) { vm.attachmentMeta(task.id) }
-            val attachments by attFlow.collectAsState(initial = emptyList())
-            val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> if (uri != null) vm.addAttachment(task.id, uri) }
-            DetailSection("Attachments", if (attachments.isEmpty()) null else "${attachments.size}", attachments.isNotEmpty()) {
+                    com.todocompanion.app.domain.EditorField.ATTACHMENTS ->
+                     DetailSection("Attachments", if (attachments.isEmpty()) null else "${attachments.size}", attachments.isNotEmpty()) {
                 attachments.forEach { a ->
                     Row(Modifier.fillMaxWidth().clickable { vm.openAttachment(a.id, a.fileName, a.mime) }.padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (a.isImage) AttachmentThumb(vm, a.id) else {
@@ -444,10 +475,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 if (attachments.isEmpty()) Text("Any file up to 25 MB — images, PDF, docs. Stored on-device and in backups.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
-            // ---------- Tags & contexts ----------
-            val assignedTags = ttRefs.filter { it.taskId == task.id }.map { it.tagId }.toSet()
-            val assignedCtx = tcRefs.filter { it.taskId == task.id }.map { it.contextId }.toSet()
-            DetailSection("Tags & contexts", (assignedTags.size + assignedCtx.size).takeIf { it > 0 }?.toString(), assignedTags.isNotEmpty() || assignedCtx.isNotEmpty()) {
+                    com.todocompanion.app.domain.EditorField.TAGS ->
+                     DetailSection("Tags & contexts", (assignedTags.size + assignedCtx.size).takeIf { it > 0 }?.toString(), assignedTags.isNotEmpty() || assignedCtx.isNotEmpty()) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     allTags.forEach { tag ->
                         FilterChip(selected = tag.id in assignedTags, onClick = {
@@ -469,9 +498,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 AddInline(newContext, { newContext = it }, "New context") { if (it.isNotBlank()) { vm.createContext(it.trim()); newContext = "" } }
             }
 
-            // ---------- Blocked by ----------
-            val myDeps = allDeps.filter { it.taskId == task.id }
-            DetailSection("Blocked by", myDeps.size.takeIf { it > 0 }?.toString(), myDeps.isNotEmpty()) {
+                    com.todocompanion.app.domain.EditorField.BLOCKED ->
+                     DetailSection("Blocked by", myDeps.size.takeIf { it > 0 }?.toString(), myDeps.isNotEmpty()) {
                 val byId = allTasks.associateBy { it.id }
                 if (myDeps.isEmpty()) Text("Not blocked — this task can be done now.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 myDeps.forEach { dep ->
@@ -504,8 +532,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 TextButton(onClick = { showBlockPicker = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text("＋ Add a blocker") }
             }
 
-            // ---------- Activity log (private, on-device) ----------
-            DetailSection("Activity", activityLog.size.takeIf { it > 0 }?.toString(), false) {
+                    com.todocompanion.app.domain.EditorField.ACTIVITY ->
+                     DetailSection("Activity", activityLog.size.takeIf { it > 0 }?.toString(), false) {
                 if (activityLog.isEmpty()) {
                     Text("No activity recorded yet.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
@@ -520,8 +548,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 }
             }
 
-            // ---------- More options ----------
-            DetailSection("More options", null, false) {
+                    com.todocompanion.app.domain.EditorField.ADVANCED ->
+                     DetailSection("More options", null, false) {
                 if (totalN == 0) {
                     // Leaf manual progress lives here when not already set/shown above.
                     var p by remember(task.id, task.progressPct) { mutableStateOf((task.progressPct ?: 0).toFloat()) }
@@ -546,6 +574,16 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                             style = MaterialTheme.typography.bodySmall, color = if (dueIn <= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                         TextButton(onClick = { update { it.copy(reviewedAt = System.currentTimeMillis()) } }) { Text("Mark reviewed") }
                     }
+                }
+            }
+                }
+            }
+            // Progressive-disclosure toggle: reveals the "More" fields that have no value yet.
+            if (anyCollapsed || moreExpanded) {
+                TextButton(onClick = { moreExpanded = !moreExpanded }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp, vertical = 2.dp)) {
+                    Icon(if (moreExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (moreExpanded) "Show fewer fields" else "More fields")
                 }
             }
 

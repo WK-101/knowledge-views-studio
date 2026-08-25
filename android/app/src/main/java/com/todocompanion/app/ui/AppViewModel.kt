@@ -420,7 +420,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val neededMin = atRisk.sumOf { est(it) }
         // Free time = the window's capacity minus other planned (dated, non-deadline) work in it.
         val otherPlannedMin = open.filter { !deadlineIn(it) && it.dueDate != null && it.dueDate!! in (now + 1)..end }.sumOf { est(it) }
-        val capacityMin = settings.value.dailyCapacityHours * 60 * days
+        // Sum each upcoming day's capacity (honours per-weekday overrides when set).
+        val today = java.time.LocalDate.now(zone)
+        val capacityMin = (0 until days).sumOf { settings.value.capacityHoursFor(today.plusDays(it.toLong()).dayOfWeek) * 60 }
         val freeMin = (capacityMin - otherPlannedMin).coerceAtLeast(0)
         return DeadlineRisk(neededMin / 60.0, freeMin / 60.0, atRisk.size, days)
     }
@@ -585,6 +587,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- task actions ----------
     fun addTask(listId: String, parentId: String? = null, title: String = "New task") =
         viewModelScope.launch { repo.createTask(listId, title, parentId = parentId) }
+    /** Create a task that lives directly in a folder (no list). Powers the folder-view capture row. */
+    fun addTaskInFolder(folderId: String, title: String) = viewModelScope.launch {
+        if (title.isNotBlank()) repo.createTask(listId = "", title = title.trim(), folderId = folderId)
+    }
     fun toggleComplete(t: TaskEntity) = viewModelScope.launch {
         // Completing a repeating task rolls it forward to the next occurrence instead of closing it
         // — unless its recurrence has ended (until-date reached or count exhausted).

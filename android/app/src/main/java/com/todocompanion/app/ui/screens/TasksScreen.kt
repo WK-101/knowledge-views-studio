@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
@@ -99,6 +100,43 @@ import com.todocompanion.app.ui.components.rowVerticalPadding
 
 @Composable
 fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifier = Modifier) {
+    // A folder view always gets a direct capture row on top, so a task can be added straight into
+    // the folder (no list) whether or not it already has any tasks.
+    val view by vm.currentView.collectAsState()
+    val folderId = (view as? ViewRef.FolderView)?.folderId
+    if (folderId != null) {
+        androidx.compose.foundation.layout.Column(modifier.fillMaxSize()) {
+            FolderCaptureRow(vm, folderId)
+            Box(Modifier.weight(1f)) { TaskListBody(vm, onOpenTask, Modifier.fillMaxSize()) }
+        }
+        return
+    }
+    TaskListBody(vm, onOpenTask, modifier)
+}
+
+@Composable
+private fun FolderCaptureRow(vm: AppViewModel, folderId: String) {
+    var text by remember(folderId) { mutableStateOf("") }
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Filled.Add, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(8.dp))
+        androidx.compose.material3.OutlinedTextField(
+            value = text, onValueChange = { text = it },
+            placeholder = { Text("Add a task to this folder") },
+            singleLine = true, modifier = Modifier.weight(1f),
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { if (text.isNotBlank()) { vm.addTaskInFolder(folderId, text); text = "" } }),
+        )
+        if (text.isNotBlank()) androidx.compose.material3.TextButton(onClick = { vm.addTaskInFolder(folderId, text); text = "" }) { Text("Add") }
+    }
+    androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+}
+
+@Composable
+private fun TaskListBody(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifier = Modifier) {
     val outline by vm.outlineMode.collectAsState()
     val settings by vm.settings.collectAsState()
     val view by vm.currentView.collectAsState()
@@ -370,8 +408,9 @@ private fun WorkloadStrip(vm: AppViewModel) {
     val settings by vm.settings.collectAsState()
     val zone = java.time.ZoneId.systemDefault()
     val today = java.time.LocalDate.now(zone)
-    val capacity = (settings.dailyCapacityHours * 60).coerceAtLeast(30)
-    val loads = remember(tasks, settings.dailyCapacityHours) {
+    // Each day's capacity in minutes — a per-weekday override when set, else the flat daily figure.
+    fun capMin(d: java.time.LocalDate) = (settings.capacityHoursFor(d.dayOfWeek) * 60).coerceAtLeast(30)
+    val loads = remember(tasks, settings.dailyCapacityHours, settings.capacityByDay) {
         (0..6).map { off ->
             val d = today.plusDays(off.toLong())
             val dayTasks = tasks.filter {
@@ -382,7 +421,7 @@ private fun WorkloadStrip(vm: AppViewModel) {
         }
     }
     if (loads.all { it.third == 0 }) return
-    val over = loads.count { it.second > capacity }
+    val over = loads.count { it.second > capMin(it.first) }
     Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
         Column(Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -393,11 +432,18 @@ private fun WorkloadStrip(vm: AppViewModel) {
                     color = if (over == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                 )
             }
+            Text(
+                "Each bar sums the time estimate of tasks due that day, measured against your daily capacity.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp),
+            )
             Spacer(Modifier.size(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
                 loads.forEach { (d, min, count) ->
-                    val frac = (min.toFloat() / capacity).coerceIn(0f, 1.25f)
-                    val overCap = min > capacity
+                    val cap = capMin(d).toFloat()
+                    val frac = (min.toFloat() / cap).coerceIn(0f, 1.25f)
+                    val overCap = min > cap
                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
                             if (min > 0) "${(min + 30) / 60}h" else if (count > 0) "$count" else "",

@@ -28,6 +28,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -44,6 +46,7 @@ import com.todocompanion.app.ui.components.formatDue
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Notifications
@@ -317,7 +320,25 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf(2, 4, 6, 8, 10, 12).forEach { h ->
-                    FilterChip(selected = s.dailyCapacityHours == h, onClick = { vm.saveSettings(s.copy(dailyCapacityHours = h)) }, label = { Text("${h}h") })
+                    FilterChip(selected = s.dailyCapacityHours == h && s.capacityByDay.isEmpty(), onClick = { vm.saveSettings(s.copy(dailyCapacityHours = h)) }, label = { Text("${h}h") })
+                }
+            }
+            val perDayOn = s.capacityByDay.size == 7
+            Toggle("Different capacity per weekday", perDayOn) { on ->
+                vm.saveSettings(s.copy(capacityByDay = if (on) List(7) { s.dailyCapacityHours } else emptyList()))
+            }
+            if (perDayOn) {
+                Text("Some days you can commit more than others — set each one. Weekends are often lighter.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
+                java.time.DayOfWeek.values().forEach { dow ->
+                    val idx = dow.value - 1
+                    val h = s.capacityByDay.getOrElse(idx) { s.dailyCapacityHours }
+                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(dow.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault()), Modifier.weight(1f))
+                        TextButton(onClick = { vm.saveSettings(s.copy(capacityByDay = s.capacityByDay.toMutableList().also { it[idx] = (h - 1).coerceAtLeast(0) })) }) { Text("−") }
+                        Text("${h}h", style = MaterialTheme.typography.titleSmall, modifier = Modifier.widthIn(min = 34.dp), textAlign = TextAlign.Center)
+                        TextButton(onClick = { vm.saveSettings(s.copy(capacityByDay = s.capacityByDay.toMutableList().also { it[idx] = (h + 1).coerceAtMost(24) })) }) { Text("+") }
+                    }
                 }
             }
             Spacer(Modifier.height(10.dp)); Sub("Working hours (auto-schedule)")
@@ -331,6 +352,48 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 TextButton(onClick = { vm.saveSettings(s.copy(workEndHour = (s.workEndHour - 1).coerceAtLeast(s.workStartHour + 1))) }) { Text("−") }
                 Text("%02d:00".format(s.workEndHour), style = MaterialTheme.typography.titleSmall)
                 TextButton(onClick = { vm.saveSettings(s.copy(workEndHour = (s.workEndHour + 1).coerceAtMost(24))) }) { Text("+") }
+            }
+        }
+
+        SettingsGroup(Icons.Filled.EditNote, "Task editor", open["editor"] == true, { open["editor"] = open["editor"] != true }) {
+            Text("The editor shows a lean set of fields first and reveals the rest under “More fields.” Choose when each appears, or drag the order to match how you work. A field you’ve already filled always shows, whatever you pick here.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
+            val ordered = s.editorFieldsOrdered()
+            ordered.forEachIndexed { idx, f ->
+                val tier = s.editorTier(f)
+                Column(Modifier.padding(vertical = 4.dp)) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(f.label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        IconButton(onClick = {
+                            if (idx > 0) {
+                                val ids = ordered.map { it.id }.toMutableList()
+                                val tmp = ids[idx]; ids[idx] = ids[idx - 1]; ids[idx - 1] = tmp
+                                vm.saveSettings(s.copy(editorFieldOrder = ids))
+                            }
+                        }, enabled = idx > 0, modifier = Modifier.size(34.dp)) { Icon(Icons.Filled.KeyboardArrowUp, "Move up", modifier = Modifier.size(20.dp)) }
+                        IconButton(onClick = {
+                            if (idx < ordered.lastIndex) {
+                                val ids = ordered.map { it.id }.toMutableList()
+                                val tmp = ids[idx]; ids[idx] = ids[idx + 1]; ids[idx + 1] = tmp
+                                vm.saveSettings(s.copy(editorFieldOrder = ids))
+                            }
+                        }, enabled = idx < ordered.lastIndex, modifier = Modifier.size(34.dp)) { Icon(Icons.Filled.KeyboardArrowDown, "Move down", modifier = Modifier.size(20.dp)) }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 2.dp)) {
+                        listOf(
+                            com.todocompanion.app.domain.AppSettings.TIER_ALWAYS to "Always",
+                            com.todocompanion.app.domain.AppSettings.TIER_MORE to "Under “More”",
+                            com.todocompanion.app.domain.AppSettings.TIER_HIDDEN to "Hidden",
+                        ).forEach { (t, label) ->
+                            FilterChip(selected = tier == t, onClick = { vm.saveSettings(s.copy(editorFieldTiers = s.editorFieldTiers + (f.id to t))) }, label = { Text(label, style = MaterialTheme.typography.labelMedium) })
+                        }
+                    }
+                }
+            }
+            if (s.editorFieldTiers.isNotEmpty() || s.editorFieldOrder.isNotEmpty()) {
+                TextButton(onClick = { vm.saveSettings(s.copy(editorFieldTiers = emptyMap(), editorFieldOrder = emptyList())) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 6.dp)) {
+                    Text("Reset to defaults")
+                }
             }
         }
 

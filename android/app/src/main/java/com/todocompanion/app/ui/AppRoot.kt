@@ -264,6 +264,8 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                 a == "open_habits" -> { tab = Tab.HABITS; launchAction.value = null }
                 a == "open_countdowns" -> { showCountdowns = true; launchAction.value = null }
                 a == "open_matrix" -> { tab = Tab.MATRIX; launchAction.value = null }
+                a == "open_donext" -> { vm.select(ViewRef.Smart(SmartKind.DO_NEXT)); tab = Tab.TASKS; launchAction.value = null }
+                a == "open_next7" -> { vm.select(ViewRef.Smart(SmartKind.NEXT7)); tab = Tab.TASKS; launchAction.value = null }
                 a == "open_plan" -> { showPlan = true; launchAction.value = null }
                 a != null && a.startsWith("open_context:") -> { vm.select(ViewRef.ContextView(a.removePrefix("open_context:"))); tab = Tab.TASKS; launchAction.value = null }
             }
@@ -898,6 +900,7 @@ private fun FilterGroup(label: String, content: @Composable androidx.compose.fou
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun CalendarFilterDialog(lists: List<ListEntity>, selected: Set<String>, onDismiss: () -> Unit, onApply: (Set<String>) -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -905,19 +908,20 @@ private fun CalendarFilterDialog(lists: List<ListEntity>, selected: Set<String>,
         dismissButton = { TextButton(onClick = { onApply(emptySet()) }) { Text("Show all") } },
         title = { Text("Filter calendar") },
         text = {
-            LazyColumn(Modifier.heightIn(max = 360.dp)) {
-                item {
-                    Text("All lists", Modifier.fillMaxWidth().clickable { onApply(emptySet()) }.padding(vertical = 12.dp),
-                        color = if (selected.isEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                        fontWeight = if (selected.isEmpty()) FontWeight.SemiBold else FontWeight.Normal)
-                }
-                items(lists, key = { it.id }) { l ->
+            // Compact colour-coded chips instead of a loose checkbox list.
+            androidx.compose.foundation.layout.FlowRow(
+                Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                androidx.compose.material3.FilterChip(selected = selected.isEmpty(), onClick = { onApply(emptySet()) }, label = { Text("All lists") })
+                lists.forEach { l ->
                     val on = l.id in selected
-                    Row(Modifier.fillMaxWidth().clickable { onApply(if (on) selected - l.id else selected + l.id) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        androidx.compose.material3.Checkbox(checked = on, onCheckedChange = { onApply(if (on) selected - l.id else selected + l.id) })
-                        Spacer(Modifier.width(6.dp))
-                        Text(l.name)
-                    }
+                    androidx.compose.material3.FilterChip(
+                        selected = on,
+                        onClick = { onApply(if (on) selected - l.id else selected + l.id) },
+                        label = { Text(l.name, maxLines = 1) },
+                        leadingIcon = l.colorArgb?.let { { Box(Modifier.size(12.dp).clip(CircleShape).background(Color(it))) } },
+                    )
                 }
             }
         },
@@ -1180,6 +1184,26 @@ private fun ManageContextDialog(
         onHours(if (restricted) com.todocompanion.app.domain.context.ContextAvailability.encode(
             com.todocompanion.app.domain.context.OpenHours(days, startH * 60, endH * 60)) else null)
     }
+    // Location geofence state + permission launcher — declared at the composable's top level, NOT
+    // inside the AlertDialog content slot (a launcher registered against the dialog window's
+    // lifecycle throws when launched; this is what crashed "Alert me when I arrive here").
+    val lctx = LocalContext.current
+    var hasLoc by remember { mutableStateOf(ctx.latitude != null) }
+    fun captureAndSet() = runCatching {
+        captureLocation(lctx)?.let { (la, ln) -> onSetLocation(la, ln, 150.0); hasLoc = true }
+            ?: android.widget.Toast.makeText(lctx, "No location fix yet — move outdoors and try again", android.widget.Toast.LENGTH_SHORT).show()
+    }
+    val locPermLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
+        if (grants.values.any { it }) captureAndSet()
+        else android.widget.Toast.makeText(lctx, "Location permission is needed for arrival alerts", android.widget.Toast.LENGTH_SHORT).show()
+    }
+    fun toggleLocation(on: Boolean) {
+        if (!on) { runCatching { onClearLocation() }; hasLoc = false; return }
+        val fine = androidx.core.content.ContextCompat.checkSelfPermission(lctx, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val coarse = androidx.core.content.ContextCompat.checkSelfPermission(lctx, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (fine || coarse) captureAndSet()
+        else runCatching { locPermLauncher.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)) }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onRename(name.trim()) }) { Text("Save") } },
@@ -1223,21 +1247,9 @@ private fun ManageContextDialog(
                 }
                 Spacer(Modifier.size(10.dp))
                 // Location geofence (E3): arriving here surfaces this context's tasks.
-                val lctx = LocalContext.current
-                var hasLoc by remember { mutableStateOf(ctx.latitude != null) }
-                val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
-                    if (grants.values.any { it }) captureLocation(lctx)?.let { (la, ln) -> onSetLocation(la, ln, 150.0); hasLoc = true }
-                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Alert me when I arrive here", Modifier.weight(1f))
-                    androidx.compose.material3.Switch(checked = hasLoc, onCheckedChange = { on ->
-                        if (on) {
-                            val fine = androidx.core.content.ContextCompat.checkSelfPermission(lctx, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
-                            val coarse = androidx.core.content.ContextCompat.checkSelfPermission(lctx, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
-                            if (fine || coarse) captureLocation(lctx)?.let { (la, ln) -> onSetLocation(la, ln, 150.0); hasLoc = true }
-                            else permLauncher.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION))
-                        } else { onClearLocation(); hasLoc = false }
-                    })
+                    androidx.compose.material3.Switch(checked = hasLoc, onCheckedChange = { on -> toggleLocation(on) })
                 }
                 Text(if (hasLoc) "Uses your current location. On-device only — coordinates never leave the phone."
                      else "Captures where you are now as this context's place.",

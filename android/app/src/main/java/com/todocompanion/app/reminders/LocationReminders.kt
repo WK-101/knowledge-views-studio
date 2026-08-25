@@ -21,6 +21,12 @@ object LocationReminders {
 
     const val ACTION_PROXIMITY = "com.todocompanion.app.action.PROXIMITY"
 
+    // addProximityAlert on Android 12+ (S) requires a MUTABLE PendingIntent — the OS injects the
+    // KEY_PROXIMITY_ENTERING extra into it. An IMMUTABLE one makes addProximityAlert throw.
+    private val proximityFlags: Int
+        get() = PendingIntent.FLAG_UPDATE_CURRENT or
+            (if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0)
+
     fun hasPermission(context: Context): Boolean =
         ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -33,10 +39,7 @@ object LocationReminders {
             .putExtra(AlarmScheduler.EXTRA_REMINDER_ID, reminder.id)
             .putExtra("onEnter", reminder.onEnter)
             .putExtra("place", reminder.placeName ?: "")
-        return PendingIntent.getBroadcast(
-            context, ("prox:" + reminder.id).hashCode(), i,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
+        return PendingIntent.getBroadcast(context, ("prox:" + reminder.id).hashCode(), i, proximityFlags)
     }
 
     @SuppressLint("MissingPermission")
@@ -66,10 +69,7 @@ object LocationReminders {
             .putExtra("contextId", ctxId)
             .putExtra("contextName", ctxName)
             .putExtra("onEnter", true)
-        return PendingIntent.getBroadcast(
-            context, ("ctxprox:$ctxId").hashCode(), i,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
+        return PendingIntent.getBroadcast(context, ("ctxprox:$ctxId").hashCode(), i, proximityFlags)
     }
 
     @SuppressLint("MissingPermission")

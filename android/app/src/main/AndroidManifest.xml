@@ -152,6 +152,25 @@
             android:exported="false" />
         <receiver android:name=".widget.HabitCheckReceiver" android:exported="false" />
 
+        <receiver android:name=".widget.DoNextWidget" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_donext_info" />
+        </receiver>
+        <service
+            android:name=".widget.DoNextWidgetService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
+        <receiver android:name=".widget.DoNextFilterReceiver" android:exported="false" />
+
+        <receiver android:name=".widget.Next7Widget" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_next7_info" />
+        </receiver>
+
         <!-- Fires a scheduled reminder notification + on-device proximity alerts. Not exported. -->
         <receiver
             android:name=".reminders.ReminderReceiver"

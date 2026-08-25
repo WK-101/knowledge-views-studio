@@ -9,4 +9,6 @@
     <string name="widget_matrix_desc">Eisenhower matrix quadrant counts at a glance</string>
     <string name="widget_pomodoro_desc">A one-tap button to start a Focus session</string>
     <string name="widget_habits_desc">Today\'s habits — tap to check them off</string>
+    <string name="widget_donext_desc">Your computed Do-Next list — filter by energy and time you have</string>
+    <string name="widget_next7_desc">A workload bar per day for the next week vs your capacity</string>
 </resources>

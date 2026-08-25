@@ -37,6 +37,8 @@ class App : Application() {
                 TodayWidget.refresh(this@App); AgendaWidget.refresh(this@App)
                 com.todocompanion.app.widget.StatsWidget.refresh(this@App)
                 com.todocompanion.app.widget.MatrixWidget.refresh(this@App)
+                com.todocompanion.app.widget.DoNextWidget.refresh(this@App)
+                com.todocompanion.app.widget.Next7Widget.refresh(this@App)
             }
         }
     }

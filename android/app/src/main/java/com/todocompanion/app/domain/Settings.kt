@@ -62,6 +62,8 @@ data class AppSettings(
     val appBackground: String = "none",
     // Planning: hours you can realistically commit per day (workload forecast + auto-schedule).
     val dailyCapacityHours: Int = 8,
+    // Optional per-weekday capacity (Mon..Sun, 7 entries). Empty = use dailyCapacityHours for every day.
+    val capacityByDay: List<Int> = emptyList(),
     val workStartHour: Int = 9,
     val workEndHour: Int = 18,
     // The hour a new "day" begins (0–6). Tasks before this hour still count as the previous day,
@@ -116,7 +118,29 @@ data class AppSettings(
     val viewsOrder: List<String> = emptyList(),
     // List ids that open in Board (Kanban) layout instead of the flat list. Remembered per list.
     val boardLists: Set<String> = emptySet(),
+    // Task-editor progressive disclosure (#114). Tier per optional field: 0 Always, 1 under "More",
+    // 2 Hidden. Empty map = per-field defaults (see EditorField.defaultTier). A field that already
+    // holds a value is always shown regardless of tier, so data is never orphaned.
+    val editorFieldTiers: Map<String, Int> = emptyMap(),
+    // User's arrangement of the optional editor fields (EditorField ids). Empty = canonical order.
+    val editorFieldOrder: List<String> = emptyList(),
 ) {
+    /** Effective tier for an optional editor field: user override, else its built-in default. */
+    fun editorTier(f: EditorField): Int = editorFieldTiers[f.id] ?: f.defaultTier
+
+    /** Optional editor fields in the user's saved arrangement (unknown/new ids appended in default order). */
+    fun editorFieldsOrdered(): List<EditorField> {
+        if (editorFieldOrder.isEmpty()) return EditorField.ALL
+        val byId = EditorField.ALL.associateBy { it.id }
+        val chosen = editorFieldOrder.mapNotNull { byId[it] }
+        val rest = EditorField.ALL.filter { it.id !in editorFieldOrder }
+        return chosen + rest
+    }
+
+    /** Capacity (hours) for a given weekday — per-day override if set, else the flat daily figure. */
+    fun capacityHoursFor(dayOfWeek: java.time.DayOfWeek): Int =
+        capacityByDay.getOrNull(dayOfWeek.value - 1) ?: dailyCapacityHours
+
     fun toMap(): Map<String, String> = mapOf(
         Keys.FIRST_VIEW to firstView.name,
         Keys.THEME to themeMode.name,
@@ -154,6 +178,7 @@ data class AppSettings(
         Keys.CAL_FILTER to calendarListFilter.joinToString(","),
         Keys.APP_BG to appBackground,
         Keys.CAPACITY to dailyCapacityHours.toString(),
+        Keys.CAPACITY_DAYS to capacityByDay.joinToString(","),
         Keys.WORK_START to workStartHour.toString(),
         Keys.WORK_END to workEndHour.toString(),
         Keys.DAY_START to dayStartHour.toString(),
@@ -187,6 +212,8 @@ data class AppSettings(
         Keys.SMART_ORDER to smartOrder.joinToString(","),
         Keys.VIEWS_ORDER to viewsOrder.joinToString(","),
         Keys.BOARD_LISTS to boardLists.joinToString(","),
+        Keys.EDITOR_TIERS to editorFieldTiers.entries.joinToString(",") { "${it.key}:${it.value}" },
+        Keys.EDITOR_ORDER to editorFieldOrder.joinToString(","),
     )
 
     object Keys {
@@ -227,6 +254,7 @@ data class AppSettings(
         const val SUMMARY_ON = "summary_on"
         const val APP_BG = "app_bg"
         const val CAPACITY = "daily_capacity_h"
+        const val CAPACITY_DAYS = "capacity_by_day"
         const val WORK_START = "work_start_h"
         const val WORK_END = "work_end_h"
         const val DAY_START = "day_start"
@@ -259,9 +287,15 @@ data class AppSettings(
         const val SMART_ORDER = "smart_order"
         const val VIEWS_ORDER = "views_order"
         const val BOARD_LISTS = "board_lists"
+        const val EDITOR_TIERS = "editor_tiers"
+        const val EDITOR_ORDER = "editor_order"
     }
 
     companion object {
+        const val TIER_ALWAYS = 0
+        const val TIER_MORE = 1
+        const val TIER_HIDDEN = 2
+
         private inline fun <reified E : Enum<E>> parse(v: String?, def: E): E =
             v?.let { runCatching { enumValueOf<E>(it) }.getOrNull() } ?: def
 
@@ -316,9 +350,16 @@ data class AppSettings(
             smartOrder = (m[Keys.SMART_ORDER] ?: "").split(",").filter { it.isNotBlank() },
             viewsOrder = (m[Keys.VIEWS_ORDER] ?: "").split(",").filter { it.isNotBlank() },
             boardLists = (m[Keys.BOARD_LISTS] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
+            editorFieldTiers = (m[Keys.EDITOR_TIERS] ?: "").split(",").mapNotNull { pair ->
+                val p = pair.split(":"); if (p.size != 2) return@mapNotNull null
+                val t = p[1].toIntOrNull() ?: return@mapNotNull null
+                if (p[0].isNotBlank() && t in 0..2) p[0] to t else null
+            }.toMap(),
+            editorFieldOrder = (m[Keys.EDITOR_ORDER] ?: "").split(",").filter { it.isNotBlank() },
             dailySummaryEnabled = m[Keys.SUMMARY_ON]?.toBooleanStrictOrNull() ?: false,
             appBackground = m[Keys.APP_BG] ?: "none",
             dailyCapacityHours = m[Keys.CAPACITY]?.toIntOrNull()?.coerceIn(1, 16) ?: 8,
+            capacityByDay = (m[Keys.CAPACITY_DAYS] ?: "").split(",").mapNotNull { it.trim().toIntOrNull() }.takeIf { it.size == 7 } ?: emptyList(),
             workStartHour = m[Keys.WORK_START]?.toIntOrNull()?.coerceIn(0, 23) ?: 9,
             workEndHour = m[Keys.WORK_END]?.toIntOrNull()?.coerceIn(1, 24) ?: 18,
             dayStartHour = m[Keys.DAY_START]?.toIntOrNull()?.coerceIn(0, 6) ?: 0,
@@ -342,5 +383,29 @@ data class AppSettings(
             onboarded = m[Keys.ONBOARDED]?.toBooleanStrictOrNull() ?: false,
             themePack = m[Keys.THEME_PACK] ?: "",
         )
+    }
+}
+
+/**
+ * The optional fields/sections of the task editor, in canonical order, each with a default
+ * disclosure tier (#114). Core fields — title, notes, date, priority, list — are never optional
+ * and are not listed here. Defaults keep a first-timer's editor lean: only the everyday fields
+ * sit at [AppSettings.TIER_ALWAYS]; power features default to "More" and reveal on demand.
+ */
+enum class EditorField(val id: String, val label: String, val defaultTier: Int) {
+    REPEAT("repeat", "Repeat", AppSettings.TIER_ALWAYS),
+    REMINDERS("reminders", "Reminders", AppSettings.TIER_ALWAYS),
+    CHECKLIST("checklist", "Checklist / subtasks", AppSettings.TIER_ALWAYS),
+    DEADLINE("deadline", "Deadline", AppSettings.TIER_MORE),
+    ENERGY("energy", "Energy", AppSettings.TIER_MORE),
+    FLAG("flag", "Flag", AppSettings.TIER_MORE),
+    ATTACHMENTS("attachments", "Attachments", AppSettings.TIER_MORE),
+    TAGS("tags", "Tags & contexts", AppSettings.TIER_MORE),
+    BLOCKED("blocked", "Blocked by", AppSettings.TIER_MORE),
+    ACTIVITY("activity", "Activity log", AppSettings.TIER_MORE),
+    ADVANCED("advanced", "Estimate, goal, project, review", AppSettings.TIER_MORE);
+
+    companion object {
+        val ALL: List<EditorField> = entries.toList()
     }
 }

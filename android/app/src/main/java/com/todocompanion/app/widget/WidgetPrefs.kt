@@ -28,7 +28,29 @@ object WidgetPrefs {
 
     fun clear(ctx: Context, id: Int) {
         ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
-            .remove("scope_$id").remove("title_$id").remove("theme_$id").apply()
+            .remove("scope_$id").remove("title_$id").remove("theme_$id")
+            .remove("energy_$id").remove("time_$id").apply()
+    }
+
+    // Do-Next widget filters. energy: 0 Any, 1 Low, 2 Medium, 3 High ("I have this much energy").
+    // time: 0 Any, else the minute cap ("I have this much time"): 15 / 30 / 60.
+    fun energy(ctx: Context, id: Int): Int =
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getInt("energy_$id", 0)
+
+    fun time(ctx: Context, id: Int): Int =
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getInt("time_$id", 0)
+
+    /** Advance the energy filter through Any → Low → Medium → High → Any. */
+    fun cycleEnergy(ctx: Context, id: Int) {
+        val next = (energy(ctx, id) + 1) % 4
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putInt("energy_$id", next).apply()
+    }
+
+    /** Advance the time filter through Any → ≤15m → ≤30m → ≤1h → Any. */
+    fun cycleTime(ctx: Context, id: Int) {
+        val order = listOf(0, 15, 30, 60)
+        val next = order[(order.indexOf(time(ctx, id)).coerceAtLeast(0) + 1) % order.size]
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putInt("time_$id", next).apply()
     }
 
     /** Default header title for a scope token, used when the user left the title blank. */
