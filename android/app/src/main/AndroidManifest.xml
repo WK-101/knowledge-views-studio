@@ -73,6 +73,16 @@
             android:permission="android.permission.BIND_REMOTEVIEWS"
             android:exported="false" />
 
+        <!-- Per-widget configuration screen (which scope/list, title, theme). Offline. -->
+        <activity
+            android:name=".widget.WidgetConfigActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ToDoCompanion">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <!-- Compact quick-add button widget. -->
         <receiver
             android:name=".widget.QuickAddWidget"

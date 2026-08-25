@@ -34,9 +34,32 @@ class AgendaWidget : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.widget_header, activityIntent(context, 0, null))
             // Template for per-item taps; the factory supplies a fill-in intent with the task id.
             views.setPendingIntentTemplate(R.id.widget_list, itemTemplate(context))
+
+            // Per-widget title + theme (from the configuration screen).
+            val scope = WidgetPrefs.scope(context, id)
+            val title = WidgetPrefs.title(context, id).ifBlank { WidgetPrefs.defaultTitle(scope) }
+            views.setTextViewText(R.id.widget_title, title)
+            val light = when (WidgetPrefs.theme(context, id)) {
+                "light" -> true
+                "dark" -> false
+                else -> (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) != android.content.res.Configuration.UI_MODE_NIGHT_YES
+            }
+            if (light) {
+                views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_bg_light)
+                views.setTextColor(R.id.widget_title, 0xFF1B1B2F.toInt())
+                views.setTextColor(R.id.widget_empty, 0xFF6B6880.toInt())
+            } else {
+                views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_bg)
+                views.setTextColor(R.id.widget_title, 0xFFFFFFFF.toInt())
+                views.setTextColor(R.id.widget_empty, 0xFFB9B4D0.toInt())
+            }
             manager.updateAppWidget(id, views)
             manager.notifyAppWidgetViewDataChanged(id, R.id.widget_list)
         }
+    }
+
+    override fun onDeleted(context: Context, ids: IntArray) {
+        ids.forEach { WidgetPrefs.clear(context, it) }
     }
 
     private fun activityIntent(context: Context, code: Int, action: String?): PendingIntent {
@@ -63,14 +86,23 @@ class AgendaWidget : AppWidgetProvider() {
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
             })
         }
+
+        /** Re-render a single widget after its configuration changed. */
+        fun updateOne(context: Context, id: Int) {
+            val manager = AppWidgetManager.getInstance(context) ?: return
+            AgendaWidget().onUpdate(context, manager, intArrayOf(id))
+        }
     }
 }
 
 class AgendaWidgetService : RemoteViewsService() {
-    override fun onGetViewFactory(intent: Intent): RemoteViewsFactory = AgendaFactory(applicationContext)
+    override fun onGetViewFactory(intent: Intent): RemoteViewsFactory {
+        val id = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+        return AgendaFactory(applicationContext, id)
+    }
 }
 
-private class AgendaFactory(private val context: Context) : RemoteViewsService.RemoteViewsFactory {
+private class AgendaFactory(private val context: Context, private val widgetId: Int) : RemoteViewsService.RemoteViewsFactory {
     private data class Row(val id: String, val title: String, val sub: String, val overdue: Boolean)
     private var rows: List<Row> = emptyList()
 
@@ -82,25 +114,52 @@ private class AgendaFactory(private val context: Context) : RemoteViewsService.R
     override fun hasStableIds() = false
     override fun getLoadingView(): RemoteViews? = null
 
+    private var light = false
+
     override fun onDataSetChanged() {
         val app = context.applicationContext as App
         val zone = ZoneId.systemDefault()
         val today = LocalDate.now(zone)
         val endToday = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
         val startToday = today.atStartOfDay(zone).toInstant().toEpochMilli()
+        val endWeek = today.plusDays(7).atStartOfDay(zone).toInstant().toEpochMilli()
+
+        val scope = WidgetPrefs.scope(context, widgetId)
+        light = when (WidgetPrefs.theme(context, widgetId)) {
+            "light" -> true
+            "dark" -> false
+            else -> (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) != android.content.res.Configuration.UI_MODE_NIGHT_YES
+        }
+        val listId = if (scope.startsWith("list:")) scope.removePrefix("list:") else null
+
         val tasks = runBlocking { app.repository.allTasksOnce() }
         rows = tasks.asSequence()
-            .filter { !it.completed && !it.trashed && !it.abandoned && it.dueDate != null && it.dueDate!! < endToday }
-            .sortedBy { it.dueDate }
+            .filter { !it.completed && !it.trashed && !it.abandoned }
+            .filter { t ->
+                when {
+                    listId != null -> t.listId == listId
+                    scope == "next7" -> t.dueDate != null && t.dueDate!! < endWeek
+                    scope == "scheduled" -> t.dueDate != null
+                    else -> t.dueDate != null && t.dueDate!! < endToday   // "today" = today + overdue
+                }
+            }
+            .sortedBy { it.dueDate ?: Long.MAX_VALUE }
             .map { t ->
-                val due = t.dueDate!!
-                val overdue = due < startToday
-                val dt = Instant.ofEpochMilli(due).atZone(zone)
-                val hasTime = !(dt.hour == 0 && dt.minute == 0)
+                val due = t.dueDate
+                val overdue = due != null && due < startToday
                 val sub = when {
+                    due == null -> "No date"
                     overdue -> "Overdue"
-                    hasTime -> "%02d:%02d".format(dt.hour, dt.minute)
-                    else -> "Today"
+                    else -> {
+                        val dt = Instant.ofEpochMilli(due).atZone(zone)
+                        val hasTime = !(dt.hour == 0 && dt.minute == 0)
+                        val d = dt.toLocalDate()
+                        when {
+                            d == today && hasTime -> "%02d:%02d".format(dt.hour, dt.minute)
+                            d == today -> "Today"
+                            else -> "${d.dayOfMonth}/${d.monthValue}" + if (hasTime) " %02d:%02d".format(dt.hour, dt.minute) else ""
+                        }
+                    }
                 }
                 Row(t.id, t.title.ifBlank { "Untitled" }, sub, overdue)
             }
@@ -112,7 +171,8 @@ private class AgendaFactory(private val context: Context) : RemoteViewsService.R
         return RemoteViews(context.packageName, R.layout.widget_agenda_item).apply {
             setTextViewText(R.id.item_title, r.title)
             setTextViewText(R.id.item_sub, r.sub)
-            setTextColor(R.id.item_sub, if (r.overdue) 0xFFFF9A8B.toInt() else 0xFFB9B4D0.toInt())
+            setTextColor(R.id.item_title, if (light) 0xFF1B1B2F.toInt() else 0xFFFFFFFF.toInt())
+            setTextColor(R.id.item_sub, if (r.overdue) 0xFFE5484D.toInt() else if (light) 0xFF6B6880.toInt() else 0xFFB9B4D0.toInt())
             // Fill-in intent carries the task id back through the template.
             val fill = Intent().putExtra(MainActivity.EXTRA_ACTION, "open_task:${r.id}")
             setOnClickFillInIntent(R.id.item_root, fill)

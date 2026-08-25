@@ -9,4 +9,5 @@
     android:previewLayout="@layout/widget_agenda"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
+    android:configure="com.todocompanion.app.widget.WidgetConfigActivity"
     android:description="@string/widget_agenda_desc" />
