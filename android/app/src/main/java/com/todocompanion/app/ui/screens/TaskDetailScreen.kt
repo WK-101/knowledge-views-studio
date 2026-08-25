@@ -7,8 +7,19 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextOverflow
+import com.todocompanion.app.ui.components.priorityColor
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -129,7 +140,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
     var newContext by remember { mutableStateOf("") }
     var newCheck by remember { mutableStateOf("") }
     var listMenu by remember { mutableStateOf(false) }
-    var showMore by remember { mutableStateOf(false) }
+    var prioMenu by remember { mutableStateOf(false) }
+    var flagMenu by remember { mutableStateOf(false) }
     var showBlockPicker by remember { mutableStateOf(false) }
     var saveTemplate by remember { mutableStateOf(false) }
     var notePreview by remember(taskId) { mutableStateOf(true) }
@@ -209,125 +221,97 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
 
-            // Effort-weighted project rollup — shown for any task that has subtasks.
+            // ---------- Progress (compact, unboxed) ----------
             val (doneW, totalW, doneN, totalN) = remember(allTasks, task.id) { projectRollup(task.id, allTasks) }
+            val hasChildren = allTasks.any { it.parentId == task.id && !it.trashed }
             if (totalN > 0) {
-                AppCard {
-                    val pct = if (totalW > 0) (doneW / totalW) else 0.0
+                val pct = if (totalW > 0) (doneW / totalW) else 0.0
+                Column(Modifier.padding(horizontal = 6.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        CardLabel("Progress"); Spacer(Modifier.weight(1f))
+                        Text("Progress", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("${(pct * 100).toInt()}% · $doneN of $totalN", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Spacer(Modifier.height(6.dp))
                     androidx.compose.material3.LinearProgressIndicator(progress = { pct.toFloat() }, modifier = Modifier.fillMaxWidth().height(7.dp).clip(RoundedCornerShape(4.dp)))
                 }
-            } else {
-                // Leaf task: a manual progress slider (partial completion, distinct from done).
-                AppCard {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+            } else if ((task.progressPct ?: 0) > 0) {
+                Column(Modifier.padding(horizontal = 6.dp)) {
                     var p by remember(task.id, task.progressPct) { mutableStateOf((task.progressPct ?: 0).toFloat()) }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        CardLabel("Progress"); Spacer(Modifier.weight(1f))
+                        Text("Progress", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("${p.toInt()}%", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    androidx.compose.material3.Slider(
-                        value = p, onValueChange = { p = it },
-                        onValueChangeFinished = { update { it.copy(progressPct = p.toInt().takeIf { v -> v > 0 }) } },
-                        valueRange = 0f..100f, steps = 19,
-                    )
+                    androidx.compose.material3.Slider(value = p, onValueChange = { p = it }, onValueChangeFinished = { update { it.copy(progressPct = p.toInt().takeIf { v -> v > 0 }) } }, valueRange = 0f..100f, steps = 19)
                 }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             }
 
-            AppCard {
-                CardLabel("Organize"); Spacer(Modifier.height(6.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("List", Modifier.weight(1f))
-                    Box {
-                        TextButton(onClick = { listMenu = true }) { Text(lists.firstOrNull { it.id == task.listId }?.name ?: "Inbox") }
-                        DropdownMenu(expanded = listMenu, onDismissRequest = { listMenu = false }) {
-                            lists.filter { !it.archived }.forEach { l ->
-                                DropdownMenuItem(text = { Text(l.name) }, onClick = { vm.moveToList(task, l.id); draft = task.copy(listId = l.id); listMenu = false })
-                            }
-                        }
+            // ---------- Compact property rows ----------
+            val level = PriorityLevel.from(task.importance, task.urgency)
+            val zone = java.time.ZoneId.systemDefault()
+            val dueOverdue = task.dueDate?.let { it < System.currentTimeMillis() && !task.completed } == true
+
+            PropRow(Icons.Filled.Event, "Date", task.dueDate?.let { formatDue(it) } ?: "No date",
+                valueColor = if (dueOverdue) MaterialTheme.colorScheme.error else if (task.dueDate != null) MaterialTheme.colorScheme.primary else null,
+                onClear = if (task.dueDate != null) ({ update { it.copy(dueDate = null) } }) else null) { showDue = true }
+            if (task.dueDate != null || task.startDate != null) {
+                PropRow(Icons.Filled.PlayArrow, "Starts", task.startDate?.let { formatDue(it) } ?: "Not set", indent = true,
+                    onClear = if (task.startDate != null) ({ update { it.copy(startDate = null) } }) else null) { showStart = true }
+                Row(Modifier.fillMaxWidth().padding(start = 34.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("All day", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    androidx.compose.material3.Switch(checked = task.isAllDay, onCheckedChange = { on -> update { it.copy(isAllDay = on) } })
+                }
+                MenuRow("Show early", task.leadTimeMin?.let { "${it / 1440}d early" } ?: "Default",
+                    listOf<Pair<Int?, String>>(null to "Default (7 days)", 1 to "1 day early", 3 to "3 days early", 7 to "1 week early", 14 to "2 weeks early")) { d -> update { it.copy(leadTimeMin = d?.let { n -> n * 1440 }) } }
+                val timed = task.dueDate != null && !task.isAllDay && java.time.Instant.ofEpochMilli(task.dueDate!!).atZone(zone).let { it.hour != 0 || it.minute != 0 }
+                if (timed) MenuRow("Duration", task.durationMin?.let { "$it min" } ?: "30 min",
+                    listOf(15, 30, 45, 60, 90, 120, 180, 240).map { it to "$it min" }) { m -> update { it.copy(durationMin = m) } }
+            }
+
+            Box {
+                PropRow(Icons.Filled.Flag, "Priority", level.label, valueColor = priorityColor(level)) { prioMenu = true }
+                DropdownMenu(expanded = prioMenu, onDismissRequest = { prioMenu = false }) {
+                    PriorityLevel.entries.forEach { lvl ->
+                        DropdownMenuItem(text = { Text(lvl.label) }, leadingIcon = { Icon(Icons.Filled.Flag, null, tint = priorityColor(lvl), modifier = Modifier.size(18.dp)) },
+                            onClick = { update { it.copy(importance = lvl.importance, urgency = lvl.urgency) }; prioMenu = false })
                     }
                 }
-                Spacer(Modifier.height(8.dp))
-                val level = PriorityLevel.from(task.importance, task.urgency)
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    PriorityLevel.entries.forEachIndexed { i, lvl ->
-                        SegmentedButton(selected = level == lvl, onClick = { update { it.copy(importance = lvl.importance, urgency = lvl.urgency) } },
-                            shape = SegmentedButtonDefaults.itemShape(i, PriorityLevel.entries.size)) { Text(lvl.label) }
+            }
+            if (settings.advancedPriority) {
+                Dial("Importance", task.importance) { v -> update { it.copy(importance = v) } }
+                Dial("Urgency", task.urgency) { v -> update { it.copy(urgency = v) } }
+            }
+            Box {
+                PropRow(Icons.AutoMirrored.Filled.FormatListBulleted, "List", lists.firstOrNull { it.id == task.listId }?.name ?: "Inbox") { listMenu = true }
+                DropdownMenu(expanded = listMenu, onDismissRequest = { listMenu = false }) {
+                    lists.filter { !it.archived }.forEach { l ->
+                        DropdownMenuItem(text = { Text(l.name) }, onClick = { vm.moveToList(task, l.id); draft = task.copy(listId = l.id); listMenu = false })
                     }
                 }
-                if (settings.advancedPriority) {
-                    Dial("Importance", task.importance) { v -> update { it.copy(importance = v) } }
-                    Dial("Urgency", task.urgency) { v -> update { it.copy(urgency = v) } }
-                }
-                Spacer(Modifier.height(10.dp)); CardLabel("Flag"); Spacer(Modifier.height(6.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FilterChip(
-                        selected = task.flagId == null,
-                        onClick = { update { it.copy(flagId = null, flagColorArgb = null) } },
-                        label = { Text("None") },
-                    )
+            }
+            Box {
+                PropRow(Icons.Filled.Flag, "Flag", allFlags.firstOrNull { it.id == task.flagId }?.name ?: "None", valueColor = task.flagColorArgb?.let { Color(it) }) { flagMenu = true }
+                DropdownMenu(expanded = flagMenu, onDismissRequest = { flagMenu = false }) {
+                    DropdownMenuItem(text = { Text("None") }, onClick = { update { it.copy(flagId = null, flagColorArgb = null) }; flagMenu = false })
                     allFlags.forEach { f ->
-                        FilterChip(
-                            selected = task.flagId == f.id,
-                            onClick = { update { it.copy(flagId = f.id, flagColorArgb = f.colorArgb) } },
-                            leadingIcon = { Icon(com.todocompanion.app.ui.components.FlagIcons.vector(f.icon), null, tint = Color(f.colorArgb), modifier = Modifier.size(18.dp)) },
-                            label = { Text(f.name) },
-                        )
+                        DropdownMenuItem(text = { Text(f.name) }, leadingIcon = { Icon(com.todocompanion.app.ui.components.FlagIcons.vector(f.icon), null, tint = Color(f.colorArgb), modifier = Modifier.size(18.dp)) },
+                            onClick = { update { it.copy(flagId = f.id, flagColorArgb = f.colorArgb) }; flagMenu = false })
                     }
                 }
             }
+            RepeatRow(task.rrule, hasChildren) { rule -> update { it.copy(rrule = rule) } }
 
-            AppCard {
-                CardLabel("Schedule"); Spacer(Modifier.height(2.dp))
-                ScheduleRow("Due", task.dueDate, onSet = { showDue = true }, onClear = { update { it.copy(dueDate = null) } })
-                ScheduleRow("Start", task.startDate, onSet = { showStart = true }, onClear = { update { it.copy(startDate = null) } })
-                if (task.dueDate != null || task.startDate != null) {
-                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("All day", Modifier.weight(1f))
-                        androidx.compose.material3.Switch(checked = task.isAllDay, onCheckedChange = { on -> update { it.copy(isAllDay = on) } })
-                    }
-                    // Lead time: surface the task in Do-Next this many days before it's due (MLO-style).
-                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Show early", Modifier.weight(1f))
-                        Box {
-                            var leadMenu by remember { mutableStateOf(false) }
-                            val days = task.leadTimeMin?.let { it / 1440 }
-                            TextButton(onClick = { leadMenu = true }) { Text(days?.let { "$it day${if (it == 1) "" else "s"} early" } ?: "Default") }
-                            DropdownMenu(expanded = leadMenu, onDismissRequest = { leadMenu = false }) {
-                                listOf<Pair<Int?, String>>(null to "Default (7 days)", 1 to "1 day early", 3 to "3 days early", 7 to "1 week early", 14 to "2 weeks early").forEach { (d, label) ->
-                                    DropdownMenuItem(text = { Text(label) }, onClick = { update { it.copy(leadTimeMin = d?.let { n -> n * 1440 }) }; leadMenu = false })
-                                }
-                            }
-                        }
-                    }
-                }
-                // Duration sizes the block on the calendar timeline (only meaningful for a timed due).
-                if (task.dueDate != null && !task.isAllDay && (java.time.Instant.ofEpochMilli(task.dueDate!!).atZone(java.time.ZoneId.systemDefault()).let { it.hour != 0 || it.minute != 0 })) {
-                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Duration", Modifier.weight(1f))
-                        Box {
-                            var durMenu by remember { mutableStateOf(false) }
-                            TextButton(onClick = { durMenu = true }) { Text(task.durationMin?.let { "$it min" } ?: "30 min") }
-                            DropdownMenu(expanded = durMenu, onDismissRequest = { durMenu = false }) {
-                                listOf(15, 30, 45, 60, 90, 120, 180, 240).forEach { m ->
-                                    DropdownMenuItem(text = { Text("$m min") }, onClick = { update { it.copy(durationMin = m) }; durMenu = false })
-                                }
-                            }
-                        }
-                    }
-                }
-                RepeatRow(task.rrule, allTasks.any { it.parentId == task.id && !it.trashed }) { rule -> update { it.copy(rrule = rule) } }
-                Spacer(Modifier.height(8.dp)); CardLabel("Reminders")
-                reminders.filter { it.taskId == task.id }.forEach { r ->
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+
+            // ---------- Reminders ----------
+            val myReminders = reminders.filter { it.taskId == task.id }
+            DetailSection("Reminders", if (myReminders.isEmpty()) null else "${myReminders.size}", myReminders.isNotEmpty()) {
+                myReminders.forEach { r ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(reminderLabel(r), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                        // Persistent ("annoying") alarm toggle — re-rings until the task is done.
                         IconButton(onClick = { vm.setReminderAnnoying(r, task, !r.annoying) }) {
-                            Icon(if (r.annoying) Icons.Filled.NotificationsActive else Icons.Filled.NotificationsNone,
-                                "Persistent alarm", tint = if (r.annoying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(if (r.annoying) Icons.Filled.NotificationsActive else Icons.Filled.NotificationsNone, "Persistent alarm", tint = if (r.annoying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         IconButton(onClick = { vm.deleteReminder(r, task) }) { Icon(Icons.Filled.Close, "Remove") }
                     }
@@ -338,13 +322,13 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                     DropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
                         DropdownMenuItem(text = { Text("Pick a time…") }, onClick = { addMenu = false; showReminder = true })
                         if (task.dueDate != null) {
-                            androidx.compose.material3.HorizontalDivider()
+                            HorizontalDivider()
                             listOf(0 to "When due", 10 to "10 min before", 30 to "30 min before", 60 to "1 hour before", 1440 to "1 day before").forEach { (off, label) ->
                                 DropdownMenuItem(text = { Text(label) }, onClick = { vm.addRelativeReminder(task, "relativeToDue", off); addMenu = false })
                             }
                         }
                         if (task.startDate != null) {
-                            androidx.compose.material3.HorizontalDivider()
+                            HorizontalDivider()
                             listOf(0 to "When it starts", 60 to "1 hour before start", 1440 to "1 day before start").forEach { (off, label) ->
                                 DropdownMenuItem(text = { Text(label) }, onClick = { vm.addRelativeReminder(task, "relativeToStart", off); addMenu = false })
                             }
@@ -353,9 +337,10 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                 }
             }
 
-            AppCard {
-                CardLabel("Checklist"); Spacer(Modifier.height(2.dp))
-                checklist.filter { it.taskId == task.id }.sortedBy { it.sortOrder }.forEach { item ->
+            // ---------- Subtasks / checklist ----------
+            val myCheck = checklist.filter { it.taskId == task.id }.sortedBy { it.sortOrder }
+            DetailSection("Checklist", if (myCheck.isEmpty()) null else "${myCheck.count { it.checked }}/${myCheck.size}", myCheck.isNotEmpty()) {
+                myCheck.forEach { item ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = item.checked, onCheckedChange = { vm.toggleChecklist(item) })
                         Text(item.text, Modifier.weight(1f), color = if (item.checked) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
@@ -365,56 +350,43 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                 AddInline(newCheck, { newCheck = it }, "Add checklist item") { if (it.isNotBlank()) { vm.addChecklistItem(task.id, it.trim()); newCheck = "" } }
             }
 
-            AppCard {
-                val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-                    if (uri != null) vm.addAttachment(task.id, uri)
-                }
-                val attFlow = remember(task.id) { vm.attachmentMeta(task.id) }
-                val attachments by attFlow.collectAsState(initial = emptyList())
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    CardLabel("Attachments"); Spacer(Modifier.weight(1f))
-                    TextButton(onClick = { pickFile.launch("*/*") }) {
-                        Icon(Icons.Filled.AttachFile, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Add")
-                    }
-                }
-                if (attachments.isEmpty()) {
-                    Text("Any file — images, PDF, Office docs, epub, text. Up to 25 MB per file, add as many as you like. Stored on-device and in backups.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+            // ---------- Attachments ----------
+            val attFlow = remember(task.id) { vm.attachmentMeta(task.id) }
+            val attachments by attFlow.collectAsState(initial = emptyList())
+            val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> if (uri != null) vm.addAttachment(task.id, uri) }
+            DetailSection("Attachments", if (attachments.isEmpty()) null else "${attachments.size}", attachments.isNotEmpty()) {
                 attachments.forEach { a ->
-                    Row(
-                        Modifier.fillMaxWidth().clickable { vm.openAttachment(a.id, a.fileName, a.mime) }.padding(vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
+                    Row(Modifier.fillMaxWidth().clickable { vm.openAttachment(a.id, a.fileName, a.mime) }.padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (a.isImage) AttachmentThumb(vm, a.id) else {
                             val (fIcon, fTint) = attachmentGlyph(a.mime, a.fileName)
-                            Box(Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)).background(fTint.copy(alpha = .14f)), contentAlignment = Alignment.Center) {
-                                Icon(fIcon, null, tint = fTint, modifier = Modifier.size(21.dp))
-                            }
+                            Box(Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)).background(fTint.copy(alpha = .14f)), contentAlignment = Alignment.Center) { Icon(fIcon, null, tint = fTint, modifier = Modifier.size(21.dp)) }
                         }
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(a.fileName, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            Text(a.fileName, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text("${attachmentKind(a.mime, a.fileName)} · ${formatBytes(a.sizeBytes)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                         }
                         IconButton(onClick = { vm.removeAttachment(a.id) }) { Icon(Icons.Filled.Close, "Remove attachment") }
                     }
                 }
+                TextButton(onClick = { pickFile.launch("*/*") }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Icon(Icons.Filled.AttachFile, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Add file") }
+                if (attachments.isEmpty()) Text("Any file up to 25 MB — images, PDF, docs. Stored on-device and in backups.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
-            AppCard {
-                CardLabel("Tags"); Spacer(Modifier.height(6.dp))
-                val assignedTags = ttRefs.filter { it.taskId == task.id }.map { it.tagId }.toSet()
+            // ---------- Tags & contexts ----------
+            val assignedTags = ttRefs.filter { it.taskId == task.id }.map { it.tagId }.toSet()
+            val assignedCtx = tcRefs.filter { it.taskId == task.id }.map { it.contextId }.toSet()
+            DetailSection("Tags & contexts", (assignedTags.size + assignedCtx.size).takeIf { it > 0 }?.toString(), assignedTags.isNotEmpty() || assignedCtx.isNotEmpty()) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     allTags.forEach { tag ->
                         FilterChip(selected = tag.id in assignedTags, onClick = {
                             val next = if (tag.id in assignedTags) assignedTags - tag.id else assignedTags + tag.id
                             vm.setTags(task.id, next.toList())
-                        }, label = { Text(tag.name) })
+                        }, label = { Text("#" + tag.name) })
                     }
                 }
                 AddInline(newTag, { newTag = it }, "New tag") { if (it.isNotBlank()) { vm.createTag(it.trim()); newTag = "" } }
-                Spacer(Modifier.height(8.dp)); CardLabel("Contexts"); Spacer(Modifier.height(6.dp))
-                val assignedCtx = tcRefs.filter { it.taskId == task.id }.map { it.contextId }.toSet()
+                Spacer(Modifier.height(6.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     allContexts.forEach { c ->
                         FilterChip(selected = c.id in assignedCtx, onClick = {
@@ -426,9 +398,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                 AddInline(newContext, { newContext = it }, "New context") { if (it.isNotBlank()) { vm.createContext(it.trim()); newContext = "" } }
             }
 
-            AppCard {
-                CardLabel("Blocked by"); Spacer(Modifier.height(4.dp))
-                val myDeps = allDeps.filter { it.taskId == task.id }
+            // ---------- Blocked by ----------
+            val myDeps = allDeps.filter { it.taskId == task.id }
+            DetailSection("Blocked by", myDeps.size.takeIf { it > 0 }?.toString(), myDeps.isNotEmpty()) {
                 val byId = allTasks.associateBy { it.id }
                 if (myDeps.isEmpty()) Text("Not blocked — this task can be done now.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 myDeps.forEach { dep ->
@@ -441,7 +413,6 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                         IconButton(onClick = { vm.removeDependency(dep) }) { Icon(Icons.Filled.Close, "Remove", modifier = Modifier.size(18.dp)) }
                     }
                 }
-                // With 2+ blockers, choose whether all must finish or any one unblocks (MLO ALL/ANY).
                 if (myDeps.size >= 2) {
                     val mode = myDeps.first().mode
                     Row(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -449,7 +420,6 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                         FilterChip(selected = mode == "OR", onClick = { vm.setDependencyMode(task.id, "OR") }, label = { Text("Any one unblocks") })
                     }
                 }
-                // Delayed activation: start N days after the blocker(s) complete.
                 if (myDeps.isNotEmpty()) {
                     val delay = myDeps.first().delayDays
                     Spacer(Modifier.height(4.dp))
@@ -463,33 +433,31 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                 TextButton(onClick = { showBlockPicker = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text("＋ Add a blocker") }
             }
 
-            val hasChildren = allTasks.any { it.parentId == task.id && !it.trashed }
-            AppCard {
-                TextButton(onClick = { showMore = !showMore }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
-                    Text(if (showMore) "Show less" else "Show more — estimate · goal · project · review")
+            // ---------- More options ----------
+            DetailSection("More options", null, false) {
+                if (totalN == 0) {
+                    // Leaf manual progress lives here when not already set/shown above.
+                    var p by remember(task.id, task.progressPct) { mutableStateOf((task.progressPct ?: 0).toFloat()) }
+                    Text("Manual progress", style = MaterialTheme.typography.bodyMedium)
+                    androidx.compose.material3.Slider(value = p, onValueChange = { p = it }, onValueChangeFinished = { update { it.copy(progressPct = p.toInt().takeIf { v -> v > 0 }) } }, valueRange = 0f..100f, steps = 19)
                 }
-                if (showMore) {
-                    Dial("Estimate (min)", (task.estimateMin ?: 0).coerceIn(0, 5)) { v -> update { it.copy(estimateMin = v * 15) } }
-                    SwitchRow("Mark as goal", task.isGoal) { v -> update { it.copy(isGoal = v) } }
-                    SwitchRow("Mark as project", task.isProject) { v -> update { it.copy(isProject = v) } }
-                    if (hasChildren) SwitchRow("Complete subtasks in order", task.completeInOrder) { v -> update { it.copy(completeInOrder = v) } }
-
-                    // Per-item GTD review cadence.
-                    Spacer(Modifier.height(6.dp)); CardLabel("Review cadence")
-                    val reviewOpts = listOf(null to "Off", 1 to "Daily", 7 to "Weekly", 30 to "Monthly", 90 to "Quarterly")
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        reviewOpts.forEach { (days, label) ->
-                            FilterChip(selected = task.reviewEveryDays == days, onClick = { update { it.copy(reviewEveryDays = days) } }, label = { Text(label) })
-                        }
+                Dial("Estimate (min)", (task.estimateMin ?: 0).coerceIn(0, 5)) { v -> update { it.copy(estimateMin = v * 15) } }
+                SwitchRow("Mark as goal", task.isGoal) { v -> update { it.copy(isGoal = v) } }
+                SwitchRow("Mark as project", task.isProject) { v -> update { it.copy(isProject = v) } }
+                if (hasChildren) SwitchRow("Complete subtasks in order", task.completeInOrder) { v -> update { it.copy(completeInOrder = v) } }
+                Spacer(Modifier.height(6.dp)); CardLabel("Review cadence")
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(null to "Off", 1 to "Daily", 7 to "Weekly", 30 to "Monthly", 90 to "Quarterly").forEach { (days, label) ->
+                        FilterChip(selected = task.reviewEveryDays == days, onClick = { update { it.copy(reviewEveryDays = days) } }, label = { Text(label) })
                     }
-                    if (task.reviewEveryDays != null) {
-                        val last = task.reviewedAt ?: task.createdAt
-                        val dueIn = ((last + task.reviewEveryDays!! * 86_400_000L) - System.currentTimeMillis()) / 86_400_000L
-                        Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (dueIn <= 0) "Due for review" else "Next review in ${dueIn}d", Modifier.weight(1f),
-                                style = MaterialTheme.typography.bodySmall, color = if (dueIn <= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                            TextButton(onClick = { update { it.copy(reviewedAt = System.currentTimeMillis()) } }) { Text("Mark reviewed") }
-                        }
+                }
+                if (task.reviewEveryDays != null) {
+                    val last = task.reviewedAt ?: task.createdAt
+                    val dueIn = ((last + task.reviewEveryDays!! * 86_400_000L) - System.currentTimeMillis()) / 86_400_000L
+                    Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(if (dueIn <= 0) "Due for review" else "Next review in ${dueIn}d", Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodySmall, color = if (dueIn <= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                        TextButton(onClick = { update { it.copy(reviewedAt = System.currentTimeMillis()) } }) { Text("Mark reviewed") }
                     }
                 }
             }
@@ -723,6 +691,57 @@ private fun reminderLabel(r: ReminderEntity): String = when (r.type) {
     "relativeToDue" -> if ((r.offsetMin ?: 0) == 0) "When due" else "${offsetLabel(r.offsetMin)} before due"
     "relativeToStart" -> if ((r.offsetMin ?: 0) == 0) "When it starts" else "${offsetLabel(r.offsetMin)} before start"
     else -> r.type
+}
+
+/** A compact, unboxed property row (Todoist-style): icon · label · value · chevron. Tapping edits;
+ *  an optional clear button appears when the property is set. */
+@Composable
+private fun PropRow(icon: ImageVector, label: String, value: String?, valueColor: Color? = null, indent: Boolean = false, onClear: (() -> Unit)? = null, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onClick() }
+            .padding(start = if (indent) 34.dp else 6.dp, end = 4.dp, top = 11.dp, bottom = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (!indent) { Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp)); Spacer(Modifier.width(14.dp)) }
+        Text(label, style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.weight(1f))
+        if (value != null) Text(value, style = MaterialTheme.typography.bodyMedium, color = valueColor ?: MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 8.dp))
+        if (onClear != null) IconButton(onClick = onClear, modifier = Modifier.size(28.dp)) { Icon(Icons.Filled.Close, "Clear", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.outline) }
+        else { Spacer(Modifier.width(4.dp)); Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp)) }
+    }
+}
+
+/** An indented compact row whose value opens a dropdown of choices. */
+@Composable
+private fun <T> MenuRow(label: String, current: String, options: List<Pair<T, String>>, onPick: (T) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { open = true }.padding(start = 34.dp, end = 4.dp, top = 11.dp, bottom = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.weight(1f))
+            Text(current, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(4.dp)); Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            options.forEach { (v, l) -> DropdownMenuItem(text = { Text(l) }, onClick = { onPick(v); open = false }) }
+        }
+    }
+}
+
+/** A progressive collapsible section: a header with an optional count badge that reveals its body
+ *  on tap. Collapsed by default when it has no content, so simple tasks stay short. */
+@Composable
+private fun DetailSection(title: String, badge: String?, initiallyOpen: Boolean, content: @Composable ColumnScope.() -> Unit) {
+    var open by remember { mutableStateOf(initiallyOpen) }
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { open = !open }.padding(horizontal = 6.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            if (badge != null) Box(Modifier.padding(end = 8.dp).clip(RoundedCornerShape(999.dp)).background(MaterialTheme.colorScheme.secondaryContainer).padding(horizontal = 8.dp, vertical = 1.dp)) { Text(badge, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer) }
+            Icon(if (open) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, if (open) "Collapse" else "Expand", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
+        }
+        if (open) Column(Modifier.fillMaxWidth().padding(start = 6.dp, end = 2.dp, bottom = 6.dp), content = content)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+    }
 }
 
 @Composable
