@@ -42,13 +42,16 @@ data class TaskGroup(val key: String, val title: String, val tasks: List<TaskEnt
 
 object TaskViews {
 
-    private fun localDate(millis: Long, zone: ZoneId): LocalDate =
-        Instant.ofEpochMilli(millis).atZone(zone).toLocalDate()
+    // [dayStartMin] shifts the day boundary later than midnight ("day starts at" setting): a moment
+    // is mapped to the day it belongs to *after* subtracting the rollover, so e.g. with a 3am start,
+    // 1am Tue still counts as Monday.
+    private fun localDate(millis: Long, zone: ZoneId, dayStartMin: Int = 0): LocalDate =
+        Instant.ofEpochMilli(millis - dayStartMin * 60_000L).atZone(zone).toLocalDate()
 
-    fun bucketOf(task: TaskEntity, now: Long, zone: ZoneId = ZoneId.systemDefault()): Bucket {
+    fun bucketOf(task: TaskEntity, now: Long, zone: ZoneId = ZoneId.systemDefault(), dayStartMin: Int = 0): Bucket {
         val due = task.dueDate ?: return Bucket.NODATE
-        val today = localDate(now, zone)
-        val d = localDate(due, zone)
+        val today = localDate(now, zone, dayStartMin)
+        val d = localDate(due, zone, dayStartMin)
         return when {
             d.isBefore(today) -> Bucket.OVERDUE
             d == today -> Bucket.TODAY
@@ -65,13 +68,13 @@ object TaskViews {
      * Filter tasks for a smart-list view. Tag/context/list views are resolved in the
      * caller (they need cross-ref data); this handles the smart lists + a plain list.
      */
-    fun filterSmart(all: List<TaskEntity>, kind: SmartKind, now: Long, zone: ZoneId = ZoneId.systemDefault()): List<TaskEntity> {
-        val today = localDate(now, zone)
+    fun filterSmart(all: List<TaskEntity>, kind: SmartKind, now: Long, zone: ZoneId = ZoneId.systemDefault(), dayStartMin: Int = 0): List<TaskEntity> {
+        val today = localDate(now, zone, dayStartMin)
         return when (kind) {
             SmartKind.INBOX -> all.filter { isOpen(it) && it.listId == "inbox" }
-            SmartKind.TODAY -> all.filter { isOpen(it) && it.dueDate != null && !localDate(it.dueDate!!, zone).isAfter(today) }
-            SmartKind.TOMORROW -> all.filter { isOpen(it) && it.dueDate != null && localDate(it.dueDate!!, zone) == today.plusDays(1) }
-            SmartKind.NEXT7 -> all.filter { isOpen(it) && it.dueDate != null && !localDate(it.dueDate!!, zone).isAfter(today.plusDays(7)) }
+            SmartKind.TODAY -> all.filter { isOpen(it) && it.dueDate != null && !localDate(it.dueDate!!, zone, dayStartMin).isAfter(today) }
+            SmartKind.TOMORROW -> all.filter { isOpen(it) && it.dueDate != null && localDate(it.dueDate!!, zone, dayStartMin) == today.plusDays(1) }
+            SmartKind.NEXT7 -> all.filter { isOpen(it) && it.dueDate != null && !localDate(it.dueDate!!, zone, dayStartMin).isAfter(today.plusDays(7)) }
             SmartKind.SCHEDULED -> all.filter { isOpen(it) && it.dueDate != null }
             SmartKind.FLAGGED -> all.filter { isOpen(it) && it.flagId != null }
             SmartKind.GOALS -> all.filter { isOpen(it) && it.isGoal }
@@ -83,11 +86,11 @@ object TaskViews {
         }
     }
 
-    fun group(tasks: List<TaskEntity>, mode: GroupMode, now: Long, zone: ZoneId = ZoneId.systemDefault()): List<TaskGroup> {
+    fun group(tasks: List<TaskEntity>, mode: GroupMode, now: Long, zone: ZoneId = ZoneId.systemDefault(), dayStartMin: Int = 0): List<TaskGroup> {
         return when (mode) {
             GroupMode.NONE -> listOf(TaskGroup("all", "", tasks))
             GroupMode.DATE -> Bucket.entries.mapNotNull { b ->
-                val items = tasks.filter { bucketOf(it, now, zone) == b }
+                val items = tasks.filter { bucketOf(it, now, zone, dayStartMin) == b }
                 if (items.isEmpty()) null else TaskGroup(b.name, b.label, items)
             }
             GroupMode.PRIORITY -> {

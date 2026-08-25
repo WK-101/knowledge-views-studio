@@ -130,10 +130,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val zone: ZoneId get() = settings.value.timeZone.takeIf { it.isNotBlank() }
         ?.let { runCatching { ZoneId.of(it) }.getOrNull() } ?: ZoneId.systemDefault()
 
+    /** "Day starts at" rollover, in minutes past midnight, for Today/Tomorrow/overdue math. */
+    private val dayStartMin: Int get() = settings.value.dayStartHour.coerceIn(0, 6) * 60
+
     /** Live task count per smart list, for the drawer. */
     val smartCounts: StateFlow<Map<SmartKind, Int>> =
         combine(wsTasks, currentView) { t, _ ->
-            SmartKind.entries.associateWith { TaskViews.filterSmart(t, it, System.currentTimeMillis(), zone).size }
+            SmartKind.entries.associateWith { TaskViews.filterSmart(t, it, System.currentTimeMillis(), zone, dayStartMin).size }
         }.state(emptyMap())
 
     private data class Cfg(val view: ViewRef, val group: GroupMode, val sort: SortMode, val prio: PriorityEngine.Config, val flags: List<FlagEntity>, val timeAvail: Int? = null)
@@ -179,7 +182,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val now = System.currentTimeMillis()
             val filtered = when (val v = cfg.view) {
                 is ViewRef.Smart -> {
-                    val base = TaskViews.filterSmart(all, v.kind, now, zone)
+                    val base = TaskViews.filterSmart(all, v.kind, now, zone, dayStartMin)
                     if (v.kind == SmartKind.DO_NEXT) {
                         val ranked = rankDoNext(base, all, now, cfg.prio, deps, tcRefs, ctxEntities)
                         // "Time available" planner: keep tasks that fit the slot (unestimated always fit).
@@ -245,7 +248,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     val label = if (name.startsWith("￿")) "No context" else "@$name"
                     TaskGroup("ctx:$name", label, ts)
                 }
-            } else TaskViews.group(sorted, gm, now, zone)
+            } else TaskViews.group(sorted, gm, now, zone, dayStartMin)
         }.state(emptyList())
 
     /** When set, the outline is zoomed into this task's subtree (MLO-style focus). */

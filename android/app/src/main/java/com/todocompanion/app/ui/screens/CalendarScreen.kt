@@ -17,6 +17,10 @@ import androidx.compose.ui.unit.IntOffset
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,6 +38,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -69,6 +74,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -164,7 +170,12 @@ fun CalendarScreen(
     // the content and the buttons line up with every other screen.
     Column(modifier.fillMaxSize()) {
         when (mode) {
-            "month" -> MonthView(anchor, selected, dueByDate, firstDow, onSelect = { onSelected(it) }, onPrev = prev, onNext = next, onOpenTask = onOpenTask, swipe = swipe, onAdd = { onAddOnDate(selected) })
+            "month" -> MonthView(anchor, selected, dueByDate, firstDow, onSelect = { onSelected(it) }, onPrev = prev, onNext = next, onOpenTask = onOpenTask, swipe = swipe, onAdd = { onAddOnDate(selected) },
+                onMoveToDay = { d, id ->
+                    // Preserve the task's time-of-day when dropping it on another day; default 9am.
+                    val min = tasks.firstOrNull { it.id == id }?.dueDate?.let { Instant.ofEpochMilli(it).atZone(zone).let { z -> z.hour * 60 + z.minute } } ?: 540
+                    vm.rescheduleToMinute(id, d, min)
+                })
             "week" -> {
                 val start = startOfWeek(anchor, firstDow)
                 TimelineView((0..6).map { start.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo)
@@ -382,12 +393,9 @@ private fun MonthYearPicker(current: YearMonth, onDismiss: () -> Unit, onPick: (
 }
 
 @Composable
-private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, swipe: CalSwipe, onAdd: () -> Unit) {
+private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, swipe: CalSwipe, onAdd: () -> Unit, onMoveToDay: (LocalDate, String) -> Unit) {
     val ym = YearMonth.from(anchor)
     val labels = (0..6).map { firstDow.plus(it.toLong()) }
-    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
-        labels.forEach { d -> Text(d.getDisplayName(TextStyle.NARROW, Locale.getDefault()), Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-    }
     val first = ym.atDay(1)
     val leading = (first.dayOfWeek.value - firstDow.value + 7) % 7
     val cells = buildList<LocalDate?> {
@@ -397,55 +405,124 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
     }
     val today = LocalDate.now()
     val primary = MaterialTheme.colorScheme.primary
-    Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp).swipeNav(onPrev, onNext)) {
-        cells.chunked(7).forEach { week ->
-            Row(Modifier.fillMaxWidth()) {
-                week.forEach { date ->
-                    val isToday = date == today
-                    val isSelected = date == selected
-                    // TickTick grammar: today is a solid filled circle; a selected non-today day gets a ring.
-                    val ringMod = when {
-                        isToday -> Modifier.background(primary, CircleShape)
-                        isSelected -> Modifier.border(1.5.dp, primary, CircleShape)
-                        else -> Modifier
-                    }
-                    Box(
-                        Modifier.weight(1f).aspectRatio(1f).padding(3.dp)
-                            .clip(CircleShape).clickable(enabled = date != null) { date?.let(onSelect) }
-                            .then(ringMod),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (date != null) Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                date.dayOfMonth.toString(),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = when {
-                                    isToday -> MaterialTheme.colorScheme.onPrimary
-                                    date.month != anchor.month -> MaterialTheme.colorScheme.outline
-                                    else -> MaterialTheme.colorScheme.onSurface
-                                },
-                            )
-                            Spacer(Modifier.size(2.dp))
-                            if (dueByDate.containsKey(date)) Box(Modifier.size(5.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.onPrimary else primary))
-                            else Spacer(Modifier.size(5.dp))
+
+    // Long-press a task in the agenda to drag it onto a day cell and reschedule. All coordinates in
+    // window space so the finger, the cell bounds and the floating chip line up.
+    var dragTask by remember { mutableStateOf<TaskEntity?>(null) }
+    var pointer by remember { mutableStateOf(Offset.Zero) }
+    var boxOrigin by remember { mutableStateOf(Offset.Zero) }
+    val cellBounds = remember { mutableStateMapOf<LocalDate, Rect>() }
+    val targetDay = if (dragTask != null) cellBounds.entries.firstOrNull { it.value.contains(pointer) }?.key else null
+
+    Box(Modifier.fillMaxSize().onGloballyPositioned { boxOrigin = it.boundsInWindow().topLeft }) {
+      Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
+            labels.forEach { d -> Text(d.getDisplayName(TextStyle.NARROW, Locale.getDefault()), Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+        Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp).swipeNav(onPrev, onNext)) {
+            cells.chunked(7).forEach { week ->
+                Row(Modifier.fillMaxWidth()) {
+                    week.forEach { date ->
+                        val isToday = date == today
+                        val isSelected = date == selected
+                        val isTarget = date != null && date == targetDay
+                        // TickTick grammar: today is a solid filled circle; a selected non-today day gets a ring.
+                        val ringMod = when {
+                            isTarget -> Modifier.background(primary.copy(alpha = .28f), CircleShape).border(2.dp, primary, CircleShape)
+                            isToday -> Modifier.background(primary, CircleShape)
+                            isSelected -> Modifier.border(1.5.dp, primary, CircleShape)
+                            else -> Modifier
+                        }
+                        Box(
+                            Modifier.weight(1f).aspectRatio(1f).padding(3.dp)
+                                .then(if (date != null) Modifier.onGloballyPositioned { cellBounds[date] = it.boundsInWindow() } else Modifier)
+                                .clip(CircleShape).clickable(enabled = date != null) { date?.let(onSelect) }
+                                .then(ringMod),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (date != null) Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    date.dayOfMonth.toString(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = when {
+                                        isToday -> MaterialTheme.colorScheme.onPrimary
+                                        date.month != anchor.month -> MaterialTheme.colorScheme.outline
+                                        else -> MaterialTheme.colorScheme.onSurface
+                                    },
+                                )
+                                Spacer(Modifier.size(2.dp))
+                                if (dueByDate.containsKey(date)) Box(Modifier.size(5.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.onPrimary else primary))
+                                else Spacer(Modifier.size(5.dp))
+                            }
                         }
                     }
                 }
             }
         }
+        Spacer(Modifier.size(6.dp))
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (selected == today) "TODAY" else "${selected.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()).uppercase()} ${selected.dayOfMonth} ${selected.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()).uppercase()}",
+                Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TextButton(onClick = onAdd) { Text("＋ Add") }
+        }
+        val agenda = dueByDate[selected].orEmpty()
+        if (agenda.isEmpty()) Text("Nothing due — enjoy the day", Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 2.dp, bottom = 100.dp)) {
+            items(agenda, key = { it.id }) { task ->
+                MonthAgendaRow(
+                    task, onOpenTask, swipe, dragging = dragTask?.id == task.id,
+                    onDragStart = { origin, off -> dragTask = task; pointer = origin + off },
+                    onDrag = { d -> pointer += d },
+                    onDragEnd = {
+                        val tgt = cellBounds.entries.firstOrNull { it.value.contains(pointer) }?.key
+                        if (tgt != null && tgt != selected) onMoveToDay(tgt, task.id)
+                        dragTask = null
+                    },
+                    onDragCancel = { dragTask = null },
+                )
+            }
+        }
+      }
+      // Floating chip that follows the finger, plus a hint.
+      dragTask?.let { t ->
+        androidx.compose.material3.Surface(
+            Modifier.offset { IntOffset((pointer.x - boxOrigin.x).roundToInt() - 90, (pointer.y - boxOrigin.y).roundToInt() - 30) }
+                .widthIn(max = 220.dp),
+            shape = RoundedCornerShape(10.dp), color = primary, shadowElevation = 8.dp,
+        ) {
+            Text(
+                (targetDay?.let { "→ ${it.dayOfMonth} ${it.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())}: " } ?: "") + t.title,
+                Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                color = MaterialTheme.colorScheme.onPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelMedium,
+            )
+        }
+      }
     }
-    Spacer(Modifier.size(6.dp))
-    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            if (selected == today) "TODAY" else "${selected.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()).uppercase()} ${selected.dayOfMonth} ${selected.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()).uppercase()}",
-            Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        TextButton(onClick = onAdd) { Text("＋ Add") }
-    }
-    val agenda = dueByDate[selected].orEmpty()
-    if (agenda.isEmpty()) Text("Nothing due — enjoy the day", Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 2.dp, bottom = 100.dp)) {
-        items(agenda, key = { it.id }) { TaskLine(it, onOpenTask, swipe) }
+}
+
+/** An agenda row that also supports long-press-drag onto a month day cell to reschedule. */
+@Composable
+private fun MonthAgendaRow(
+    task: TaskEntity, onOpenTask: (String) -> Unit, swipe: CalSwipe, dragging: Boolean,
+    onDragStart: (Offset, Offset) -> Unit, onDrag: (Offset) -> Unit, onDragEnd: () -> Unit, onDragCancel: () -> Unit,
+) {
+    var origin by remember { mutableStateOf(Offset.Zero) }
+    Box(
+        Modifier
+            .onGloballyPositioned { origin = it.boundsInWindow().topLeft }
+            .pointerInput(task.id) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { off -> onDragStart(origin, off) },
+                    onDrag = { change, d -> change.consume(); onDrag(d) },
+                    onDragEnd = { onDragEnd() },
+                    onDragCancel = { onDragCancel() },
+                )
+            }
+            .then(if (dragging) Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = .06f)) else Modifier),
+    ) {
+        TaskLine(task, onOpenTask, swipe)
     }
 }
 

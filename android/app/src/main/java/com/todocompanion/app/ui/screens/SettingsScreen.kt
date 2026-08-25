@@ -130,6 +130,13 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 ACCENTS.forEach { c -> AccentSwatch(c, s.accentArgb) { vm.saveSettings(s.copy(accentArgb = c)) } }
             }
 
+            Spacer(Modifier.height(12.dp)); Sub("App background")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("none" to "None", "warm" to "Warm", "cool" to "Cool", "mint" to "Mint", "dusk" to "Dusk", "rose" to "Rose").forEach { (key, label) ->
+                    FilterChip(selected = s.appBackground == key, onClick = { vm.saveSettings(s.copy(appBackground = key)) }, label = { Text(label) })
+                }
+            }
+
             Spacer(Modifier.height(12.dp)); Sub("Task density")
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 Density.entries.forEachIndexed { i, d ->
@@ -239,6 +246,15 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Row(Modifier.fillMaxWidth().clickable { showZone = true }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Time zone", Modifier.weight(1f))
                 Text(s.timeZone.ifBlank { "Device (${ZoneId.systemDefault().id})" }, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Spacer(Modifier.height(10.dp)); Sub("Day starts at")
+            Text("Tasks before this hour still count under Today — handy for night owls.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                (0..6).forEach { h ->
+                    FilterChip(selected = s.dayStartHour == h, onClick = { vm.saveSettings(s.copy(dayStartHour = h)) },
+                        label = { Text(if (h == 0) "Midnight" else "%d:00".format(h)) })
+                }
             }
         }
 

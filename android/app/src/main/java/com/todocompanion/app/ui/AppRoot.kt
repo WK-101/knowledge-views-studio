@@ -292,7 +292,10 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                 )
             },
         ) {
+          val appBg = appBackgroundBrush(settings.appBackground)
+          Box(Modifier.fillMaxSize().then(if (appBg != null) Modifier.background(appBg) else Modifier)) {
             Scaffold(
+                containerColor = if (appBg != null) Color.Transparent else MaterialTheme.colorScheme.background,
                 topBar = {
                     // The calendar's combined header (menu · period ▾ · today · type · filter) is
                     // rendered right here in the app-bar slot, so its insets, height and button
@@ -452,6 +455,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                     }
                 }
             }
+          }
         }
 
         editing?.let { id -> TaskDetailScreen(vm, id, onBack = { editing = null }) }
@@ -696,6 +700,24 @@ private fun FilterBuilderDialog(
             }
             }
         },
+    )
+}
+
+/** A subtle whole-app background tint (Settings → Appearance). Returns null for "none". The tint
+ *  lerps from the theme background, so it adapts to light/dark automatically and stays gentle. */
+@Composable
+private fun appBackgroundBrush(name: String): androidx.compose.ui.graphics.Brush? {
+    val bg = MaterialTheme.colorScheme.background
+    val tint = when (name) {
+        "warm" -> Color(0xFFF59E0B)
+        "cool" -> Color(0xFF3E7BFA)
+        "mint" -> Color(0xFF12A594)
+        "dusk" -> Color(0xFF8B5CF6)
+        "rose" -> Color(0xFFEC4899)
+        else -> return null
+    }
+    return androidx.compose.ui.graphics.Brush.verticalGradient(
+        listOf(androidx.compose.ui.graphics.lerp(bg, tint, 0.12f), bg, androidx.compose.ui.graphics.lerp(bg, tint, 0.05f)),
     )
 }
 

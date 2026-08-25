@@ -58,6 +58,11 @@ data class AppSettings(
     // Calendar
     val calendarDefaultMode: String = "month",
     val calendarListFilter: Set<String> = emptySet(),   // empty = all lists
+    // A subtle whole-app background tint: none | warm | cool | mint | dusk | rose.
+    val appBackground: String = "none",
+    // The hour a new "day" begins (0–6). Tasks before this hour still count as the previous day,
+    // so late-night work stays under "Today". 0 = midnight (standard).
+    val dayStartHour: Int = 0,
     // Reminders
     val dailySummaryEnabled: Boolean = false,
     val dailySummaryHour: Int = 8,
@@ -113,6 +118,8 @@ data class AppSettings(
         Keys.MX_OVERDUE to matrixOverdueOnly.toString(),
         Keys.CAL_MODE to calendarDefaultMode,
         Keys.CAL_FILTER to calendarListFilter.joinToString(","),
+        Keys.APP_BG to appBackground,
+        Keys.DAY_START to dayStartHour.toString(),
         Keys.SUMMARY_ON to dailySummaryEnabled.toString(),
         Keys.SUMMARY_H to dailySummaryHour.toString(),
         Keys.SUMMARY_M to dailySummaryMinute.toString(),
@@ -163,6 +170,8 @@ data class AppSettings(
         const val CAL_MODE = "cal_mode"
         const val CAL_FILTER = "cal_filter"
         const val SUMMARY_ON = "summary_on"
+        const val APP_BG = "app_bg"
+        const val DAY_START = "day_start"
         const val SUMMARY_H = "summary_h"
         const val SUMMARY_M = "summary_m"
         const val PINNED = "pinned_refs"
@@ -231,6 +240,8 @@ data class AppSettings(
             smartOrder = (m[Keys.SMART_ORDER] ?: "").split(",").filter { it.isNotBlank() },
             viewsOrder = (m[Keys.VIEWS_ORDER] ?: "").split(",").filter { it.isNotBlank() },
             dailySummaryEnabled = m[Keys.SUMMARY_ON]?.toBooleanStrictOrNull() ?: false,
+            appBackground = m[Keys.APP_BG] ?: "none",
+            dayStartHour = m[Keys.DAY_START]?.toIntOrNull()?.coerceIn(0, 6) ?: 0,
             dailySummaryHour = m[Keys.SUMMARY_H]?.toIntOrNull() ?: 8,
             dailySummaryMinute = m[Keys.SUMMARY_M]?.toIntOrNull() ?: 0,
         )
