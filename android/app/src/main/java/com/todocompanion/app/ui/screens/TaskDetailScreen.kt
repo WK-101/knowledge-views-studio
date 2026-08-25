@@ -170,9 +170,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
         ) {
             // Borderless title with an inline completion checkbox (TickTick-style).
             Row(verticalAlignment = Alignment.Top) {
-                com.todocompanion.app.ui.components.PriorityCheckbox(task.completed, plevel) {
+                com.todocompanion.app.ui.components.PriorityCheckbox(task.completed, plevel, onCheckedChange = {
                     update { it.copy(completed = !it.completed, completedAt = if (!it.completed) System.currentTimeMillis() else null) }
-                }
+                }, onSetLevel = { lvl -> update { it.copy(importance = lvl.importance, urgency = lvl.urgency) } })
                 Spacer(Modifier.width(2.dp))
                 BorderlessField(
                     task.title, { v -> update { it.copy(title = v) } }, "Task title",

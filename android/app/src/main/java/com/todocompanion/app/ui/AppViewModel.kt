@@ -462,6 +462,25 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (!repo.addAttachment(taskId, name, mime, bytes)) toast("File too large (max 25 MB per file)")
     }
     fun removeAttachment(id: String) = viewModelScope.launch { repo.deleteAttachment(id) }
+
+    /** Set a list's background image: decode, downscale to ≤1280px, re-encode JPEG, store as base64. */
+    fun setListBackgroundFromUri(listId: String, uri: Uri) = viewModelScope.launch {
+        val b64 = withContext(Dispatchers.IO) {
+            runCatching {
+                val bytes = appCtx.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@runCatching null
+                val src = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return@runCatching null
+                val maxDim = 1280
+                val scale = minOf(1f, maxDim.toFloat() / maxOf(src.width, src.height).coerceAtLeast(1))
+                val bmp = if (scale < 1f) android.graphics.Bitmap.createScaledBitmap(src, (src.width * scale).toInt().coerceAtLeast(1), (src.height * scale).toInt().coerceAtLeast(1), true) else src
+                val out = java.io.ByteArrayOutputStream()
+                bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 75, out)
+                android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+            }.getOrNull()
+        }
+        if (b64 == null) { toast("Could not read image"); return@launch }
+        repo.setListBackground(listId, b64)
+    }
+    fun clearListBackground(listId: String) = viewModelScope.launch { repo.setListBackground(listId, null) }
     /** Decode an attachment to a temp cache file and hand it to a local viewer app. */
     fun openAttachment(id: String, fileName: String, mime: String) = viewModelScope.launch {
         val b64 = repo.attachmentContent(id) ?: return@launch

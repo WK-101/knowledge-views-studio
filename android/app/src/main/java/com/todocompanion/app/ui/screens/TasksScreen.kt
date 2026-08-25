@@ -163,7 +163,8 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
                                         selected = task.id in selected, selectionMode = selectionMode, onLongPress = { toggleSel(task.id) },
                                         onOpen = { if (selectionMode) toggleSel(task.id) else onOpenTask(task.id) },
                                         onAct = { a -> onSwipe(vm, a, task, isTrash) { onOpenTask(task.id) } },
-                                        onCycleFlag = { vm.cycleFlag(task) }, onToggleStar = { vm.toggleStar(task) })
+                                        onCycleFlag = { vm.cycleFlag(task) }, onToggleStar = { vm.toggleStar(task) },
+                                        onSetPriority = { vm.setPriority(task, it) })
                                   }
                                 }
                             }
@@ -263,7 +264,8 @@ private fun ManualReorderList(
             ) {
                 ReorderRow(task, density, ctxByTask[task.id].orEmpty(), tagsByTask[task.id].orEmpty(), listNameOf(task.id),
                     onOpen = { onOpenTask(task.id) }, onToggle = { vm.toggleComplete(task) },
-                    onCycleFlag = { vm.cycleFlag(task) }, onToggleStar = { vm.toggleStar(task) })
+                    onCycleFlag = { vm.cycleFlag(task) }, onToggleStar = { vm.toggleStar(task) },
+                    onSetPriority = { vm.setPriority(task, it) })
             }
         }
     }
@@ -273,6 +275,7 @@ private fun ManualReorderList(
 private fun ReorderRow(
     task: TaskEntity, density: Density, contexts: List<Pair<String, Long?>>, tags: List<Pair<String, Long?>>, listName: String?,
     onOpen: () -> Unit, onToggle: () -> Unit, onCycleFlag: () -> Unit, onToggleStar: () -> Unit,
+    onSetPriority: ((PriorityLevel) -> Unit)? = null,
 ) {
     val level = PriorityLevel.from(task.importance, task.urgency)
     val done = task.completed || task.abandoned
@@ -283,7 +286,7 @@ private fun ReorderRow(
     ) {
         if (task.isNote) Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
             Icon(Icons.Outlined.Notes, "Note", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(20.dp))
-        } else PriorityCheckbox(task.completed, level) { onToggle() }
+        } else PriorityCheckbox(task.completed, level, { onToggle() }, onSetLevel = onSetPriority)
         Spacer(Modifier.width(2.dp))
         Column(Modifier.weight(1f).padding(top = 8.dp, bottom = 2.dp)) {
             TaskTitle(task, done)
@@ -380,7 +383,7 @@ private fun HierarchyList(vm: AppViewModel, density: Density, onOpenTask: (Strin
                                 onClick = { onOpenTask(row.task.id) },
                                 onToggleComplete = { vm.toggleComplete(row.task) },
                                 onToggleCollapse = {}, onCycleFlag = { vm.cycleFlag(row.task) }, onToggleStar = { vm.toggleStar(row.task) },
-                                onDelete = { vm.trash(row.task) })
+                                onDelete = { vm.trash(row.task) }, onSetPriority = { vm.setPriority(row.task, it) })
                         }
                     }
                 }
@@ -417,7 +420,7 @@ private fun OutlineList(vm: AppViewModel, density: Density, onOpenTask: (String)
                                 onToggleCollapse = { vm.toggleCollapsed(row.task) },
                                 onCycleFlag = { vm.cycleFlag(row.task) }, onToggleStar = { vm.toggleStar(row.task) },
                                 onDelete = { vm.trash(row.task) },
-                                onZoom = { if (row.hasChildren) vm.zoomInto(row.task.id) })
+                                onZoom = { if (row.hasChildren) vm.zoomInto(row.task.id) }, onSetPriority = { vm.setPriority(row.task, it) })
                         }
                     }
                 }
@@ -476,6 +479,7 @@ private fun TaskListItem(
     rightNear: SwipeAction, rightFar: SwipeAction, leftNear: SwipeAction, leftFar: SwipeAction, isTrash: Boolean,
     selected: Boolean, selectionMode: Boolean, onLongPress: () -> Unit,
     onOpen: () -> Unit, onAct: (SwipeAction) -> Unit, onCycleFlag: () -> Unit, onToggleStar: () -> Unit,
+    onSetPriority: ((PriorityLevel) -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
     val dens = LocalDensity.current
@@ -533,7 +537,7 @@ private fun TaskListItem(
                     tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, modifier = Modifier.size(24.dp))
             } else if (task.isNote) Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
                 Icon(Icons.Outlined.Notes, "Note", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(20.dp))
-            } else PriorityCheckbox(task.completed, level) { onAct(SwipeAction.COMPLETE) }
+            } else PriorityCheckbox(task.completed, level, { onAct(SwipeAction.COMPLETE) }, onSetLevel = onSetPriority)
             Spacer(Modifier.width(2.dp))
             // Left: title, date/repeat, note.
             Column(Modifier.weight(1f).padding(top = 8.dp, bottom = 2.dp)) {

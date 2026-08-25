@@ -507,7 +507,7 @@ private fun TaskLine(task: TaskEntity, onOpenTask: (String) -> Unit, onToggle: (
         ) {
             Row(Modifier.height(IntrinsicSize.Min).clickable { onOpenTask(task.id) }, verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.width(4.dp).fillMaxHeight().background(accent))
-                com.todocompanion.app.ui.components.PriorityCheckbox(task.completed, level) { onToggle(task) }
+                com.todocompanion.app.ui.components.PriorityCheckbox(task.completed, level, onCheckedChange = { onToggle(task) })
                 Column(Modifier.weight(1f).padding(vertical = 9.dp)) {
                     Text(
                         task.title.ifBlank { "Untitled" }, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,

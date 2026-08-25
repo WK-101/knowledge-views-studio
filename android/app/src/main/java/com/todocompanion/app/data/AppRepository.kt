@@ -285,6 +285,10 @@ class AppRepository(private val db: AppDatabase) {
 
     suspend fun saveList(list: ListEntity) = lists.upsert(list)
     suspend fun getList(id: String): ListEntity? = lists.getById(id)
+    /** Set (or clear, when null) a list's embedded background image (already-encoded JPEG base64). */
+    suspend fun setListBackground(listId: String, base64: String?) {
+        lists.getById(listId)?.let { lists.upsert(it.copy(backgroundBase64 = base64)) }
+    }
 
     /** Delete a list and permanently remove its tasks. Child lists are re-parented up
      *  (to this list's own parent / folder root) so they aren't orphaned. */

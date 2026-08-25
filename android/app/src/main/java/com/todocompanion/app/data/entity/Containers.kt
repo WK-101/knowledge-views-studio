@@ -46,6 +46,7 @@ data class ListEntity(
     val viewMode: String = "list", // "list" | "outline"
     val archived: Boolean = false,
     val workspaceId: String = WorkspaceEntity.DEFAULT_ID,
+    val backgroundBase64: String? = null,   // optional embedded background image (JPEG), shown faintly behind the list
 ) {
     companion object {
         /** Well-known id of the default Inbox list. */

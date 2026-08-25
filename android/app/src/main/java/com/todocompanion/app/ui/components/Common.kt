@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +32,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -72,9 +76,12 @@ fun rowVerticalPadding(d: Density): Dp = when (d) {
  * MLO-style priority checkbox: a rounded *square* whose fill is a translucent tint of the
  * task's priority colour when unchecked (so high-priority rows read at a glance), filling to
  * a solid colour with an animated tick when checked.
+ *
+ * Tap completes; long-press (when [onSetLevel] is supplied) opens a quick priority-colour picker.
  */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun PriorityCheckbox(checked: Boolean, level: PriorityLevel, onCheckedChange: () -> Unit) {
+fun PriorityCheckbox(checked: Boolean, level: PriorityLevel, onCheckedChange: () -> Unit, onSetLevel: ((PriorityLevel) -> Unit)? = null) {
     val ring = if (level == PriorityLevel.NONE) MaterialTheme.colorScheme.outline else priorityColor(level)
     val prog by animateFloatAsState(if (checked) 1f else 0f, label = "check")
     val shape = RoundedCornerShape(6.dp)
@@ -85,12 +92,33 @@ fun PriorityCheckbox(checked: Boolean, level: PriorityLevel, onCheckedChange: ()
         PriorityLevel.MEDIUM -> 0.14f
         PriorityLevel.HIGH -> 0.18f
     }
-    Box(Modifier.size(40.dp).clip(shape).clickable { onCheckedChange() }, contentAlignment = Alignment.Center) {
+    var picker by remember { mutableStateOf(false) }
+    Box(
+        Modifier.size(40.dp).clip(shape)
+            .combinedClickable(onClick = onCheckedChange, onLongClick = { if (onSetLevel != null) picker = true }),
+        contentAlignment = Alignment.Center,
+    ) {
         Box(
             Modifier.size(22.dp).clip(shape).background(ring.copy(alpha = restTint + (1f - restTint) * prog)).border(2.dp, ring, shape),
             contentAlignment = Alignment.Center,
         ) {
             Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(15.dp).scale(prog))
+        }
+        if (onSetLevel != null) {
+            androidx.compose.material3.DropdownMenu(expanded = picker, onDismissRequest = { picker = false }) {
+                Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    PriorityLevel.entries.forEach { lvl ->
+                        val c = priorityColor(lvl)
+                        Box(
+                            Modifier.size(30.dp).clip(RoundedCornerShape(7.dp))
+                                .background(c.copy(alpha = if (lvl == PriorityLevel.NONE) 0.12f else 0.25f))
+                                .border(2.dp, c, RoundedCornerShape(7.dp))
+                                .clickable { onSetLevel(lvl); picker = false },
+                            contentAlignment = Alignment.Center,
+                        ) { if (lvl == level) Icon(Icons.Filled.Check, null, tint = c, modifier = Modifier.size(16.dp)) }
+                    }
+                }
+            }
         }
     }
 }

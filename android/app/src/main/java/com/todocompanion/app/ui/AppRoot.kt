@@ -89,6 +89,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -365,6 +366,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                             Tab.TASKS -> androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()) {
                                 ViewTabStrip(vm)
                                 Box(Modifier.weight(1f)) {
+                                    ListBackgroundLayer(vm)
                                     if (boardMode) com.todocompanion.app.ui.screens.KanbanScreen(vm, ::openTask) else TasksScreen(vm, ::openTask)
                                 }
                             }
@@ -437,7 +439,9 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
             ManageListDialog(l, onDismiss = { manageList = null },
                 onRename = { vm.saveList(l.copy(name = it)); manageList = null },
                 onColor = { vm.saveList(l.copy(colorArgb = it)) },
-                onDelete = { vm.deleteList(l.id); if (currentView == ViewRef.ListView(l.id)) vm.select(ViewRef.Smart(SmartKind.TODAY)); manageList = null })
+                onDelete = { vm.deleteList(l.id); if (currentView == ViewRef.ListView(l.id)) vm.select(ViewRef.Smart(SmartKind.TODAY)); manageList = null },
+                onPickBackground = { vm.setListBackgroundFromUri(l.id, it) },
+                onClearBackground = { vm.clearListBackground(l.id) })
         }
         manageFolder?.let { f ->
             ManageFolderDialog(f, onDismiss = { manageFolder = null },
@@ -602,6 +606,27 @@ private fun FilterBuilderDialog(
             }
             }
         },
+    )
+}
+
+/** Faint per-list background image, drawn behind the task list when a list with one is open. */
+@Composable
+private fun ListBackgroundLayer(vm: AppViewModel) {
+    val view by vm.currentView.collectAsState()
+    val lists by vm.lists.collectAsState()
+    val listId = (view as? ViewRef.ListView)?.listId ?: return
+    val b64 = lists.firstOrNull { it.id == listId }?.backgroundBase64 ?: return
+    val img = remember(b64) {
+        runCatching {
+            val bytes = android.util.Base64.decode(b64, android.util.Base64.NO_WRAP)
+            android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+        }.getOrNull()
+    } ?: return
+    androidx.compose.foundation.Image(
+        bitmap = img, contentDescription = null,
+        modifier = Modifier.fillMaxSize(),
+        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+        alpha = 0.18f,
     )
 }
 
@@ -773,8 +798,14 @@ private fun NewContainerDialog(req: NewReq, folders: List<FolderEntity>, onDismi
 private val SWATCHES = listOf(0xFFE5484D, 0xFFF59E0B, 0xFF12A594, 0xFF3E7BFA, 0xFF8B5CF6, 0xFFEC4899, 0xFF64748B)
 
 @Composable
-private fun ManageListDialog(list: ListEntity, onDismiss: () -> Unit, onRename: (String) -> Unit, onColor: (Long) -> Unit, onDelete: () -> Unit) {
+private fun ManageListDialog(
+    list: ListEntity, onDismiss: () -> Unit, onRename: (String) -> Unit, onColor: (Long) -> Unit, onDelete: () -> Unit,
+    onPickBackground: (android.net.Uri) -> Unit, onClearBackground: () -> Unit,
+) {
     var name by remember { mutableStateOf(list.name) }
+    val bgPicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) onPickBackground(uri)
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onRename(name.trim()) }) { Text("Save") } },
@@ -789,6 +820,12 @@ private fun ManageListDialog(list: ListEntity, onDismiss: () -> Unit, onRename: 
                 Spacer(Modifier.size(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     SWATCHES.forEach { c -> Box(Modifier.size(26.dp).clip(CircleShape).background(Color(c)).clickable { onColor(c) }) }
+                }
+                Spacer(Modifier.size(12.dp))
+                Text("Background image", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { bgPicker.launch("image/*") }) { Text(if (list.backgroundBase64 == null) "Set image" else "Change image") }
+                    if (list.backgroundBase64 != null) TextButton(onClick = onClearBackground) { Text("Remove", color = MaterialTheme.colorScheme.error) }
                 }
             }
         },

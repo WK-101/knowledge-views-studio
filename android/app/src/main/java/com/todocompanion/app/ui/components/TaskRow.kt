@@ -47,6 +47,7 @@ fun TaskRow(
     onToggleStar: () -> Unit,
     onDelete: () -> Unit,
     onZoom: () -> Unit = {},
+    onSetPriority: ((PriorityLevel) -> Unit)? = null,
 ) {
     val state = rememberSwipeToDismissBoxState(confirmValueChange = { v ->
         when (v) {
@@ -85,7 +86,7 @@ fun TaskRow(
                 }
             } else Spacer(Modifier.width(30.dp))
 
-            PriorityCheckbox(task.completed, level, onToggleComplete)
+            PriorityCheckbox(task.completed, level, onToggleComplete, onSetLevel = onSetPriority)
             Spacer(Modifier.width(4.dp))
             Text(
                 task.title, Modifier.weight(1f),
