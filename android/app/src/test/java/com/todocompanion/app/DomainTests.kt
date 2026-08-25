@@ -219,6 +219,34 @@ class PriorityEngineTest {
         // Importance-only mode: identical importance ⇒ equal base score (no due term here).
         assertEquals(PriorityEngine.score(lowUrg, now, mapOf(), impCfg), PriorityEngine.score(highUrg, now, mapOf(), impCfg), 1e-9)
     }
+
+    // ---- Tier 9B: bounded egg-timer / spike-then-decay / dependency propagation ----
+
+    @Test fun scheduledBeatsUnscheduled() {
+        // MLO quirk fixed: even a far-future due date must edge out a task with no date at all.
+        val now = 10_000_000_000L
+        val dated = task("dated", importance = 3, urgency = 3, due = now + 60L * 86_400_000)
+        val undated = task("undated", importance = 3, urgency = 3)
+        assertTrue(PriorityEngine.score(dated, now, mapOf()) > PriorityEngine.score(undated, now, mapOf()))
+    }
+
+    @Test fun overdueSpikesThenDecays() {
+        // A task that just slipped its deadline is more urgent than one overdue for weeks.
+        val now = 10_000_000_000L
+        val justOverdue = task("just", importance = 3, urgency = 3, due = now - 86_400_000)
+        val longOverdue = task("long", importance = 3, urgency = 3, due = now - 40L * 86_400_000)
+        assertTrue(PriorityEngine.score(justOverdue, now, mapOf()) > PriorityEngine.score(longOverdue, now, mapOf()))
+    }
+
+    @Test fun dependencyBoostRaisesBlocker() {
+        // A low-priority task that blocks a high-priority successor should inherit a boost.
+        val blocker = task("blk", importance = 1, urgency = 1)
+        val important = task("imp", importance = 5, urgency = 5)
+        val byId = mapOf("blk" to blocker, "imp" to important)
+        val deps = listOf(DependencyEntity("imp", "blk", "AND"))
+        val boosts = PriorityEngine.dependencyBoosts(deps, byId)
+        assertTrue((boosts["blk"] ?: 0.0) > 0.0)
+    }
 }
 
 class HabitStatsTest {

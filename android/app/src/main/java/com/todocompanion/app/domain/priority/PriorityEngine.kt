@@ -2,6 +2,7 @@ package com.todocompanion.app.domain.priority
 
 import com.todocompanion.app.data.entity.DependencyEntity
 import com.todocompanion.app.data.entity.TaskEntity
+import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
@@ -87,18 +88,30 @@ object PriorityEngine {
 
     private fun leadDays(task: TaskEntity): Double = task.leadTimeMin?.let { it / 1440.0 } ?: DEFAULT_LEAD_DAYS
 
+    private const val OVERDUE_SPIKE = 1.5    // extra urgency the moment a task goes overdue
+    private const val OVERDUE_HALFLIFE = 5.0 // days over which that spike decays back down
+
+    /**
+     * **Bounded egg-timer** urgency for a due date (0..~1 pre-deadline, capped), fixing MLO's quirk
+     * where a far-future due date could score *below* a task with no date at all:
+     *  - `lead / (lead + daysToDue)` decays smoothly from 1.0 (at the deadline) toward — but never to
+     *    — 0, so **any** scheduled task always edges out an unscheduled one, and the term is bounded;
+     *  - once overdue it **spikes then decays** (`1 + spike·e^(-daysOverdue/halfLife)`), so a task
+     *    that just slipped its deadline is the most urgent, and one that's been overdue for weeks
+     *    quietly recedes instead of dominating the list forever (MLO does the opposite).
+     */
+    fun dueUrgency(daysToDue: Double, lead: Double, overdueBoost: Boolean): Double = when {
+        daysToDue <= 0 -> 1.0 + if (overdueBoost) OVERDUE_SPIKE * exp(daysToDue / OVERDUE_HALFLIFE) else 0.0
+        else -> lead / (lead + daysToDue)
+    }
+
     /** Weighted date term added to the importance/urgency base. */
     fun dateTerm(task: TaskEntity, now: Long, cfg: Config = DEFAULT): Double {
         var t = 0.0
         val lead = leadDays(task)
         task.dueDate?.let { due ->
             val daysToDue = (due - now) / DAY_MS
-            val dueTerm = when {
-                daysToDue <= 0 -> 1.0 + if (cfg.overdueBoost) min(-daysToDue, 30.0) * 0.25 else 0.0  // overdue climbs
-                daysToDue >= lead -> 0.0
-                else -> 1.0 - daysToDue / lead                                                        // ramps 0→1 as due nears
-            }
-            t += cfg.dueWeight * dueTerm
+            t += cfg.dueWeight * dueUrgency(daysToDue, lead, cfg.overdueBoost)
         }
         task.startDate?.let { start ->
             val daysSinceStart = (now - start) / DAY_MS
@@ -108,6 +121,27 @@ object PriorityEngine {
         }
         if (task.isGoal) t += cfg.goalWeight
         return t
+    }
+
+    /**
+     * **Dependency → priority propagation** (a genuine step past MLO, which never does this): a task
+     * that *blocks* an important/urgent successor is itself high-leverage — finishing it unblocks
+     * work — so it inherits a share of its best direct successor's base weight. Returns a boost per
+     * predecessor task id, to be *added* to that task's score.
+     */
+    fun dependencyBoosts(deps: List<DependencyEntity>, tasksById: Map<String, TaskEntity>, cfg: Config = DEFAULT, propagation: Double = 0.5): Map<String, Double> {
+        if (deps.isEmpty()) return emptyMap()
+        val out = HashMap<String, Double>()
+        for (d in deps) {
+            val successor = tasksById[d.taskId] ?: continue      // the task that waits on the predecessor
+            if (tasksById[d.dependsOnTaskId] == null) continue    // predecessor must exist
+            if (successor.completed || successor.trashed || successor.abandoned) continue
+            val imp = product(successor, tasksById, cfg.curveBase) { it.importance }
+            val urg = product(successor, tasksById, cfg.curveBase) { it.urgency }
+            val w = propagation * (imp * urg)
+            out[d.dependsOnTaskId] = maxOf(out[d.dependsOnTaskId] ?: 0.0, w)
+        }
+        return out
     }
 
     /** Raw ranking score (ignores gating). Higher = do sooner. */
@@ -147,6 +181,7 @@ object PriorityEngine {
         contextAvailable: (String) -> Boolean,
         orderBlocked: (String) -> Boolean = { false },
         cfg: Config = DEFAULT,
+        depBoost: (String) -> Double = { 0.0 },
     ): List<Ranked> {
         val byId = all.associateBy { it.id }
         val actionable = all.asSequence()
@@ -165,7 +200,7 @@ object PriorityEngine {
                 .thenBy { it.id }
             return actionable.sortedWith(cmp).map { Ranked(it, 0.0) }
         }
-        return actionable.map { Ranked(it, score(it, now, byId, cfg)) }
+        return actionable.map { Ranked(it, score(it, now, byId, cfg) + depBoost(it.id)) }
             .sortedByDescending { it.score }
     }
 

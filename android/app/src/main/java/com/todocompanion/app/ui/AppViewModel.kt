@@ -287,6 +287,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val dow = dt.dayOfWeek.value; val minute = dt.hour * 60 + dt.minute
         val availById = ctxs.associate { it.id to com.todocompanion.app.domain.context.ContextAvailability.isAvailable(it, dow, minute) }
         val ctxByTask = tcRefs.groupBy { it.taskId }
+        // Dependency → priority propagation: a task blocking important work rises in the ranking.
+        val depBoosts = PriorityEngine.dependencyBoosts(deps, byId, cfg)
         return PriorityEngine.doNext(
             all = base,
             now = now,
@@ -298,6 +300,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             },
             orderBlocked = ::orderBlocked,
             cfg = cfg,
+            depBoost = { id -> depBoosts[id] ?: 0.0 },
         ).map { it.task }
     }
 
