@@ -368,6 +368,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             repo.setTaskContexts(id, ctxIds.distinct())
         }
 
+        // Natural-language recurrence ("every Tuesday", "monthly", "every 2 weeks").
+        if (parsed.rrule != null) repo.getTask(id)?.let { repo.saveTask(it.copy(rrule = parsed.rrule)) }
+
         val reminderAt = opts.reminderMillis ?: (if (parsed.hasTime && due != null) due else null)
         if (reminderAt != null) {
             val r = ReminderEntity(UUID.randomUUID().toString(), taskId = id, type = "absolute", atTime = reminderAt)
@@ -756,10 +759,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun markReviewed(t: TaskEntity) = viewModelScope.launch { repo.saveTask(t.copy(reviewedAt = System.currentTimeMillis())) }
 
     // ---------- reminders ----------
-    fun addAbsoluteReminder(task: TaskEntity, atMillis: Long) = viewModelScope.launch {
-        val r = ReminderEntity(UUID.randomUUID().toString(), taskId = task.id, type = "absolute", atTime = atMillis)
+    fun addAbsoluteReminder(task: TaskEntity, atMillis: Long, annoying: Boolean = false) = viewModelScope.launch {
+        val r = ReminderEntity(UUID.randomUUID().toString(), taskId = task.id, type = "absolute", atTime = atMillis, annoying = annoying)
         repo.upsertReminder(r)
         AlarmScheduler.schedule(appCtx, r, task)
+    }
+    /** A reminder relative to the task's due or start ([type] = relativeToDue / relativeToStart). */
+    fun addRelativeReminder(task: TaskEntity, type: String, offsetMin: Int, annoying: Boolean = false) = viewModelScope.launch {
+        val r = ReminderEntity(UUID.randomUUID().toString(), taskId = task.id, type = type, offsetMin = offsetMin, annoying = annoying)
+        repo.upsertReminder(r)
+        AlarmScheduler.schedule(appCtx, r, task)
+    }
+    /** Toggle a reminder's persistent ("annoying") alarm — re-fires until the task is done. */
+    fun setReminderAnnoying(reminder: ReminderEntity, task: TaskEntity, on: Boolean) = viewModelScope.launch {
+        val nr = reminder.copy(annoying = on)
+        repo.upsertReminder(nr)
+        AlarmScheduler.cancel(appCtx, reminder, task); AlarmScheduler.schedule(appCtx, nr, task)
     }
     fun deleteReminder(reminder: ReminderEntity, task: TaskEntity) = viewModelScope.launch {
         repo.deleteReminder(reminder.id)

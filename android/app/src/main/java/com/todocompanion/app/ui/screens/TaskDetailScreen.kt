@@ -28,6 +28,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.NotificationsNone
+import com.todocompanion.app.data.entity.ReminderEntity
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.foundation.layout.heightIn
@@ -267,6 +270,26 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                 CardLabel("Schedule"); Spacer(Modifier.height(2.dp))
                 ScheduleRow("Due", task.dueDate, onSet = { showDue = true }, onClear = { update { it.copy(dueDate = null) } })
                 ScheduleRow("Start", task.startDate, onSet = { showStart = true }, onClear = { update { it.copy(startDate = null) } })
+                if (task.dueDate != null || task.startDate != null) {
+                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("All day", Modifier.weight(1f))
+                        androidx.compose.material3.Switch(checked = task.isAllDay, onCheckedChange = { on -> update { it.copy(isAllDay = on) } })
+                    }
+                    // Lead time: surface the task in Do-Next this many days before it's due (MLO-style).
+                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Show early", Modifier.weight(1f))
+                        Box {
+                            var leadMenu by remember { mutableStateOf(false) }
+                            val days = task.leadTimeMin?.let { it / 1440 }
+                            TextButton(onClick = { leadMenu = true }) { Text(days?.let { "$it day${if (it == 1) "" else "s"} early" } ?: "Default") }
+                            DropdownMenu(expanded = leadMenu, onDismissRequest = { leadMenu = false }) {
+                                listOf<Pair<Int?, String>>(null to "Default (7 days)", 1 to "1 day early", 3 to "3 days early", 7 to "1 week early", 14 to "2 weeks early").forEach { (d, label) ->
+                                    DropdownMenuItem(text = { Text(label) }, onClick = { update { it.copy(leadTimeMin = d?.let { n -> n * 1440 }) }; leadMenu = false })
+                                }
+                            }
+                        }
+                    }
+                }
                 // Duration sizes the block on the calendar timeline (only meaningful for a timed due).
                 if (task.dueDate != null && !task.isAllDay && (java.time.Instant.ofEpochMilli(task.dueDate!!).atZone(java.time.ZoneId.systemDefault()).let { it.hour != 0 || it.minute != 0 })) {
                     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -286,11 +309,34 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                 Spacer(Modifier.height(8.dp)); CardLabel("Reminders")
                 reminders.filter { it.taskId == task.id }.forEach { r ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(r.atTime?.let { formatDue(it) } ?: r.type, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        Text(reminderLabel(r), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        // Persistent ("annoying") alarm toggle — re-rings until the task is done.
+                        IconButton(onClick = { vm.setReminderAnnoying(r, task, !r.annoying) }) {
+                            Icon(if (r.annoying) Icons.Filled.NotificationsActive else Icons.Filled.NotificationsNone,
+                                "Persistent alarm", tint = if (r.annoying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                         IconButton(onClick = { vm.deleteReminder(r, task) }) { Icon(Icons.Filled.Close, "Remove") }
                     }
                 }
-                TextButton(onClick = { showReminder = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Icon(Icons.Filled.Add, null); Spacer(Modifier.width(4.dp)); Text("Add reminder") }
+                Box {
+                    var addMenu by remember { mutableStateOf(false) }
+                    TextButton(onClick = { addMenu = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Icon(Icons.Filled.Add, null); Spacer(Modifier.width(4.dp)); Text("Add reminder") }
+                    DropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
+                        DropdownMenuItem(text = { Text("Pick a time…") }, onClick = { addMenu = false; showReminder = true })
+                        if (task.dueDate != null) {
+                            androidx.compose.material3.HorizontalDivider()
+                            listOf(0 to "When due", 10 to "10 min before", 30 to "30 min before", 60 to "1 hour before", 1440 to "1 day before").forEach { (off, label) ->
+                                DropdownMenuItem(text = { Text(label) }, onClick = { vm.addRelativeReminder(task, "relativeToDue", off); addMenu = false })
+                            }
+                        }
+                        if (task.startDate != null) {
+                            androidx.compose.material3.HorizontalDivider()
+                            listOf(0 to "When it starts", 60 to "1 hour before start", 1440 to "1 day before start").forEach { (off, label) ->
+                                DropdownMenuItem(text = { Text(label) }, onClick = { vm.addRelativeReminder(task, "relativeToStart", off); addMenu = false })
+                            }
+                        }
+                    }
+                }
             }
 
             AppCard {
@@ -647,6 +693,22 @@ private fun Stepper(value: Int, onChange: (Int) -> Unit) {
         Text(value.toString(), style = MaterialTheme.typography.titleMedium)
         TextButton(onClick = { onChange(value + 1) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp)) { Text("+") }
     }
+}
+
+private fun offsetLabel(min: Int?): String {
+    val m = min ?: 0
+    return when {
+        m % 1440 == 0 && m != 0 -> "${m / 1440} day${if (m / 1440 == 1) "" else "s"}"
+        m % 60 == 0 && m != 0 -> "${m / 60} hour${if (m / 60 == 1) "" else "s"}"
+        else -> "$m min"
+    }
+}
+
+private fun reminderLabel(r: ReminderEntity): String = when (r.type) {
+    "absolute" -> r.atTime?.let { formatDue(it) } ?: "Reminder"
+    "relativeToDue" -> if ((r.offsetMin ?: 0) == 0) "When due" else "${offsetLabel(r.offsetMin)} before due"
+    "relativeToStart" -> if ((r.offsetMin ?: 0) == 0) "When it starts" else "${offsetLabel(r.offsetMin)} before start"
+    else -> r.type
 }
 
 @Composable

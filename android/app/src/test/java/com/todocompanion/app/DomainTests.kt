@@ -234,6 +234,25 @@ class HabitStatsTest {
     }
 }
 
+class QuickAddRecurrenceTest {
+    private val P = com.todocompanion.app.domain.nlp.QuickAddParser
+    @Test fun parsesEveryWeekdayList() {
+        val r = P.parse("gym every tuesday and thursday")
+        assertTrue(r.rrule != null && r.rrule!!.contains("FREQ=WEEKLY"))
+        assertTrue(r.rrule!!.contains("DAYS="))
+        assertTrue(r.title.contains("gym"))
+    }
+    @Test fun parsesEveryNWeeks() {
+        val r = P.parse("water plants every 2 weeks")
+        assertTrue(r.rrule != null && r.rrule!!.contains("FREQ=WEEKLY"))
+        assertTrue(r.rrule!!.contains("INT=2"))
+    }
+    @Test fun parsesMonthlyWord() {
+        val r = P.parse("pay rent monthly")
+        assertTrue(r.rrule != null && r.rrule!!.contains("FREQ=MONTHLY"))
+    }
+}
+
 class FilterQueryTest {
     private val zone = java.time.ZoneId.of("UTC")
     private fun t(id: String, listId: String = "l", imp: Int = 3, urg: Int = 3, flag: String? = null) =

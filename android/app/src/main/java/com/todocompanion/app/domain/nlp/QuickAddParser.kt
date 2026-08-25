@@ -1,6 +1,9 @@
 package com.todocompanion.app.domain.nlp
 
 import com.todocompanion.app.domain.priority.PriorityLevel
+import com.todocompanion.app.domain.recurrence.Freq
+import com.todocompanion.app.domain.recurrence.Recur
+import com.todocompanion.app.domain.recurrence.Recurrence
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -15,6 +18,7 @@ data class ParsedQuickAdd(
     val tags: List<String> = emptyList(),
     val contexts: List<String> = emptyList(),
     val list: String? = null,
+    val rrule: String? = null,
 ) {
     /** Compact chips for the quick-add UI. */
     fun chips(): List<Chip> = buildList {
@@ -86,6 +90,34 @@ object QuickAddParser {
                     3 -> PriorityLevel.HIGH; 2 -> PriorityLevel.MEDIUM; else -> PriorityLevel.LOW
                 }
                 strip.add(it.range)
+            }
+        }
+
+        // recurrence: "daily/weekly/monthly/yearly", "every [N] day|week|month|year|weekday",
+        // or "every mon,wed and fri" → weekly on those days.
+        var rrule: String? = null
+        Regex("(?<=\\s|^)every\\s+(\\d+)?\\s*(weekdays?|days?|weeks?|months?|years?)\\b", RegexOption.IGNORE_CASE).find(text)?.let { m ->
+            val n = m.groupValues[1].toIntOrNull() ?: 1
+            val unit = m.groupValues[2].lowercase()
+            val freq = when {
+                unit.startsWith("weekday") -> Freq.WEEKDAYS
+                unit.startsWith("day") -> Freq.DAILY
+                unit.startsWith("week") -> Freq.WEEKLY
+                unit.startsWith("month") -> Freq.MONTHLY
+                else -> Freq.YEARLY
+            }
+            rrule = Recurrence.encode(Recur(freq, n.coerceAtLeast(1))); strip.add(m.range)
+        }
+        if (rrule == null) {
+            val wd = WEEKDAYS.keys.sortedByDescending { it.length }.joinToString("|")
+            Regex("(?<=\\s|^)every\\s+((?:$wd)(?:(?:\\s*(?:,|and)\\s*|\\s+)(?:$wd))*)\\b", RegexOption.IGNORE_CASE).find(text)?.let { m ->
+                val days = m.groupValues[1].lowercase().split(Regex("[,&\\s]+")).mapNotNull { WEEKDAYS[it]?.value }.toSet()
+                if (days.isNotEmpty()) { rrule = Recurrence.encode(Recur(Freq.WEEKLY, 1, byDays = days)); strip.add(m.range) }
+            }
+        }
+        if (rrule == null) {
+            for ((w, f) in listOf("daily" to Freq.DAILY, "weekly" to Freq.WEEKLY, "monthly" to Freq.MONTHLY, "yearly" to Freq.YEARLY, "annually" to Freq.YEARLY)) {
+                if (rrule == null) Regex("(?<=\\s|^)$w\\b", RegexOption.IGNORE_CASE).find(text)?.let { rrule = Recurrence.encode(Recur(f)); strip.add(it.range) }
             }
         }
 
@@ -174,6 +206,7 @@ object QuickAddParser {
             tags = tags,
             contexts = contexts,
             list = list,
+            rrule = rrule,
         )
     }
 
