@@ -39,6 +39,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.Sync
+import com.todocompanion.app.ui.components.formatDue
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Flag
@@ -107,6 +109,21 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) vm.importFrom(uri) { ok -> Toast.makeText(context, if (ok) "Imported" else "Import failed", Toast.LENGTH_SHORT).show() }
+    }
+    // Import from another app (Todoist/TickTick CSV, MLO OPML).
+    val importExternalLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) vm.importExternal(uri) { ok, msg -> Toast.makeText(context, msg, if (ok) Toast.LENGTH_LONG else Toast.LENGTH_LONG).show() }
+    }
+    // Folder pickers for backup & sync — take a persistable grant so alarms can write later.
+    fun persist(uri: android.net.Uri) = runCatching {
+        context.contentResolver.takePersistableUriPermission(uri,
+            android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+    }
+    val backupFolderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) { persist(uri); vm.setAutoBackupFolder(uri.toString()) }
+    }
+    val syncFolderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) { persist(uri); vm.setSyncFolder(uri.toString()) }
     }
     val exportMdLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri ->
         if (uri != null) vm.exportMarkdownTo(uri, includeCompleted = true) { ok -> Toast.makeText(context, if (ok) "Exported" else "Export failed", Toast.LENGTH_SHORT).show() }
@@ -380,6 +397,31 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Action("Export as CSV (spreadsheet)") { exportCsvLauncher.launch("todo-companion.csv") }
             Text("Readable, portable snapshots for sharing or archiving. (Restore uses JSON.)",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+            HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+            Action("Import from Todoist / TickTick / MLO") { importExternalLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "text/xml", "application/xml", "text/*", "*/*")) }
+            Text("Reads their CSV export (Todoist, TickTick) or OPML (MLO) on-device — no account, nothing uploaded.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+        }
+
+        SettingsGroup(Icons.Filled.Sync, "Backup & sync (folder)", open["sync"] == true, { open["sync"] = open["sync"] != true }) {
+            Text("Fully account-free: point the app at a folder (device, or a drive you already sync like Drive / Dropbox / Syncthing). Nothing goes to us.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
+            Toggle("Automatic backup", s.autoBackupEnabled) { on -> if (on && s.autoBackupFolder.isBlank()) backupFolderLauncher.launch(null) else vm.setAutoBackupEnabled(on) }
+            if (s.autoBackupEnabled) {
+                Action(if (s.autoBackupFolder.isBlank()) "Choose backup folder…" else "Backup folder: " + folderLabel(s.autoBackupFolder)) { backupFolderLauncher.launch(null) }
+                Text("A dated JSON copy is written daily around ${"%02d:00".format(s.autoBackupHour)}.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Action("Back up now") { vm.runBackupNow { ok -> Toast.makeText(context, if (ok) "Backed up" else "Choose a folder first", Toast.LENGTH_SHORT).show() } }
+            HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+            Toggle("Sync across devices (shared folder)", s.syncEnabled) { on -> if (on && s.syncFolder.isBlank()) syncFolderLauncher.launch(null) else vm.setSyncEnabled(on) }
+            if (s.syncEnabled || s.syncFolder.isNotBlank()) {
+                Action(if (s.syncFolder.isBlank()) "Choose sync folder…" else "Sync folder: " + folderLabel(s.syncFolder)) { syncFolderLauncher.launch(null) }
+                Action("Sync now") { vm.runSyncNow { ok, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() } }
+                if (s.lastSyncAt > 0) Text("Last synced " + formatDue(s.lastSyncAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Point every device at the same folder. Merges are last-write-wins per task; each device keeps its own settings.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
 
         Spacer(Modifier.height(20.dp))
@@ -574,6 +616,12 @@ private fun Action(title: String, onClick: () -> Unit) {
     Text(title, Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 12.dp),
         style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
 }
+
+/** A short human name for a SAF tree URI, e.g. "…/tree/primary:Backups" → "Backups". */
+private fun folderLabel(uri: String): String = runCatching {
+    val decoded = android.net.Uri.decode(uri)
+    decoded.substringAfterLast(':').substringAfterLast('/').ifBlank { "folder" }
+}.getOrDefault("folder")
 
 private val ACCENTS = listOf(
     0xFF5B57D9, 0xFF2F6BFF, 0xFF0EA5E9, 0xFF06B6D4, 0xFF12A594, 0xFF0EA371, 0xFF65A30D, 0xFFCA8A04,

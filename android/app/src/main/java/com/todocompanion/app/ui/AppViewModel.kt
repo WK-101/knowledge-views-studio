@@ -393,13 +393,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * packing each by its estimate (default 30 min) in ranked order. Undated and today/overdue tasks
      * are candidates; future-dated ones are left alone. Reports (scheduled, didn't-fit). Fully offline.
      */
+    /** The hour of day you most often finish things (learned from completion history) — your peak.
+     *  Falls back to the configured work-start hour when there's not enough history. */
+    fun peakHour(): Int {
+        val hist = IntArray(24)
+        tasks.value.forEach { t -> t.completedAt?.let { hist[java.time.Instant.ofEpochMilli(it).atZone(zone).hour]++ } }
+        val total = hist.sum()
+        if (total < 8) return settings.value.workStartHour.coerceIn(0, 23)  // too little signal
+        return hist.indices.maxByOrNull { hist[it] } ?: settings.value.workStartHour
+    }
+
     fun autoScheduleToday(onDone: (Int, Int) -> Unit = { _, _ -> }) = viewModelScope.launch {
         val s = settings.value
         val startHour = s.workStartHour.coerceIn(0, 23)
         val endHour = s.workEndHour.coerceIn(startHour + 1, 24)
         val dayStart = java.time.LocalDate.now(zone).atStartOfDay(zone)
         val windowEnd = dayStart.plusHours(endHour.toLong())
-        var cursor = dayStart.plusHours(startHour.toLong())
+        // Rhythm-aware start: begin at your learned peak hour when it sits inside the work window,
+        // so the highest-energy tasks (placed first below) land on your best time of day.
+        val peak = peakHour().coerceIn(startHour, endHour - 1)
+        var cursor = dayStart.plusHours(peak.toLong())
         // Never schedule into the past: if the window has already begun, start from the next quarter-hour.
         val now = System.currentTimeMillis()
         if (cursor.toInstant().toEpochMilli() < now) {
@@ -407,9 +420,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             cursor = nowZ.withMinute(0).plusMinutes((((nowZ.minute) / 15) + 1) * 15L)
         }
         val todayDate = java.time.LocalDate.now(zone)
-        val candidates = doNextRanked().filter { t ->
+        val ranked = doNextRanked().filter { t ->
             t.dueDate == null || java.time.Instant.ofEpochMilli(t.dueDate!!).atZone(zone).toLocalDate() <= todayDate
         }
+        // Stable partition: high-energy (deep-work) tasks keep their ranked order but take the prime
+        // slots first at the peak; lighter tasks fill the time after.
+        val candidates = ranked.filter { (it.energy ?: 0) >= 3 } + ranked.filter { (it.energy ?: 0) < 3 }
         var scheduled = 0; var skipped = 0
         for (t in candidates) {
             val dur = (t.estimateMin ?: t.estimateMax ?: t.durationMin ?: 30).coerceIn(10, 480)
@@ -426,6 +442,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** The private, on-device activity trail for one task (created / completed / rescheduled …). */
     fun taskActivity(id: String): Flow<List<com.todocompanion.app.data.entity.ActivityEntity>> = repo.taskActivity(id)
+    /** How many times each task has been rescheduled — the procrastination signal (E2). */
+    suspend fun rescheduleCounts(): Map<String, Int> =
+        repo.getActivitiesOnce().filter { it.type == "rescheduled" }.groupingBy { it.taskId }.eachCount()
 
     // ---------- navigation ----------
     fun select(view: ViewRef) {
@@ -640,14 +659,32 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- attachments ----------
     fun attachmentMeta(taskId: String) = repo.attachmentMeta(taskId)
     val allAttachments = repo.allAttachmentMeta.state(emptyList())
-    suspend fun attachmentContent(id: String): String? = repo.attachmentContent(id)
+    /** Attachment bytes as Base64 — reads a file-backed attachment (F4) from disk, else the DB. */
+    suspend fun attachmentContent(id: String): String? = withContext(Dispatchers.IO) {
+        repo.attachmentFilePath(id)?.let { path ->
+            val f = java.io.File(path)
+            if (f.exists()) return@withContext android.util.Base64.encodeToString(f.readBytes(), android.util.Base64.NO_WRAP)
+        }
+        repo.attachmentContent(id)
+    }
     fun addAttachment(taskId: String, uri: Uri) = viewModelScope.launch {
         val cr = appCtx.contentResolver
         val mime = cr.getType(uri) ?: "application/octet-stream"
         val name = displayNameOf(uri) ?: "attachment"
         val bytes = withContext(Dispatchers.IO) { runCatching { cr.openInputStream(uri)?.use { it.readBytes() } }.getOrNull() }
         if (bytes == null) { toast("Could not read file"); return@launch }
-        if (!repo.addAttachment(taskId, name, mime, bytes)) toast("File too large (max 25 MB per file)")
+        if (bytes.size > repo.maxAttachmentBytes) { toast("File too large (max 25 MB per file)"); return@launch }
+        // F4: write the bytes to an app-private file and store only the path — the DB stays lean.
+        val ok = withContext(Dispatchers.IO) {
+            runCatching {
+                val dir = java.io.File(appCtx.filesDir, "attachments").apply { mkdirs() }
+                val f = java.io.File(dir, UUID.randomUUID().toString())
+                f.writeBytes(bytes)
+                repo.addAttachmentFile(taskId, name, mime, bytes.size.toLong(), f.absolutePath)
+                true
+            }.getOrDefault(false)
+        }
+        if (!ok) toast("Could not save attachment")
     }
     fun removeAttachment(id: String) = viewModelScope.launch { repo.deleteAttachment(id) }
 
@@ -671,7 +708,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun clearListBackground(listId: String) = viewModelScope.launch { repo.setListBackground(listId, null) }
     /** Decode an attachment to a temp cache file and hand it to a local viewer app. */
     fun openAttachment(id: String, fileName: String, mime: String) = viewModelScope.launch {
-        val b64 = repo.attachmentContent(id) ?: return@launch
+        val b64 = attachmentContent(id) ?: return@launch
         val uri = withContext(Dispatchers.IO) {
             runCatching {
                 val bytes = android.util.Base64.decode(b64, android.util.Base64.NO_WRAP)
@@ -938,6 +975,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun createContext(name: String, parentId: String? = null) = viewModelScope.launch { repo.upsertContext(ContextEntity(id = UUID.randomUUID().toString(), name = name.trim(), parentId = parentId)) }
     fun renameContext(c: ContextEntity, name: String) = viewModelScope.launch { repo.upsertContext(c.copy(name = name.trim())) }
     fun setContextColor(c: ContextEntity, argb: Long?) = viewModelScope.launch { repo.upsertContext(c.copy(colorArgb = argb)) }
+    /** Give a context a geofence so arriving there auto-surfaces its tasks (E3). */
+    fun setContextLocation(c: ContextEntity, lat: Double, lng: Double, radiusM: Double = 150.0) = viewModelScope.launch {
+        val nc = c.copy(latitude = lat, longitude = lng, radiusM = radiusM)
+        repo.upsertContext(nc)
+        com.todocompanion.app.reminders.LocationReminders.registerContext(appCtx, nc)
+    }
+    fun clearContextLocation(c: ContextEntity) = viewModelScope.launch {
+        com.todocompanion.app.reminders.LocationReminders.unregisterContext(appCtx, c)
+        repo.upsertContext(c.copy(latitude = null, longitude = null, radiusM = null))
+    }
     fun setContextActive(c: ContextEntity, active: Boolean) = viewModelScope.launch { repo.upsertContext(c.copy(active = active)) }
     fun setContextHours(c: ContextEntity, json: String?) = viewModelScope.launch { repo.upsertContext(c.copy(openHoursJson = json)) }
     fun deleteContext(c: ContextEntity) = viewModelScope.launch {
@@ -1105,6 +1152,66 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }.isSuccess
         onDone(ok)
     }
+    // ---------- Tier D: folder backup & account-free sync ----------
+    private fun ensureDeviceId(): String {
+        val cur = settings.value.deviceId
+        if (cur.isNotBlank()) return cur
+        val id = UUID.randomUUID().toString().take(8)
+        viewModelScope.launch { repo.saveSettings(settings.value.copy(deviceId = id)) }
+        return id
+    }
+    fun setSyncFolder(uri: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(syncFolder = uri, syncEnabled = uri.isNotBlank())) }
+    fun setAutoBackupFolder(uri: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(autoBackupFolder = uri, autoBackupEnabled = uri.isNotBlank())) }
+    fun setAutoBackupEnabled(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(autoBackupEnabled = on)) }
+    fun setSyncEnabled(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(syncEnabled = on)) }
+    fun markOnboarded() = viewModelScope.launch { repo.saveSettings(settings.value.copy(onboarded = true)) }
+
+    fun runSyncNow(onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
+        val folder = settings.value.syncFolder
+        if (folder.isBlank()) { onDone(false, "Choose a sync folder first"); return@launch }
+        val dev = ensureDeviceId()
+        val r = com.todocompanion.app.data.sync.SyncEngine.sync(appCtx, repo, folder, dev)
+        if (r.ok) {
+            repo.saveSettings(settings.value.copy(lastSyncAt = System.currentTimeMillis(), deviceId = dev))
+            AlarmScheduler.rescheduleAll(appCtx, repo)
+        }
+        onDone(r.ok, r.message)
+    }
+
+    fun runBackupNow(onDone: (Boolean) -> Unit) = viewModelScope.launch {
+        val folder = settings.value.autoBackupFolder.ifBlank { settings.value.syncFolder }
+        if (folder.isBlank()) { onDone(false); return@launch }
+        val stamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
+        onDone(com.todocompanion.app.data.sync.SyncEngine.backup(appCtx, repo, folder, "todo-backup-$stamp.json"))
+    }
+
+    /** Import tasks from a Todoist/TickTick CSV or MLO OPML file. Returns (ok, message). */
+    fun importExternal(uri: Uri, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
+        val ok = runCatching {
+            val text = appCtx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: return@runCatching null
+            val parsed = com.todocompanion.app.data.sync.Importers.parse(text) ?: return@runCatching null
+            val listIds = HashMap<String, String>()
+            val existing = lists.value.associateBy { it.name.lowercase() }
+            parsed.rows.forEach { row ->
+                val listId = listIds.getOrPut(row.list) {
+                    existing[row.list.lowercase()]?.id ?: repo.createList(row.list)
+                }
+                val id = repo.createTask(listId, row.title, importance = row.importance, urgency = row.urgency, dueDate = row.dueMillis)
+                if (row.note.isNotBlank() || row.completed) repo.getTask(id)?.let { t ->
+                    repo.saveTask(t.copy(note = row.note, completed = row.completed, completedAt = if (row.completed) System.currentTimeMillis() else null))
+                }
+                if (row.tags.isNotEmpty()) {
+                    val tagExisting = repo.getTagsOnce().associateBy { it.name.lowercase() }
+                    val ids = row.tags.map { name -> tagExisting[name.lowercase()]?.id ?: UUID.randomUUID().toString().also { repo.upsertTag(TagEntity(it, name)) } }
+                    repo.setTaskTags(id, ids.distinct())
+                }
+            }
+            parsed.source to parsed.rows.size
+        }.getOrNull()
+        if (ok == null) onDone(false, "Couldn't read that file — export a Todoist/TickTick CSV or MLO OPML")
+        else onDone(true, "Imported ${ok.second} tasks from ${ok.first}")
+    }
+
     fun importFrom(uri: Uri, onDone: (Boolean) -> Unit) = viewModelScope.launch {
         val ok = runCatching {
             val text = appCtx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: return@runCatching

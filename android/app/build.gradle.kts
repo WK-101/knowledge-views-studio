@@ -89,6 +89,9 @@ dependencies {
     // Biometric / device-credential app lock (local only, no network)
     implementation("androidx.biometric:biometric:1.1.0")
 
+    // Storage Access Framework helper for folder-based backup & sync (local files only)
+    implementation("androidx.documentfile:documentfile:1.0.1")
+
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")

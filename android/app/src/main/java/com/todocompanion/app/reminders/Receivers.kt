@@ -97,11 +97,18 @@ class ReminderReceiver : BroadcastReceiver() {
             }
 
             LocationReminders.ACTION_PROXIMITY -> {
-                if (app == null || taskId == null) return
                 // The OS attaches KEY_PROXIMITY_ENTERING: true = arrived, false = left.
                 val entering = intent.getBooleanExtra(android.location.LocationManager.KEY_PROXIMITY_ENTERING, true)
                 val onEnter = intent.getBooleanExtra("onEnter", true)
                 if (entering != onEnter) return
+                // Context geofence (E3): surface the matching context's tasks on arrival.
+                val ctxId = intent.getStringExtra("contextId")
+                if (ctxId != null) {
+                    val ctxName = intent.getStringExtra("contextName") ?: "a place"
+                    Notifications.showContextArrival(context, ctxId, ctxName)
+                    return
+                }
+                if (app == null || taskId == null) return
                 val place = intent.getStringExtra("place")?.takeIf { it.isNotBlank() }
                 val pending = goAsync()
                 CoroutineScope(Dispatchers.IO).launch {
@@ -109,6 +116,22 @@ class ReminderReceiver : BroadcastReceiver() {
                         val task = app.repository.getTask(taskId)
                         if (task != null && !task.completed && !task.trashed && !task.abandoned) {
                             Notifications.showLocation(context, taskId, title, reminderId, onEnter, place)
+                        }
+                    } finally { pending.finish() }
+                }
+            }
+
+            AlarmScheduler.ACTION_AUTO_BACKUP -> {
+                if (app == null) return
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val s = app.repository.settingsSnapshot()
+                        val folder = s.autoBackupFolder.ifBlank { s.syncFolder }
+                        if (s.autoBackupEnabled && folder.isNotBlank()) {
+                            val stamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
+                            com.todocompanion.app.data.sync.SyncEngine.backup(context, app.repository, folder, "todo-backup-$stamp.json")
+                            AlarmScheduler.scheduleAutoBackup(context, s.autoBackupHour)
                         }
                     } finally { pending.finish() }
                 }
@@ -157,6 +180,7 @@ class BootReceiver : BroadcastReceiver() {
                 val s = app.repository.settingsSnapshot()
                 if (s.dailySummaryEnabled) AlarmScheduler.scheduleDailySummary(context, s.dailySummaryHour, s.dailySummaryMinute)
                 if (s.eveningReviewEnabled) AlarmScheduler.scheduleEveningReview(context, s.eveningReviewHour)
+                if (s.autoBackupEnabled && s.autoBackupFolder.isNotBlank()) AlarmScheduler.scheduleAutoBackup(context, s.autoBackupHour)
             } finally { pending.finish() }
         }
     }

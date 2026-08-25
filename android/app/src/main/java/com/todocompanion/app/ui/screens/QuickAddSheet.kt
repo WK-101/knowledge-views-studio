@@ -29,6 +29,9 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.NotificationsNone
+import androidx.compose.material.icons.filled.Mic
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -89,6 +92,18 @@ fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Bo
     var tagMenu by remember { mutableStateOf(false) }
 
     val focus = remember { FocusRequester() }
+
+    // Voice capture (F3): dictate a task with the platform speech recognizer and append the result.
+    val voiceLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
+        val spoken = res.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+        if (!spoken.isNullOrBlank()) text = (text.trimEnd() + " " + spoken).trim()
+    }
+    fun startVoice() = runCatching {
+        voiceLauncher.launch(android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Speak your task")
+        })
+    }
 
     fun submit() {
         if (text.isNotBlank()) vm.submitQuickAdd(text, QuickAddOptions(due, hasTime, priority, listId, tagIds, reminder, note.trim()))
@@ -174,6 +189,7 @@ fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Bo
                     }
                 }
                 IconTool(Icons.Filled.NotificationsNone, "Reminder", reminder != null) { showReminder = true }
+                IconTool(Icons.Filled.Mic, "Dictate task", false) { startVoice() }
                 Spacer(Modifier.width(0.dp).weight(1f))
                 // Send.
                 Box(Modifier.size(40.dp).clip(CircleShape).background(if (text.isBlank()) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primary).clickable { submit() }, contentAlignment = Alignment.Center) {

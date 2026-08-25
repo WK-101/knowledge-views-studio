@@ -149,6 +149,8 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
     // Tell the shell so it can hide the add FAB while the selection bar is up (no overlap).
     androidx.compose.runtime.LaunchedEffect(selectionMode) { vm.selectionActive.value = selectionMode }
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { vm.selectionActive.value = false } }
+    // Back exits selection first (clears it and stays in the app) instead of leaving the screen.
+    androidx.activity.compose.BackHandler(enabled = selectionMode) { selected = emptySet() }
     val allLists by vm.lists.collectAsState()
 
     Box(modifier.fillMaxSize()) {

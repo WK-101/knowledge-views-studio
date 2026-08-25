@@ -45,7 +45,7 @@ data class BackupFile(
 ) {
     companion object {
         const val FORMAT = "todo-companion"
-        const val VERSION = 7
+        const val VERSION = 8
     }
 }
 

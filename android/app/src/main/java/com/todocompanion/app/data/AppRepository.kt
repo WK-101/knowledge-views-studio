@@ -48,6 +48,7 @@ class AppRepository(private val db: AppDatabase) {
 
     // ----- activity log (private, on-device audit trail) -----
     fun taskActivity(taskId: String): Flow<List<com.todocompanion.app.data.entity.ActivityEntity>> = activity.observeForTask(taskId)
+    suspend fun getActivitiesOnce(): List<com.todocompanion.app.data.entity.ActivityEntity> = activity.getAll()
     private suspend fun logActivity(taskId: String, type: String, detail: String? = null) {
         activity.insert(com.todocompanion.app.data.entity.ActivityEntity(uid(), taskId, type, now(), detail))
     }
@@ -416,7 +417,8 @@ class AppRepository(private val db: AppDatabase) {
     val allAttachmentMeta: Flow<List<AttachmentMeta>> = attachments.observeAllMeta()
     fun attachmentCount(taskId: String): Flow<Int> = attachments.observeCountForTask(taskId)
     suspend fun attachmentContent(id: String): String? = attachments.contentOf(id)
-    /** Store raw bytes as a task attachment. Returns false if it exceeds the size cap. */
+    suspend fun attachmentFilePath(id: String): String? = attachments.filePathOf(id)
+    /** Store raw bytes as a task attachment (Base64 in the DB — used by imports). */
     suspend fun addAttachment(taskId: String, fileName: String, mime: String, bytes: ByteArray): Boolean {
         if (bytes.size > maxAttachmentBytes) return false
         val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
@@ -429,7 +431,29 @@ class AppRepository(private val db: AppDatabase) {
         )
         return true
     }
-    suspend fun deleteAttachment(id: String) = attachments.deleteById(id)
+    /** File-backed attachment (F4): the caller has already written [filePath]; the DB stays lean. */
+    suspend fun addAttachmentFile(taskId: String, fileName: String, mime: String, sizeBytes: Long, filePath: String) {
+        attachments.upsert(
+            AttachmentEntity(
+                id = uid(), taskId = taskId, fileName = fileName, mime = mime,
+                sizeBytes = sizeBytes, isImage = mime.startsWith("image/"),
+                addedAt = now(), contentBase64 = "", filePath = filePath,
+            ),
+        )
+    }
+    suspend fun deleteAttachment(id: String) {
+        attachments.filePathOf(id)?.let { runCatching { java.io.File(it).delete() } }
+        attachments.deleteById(id)
+    }
+
+    /** Attachments with bytes materialised inline (reads file-backed ones from disk) — for a
+     *  lossless JSON export. filePath is dropped so the backup is portable. */
+    private suspend fun hydratedAttachments(): List<AttachmentEntity> = attachments.getAll().map { a ->
+        if (a.contentBase64.isBlank() && !a.filePath.isNullOrBlank()) {
+            val f = java.io.File(a.filePath!!)
+            if (f.exists()) a.copy(contentBase64 = android.util.Base64.encodeToString(f.readBytes(), android.util.Base64.NO_WRAP), filePath = null) else a
+        } else a
+    }
 
     // ============ tags / contexts ============
     suspend fun getTagsOnce(): List<TagEntity> = tags.getAll()
@@ -607,7 +631,7 @@ class AppRepository(private val db: AppDatabase) {
             reminders = reminders.getAll(),
             dependencies = deps.getAll(),
             settings = settings.getAll(),
-            attachments = attachments.getAll(),
+            attachments = hydratedAttachments(),
             flags = flags.getAll(),
             templates = templates.getAll(),
             countdowns = countdowns.getAll(),
@@ -656,6 +680,39 @@ class AppRepository(private val db: AppDatabase) {
         ensureDefaultWorkspace()
         ensureInbox()
         ensureDefaultFlags()
+    }
+
+    /** Full snapshot of the current data as a BackupFile (for sync merges). */
+    suspend fun snapshot(): com.todocompanion.app.domain.port.BackupFile =
+        com.todocompanion.app.domain.port.BackupFile(
+            exportedAt = now(),
+            workspaces = workspaces.getAll(), filters = filters.getAll(), habits = habits.getAll(),
+            habitCheckins = habits.getCheckins(), focusSessions = focus.getAll(), folders = folders.getAll(),
+            lists = lists.getAll(), tasks = tasks.getAll(), checklist = checklist.getAll(),
+            tags = tags.getAll(), taskTags = tags.getCrossRefs(), contexts = contexts.getAll(),
+            taskContexts = contexts.getCrossRefs(), reminders = reminders.getAll(), dependencies = deps.getAll(),
+            // Attachment bytes stay local — syncing megabytes through the folder isn't worth it.
+            settings = settings.getAll(), attachments = attachments.getAll().map { it.copy(contentBase64 = "") }, flags = flags.getAll(),
+            templates = templates.getAll(), countdowns = countdowns.getAll(), activities = activity.getAll(),
+        )
+
+    /** Apply a merged snapshot to the local DB, preserving this device's own settings (sync/backup
+     *  folder URIs, device id, theme). Used by the folder-sync engine. */
+    suspend fun applyMerged(b: com.todocompanion.app.domain.port.BackupFile) {
+        // Attachments are intentionally NOT synced (their bytes live locally in files), so they're
+        // left untouched here — only structural + task data is reconciled.
+        tasks.clear(); folders.clear(); lists.clear(); checklist.clear()
+        tags.clear(); tags.clearCrossRefs(); contexts.clear(); contexts.clearCrossRefs()
+        reminders.clear(); deps.clear(); workspaces.clear(); filters.clear()
+        habits.clear(); habits.clearCheckins(); focus.clear(); flags.clear(); templates.clear(); countdowns.clear(); activity.clear()
+        folders.upsertAll(b.folders); lists.upsertAll(b.lists); tasks.upsertAll(b.tasks); checklist.upsertAll(b.checklist)
+        tags.upsertAll(b.tags); tags.linkAll(b.taskTags); contexts.upsertAll(b.contexts); contexts.linkAll(b.taskContexts)
+        reminders.upsertAll(b.reminders); deps.addAll(b.dependencies)
+        workspaces.upsertAll(b.workspaces); filters.upsertAll(b.filters)
+        habits.upsertAll(b.habits); habits.upsertCheckins(b.habitCheckins); focus.upsertAll(b.focusSessions)
+        flags.upsertAll(b.flags); templates.upsertAll(b.templates)
+        countdowns.upsertAll(b.countdowns); activity.insertAll(b.activities)
+        ensureDefaultWorkspace(); ensureInbox(); ensureDefaultFlags()
     }
 
     // ============ first-run seed ============

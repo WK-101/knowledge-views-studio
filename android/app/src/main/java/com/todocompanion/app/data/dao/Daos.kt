@@ -474,6 +474,9 @@ interface AttachmentDao {
     @Query("SELECT contentBase64 FROM attachments WHERE id = :id")
     suspend fun contentOf(id: String): String?
 
+    @Query("SELECT filePath FROM attachments WHERE id = :id")
+    suspend fun filePathOf(id: String): String?
+
     @Query("SELECT * FROM attachments")
     suspend fun getAll(): List<AttachmentEntity>
 

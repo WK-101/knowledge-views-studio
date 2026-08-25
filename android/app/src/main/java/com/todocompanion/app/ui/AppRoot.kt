@@ -1,5 +1,6 @@
 package com.todocompanion.app.ui
 
+import android.annotation.SuppressLint
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
@@ -227,6 +228,14 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
             if (settings.eveningReviewEnabled) AlarmScheduler.scheduleEveningReview(context, settings.eveningReviewHour)
             else AlarmScheduler.cancelEveningReview(context)
         }
+        LaunchedEffect(settings.autoBackupEnabled, settings.autoBackupHour, settings.autoBackupFolder) {
+            if (settings.autoBackupEnabled && settings.autoBackupFolder.isNotBlank()) AlarmScheduler.scheduleAutoBackup(context, settings.autoBackupHour)
+            else AlarmScheduler.cancelAutoBackup(context)
+        }
+        // Account-free folder sync: reconcile once on launch when a sync folder is configured.
+        LaunchedEffect(settings.syncEnabled, settings.syncFolder) {
+            if (settings.syncEnabled && settings.syncFolder.isNotBlank()) vm.runSyncNow { _, _ -> }
+        }
 
         val snackbar = remember { androidx.compose.material3.SnackbarHostState() }
         LaunchedEffect(Unit) {
@@ -254,6 +263,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                 a == "open_countdowns" -> { showCountdowns = true; launchAction.value = null }
                 a == "open_matrix" -> { tab = Tab.MATRIX; launchAction.value = null }
                 a == "open_plan" -> { showPlan = true; launchAction.value = null }
+                a != null && a.startsWith("open_context:") -> { vm.select(ViewRef.ContextView(a.removePrefix("open_context:"))); tab = Tab.TASKS; launchAction.value = null }
             }
         }
 
@@ -282,6 +292,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                     onSearch = { tab = Tab.SEARCH; scope.launch { drawerState.close() } },
                     onNewList = { parent -> newReq = NewReq(false, parent) },
                     onNewFolder = { parent -> newReq = NewReq(true, parent) },
+                    onNewTaskInFolder = { fid -> vm.select(ViewRef.FolderView(fid)); goTasks(); scope.launch { drawerState.close() }; openQuickAdd(null) },
                     onManageList = { manageList = it },
                     onManageFolder = { manageFolder = it },
                     onMoveList = { moveList = it },
@@ -629,6 +640,8 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         }
         manageCtx?.let { c ->
             ManageContextDialog(c, onDismiss = { manageCtx = null },
+                onSetLocation = { la, ln, r -> vm.setContextLocation(c, la, ln, r) },
+                onClearLocation = { vm.clearContextLocation(c) },
                 onRename = { vm.renameContext(c, it); manageCtx = null },
                 onColor = { vm.setContextColor(c, it) },
                 onActive = { vm.setContextActive(c, it) },
@@ -661,6 +674,9 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                 onDelete = { vm.deleteFilter(f); filterEdit = null },
                 onSave = { updated -> vm.saveFilter(updated); vm.select(ViewRef.FilterView(updated.id)); tab = Tab.TASKS; filterEdit = null })
         }
+
+        // First-run tour (F1) — drawn last so it overlays everything until dismissed.
+        if (!settings.onboarded) Onboarding(onDone = { vm.markOnboarded() })
       }
     }
 }
@@ -1119,6 +1135,7 @@ private fun TagPickerDialog(title: String, tags: List<com.todocompanion.app.data
 private fun ManageContextDialog(
     ctx: com.todocompanion.app.data.entity.ContextEntity, onDismiss: () -> Unit,
     onRename: (String) -> Unit, onColor: (Long?) -> Unit, onActive: (Boolean) -> Unit, onHours: (String?) -> Unit, onDelete: () -> Unit,
+    onSetLocation: (Double, Double, Double) -> Unit = { _, _, _ -> }, onClearLocation: () -> Unit = {},
 ) {
     var name by remember { mutableStateOf(ctx.name) }
     val oh0 = com.todocompanion.app.domain.context.ContextAvailability.parse(ctx.openHoursJson)
@@ -1171,9 +1188,38 @@ private fun ManageContextDialog(
                         HourStepper(endH) { endH = it.coerceIn(startH, 24); persistHours() }
                     }
                 }
+                Spacer(Modifier.size(10.dp))
+                // Location geofence (E3): arriving here surfaces this context's tasks.
+                val lctx = LocalContext.current
+                var hasLoc by remember { mutableStateOf(ctx.latitude != null) }
+                val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
+                    if (grants.values.any { it }) captureLocation(lctx)?.let { (la, ln) -> onSetLocation(la, ln, 150.0); hasLoc = true }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Alert me when I arrive here", Modifier.weight(1f))
+                    androidx.compose.material3.Switch(checked = hasLoc, onCheckedChange = { on ->
+                        if (on) {
+                            val fine = androidx.core.content.ContextCompat.checkSelfPermission(lctx, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                            val coarse = androidx.core.content.ContextCompat.checkSelfPermission(lctx, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                            if (fine || coarse) captureLocation(lctx)?.let { (la, ln) -> onSetLocation(la, ln, 150.0); hasLoc = true }
+                            else permLauncher.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION))
+                        } else { onClearLocation(); hasLoc = false }
+                    })
+                }
+                Text(if (hasLoc) "Uses your current location. On-device only — coordinates never leave the phone."
+                     else "Captures where you are now as this context's place.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
     )
+}
+
+/** Best-effort current location from the platform's last known fix. Fully on-device. */
+@SuppressLint("MissingPermission")
+private fun captureLocation(context: android.content.Context): Pair<Double, Double>? {
+    val lm = context.getSystemService(android.location.LocationManager::class.java) ?: return null
+    val loc = runCatching { lm.getProviders(true).asReversed().firstNotNullOfOrNull { p -> lm.getLastKnownLocation(p) } }.getOrNull()
+    return loc?.let { it.latitude to it.longitude }
 }
 
 @Composable

@@ -119,6 +119,7 @@ import com.todocompanion.app.ui.components.AppCard
 import com.todocompanion.app.ui.components.CardLabel
 import com.todocompanion.app.ui.components.DateTimePickerDialog
 import com.todocompanion.app.ui.components.formatDue
+import com.todocompanion.app.ui.components.formatDueSpan
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -219,10 +220,11 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 }
             }
             if (task.note.isNotBlank() && notePreview) {
+                // View-only: the note renders as formatted text and only the Edit button (above)
+                // switches to editing — tapping the body no longer flips it into an editor.
                 com.todocompanion.app.ui.components.MarkdownText(
                     task.note,
-                    modifier = Modifier.fillMaxWidth().padding(start = 42.dp, end = 4.dp, bottom = 4.dp)
-                        .clickable { notePreview = false },
+                    modifier = Modifier.fillMaxWidth().padding(start = 42.dp, end = 4.dp, bottom = 4.dp),
                 )
             } else {
                 BorderlessField(
@@ -276,9 +278,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             val zone = java.time.ZoneId.systemDefault()
             val dueOverdue = task.dueDate?.let { it < System.currentTimeMillis() && !task.completed } == true
 
-            PropRow(Icons.Filled.Event, "Date", task.dueDate?.let { formatDue(it) } ?: "No date",
+            PropRow(Icons.Filled.Event, "Date", task.dueDate?.let { formatDueSpan(it, task.durationMin) } ?: "No date",
                 valueColor = if (dueOverdue) MaterialTheme.colorScheme.error else if (task.dueDate != null) MaterialTheme.colorScheme.primary else null,
-                onClear = if (task.dueDate != null) ({ update { it.copy(dueDate = null) } }) else null) { showDue = true }
+                onClear = if (task.dueDate != null) ({ update { it.copy(dueDate = null, durationMin = null) } }) else null) { showDue = true }
             if (task.dueDate != null || task.startDate != null) {
                 PropRow(Icons.Filled.PlayArrow, "Starts", task.startDate?.let { formatDue(it) } ?: "Not set", indent = true,
                     onClear = if (task.startDate != null) ({ update { it.copy(startDate = null) } }) else null) { showStart = true }
@@ -577,7 +579,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             },
         )
     }
-    if (showDue) DateTimePickerDialog(task?.dueDate, { showDue = false }) { m -> update { it.copy(dueDate = m) }; showDue = false }
+    if (showDue) DateTimePickerDialog(task?.dueDate, { showDue = false },
+        initialDurationMin = task?.durationMin,
+        onDuration = { d -> update { it.copy(durationMin = d) } }) { m -> update { it.copy(dueDate = m) }; showDue = false }
     if (showStart) DateTimePickerDialog(task?.startDate, { showStart = false }) { m -> update { it.copy(startDate = m) }; showStart = false }
     if (showDeadline) DateTimePickerDialog(task?.deadlineDate, { showDeadline = false }) { m -> update { it.copy(deadlineDate = m) }; showDeadline = false }
     if (showReminder) DateTimePickerDialog(task?.dueDate ?: System.currentTimeMillis(), { showReminder = false }) { m -> task?.let { vm.addAbsoluteReminder(it, m) }; showReminder = false }

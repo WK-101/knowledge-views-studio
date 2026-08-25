@@ -24,6 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddTask
 import androidx.compose.material.icons.filled.AllInbox
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.NotificationImportant
@@ -120,6 +121,7 @@ fun AppDrawer(
     onSearch: () -> Unit,
     onNewList: (String?) -> Unit,
     onNewFolder: (String?) -> Unit,
+    onNewTaskInFolder: (String) -> Unit,
     onManageList: (ListEntity) -> Unit,
     onManageFolder: (FolderEntity) -> Unit,
     onMoveList: (ListEntity) -> Unit,
@@ -235,7 +237,7 @@ fun AppDrawer(
             SectionHeader("Folders & lists", open = open("lists"), onToggle = { toggle("lists") }, onAdd = { onNewList(null) })
             if (open("lists")) {
                 folders.filter { it.parentId == null }.sortedBy { it.sortOrder }.forEach { f ->
-                    FolderNode(f, 0, folders, lists, listExpand, current, vm, onSelect, onNewList, onNewFolder, onManageList, onManageFolder, onMoveList, onMoveFolder)
+                    FolderNode(f, 0, folders, lists, listExpand, current, vm, onSelect, onNewList, onNewFolder, onNewTaskInFolder, onManageList, onManageFolder, onMoveList, onMoveFolder)
                 }
                 ReorderableListGroup(lists.filter { it.folderId == null && it.parentListId == null && it.id != ListEntity.INBOX_ID && !it.archived }.sortedBy { it.sortOrder },
                     lists, listExpand, 0, current, vm, onSelect, onManageList, onMoveList)
@@ -323,7 +325,7 @@ fun AppDrawer(
 @Composable
 private fun FolderNode(
     folder: FolderEntity, depth: Int, folders: List<FolderEntity>, lists: List<ListEntity>, listExpand: MutableMap<String, Boolean>, current: ViewRef, vm: AppViewModel,
-    onSelect: (ViewRef) -> Unit, onNewList: (String?) -> Unit, onNewFolder: (String?) -> Unit,
+    onSelect: (ViewRef) -> Unit, onNewList: (String?) -> Unit, onNewFolder: (String?) -> Unit, onNewTaskInFolder: (String) -> Unit,
     onManageList: (ListEntity) -> Unit, onManageFolder: (FolderEntity) -> Unit, onMoveList: (ListEntity) -> Unit, onMoveFolder: (FolderEntity) -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
@@ -350,6 +352,7 @@ private fun FolderNode(
             Icon(Icons.Filled.MoreVert, "Folder menu", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp).clickable { menu = true })
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 MenuItem(if (vm.isPinned(pinRef)) Icons.Filled.PushPin else Icons.Filled.PushPin, if (vm.isPinned(pinRef)) "Unpin from top" else "Pin to top") { vm.togglePinnedRef(pinRef); menu = false }
+                MenuItem(Icons.Filled.AddTask, "New task here") { onNewTaskInFolder(folder.id); menu = false }
                 MenuItem(Icons.Filled.Add, "New list here") { onNewList(folder.id); menu = false }
                 MenuItem(Icons.Filled.Folder, "New folder here") { onNewFolder(folder.id); menu = false }
                 MenuItem(Icons.Filled.KeyboardArrowUp, "Move up") { vm.moveFolderOrder(folder, -1); menu = false }
@@ -365,7 +368,7 @@ private fun FolderNode(
     }
     if (!folder.collapsed) {
         folders.filter { it.parentId == folder.id }.sortedBy { it.sortOrder }.forEach { child ->
-            FolderNode(child, depth + 1, folders, lists, listExpand, current, vm, onSelect, onNewList, onNewFolder, onManageList, onManageFolder, onMoveList, onMoveFolder)
+            FolderNode(child, depth + 1, folders, lists, listExpand, current, vm, onSelect, onNewList, onNewFolder, onNewTaskInFolder, onManageList, onManageFolder, onMoveList, onMoveFolder)
         }
         ReorderableListGroup(lists.filter { it.folderId == folder.id && it.parentListId == null && !it.archived }.sortedBy { it.sortOrder },
             lists, listExpand, depth + 1, current, vm, onSelect, onManageList, onMoveList)

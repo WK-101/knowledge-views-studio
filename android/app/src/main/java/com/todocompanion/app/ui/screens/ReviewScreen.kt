@@ -92,6 +92,16 @@ fun ReviewScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> U
             }
             Spacer(Modifier.height(12.dp))
 
+            // Procrastination breaker (E2): tasks pushed 3+ times — decide instead of deferring again.
+            val moveCounts by androidx.compose.runtime.produceState(initialValue = emptyMap<String, Int>()) { value = vm.rescheduleCounts() }
+            val slipping = active.filter { (moveCounts[it.id] ?: 0) >= 3 }.sortedByDescending { moveCounts[it.id] ?: 0 }
+            ReviewSection("Keeps slipping — break it down or drop it", slipping, "Nothing's been pushed over and over.", onOpenTask,
+                action = "Won't do" to { t: TaskEntity -> vm.setAbandoned(t, true) })
+            // Two-minute rule (E4): if it takes ≤2 minutes, do it now rather than tracking it.
+            val twoMin = active.filter { !it.isNote && (it.estimateMin ?: it.estimateMax)?.let { e -> e in 1..2 } == true }
+            ReviewSection("Two-minute rule — just do these now", twoMin, "No two-minute quick wins waiting.", onOpenTask,
+                action = "Done" to { t: TaskEntity -> vm.toggleComplete(t) })
+
             ReviewSection("Plan today — due today", dueToday, "Nothing due today.", onOpenTask,
                 action = "Tomorrow" to { t: TaskEntity -> vm.save(t.copy(dueDate = tomorrowAt9())) })
             ReviewSection("Due for review", dueForReview, "Nothing is due for a review.", onOpenTask,

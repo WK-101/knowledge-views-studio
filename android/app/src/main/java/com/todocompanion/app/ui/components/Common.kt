@@ -40,6 +40,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsPropertyReceiver
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -79,6 +86,12 @@ fun rowVerticalPadding(d: Density): Dp = when (d) {
  *
  * Tap completes; long-press (when [onSetLevel] is supplied) opens a quick priority-colour picker.
  */
+private fun SemanticsPropertyReceiver.checkboxSemantics(desc: String, on: Boolean) {
+    contentDescription = desc
+    role = Role.Checkbox
+    toggleableState = if (on) ToggleableState.On else ToggleableState.Off
+}
+
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun PriorityCheckbox(checked: Boolean, level: PriorityLevel, onCheckedChange: () -> Unit, onSetLevel: ((PriorityLevel) -> Unit)? = null) {
@@ -93,8 +106,11 @@ fun PriorityCheckbox(checked: Boolean, level: PriorityLevel, onCheckedChange: ()
         PriorityLevel.HIGH -> 0.18f
     }
     var picker by remember { mutableStateOf(false) }
+    // Accessibility (F2): announce completion state + role so TalkBack reads a real toggle.
+    val a11y = if (checked) "Completed. Double-tap to mark incomplete." else "Mark complete."
     Box(
         Modifier.size(40.dp).clip(shape)
+            .semantics { checkboxSemantics(a11y, checked) }
             .combinedClickable(onClick = onCheckedChange, onLongClick = { if (onSetLevel != null) picker = true }),
         contentAlignment = Alignment.Center,
     ) {
@@ -183,6 +199,18 @@ fun formatDue(millis: Long): String {
     // Midnight (00:00) is the all-day sentinel; any other time (incl. 9:00 AM) is a real time.
     val hasTime = !(dt.hour == 0 && dt.minute == 0)
     return (if (hasTime) "$day ${"%02d:%02d".format(dt.hour, dt.minute)}" else day) + countdown
+}
+
+/** Like [formatDue] but appends the block end time when a duration is set on a timed task,
+ *  e.g. "Today 14:00–15:30" — the TickTick-style time span. */
+fun formatDueSpan(millis: Long, durationMin: Int?): String {
+    val base = formatDue(millis)
+    if (durationMin == null || durationMin <= 0) return base
+    val zone = ZoneId.systemDefault()
+    val start = Instant.ofEpochMilli(millis).atZone(zone)
+    if (start.hour == 0 && start.minute == 0) return base   // all-day: no span
+    val end = start.plusMinutes(durationMin.toLong())
+    return "$base–${"%02d:%02d".format(end.hour, end.minute)}"
 }
 
 fun isOverdue(millis: Long): Boolean = millis < System.currentTimeMillis()

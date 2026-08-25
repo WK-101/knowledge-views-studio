@@ -82,6 +82,16 @@ data class AppSettings(
     val appLockEnabled: Boolean = false,
     // Add-button (FAB) horizontal placement: end | center | start.
     val fabPosition: String = "end",
+    // Data resilience & account-free sync (Tier D). Folder URIs are SAF tree URIs (persisted grants).
+    val autoBackupEnabled: Boolean = false,
+    val autoBackupFolder: String = "",
+    val autoBackupHour: Int = 2,
+    val syncEnabled: Boolean = false,
+    val syncFolder: String = "",
+    val deviceId: String = "",          // stable per-install id, seeded on first sync
+    val lastSyncAt: Long = 0L,
+    // First-run onboarding shown (Tier F1).
+    val onboarded: Boolean = false,
     // Curated theme-pack id ("" = none / use dynamic-or-accent). See ThemePrefs.
     val themePack: String = "",
     // Sidebar favourites, pinned to the top. Each token is "type:id" (list/folder/tag/context/filter/smart).
@@ -151,6 +161,14 @@ data class AppSettings(
         Keys.COMPLETION_SOUND to completionSound.toString(),
         Keys.APP_LOCK to appLockEnabled.toString(),
         Keys.FAB_POS to fabPosition,
+        Keys.AUTOBK_ON to autoBackupEnabled.toString(),
+        Keys.AUTOBK_DIR to autoBackupFolder,
+        Keys.AUTOBK_H to autoBackupHour.toString(),
+        Keys.SYNC_ON to syncEnabled.toString(),
+        Keys.SYNC_DIR to syncFolder,
+        Keys.DEVICE_ID to deviceId,
+        Keys.LAST_SYNC to lastSyncAt.toString(),
+        Keys.ONBOARDED to onboarded.toString(),
         Keys.THEME_PACK to themePack,
         Keys.PINNED to pinnedRefs.joinToString("|"),
         Keys.VIEW_TABS to viewTabsJson,
@@ -213,6 +231,14 @@ data class AppSettings(
         const val COMPLETION_SOUND = "completion_sound"
         const val APP_LOCK = "app_lock"
         const val FAB_POS = "fab_pos"
+        const val AUTOBK_ON = "autobackup_on"
+        const val AUTOBK_DIR = "autobackup_dir"
+        const val AUTOBK_H = "autobackup_h"
+        const val SYNC_ON = "sync_on"
+        const val SYNC_DIR = "sync_dir"
+        const val DEVICE_ID = "device_id"
+        const val LAST_SYNC = "last_sync"
+        const val ONBOARDED = "onboarded"
         const val THEME_PACK = "theme_pack"
         const val PINNED = "pinned_refs"
         const val VIEW_TABS = "view_tabs"
@@ -295,6 +321,14 @@ data class AppSettings(
             completionSound = m[Keys.COMPLETION_SOUND]?.toBooleanStrictOrNull() ?: false,
             appLockEnabled = m[Keys.APP_LOCK]?.toBooleanStrictOrNull() ?: false,
             fabPosition = m[Keys.FAB_POS] ?: "end",
+            autoBackupEnabled = m[Keys.AUTOBK_ON]?.toBooleanStrictOrNull() ?: false,
+            autoBackupFolder = m[Keys.AUTOBK_DIR] ?: "",
+            autoBackupHour = m[Keys.AUTOBK_H]?.toIntOrNull()?.coerceIn(0, 23) ?: 2,
+            syncEnabled = m[Keys.SYNC_ON]?.toBooleanStrictOrNull() ?: false,
+            syncFolder = m[Keys.SYNC_DIR] ?: "",
+            deviceId = m[Keys.DEVICE_ID] ?: "",
+            lastSyncAt = m[Keys.LAST_SYNC]?.toLongOrNull() ?: 0L,
+            onboarded = m[Keys.ONBOARDED]?.toBooleanStrictOrNull() ?: false,
             themePack = m[Keys.THEME_PACK] ?: "",
         )
     }

@@ -45,6 +45,19 @@ object Notifications {
         return PendingIntent.getActivity(context, reqCode, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     }
 
+    fun showContextArrival(context: Context, contextId: String, name: String) {
+        ensureChannel(context)
+        val n = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setContentTitle("You're near @$name")
+            .setContentText("Open your @$name tasks")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(openAppRoute(context, "open_context:$contextId", ("ctx:$contextId").hashCode()))
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(("ctxarr:$contextId").hashCode(), n) }
+    }
+
     const val EVENING_ID = 424244
 
     fun showEvening(context: Context, leftover: Int) {

@@ -59,12 +59,41 @@ object LocationReminders {
         runCatching { lm.removeProximityAlert(pendingIntent(context, reminder, task)) }
     }
 
-    /** Re-arm every location reminder (after boot, permission grant, or app start). */
+    // ---------- context geofences (E3: auto-surface a context on arrival) ----------
+    private fun contextPendingIntent(context: Context, ctxId: String, ctxName: String): PendingIntent {
+        val i = Intent(context, ReminderReceiver::class.java)
+            .setAction(ACTION_PROXIMITY)
+            .putExtra("contextId", ctxId)
+            .putExtra("contextName", ctxName)
+            .putExtra("onEnter", true)
+        return PendingIntent.getBroadcast(
+            context, ("ctxprox:$ctxId").hashCode(), i,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    @SuppressLint("MissingPermission")
+    fun registerContext(context: Context, ctx: com.todocompanion.app.data.entity.ContextEntity) {
+        val lat = ctx.latitude ?: return
+        val lng = ctx.longitude ?: return
+        val radius = (ctx.radiusM ?: 150.0).toFloat()
+        if (!hasPermission(context)) return
+        val lm = context.getSystemService(LocationManager::class.java) ?: return
+        runCatching { lm.addProximityAlert(lat, lng, radius, -1L, contextPendingIntent(context, ctx.id, ctx.name)) }
+    }
+
+    fun unregisterContext(context: Context, ctx: com.todocompanion.app.data.entity.ContextEntity) {
+        val lm = context.getSystemService(LocationManager::class.java) ?: return
+        runCatching { lm.removeProximityAlert(contextPendingIntent(context, ctx.id, ctx.name)) }
+    }
+
+    /** Re-arm every location reminder and context geofence (after boot, permission grant, app start). */
     suspend fun registerAll(context: Context, repo: AppRepository) {
         if (!hasPermission(context)) return
         repo.allRemindersOnce().filter { it.type == "location" }.forEach { r ->
             val task = repo.getTask(r.taskId) ?: return@forEach
             register(context, r, task)
         }
+        repo.getContextsOnce().filter { it.latitude != null && it.longitude != null }.forEach { registerContext(context, it) }
     }
 }

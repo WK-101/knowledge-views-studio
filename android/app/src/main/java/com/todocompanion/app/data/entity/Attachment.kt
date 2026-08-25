@@ -20,7 +20,10 @@ data class AttachmentEntity(
     val sizeBytes: Long,
     val isImage: Boolean,
     val addedAt: Long,
+    // Bytes are stored EITHER inline as Base64 (legacy / imported) OR in an app-private file at
+    // [filePath] (F4 — keeps the DB and sync snapshots lean). Exactly one is populated.
     val contentBase64: String,
+    val filePath: String? = null,
 )
 
 /** Lightweight projection (no bytes) for list rendering — keeps the observed flow cheap. */
