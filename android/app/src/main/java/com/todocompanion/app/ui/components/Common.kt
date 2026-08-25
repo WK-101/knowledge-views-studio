@@ -104,18 +104,30 @@ fun PriorityCheckbox(checked: Boolean, level: PriorityLevel, onCheckedChange: ()
         ) {
             Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(15.dp).scale(prog))
         }
-        if (onSetLevel != null) {
-            androidx.compose.material3.DropdownMenu(expanded = picker, onDismissRequest = { picker = false }) {
-                Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    PriorityLevel.entries.forEach { lvl ->
-                        val c = priorityColor(lvl)
-                        Box(
-                            Modifier.size(30.dp).clip(RoundedCornerShape(7.dp))
-                                .background(c.copy(alpha = if (lvl == PriorityLevel.NONE) 0.12f else 0.25f))
-                                .border(2.dp, c, RoundedCornerShape(7.dp))
-                                .clickable { onSetLevel(lvl); picker = false },
-                            contentAlignment = Alignment.Center,
-                        ) { if (lvl == level) Icon(Icons.Filled.Check, null, tint = c, modifier = Modifier.size(16.dp)) }
+    }
+    // A centred modal, not a checkbox-anchored dropdown — a dropdown on a bottom row lands under
+    // the add button. Centred, it never collides with the FAB and the swatches are easy to hit.
+    if (onSetLevel != null && picker) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { picker = false }) {
+            Surface(shape = RoundedCornerShape(22.dp), tonalElevation = 4.dp, color = MaterialTheme.colorScheme.surface) {
+                Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Set priority", style = MaterialTheme.typography.titleSmall)
+                    Spacer(Modifier.size(14.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        PriorityLevel.entries.forEach { lvl ->
+                            val c = priorityColor(lvl)
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Box(
+                                    Modifier.size(44.dp).clip(RoundedCornerShape(11.dp))
+                                        .background(c.copy(alpha = if (lvl == PriorityLevel.NONE) 0.12f else 0.22f))
+                                        .border(2.dp, c, RoundedCornerShape(11.dp))
+                                        .clickable { onSetLevel(lvl); picker = false },
+                                    contentAlignment = Alignment.Center,
+                                ) { if (lvl == level) Icon(Icons.Filled.Check, null, tint = c, modifier = Modifier.size(22.dp)) }
+                                Spacer(Modifier.size(6.dp))
+                                Text(lvl.label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
                     }
                 }
             }

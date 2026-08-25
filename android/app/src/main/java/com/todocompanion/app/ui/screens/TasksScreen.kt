@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -293,7 +294,7 @@ private fun ReorderRow(
             com.todocompanion.app.ui.components.TaskLeftMeta(task.dueDate, task.note, !task.rrule.isNullOrBlank())
         }
         Spacer(Modifier.width(6.dp))
-        Column(horizontalAlignment = Alignment.End) {
+        Column(Modifier.widthIn(max = 116.dp), horizontalAlignment = Alignment.End) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 FlagStar(task.flagColorArgb, task.star, onCycleFlag, onToggleStar, iconSize = com.todocompanion.app.ui.components.flagStarSize(density))
             }
@@ -407,20 +408,25 @@ private fun OutlineList(vm: AppViewModel, density: Density, onOpenTask: (String)
                 }
             }
         }
-        if (rows.isEmpty()) { EmptyState(); return }
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(12.dp)) {
-            item {
-                Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
-                    Column {
-                        rows.forEachIndexed { i, row ->
-                            if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-                            com.todocompanion.app.ui.components.TaskRow(row, density,
-                                onClick = { onOpenTask(row.task.id) },
-                                onToggleComplete = { vm.toggleComplete(row.task) },
-                                onToggleCollapse = { vm.toggleCollapsed(row.task) },
-                                onCycleFlag = { vm.cycleFlag(row.task) }, onToggleStar = { vm.toggleStar(row.task) },
-                                onDelete = { vm.trash(row.task) },
-                                onZoom = { if (row.hasChildren) vm.zoomInto(row.task.id) }, onSetPriority = { vm.setPriority(row.task, it) })
+        // if/else, never a non-local return out of this inline Column lambda — an early return
+        // there desyncs Compose's group bookkeeping when rows flip empty↔populated and crashes.
+        if (rows.isEmpty()) {
+            EmptyState()
+        } else {
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(12.dp)) {
+                item {
+                    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+                        Column {
+                            rows.forEachIndexed { i, row ->
+                                if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                                com.todocompanion.app.ui.components.TaskRow(row, density,
+                                    onClick = { onOpenTask(row.task.id) },
+                                    onToggleComplete = { vm.toggleComplete(row.task) },
+                                    onToggleCollapse = { vm.toggleCollapsed(row.task) },
+                                    onCycleFlag = { vm.cycleFlag(row.task) }, onToggleStar = { vm.toggleStar(row.task) },
+                                    onDelete = { vm.trash(row.task) },
+                                    onZoom = { if (row.hasChildren) vm.zoomInto(row.task.id) }, onSetPriority = { vm.setPriority(row.task, it) })
+                            }
                         }
                     }
                 }
@@ -545,8 +551,9 @@ private fun TaskListItem(
                 com.todocompanion.app.ui.components.TaskLeftMeta(task.dueDate, task.note, !task.rrule.isNullOrBlank())
             }
             Spacer(Modifier.width(6.dp))
-            // Right (MLO): flag + star, with @contexts / #tags / list beneath.
-            Column(horizontalAlignment = Alignment.End) {
+            // Right (MLO): flag + star, with @contexts / #tags / list beneath. Width-bounded so a long
+            // list/tag label can never squeeze the weighted title column to nothing.
+            Column(Modifier.widthIn(max = 116.dp), horizontalAlignment = Alignment.End) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     FlagStar(task.flagColorArgb, task.star, onCycleFlag, onToggleStar, iconSize = com.todocompanion.app.ui.components.flagStarSize(density))
                 }
