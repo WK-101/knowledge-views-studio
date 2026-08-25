@@ -386,3 +386,58 @@ class NeedsAttentionTest {
         assertFalse("parent" in out)
     }
 }
+
+class HabitStatsTierITest {
+    private fun habit(
+        freq: String = "weekly", param: Int = 0, schedule: String = "",
+        type: String = "build", target: Int = 1,
+    ) = com.todocompanion.app.data.entity.HabitEntity(
+        id = "h", name = "H", createdAt = 0L, freqType = freq, freqParam = param,
+        scheduleDays = schedule, habitType = type, targetPerDay = target,
+    )
+
+    private val today = 20000L
+    private val empty = emptySet<Long>()
+
+    @Test fun strengthHighWhenAllDoneLowWhenMissed() {
+        val h = habit()
+        val allDone = (0..90).map { today - it }.toSet()
+        assertTrue(com.todocompanion.app.domain.habit.HabitStats.strength(h, allDone, empty, empty, today) > 80)
+        assertTrue(com.todocompanion.app.domain.habit.HabitStats.strength(h, empty, empty, empty, today) < 10)
+    }
+
+    @Test fun skipsAreNeutralForStrength() {
+        val h = habit()
+        val done = (10..90).map { today - it }.toSet()          // done except the last 10 days
+        val skipped = (0..9).map { today - it }.toSet()          // last 10 days skipped, not missed
+        val withSkip = com.todocompanion.app.domain.habit.HabitStats.strength(h, done, skipped, empty, today)
+        val withMiss = com.todocompanion.app.domain.habit.HabitStats.strength(h, done, empty, empty, today)
+        assertTrue("skips should preserve score vs misses", withSkip > withMiss)
+    }
+
+    @Test fun dailyStreakCountsConsecutive() {
+        val h = habit()
+        val done = setOf(today, today - 1, today - 2)            // today-3 missing
+        assertEquals(3, com.todocompanion.app.domain.habit.HabitStats.currentStreak(h, done, empty, empty, today))
+    }
+
+    @Test fun timesPerWeekDueAndStreak() {
+        val h = habit(freq = "times_week", param = 3)
+        val twoDone = setOf(today - 1, today - 2)                 // only 2 of 3 this week
+        assertTrue(com.todocompanion.app.domain.habit.HabitStats.dueToday(h, today, twoDone, 0))
+        val threeDone = setOf(today, today - 1, today - 2)        // quota met
+        assertFalse(com.todocompanion.app.domain.habit.HabitStats.dueToday(h, today, threeDone, 1))
+    }
+
+    @Test fun breakHabitStreakIsDaysSinceRelapse() {
+        val h = habit(type = "break", target = 0)
+        val relapse = setOf(today - 5)
+        assertEquals(5, com.todocompanion.app.domain.habit.HabitStats.currentStreak(h, empty, empty, relapse, today))
+    }
+
+    @Test fun intervalEveryThreeDaysScheduling() {
+        val h = habit(freq = "interval", param = 3)              // start epochDay 0; multiples of 3 expected
+        assertTrue(com.todocompanion.app.domain.habit.HabitStats.isExpectedDay(h, 30003L))   // 30003 % 3 == 0
+        assertFalse(com.todocompanion.app.domain.habit.HabitStats.isExpectedDay(h, 30004L))
+    }
+}

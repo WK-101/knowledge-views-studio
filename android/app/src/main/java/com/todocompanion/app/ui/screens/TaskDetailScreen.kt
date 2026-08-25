@@ -474,7 +474,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                         IconButton(onClick = { vm.removeAttachment(a.id) }) { Icon(Icons.Filled.Close, "Remove attachment") }
                     }
                 }
-                TextButton(onClick = { pickFile.launch("*/*") }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Icon(Icons.Filled.AttachFile, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Add file") }
+                val attachCtx = androidx.compose.ui.platform.LocalContext.current
+                TextButton(onClick = { try { pickFile.launch("*/*") } catch (e: Exception) { android.widget.Toast.makeText(attachCtx, "No file manager is available on this device.", android.widget.Toast.LENGTH_LONG).show() } }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Icon(Icons.Filled.AttachFile, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Add file") }
                 if (attachments.isEmpty()) Text("Any file up to 25 MB — images, PDF, docs. Stored on-device and in backups.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 

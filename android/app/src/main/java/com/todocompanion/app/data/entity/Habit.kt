@@ -5,7 +5,12 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 
-/** A habit to build (TickTick-style): checked off per day, with streaks. */
+/**
+ * A habit — to build ("build") or to quit ("break") — checked off per day, with streaks and a
+ * computed strength score. Tier I widened the model to specialist depth: flexible frequency,
+ * numeric targets with ≥/≤ comparison, per-tap increment, an overachievement goal, a start date,
+ * a description, and a whole-habit pause. All fields default so migrations stay additive.
+ */
 @Serializable
 @Entity(tableName = "habits")
 data class HabitEntity(
@@ -21,15 +26,48 @@ data class HabitEntity(
     val archived: Boolean = false,
     val workspaceId: String = WorkspaceEntity.DEFAULT_ID,
     val createdAt: Long,
-)
+    // --- Tier I ---
+    // "build" (do it) or "break" (quit it: success = staying at/under the target). See HabitKind.
+    val habitType: String = "build",
+    // For numeric goals: "atleast" (≥ target) or "atmost" (≤ target). Break habits imply atmost.
+    val targetComparison: String = "atleast",
+    // Frequency model: "weekly" (specific weekdays via scheduleDays), "times_week" / "times_month"
+    // (freqParam completions per rolling 7 / 30 days, any days), or "interval" (every freqParam days).
+    val freqType: String = "weekly",
+    val freqParam: Int = 0,
+    // How much one tap adds toward the target (numeric habits), e.g. +25 pages.
+    val clickIncrement: Int = 1,
+    // Optional overachievement goal (> targetPerDay): reaching it registers an "extra" day.
+    val extraTarget: Int? = null,
+    // When the habit began; days before it are not counted as misses. null = createdAt.
+    val startDate: Long? = null,
+    // A free-text reason / note, shown on the detail page (Markdown-friendly).
+    val description: String = "",
+    // Vacation: a paused habit is hidden from "due today" and never breaks its streak while paused.
+    val paused: Boolean = false,
+    // Optional per-unit money figure for break habits ("$0.50 per cigarette") → money-saved stat.
+    val moneyPerUnit: Double? = null,
+    // Optional grouping label, shown as a section header. "" = ungrouped.
+    val category: String = "",
+) {
+    /** null-safe first day this habit counts from. */
+    fun startEpochDay(zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): Long =
+        (startDate ?: createdAt).let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate().toEpochDay() }
+}
 
-/** One day's progress for a habit. [epochDay] is the local date; [count] is completions that day. */
+/**
+ * One day's progress for a habit. [count] is completions/value that day; [status] is
+ * "done" (normal) or "skip" (a neutral rest/skip day that neither breaks the streak nor dents the
+ * score). A [reason] is an optional free-text note on a skip.
+ */
 @Serializable
 @Entity(tableName = "habit_checkins", primaryKeys = ["habitId", "epochDay"], indices = [Index("habitId")])
 data class HabitCheckinEntity(
     val habitId: String,
     val epochDay: Long,
     val count: Int = 1,
+    val status: String = "done",   // "done" | "skip"
+    val reason: String = "",
 )
 
 /** A completed focus (Pomodoro / stopwatch) session, for the focus tab + statistics. */

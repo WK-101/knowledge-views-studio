@@ -1053,8 +1053,9 @@ private fun ManageListDialog(
                 EmojiPicker(current = list.emoji, onPick = onEmoji)
                 Spacer(Modifier.size(12.dp))
                 Text("Background image", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val bgCtx = androidx.compose.ui.platform.LocalContext.current
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { bgPicker.launch("image/*") }) { Text(if (list.backgroundBase64 == null) "Set image" else "Change image") }
+                    TextButton(onClick = { try { bgPicker.launch("image/*") } catch (e: Exception) { android.widget.Toast.makeText(bgCtx, "No file manager is available on this device.", android.widget.Toast.LENGTH_LONG).show() } }) { Text(if (list.backgroundBase64 == null) "Set image" else "Change image") }
                     if (list.backgroundBase64 != null) TextButton(onClick = onClearBackground) { Text("Remove", color = MaterialTheme.colorScheme.error) }
                 }
             }

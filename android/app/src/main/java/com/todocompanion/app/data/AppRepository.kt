@@ -132,15 +132,43 @@ class AppRepository(private val db: AppDatabase) {
         habits.upsert(HabitEntity(id = id, name = name, emoji = emoji, colorArgb = colorArgb, targetPerDay = target.coerceAtLeast(1), unit = unit, scheduleDays = scheduleDays, reminderTimes = reminderTimes, sortOrder = now().toDouble(), workspaceId = workspaceId, createdAt = now()))
         return id
     }
+    /** Create from a fully-built habit (Tier I editor); id/sortOrder/createdAt filled if blank. */
+    suspend fun createHabit(h: HabitEntity): String {
+        val id = h.id.ifBlank { uid() }
+        habits.upsert(h.copy(id = id, sortOrder = if (h.sortOrder == 0.0) now().toDouble() else h.sortOrder, createdAt = if (h.createdAt == 0L) now() else h.createdAt))
+        return id
+    }
     suspend fun getHabitsOnce(): List<HabitEntity> = habits.getAll()
     suspend fun getHabitCheckinsOnce(): List<HabitCheckinEntity> = habits.getCheckins()
     suspend fun upsertHabit(h: HabitEntity) = habits.upsert(h)
     suspend fun deleteHabit(id: String) { habits.clearHabit(id); habits.deleteById(id) }
-    /** Cycle today's progress: +1 up to target, then back to 0 (removes the check-in). */
-    suspend fun cycleCheckin(habitId: String, epochDay: Long, target: Int, current: Int) {
-        val next = current + 1
-        if (next > target) habits.deleteCheckin(habitId, epochDay)
-        else habits.upsertCheckin(HabitCheckinEntity(habitId, epochDay, next))
+    /**
+     * Cycle today's progress by [increment] up to the ceiling (extra goal if set, else target),
+     * then back to 0 (removes the check-in). Marks the day "done".
+     */
+    suspend fun cycleCheckin(habitId: String, epochDay: Long, target: Int, current: Int, increment: Int = 1, extra: Int? = null) {
+        val ceiling = (extra ?: target).coerceAtLeast(1)
+        val next = current + increment.coerceAtLeast(1)
+        if (next > ceiling) habits.deleteCheckin(habitId, epochDay)
+        else habits.upsertCheckin(HabitCheckinEntity(habitId, epochDay, next, status = "done"))
+    }
+    /** Set an exact value for a day (numeric entry / relapse amount). 0 clears the day. */
+    suspend fun setCheckinValue(habitId: String, epochDay: Long, count: Int) {
+        if (count <= 0) habits.deleteCheckin(habitId, epochDay)
+        else habits.upsertCheckin(HabitCheckinEntity(habitId, epochDay, count, status = "done"))
+    }
+    /** Mark a day as skipped (a neutral rest day: streak and score are unaffected). */
+    suspend fun skipDay(habitId: String, epochDay: Long, reason: String = "") =
+        habits.upsertCheckin(HabitCheckinEntity(habitId, epochDay, 0, status = "skip", reason = reason))
+    /** Remove any record for a day (back to unmarked). */
+    suspend fun clearCheckin(habitId: String, epochDay: Long) = habits.deleteCheckin(habitId, epochDay)
+    /** Pause / resume a whole habit (vacation) without touching its history. */
+    suspend fun setHabitPaused(habitId: String, paused: Boolean) {
+        habits.getAll().firstOrNull { it.id == habitId }?.let { habits.upsert(it.copy(paused = paused)) }
+    }
+    /** Pause or resume every habit in a workspace at once. */
+    suspend fun pauseAllHabits(workspaceId: String, paused: Boolean) {
+        habits.getAll().filter { it.workspaceId == workspaceId && !it.archived }.forEach { habits.upsert(it.copy(paused = paused)) }
     }
 
     private val focus = db.focusDao()

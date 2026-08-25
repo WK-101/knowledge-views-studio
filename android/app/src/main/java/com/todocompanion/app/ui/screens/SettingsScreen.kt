@@ -137,6 +137,14 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     val exportIcsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/calendar")) { uri ->
         if (uri != null) vm.exportIcsTo(uri, includeCompleted = false) { ok -> Toast.makeText(context, if (ok) "Calendar exported" else "Export failed", Toast.LENGTH_SHORT).show() }
     }
+    // Opening the system document picker (Storage Access Framework) can throw
+    // ActivityNotFoundException on devices whose Files / DocumentsUI app is missing or disabled —
+    // which crashed every import/export action. Guard the launch so it shows a message instead.
+    fun safePick(block: () -> Unit) {
+        try { block() } catch (e: Exception) {
+            Toast.makeText(context, "No file manager is available on this device to pick a file.", Toast.LENGTH_LONG).show()
+        }
+    }
 
     // Collapsible category groups (TickTick-style compact list). All start collapsed.
     val open = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
@@ -462,18 +470,18 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         }
 
         SettingsGroup(Icons.Filled.CloudSync, "Backup", open["backup"] == true, { open["backup"] = open["backup"] != true }) {
-            Action("Export all data (JSON)") { exportLauncher.launch("todo-companion-backup.json") }
-            Action("Import / restore (JSON)") { importLauncher.launch(arrayOf("application/json", "text/*", "*/*")) }
+            Action("Export all data (JSON)") { safePick { exportLauncher.launch("todo-companion-backup.json") } }
+            Action("Import / restore (JSON)") { safePick { importLauncher.launch(arrayOf("application/json", "text/*", "*/*")) } }
             Text("Complete, lossless local backup. No account, no cloud, no network.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
             HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-            Action("Export as Markdown (.md)") { exportMdLauncher.launch("todo-companion.md") }
-            Action("Export as CSV (spreadsheet)") { exportCsvLauncher.launch("todo-companion.csv") }
-            Action("Export to calendar (.ics)") { exportIcsLauncher.launch("todo-companion.ics") }
+            Action("Export as Markdown (.md)") { safePick { exportMdLauncher.launch("todo-companion.md") } }
+            Action("Export as CSV (spreadsheet)") { safePick { exportCsvLauncher.launch("todo-companion.csv") } }
+            Action("Export to calendar (.ics)") { safePick { exportIcsLauncher.launch("todo-companion.ics") } }
             Text("Readable, portable snapshots for sharing or archiving. The .ics imports your dated tasks and deadlines into any calendar app. (Restore uses JSON.)",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
             HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-            Action("Import from Todoist / TickTick / MLO") { importExternalLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "text/xml", "application/xml", "text/*", "*/*")) }
+            Action("Import from Todoist / TickTick / MLO") { safePick { importExternalLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "text/xml", "application/xml", "text/*", "*/*")) } }
             Text("Reads their CSV export (Todoist, TickTick) or OPML (MLO) on-device — no account, nothing uploaded.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
         }
@@ -481,17 +489,17 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         SettingsGroup(Icons.Filled.Sync, "Backup & sync (folder)", open["sync"] == true, { open["sync"] = open["sync"] != true }) {
             Text("Fully account-free: point the app at a folder (device, or a drive you already sync like Drive / Dropbox / Syncthing). Nothing goes to us.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
-            Toggle("Automatic backup", s.autoBackupEnabled) { on -> if (on && s.autoBackupFolder.isBlank()) backupFolderLauncher.launch(null) else vm.setAutoBackupEnabled(on) }
+            Toggle("Automatic backup", s.autoBackupEnabled) { on -> if (on && s.autoBackupFolder.isBlank()) safePick { backupFolderLauncher.launch(null) } else vm.setAutoBackupEnabled(on) }
             if (s.autoBackupEnabled) {
-                Action(if (s.autoBackupFolder.isBlank()) "Choose backup folder…" else "Backup folder: " + folderLabel(s.autoBackupFolder)) { backupFolderLauncher.launch(null) }
+                Action(if (s.autoBackupFolder.isBlank()) "Choose backup folder…" else "Backup folder: " + folderLabel(s.autoBackupFolder)) { safePick { backupFolderLauncher.launch(null) } }
                 Text("A dated JSON copy is written daily around ${"%02d:00".format(s.autoBackupHour)}.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Action("Back up now") { vm.runBackupNow { ok -> Toast.makeText(context, if (ok) "Backed up" else "Choose a folder first", Toast.LENGTH_SHORT).show() } }
             HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-            Toggle("Sync across devices (shared folder)", s.syncEnabled) { on -> if (on && s.syncFolder.isBlank()) syncFolderLauncher.launch(null) else vm.setSyncEnabled(on) }
+            Toggle("Sync across devices (shared folder)", s.syncEnabled) { on -> if (on && s.syncFolder.isBlank()) safePick { syncFolderLauncher.launch(null) } else vm.setSyncEnabled(on) }
             if (s.syncEnabled || s.syncFolder.isNotBlank()) {
-                Action(if (s.syncFolder.isBlank()) "Choose sync folder…" else "Sync folder: " + folderLabel(s.syncFolder)) { syncFolderLauncher.launch(null) }
+                Action(if (s.syncFolder.isBlank()) "Choose sync folder…" else "Sync folder: " + folderLabel(s.syncFolder)) { safePick { syncFolderLauncher.launch(null) } }
                 Action("Sync now") { vm.runSyncNow { ok, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() } }
                 // G2: last-sync change summary is more informative than just a timestamp.
                 if (s.lastSyncSummary.isNotBlank()) Text(s.lastSyncSummary + (if (s.lastSyncAt > 0) " · " + formatDue(s.lastSyncAt) else ""),

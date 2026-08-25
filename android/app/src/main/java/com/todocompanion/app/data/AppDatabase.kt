@@ -67,7 +67,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         com.todocompanion.app.data.entity.ActivityEntity::class,
         com.todocompanion.app.data.entity.TaskRevisionEntity::class,
     ],
-    version = 27,
+    version = 28,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -298,6 +298,26 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Tier I: widen the habit model to specialist depth (type, comparison, flexible frequency,
+        // increment, extra goal, start date, description, pause, money, category) + skip check-ins.
+        private val MIGRATION_27_28 = object : Migration(27, 28) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `habitType` TEXT NOT NULL DEFAULT 'build'")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `targetComparison` TEXT NOT NULL DEFAULT 'atleast'")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `freqType` TEXT NOT NULL DEFAULT 'weekly'")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `freqParam` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `clickIncrement` INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `extraTarget` INTEGER")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `startDate` INTEGER")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `description` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `paused` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `moneyPerUnit` REAL")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `category` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habit_checkins` ADD COLUMN `status` TEXT NOT NULL DEFAULT 'done'")
+                db.execSQL("ALTER TABLE `habit_checkins` ADD COLUMN `reason` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -305,7 +325,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "todocompanion.db",
                 )
-                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27)
+                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28)
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { INSTANCE = it }

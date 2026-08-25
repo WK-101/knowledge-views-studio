@@ -821,9 +821,34 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
         com.todocompanion.app.widget.HabitsWidget.refresh(appCtx)
     }
-    fun deleteHabit(id: String) = viewModelScope.launch { repo.deleteHabit(id); com.todocompanion.app.widget.HabitsWidget.refresh(appCtx) }
+    /** Create from a fully-built habit (Tier I editor). Workspace defaults to the active one. */
+    fun addHabit(h: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch {
+        repo.createHabit(h.copy(workspaceId = h.workspaceId.ifBlank { settings.value.activeWorkspaceId }))
+        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
+        refreshHabitWidgets()
+    }
+    fun deleteHabit(id: String) = viewModelScope.launch { repo.deleteHabit(id); refreshHabitWidgets() }
     fun cycleHabit(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, current: Int) = viewModelScope.launch {
-        repo.cycleCheckin(h.id, epochDay, h.targetPerDay, current)
+        repo.cycleCheckin(h.id, epochDay, h.targetPerDay, current, h.clickIncrement, h.extraTarget)
+        refreshHabitWidgets()
+    }
+    /** Numeric / exact value entry for a day (also used to record a break-habit relapse amount). */
+    fun setHabitValue(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, count: Int) = viewModelScope.launch {
+        repo.setCheckinValue(h.id, epochDay, count); refreshHabitWidgets()
+    }
+    fun skipHabitDay(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, reason: String = "") = viewModelScope.launch {
+        repo.skipDay(h.id, epochDay, reason); refreshHabitWidgets()
+    }
+    fun clearHabitDay(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long) = viewModelScope.launch {
+        repo.clearCheckin(h.id, epochDay); refreshHabitWidgets()
+    }
+    fun setHabitPaused(h: com.todocompanion.app.data.entity.HabitEntity, paused: Boolean) = viewModelScope.launch {
+        repo.setHabitPaused(h.id, paused); com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo); refreshHabitWidgets()
+    }
+    fun pauseAllHabits(paused: Boolean) = viewModelScope.launch {
+        repo.pauseAllHabits(settings.value.activeWorkspaceId, paused); com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo); refreshHabitWidgets()
+    }
+    private fun refreshHabitWidgets() {
         com.todocompanion.app.widget.HabitsWidget.refresh(appCtx)
     }
 
