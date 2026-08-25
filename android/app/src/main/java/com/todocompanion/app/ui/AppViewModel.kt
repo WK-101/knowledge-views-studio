@@ -684,6 +684,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun moveUp(t: TaskEntity) = viewModelScope.launch { repo.moveUp(t) }
     fun moveDown(t: TaskEntity) = viewModelScope.launch { repo.moveDown(t) }
     fun moveToList(t: TaskEntity, listId: String) = viewModelScope.launch { repo.moveToList(t.id, listId) }
+    /** Drag-to-nest: make [childId] a subtask of [parentId] (null promotes it to top level). Cycle-safe. */
+    fun nestUnder(childId: String, parentId: String?) = viewModelScope.launch {
+        if (childId == parentId) return@launch
+        val child = repo.getTask(childId) ?: return@launch
+        if (child.parentId == parentId) return@launch
+        if (parentId != null) {
+            // Refuse to nest a task under one of its own descendants (would orphan a subtree).
+            val all = tasks.value
+            var p: String? = parentId
+            var guard = 0
+            while (p != null && guard++ < 1000) {
+                if (p == childId) return@launch
+                p = all.firstOrNull { it.id == p }?.parentId
+            }
+            val parent = repo.getTask(parentId)
+            repo.saveTask(child.copy(parentId = parentId, listId = parent?.listId ?: child.listId, folderId = parent?.folderId ?: child.folderId))
+        } else {
+            repo.saveTask(child.copy(parentId = null))
+        }
+    }
     fun save(t: TaskEntity) = viewModelScope.launch { repo.saveTask(t) }
     /** Persist a manual drag reorder by writing each id's index as its sortOrder. */
     fun setManualOrder(orderedIds: List<String>) = viewModelScope.launch {
@@ -1397,8 +1417,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Import tasks from a Todoist/TickTick CSV or MLO OPML file. Returns (ok, message). */
     fun importExternal(uri: Uri, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
+        val text = runCatching { appCtx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull()
+        importExternalText(text, onDone)
+    }
+    /** Core of external (Todoist/TickTick CSV, MLO OPML) import — reused by the in-app restore browser. */
+    private suspend fun importExternalText(text: String?, onDone: (Boolean, String) -> Unit) {
         val ok = runCatching {
-            val text = appCtx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: return@runCatching null
+            if (text == null) return@runCatching null
             val parsed = com.todocompanion.app.data.sync.Importers.parse(text) ?: return@runCatching null
             val listIds = HashMap<String, String>()
             val existing = lists.value.associateBy { it.name.lowercase() }
@@ -1420,6 +1445,25 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }.getOrNull()
         if (ok == null) onDone(false, "Couldn't read that file — export a Todoist/TickTick CSV or MLO OPML")
         else onDone(true, "Imported ${ok.second} tasks from ${ok.first}")
+    }
+
+    // ---- In-app restore (no system picker needed) ----
+    fun loadSavedBackups(onDone: (List<com.todocompanion.app.util.FileExport.SavedFile>) -> Unit) = viewModelScope.launch {
+        val list = withContext(Dispatchers.IO) { com.todocompanion.app.util.FileExport.listSaved(appCtx) }
+        onDone(list)
+    }
+    fun restoreSaved(s: com.todocompanion.app.util.FileExport.SavedFile, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
+        val text = withContext(Dispatchers.IO) {
+            runCatching { if (s.uri != null) appCtx.contentResolver.openInputStream(s.uri)?.bufferedReader()?.use { it.readText() } else s.file?.readText() }.getOrNull()
+        }
+        if (text == null) { onDone(false, "Couldn't read that file"); return@launch }
+        if (s.name.endsWith(".json", ignoreCase = true)) {
+            val ok = runCatching {
+                val plain = com.todocompanion.app.data.sync.Crypto.decrypt(text, settings.value.syncPassphrase) ?: text
+                repo.importJsonReplace(plain); AlarmScheduler.rescheduleAll(appCtx, repo); true
+            }.getOrDefault(false)
+            onDone(ok, if (ok) "Restored from ${s.name}" else "Restore failed — is this a ToDo Companion backup?")
+        } else importExternalText(text, onDone)
     }
 
     fun importFrom(uri: Uri, onDone: (Boolean) -> Unit) = viewModelScope.launch {

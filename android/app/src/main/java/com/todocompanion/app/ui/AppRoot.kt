@@ -1236,29 +1236,39 @@ private fun ManageContextDialog(
     val lctx = LocalContext.current
     var hasLoc by remember { mutableStateOf(ctx.latitude != null) }
     var locating by remember { mutableStateOf(false) }
+    // Hard safety net: no matter what the platform location callback does (some devices never fire it),
+    // stop "locating" after a bounded wait so the switch can never spin forever.
+    LaunchedEffect(locating) {
+        if (locating) {
+            kotlinx.coroutines.delay(15_000)
+            if (locating) {
+                locating = false
+                if (!hasLoc) android.widget.Toast.makeText(lctx, "Still couldn't pin your location. Turn on Location in system settings and try again — no internet needed.", android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
+    }
     fun captureAndSet() {
-        // Show progress for the whole capture so the switch never silently snaps back to off. Fast
-        // path: an instant last-known fix. Otherwise actively request one from every enabled provider
-        // (framework LocationManager — no Play Services). Only revert the switch if we truly get nothing.
+        // Optimistic: the switch reads ON the moment you opt in; we pin coordinates in the background and
+        // only revert (with a message) if capture truly fails. Fast path uses an instant last-known fix.
         locating = true
-        lastKnownLocation(lctx)?.let { (la, ln) -> onSetLocation(la, ln, 150.0); hasLoc = true; locating = false; return }
+        hasLoc = true
+        lastKnownLocation(lctx)?.let { (la, ln) -> onSetLocation(la, ln, 150.0); locating = false; return }
         requestLocationFix(lctx) { fix ->
             locating = false
             if (fix != null) { onSetLocation(fix.first, fix.second, 150.0); hasLoc = true }
-            else { hasLoc = false; android.widget.Toast.makeText(lctx, "Couldn't get a location fix. Turn on Location in system settings, then try again — no internet needed.", android.widget.Toast.LENGTH_LONG).show() }
+            else { hasLoc = false; android.widget.Toast.makeText(lctx, "Couldn't pin your location. Turn on Location in system settings, then try again — no internet needed.", android.widget.Toast.LENGTH_LONG).show() }
         }
     }
     val locPermLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
         if (grants.values.any { it }) captureAndSet()
-        else { locating = false; android.widget.Toast.makeText(lctx, "Location permission is needed for arrival alerts", android.widget.Toast.LENGTH_SHORT).show() }
+        else { locating = false; hasLoc = false; android.widget.Toast.makeText(lctx, "Location permission is needed for arrival alerts", android.widget.Toast.LENGTH_SHORT).show() }
     }
     fun toggleLocation(on: Boolean) {
         if (!on) { runCatching { onClearLocation() }; hasLoc = false; locating = false; return }
         val fine = androidx.core.content.ContextCompat.checkSelfPermission(lctx, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
         val coarse = androidx.core.content.ContextCompat.checkSelfPermission(lctx, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
         if (fine || coarse) captureAndSet()
-        // Requesting permission: show progress immediately so the toggle reads as "working", not "off".
-        else { locating = true; runCatching { locPermLauncher.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)) } }
+        else { locating = true; hasLoc = true; runCatching { locPermLauncher.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)) } }
     }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1302,14 +1312,15 @@ private fun ManageContextDialog(
                     }
                 }
                 Spacer(Modifier.size(10.dp))
-                // Location geofence (E3): arriving here surfaces this context's tasks.
+                // Location geofence (E3): arriving here surfaces this context's tasks. The switch stays
+                // interactive the whole time (a small caption shows progress) so it can never lock up.
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Alert me when I arrive here", Modifier.weight(1f))
-                    if (locating) androidx.compose.material3.CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                    else androidx.compose.material3.Switch(checked = hasLoc, onCheckedChange = { on -> toggleLocation(on) })
+                    if (locating) { androidx.compose.material3.CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp); Spacer(Modifier.size(10.dp)) }
+                    androidx.compose.material3.Switch(checked = hasLoc, onCheckedChange = { on -> toggleLocation(on) })
                 }
                 Text(when {
-                        locating -> "Getting a location fix…"
+                        locating -> "Pinning your location… (you can turn this off any time)"
                         hasLoc -> "Uses your current location. On-device only — coordinates never leave the phone."
                         else -> "Captures where you are now as this context's place. Works without Google services."
                     },

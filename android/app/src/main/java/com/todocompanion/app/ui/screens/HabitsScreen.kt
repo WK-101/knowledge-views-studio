@@ -522,6 +522,10 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
     val isBreak = habitType == "break"
     val allHabits by vm.habits.collectAsState()
 
+    // Safety net: never let the "Use my location" spinner hang if the platform callback never fires.
+    LaunchedEffect(locating) {
+        if (locating) { kotlinx.coroutines.delay(15_000); if (locating) locating = false }
+    }
     fun captureLocation() {
         locating = true
         com.todocompanion.app.reminders.LocationFix.lastKnown(ctx)?.let { (la, ln) -> lat = la; lng = ln; locating = false; return }

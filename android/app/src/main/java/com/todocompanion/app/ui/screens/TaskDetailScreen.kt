@@ -42,6 +42,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -147,6 +149,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     var showDue by remember { mutableStateOf(false) }
     var showStart by remember { mutableStateOf(false) }
     var showDeadline by remember { mutableStateOf(false) }
+    var showDuration by remember { mutableStateOf(false) }
     var showReminder by remember { mutableStateOf(false) }
     var showLocationReminder by remember { mutableStateOf(false) }
     var newTag by remember { mutableStateOf("") }
@@ -302,8 +305,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 MenuRow("Show early", task.leadTimeMin?.let { "${it / 1440}d early" } ?: "Default",
                     listOf<Pair<Int?, String>>(null to "Default (7 days)", 1 to "1 day early", 3 to "3 days early", 7 to "1 week early", 14 to "2 weeks early")) { d -> update { it.copy(leadTimeMin = d?.let { n -> n * 1440 }) } }
                 val timed = task.dueDate != null && !task.isAllDay && java.time.Instant.ofEpochMilli(task.dueDate!!).atZone(zone).let { it.hour != 0 || it.minute != 0 }
-                if (timed) MenuRow("Duration", task.durationMin?.let { "$it min" } ?: "30 min",
-                    listOf(15, 30, 45, 60, 90, 120, 180, 240).map { it to "$it min" }) { m -> update { it.copy(durationMin = m) } }
+                if (timed) PropRow(Icons.Filled.Schedule, "Duration", task.durationMin?.let { fmtDuration(it) } ?: "Not set", indent = true,
+                    onClear = if (task.durationMin != null) ({ update { it.copy(durationMin = null) } }) else null) { showDuration = true }
             }
 
             // ---------- Priority & list (core, always shown) ----------
@@ -578,6 +581,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                         FilterChip(selected = task.reviewEveryDays == days, onClick = { update { it.copy(reviewEveryDays = days) } }, label = { Text(label) })
                     }
                 }
+                if (task.reviewEveryDays != null) Text("When due, this task appears in the Weekly review (FAB ▸ Weekly review) under “Due for review”.",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
                 if (task.reviewEveryDays != null) {
                     val last = task.reviewedAt ?: task.createdAt
                     val dueIn = ((last + task.reviewEveryDays!! * 86_400_000L) - System.currentTimeMillis()) / 86_400_000L
@@ -637,6 +642,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             confirmButton = { TextButton(onClick = { confirmDiscard = false; commit() }) { Text("Save") } },
             dismissButton = { TextButton(onClick = { confirmDiscard = false; onBack() }) { Text("Discard", color = MaterialTheme.colorScheme.error) } },
         )
+    }
+    if (showDuration) DurationPickerDialog(task?.durationMin ?: 30, onDismiss = { showDuration = false }) { mins ->
+        update { it.copy(durationMin = mins.takeIf { m -> m > 0 }) }; showDuration = false
     }
     if (showDue) DateTimePickerDialog(task?.dueDate, { showDue = false },
         initialDurationMin = task?.durationMin,
@@ -1173,4 +1181,47 @@ private fun formatBytes(n: Long): String = when {
     n >= 1024 * 1024 -> "%.1f MB".format(n / (1024.0 * 1024))
     n >= 1024 -> "%.0f KB".format(n / 1024.0)
     else -> "$n B"
+}
+
+/** Human duration, e.g. 90 → "1h 30m", 45 → "45m", 120 → "2h". */
+fun fmtDuration(min: Int): String {
+    val h = min / 60; val m = min % 60
+    return when {
+        h > 0 && m > 0 -> "${h}h ${m}m"
+        h > 0 -> "${h}h"
+        else -> "${m}m"
+    }
+}
+
+/** Flexible duration picker — any hours (0–23) and minutes (0–55, 5-min steps), not fixed presets. */
+@Composable
+private fun DurationPickerDialog(initialMin: Int, onDismiss: () -> Unit, onPick: (Int) -> Unit) {
+    var hours by remember { mutableStateOf((initialMin / 60).coerceIn(0, 23)) }
+    var mins by remember { mutableStateOf((initialMin % 60)) }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Duration") },
+        text = {
+            Column {
+                DurStepper("Hours", hours, 0, 23, 1) { hours = it }
+                Spacer(Modifier.height(8.dp))
+                DurStepper("Minutes", mins, 0, 55, 5) { mins = it }
+                Spacer(Modifier.height(10.dp))
+                Text("= ${fmtDuration((hours * 60 + mins).coerceAtLeast(0))}",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+            }
+        },
+        confirmButton = { TextButton(onClick = { onPick(hours * 60 + mins) }) { Text("Set") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun DurStepper(label: String, value: Int, min: Int, max: Int, step: Int, onChange: (Int) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        IconButton(onClick = { onChange((value - step).coerceAtLeast(min)) }) { Icon(Icons.Filled.Remove, "Less") }
+        Text("$value", Modifier.width(40.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center, style = MaterialTheme.typography.titleMedium)
+        IconButton(onClick = { onChange((value + step).coerceAtMost(max)) }) { Icon(Icons.Filled.Add, "More") }
+    }
 }

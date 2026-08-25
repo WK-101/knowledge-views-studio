@@ -163,9 +163,16 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 Toast.makeText(context, if (loc != null) "Saved to $loc" else "Export failed", Toast.LENGTH_LONG).show()
             }
         } catch (e: Exception) {
-            Toast.makeText(context, "Export failed.", Toast.LENGTH_LONG).show()
+            // No document picker at all — still land the file somewhere reachable (Downloads / app storage).
+            vm.exportToDownloads(kind) { loc ->
+                Toast.makeText(context, if (loc != null) "Saved to $loc" else "Export failed", Toast.LENGTH_LONG).show()
+            }
         }
     }
+    // In-app restore browser (no system picker) — for devices with no DocumentsUI / file manager hook.
+    var restoreOpen by remember { mutableStateOf(false) }
+    var savedList by remember { mutableStateOf<List<com.todocompanion.app.util.FileExport.SavedFile>?>(null) }
+    fun openRestore() { savedList = null; restoreOpen = true; vm.loadSavedBackups { savedList = it } }
 
     // Collapsible category groups (TickTick-style compact list). All start collapsed.
     val open = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
@@ -493,7 +500,8 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         SettingsGroup(Icons.Filled.CloudSync, "Backup", open["backup"] == true, { open["backup"] = open["backup"] != true }) {
             Action("Export all data (JSON)") { safeExport("json") { exportLauncher.launch("todo-companion-backup.json") } }
             Action("Import / restore (JSON)") { safePick { importLauncher.launch("*/*") } }
-            Text("Complete, lossless local backup. No account, no cloud, no network. If this device has no file picker, exports save straight to your Downloads folder.",
+            Action("Restore from a saved file…") { openRestore() }
+            Text("Complete, lossless local backup. No account, no cloud, no network. If this device has no file picker, exports save straight to your Downloads folder — and “Restore from a saved file” reads them back with no picker.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
             HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             Action("Export as Markdown (.md)") { safeExport("md") { exportMdLauncher.launch("todo-companion.md") } }
@@ -591,6 +599,48 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             title = { Text("Evening review time") },
             text = { TimePicker(state = ts) },
         )
+    }
+    if (restoreOpen) {
+        var confirming by remember { mutableStateOf<com.todocompanion.app.util.FileExport.SavedFile?>(null) }
+        AlertDialog(
+            onDismissRequest = { restoreOpen = false },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { restoreOpen = false }) { Text("Close") } },
+            title = { Text("Restore from a saved file") },
+            text = {
+                val list = savedList
+                when {
+                    list == null -> Text("Looking for saved backups…")
+                    list.isEmpty() -> Text("No saved backups found. Use “Export all data (JSON)” first — it saves to your Downloads folder — then come back here.")
+                    else -> androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                        items(list, key = { (it.uri?.toString() ?: it.file?.absolutePath ?: it.name) }) { sf ->
+                            Column(Modifier.fillMaxWidth().clickable { confirming = sf }.padding(vertical = 10.dp)) {
+                                Text(sf.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                Text(sf.location, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            },
+        )
+        confirming?.let { sf ->
+            AlertDialog(
+                onDismissRequest = { confirming = null },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val target = sf; confirming = null; restoreOpen = false
+                        vm.restoreSaved(target) { ok, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() }
+                    }) { Text("Restore") }
+                },
+                dismissButton = { TextButton(onClick = { confirming = null }) { Text("Cancel") } },
+                title = { Text("Restore this file?") },
+                text = {
+                    Text(if (sf.name.endsWith(".json", true))
+                        "Restoring ${sf.name} replaces ALL current data with the contents of this backup. This can't be undone."
+                    else "Import tasks from ${sf.name} into your current data.")
+                },
+            )
+        }
     }
 }
 

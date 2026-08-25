@@ -131,10 +131,16 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
         val byId = allContexts.associateBy { it.id }
         ctxRefs.groupBy { it.taskId }.mapValues { (_, refs) -> refs.mapNotNull { byId[it.contextId] }.map { it.name to it.colorArgb } }
     }
-    // In smart lists (which span lists), show each task's list as a detail — like MLO/TickTick.
+    // In smart lists (which span lists) and folder views (which span their lists), show each task's
+    // list as a detail — like MLO/TickTick. In a folder, tasks captured with no list read "No list".
     val lists by vm.lists.collectAsState()
-    val showList = view is ViewRef.Smart
+    val inFolderView = view is ViewRef.FolderView
+    val showList = view is ViewRef.Smart || inFolderView
     val listNameById = remember(lists) { lists.associate { it.id to it.name } }
+    fun listLabel(listId: String): String? {
+        if (!showList) return null
+        return listNameById[listId]?.takeIf { it != "Inbox" } ?: if (inFolderView) "No list" else null
+    }
 
     if (groups.isEmpty() || groups.all { it.tasks.isEmpty() }) { EmptyState(view); return }
 
@@ -142,7 +148,7 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
     val sortMode by vm.sortMode.collectAsState()
     if (sortMode == com.todocompanion.app.domain.view.SortMode.MANUAL && groups.size == 1 && groups.first().title.isBlank() && !isTrash) {
         ManualReorderList(vm, groups.first().tasks, settings.density, ctxByTask, tagsByTask,
-            listNameOf = { id -> if (showList) listNameById[id]?.takeIf { it != "Inbox" } else null },
+            listNameOf = { listId -> listLabel(listId) },
             rightNear = settings.swipeRight, rightFar = settings.swipeRightFar, leftNear = settings.swipeLeft, leftFar = settings.swipeLeftFar,
             onOpenTask = onOpenTask, modifier = modifier)
         return
@@ -179,7 +185,7 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
                                     if (i > 0) HorizontalDivider(Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
                                     TaskListItem(task, settings.density,
                                         contexts = ctxByTask[task.id].orEmpty(), tags = tagsByTask[task.id].orEmpty(),
-                                        listName = if (showList) listNameById[task.listId]?.takeIf { it != "Inbox" } else null,
+                                        listName = listLabel(task.listId),
                                         rightNear = if (isTrash) SwipeAction.COMPLETE else settings.swipeRight,
                                         rightFar = if (isTrash) SwipeAction.NONE else settings.swipeRightFar,
                                         leftNear = if (isTrash) SwipeAction.TRASH else settings.swipeLeft,
@@ -268,10 +274,12 @@ private fun ManualReorderList(
     val listState = rememberLazyListState()
     var draggingId by remember { mutableStateOf<String?>(null) }
     var delta by remember { mutableFloatStateOf(0f) }
+    var dx by remember { mutableFloatStateOf(0f) }
     var items by remember { mutableStateOf(tasks) }
     // Resync with upstream whenever the tasks change (reorder, add/remove, OR an edited
     // field like star/flag/title) — but never mid-drag, so the gesture isn't disrupted.
     androidx.compose.runtime.LaunchedEffect(tasks) { if (draggingId == null) items = tasks }
+    val nestThreshold = with(LocalDensity.current) { 48.dp.toPx() }
 
     LazyColumn(
         state = listState,
@@ -280,9 +288,20 @@ private fun ManualReorderList(
             draggingId = { draggingId },
             setDraggingId = { draggingId = it },
             delta = { delta }, setDelta = { delta = it },
+            dx = { dx }, setDx = { dx = it },
             indexOfId = { id -> items.indexOfFirst { it.id == id } },
             moveItem = { from, to -> items = items.toMutableList().also { it.add(to, it.removeAt(from)) } },
-            onCommit = { vm.setManualOrder(items.map { it.id }) },
+            onCommit = { finalDx ->
+                val id = draggingId
+                val idx = items.indexOfFirst { it.id == id }
+                when {
+                    // Drag right past the threshold → nest under the task directly above it.
+                    id != null && finalDx > nestThreshold && idx > 0 -> vm.nestUnder(id, items[idx - 1].id)
+                    // Drag left past the threshold → un-nest (promote to top level).
+                    id != null && finalDx < -nestThreshold -> vm.nestUnder(id, null)
+                    else -> vm.setManualOrder(items.map { it.id })
+                }
+            },
         ),
         contentPadding = PaddingValues(top = 6.dp, bottom = 100.dp, start = 12.dp, end = 12.dp),
     ) {
@@ -292,7 +311,10 @@ private fun ManualReorderList(
                 Modifier
                     .padding(vertical = 3.dp)
                     .zIndex(if (dragging) 1f else 0f)
-                    .graphicsLayer { translationY = if (dragging) delta else 0f },
+                    .graphicsLayer {
+                        translationY = if (dragging) delta else 0f
+                        translationX = if (dragging) dx.coerceIn(-80f, 80f) else 0f
+                    },
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surface,
                 shadowElevation = if (dragging) 8.dp else 1.dp,
@@ -304,7 +326,7 @@ private fun ManualReorderList(
                     enabled = draggingId == null, isTrashRestore = false,
                     onAct = { a -> onSwipe(vm, a, task, false, {}) { onOpenTask(task.id) } },
                 ) {
-                    ReorderRow(task, density, ctxByTask[task.id].orEmpty(), tagsByTask[task.id].orEmpty(), listNameOf(task.id),
+                    ReorderRow(task, density, ctxByTask[task.id].orEmpty(), tagsByTask[task.id].orEmpty(), listNameOf(task.listId),
                         onOpen = { onOpenTask(task.id) }, onToggle = { vm.toggleComplete(task) },
                         onCycleFlag = { vm.cycleFlag(task) }, onToggleStar = { vm.toggleStar(task) },
                         onSetPriority = { vm.setPriority(task, it) })
@@ -350,18 +372,20 @@ private fun Modifier.androidx_pointerReorder(
     listState: androidx.compose.foundation.lazy.LazyListState,
     draggingId: () -> String?, setDraggingId: (String?) -> Unit,
     delta: () -> Float, setDelta: (Float) -> Unit,
-    indexOfId: (String) -> Int, moveItem: (Int, Int) -> Unit, onCommit: () -> Unit,
+    dx: () -> Float = { 0f }, setDx: (Float) -> Unit = {},
+    indexOfId: (String) -> Int, moveItem: (Int, Int) -> Unit, onCommit: (Float) -> Unit,
 ): Modifier = this.pointerInput(Unit) {
     detectDragGesturesAfterLongPress(
         onDragStart = { off ->
             val hit = listState.layoutInfo.visibleItemsInfo.firstOrNull { off.y.toInt() in it.offset..(it.offset + it.size) }
-            setDraggingId(hit?.key as? String); setDelta(0f)
+            setDraggingId(hit?.key as? String); setDelta(0f); setDx(0f)
         },
-        onDragEnd = { if (draggingId() != null) onCommit(); setDraggingId(null); setDelta(0f) },
-        onDragCancel = { setDraggingId(null); setDelta(0f) },
+        onDragEnd = { if (draggingId() != null) onCommit(dx()); setDraggingId(null); setDelta(0f); setDx(0f) },
+        onDragCancel = { setDraggingId(null); setDelta(0f); setDx(0f) },
         onDrag = { change, drag ->
             change.consume()
             setDelta(delta() + drag.y)
+            setDx(dx() + drag.x)
             val id = draggingId()
             val info = listState.layoutInfo.visibleItemsInfo
             val cur = id?.let { d -> info.firstOrNull { it.key == d } }
