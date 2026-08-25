@@ -49,6 +49,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.ViewColumn
+import androidx.compose.material.icons.filled.ViewTimeline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
@@ -113,6 +114,7 @@ import java.time.ZoneId
 private enum class Tab(val label: String, val icon: ImageVector) {
     TASKS("Tasks", Icons.AutoMirrored.Filled.FormatListBulleted),
     CALENDAR("Calendar", Icons.Filled.CalendarMonth),
+    TIMELINE("Timeline", Icons.Filled.ViewTimeline),
     MATRIX("Matrix", Icons.Filled.GridView),
     HABITS("Habits", Icons.Filled.LocalFireDepartment),
     FOCUS("Focus", Icons.Filled.Timer),
@@ -369,6 +371,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                             }, onAddAt = { d, minute ->
                                 openQuickAdd(d.atStartOfDay(ZoneId.systemDefault()).plusMinutes(minute.toLong()).toInstant().toEpochMilli(), withTime = true)
                             })
+                            Tab.TIMELINE -> com.todocompanion.app.ui.screens.TimelineScreen(vm, ::openTask)
                             Tab.MATRIX -> MatrixScreen(vm, ::openTask, matrixSettings, { matrixSettings = false })
                             Tab.HABITS -> com.todocompanion.app.ui.screens.HabitsScreen(vm)
                             Tab.FOCUS -> com.todocompanion.app.ui.screens.FocusScreen(vm)
