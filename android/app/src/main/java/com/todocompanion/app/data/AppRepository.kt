@@ -150,12 +150,27 @@ class AppRepository(private val db: AppDatabase) {
         val ceiling = (extra ?: target).coerceAtLeast(1)
         val next = current + increment.coerceAtLeast(1)
         if (next > ceiling) habits.deleteCheckin(habitId, epochDay)
-        else habits.upsertCheckin(HabitCheckinEntity(habitId, epochDay, next, status = "done"))
+        else {
+            val note = habits.getCheckin(habitId, epochDay)?.reason ?: ""
+            habits.upsertCheckin(HabitCheckinEntity(habitId, epochDay, next, status = "done", reason = note))
+        }
     }
-    /** Set an exact value for a day (numeric entry / relapse amount). 0 clears the day. */
+    /** Set an exact value for a day (numeric entry / relapse amount). 0 clears the day. Preserves any note. */
     suspend fun setCheckinValue(habitId: String, epochDay: Long, count: Int) {
         if (count <= 0) habits.deleteCheckin(habitId, epochDay)
-        else habits.upsertCheckin(HabitCheckinEntity(habitId, epochDay, count, status = "done"))
+        else {
+            val note = habits.getCheckin(habitId, epochDay)?.reason ?: ""
+            habits.upsertCheckin(HabitCheckinEntity(habitId, epochDay, count, status = "done", reason = note))
+        }
+    }
+    /**
+     * Write a whole day at once from the per-day editor: [count] value, [status] ("done"/"skip"),
+     * and a free-text [note]. An empty done day with no note clears the record entirely.
+     */
+    suspend fun setDay(habitId: String, epochDay: Long, count: Int, status: String, note: String) {
+        val c = count.coerceAtLeast(0)
+        if (status == "done" && c <= 0 && note.isBlank()) habits.deleteCheckin(habitId, epochDay)
+        else habits.upsertCheckin(HabitCheckinEntity(habitId, epochDay, c, status = status, reason = note))
     }
     /** Mark a day as skipped (a neutral rest day: streak and score are unaffected). */
     suspend fun skipDay(habitId: String, epochDay: Long, reason: String = "") =

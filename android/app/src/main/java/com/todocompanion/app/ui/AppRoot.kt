@@ -519,7 +519,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                                 }, onAddAt = { d, minute -> blockAt = d to minute })
                             Tab.TIMELINE -> com.todocompanion.app.ui.screens.TimelineScreen(vm, ::openTask, selectedLists = timelineLists, showDone = timelineShowDone)
                             Tab.MATRIX -> MatrixScreen(vm, ::openTask, matrixSettings, { matrixSettings = false })
-                            Tab.HABITS -> com.todocompanion.app.ui.screens.HabitsScreen(vm)
+                            Tab.HABITS -> com.todocompanion.app.ui.screens.HabitsScreen(vm, onFocusHabit = { hid -> vm.pendingFocusHabitId.value = hid; tab = Tab.FOCUS })
                             Tab.FOCUS -> com.todocompanion.app.ui.screens.FocusScreen(vm, onOpenStats = { showStats = true })
                         }
                     }

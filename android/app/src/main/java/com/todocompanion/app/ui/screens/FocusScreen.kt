@@ -64,9 +64,11 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
     val todayCount = sessions.count { it.epochDay == today }
     val context = LocalContext.current
 
+    val habits by vm.habits.collectAsState()
     var pomo by remember { mutableStateOf(true) }
     var pomoMin by remember { mutableIntStateOf(25) }          // configurable Pomodoro length
     var focusTaskId by remember { mutableStateOf<String?>(null) } // the task this session is spent on
+    var focusHabitId by remember { mutableStateOf<String?>(null) } // Fusion F2: a habit this session credits
     var running by remember { mutableStateOf(false) }
     // Wall-clock model so the timer stays accurate across backgrounding / process death:
     // baseElapsed = seconds banked before the current run segment; segmentStart = its wall-clock start.
@@ -82,7 +84,7 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
     val pendingFocus by vm.pendingFocusTaskId.collectAsState()
     LaunchedEffect(pendingFocus) {
         pendingFocus?.let { id ->
-            focusTaskId = id
+            focusTaskId = id; focusHabitId = null
             vm.pendingFocusTaskId.value = null
             if (!running) {
                 running = true; baseElapsed = 0; segmentStart = System.currentTimeMillis(); startMillis = segmentStart
@@ -90,11 +92,28 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
             }
         }
     }
+    // Fusion F2: a habit pre-selected to Focus on — auto-starts, and its minutes auto-log on finish.
+    val pendingHabit by vm.pendingFocusHabitId.collectAsState()
+    LaunchedEffect(pendingHabit) {
+        pendingHabit?.let { id ->
+            focusHabitId = id; focusTaskId = null
+            vm.pendingFocusHabitId.value = null
+            // A time habit ("meditate 10 min") seeds the Pomodoro length from its target.
+            habits.firstOrNull { it.id == id }?.let { h -> if (h.unit?.startsWith("min") == true) pomoMin = h.targetPerDay.coerceIn(5, 90) }
+            if (!running) {
+                running = true; baseElapsed = 0; segmentStart = System.currentTimeMillis(); startMillis = segmentStart
+                if (pomo) AlarmScheduler.scheduleFocusDone(context, System.currentTimeMillis() + pomoMin * 60 * 1000L)
+            }
+        }
+    }
 
     fun finish() {
         val e = elapsedNow()
         val mins = if (pomo) (minOf(e, pomoSeconds) / 60) else (e / 60)
-        if (mins >= 1) vm.recordFocus(startMillis, mins, if (pomo) "pomo" else "stopwatch", focusTaskId)
+        if (mins >= 1) {
+            vm.recordFocus(startMillis, mins, if (pomo) "pomo" else "stopwatch", focusTaskId)
+            focusHabitId?.let { vm.logHabitFocus(it, mins) }   // credit the linked habit
+        }
         running = false; baseElapsed = 0
         AlarmScheduler.cancelFocusDone(context)
     }
@@ -192,24 +211,25 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
             }
         }
         Spacer(Modifier.size(12.dp))
-        // Task the session is spent on.
+        // Task (or habit) the session is spent on.
+        val habitTitle = focusHabitId?.let { id -> habits.firstOrNull { it.id == id }?.let { (it.emoji?.plus(" ") ?: "") + it.name } }
         Box {
             androidx.compose.material3.OutlinedButton(onClick = { taskMenu = true }) {
                 androidx.compose.material3.Icon(Icons.Filled.Adjust, null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text(focusTitle ?: "Focus on a task…", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Text(habitTitle ?: focusTitle ?: "Focus on a task…", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             }
             androidx.compose.material3.DropdownMenu(expanded = taskMenu, onDismissRequest = { taskMenu = false }) {
                 // Let the priority engine pick — the top actionable task right now (availability-aware).
                 androidx.compose.material3.DropdownMenuItem(
                     text = { Text("✨ Suggest for me") },
                     leadingIcon = { androidx.compose.material3.Icon(Icons.Filled.AutoAwesome, null, modifier = Modifier.size(18.dp)) },
-                    onClick = { vm.topDoNext()?.let { focusTaskId = it.id }; taskMenu = false },
+                    onClick = { vm.topDoNext()?.let { focusTaskId = it.id; focusHabitId = null }; taskMenu = false },
                 )
                 androidx.compose.material3.HorizontalDivider()
-                androidx.compose.material3.DropdownMenuItem(text = { Text("No task") }, onClick = { focusTaskId = null; taskMenu = false })
+                androidx.compose.material3.DropdownMenuItem(text = { Text("No task") }, onClick = { focusTaskId = null; focusHabitId = null; taskMenu = false })
                 tasks.filter { !it.completed && !it.trashed && !it.abandoned }.take(50).forEach { t ->
-                    androidx.compose.material3.DropdownMenuItem(text = { Text(t.title, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }, onClick = { focusTaskId = t.id; taskMenu = false })
+                    androidx.compose.material3.DropdownMenuItem(text = { Text(t.title, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }, onClick = { focusTaskId = t.id; focusHabitId = null; taskMenu = false })
                 }
             }
         }

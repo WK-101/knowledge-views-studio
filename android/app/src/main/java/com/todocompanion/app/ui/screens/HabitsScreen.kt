@@ -105,7 +105,7 @@ private val HABIT_PRESETS = listOf(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
+fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: (String) -> Unit = {}) {
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
     val today = LocalDate.now().toEpochDay()
@@ -206,6 +206,7 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                             onSetValue = { valueFor = h },
                             onPause = { vm.setHabitPaused(h, !h.paused) },
                             onEdit = { editing = h },
+                            onFocus = { onFocusHabit(h.id) },
                         )
                     }
                 }
@@ -243,7 +244,7 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
 private fun HabitRow(
     h: HabitEntity, checkins: List<com.todocompanion.app.data.entity.HabitCheckinEntity>, today: Long,
     onCycle: () -> Unit, onOpen: () -> Unit, onSkip: () -> Unit, onClear: () -> Unit,
-    onSetValue: () -> Unit, onPause: () -> Unit, onEdit: () -> Unit,
+    onSetValue: () -> Unit, onPause: () -> Unit, onEdit: () -> Unit, onFocus: () -> Unit,
 ) {
     val color = h.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
     val emptyCell = MaterialTheme.colorScheme.surfaceVariant
@@ -300,6 +301,7 @@ private fun HabitRow(
             Box {
                 DropdownMenu(expanded = rowMenu, onDismissRequest = { rowMenu = false }) {
                     DropdownMenuItem(text = { Text("Open analytics") }, onClick = { rowMenu = false; onOpen() })
+                    DropdownMenuItem(text = { Text("Focus on this") }, onClick = { rowMenu = false; onFocus() })
                     if (h.unit != null || h.clickIncrement > 1 || isBreak) DropdownMenuItem(text = { Text("Set today's value…") }, onClick = { rowMenu = false; onSetValue() })
                     DropdownMenuItem(text = { Text(if (skippedToday) "Clear skip" else "Skip today") }, onClick = { rowMenu = false; if (skippedToday) onClear() else onSkip() })
                     DropdownMenuItem(text = { Text("Clear today") }, onClick = { rowMenu = false; onClear() })

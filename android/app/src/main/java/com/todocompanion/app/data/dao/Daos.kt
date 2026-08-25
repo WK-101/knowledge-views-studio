@@ -88,6 +88,8 @@ interface HabitDao {
     @Query("SELECT * FROM habit_checkins")
     fun observeCheckins(): Flow<List<HabitCheckinEntity>>
     @Query("SELECT * FROM habit_checkins") suspend fun getCheckins(): List<HabitCheckinEntity>
+    @Query("SELECT * FROM habit_checkins WHERE habitId = :habitId AND epochDay = :day LIMIT 1")
+    suspend fun getCheckin(habitId: String, day: Long): HabitCheckinEntity?
     @Upsert suspend fun upsertCheckin(c: HabitCheckinEntity)
     @Upsert suspend fun upsertCheckins(c: List<HabitCheckinEntity>)
     @Query("DELETE FROM habit_checkins WHERE habitId = :habitId AND epochDay = :day") suspend fun deleteCheckin(habitId: String, day: Long)

@@ -59,6 +59,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
+import com.todocompanion.app.data.entity.HabitEntity
+import com.todocompanion.app.domain.habit.HabitStats
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.draggable
@@ -161,6 +163,10 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 6.dp, bottom = if (selectionMode) 120.dp else 100.dp)) {
             // Workload forecast bar at the top of Next-7-Days: committed estimate vs daily capacity.
             if ((view as? ViewRef.Smart)?.kind == SmartKind.NEXT7) item(key = "workload") { WorkloadStrip(vm) }
+            // Fusion F1: today's still-due habits sit alongside tasks in Today / Do-Next.
+            (view as? ViewRef.Smart)?.kind?.let { k ->
+                if (k == SmartKind.TODAY || k == SmartKind.DO_NEXT) item(key = "habitsdue") { HabitsDueStrip(vm) }
+            }
             items(groups, key = { it.key }) { group ->
                 val open = collapsed[group.key] != true
                 Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
@@ -377,22 +383,65 @@ private fun Modifier.androidx_pointerReorder(
 /** Compact 7-day workload forecast: each upcoming day's committed estimate against the daily
  *  capacity (Settings → Planning). Over-committed days show a red bar. Planning intelligence
  *  neither MLO nor TickTick offers — and it reuses the estimate every task already carries. */
+/** Fusion F1: the habits still due today, shown at the top of Today / Do-Next so they compete for
+ *  attention with tasks. Tap a chip to complete it — the answer to "what now?" includes habits. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun HabitsDueStrip(vm: AppViewModel) {
+    val habits by vm.habits.collectAsState()
+    val checkins by vm.habitCheckins.collectAsState()
+    val today = java.time.LocalDate.now().toEpochDay()
+    val due = habits.filter { h ->
+        val hc = checkins.filter { it.habitId == h.id }
+        val doneDays = hc.filter { it.status == "done" && HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
+        HabitStats.dueToday(h, today, doneDays, hc.firstOrNull { it.epochDay == today }?.count ?: 0)
+    }
+    if (due.isEmpty()) return
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Column(Modifier.padding(12.dp)) {
+            Text("Habits · ${due.size} due today", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.size(8.dp))
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                due.forEach { h ->
+                    val color = h.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
+                    Row(
+                        Modifier.clip(RoundedCornerShape(20.dp)).background(color.copy(alpha = .12f))
+                            .clickable { vm.setHabitValue(h, today, h.targetPerDay.coerceAtLeast(1)) }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text((h.emoji?.plus(" ") ?: "") + h.name, style = MaterialTheme.typography.labelLarge, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Spacer(Modifier.width(6.dp))
+                        Icon(Icons.Filled.Check, "Complete", tint = color, modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun WorkloadStrip(vm: AppViewModel) {
     val tasks by vm.tasks.collectAsState()
     val settings by vm.settings.collectAsState()
+    val habits by vm.habits.collectAsState()   // Fusion F3: habit time counts toward the daily load.
     val zone = java.time.ZoneId.systemDefault()
     val today = java.time.LocalDate.now(zone)
     // Each day's capacity in minutes — a per-weekday override when set, else the flat daily figure.
     fun capMin(d: java.time.LocalDate) = (settings.capacityHoursFor(d.dayOfWeek) * 60).coerceAtLeast(30)
-    val loads = remember(tasks, settings.dailyCapacityHours, settings.capacityByDay) {
+    // Minutes a habit costs on a day it's scheduled: a time habit uses its target, else a light default.
+    fun habitMinutes(h: HabitEntity) = if (h.unit?.startsWith("min") == true) h.targetPerDay.coerceAtLeast(1) else 10
+    val loads = remember(tasks, habits, settings.dailyCapacityHours, settings.capacityByDay) {
         (0..6).map { off ->
             val d = today.plusDays(off.toLong())
+            val epochDay = d.toEpochDay()
             val dayTasks = tasks.filter {
                 !it.completed && !it.trashed && !it.abandoned && it.dueDate != null &&
                     java.time.Instant.ofEpochMilli(it.dueDate!!).atZone(zone).toLocalDate() == d
             }
-            Triple(d, dayTasks.sumOf { it.estimateMin ?: it.estimateMax ?: it.durationMin ?: 0 }, dayTasks.size)
+            val dayHabits = habits.filter { !it.paused && (HabitStats.isExpectedDay(it, epochDay) || it.freqType == HabitStats.FREQ_TIMES_WEEK || it.freqType == HabitStats.FREQ_TIMES_MONTH) }
+            val min = dayTasks.sumOf { it.estimateMin ?: it.estimateMax ?: it.durationMin ?: 0 } + dayHabits.sumOf { habitMinutes(it) }
+            Triple(d, min, dayTasks.size + dayHabits.size)
         }
     }
     if (loads.all { it.third == 0 }) return

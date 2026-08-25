@@ -693,6 +693,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** "Just start" (C2): a task pre-selected for the next time the Focus screen opens. */
     val pendingFocusTaskId = MutableStateFlow<String?>(null)
+    /** Fusion F2: a habit pre-selected to Focus on; the Focus screen consumes it and auto-logs. */
+    val pendingFocusHabitId = MutableStateFlow<String?>(null)
+    /** Credit a finished Focus session's minutes to a habit's check-in (marks time habits done). */
+    fun logHabitFocus(habitId: String, minutes: Int) = viewModelScope.launch {
+        if (minutes <= 0) return@launch
+        val today = java.time.LocalDate.now(zone).toEpochDay()
+        val cur = repo.getHabitCheckinsOnce().firstOrNull { it.habitId == habitId && it.epochDay == today }?.count ?: 0
+        repo.setCheckinValue(habitId, today, cur + minutes)
+        refreshHabitWidgets()
+    }
     fun toggleChecklist(item: ChecklistItemEntity) = viewModelScope.launch { repo.saveChecklistItem(item.copy(checked = !item.checked)) }
     fun deleteChecklistItem(id: String) = viewModelScope.launch { repo.deleteChecklistItem(id) }
 
@@ -841,6 +851,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun clearHabitDay(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long) = viewModelScope.launch {
         repo.clearCheckin(h.id, epochDay); refreshHabitWidgets()
+    }
+    /** Write a whole day from the per-day editor: value, done/skip, and a free-text note. */
+    fun setHabitDay(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, count: Int, status: String, note: String) = viewModelScope.launch {
+        repo.setDay(h.id, epochDay, count, status, note); refreshHabitWidgets()
     }
     fun setHabitPaused(h: com.todocompanion.app.data.entity.HabitEntity, paused: Boolean) = viewModelScope.launch {
         repo.setHabitPaused(h.id, paused); com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo); refreshHabitWidgets()

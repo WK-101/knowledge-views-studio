@@ -1,7 +1,9 @@
 package com.todocompanion.app.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,8 +47,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
@@ -61,6 +66,8 @@ fun PlanYourDayScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: ()
     BackHandler(onBack = onBack)
     val tasks by vm.tasks.collectAsState()
     val lists by vm.lists.collectAsState()
+    val allHabits by vm.habits.collectAsState()
+    val allCheckins by vm.habitCheckins.collectAsState()
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now(zone)
     val endToday = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
@@ -120,6 +127,45 @@ fun PlanYourDayScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: ()
                     }
                 }
                 Spacer(Modifier.size(14.dp))
+            }
+
+            // ---------- Fusion F4: habits in the evening review ----------
+            run {
+                val todayEpoch = today.toEpochDay()
+                val tomorrowEpoch = today.plusDays(1).toEpochDay()
+                fun dueOn(h: com.todocompanion.app.data.entity.HabitEntity, day: Long): Boolean {
+                    val hc = allCheckins.filter { it.habitId == h.id }
+                    val doneDays = hc.filter { it.status == "done" && com.todocompanion.app.domain.habit.HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
+                    return com.todocompanion.app.domain.habit.HabitStats.dueToday(h, day, doneDays, hc.firstOrNull { it.epochDay == day }?.count ?: 0)
+                }
+                val active = allHabits.filter { !it.paused }
+                val scheduledToday = active.filter { com.todocompanion.app.domain.habit.HabitStats.isExpectedDay(it, todayEpoch) || it.freqType == com.todocompanion.app.domain.habit.HabitStats.FREQ_TIMES_WEEK || it.freqType == com.todocompanion.app.domain.habit.HabitStats.FREQ_TIMES_MONTH }
+                val stillDue = scheduledToday.filter { dueOn(it, todayEpoch) }
+                val tomorrowCount = active.count { com.todocompanion.app.domain.habit.HabitStats.isExpectedDay(it, tomorrowEpoch) || it.freqType == com.todocompanion.app.domain.habit.HabitStats.FREQ_TIMES_WEEK || it.freqType == com.todocompanion.app.domain.habit.HabitStats.FREQ_TIMES_MONTH }
+                if (scheduledToday.isNotEmpty() || tomorrowCount > 0) {
+                    AppCard {
+                        val doneN = scheduledToday.size - stillDue.size
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(if (stillDue.isEmpty()) "🎉 Habits done for today" else "Habits · $doneN/${scheduledToday.size} done today",
+                                style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                            if (tomorrowCount > 0) Text("$tomorrowCount tomorrow", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (stillDue.isNotEmpty()) {
+                            Spacer(Modifier.size(8.dp))
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                stillDue.forEach { h ->
+                                    val color = h.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
+                                    Row(Modifier.clip(RoundedCornerShape(20.dp)).background(color.copy(alpha = .12f))
+                                        .clickable { vm.setHabitValue(h, todayEpoch, h.targetPerDay.coerceAtLeast(1)) }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Text((h.emoji?.plus(" ") ?: "") + h.name, style = MaterialTheme.typography.labelLarge, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.size(14.dp))
+                }
             }
 
             // ---------- Pick N for today (B1): commit a few backlog tasks to today ----------

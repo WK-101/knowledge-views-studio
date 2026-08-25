@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -25,11 +26,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -57,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import com.todocompanion.app.domain.habit.HabitStats
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
@@ -96,11 +107,14 @@ fun HabitDetailScreen(
     }
 
     val today = LocalDate.now().toEpochDay()
+    val startDay = h.startEpochDay()
     val hc = checkins.filter { it.habitId == h.id }
     val countsByDay = hc.associate { it.epochDay to it.count }
+    val notesByDay = hc.filter { it.reason.isNotBlank() }.associate { it.epochDay to it.reason }
     val doneDays = hc.filter { it.status == "done" && HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
     val skipDays = hc.filter { it.status == "skip" }.map { it.epochDay }.toSet()
     val relapseDays = hc.filter { HabitStats.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
+    var editorDay by remember { mutableStateOf<Long?>(null) }
 
     val color = h.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
     val strength = HabitStats.strength(h, doneDays, skipDays, relapseDays, today)
@@ -159,14 +173,22 @@ fun HabitDetailScreen(
                 StrengthTrend(trend, color)
             }
 
-            // 6. Month calendar
-            SectionCard {
-                MonthCalendar(today, color, doneDays, skipDays, countsByDay,
-                    onCycle = { day -> vm.cycleHabit(h, day, countsByDay[day] ?: 0) },
-                    onSkip = { day -> vm.skipHabitDay(h, day) })
+            // 6. Milestones
+            SectionCard(title = "Milestones") {
+                Milestones(current = current, best = best, isBreak = isBreak, color = color)
             }
 
-            // 7. Year heatmap
+            // 7. Month calendar (tap to log, long-press to edit the day)
+            SectionCard {
+                MonthCalendar(today, startDay, color, doneDays, skipDays, countsByDay, notesByDay,
+                    onCycle = { day -> vm.cycleHabit(h, day, countsByDay[day] ?: 0) },
+                    onEdit = { day -> editorDay = day })
+                Spacer(Modifier.height(6.dp))
+                Text("Tap a day to log · long-press to edit value, rest day or note",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            // 8. Year heatmap
             SectionCard(title = "Last 26 weeks") {
                 YearHeatmap(today, color, doneDays, skipDays, countsByDay)
             }
@@ -174,6 +196,139 @@ fun HabitDetailScreen(
             Spacer(Modifier.height(24.dp))
         }
     }
+
+    editorDay?.let { day ->
+        DayEditorDialog(
+            habit = h,
+            epochDay = day,
+            initialCount = countsByDay[day] ?: 0,
+            initialSkip = day in skipDays,
+            initialNote = notesByDay[day] ?: "",
+            color = color,
+            onDismiss = { editorDay = null },
+            onSave = { count, skip, note ->
+                vm.setHabitDay(h, day, count, if (skip) "skip" else "done", note)
+                editorDay = null
+            },
+        )
+    }
+}
+
+/**
+ * Streak milestones. Reached ones (by best streak) glow; the next one shows how many days remain
+ * from the current streak. 66 days is the median for a habit to become automatic (Lally et al.).
+ */
+@Composable
+private fun Milestones(current: Int, best: Int, isBreak: Boolean, color: Color) {
+    val marks = listOf(3, 7, 14, 30, 66, 100, 180, 365)
+    val next = marks.firstOrNull { it > current }
+    val unit = if (isBreak) "days clean" else "day streak"
+    Column {
+        FlowRowMilestones(marks, best, color)
+        if (next != null) {
+            Spacer(Modifier.height(12.dp))
+            val remaining = next - current
+            Text(
+                "Next: $next-$unit — $remaining ${if (remaining == 1) "day" else "days"} to go",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(6.dp))
+            val prev = marks.lastOrNull { it <= current } ?: 0
+            val frac = if (next > prev) ((current - prev).toFloat() / (next - prev)).coerceIn(0f, 1f) else 0f
+            Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)) {
+                Box(Modifier.fillMaxWidth(frac).height(8.dp).clip(RoundedCornerShape(4.dp)).background(color))
+            }
+        } else if (best >= marks.last()) {
+            Spacer(Modifier.height(12.dp))
+            Text("Every milestone reached. Legendary.", style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold, color = color)
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FlowRowMilestones(marks: List<Int>, best: Int, color: Color) {
+    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        marks.forEach { m ->
+            val reached = best >= m
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = if (reached) color.copy(alpha = .16f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f),
+            ) {
+                Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        if (reached) Icons.Filled.EmojiEvents else Icons.Filled.Lock,
+                        contentDescription = null, modifier = Modifier.size(15.dp),
+                        tint = if (reached) color else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .55f),
+                    )
+                    Spacer(Modifier.width(5.dp))
+                    Text("$m", style = MaterialTheme.typography.labelMedium, fontWeight = if (reached) FontWeight.Bold else FontWeight.Normal,
+                        color = if (reached) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+}
+
+/** Per-day editor: exact value, rest-day toggle, and a free-text note — opened by long-pressing a calendar day. */
+@Composable
+private fun DayEditorDialog(
+    habit: com.todocompanion.app.data.entity.HabitEntity,
+    epochDay: Long,
+    initialCount: Int,
+    initialSkip: Boolean,
+    initialNote: String,
+    color: Color,
+    onDismiss: () -> Unit,
+    onSave: (count: Int, skip: Boolean, note: String) -> Unit,
+) {
+    var count by remember { mutableStateOf(initialCount) }
+    var skip by remember { mutableStateOf(initialSkip) }
+    var note by remember { mutableStateOf(initialNote) }
+    val date = LocalDate.ofEpochDay(epochDay)
+    val step = habit.clickIncrement.coerceAtLeast(1)
+    val unit = habit.unit?.takeIf { it.isNotBlank() }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(date.format(DateTimeFormatter.ofPattern("EEE, MMM d"))) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    IconButton(onClick = { count = (count - step).coerceAtLeast(0); if (count > 0) skip = false }, enabled = !skip) {
+                        Icon(Icons.Filled.Remove, "Less")
+                    }
+                    Column(Modifier.width(96.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(if (skip) "—" else "$count", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
+                            color = if (skip) MaterialTheme.colorScheme.onSurfaceVariant else color)
+                        Text(unit ?: (if (count == 1) "time" else "times"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    IconButton(onClick = { count += step; skip = false }, enabled = !skip) { Icon(Icons.Filled.Add, "More") }
+                    Spacer(Modifier.width(2.dp))
+                    Text("target ${habit.targetPerDay}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                FilterChip(
+                    selected = skip,
+                    onClick = { skip = !skip },
+                    label = { Text("Rest day (skip — protects the streak)") },
+                    leadingIcon = if (skip) { { Icon(Icons.Filled.Check, null, Modifier.size(FilterChipDefaults.IconSize)) } } else null,
+                )
+                OutlinedTextField(
+                    value = note, onValueChange = { note = it },
+                    label = { Text("Note for this day (optional)") },
+                    minLines = 2, modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSave(count, skip, note) }) { Text("Save") } },
+        dismissButton = {
+            Row {
+                TextButton(onClick = { onSave(0, false, "") }) { Text("Clear") }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        },
+    )
 }
 
 @Composable
@@ -315,12 +470,14 @@ private fun StrengthTrend(points: List<Int>, color: Color) {
 @Composable
 private fun MonthCalendar(
     today: Long,
+    startDay: Long,
     color: Color,
     doneDays: Set<Long>,
     skipDays: Set<Long>,
     countsByDay: Map<Long, Int>,
+    notesByDay: Map<Long, String>,
     onCycle: (Long) -> Unit,
-    onSkip: (Long) -> Unit,
+    onEdit: (Long) -> Unit,
 ) {
     var monthOffset by remember { mutableStateOf(0) }
     val month = YearMonth.now().plusMonths(monthOffset.toLong())
@@ -354,8 +511,9 @@ private fun MonthCalendar(
                     val dayNum = wk * 7 + dow - leading + 1
                     if (dayNum in 1..daysInMonth) {
                         val epochDay = month.atDay(dayNum).toEpochDay()
-                        DayCell(Modifier.weight(1f), dayNum, epochDay, today, color, doneDays, skipDays, countsByDay,
-                            onCycle = { onCycle(epochDay) }, onSkip = { onSkip(epochDay) })
+                        DayCell(Modifier.weight(1f), dayNum, epochDay, today, startDay, color, doneDays, skipDays, countsByDay,
+                            hasNote = notesByDay.containsKey(epochDay),
+                            onCycle = { onCycle(epochDay) }, onEdit = { onEdit(epochDay) })
                     } else {
                         Box(Modifier.weight(1f).aspectRatio(1f))
                     }
@@ -372,36 +530,47 @@ private fun DayCell(
     dayNum: Int,
     epochDay: Long,
     today: Long,
+    startDay: Long,
     color: Color,
     doneDays: Set<Long>,
     skipDays: Set<Long>,
     countsByDay: Map<Long, Int>,
+    hasNote: Boolean,
     onCycle: () -> Unit,
-    onSkip: () -> Unit,
+    onEdit: () -> Unit,
 ) {
     val done = epochDay in doneDays
     val skip = epochDay in skipDays
     val partial = !done && !skip && (countsByDay[epochDay] ?: 0) > 0
     val future = epochDay > today
+    val beforeStart = epochDay < startDay
+    // Editable-days lock: future days and days before the habit began can't be checked in.
+    val locked = future || beforeStart
     val bg = when {
         done -> color
         partial -> color.copy(alpha = .4f)
-        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (future) .25f else .5f)
+        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (locked) .18f else .5f)
     }
     val shape = RoundedCornerShape(8.dp)
     Box(
         modifier.aspectRatio(1f).padding(2.dp).clip(shape)
             .then(if (skip) Modifier.border(1.5.dp, MaterialTheme.colorScheme.outline, shape) else Modifier.background(bg))
-            .combinedClickable(enabled = !future, onClick = onCycle, onLongClick = onSkip),
+            .combinedClickable(enabled = !locked, onClick = onCycle, onLongClick = onEdit),
         contentAlignment = Alignment.Center,
     ) {
         val textColor = when {
             done -> Color.White
             skip -> MaterialTheme.colorScheme.outline
-            future -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .4f)
+            locked -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .35f)
             else -> MaterialTheme.colorScheme.onSurfaceVariant
         }
         Text(if (skip) "s" else "$dayNum", style = MaterialTheme.typography.labelSmall, color = textColor)
+        if (hasNote) {
+            Box(
+                Modifier.align(Alignment.TopEnd).padding(3.dp).size(4.dp).clip(CircleShape)
+                    .background(if (done) Color.White else color),
+            )
+        }
     }
 }
 
