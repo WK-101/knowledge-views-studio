@@ -58,6 +58,8 @@ data class AppSettings(
     // Calendar
     val calendarDefaultMode: String = "month",
     val calendarListFilter: Set<String> = emptySet(),   // empty = all lists
+    // M1: draw timed habits as blocks in the day/week calendar. Off by default — opt-in.
+    val habitCalendarBlocks: Boolean = false,
     // A subtle whole-app background tint: none | warm | cool | mint | dusk | rose.
     val appBackground: String = "none",
     // Planning: hours you can realistically commit per day (workload forecast + auto-schedule).
@@ -178,6 +180,7 @@ data class AppSettings(
         Keys.MX_OVERDUE to matrixOverdueOnly.toString(),
         Keys.CAL_MODE to calendarDefaultMode,
         Keys.CAL_FILTER to calendarListFilter.joinToString(","),
+        Keys.HABIT_CAL_BLOCKS to habitCalendarBlocks.toString(),
         Keys.APP_BG to appBackground,
         Keys.CAPACITY to dailyCapacityHours.toString(),
         Keys.CAPACITY_DAYS to capacityByDay.joinToString(","),
@@ -254,6 +257,7 @@ data class AppSettings(
         const val MX_OVERDUE = "mx_overdue"
         const val CAL_MODE = "cal_mode"
         const val CAL_FILTER = "cal_filter"
+        const val HABIT_CAL_BLOCKS = "habit_cal_blocks"
         const val SUMMARY_ON = "summary_on"
         const val APP_BG = "app_bg"
         const val CAPACITY = "daily_capacity_h"
@@ -344,6 +348,7 @@ data class AppSettings(
             matrixOverdueOnly = m[Keys.MX_OVERDUE]?.toBooleanStrictOrNull() ?: false,
             calendarDefaultMode = m[Keys.CAL_MODE] ?: "month",
             calendarListFilter = (m[Keys.CAL_FILTER] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
+            habitCalendarBlocks = m[Keys.HABIT_CAL_BLOCKS]?.toBooleanStrictOrNull() ?: false,
             pinnedRefs = (m[Keys.PINNED] ?: "").split("|").filter { it.isNotBlank() },
             viewTabsJson = m[Keys.VIEW_TABS] ?: "",
             resumeLastView = m[Keys.RESUME_LAST]?.toBooleanStrictOrNull() ?: false,

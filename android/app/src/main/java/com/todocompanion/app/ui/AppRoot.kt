@@ -570,6 +570,8 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         habitEdit?.let { req ->
             com.todocompanion.app.ui.screens.HabitEditorScreen(vm, req.habit, onClose = { vm.habitEditor.value = null })
         }
+        val habitTrends by vm.habitTrendsOpen.collectAsState()
+        if (habitTrends) com.todocompanion.app.ui.screens.HabitTrendsScreen(vm, onBack = { vm.habitTrendsOpen.value = false })
         if (showStats) com.todocompanion.app.ui.screens.StatisticsScreen(vm, onBack = { showStats = false })
         if (showAttachments) com.todocompanion.app.ui.screens.AttachmentsScreen(vm, onOpenTask = { showAttachments = false; openTask(it) }, onBack = { showAttachments = false })
         if (showCountdowns) com.todocompanion.app.ui.screens.CountdownScreen(vm, onBack = { showCountdowns = false })
@@ -1247,15 +1249,27 @@ private fun ManageContextDialog(
             }
         }
     }
+    // "Arriving here" is by definition a background event, so the OS only delivers the proximity
+    // broadcast if the user grants "Allow all the time" (ACCESS_BACKGROUND_LOCATION). Foreground
+    // FINE/COARSE alone lets addProximityAlert succeed but silently never fire in the background —
+    // which is exactly the "feature doesn't work" the user hit. Request background as a second step.
+    val bgPermLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { }
+    fun requestBackgroundIfNeeded() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            val bg = androidx.core.content.ContextCompat.checkSelfPermission(lctx, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            if (!bg) runCatching { bgPermLauncher.launch(arrayOf(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION)) }
+        }
+    }
+    fun located(la: Double, ln: Double) { onSetLocation(la, ln, 150.0); hasLoc = true; requestBackgroundIfNeeded() }
     fun captureAndSet() {
         // Optimistic: the switch reads ON the moment you opt in; we pin coordinates in the background and
         // only revert (with a message) if capture truly fails. Fast path uses an instant last-known fix.
         locating = true
         hasLoc = true
-        lastKnownLocation(lctx)?.let { (la, ln) -> onSetLocation(la, ln, 150.0); locating = false; return }
+        lastKnownLocation(lctx)?.let { (la, ln) -> located(la, ln); locating = false; return }
         requestLocationFix(lctx) { fix ->
             locating = false
-            if (fix != null) { onSetLocation(fix.first, fix.second, 150.0); hasLoc = true }
+            if (fix != null) { located(fix.first, fix.second) }
             else { hasLoc = false; android.widget.Toast.makeText(lctx, "Couldn't pin your location. Turn on Location in system settings, then try again — no internet needed.", android.widget.Toast.LENGTH_LONG).show() }
         }
     }

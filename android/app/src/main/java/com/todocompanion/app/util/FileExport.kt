@@ -62,15 +62,37 @@ object FileExport {
     data class SavedFile(val name: String, val location: String, val whenMillis: Long, val uri: android.net.Uri?, val file: File?)
 
     /**
-     * Find restorable files this app produced — in public Downloads (MediaStore) and the app's own
-     * export dirs — so restore works on devices with no document picker. Newest first.
+     * The app-owned "drop inbox" the user copies a backup INTO to import it with no system picker and
+     * no storage permission. `Android/data/<pkg>/files/import` is reachable over USB / any file manager,
+     * and the app can always read its own external-files dir on every API level — the one universal,
+     * permissionless channel for a *user-supplied* file. mkdirs() so it exists to be found.
      */
-    fun listSaved(context: Context): List<SavedFile> {
+    fun importInboxDir(context: Context): File? = runCatching {
+        File(context.getExternalFilesDir(null), "import").apply { mkdirs() }
+    }.getOrNull()
+
+    /** A human-readable hint of where to drop a file for import (external path preferred). */
+    fun importInboxHint(context: Context): String =
+        (importInboxDir(context)?.absolutePath ?: File(context.filesDir, "import").absolutePath)
+
+    /**
+     * Find restorable files without a system picker. Newest first.
+     *
+     * [broad] = false (default): only files this app itself produced (strict name filter) — the
+     * "Restore from a saved backup" browser. [broad] = true: any JSON/CSV/etc the user may have
+     * dropped into the import inbox or that lives in the app's dirs / public Downloads — the
+     * "Import a file on device" browser, so a `Todoist_2026.csv` or `my-backup.json` is listed too.
+     */
+    fun listSaved(context: Context, broad: Boolean = false): List<SavedFile> {
         val out = ArrayList<SavedFile>()
-        val exts = setOf("json", "csv", "md", "ics", "opml")
-        fun matches(name: String) = name.substringAfterLast('.', "").lowercase() in exts &&
-            (name.contains("todo-companion") || name.contains("backup") || name.endsWith(".json"))
-        // MediaStore Downloads (API 29+).
+        val exts = setOf("json", "csv", "md", "ics", "opml", "txt")
+        fun matches(name: String): Boolean {
+            val ext = name.substringAfterLast('.', "").lowercase()
+            if (ext !in exts) return false
+            if (broad) return true
+            return name.contains("todo-companion") || name.contains("backup") || name.endsWith(".json")
+        }
+        // MediaStore Downloads (API 29+) — app-created entries are always readable here.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) runCatching {
             val proj = arrayOf(MediaStore.Downloads._ID, MediaStore.Downloads.DISPLAY_NAME, MediaStore.Downloads.DATE_MODIFIED)
             context.contentResolver.query(MediaStore.Downloads.EXTERNAL_CONTENT_URI, proj, null, null,
@@ -86,10 +108,19 @@ object FileExport {
                 }
             }
         }
-        // App export dirs.
-        listOfNotNull(context.getExternalFilesDir(null)?.let { File(it, "exports") }, File(context.filesDir, "exports"),
-            context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)).forEach { dir ->
-            runCatching { dir.listFiles()?.filter { it.isFile && matches(it.name) }?.forEach { f -> out += SavedFile(f.name, "App storage", f.lastModified(), null, f) } }
+        // App-owned dirs: the import inbox (user drops files here) + export dirs (round-trip).
+        listOfNotNull(
+            context.getExternalFilesDir(null)?.let { File(it, "import") },
+            File(context.filesDir, "import"),
+            context.getExternalFilesDir(null)?.let { File(it, "exports") },
+            File(context.filesDir, "exports"),
+            context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS),
+        ).forEach { dir ->
+            runCatching {
+                dir.mkdirs()
+                val loc = if (dir.name == "import") "Import inbox" else "App storage"
+                dir.listFiles()?.filter { it.isFile && matches(it.name) }?.forEach { f -> out += SavedFile(f.name, loc, f.lastModified(), null, f) }
+            }
         }
         return out.distinctBy { (it.uri?.toString() ?: it.file?.absolutePath) }.sortedByDescending { it.whenMillis }
     }

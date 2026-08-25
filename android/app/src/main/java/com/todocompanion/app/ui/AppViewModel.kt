@@ -734,6 +734,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val habitPresetOpen = MutableStateFlow(false)
     val habitEditor = MutableStateFlow<HabitEditRequest?>(null)   // non-null → the full-screen editor is open
     val habitQuickAddOpen = MutableStateFlow(false)               // L6: natural-language "type a habit" dialog
+    val habitTrendsOpen = MutableStateFlow(false)                 // M5: full trends & correlations dashboard
     /** Credit a finished Focus session's minutes to a habit's check-in (marks time habits done). */
     fun logHabitFocus(habitId: String, minutes: Int) = viewModelScope.launch {
         if (minutes <= 0) return@launch
@@ -878,6 +879,34 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.createHabit(h.copy(workspaceId = h.workspaceId.ifBlank { settings.value.activeWorkspaceId }))
         com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
         if (h.latitude != null && h.longitude != null) com.todocompanion.app.reminders.LocationReminders.registerAll(appCtx, repo)
+        refreshHabitWidgets()
+    }
+    /** M4: render a habit's progress to a PNG on-device and open the share sheet. onDone gets the saved location. */
+    fun shareHabitProgress(h: com.todocompanion.app.data.entity.HabitEntity, onDone: (String?) -> Unit) = viewModelScope.launch {
+        val hs = com.todocompanion.app.domain.habit.HabitStats
+        val cks = habitCheckins.value.filter { it.habitId == h.id }
+        val done = cks.filter { it.status == "done" && hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
+        val skip = cks.filter { it.status == "skip" }.map { it.epochDay }.toSet()
+        val relapse = cks.filter { hs.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
+        val today = java.time.LocalDate.now().toEpochDay()
+        val strength = hs.strength(h, done, skip, relapse, today)
+        val cur = hs.currentStreak(h, done, skip, relapse, today)
+        val best = hs.bestStreak(h, done, skip, relapse, today)
+        val total = if (h.unit != null) cks.sumOf { it.count } else done.size
+        val safe = h.name.filter { it.isLetterOrDigit() }.take(20).ifBlank { "habit" }
+        val res = withContext(Dispatchers.IO) {
+            val bmp = com.todocompanion.app.util.ProgressCard.render(h.emoji, h.name, h.colorArgb, strength, cur, best, h.unit, total, done, skip, today)
+            com.todocompanion.app.util.ProgressCard.saveAndShareUri(appCtx, bmp, "todo-companion-$safe-progress.png")
+        }
+        res.shareUri?.let { com.todocompanion.app.util.ProgressCard.share(appCtx, it) }
+        onDone(res.savedLocation)
+    }
+    /** M2: create a whole themed routine at once (one reschedule/refresh for the batch). */
+    fun addHabits(habits: List<com.todocompanion.app.data.entity.HabitEntity>) = viewModelScope.launch {
+        val ws = settings.value.activeWorkspaceId
+        habits.forEach { repo.createHabit(it.copy(workspaceId = it.workspaceId.ifBlank { ws })) }
+        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
+        com.todocompanion.app.reminders.LocationReminders.registerAll(appCtx, repo)
         refreshHabitWidgets()
     }
     fun deleteHabit(id: String) = viewModelScope.launch {
@@ -1160,20 +1189,27 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         tags.value.firstOrNull { it.id == tagId }?.let { repo.upsertTag(it.copy(parentId = parentId)) }
     }
     fun createContext(name: String, parentId: String? = null) = viewModelScope.launch { repo.upsertContext(ContextEntity(id = UUID.randomUUID().toString(), name = name.trim(), parentId = parentId)) }
-    fun renameContext(c: ContextEntity, name: String) = viewModelScope.launch { repo.upsertContext(c.copy(name = name.trim())) }
-    fun setContextColor(c: ContextEntity, argb: Long?) = viewModelScope.launch { repo.upsertContext(c.copy(colorArgb = argb)) }
+    /**
+     * The dialog hands each mutator an open-time [ContextEntity] snapshot that is never refreshed, so
+     * a `c.copy(...)` on it silently reverts every field another mutator changed while the dialog was
+     * open (e.g. Save's rename wiping the geofence lat/lng that "arrive here" had just written). Always
+     * read-modify-write the *current* persisted row so edits merge instead of clobbering.
+     */
+    private fun curContext(c: ContextEntity): ContextEntity = contexts.value.firstOrNull { it.id == c.id } ?: c
+    fun renameContext(c: ContextEntity, name: String) = viewModelScope.launch { repo.upsertContext(curContext(c).copy(name = name.trim())) }
+    fun setContextColor(c: ContextEntity, argb: Long?) = viewModelScope.launch { repo.upsertContext(curContext(c).copy(colorArgb = argb)) }
     /** Give a context a geofence so arriving there auto-surfaces its tasks (E3). */
     fun setContextLocation(c: ContextEntity, lat: Double, lng: Double, radiusM: Double = 150.0) = viewModelScope.launch {
-        val nc = c.copy(latitude = lat, longitude = lng, radiusM = radiusM)
+        val nc = curContext(c).copy(latitude = lat, longitude = lng, radiusM = radiusM)
         repo.upsertContext(nc)
         com.todocompanion.app.reminders.LocationReminders.registerContext(appCtx, nc)
     }
     fun clearContextLocation(c: ContextEntity) = viewModelScope.launch {
         com.todocompanion.app.reminders.LocationReminders.unregisterContext(appCtx, c)
-        repo.upsertContext(c.copy(latitude = null, longitude = null, radiusM = null))
+        repo.upsertContext(curContext(c).copy(latitude = null, longitude = null, radiusM = null))
     }
-    fun setContextActive(c: ContextEntity, active: Boolean) = viewModelScope.launch { repo.upsertContext(c.copy(active = active)) }
-    fun setContextHours(c: ContextEntity, json: String?) = viewModelScope.launch { repo.upsertContext(c.copy(openHoursJson = json)) }
+    fun setContextActive(c: ContextEntity, active: Boolean) = viewModelScope.launch { repo.upsertContext(curContext(c).copy(active = active)) }
+    fun setContextHours(c: ContextEntity, json: String?) = viewModelScope.launch { repo.upsertContext(curContext(c).copy(openHoursJson = json)) }
     fun deleteContext(c: ContextEntity) = viewModelScope.launch {
         contexts.value.filter { it.parentId == c.id }.forEach { repo.upsertContext(it.copy(parentId = c.parentId)) }
         repo.deleteContext(c.id)
@@ -1448,10 +1484,29 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         else onDone(true, "Imported ${ok.second} tasks from ${ok.first}")
     }
 
-    // ---- In-app restore (no system picker needed) ----
-    fun loadSavedBackups(onDone: (List<com.todocompanion.app.util.FileExport.SavedFile>) -> Unit) = viewModelScope.launch {
-        val list = withContext(Dispatchers.IO) { com.todocompanion.app.util.FileExport.listSaved(appCtx) }
+    // ---- In-app restore / import (no system picker needed) ----
+    // [broad] = true lists any JSON/CSV a user dropped into the import inbox, not just our own backups.
+    fun loadSavedBackups(broad: Boolean = false, onDone: (List<com.todocompanion.app.util.FileExport.SavedFile>) -> Unit) = viewModelScope.launch {
+        val list = withContext(Dispatchers.IO) { com.todocompanion.app.util.FileExport.listSaved(appCtx, broad) }
         onDone(list)
+    }
+    /** The folder a user copies a backup into to import it with no picker and no permission. */
+    fun importInboxHint(): String = com.todocompanion.app.util.FileExport.importInboxHint(appCtx)
+    /**
+     * Import from text the user pasted in (a backup copied from another device / the clipboard) — the
+     * last-resort channel that needs no file, no picker and no storage access. JSON restores the whole
+     * store; anything else routes through the Todoist/TickTick/MLO parser.
+     */
+    fun importPastedText(text: String, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
+        val t = text.trim()
+        if (t.isEmpty()) { onDone(false, "Nothing to import — paste a backup first"); return@launch }
+        if (t.startsWith("{") || t.startsWith("[")) {
+            val ok = runCatching {
+                val plain = com.todocompanion.app.data.sync.Crypto.decrypt(t, settings.value.syncPassphrase) ?: t
+                repo.importJsonReplace(plain); AlarmScheduler.rescheduleAll(appCtx, repo); true
+            }.getOrDefault(false)
+            onDone(ok, if (ok) "Restored from pasted backup" else "That text isn't a valid ToDo Companion backup")
+        } else importExternalText(t, onDone)
     }
     fun restoreSaved(s: com.todocompanion.app.util.FileExport.SavedFile, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
         val text = withContext(Dispatchers.IO) {

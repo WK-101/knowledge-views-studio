@@ -146,6 +146,27 @@ fun CalendarScreen(
             .groupBy { Instant.ofEpochMilli(it.dueDate!!).atZone(zone).toLocalDate() }
     }
 
+    // M1: optionally draw timed habits as read-only blocks in the day/week grid. Opt-in (default off).
+    val habits by vm.habits.collectAsState()
+    val habitCheckins by vm.habitCheckins.collectAsState()
+    val habitBlocksFor: (LocalDate) -> List<HabitBlock> = block@{ d ->
+        if (!s.habitCalendarBlocks) return@block emptyList()
+        val hs = com.todocompanion.app.domain.habit.HabitStats
+        val ed = d.toEpochDay()
+        habits.filter { !it.archived && !it.paused && it.habitType != "break" }.flatMap { h ->
+            val scheduled = hs.isExpectedDay(h, ed) || h.freqType == hs.FREQ_TIMES_WEEK || h.freqType == hs.FREQ_TIMES_MONTH
+            val times = h.reminderTimes.split(",").mapNotNull { it.trim().toIntOrNull() }.filter { it in 0..1439 }
+            if (!scheduled || times.isEmpty()) emptyList()
+            else {
+                val done = habitCheckins.any { it.habitId == h.id && it.epochDay == ed && it.status == "done" && hs.meetsGoal(h, it.count) }
+                val dur = if (h.unit == "min") h.targetPerDay.coerceIn(10, 180) else 30
+                val col = h.colorArgb?.let { androidx.compose.ui.graphics.Color(it) }
+                times.map { m -> HabitBlock(h.id, (h.emoji?.plus(" ") ?: "") + h.name, col, m, dur, done) }
+            }
+        }
+    }
+    val onOpenHabit: (String) -> Unit = { id -> vm.habitDetailId.value = id }
+
     val onResize: (String, Int) -> Unit = { id, dur -> vm.setDuration(id, dur) }
     val onMoveTaskTo: (LocalDate, String, Int) -> Unit = { d, id, min -> vm.rescheduleToMinute(id, d, min) }
     // One swipe config for every calendar task row, straight from the global swipe settings.
@@ -179,11 +200,11 @@ fun CalendarScreen(
                 })
             "week" -> {
                 val start = startOfWeek(anchor, firstDow)
-                TimelineView((0..6).map { start.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo)
+                TimelineView((0..6).map { start.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit)
             }
             "weekly" -> WeeklyView(startOfWeek(anchor, firstDow), dueByDate, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate)
-            "3day" -> TimelineView((0..2).map { anchor.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo)
-            "day" -> TimelineView(listOf(anchor), dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo)
+            "3day" -> TimelineView((0..2).map { anchor.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit)
+            "day" -> TimelineView(listOf(anchor), dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit)
             "year" -> YearView(anchor, dueByDate, onPrev = prev, onNext = next, onMonth = { m -> onAnchor(m.atDay(1)); onModeChange("month") }, onDay = { d -> onAnchor(d); onModeChange("day") })
             else -> AgendaView(dueByDate, onOpenTask, swipe)
         }
@@ -582,6 +603,7 @@ private fun TimelineView(
     days: List<LocalDate>, dueByDate: Map<LocalDate, List<TaskEntity>>, zone: ZoneId,
     onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, onAddOnDate: (LocalDate) -> Unit,
     onAddAt: (LocalDate, Int) -> Unit, onResize: (String, Int) -> Unit, onMoveAt: (LocalDate, String, Int) -> Unit,
+    habitBlocksFor: (LocalDate) -> List<HabitBlock> = { emptyList() }, onOpenHabit: (String) -> Unit = {},
 ) {
     val allDayByDay = days.associateWith { d -> dueByDate[d].orEmpty().filter { it.isAllDay || !hasTime(it.dueDate!!, zone) } }
     val hasAllDay = allDayByDay.values.any { it.isNotEmpty() }
@@ -630,14 +652,16 @@ private fun TimelineView(
             }
             days.forEach { d ->
                 val timed = dueByDate[d].orEmpty().filter { !it.isAllDay && hasTime(it.dueDate!!, zone) }
-                DayColumn(d, timed, zone, onOpenTask, onAddAt, onResize, onMoveAt = { id, min -> onMoveAt(d, id, min) }, Modifier.weight(1f))
+                DayColumn(d, timed, zone, onOpenTask, onAddAt, onResize, onMoveAt = { id, min -> onMoveAt(d, id, min) },
+                    habitBlocks = habitBlocksFor(d), onOpenHabit = onOpenHabit, modifier = Modifier.weight(1f))
             }
         }
     }
 }
 
 @Composable
-private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onOpenTask: (String) -> Unit, onAddAt: (LocalDate, Int) -> Unit, onResize: (String, Int) -> Unit, onMoveAt: (String, Int) -> Unit, modifier: Modifier) {
+private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onOpenTask: (String) -> Unit, onAddAt: (LocalDate, Int) -> Unit, onResize: (String, Int) -> Unit, onMoveAt: (String, Int) -> Unit,
+    habitBlocks: List<HabitBlock> = emptyList(), onOpenHabit: (String) -> Unit = {}, modifier: Modifier) {
     val placed = remember(timed, zone) { layoutEvents(timed, zone) }
     val dens = LocalDensity.current
     val isToday = day == LocalDate.now()
@@ -652,6 +676,10 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onO
         },
     ) {
         val colW = maxWidth
+        // M1: when habit blocks share the column, tasks take the left ~60% and habits the right ~40%
+        // so the two never collide and the task drag/resize math is otherwise unchanged.
+        val taskAreaW = if (habitBlocks.isEmpty()) colW else colW * 0.6f
+        val habitColor = MaterialTheme.colorScheme.tertiary
         // Hour gridlines
         (0..24).forEach { h ->
             Box(Modifier.fillMaxWidth().height(1.dp).offset(y = (HOUR_DP * h).dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = .35f)))
@@ -663,7 +691,7 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onO
         placed.forEach { p ->
             val level = PriorityLevel.from(p.task.importance, p.task.urgency)
             val c = if (level == PriorityLevel.NONE) MaterialTheme.colorScheme.primary else priorityColor(level)
-            val laneW = (colW - 2.dp) / p.lanes
+            val laneW = (taskAreaW - 2.dp) / p.lanes
             // Live start + duration while dragging (snapped to 15 min); reset when the saved span changes.
             var liveStart by remember(p.task.id, p.startMin) { mutableStateOf(p.startMin) }
             var liveDur by remember(p.task.id, p.endMin - p.startMin) { mutableStateOf(p.endMin - p.startMin) }
@@ -705,6 +733,27 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onO
                 contentAlignment = Alignment.Center,
             ) { Box(Modifier.width(26.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(c)) }
         }
+        // M1: habit blocks in the right lane — read-only, tap opens the habit. Distinct dotted-ish look.
+        if (habitBlocks.isNotEmpty()) {
+            val habitAreaX = taskAreaW + 1.dp
+            val habitAreaW = colW - taskAreaW - 2.dp
+            habitBlocks.sortedBy { it.startMin }.forEach { hb ->
+                val col = hb.color ?: habitColor
+                val top = (HOUR_DP * hb.startMin / 60f).dp
+                val hh = ((HOUR_DP * hb.durMin / 60f).dp).coerceAtLeast(22.dp)
+                Row(
+                    Modifier.offset(x = habitAreaX, y = top).width(habitAreaW).height(hh - 2.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(col.copy(alpha = if (hb.done) 0.30f else 0.12f))
+                        .clickable { onOpenHabit(hb.id) },
+                ) {
+                    Box(Modifier.width(3.dp).fillMaxHeight().background(col))
+                    Text((if (hb.done) "✓ " else "") + hb.label, Modifier.padding(horizontal = 5.dp, vertical = 3.dp),
+                        style = MaterialTheme.typography.labelSmall, maxLines = if (hh > 46.dp) 2 else 1, overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+        }
         // Current-time line
         if (nowMin >= 0) {
             val y = (HOUR_DP * nowMin / 60f).dp
@@ -713,6 +762,12 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onO
         }
     }
 }
+
+/** M1: a timed habit drawn as a read-only block in the calendar's day/week grid. */
+private data class HabitBlock(
+    val id: String, val label: String, val color: androidx.compose.ui.graphics.Color?,
+    val startMin: Int, val durMin: Int, val done: Boolean,
+)
 
 @Composable
 private fun AllDayChip(task: TaskEntity, onOpenTask: (String) -> Unit) {

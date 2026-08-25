@@ -489,6 +489,20 @@ class HabitInsightsTest {
     @Test fun noInsightsWithoutData() {
         assertTrue(com.todocompanion.app.domain.habit.HabitInsights.compute(emptyList(), emptyList(), emptyList(), today).isEmpty())
     }
+
+    @Test fun dailyBriefCountsDueAndDone() {
+        val a = habit("a", "Meditate")   // not done today → still due
+        val b = habit("b", "Read")       // done today
+        val brief = com.todocompanion.app.domain.habit.HabitInsights.dailyBrief(
+            listOf(a, b), listOf(checkin("b", today)), emptyList(), today)
+        assertTrue(brief != null)
+        assertTrue(brief!!.headline.contains("1 of 2"))
+        assertTrue(brief.sub.contains("Meditate"))
+    }
+
+    @Test fun dailyBriefNullWithoutHabits() {
+        assertTrue(com.todocompanion.app.domain.habit.HabitInsights.dailyBrief(emptyList(), emptyList(), emptyList(), today) == null)
+    }
 }
 
 class HabitQuickParserTest {

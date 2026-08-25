@@ -262,6 +262,35 @@ private fun onSwipe(vm: AppViewModel, action: SwipeAction, task: TaskEntity, isT
     if (!vm.applyAction(action, task)) onOpen()
 }
 
+/**
+ * Arrange a flat manual-sorted list into a subtask outline: each parent immediately followed by its
+ * descendants that are present in the same list. Roots (no parent, or a parent filtered out of this
+ * view) keep their given manual order. This is what makes a drag-created subtask VISIBLE — without it
+ * the child stays a top-level row at the same indent and the nest looks like it did nothing.
+ */
+private fun arrangeSubtaskOutline(tasks: List<TaskEntity>): List<TaskEntity> {
+    val present = tasks.associateBy { it.id }
+    val childrenByParent = tasks.groupBy { t -> t.parentId?.takeIf { present.containsKey(it) } }
+    val out = ArrayList<TaskEntity>(tasks.size)
+    val seen = HashSet<String>()
+    fun emit(t: TaskEntity) {
+        if (!seen.add(t.id)) return
+        out += t
+        childrenByParent[t.id]?.forEach { emit(it) }
+    }
+    tasks.filter { it.parentId == null || !present.containsKey(it.parentId) }.forEach { emit(it) }
+    // Safety net: append any task not reached (e.g. a parentId cycle) so nothing is dropped.
+    tasks.forEach { if (it.id !in seen) out += it }
+    return out
+}
+
+/** Indent depth of a task within a list — count of ancestors that are also present. */
+private fun subtaskDepth(task: TaskEntity, byId: Map<String, TaskEntity>): Int {
+    var d = 0; var p = task.parentId; var guard = 0
+    while (p != null && guard++ < 100) { val par = byId[p] ?: break; d++; p = par.parentId }
+    return d
+}
+
 @Composable
 private fun ManualReorderList(
     vm: AppViewModel, tasks: List<TaskEntity>, density: Density,
@@ -275,11 +304,14 @@ private fun ManualReorderList(
     var draggingId by remember { mutableStateOf<String?>(null) }
     var delta by remember { mutableFloatStateOf(0f) }
     var dx by remember { mutableFloatStateOf(0f) }
-    var items by remember { mutableStateOf(tasks) }
-    // Resync with upstream whenever the tasks change (reorder, add/remove, OR an edited
-    // field like star/flag/title) — but never mid-drag, so the gesture isn't disrupted.
-    androidx.compose.runtime.LaunchedEffect(tasks) { if (draggingId == null) items = tasks }
+    var items by remember { mutableStateOf(arrangeSubtaskOutline(tasks)) }
+    // Resync with upstream whenever the tasks change (reorder, add/remove, nest, OR an edited
+    // field like star/flag/title) — but never mid-drag, so the gesture isn't disrupted. Re-arranged
+    // into a subtask outline each time so a just-nested child appears indented under its parent.
+    androidx.compose.runtime.LaunchedEffect(tasks) { if (draggingId == null) items = arrangeSubtaskOutline(tasks) }
+    val byId = remember(items) { items.associateBy { it.id } }
     val nestThreshold = with(LocalDensity.current) { 48.dp.toPx() }
+    val dragVisualCap = with(LocalDensity.current) { 72.dp.toPx() }
 
     LazyColumn(
         state = listState,
@@ -307,13 +339,14 @@ private fun ManualReorderList(
     ) {
         itemsIndexed(items, key = { _, t -> t.id }) { _, task ->
             val dragging = task.id == draggingId
+            val depth = subtaskDepth(task, byId)
             Surface(
                 Modifier
-                    .padding(vertical = 3.dp)
+                    .padding(start = (depth * 18).dp, top = 3.dp, bottom = 3.dp)
                     .zIndex(if (dragging) 1f else 0f)
                     .graphicsLayer {
                         translationY = if (dragging) delta else 0f
-                        translationX = if (dragging) dx.coerceIn(-80f, 80f) else 0f
+                        translationX = if (dragging) dx.coerceIn(-dragVisualCap, dragVisualCap) else 0f
                     },
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surface,

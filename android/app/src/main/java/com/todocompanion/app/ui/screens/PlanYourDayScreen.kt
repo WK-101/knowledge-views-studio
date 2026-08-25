@@ -90,6 +90,48 @@ fun PlanYourDayScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: ()
         },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            // M3: the daily coach brief — the flagship. One proactive card at the start of the day:
+            // where today stands, your keystone, the streak most at risk, and the next best move.
+            val brief = remember(allHabits, allCheckins, tasks) {
+                com.todocompanion.app.domain.habit.HabitInsights.dailyBrief(allHabits, allCheckins, tasks, today.toEpochDay(), zone)
+            }
+            brief?.let { b ->
+                AppCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("🌅", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.size(8.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(b.headline, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text(b.sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    b.moves.forEach { mv ->
+                        val openId = (mv.action as? com.todocompanion.app.domain.habit.InsightAction.Open)?.habitId
+                            ?: (mv.action as? com.todocompanion.app.domain.habit.InsightAction.Stack)?.childId
+                        Row(
+                            Modifier.fillMaxWidth().padding(top = 10.dp)
+                                .then(if (openId != null) Modifier.clickable { vm.habitDetailId.value = openId } else Modifier),
+                            verticalAlignment = Alignment.Top,
+                        ) {
+                            Text(mv.emoji, style = MaterialTheme.typography.bodyMedium)
+                            Spacer(Modifier.size(8.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(mv.text, style = MaterialTheme.typography.bodyMedium)
+                                val act = mv.action
+                                if (act is com.todocompanion.app.domain.habit.InsightAction.Stack) {
+                                    TextButton(onClick = {
+                                        vm.habits.value.firstOrNull { it.id == act.childId }?.let { vm.saveHabit(it.copy(anchorHabitId = act.anchorId)) }
+                                    }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 0.dp)) {
+                                        Text("Stack ‘${act.childName}’ after ‘${act.anchorName}’")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.size(14.dp))
+            }
+
             // One-tap auto-schedule: lay today's Do-Next tasks onto the working-hours timeline.
             var autoMsg by remember { mutableStateOf<String?>(null) }
             OutlinedButton(

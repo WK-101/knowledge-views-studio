@@ -155,4 +155,59 @@ object HabitInsights {
     private fun plural(n: Int, one: String, many: String) = if (n == 1) one else many
     private fun weekdayName(idx0: Int): String =
         java.time.DayOfWeek.of(idx0 + 1).getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault())
+
+    // ---- M3: the daily coach brief ----
+    /** One prioritised move in the morning brief. */
+    data class BriefMove(val emoji: String, val text: String, val action: InsightAction? = null)
+    /** A proactive morning card: where today stands + the highest-leverage moves, aimed at the start of the day. */
+    data class DailyBrief(val headline: String, val sub: String, val moves: List<BriefMove>)
+
+    /**
+     * The flagship of the coach: one card for the start of the day. It reads today's due habits from the
+     * shared store, then aims the insight engine at this morning — the keystone first, the streak most at
+     * risk right now, a stacking cue, then whatever else is most worth knowing. Pure and offline.
+     */
+    fun dailyBrief(
+        habits: List<HabitEntity>,
+        checkins: List<HabitCheckinEntity>,
+        tasks: List<TaskEntity>,
+        today: Long,
+        zone: ZoneId = ZoneId.systemDefault(),
+        maxMoves: Int = 4,
+    ): DailyBrief? {
+        val active = habits.filter { !it.archived && !it.paused }
+        if (active.isEmpty()) return null
+        val doneByHabit = active.associateWith { doneDays(it, checkins) }
+        fun skips(h: HabitEntity) = checkins.filter { it.habitId == h.id && it.status == "skip" }.map { it.epochDay }.toSet()
+        fun relapses(h: HabitEntity) = checkins.filter { it.habitId == h.id && HabitStats.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
+        fun todayCount(h: HabitEntity) = checkins.firstOrNull { it.habitId == h.id && it.epochDay == today }?.count ?: 0
+
+        val due = active.filter { HabitStats.dueToday(it, today, doneByHabit.getValue(it), todayCount(it)) }
+        val expected = active.filter { it.habitType != "break" && HabitStats.isExpectedDay(it, today) }
+        val doneToday = expected.count { HabitStats.meetsGoal(it, todayCount(it)) }
+
+        val moves = ArrayList<BriefMove>()
+        val insights = compute(habits, checkins, tasks, today, zone, max = 8)
+        // Keystone leads — start the day with the habit that best predicts a good one.
+        insights.firstOrNull { it.emoji == "🗝️" }?.let { moves += BriefMove(it.emoji, it.text, it.action) }
+        // The streak most at risk right now: due today, still unchecked, and worth protecting.
+        due.map { h -> h to HabitStats.currentStreak(h, doneByHabit.getValue(h), skips(h), relapses(h), today) }
+            .filter { it.second >= 3 }.maxByOrNull { it.second }
+            ?.let { (h, s) -> if (moves.none { m -> (m.action as? InsightAction.Open)?.habitId == h.id })
+                moves += BriefMove("🔥", "‘${h.name}’ is on a $s-day streak and still due today — lock it in first.", InsightAction.Open(h.id)) }
+        // A stacking cue if one is strong.
+        insights.firstOrNull { it.action is InsightAction.Stack }?.let { if (moves.none { m -> m.text == it.text }) moves += BriefMove(it.emoji, it.text, it.action) }
+        // Fill the rest from the ranked insights.
+        for (i in insights) { if (moves.size >= maxMoves) break; if (moves.none { it.text == i.text }) moves += BriefMove(i.emoji, i.text, i.action) }
+
+        val headline = when {
+            expected.isEmpty() && due.isEmpty() -> "Nothing scheduled today"
+            due.isEmpty() -> "All caught up — every habit done 🎉"
+            else -> "$doneToday of ${expected.size} habits done"
+        }
+        val sub = if (due.isNotEmpty())
+            "Still to go: " + due.take(3).joinToString(", ") { it.name } + (if (due.size > 3) " +${due.size - 3} more" else "")
+        else "You're clear for the day."
+        return DailyBrief(headline, sub, moves.take(maxMoves))
+    }
 }

@@ -46,6 +46,7 @@ import com.todocompanion.app.ui.components.formatDue
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -169,10 +170,17 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
     }
-    // In-app restore browser (no system picker) — for devices with no DocumentsUI / file manager hook.
+    // In-app restore/import browser (no system picker) — for devices with no DocumentsUI / file manager hook.
+    // [restoreBroad] = true lists any JSON/CSV dropped into the import inbox (import a foreign file),
+    // false lists only our own backups (restore).
     var restoreOpen by remember { mutableStateOf(false) }
+    var restoreBroad by remember { mutableStateOf(false) }
     var savedList by remember { mutableStateOf<List<com.todocompanion.app.util.FileExport.SavedFile>?>(null) }
-    fun openRestore() { savedList = null; restoreOpen = true; vm.loadSavedBackups { savedList = it } }
+    fun openRestore(broad: Boolean = false) { restoreBroad = broad; savedList = null; restoreOpen = true; vm.loadSavedBackups(broad) { savedList = it } }
+    // Paste-a-backup dialog — the last-resort import that needs no file, picker or permission at all.
+    var showPaste by remember { mutableStateOf(false) }
+    // Import never dead-ends: if the system picker is missing, drop straight into the in-app import browser.
+    fun safeImport(block: () -> Unit) { try { block() } catch (e: Exception) { openRestore(broad = true) } }
 
     // Collapsible category groups (TickTick-style compact list). All start collapsed.
     val open = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
@@ -297,7 +305,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         SettingsGroup(Icons.Filled.ViewSidebar, "Sidebar & tabs", open["sidebar"] == true, { open["sidebar"] = open["sidebar"] != true }) {
             Sub("Smart lists")
             Text("Choose which smart lists appear in the navigation drawer.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
-            SMART_KINDS.forEach { k ->
+            SmartKind.entries.forEach { k ->
                 SmartVisRow(k.title, s.smartListVis[k] ?: SmartVis.SHOW) { v ->
                     val next = if (v == SmartVis.SHOW) s.smartListVis - k else s.smartListVis + (k to v)
                     vm.saveSettings(s.copy(smartListVis = next))
@@ -402,6 +410,12 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
 
+        SettingsGroup(Icons.Filled.CalendarMonth, "Calendar", open["calendar"] == true, { open["calendar"] = open["calendar"] != true }) {
+            Toggle("Show habits on the calendar", s.habitCalendarBlocks) { on -> vm.saveSettings(s.copy(habitCalendarBlocks = on)) }
+            Text("Draw timed habits as blocks in the day and week calendar, next to your task time-blocks. Off by default.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
         SettingsGroup(Icons.Filled.EditNote, "Task editor", open["editor"] == true, { open["editor"] = open["editor"] != true }) {
             Text("The editor shows a lean set of fields first and reveals the rest under “More fields.” Choose when each appears, or drag the order to match how you work. A field you’ve already filled always shows, whatever you pick here.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
@@ -499,9 +513,11 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
 
         SettingsGroup(Icons.Filled.CloudSync, "Backup", open["backup"] == true, { open["backup"] = open["backup"] != true }) {
             Action("Export all data (JSON)") { safeExport("json") { exportLauncher.launch("todo-companion-backup.json") } }
-            Action("Import / restore (JSON)") { safePick { importLauncher.launch("*/*") } }
-            Action("Restore from a saved file…") { openRestore() }
-            Text("Complete, lossless local backup. No account, no cloud, no network. If this device has no file picker, exports save straight to your Downloads folder — and “Restore from a saved file” reads them back with no picker.",
+            Action("Import / restore (JSON)") { safeImport { importLauncher.launch("*/*") } }
+            Action("Restore from a saved backup…") { openRestore(broad = false) }
+            Action("Import a file on device (no picker)…") { openRestore(broad = true) }
+            Action("Paste backup text…") { showPaste = true }
+            Text("Complete, lossless local backup. No account, no cloud, no network. No file picker needed: exports save straight to Downloads, and either browser reads a backup back with no picker at all. To import a file from another app, copy it into ${vm.importInboxHint()} — it appears under “Import a file on device”.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
             HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             Action("Export as Markdown (.md)") { safeExport("md") { exportMdLauncher.launch("todo-companion.md") } }
@@ -510,12 +526,12 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Text("Readable, portable snapshots for sharing or archiving. The .ics imports your dated tasks and deadlines into any calendar app. (Restore uses JSON.)",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
             HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-            Action("Import from Todoist / TickTick / MLO") { safePick { importExternalLauncher.launch("*/*") } }
+            Action("Import from Todoist / TickTick / MLO") { safeImport { importExternalLauncher.launch("*/*") } }
             Text("Reads their CSV export (Todoist, TickTick) or OPML (MLO) on-device — no account, nothing uploaded.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
             HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             Action("Export habits (CSV)") { safeExport("habits") { exportHabitsLauncher.launch("todo-companion-habits.csv") } }
-            Action("Import habits (Loop / CSV)") { safePick { importHabitsLauncher.launch("*/*") } }
+            Action("Import habits (Loop / CSV)") { safeImport { importHabitsLauncher.launch("*/*") } }
             Text("Move habit check-ins in and out — reads Loop Habit Tracker's Checkmarks export or our own habit CSV.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
         }
@@ -606,12 +622,14 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             onDismissRequest = { restoreOpen = false },
             confirmButton = {},
             dismissButton = { TextButton(onClick = { restoreOpen = false }) { Text("Close") } },
-            title = { Text("Restore from a saved file") },
+            title = { Text(if (restoreBroad) "Import a file on device" else "Restore from a saved backup") },
             text = {
                 val list = savedList
                 when {
-                    list == null -> Text("Looking for saved backups…")
-                    list.isEmpty() -> Text("No saved backups found. Use “Export all data (JSON)” first — it saves to your Downloads folder — then come back here.")
+                    list == null -> Text("Looking for files…")
+                    list.isEmpty() -> Text(
+                        if (restoreBroad) "No importable files found. Copy your backup or export (JSON / CSV / OPML) into ${vm.importInboxHint()} using a file manager or USB, then reopen this."
+                        else "No saved backups found. Use “Export all data (JSON)” first — it saves to your Downloads folder — then come back here.")
                     else -> androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 360.dp)) {
                         items(list, key = { (it.uri?.toString() ?: it.file?.absolutePath ?: it.name) }) { sf ->
                             Column(Modifier.fillMaxWidth().clickable { confirming = sf }.padding(vertical = 10.dp)) {
@@ -630,10 +648,10 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                     TextButton(onClick = {
                         val target = sf; confirming = null; restoreOpen = false
                         vm.restoreSaved(target) { ok, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() }
-                    }) { Text("Restore") }
+                    }) { Text(if (sf.name.endsWith(".json", true)) "Restore" else "Import") }
                 },
                 dismissButton = { TextButton(onClick = { confirming = null }) { Text("Cancel") } },
-                title = { Text("Restore this file?") },
+                title = { Text(if (sf.name.endsWith(".json", true)) "Restore this file?" else "Import this file?") },
                 text = {
                     Text(if (sf.name.endsWith(".json", true))
                         "Restoring ${sf.name} replaces ALL current data with the contents of this backup. This can't be undone."
@@ -641,6 +659,28 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 },
             )
         }
+    }
+    if (showPaste) {
+        var pasteText by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showPaste = false },
+            confirmButton = {
+                TextButton(enabled = pasteText.isNotBlank(), onClick = {
+                    val t = pasteText; showPaste = false
+                    vm.importPastedText(t) { _, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() }
+                }) { Text("Import") }
+            },
+            dismissButton = { TextButton(onClick = { showPaste = false }) { Text("Cancel") } },
+            title = { Text("Paste backup text") },
+            text = {
+                Column {
+                    Text("Paste a backup you copied from another device (a JSON export restores everything; a Todoist/TickTick CSV or MLO OPML imports its tasks). Nothing leaves the device.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
+                    OutlinedTextField(pasteText, { pasteText = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 260.dp),
+                        label = { Text("Backup text") })
+                }
+            },
+        )
     }
 }
 
@@ -847,11 +887,6 @@ private fun SwipeRow(label: String, action: SwipeAction, onChange: (SwipeAction)
         }
     }
 }
-
-private val SMART_KINDS = listOf(
-    SmartKind.INBOX, SmartKind.TODAY, SmartKind.TOMORROW, SmartKind.NEXT7, SmartKind.DO_NEXT,
-    SmartKind.SCHEDULED, SmartKind.FLAGGED, SmartKind.ALL, SmartKind.COMPLETED, SmartKind.WONT_DO, SmartKind.TRASH,
-)
 
 @Composable
 private fun SmartVisRow(label: String, vis: SmartVis, onChange: (SmartVis) -> Unit) {

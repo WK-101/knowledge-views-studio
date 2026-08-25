@@ -32,6 +32,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Remove
@@ -149,11 +151,20 @@ fun HabitDetailScreen(
         }
     }
 
+    val shareCtx = LocalContext.current
     Scaffold(topBar = {
         TopAppBar(
             title = { Text(h.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-            actions = { IconButton(onClick = { onEdit(h) }) { Icon(Icons.Filled.Edit, "Edit") } },
+            actions = {
+                // M4: share an on-device progress image (strength ring + heatmap). Offline by construction.
+                IconButton(onClick = {
+                    vm.shareHabitProgress(h) { loc ->
+                        if (loc != null) android.widget.Toast.makeText(shareCtx, "Saved a copy to $loc", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }) { Icon(Icons.Filled.Share, "Share progress") }
+                IconButton(onClick = { onEdit(h) }) { Icon(Icons.Filled.Edit, "Edit") }
+            },
         )
     }) { padding ->
         Column(
@@ -399,6 +410,17 @@ private fun DayEditorDialog(
                     IconButton(onClick = { count += step; skip = false }, enabled = !skip) { Icon(Icons.Filled.Add, "More") }
                     Spacer(Modifier.width(2.dp))
                     Text("target ${habit.targetPerDay}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                // Direct entry — typing beats tapping +/- 10000 times for large numeric goals (steps, etc.).
+                if ((habit.targetPerDay > 1 || unit != null || step > 1) && !skip) {
+                    OutlinedTextField(
+                        value = if (count == 0) "" else count.toString(),
+                        onValueChange = { v -> count = v.filter { it.isDigit() }.take(7).toIntOrNull() ?: 0 },
+                        label = { Text("Type an exact value" + (unit?.let { " ($it)" } ?: "")) },
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
                 FilterChip(
                     selected = skip,
