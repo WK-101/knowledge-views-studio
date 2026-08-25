@@ -84,6 +84,10 @@ class AppRepository(private val db: AppDatabase) {
     val allFilters: Flow<List<FilterEntity>> = filters.observeAll()
     suspend fun upsertFilter(f: FilterEntity) = filters.upsert(f)
     suspend fun deleteFilter(id: String) = filters.deleteById(id)
+    suspend fun setFilterOrder(orderedIds: List<String>) {
+        val byId = filters.getAll().associateBy { it.id }
+        orderedIds.forEachIndexed { i, id -> byId[id]?.let { filters.upsert(it.copy(sortOrder = i.toDouble())) } }
+    }
     suspend fun createFilter(name: String, workspaceId: String): String {
         val id = uid()
         filters.upsert(FilterEntity(id = id, name = name, sortOrder = now().toDouble(), workspaceId = workspaceId))
@@ -402,12 +406,21 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun getContextsOnce(): List<ContextEntity> = contexts.getAll()
     suspend fun upsertTag(tag: TagEntity) = tags.upsert(tag)
     suspend fun deleteTag(id: String) = tags.deleteById(id)
+    /** Persist a new order for the given tags by rewriting their sortOrder to the list index. */
+    suspend fun setTagOrder(orderedIds: List<String>) {
+        val byId = tags.getAll().associateBy { it.id }
+        orderedIds.forEachIndexed { i, id -> byId[id]?.let { tags.upsert(it.copy(sortOrder = i.toDouble())) } }
+    }
     suspend fun setTaskTags(taskId: String, tagIds: List<String>) {
         tags.unlinkAllForTask(taskId)
         tags.linkAll(tagIds.map { TaskTagCrossRef(taskId, it) })
     }
     suspend fun upsertContext(context: ContextEntity) = contexts.upsert(context)
     suspend fun deleteContext(id: String) = contexts.deleteById(id)
+    suspend fun setContextOrder(orderedIds: List<String>) {
+        val byId = contexts.getAll().associateBy { it.id }
+        orderedIds.forEachIndexed { i, id -> byId[id]?.let { contexts.upsert(it.copy(sortOrder = i.toDouble())) } }
+    }
     suspend fun setTaskContexts(taskId: String, contextIds: List<String>) {
         contexts.unlinkAllForTask(taskId)
         contexts.linkAll(contextIds.map { TaskContextCrossRef(taskId, it) })

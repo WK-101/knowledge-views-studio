@@ -71,6 +71,9 @@ data class AppSettings(
     val sidebarCollapsed: Set<String> = emptySet(),
     // Sidebar section keys the user has hidden entirely from the drawer.
     val sidebarHidden: Set<String> = emptySet(),
+    // User-defined drawer order for smart lists (SmartKind names) and views (view keys); empty = default.
+    val smartOrder: List<String> = emptyList(),
+    val viewsOrder: List<String> = emptyList(),
 ) {
     fun toMap(): Map<String, String> = mapOf(
         Keys.FIRST_VIEW to firstView.name,
@@ -114,6 +117,8 @@ data class AppSettings(
         Keys.DEFAULT_VIEW to defaultViewRef,
         Keys.SIDEBAR_COLLAPSED to sidebarCollapsed.joinToString(","),
         Keys.SIDEBAR_HIDDEN to sidebarHidden.joinToString(","),
+        Keys.SMART_ORDER to smartOrder.joinToString(","),
+        Keys.VIEWS_ORDER to viewsOrder.joinToString(","),
     )
 
     object Keys {
@@ -158,6 +163,8 @@ data class AppSettings(
         const val DEFAULT_VIEW = "default_view"
         const val SIDEBAR_COLLAPSED = "sidebar_collapsed"
         const val SIDEBAR_HIDDEN = "sidebar_hidden"
+        const val SMART_ORDER = "smart_order"
+        const val VIEWS_ORDER = "views_order"
     }
 
     companion object {
@@ -209,6 +216,8 @@ data class AppSettings(
             defaultViewRef = m[Keys.DEFAULT_VIEW] ?: "",
             sidebarCollapsed = (m[Keys.SIDEBAR_COLLAPSED] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             sidebarHidden = (m[Keys.SIDEBAR_HIDDEN] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
+            smartOrder = (m[Keys.SMART_ORDER] ?: "").split(",").filter { it.isNotBlank() },
+            viewsOrder = (m[Keys.VIEWS_ORDER] ?: "").split(",").filter { it.isNotBlank() },
             dailySummaryEnabled = m[Keys.SUMMARY_ON]?.toBooleanStrictOrNull() ?: false,
             dailySummaryHour = m[Keys.SUMMARY_H]?.toIntOrNull() ?: 8,
             dailySummaryMinute = m[Keys.SUMMARY_M]?.toIntOrNull() ?: 0,

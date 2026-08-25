@@ -64,7 +64,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         FlagEntity::class,
         TemplateEntity::class,
     ],
-    version = 18,
+    version = 19,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -234,6 +234,11 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE `tasks` ADD COLUMN `progressPct` INTEGER")
             }
         }
+        private val MIGRATION_18_19 = object : Migration(18, 19) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `contexts` ADD COLUMN `sortOrder` REAL NOT NULL DEFAULT 0")
+            }
+        }
 
         fun get(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
@@ -242,7 +247,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "todocompanion.db",
                 )
-                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18)
+                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { INSTANCE = it }

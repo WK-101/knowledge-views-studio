@@ -188,20 +188,26 @@ fun AppDrawer(
 
             if ("smart" !in hidden) {
             SectionHeader("Smart lists", open = open("smart"), onToggle = { toggle("smart") })
-            if (open("smart")) listOf(
-                SmartKind.INBOX, SmartKind.TODAY, SmartKind.TOMORROW, SmartKind.NEXT7, SmartKind.DO_NEXT,
-                SmartKind.SCHEDULED, SmartKind.FLAGGED, SmartKind.GOALS, SmartKind.ALL, SmartKind.COMPLETED, SmartKind.WONT_DO, SmartKind.TRASH,
-            ).filter { k ->
-                when (settings.smartListVis[k] ?: SmartVis.SHOW) {
-                    SmartVis.SHOW -> true
-                    SmartVis.HIDE -> (current as? ViewRef.Smart)?.kind == k   // keep visible if it's the active view
-                    SmartVis.AUTO -> (counts[k] ?: 0) > 0 || (current as? ViewRef.Smart)?.kind == k
+            if (open("smart")) {
+                val defaultSmart = listOf(
+                    SmartKind.INBOX, SmartKind.TODAY, SmartKind.TOMORROW, SmartKind.NEXT7, SmartKind.DO_NEXT,
+                    SmartKind.SCHEDULED, SmartKind.FLAGGED, SmartKind.GOALS, SmartKind.ALL, SmartKind.COMPLETED, SmartKind.WONT_DO, SmartKind.TRASH,
+                )
+                // Apply the user's saved drag order, appending any not-yet-ordered kinds.
+                val savedSmart = settings.smartOrder.mapNotNull { runCatching { SmartKind.valueOf(it) }.getOrNull() }
+                val orderedSmart = (savedSmart + defaultSmart).distinct().filter { it in defaultSmart }
+                val visibleSmart = orderedSmart.filter { k ->
+                    when (settings.smartListVis[k] ?: SmartVis.SHOW) {
+                        SmartVis.SHOW -> true
+                        SmartVis.HIDE -> (current as? ViewRef.Smart)?.kind == k   // keep visible if it's the active view
+                        SmartVis.AUTO -> (counts[k] ?: 0) > 0 || (current as? ViewRef.Smart)?.kind == k
+                    }
                 }
-            }.forEach { k ->
-                DrawerRow(smartIcon(k), k.title, count = counts[k]?.takeIf { it > 0 },
-                    selected = (current as? ViewRef.Smart)?.kind == k,
-                    onLongClick = { vm.togglePinnedRef("smart:${k.name}") },  // long-press to add/remove from Favourites
-                    onClick = { onSelect(ViewRef.Smart(k)) })
+                DragReorderColumn(visibleSmart, id = { it.name }, onReorder = { vm.setSmartOrder(it) }) { k ->
+                    SmartRow(k, count = counts[k]?.takeIf { it > 0 },
+                        selected = (current as? ViewRef.Smart)?.kind == k, vm = vm,
+                        onClick = { onSelect(ViewRef.Smart(k)) })
+                }
             }
             }
 
@@ -218,15 +224,16 @@ fun AppDrawer(
 
             if ("tags" !in hidden) {
             SectionHeader("Tags", open = open("tags"), onToggle = { toggle("tags") }, onAdd = { onNewTag(null) })
-            if (open("tags")) tags.filter { it.parentId == null }.sortedWith(compareBy({ it.sortOrder }, { it.name })).forEach { t ->
-                TagNode(t, 0, tags, current, vm, onSelect, onNewTag, onManageTag, onMoveTag)
-            }
+            if (open("tags")) DragReorderColumn(
+                tags.filter { it.parentId == null }.sortedWith(compareBy({ it.sortOrder }, { it.name })),
+                id = { it.id }, onReorder = { vm.setTagOrder(it) },
+            ) { t -> TagNode(t, 0, tags, current, vm, onSelect, onNewTag, onManageTag, onMoveTag) }
             }
 
             val filters by vm.filters.collectAsState()
             if ("filters" !in hidden && (filters.isNotEmpty() || open("filters"))) {
                 SectionHeader("Filters", open = open("filters"), onToggle = { toggle("filters") }, onAdd = { onEditFilter(null) })
-                if (open("filters")) filters.sortedBy { it.sortOrder }.forEach { f ->
+                if (open("filters")) DragReorderColumn(filters.sortedBy { it.sortOrder }, id = { it.id }, onReorder = { vm.setFilterOrder(it) }) { f ->
                     var menu by remember(f.id) { mutableStateOf(false) }
                     val selected = (current as? ViewRef.FilterView)?.filterId == f.id
                     Row(
@@ -253,19 +260,29 @@ fun AppDrawer(
 
             if ("contexts" !in hidden) {
             SectionHeader("Contexts", open = open("contexts"), onToggle = { toggle("contexts") }, onAdd = { onNewContext(null) })
-            if (open("contexts")) contexts.filter { it.parentId == null }.sortedWith(compareBy({ it.name })).forEach { c ->
-                ContextNode(c, 0, contexts, current, vm, onSelect, onNewContext, onManageContext, onMoveContext)
-            }
+            if (open("contexts")) DragReorderColumn(
+                contexts.filter { it.parentId == null }.sortedWith(compareBy({ it.sortOrder }, { it.name })),
+                id = { it.id }, onReorder = { vm.setContextOrder(it) },
+            ) { c -> ContextNode(c, 0, contexts, current, vm, onSelect, onNewContext, onManageContext, onMoveContext) }
             }
 
             if ("views" !in hidden) {
             SectionHeader("Views", open = open("views"), onToggle = { toggle("views") })
             if (open("views")) {
-                if ("view_calendar" !in hidden) DrawerRow(Icons.Filled.CalendarMonth, "Calendar", onClick = { onOpenTab("CALENDAR") })
-                if ("view_timeline" !in hidden) DrawerRow(Icons.Filled.ViewTimeline, "Timeline", onClick = { onOpenTab("TIMELINE") })
-                if ("view_matrix" !in hidden) DrawerRow(Icons.Filled.GridView, "Matrix", onClick = { onOpenTab("MATRIX") })
-                if ("view_habits" !in hidden) DrawerRow(Icons.Filled.LocalFireDepartment, "Habits", onClick = { onOpenTab("HABITS") })
-                if ("view_focus" !in hidden) DrawerRow(Icons.Filled.Timer, "Focus", onClick = { onOpenTab("FOCUS") })
+                data class VItem(val key: String, val label: String, val icon: ImageVector, val tab: String)
+                val defaultViews = listOf(
+                    VItem("view_calendar", "Calendar", Icons.Filled.CalendarMonth, "CALENDAR"),
+                    VItem("view_timeline", "Timeline", Icons.Filled.ViewTimeline, "TIMELINE"),
+                    VItem("view_matrix", "Matrix", Icons.Filled.GridView, "MATRIX"),
+                    VItem("view_habits", "Habits", Icons.Filled.LocalFireDepartment, "HABITS"),
+                    VItem("view_focus", "Focus", Icons.Filled.Timer, "FOCUS"),
+                )
+                val orderedViews = (settings.viewsOrder + defaultViews.map { it.key }).distinct()
+                    .mapNotNull { key -> defaultViews.firstOrNull { it.key == key } }
+                    .filter { it.key !in hidden }
+                DragReorderColumn(orderedViews, id = { it.key }, onReorder = { vm.setViewsOrder(it) }) { v ->
+                    DrawerRow(v.icon, v.label, onClick = { onOpenTab(v.tab) })
+                }
             }
             }
 
@@ -536,6 +553,48 @@ private fun PinnedFavourites(
     }
 }
 
+/**
+ * Generic long-press drag-to-reorder Column for a flat list of drawer rows. Mirrors the list
+ * reorder gesture: long-press a row, drag vertically, drop; the new order is reported by id.
+ * Resyncs from upstream whenever [items] changes, except mid-drag.
+ */
+@Composable
+private fun <T> DragReorderColumn(items: List<T>, id: (T) -> String, onReorder: (List<String>) -> Unit, row: @Composable (T) -> Unit) {
+    var dragId by remember { mutableStateOf<String?>(null) }
+    var order by remember { mutableStateOf(items) }
+    var delta by remember { mutableFloatStateOf(0f) }
+    var rowH by remember { mutableFloatStateOf(0f) }
+    androidx.compose.runtime.LaunchedEffect(items) { if (dragId == null) order = items }
+    Column {
+        order.forEach { item ->
+            key(id(item)) {
+                val dragging = id(item) == dragId
+                Box(
+                    Modifier
+                        .onSizeChanged { if (rowH == 0f && it.height > 0) rowH = it.height.toFloat() }
+                        .zIndex(if (dragging) 1f else 0f)
+                        .graphicsLayer { translationY = if (dragging) delta else 0f }
+                        .pointerInput(id(item)) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = { dragId = id(item); delta = 0f },
+                                onDragEnd = { if (dragId != null) onReorder(order.map { id(it) }); dragId = null; delta = 0f },
+                                onDragCancel = { dragId = null; delta = 0f },
+                                onDrag = { ch, d ->
+                                    ch.consume(); delta += d.y
+                                    val from = order.indexOfFirst { id(it) == dragId }
+                                    if (from >= 0 && rowH > 0f) {
+                                        val target = (from + (delta / rowH).roundToInt()).coerceIn(0, order.size - 1)
+                                        if (target != from) { order = order.toMutableList().also { it.add(target, it.removeAt(from)) }; delta -= (target - from) * rowH }
+                                    }
+                                },
+                            )
+                        },
+                ) { row(item) }
+            }
+        }
+    }
+}
+
 @Composable
 private fun MenuItem(icon: ImageVector, label: String, onClick: () -> Unit) {
     DropdownMenuItem(text = { Text(label) }, leadingIcon = { Icon(icon, null, modifier = Modifier.size(20.dp)) }, onClick = onClick)
@@ -592,6 +651,33 @@ private fun ContextNode(
         }
     }
     children.forEach { ContextNode(it, depth + 1, all, current, vm, onSelect, onNew, onManage, onMove) }
+}
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+/** A smart-list row: icon · title · count · a ⋮ menu to pin/unpin to Favourites. Long-press
+ *  (from the enclosing DragReorderColumn) reorders it. */
+@Composable
+private fun SmartRow(kind: SmartKind, count: Int?, selected: Boolean, vm: AppViewModel, onClick: () -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    val pinRef = "smart:${kind.name}"
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
+            .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+            .clickable { onClick() }.padding(start = 12.dp, top = 9.dp, bottom = 9.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(smartIcon(kind), null, tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(12.dp))
+        Text(kind.title, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+        if (count != null) Text(count.toString(), Modifier.padding(end = 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box {
+            Icon(Icons.Filled.MoreVert, "Smart list menu", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp).clickable { menu = true })
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                MenuItem(Icons.Filled.PushPin, if (vm.isPinned(pinRef)) "Remove from Favourites" else "Add to Favourites") { vm.togglePinnedRef(pinRef); menu = false }
+            }
+        }
+    }
 }
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)

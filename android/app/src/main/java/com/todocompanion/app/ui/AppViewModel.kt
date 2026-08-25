@@ -820,6 +820,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val cur = settings.value.sidebarHidden
         repo.saveSettings(settings.value.copy(sidebarHidden = if (hidden) cur + key else cur - key))
     }
+    // Drag-reorder persistence for the drawer sections.
+    fun setTagOrder(ids: List<String>) = viewModelScope.launch { repo.setTagOrder(ids) }
+    fun setContextOrder(ids: List<String>) = viewModelScope.launch { repo.setContextOrder(ids) }
+    fun setFilterOrder(ids: List<String>) = viewModelScope.launch { repo.setFilterOrder(ids) }
+    fun setSmartOrder(ids: List<String>) = viewModelScope.launch { repo.saveSettings(settings.value.copy(smartOrder = ids)) }
+    fun setViewsOrder(ids: List<String>) = viewModelScope.launch { repo.saveSettings(settings.value.copy(viewsOrder = ids)) }
 
     // ---------- saved view tabs ----------
     val viewTabs: StateFlow<List<com.todocompanion.app.domain.view.ViewTab>> =

@@ -42,6 +42,7 @@ data class ContextEntity(
     val radiusM: Double? = null,
     val openHoursJson: String? = null, // reserved for Phase 2 availability windows
     val active: Boolean = true,
+    val sortOrder: Double = 0.0,
 )
 
 /** Task ↔ Context many-to-many. */
