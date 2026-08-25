@@ -705,6 +705,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             com.todocompanion.app.domain.SwipeAction.STAR -> toggleStar(t)
             com.todocompanion.app.domain.SwipeAction.WONT_DO -> setAbandoned(t, !t.abandoned)
             com.todocompanion.app.domain.SwipeAction.CYCLE_PRIORITY -> cyclePriority(t)
+            com.todocompanion.app.domain.SwipeAction.SCHEDULE_TOMORROW -> {
+                val ms = java.time.LocalDate.now(zone).plusDays(1).atStartOfDay(zone).plusHours(9).toInstant().toEpochMilli()
+                save(t.copy(dueDate = ms))
+            }
             com.todocompanion.app.domain.SwipeAction.EDIT -> return false
             com.todocompanion.app.domain.SwipeAction.NONE -> {}
         }

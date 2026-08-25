@@ -13,7 +13,7 @@ enum class SmartVis(val label: String) { SHOW("Show"), AUTO("Show if not empty")
 /** A swipe action that can be bound to a task-row swipe direction. */
 enum class SwipeAction(val label: String) {
     NONE("None"), COMPLETE("Complete"), TRASH("Trash"), STAR("Star"),
-    WONT_DO("Won't Do"), EDIT("Edit"), CYCLE_PRIORITY("Cycle priority")
+    WONT_DO("Won't Do"), EDIT("Edit"), CYCLE_PRIORITY("Cycle priority"), SCHEDULE_TOMORROW("Tomorrow")
 }
 
 /** Typed snapshot of app settings, with defaults. */

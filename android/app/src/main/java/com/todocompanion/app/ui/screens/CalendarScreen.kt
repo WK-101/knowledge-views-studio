@@ -121,6 +121,10 @@ fun CalendarScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, mode: String,
                 SwipeAction.STAR -> vm.toggleStar(t)
                 SwipeAction.WONT_DO -> vm.setAbandoned(t, !t.abandoned)
                 SwipeAction.CYCLE_PRIORITY -> vm.cyclePriority(t)
+                SwipeAction.SCHEDULE_TOMORROW -> {
+                    val ms = LocalDate.now(zone).plusDays(1).atStartOfDay(zone).plusHours(9).toInstant().toEpochMilli()
+                    vm.save(t.copy(dueDate = ms))
+                }
                 SwipeAction.EDIT -> onOpenTask(t.id)
                 SwipeAction.NONE -> {}
             }
