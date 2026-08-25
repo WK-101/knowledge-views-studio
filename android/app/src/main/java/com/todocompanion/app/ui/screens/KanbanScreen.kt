@@ -1,7 +1,9 @@
 package com.todocompanion.app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -129,6 +131,7 @@ private fun KanbanColumn(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun KanbanCard(
     task: TaskEntity, color: Color, onOpenTask: (String) -> Unit,
@@ -141,7 +144,8 @@ private fun KanbanCard(
     ) {
         Row(Modifier.height(androidx.compose.foundation.layout.IntrinsicSize.Min)) {
             Box(Modifier.width(3.dp).fillMaxHeight().background(color))
-            Column(Modifier.weight(1f).clickable { onOpenTask(task.id) }.padding(10.dp)) {
+            // Tap opens the task; long-press opens the "Move to…" column menu.
+            Column(Modifier.weight(1f).combinedClickable(onClick = { onOpenTask(task.id) }, onLongClick = { menu = true }).padding(10.dp)) {
                 Text(task.title, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
                 task.dueDate?.let { Spacer(Modifier.size(2.dp)); DueChip(it) }
             }
