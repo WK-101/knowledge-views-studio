@@ -5,4 +5,11 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
+
+    <!-- Branded launch window: shows the app icon on the brand colour instantly, so the user
+         never sees a blank frame while Compose + the database warm up. Swapped for the plain
+         theme in MainActivity.onCreate before the first frame. -->
+    <style name="Theme.ToDoCompanion.Splash" parent="Theme.ToDoCompanion">
+        <item name="android:windowBackground">@drawable/splash_bg</item>
+    </style>
 </resources>

@@ -23,8 +23,10 @@ class App : Application() {
         super.onCreate()
         Notifications.ensureChannel(this)
         appScope.launch { repository.ensureSeed() }
-        // Keep any placed home-screen widget in sync with task changes.
+        // Keep any placed home-screen widget in sync with task changes. Delayed so this full
+        // table read doesn't compete with the DB queries the first UI frame needs.
         appScope.launch {
+            kotlinx.coroutines.delay(2_000)
             repository.allTasks.debounce(400).collect { TodayWidget.refresh(this@App); AgendaWidget.refresh(this@App) }
         }
     }

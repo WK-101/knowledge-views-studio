@@ -13,6 +13,9 @@ class MainActivity : ComponentActivity() {
     private val launchAction = mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Swap the branded splash window for the plain (transparent) theme before the first frame,
+        // so the launch icon shows instantly but doesn't linger behind Compose.
+        setTheme(R.style.Theme_ToDoCompanion)
         super.onCreate(savedInstanceState)
         launchAction.value = intent?.getStringExtra(EXTRA_ACTION)
         enableEdgeToEdge()
