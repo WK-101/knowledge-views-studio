@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -30,6 +31,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -179,8 +181,24 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     fun openRestore(broad: Boolean = false) { restoreBroad = broad; savedList = null; restoreOpen = true; vm.loadSavedBackups(broad) { savedList = it } }
     // Paste-a-backup dialog — the last-resort import that needs no file, picker or permission at all.
     var showPaste by remember { mutableStateOf(false) }
-    // Import never dead-ends: if the system picker is missing, drop straight into the in-app import browser.
-    fun safeImport(block: () -> Unit) { try { block() } catch (e: Exception) { openRestore(broad = true) } }
+    // Full filesystem browser: navigate + search real folders and pick any backup, with no system picker.
+    var browseOpen by remember { mutableStateOf(false) }
+    val readPermLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) browseOpen = true else Toast.makeText(context, "Storage permission is needed to browse files", Toast.LENGTH_LONG).show()
+    }
+    val manageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        if (vm.canBrowseStorage()) browseOpen = true else Toast.makeText(context, "Turn on “All files access” to browse for a file", Toast.LENGTH_LONG).show()
+    }
+    fun requestAndBrowse() {
+        when {
+            vm.canBrowseStorage() -> browseOpen = true
+            android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R ->
+                runCatching { manageLauncher.launch(com.todocompanion.app.util.FileExport.manageAllFilesIntent(context)) }.onFailure { openRestore(broad = true) }
+            else -> readPermLauncher.launch(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
+    }
+    // Import never dead-ends: if the system picker is missing, open the full filesystem browser instead.
+    fun safeImport(block: () -> Unit) { try { block() } catch (e: Exception) { requestAndBrowse() } }
 
     // Collapsible category groups (TickTick-style compact list). All start collapsed.
     val open = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
@@ -514,8 +532,9 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         SettingsGroup(Icons.Filled.CloudSync, "Backup", open["backup"] == true, { open["backup"] = open["backup"] != true }) {
             Action("Export all data (JSON)") { safeExport("json") { exportLauncher.launch("todo-companion-backup.json") } }
             Action("Import / restore (JSON)") { safeImport { importLauncher.launch("*/*") } }
+            Action("Browse device for a file…") { requestAndBrowse() }
             Action("Restore from a saved backup…") { openRestore(broad = false) }
-            Action("Import a file on device (no picker)…") { openRestore(broad = true) }
+            Action("Import from the app inbox…") { openRestore(broad = true) }
             Action("Paste backup text…") { showPaste = true }
             Text("Complete, lossless local backup. No account, no cloud, no network. No file picker needed: exports save straight to Downloads, and either browser reads a backup back with no picker at all. To import a file from another app, copy it into ${vm.importInboxHint()} — it appears under “Import a file on device”.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
@@ -680,6 +699,84 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                         label = { Text("Backup text") })
                 }
             },
+        )
+    }
+    if (browseOpen) FileBrowser(vm, onDismiss = { browseOpen = false }, onPicked = { file ->
+        browseOpen = false
+        vm.importBrowsedFile(file) { _, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() }
+    })
+}
+
+/**
+ * A self-rendered filesystem browser (navigate folders + search filenames) so a backup can be picked
+ * on a de-Googled phone that has no system document picker. Reads via java.io.File once storage access
+ * is granted; fully offline.
+ */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun FileBrowser(vm: AppViewModel, onDismiss: () -> Unit, onPicked: (java.io.File) -> Unit) {
+    val roots = remember { com.todocompanion.app.util.FileExport.browseRoots() }
+    var dir by remember { mutableStateOf(roots.firstOrNull() ?: java.io.File("/")) }
+    var entries by remember { mutableStateOf<List<com.todocompanion.app.util.FileExport.Entry>>(emptyList()) }
+    var query by remember { mutableStateOf("") }
+    var results by remember { mutableStateOf<List<java.io.File>>(emptyList()) }
+    var confirming by remember { mutableStateOf<java.io.File?>(null) }
+    androidx.compose.runtime.LaunchedEffect(dir) { vm.browseDir(dir) { entries = it } }
+    androidx.compose.runtime.LaunchedEffect(query) { if (query.trim().length >= 2) vm.searchFilesystem(query) { results = it } else results = emptyList() }
+    val searching = query.trim().length >= 2
+
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = onDismiss) { Text("Close") }
+                    Text("Choose a backup file", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Spacer(Modifier.width(56.dp))
+                }
+                OutlinedTextField(query, { query = it }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                    label = { Text("Search filenames…") })
+                if (!searching) {
+                    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        roots.forEach { r ->
+                            FilterChip(selected = dir.absolutePath == r.absolutePath, onClick = { dir = r },
+                                label = { Text(r.name.ifBlank { "Storage" }) })
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                        val canUp = dir.parentFile != null && roots.none { it.absolutePath == dir.absolutePath }
+                        TextButton(enabled = canUp, onClick = { dir.parentFile?.let { dir = it } }) { Text("↑ Up") }
+                        Text(dir.absolutePath, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                val rows: List<Pair<java.io.File, Boolean>> = if (searching) results.map { it to false } else entries.map { it.file to it.isDir }
+                if (rows.isEmpty()) {
+                    Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        Text(if (searching) "No matching files" else "Empty folder — no importable files here", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
+                    items(rows, key = { it.first.absolutePath }) { (f, isDir) ->
+                        Row(Modifier.fillMaxWidth().clickable { if (isDir) { query = ""; dir = f } else confirming = f }.padding(vertical = 11.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(if (isDir) "📁" else "📄", style = MaterialTheme.typography.titleMedium)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(f.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                if (searching) Text(f.parent ?: "", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            if (isDir) Text("›", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                    }
+                }
+            }
+        }
+    }
+    confirming?.let { f ->
+        AlertDialog(
+            onDismissRequest = { confirming = null },
+            confirmButton = { TextButton(onClick = { onPicked(f); confirming = null }) { Text(if (f.name.endsWith(".json", true)) "Restore" else "Import") } },
+            dismissButton = { TextButton(onClick = { confirming = null }) { Text("Cancel") } },
+            title = { Text(f.name) },
+            text = { Text(if (f.name.endsWith(".json", true)) "Restoring this backup replaces ALL current data. This can't be undone." else "Import tasks/habits from this file into your current data.") },
         )
     }
 }

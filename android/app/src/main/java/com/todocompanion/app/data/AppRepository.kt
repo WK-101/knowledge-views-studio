@@ -141,6 +141,11 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun getHabitsOnce(): List<HabitEntity> = habits.getAll()
     suspend fun getHabitCheckinsOnce(): List<HabitCheckinEntity> = habits.getCheckins()
     suspend fun upsertHabit(h: HabitEntity) = habits.upsert(h)
+    /** Persist a manual habit order by rewriting sortOrder to the given list index. */
+    suspend fun setHabitOrder(orderedIds: List<String>) {
+        val byId = habits.getAll().associateBy { it.id }
+        orderedIds.forEachIndexed { i, id -> byId[id]?.let { habits.upsert(it.copy(sortOrder = i.toDouble())) } }
+    }
     suspend fun deleteHabit(id: String) { habits.clearHabit(id); habits.deleteById(id) }
     /**
      * Cycle today's progress by [increment] up to the ceiling (extra goal if set, else target),

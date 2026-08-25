@@ -59,9 +59,9 @@ import java.time.LocalDate
 /** One density preset: cell edge in dp and how many trailing days to render. */
 private class MatrixDensity(val cell: Dp, val days: Int, val fontSp: Int)
 private val DENSITIES = listOf(
-    MatrixDensity(16.dp, 91, 8),   // Compact — a full quarter at a glance
-    MatrixDensity(22.dp, 56, 9),   // Medium
-    MatrixDensity(30.dp, 35, 11),  // Large
+    MatrixDensity(30.dp, 35, 11),  // Compact — was the old "Large"; comfortably tappable
+    MatrixDensity(42.dp, 24, 13),  // Medium — roomier cells, three-and-a-half weeks
+    MatrixDensity(54.dp, 16, 15),  // Large — big cells for a fortnight-plus at a glance
 )
 private val DENSITY_LABELS = listOf("Compact", "Medium", "Large")
 

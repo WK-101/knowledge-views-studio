@@ -36,8 +36,15 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.platform.LocalDensity
+import kotlin.math.roundToInt
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
@@ -236,6 +243,12 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
                 else (0..3).mapNotNull { sec -> habits.filter { habitSectionOf(it) == sec }.takeIf { it.isNotEmpty() }?.let { HABIT_SECTIONS[sec] to it } }
             }
             val showHeaders = sections.size > 1
+            // Drag-to-reorder persists a global habit order; a drag rearranges within its section, then the
+            // whole order is saved (so categories/stacks stay grouped — "Morning habits" together, etc.).
+            fun persistSection(sectionHabits: List<HabitEntity>, newIds: List<String>) {
+                val global = sections.flatMap { (_, hs) -> if (hs === sectionHabits) newIds else hs.map { it.id } }
+                vm.setHabitOrder(global)
+            }
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 4.dp, bottom = 100.dp)) {
                 if (insights.isNotEmpty()) item(key = "insights") { InsightsCard(insights, vm) }
                 sections.forEach { (title, secHabits) ->
@@ -243,23 +256,25 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
                         Text(title.uppercase(), Modifier.padding(start = 18.dp, top = 12.dp, bottom = 2.dp),
                             style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    items(secHabits, key = { it.id }) { h ->
-                        HabitRow(
-                            h, checkins, today, allHabits = habits,
-                            onCycle = {
-                                val cur = daysFor(h, checkins).counts[today] ?: 0
-                                if (h.habitType == "break") {
-                                    if (HabitStats.isRelapse(h, cur)) vm.clearHabitDay(h, today) else vm.setHabitValue(h, today, h.targetPerDay + 1)
-                                } else vm.cycleHabit(h, today, cur)
-                            },
-                            onOpen = { vm.habitDetailId.value = h.id },
-                            onSkip = { vm.skipHabitDay(h, today) },
-                            onClear = { vm.clearHabitDay(h, today) },
-                            onSetValue = { valueFor = h },
-                            onPause = { vm.setHabitPaused(h, !h.paused) },
-                            onEdit = { vm.habitEditor.value = com.todocompanion.app.ui.HabitEditRequest(h) },
-                            onFocus = { onFocusHabit(h.id) },
-                        )
+                    item(key = "seccol-$title") {
+                        HabitDraggableColumn(secHabits, onReorder = { persistSection(secHabits, it) }) { h ->
+                            HabitRow(
+                                h, checkins, today, allHabits = habits,
+                                onCycle = {
+                                    val cur = daysFor(h, checkins).counts[today] ?: 0
+                                    if (h.habitType == "break") {
+                                        if (HabitStats.isRelapse(h, cur)) vm.clearHabitDay(h, today) else vm.setHabitValue(h, today, h.targetPerDay + 1)
+                                    } else vm.cycleHabit(h, today, cur)
+                                },
+                                onOpen = { vm.habitDetailId.value = h.id },
+                                onSkip = { vm.skipHabitDay(h, today) },
+                                onClear = { vm.clearHabitDay(h, today) },
+                                onSetValue = { valueFor = h },
+                                onPause = { vm.setHabitPaused(h, !h.paused) },
+                                onEdit = { vm.habitEditor.value = com.todocompanion.app.ui.HabitEditRequest(h) },
+                                onFocus = { onFocusHabit(h.id) },
+                            )
+                        }
                     }
                 }
                 item {
@@ -386,6 +401,42 @@ private fun InsightsCard(insights: List<com.todocompanion.app.domain.habit.Insig
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/** A column of habits reorderable by dragging a leading handle (persists a manual order). */
+@Composable
+private fun HabitDraggableColumn(habits: List<HabitEntity>, onReorder: (List<String>) -> Unit, row: @Composable (HabitEntity) -> Unit) {
+    var order by remember(habits) { mutableStateOf(habits) }
+    var draggingId by remember { mutableStateOf<String?>(null) }
+    var dragY by remember { mutableStateOf(0f) }
+    val rowPx = with(LocalDensity.current) { 68.dp.toPx() }
+    Column {
+        order.forEach { h ->
+            val dragging = h.id == draggingId
+            Row(
+                Modifier.zIndex(if (dragging) 1f else 0f).graphicsLayer { translationY = if (dragging) dragY else 0f },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.DragHandle, "Reorder", tint = MaterialTheme.colorScheme.outline.copy(alpha = if (dragging) 1f else .5f),
+                    modifier = Modifier.padding(start = 4.dp).size(22.dp).pointerInput(h.id) {
+                        detectDragGestures(
+                            onDragStart = { draggingId = h.id; dragY = 0f },
+                            onDrag = { ch, off ->
+                                ch.consume(); dragY += off.y
+                                val cur = order.indexOfFirst { it.id == h.id }
+                                if (cur >= 0) {
+                                    val target = (cur + (dragY / rowPx).roundToInt()).coerceIn(0, order.lastIndex)
+                                    if (target != cur) { order = order.toMutableList().also { it.add(target, it.removeAt(cur)) }; dragY -= (target - cur) * rowPx }
+                                }
+                            },
+                            onDragEnd = { draggingId = null; dragY = 0f; onReorder(order.map { it.id }) },
+                            onDragCancel = { draggingId = null; dragY = 0f },
+                        )
+                    })
+                Box(Modifier.weight(1f)) { row(h) }
             }
         }
     }

@@ -29,6 +29,7 @@ data class FolderEntity(
     val sortOrder: Double = 0.0,
     val collapsed: Boolean = false,
     val workspaceId: String = WorkspaceEntity.DEFAULT_ID,
+    val description: String = "",   // optional free-text note, shown atop the folder's tasks
 )
 
 /** A list / project: the primary container that holds a task outline.
@@ -47,6 +48,7 @@ data class ListEntity(
     val archived: Boolean = false,
     val workspaceId: String = WorkspaceEntity.DEFAULT_ID,
     val backgroundBase64: String? = null,   // optional embedded background image (JPEG), shown faintly behind the list
+    val description: String = "",   // optional free-text note, shown atop the list's tasks
 ) {
     companion object {
         /** Well-known id of the default Inbox list. */

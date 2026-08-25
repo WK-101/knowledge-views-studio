@@ -495,10 +495,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun select(view: ViewRef) {
         currentView.value = view
         groupMode.value = if (view is ViewRef.ListView) GroupMode.NONE else GroupMode.DATE
-        outlineMode.value = false
+        // Seed outline mode from the list's own persisted viewMode so a list remembers nested vs flat.
+        outlineMode.value = (view as? ViewRef.ListView)?.let { lv -> lists.value.firstOrNull { it.id == lv.listId }?.viewMode == "outline" } ?: false
         // Remember the last place, when the user opted into resuming there.
         val s = settings.value
         if (s.resumeLastView) viewModelScope.launch { repo.saveSettings(repo.settingsSnapshot().copy(lastViewRef = com.todocompanion.app.domain.view.ViewTabs.refOf(view))) }
+    }
+
+    /** Flip the current list's outline (nested) vs flat view and persist it on the ListEntity so it sticks. */
+    fun toggleOutline() {
+        val on = !outlineMode.value
+        outlineMode.value = on
+        (currentView.value as? ViewRef.ListView)?.let { lv ->
+            viewModelScope.launch { lists.value.firstOrNull { it.id == lv.listId }?.let { repo.saveList(it.copy(viewMode = if (on) "outline" else "list")) } }
+        }
     }
 
     /** On launch, open the resume-last view (if enabled) or the configured default view. */
@@ -824,6 +834,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- folders / lists ----------
     fun createFolder(name: String, parentId: String? = null) = viewModelScope.launch { repo.createFolder(name, parentId, settings.value.activeWorkspaceId) }
     fun renameFolder(f: FolderEntity, name: String) = viewModelScope.launch { repo.saveFolder(f.copy(name = name)) }
+    fun saveFolder(f: FolderEntity) = viewModelScope.launch { repo.saveFolder(f) }
     fun setFolderIcon(f: FolderEntity, icon: String?) = viewModelScope.launch { repo.saveFolder(f.copy(icon = icon)) }
     fun toggleFolder(f: FolderEntity) = viewModelScope.launch { repo.saveFolder(f.copy(collapsed = !f.collapsed)) }
     fun deleteFolder(id: String) = viewModelScope.launch { repo.deleteFolder(id) }
@@ -1045,6 +1056,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- row actions (flag / star / priority / swipes) ----------
     fun toggleStar(t: TaskEntity) = viewModelScope.launch { repo.saveTask(t.copy(star = !t.star)) }
     fun setPriority(t: TaskEntity, level: PriorityLevel) = viewModelScope.launch { repo.saveTask(t.copy(importance = level.importance, urgency = level.urgency)) }
+    /** Drag-to-move in the Eisenhower matrix: set importance/urgency so [t] lands in quadrant [q]
+     *  (0 UI, 1 NI, 2 UN, 3 NN) under the current thresholds. */
+    fun setMatrixQuadrant(t: TaskEntity, q: Int, impThreshold: Int, urgThreshold: Int) = viewModelScope.launch {
+        val important = q == 0 || q == 1
+        val urgent = q == 0 || q == 2
+        val imp = if (important) 5 else (impThreshold - 1).coerceIn(1, 5)
+        val urg = if (urgent) 5 else (urgThreshold - 1).coerceIn(1, 5)
+        if (t.importance != imp || t.urgency != urg) repo.saveTask(t.copy(importance = imp, urgency = urg))
+    }
     fun setDuration(taskId: String, minutes: Int) = viewModelScope.launch { repo.getTask(taskId)?.let { repo.saveTask(it.copy(durationMin = minutes.coerceIn(15, 24 * 60))) } }
     /** Shift a task's start and due dates by [days] (Timeline drag-to-reschedule; preserves span). */
     fun shiftTaskDays(taskId: String, days: Int) = viewModelScope.launch {
@@ -1293,6 +1313,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
     // Drag-reorder persistence for the drawer sections.
     fun setTagOrder(ids: List<String>) = viewModelScope.launch { repo.setTagOrder(ids) }
+    fun setHabitOrder(ids: List<String>) = viewModelScope.launch { repo.setHabitOrder(ids); refreshHabitWidgets() }
     fun setContextOrder(ids: List<String>) = viewModelScope.launch { repo.setContextOrder(ids) }
     fun setFilterOrder(ids: List<String>) = viewModelScope.launch { repo.setFilterOrder(ids) }
     /** Persisted per-list Board/List layout choice. */
@@ -1489,6 +1510,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun loadSavedBackups(broad: Boolean = false, onDone: (List<com.todocompanion.app.util.FileExport.SavedFile>) -> Unit) = viewModelScope.launch {
         val list = withContext(Dispatchers.IO) { com.todocompanion.app.util.FileExport.listSaved(appCtx, broad) }
         onDone(list)
+    }
+    // ---- Full in-app file browser (needs storage access; browse + search the real filesystem) ----
+    fun canBrowseStorage(): Boolean = com.todocompanion.app.util.FileExport.canBrowseStorage(appCtx)
+    fun browseDir(dir: java.io.File, allTypes: Boolean = false, onDone: (List<com.todocompanion.app.util.FileExport.Entry>) -> Unit) = viewModelScope.launch {
+        onDone(withContext(Dispatchers.IO) { com.todocompanion.app.util.FileExport.listDir(dir, allTypes) })
+    }
+    fun searchFilesystem(q: String, onDone: (List<java.io.File>) -> Unit) = viewModelScope.launch {
+        onDone(withContext(Dispatchers.IO) { com.todocompanion.app.util.FileExport.searchFiles(q) })
+    }
+    /** Import a browsed file by wrapping it as a SavedFile and reusing the restore pipeline. */
+    fun importBrowsedFile(file: java.io.File, onDone: (Boolean, String) -> Unit) {
+        restoreSaved(com.todocompanion.app.util.FileExport.SavedFile(file.name, file.parent ?: "", file.lastModified(), null, file), onDone)
     }
     /** The folder a user copies a backup into to import it with no picker and no permission. */
     fun importInboxHint(): String = com.todocompanion.app.util.FileExport.importInboxHint(appCtx)

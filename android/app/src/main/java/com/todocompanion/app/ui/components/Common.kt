@@ -284,21 +284,28 @@ fun TaskLeftMeta(dueMillis: Long?, note: String, repeating: Boolean) {
     }
 }
 
-/** Right-side trailing labels under the flag+star (MLO layout): @contexts, #tags, list. */
+/** Right-side trailing labels under the flag+star (MLO layout): @contexts, #tags, list.
+ *  When a nav callback is supplied, tapping a label jumps to that list/context/tag view. */
 @Composable
-fun TaskTrailingLabels(contexts: List<Pair<String, Long?>>, tags: List<Pair<String, Long?>>, listName: String?) {
+fun TaskTrailingLabels(
+    contexts: List<Pair<String, Long?>>, tags: List<Pair<String, Long?>>, listName: String?,
+    onListClick: (() -> Unit)? = null, onContextClick: ((String) -> Unit)? = null, onTagClick: ((String) -> Unit)? = null,
+) {
     if (contexts.isEmpty() && tags.isEmpty() && listName == null) return
     Spacer(Modifier.size(2.dp))
     Column(horizontalAlignment = Alignment.End) {
         contexts.take(2).forEach { (name, argb) ->
             Text("@$name", style = MaterialTheme.typography.labelMedium,
-                color = argb?.let { Color(it) } ?: MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                color = argb?.let { Color(it) } ?: MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = if (onContextClick != null) Modifier.clickable { onContextClick(name) } else Modifier)
         }
         tags.take(2).forEach { (name, argb) ->
             Text("#$name", style = MaterialTheme.typography.labelMedium,
-                color = argb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                color = argb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = if (onTagClick != null) Modifier.clickable { onTagClick(name) } else Modifier)
         }
-        if (listName != null) Text(listName, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (listName != null) Text(listName, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = if (onListClick != null) Modifier.clickable { onListClick() } else Modifier)
     }
 }
 

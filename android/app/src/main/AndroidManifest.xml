@@ -18,12 +18,22 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <!--
+      Browse & read a user-chosen backup file with NO system document picker (de-Googled ROMs lack
+      com.android.documentsui). These are LOCAL-STORAGE permissions only — they grant filesystem access,
+      never network. INTERNET remains absent, so the app is still incapable of any network access.
+      READ_EXTERNAL_STORAGE is capped at API 29 (it does nothing for non-media files on 30+);
+      MANAGE_EXTERNAL_STORAGE ("All files access", user-granted & revocable) covers API 30+.
+    -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <uses-feature android:name="android.hardware.location" android:required="false" />
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 
     <application
         android:name=".App"
         android:allowBackup="false"
+        android:requestLegacyExternalStorage="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"

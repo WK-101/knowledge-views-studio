@@ -379,7 +379,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                             }) {
                                 Icon(Icons.Filled.ViewColumn, if (boardMode) "List view" else "Board view", tint = if (boardMode) MaterialTheme.colorScheme.primary else LocalContentColor.current)
                             }
-                            if (canOutline && !boardMode) IconButton(onClick = { vm.outlineMode.value = !outlineMode }) {
+                            if (canOutline && !boardMode) IconButton(onClick = { vm.toggleOutline() }) {
                                 Icon(if (outlineMode) Icons.AutoMirrored.Filled.FormatListBulleted else Icons.Filled.AccountTree, if (outlineMode) "List view" else "Outline view")
                             }
                             // Hierarchy-preserving output for filter/tag/context views (MLO outline filtering).
@@ -479,24 +479,25 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                 },
                 snackbarHost = {
                     androidx.compose.material3.SnackbarHost(snackbar) { data ->
-                        // A rounded, branded snackbar that matches the app's card language (the default
-                        // Material pill looked foreign). Carries the message, an accent Undo, and a close.
+                        // A rounded card that matches the app's own surface language — same shape, colour
+                        // and accent as every other card/sheet, with a subtle outline so it reads as ours.
                         androidx.compose.material3.Surface(
                             Modifier.padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth(),
                             shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.inverseSurface,
-                            contentColor = MaterialTheme.colorScheme.inverseOnSurface,
-                            tonalElevation = 6.dp, shadowElevation = 6.dp,
+                            color = MaterialTheme.colorScheme.surface,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .6f)),
+                            tonalElevation = 3.dp, shadowElevation = 8.dp,
                         ) {
                             Row(Modifier.padding(start = 16.dp, end = 6.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text(data.visuals.message, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                                 data.visuals.actionLabel?.let { label ->
                                     TextButton(onClick = { data.performAction() }) {
-                                        Text(label, color = MaterialTheme.colorScheme.inversePrimary, fontWeight = FontWeight.SemiBold)
+                                        Text(label, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                                     }
                                 }
                                 if (data.visuals.withDismissAction) IconButton(onClick = { data.dismiss() }) {
-                                    Icon(Icons.Filled.Close, "Dismiss", modifier = Modifier.size(20.dp))
+                                    Icon(Icons.Filled.Close, "Dismiss", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                                 }
                             }
                         }
@@ -642,17 +643,17 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
             // saves aren't clobbered when the final "Save" fires with a stale snapshot.
             val l = lists.firstOrNull { it.id == stale.id } ?: stale
             ManageListDialog(l, onDismiss = { manageList = null },
-                onRename = { vm.saveList(l.copy(name = it)); manageList = null },
-                onColor = { vm.saveList(l.copy(colorArgb = it)) },
+                onSave = { n, d -> vm.saveList((lists.firstOrNull { it.id == l.id } ?: l).copy(name = n, description = d)); manageList = null },
+                onColor = { vm.saveList((lists.firstOrNull { it.id == l.id } ?: l).copy(colorArgb = it)) },
                 onDelete = { vm.deleteList(l.id); if (currentView == ViewRef.ListView(l.id)) vm.select(ViewRef.Smart(SmartKind.TODAY)); manageList = null },
                 onPickBackground = { vm.setListBackgroundFromUri(l.id, it) },
                 onClearBackground = { vm.clearListBackground(l.id) },
-                onEmoji = { vm.saveList(l.copy(emoji = it)) })
+                onEmoji = { vm.saveList((lists.firstOrNull { it.id == l.id } ?: l).copy(emoji = it)) })
         }
         manageFolder?.let { stale ->
             val f = folders.firstOrNull { it.id == stale.id } ?: stale
             ManageFolderDialog(f, onDismiss = { manageFolder = null },
-                onRename = { vm.renameFolder(f, it); manageFolder = null },
+                onSave = { n, d -> vm.saveFolder((folders.firstOrNull { it.id == f.id } ?: f).copy(name = n.trim(), description = d)); manageFolder = null },
                 onIcon = { vm.setFolderIcon(f, it) },
                 onDelete = { vm.deleteFolder(f.id); manageFolder = null })
         }
@@ -1065,10 +1066,11 @@ private val SWATCHES = listOf(0xFFE5484D, 0xFFF59E0B, 0xFF12A594, 0xFF3E7BFA, 0x
 
 @Composable
 private fun ManageListDialog(
-    list: ListEntity, onDismiss: () -> Unit, onRename: (String) -> Unit, onColor: (Long) -> Unit, onDelete: () -> Unit,
+    list: ListEntity, onDismiss: () -> Unit, onSave: (String, String) -> Unit, onColor: (Long) -> Unit, onDelete: () -> Unit,
     onPickBackground: (android.net.Uri) -> Unit, onClearBackground: () -> Unit, onEmoji: (String?) -> Unit,
 ) {
     var name by remember { mutableStateOf(list.name) }
+    var description by remember { mutableStateOf(list.description) }
     var confirmDelete by remember { mutableStateOf(false) }
     val bgPicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) onPickBackground(uri)
@@ -1076,7 +1078,7 @@ private fun ManageListDialog(
     if (confirmDelete) ConfirmDeleteDialog("list", list.name, onCancel = { confirmDelete = false }, onConfirm = { confirmDelete = false; onDelete() })
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onRename(name.trim()) }) { Text("Save") } },
+        confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onSave(name.trim(), description.trim()) }) { Text("Save") } },
         dismissButton = {
             if (list.id != ListEntity.INBOX_ID) TextButton(onClick = { confirmDelete = true }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
             else TextButton(onClick = onDismiss) { Text("Close") }
@@ -1084,7 +1086,9 @@ private fun ManageListDialog(
         title = { Text("List") },
         text = {
             Column {
-                OutlinedTextField(name, { name = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(name, { name = it }, singleLine = true, modifier = Modifier.fillMaxWidth(), label = { Text("Name") })
+                Spacer(Modifier.size(8.dp))
+                OutlinedTextField(description, { description = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Description (optional)") }, minLines = 2)
                 Spacer(Modifier.size(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     SWATCHES.forEach { c -> Box(Modifier.size(26.dp).clip(CircleShape).background(Color(c)).clickable { onColor(c) }) }
@@ -1125,18 +1129,21 @@ private fun ConfirmDeleteDialog(kind: String, name: String, onCancel: () -> Unit
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun ManageFolderDialog(folder: FolderEntity, onDismiss: () -> Unit, onRename: (String) -> Unit, onIcon: (String?) -> Unit, onDelete: () -> Unit) {
+private fun ManageFolderDialog(folder: FolderEntity, onDismiss: () -> Unit, onSave: (String, String) -> Unit, onIcon: (String?) -> Unit, onDelete: () -> Unit) {
     var name by remember { mutableStateOf(folder.name) }
+    var description by remember { mutableStateOf(folder.description) }
     var confirmDelete by remember { mutableStateOf(false) }
     if (confirmDelete) ConfirmDeleteDialog("folder", folder.name, onCancel = { confirmDelete = false }, onConfirm = { confirmDelete = false; onDelete() })
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onRename(name.trim()) }) { Text("Save") } },
+        confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onSave(name.trim(), description.trim()) }) { Text("Save") } },
         dismissButton = { TextButton(onClick = { confirmDelete = true }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
         title = { Text("Folder") },
         text = {
             Column {
-                OutlinedTextField(name, { name = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(name, { name = it }, singleLine = true, modifier = Modifier.fillMaxWidth(), label = { Text("Name") })
+                Spacer(Modifier.size(8.dp))
+                OutlinedTextField(description, { description = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Description (optional)") }, minLines = 2)
                 Spacer(Modifier.size(12.dp))
                 Text("Icon", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.size(6.dp))
@@ -1257,7 +1264,15 @@ private fun ManageContextDialog(
     fun requestBackgroundIfNeeded() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
             val bg = androidx.core.content.ContextCompat.checkSelfPermission(lctx, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
-            if (!bg) runCatching { bgPermLauncher.launch(arrayOf(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION)) }
+            // On Android 11+ background location CANNOT be granted via a runtime dialog (it silently
+            // returns denied) — the OS requires the user to pick "Allow all the time" in app settings.
+            // So route them there instead of firing a no-op prompt, otherwise the geofence is background-dead.
+            if (!bg) {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                    android.widget.Toast.makeText(lctx, "For arrival alerts to fire in the background, set this app's Location to “Allow all the time”.", android.widget.Toast.LENGTH_LONG).show()
+                    runCatching { lctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.fromParts("package", lctx.packageName, null)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                } else runCatching { bgPermLauncher.launch(arrayOf(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION)) }
+            }
         }
     }
     fun located(la: Double, ln: Double) { onSetLocation(la, ln, 150.0); hasLoc = true; requestBackgroundIfNeeded() }
@@ -1279,10 +1294,24 @@ private fun ManageContextDialog(
     }
     fun toggleLocation(on: Boolean) {
         if (!on) { runCatching { onClearLocation() }; hasLoc = false; locating = false; return }
+        // The usual reason "arrive here" won't turn on (esp. on de-Googled phones where permission is
+        // already granted, so no prompt appears): Location Services is OFF or has no usable provider, so
+        // capture silently fails and the switch reverts. Detect that up front and route to the toggle.
+        val lm = lctx.getSystemService(android.location.LocationManager::class.java)
+        if (lm == null || !androidx.core.location.LocationManagerCompat.isLocationEnabled(lm)) {
+            android.widget.Toast.makeText(lctx, "Turn on Location to set an arrival alert — no internet needed.", android.widget.Toast.LENGTH_LONG).show()
+            runCatching { lctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            hasLoc = false; locating = false
+            return
+        }
         val fine = androidx.core.content.ContextCompat.checkSelfPermission(lctx, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
         val coarse = androidx.core.content.ContextCompat.checkSelfPermission(lctx, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
         if (fine || coarse) captureAndSet()
-        else { locating = true; hasLoc = true; runCatching { locPermLauncher.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)) } }
+        else {
+            locating = true; hasLoc = true
+            runCatching { locPermLauncher.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)) }
+                .onFailure { locating = false; hasLoc = false; android.widget.Toast.makeText(lctx, "This device can't show the location-permission prompt. Grant Location to the app in system settings.", android.widget.Toast.LENGTH_LONG).show() }
+        }
     }
     AlertDialog(
         onDismissRequest = onDismiss,

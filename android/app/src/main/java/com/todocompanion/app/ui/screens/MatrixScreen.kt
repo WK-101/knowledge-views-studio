@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -39,10 +40,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.domain.priority.PriorityEngine
 import com.todocompanion.app.ui.AppViewModel
@@ -75,14 +88,39 @@ fun MatrixScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, showSettings: B
     val byQuad = visible.groupBy { PriorityEngine.quadrant(it, s.matrixImportanceThreshold, s.matrixUrgencyThreshold) }
         .mapValues { (_, list) -> list.sortedByDescending { maxOf(it.importance, it.urgency) } }
 
+    // Drag-to-move: long-press a task and drop it into another quadrant. Tracked in window coordinates
+    // so it works in both the 2×2 grid and the stacked list layout.
+    var draggingTask by remember { mutableStateOf<TaskEntity?>(null) }
+    var pointerWin by remember { mutableStateOf(Offset.Zero) }
+    var rootOrigin by remember { mutableStateOf(Offset.Zero) }
+    val quadRects = remember { mutableStateMapOf<Int, Rect>() }
+    val dens = LocalDensity.current
+    val dropTarget = draggingTask?.let { (0..3).firstOrNull { q -> quadRects[q]?.contains(pointerWin) == true } }
+    val drag = MatrixDrag(
+        draggingId = draggingTask?.id,
+        onBounds = { q, r -> quadRects[q] = r },
+        onStart = { id -> draggingTask = visible.firstOrNull { it.id == id } },
+        onDrag = { win -> pointerWin = win },
+        onEnd = {
+            val t = draggingTask
+            if (t != null) {
+                val cur = PriorityEngine.quadrant(t, s.matrixImportanceThreshold, s.matrixUrgencyThreshold)
+                val target = (0..3).firstOrNull { q -> quadRects[q]?.contains(pointerWin) == true }
+                if (target != null && target != cur) vm.setMatrixQuadrant(t, target, s.matrixImportanceThreshold, s.matrixUrgencyThreshold)
+            }
+            draggingTask = null
+        },
+    )
+
     // The settings button lives in the app top bar now, so the grid uses the full screen.
-    Column(modifier.fillMaxSize().padding(top = 4.dp)) {
+    Box(modifier.fillMaxSize().onGloballyPositioned { rootOrigin = it.positionInWindow() }) {
+      Column(Modifier.fillMaxSize().padding(top = 4.dp)) {
         val onToggle: (TaskEntity) -> Unit = { vm.toggleComplete(it) }
         if (s.matrixHideEmpty) {
             LazyColumn(Modifier.fillMaxSize().padding(horizontal = 8.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
                 QUAD.indices.forEach { q ->
                     val list = byQuad[q].orEmpty()
-                    if (list.isNotEmpty()) item(key = "q$q") { QuadrantCard(q, s.matrixNames.getOrElse(q) { QUAD[q].first }, list, onOpenTask, onToggle, Modifier.fillMaxWidth().heightIn(min = 90.dp, max = 400.dp).padding(vertical = 4.dp)) }
+                    if (list.isNotEmpty()) item(key = "q$q") { QuadrantCard(q, s.matrixNames.getOrElse(q) { QUAD[q].first }, list, onOpenTask, onToggle, drag, dropTarget == q, Modifier.fillMaxWidth().heightIn(min = 90.dp, max = 400.dp).padding(vertical = 4.dp)) }
                 }
             }
         } else {
@@ -91,12 +129,24 @@ fun MatrixScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, showSettings: B
                     Row(Modifier.weight(1f).fillMaxWidth()) {
                         for (colIdx in 0..1) {
                             val q = rowIdx * 2 + colIdx
-                            QuadrantCard(q, s.matrixNames.getOrElse(q) { QUAD[q].first }, byQuad[q].orEmpty(), onOpenTask, onToggle, Modifier.weight(1f).fillMaxSize().padding(4.dp))
+                            QuadrantCard(q, s.matrixNames.getOrElse(q) { QUAD[q].first }, byQuad[q].orEmpty(), onOpenTask, onToggle, drag, dropTarget == q, Modifier.weight(1f).fillMaxSize().padding(4.dp))
                         }
                     }
                 }
             }
         }
+      }
+      // Floating chip that follows the finger while dragging.
+      draggingTask?.let { t ->
+          val local = pointerWin - rootOrigin
+          androidx.compose.material3.Surface(
+              Modifier.zIndex(3f).offset { IntOffset((local.x - with(dens) { 70.dp.toPx() }).roundToInt(), (local.y - with(dens) { 20.dp.toPx() }).roundToInt()) },
+              shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.inverseSurface, shadowElevation = 10.dp,
+          ) {
+              Text(t.title, Modifier.padding(horizontal = 12.dp, vertical = 8.dp).width(140.dp), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                  style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.inverseOnSurface)
+          }
+      }
     }
 
     if (showSettings) {
@@ -107,13 +157,22 @@ fun MatrixScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, showSettings: B
     }
 }
 
+private class MatrixDrag(
+    val draggingId: String?,
+    val onBounds: (Int, Rect) -> Unit,
+    val onStart: (String) -> Unit,
+    val onDrag: (Offset) -> Unit,
+    val onEnd: () -> Unit,
+)
+
 @Composable
-private fun QuadrantCard(q: Int, title: String, tasks: List<TaskEntity>, onOpenTask: (String) -> Unit, onToggle: (TaskEntity) -> Unit, modifier: Modifier) {
+private fun QuadrantCard(q: Int, title: String, tasks: List<TaskEntity>, onOpenTask: (String) -> Unit, onToggle: (TaskEntity) -> Unit, drag: MatrixDrag, isDropTarget: Boolean, modifier: Modifier) {
     val color = QUAD[q].third
     androidx.compose.material3.Surface(
-        modifier,
+        modifier.onGloballyPositioned { drag.onBounds(q, it.boundsInWindow()) }
+            .then(if (isDropTarget) Modifier.border(2.dp, color, RoundedCornerShape(16.dp)) else Modifier),
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface,
+        color = if (isDropTarget) color.copy(alpha = .10f) else MaterialTheme.colorScheme.surface,
         shadowElevation = 1.dp,
     ) {
         Column(Modifier.padding(12.dp)) {
@@ -134,7 +193,21 @@ private fun QuadrantCard(q: Int, title: String, tasks: List<TaskEntity>, onOpenT
                 LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
                     items(tasks, key = { it.id }) { t ->
                         val lvl = com.todocompanion.app.domain.priority.PriorityLevel.from(t.importance, t.urgency)
-                        Row(Modifier.fillMaxWidth().clickable { onOpenTask(t.id) }.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        var rowCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+                        val beingDragged = drag.draggingId == t.id
+                        Row(Modifier.fillMaxWidth()
+                            .onGloballyPositioned { rowCoords = it }
+                            .then(if (beingDragged) Modifier.background(color.copy(alpha = .14f), RoundedCornerShape(8.dp)) else Modifier)
+                            .clickable { onOpenTask(t.id) }
+                            .pointerInput(t.id) {
+                                detectDragGesturesAfterLongPress(
+                                    onDragStart = { off -> drag.onStart(t.id); rowCoords?.let { drag.onDrag(it.localToWindow(off)) } },
+                                    onDrag = { change, _ -> rowCoords?.let { drag.onDrag(it.localToWindow(change.position)) }; change.consume() },
+                                    onDragEnd = { drag.onEnd() },
+                                    onDragCancel = { drag.onEnd() },
+                                )
+                            }
+                            .padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                             com.todocompanion.app.ui.components.SmallCheck(t.completed, if (lvl == com.todocompanion.app.domain.priority.PriorityLevel.NONE) color else com.todocompanion.app.ui.components.priorityColor(lvl)) { onToggle(t) }
                             Spacer(Modifier.size(6.dp))
                             Column(Modifier.weight(1f).padding(vertical = 2.dp)) {

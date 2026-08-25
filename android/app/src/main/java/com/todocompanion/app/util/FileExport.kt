@@ -61,6 +61,64 @@ object FileExport {
     /** A backup/export file the app can restore from without a system picker. */
     data class SavedFile(val name: String, val location: String, val whenMillis: Long, val uri: android.net.Uri?, val file: File?)
 
+    /** Importable file extensions the in-app browser shows. */
+    private val IMPORT_EXTS = setOf("json", "csv", "md", "opml", "txt", "ics")
+
+    /** One entry in the in-app file browser. */
+    data class Entry(val file: File, val isDir: Boolean) { val name: String get() = file.name }
+
+    /**
+     * Whether the app can read arbitrary user files under /sdcard right now. On API 30+ this is
+     * "All files access" (MANAGE_EXTERNAL_STORAGE); on ≤29 it's READ_EXTERNAL_STORAGE.
+     */
+    fun canBrowseStorage(context: Context): Boolean =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) Environment.isExternalStorageManager()
+        else androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_EXTERNAL_STORAGE) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    /** The system screen where the user turns on "All files access" for THIS app (API 30+). */
+    fun manageAllFilesIntent(context: Context): android.content.Intent {
+        val perApp = android.content.Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+            android.net.Uri.parse("package:" + context.packageName))
+        return if (perApp.resolveActivity(context.packageManager) != null) perApp
+        else android.content.Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+    }
+
+    /** Roots the browser can start from (all readable once storage access is granted). */
+    fun browseRoots(): List<File> = listOfNotNull(
+        Environment.getExternalStorageDirectory(),
+        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
+    ).filter { runCatching { it.exists() }.getOrDefault(false) }.distinctBy { it.absolutePath }
+
+    /** One directory level: folders first, then importable files (or every file if [allTypes]). */
+    fun listDir(dir: File, allTypes: Boolean = false): List<Entry> = runCatching {
+        (dir.listFiles() ?: emptyArray()).asSequence()
+            .filter { f -> if (f.isDirectory) !f.isHidden else (allTypes || f.extension.lowercase() in IMPORT_EXTS) }
+            .sortedWith(compareByDescending<File> { it.isDirectory }.thenBy { it.name.lowercase() })
+            .map { Entry(it, it.isDirectory) }.toList()
+    }.getOrDefault(emptyList())
+
+    /** Recursive filename search across the common roots. Bounded depth + result cap so it stays snappy. */
+    fun searchFiles(query: String, maxDepth: Int = 4, cap: Int = 300): List<File> {
+        val q = query.trim().lowercase()
+        if (q.isEmpty()) return emptyList()
+        val out = ArrayList<File>()
+        val visited = HashSet<String>()
+        fun walk(dir: File, depth: Int) {
+            if (out.size >= cap || depth > maxDepth) return
+            val kids = runCatching { dir.listFiles() }.getOrNull() ?: return
+            for (f in kids) {
+                if (out.size >= cap) return
+                if (f.isDirectory) {
+                    // Android/data & Android/obb are unreadable even with All-files access — skip.
+                    if (!f.isHidden && f.name != "Android" && visited.add(f.absolutePath)) walk(f, depth + 1)
+                } else if (f.extension.lowercase() in IMPORT_EXTS && f.name.lowercase().contains(q)) out += f
+            }
+        }
+        browseRoots().forEach { walk(it, 0) }
+        return out.distinctBy { it.absolutePath }.sortedByDescending { it.lastModified() }
+    }
+
     /**
      * The app-owned "drop inbox" the user copies a backup INTO to import it with no system picker and
      * no storage permission. `Android/data/<pkg>/files/import` is reachable over USB / any file manager,

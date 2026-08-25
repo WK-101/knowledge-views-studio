@@ -141,6 +141,16 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
         if (!showList) return null
         return listNameById[listId]?.takeIf { it != "Inbox" } ?: if (inFolderView) "No list" else null
     }
+    // Tap a task's list/context/tag label to jump to that view (labels resolve name→id here).
+    val ctxIdByName = remember(allContexts) { allContexts.associate { it.name to it.id } }
+    val tagIdByName = remember(allTags) { allTags.associate { it.name to it.id } }
+    val labelNav = remember(ctxIdByName, tagIdByName) {
+        TaskLabelNav(
+            onList = { lid -> vm.select(ViewRef.ListView(lid)) },
+            onContext = { name -> ctxIdByName[name]?.let { vm.select(ViewRef.ContextView(it)) } },
+            onTag = { name -> tagIdByName[name]?.let { vm.select(ViewRef.TagView(it)) } },
+        )
+    }
 
     if (groups.isEmpty() || groups.all { it.tasks.isEmpty() }) { EmptyState(view); return }
 
@@ -148,7 +158,7 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
     val sortMode by vm.sortMode.collectAsState()
     if (sortMode == com.todocompanion.app.domain.view.SortMode.MANUAL && groups.size == 1 && groups.first().title.isBlank() && !isTrash) {
         ManualReorderList(vm, groups.first().tasks, settings.density, ctxByTask, tagsByTask,
-            listNameOf = { listId -> listLabel(listId) },
+            listNameOf = { listId -> listLabel(listId) }, labelNav = labelNav,
             rightNear = settings.swipeRight, rightFar = settings.swipeRightFar, leftNear = settings.swipeLeft, leftFar = settings.swipeLeftFar,
             onOpenTask = onOpenTask, modifier = modifier)
         return
@@ -164,9 +174,22 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
     // Back exits selection first (clears it and stays in the app) instead of leaving the screen.
     androidx.activity.compose.BackHandler(enabled = selectionMode) { selected = emptySet() }
     val allLists by vm.lists.collectAsState()
+    val allFolders by vm.folders.collectAsState()
+    // A list's / folder's optional description, shown as a banner atop its tasks.
+    val viewDescription = when (view) {
+        is ViewRef.ListView -> allLists.firstOrNull { it.id == (view as ViewRef.ListView).listId }?.description
+        is ViewRef.FolderView -> allFolders.firstOrNull { it.id == (view as ViewRef.FolderView).folderId }?.description
+        else -> null
+    }?.takeIf { it.isNotBlank() }
 
     Box(modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 6.dp, bottom = if (selectionMode) 120.dp else 100.dp)) {
+            viewDescription?.let { desc -> item(key = "viewdesc") {
+                Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)) {
+                    Text(desc, Modifier.padding(horizontal = 14.dp, vertical = 10.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } }
             // Workload forecast bar at the top of Next-7-Days: committed estimate vs daily capacity.
             if ((view as? ViewRef.Smart)?.kind == SmartKind.NEXT7) item(key = "workload") { WorkloadStrip(vm) }
             // Fusion F1: today's still-due habits sit alongside tasks in Today / Do-Next.
@@ -185,7 +208,7 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
                                     if (i > 0) HorizontalDivider(Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
                                     TaskListItem(task, settings.density,
                                         contexts = ctxByTask[task.id].orEmpty(), tags = tagsByTask[task.id].orEmpty(),
-                                        listName = listLabel(task.listId),
+                                        listName = listLabel(task.listId), labelNav = labelNav,
                                         rightNear = if (isTrash) SwipeAction.COMPLETE else settings.swipeRight,
                                         rightFar = if (isTrash) SwipeAction.NONE else settings.swipeRightFar,
                                         leftNear = if (isTrash) SwipeAction.TRASH else settings.swipeLeft,
@@ -291,11 +314,14 @@ private fun subtaskDepth(task: TaskEntity, byId: Map<String, TaskEntity>): Int {
     return d
 }
 
+/** Tap-a-label navigation: jump to a task's list / context / tag view. */
+class TaskLabelNav(val onList: (String) -> Unit, val onContext: (String) -> Unit, val onTag: (String) -> Unit)
+
 @Composable
 private fun ManualReorderList(
     vm: AppViewModel, tasks: List<TaskEntity>, density: Density,
     ctxByTask: Map<String, List<Pair<String, Long?>>>, tagsByTask: Map<String, List<Pair<String, Long?>>>,
-    listNameOf: (String) -> String?,
+    listNameOf: (String) -> String?, labelNav: TaskLabelNav? = null,
     rightNear: SwipeAction, rightFar: SwipeAction, leftNear: SwipeAction, leftFar: SwipeAction,
     onOpenTask: (String) -> Unit, modifier: Modifier,
 ) {
@@ -359,7 +385,7 @@ private fun ManualReorderList(
                     enabled = draggingId == null, isTrashRestore = false,
                     onAct = { a -> onSwipe(vm, a, task, false, {}) { onOpenTask(task.id) } },
                 ) {
-                    ReorderRow(task, density, ctxByTask[task.id].orEmpty(), tagsByTask[task.id].orEmpty(), listNameOf(task.listId),
+                    ReorderRow(task, density, ctxByTask[task.id].orEmpty(), tagsByTask[task.id].orEmpty(), listNameOf(task.listId), labelNav,
                         onOpen = { onOpenTask(task.id) }, onToggle = { vm.toggleComplete(task) },
                         onCycleFlag = { vm.cycleFlag(task) }, onToggleStar = { vm.toggleStar(task) },
                         onSetPriority = { vm.setPriority(task, it) })
@@ -372,6 +398,7 @@ private fun ManualReorderList(
 @Composable
 private fun ReorderRow(
     task: TaskEntity, density: Density, contexts: List<Pair<String, Long?>>, tags: List<Pair<String, Long?>>, listName: String?,
+    labelNav: TaskLabelNav? = null,
     onOpen: () -> Unit, onToggle: () -> Unit, onCycleFlag: () -> Unit, onToggleStar: () -> Unit,
     onSetPriority: ((PriorityLevel) -> Unit)? = null,
 ) {
@@ -395,7 +422,10 @@ private fun ReorderRow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 FlagStar(task.flagColorArgb, task.star, onCycleFlag, onToggleStar, iconSize = com.todocompanion.app.ui.components.flagStarSize(density))
             }
-            com.todocompanion.app.ui.components.TaskTrailingLabels(contexts, tags, listName)
+            com.todocompanion.app.ui.components.TaskTrailingLabels(contexts, tags, listName,
+                onListClick = labelNav?.let { { it.onList(task.listId) } },
+                onContextClick = labelNav?.let { nav -> { name -> nav.onContext(name) } },
+                onTagClick = labelNav?.let { nav -> { name -> nav.onTag(name) } })
         }
     }
 }
@@ -756,7 +786,7 @@ private fun TaskListItem(
     rightNear: SwipeAction, rightFar: SwipeAction, leftNear: SwipeAction, leftFar: SwipeAction, isTrash: Boolean,
     selected: Boolean, selectionMode: Boolean, onLongPress: () -> Unit,
     onOpen: () -> Unit, onAct: (SwipeAction) -> Unit, onCycleFlag: () -> Unit, onToggleStar: () -> Unit,
-    onSetPriority: ((PriorityLevel) -> Unit)? = null,
+    onSetPriority: ((PriorityLevel) -> Unit)? = null, labelNav: TaskLabelNav? = null,
 ) {
     val scope = rememberCoroutineScope()
     val dens = LocalDensity.current
@@ -828,7 +858,10 @@ private fun TaskListItem(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     FlagStar(task.flagColorArgb, task.star, onCycleFlag, onToggleStar, iconSize = com.todocompanion.app.ui.components.flagStarSize(density))
                 }
-                com.todocompanion.app.ui.components.TaskTrailingLabels(contexts, tags, listName)
+                com.todocompanion.app.ui.components.TaskTrailingLabels(contexts, tags, listName,
+                    onListClick = labelNav?.let { { it.onList(task.listId) } },
+                    onContextClick = labelNav?.let { nav -> { name -> nav.onContext(name) } },
+                    onTagClick = labelNav?.let { nav -> { name -> nav.onTag(name) } })
             }
         }
     }
