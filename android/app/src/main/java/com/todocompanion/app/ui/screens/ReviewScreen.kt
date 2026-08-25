@@ -225,5 +225,13 @@ private fun HabitsReviewCard(vm: AppViewModel) {
             Spacer(Modifier.height(6.dp))
             Text("Every habit is holding steady. Nice work.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        // N4: a shareable on-device "your week" recap card.
+        val recapCtx = androidx.compose.ui.platform.LocalContext.current
+        Spacer(Modifier.height(8.dp))
+        androidx.compose.material3.TextButton(onClick = {
+            vm.shareWeeklyRecap { loc -> if (loc != null) android.widget.Toast.makeText(recapCtx, "Saved a copy to $loc", android.widget.Toast.LENGTH_SHORT).show() }
+        }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 0.dp)) {
+            Text("📤 Share your week")
+        }
     }
 }

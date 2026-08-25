@@ -149,6 +149,20 @@ object HabitInsights {
             if (s >= 55) out += Insight("💪", "‘${strongest.name}’ is your strongest habit right now — ${s}/100. Lean on it.", 40, InsightAction.Open(strongest.id))
         }
 
+        // 7. N3 — reminder tuning: a scheduled habit frequently missed at its set reminder time.
+        active.forEach { h ->
+            if (h.habitType == "break" || h.reminderTimes.isBlank()) return@forEach
+            val expected = (0 until 30).map { today - it }.count { HabitStats.isExpectedDay(h, it) }
+            if (expected >= 8) {
+                val rate = HabitStats.rate(h, doneByHabit.getValue(h), skipByHabit.getValue(h), today, 30)
+                if (rate in 0.05f..0.5f) {
+                    val t = h.reminderTimes.split(",").mapNotNull { it.trim().toIntOrNull() }.minOrNull()
+                    val tl = t?.let { " (${"%02d:%02d".format(it / 60, it % 60)})" } ?: ""
+                    out += Insight("⏰", "‘${h.name}’ gets missed a lot at its reminder$tl — try a time that better fits your day.", 50, InsightAction.Open(h.id))
+                }
+            }
+        }
+
         return out.sortedByDescending { it.priority }.distinctBy { it.text }.take(max)
     }
 

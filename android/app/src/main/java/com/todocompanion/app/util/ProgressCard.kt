@@ -98,6 +98,33 @@ object ProgressCard {
         return bmp
     }
 
+    /** N4: a generic on-device recap card — a heading, a subtitle and up to 6 big stat tiles. */
+    fun renderStatsCard(heading: String, subtitle: String, stats: List<Pair<String, String>>, accentArgb: Long? = null): Bitmap {
+        val accent = accentArgb?.toInt() ?: 0xFF6650A4.toInt()
+        val bg = 0xFF16121F.toInt(); val onBg = 0xFFEDE8F5.toInt(); val muted = 0xFF9B93AC.toInt()
+        val bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp); c.drawColor(bg)
+        val bold = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = onBg; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD) }
+        val reg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = muted; typeface = Typeface.DEFAULT }
+        bold.textSize = 66f; c.drawText(ellipsize(heading, bold, (W - 120).toFloat()), 72f, 130f, bold)
+        reg.textSize = 36f; c.drawText(ellipsize(subtitle, reg, (W - 120).toFloat()), 72f, 185f, reg)
+        // 2-column tile grid.
+        val cols = 2; val gap = 28f; val padX = 72f
+        val tileW = (W - padX * 2 - gap) / cols; val tileH = 210f
+        stats.take(6).forEachIndexed { i, (label, value) ->
+            val col = i % cols; val row = i / cols
+            val x = padX + col * (tileW + gap); val y = 250f + row * (tileH + gap)
+            val bgp = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x14FFFFFF }
+            c.drawRoundRect(RectF(x, y, x + tileW, y + tileH), 22f, 22f, bgp)
+            bold.textSize = 88f; bold.color = accent
+            c.drawText(value, x + 28f, y + 118f, bold); bold.color = onBg
+            reg.textSize = 32f; c.drawText(ellipsize(label, reg, tileW - 40f), x + 28f, y + 165f, reg)
+        }
+        reg.textSize = 32f; reg.color = muted
+        c.drawText("ToDo Companion · 100% offline", 72f, (H - 60).toFloat(), reg)
+        return bmp
+    }
+
     private fun ellipsize(s: String, p: Paint, maxW: Float): String {
         if (p.measureText(s) <= maxW) return s
         var t = s

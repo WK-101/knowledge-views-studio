@@ -912,6 +912,36 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         res.shareUri?.let { com.todocompanion.app.util.ProgressCard.share(appCtx, it) }
         onDone(res.savedLocation)
     }
+    /** N4: render a shareable "your week" recap card (habits + tasks) on-device. */
+    fun shareWeeklyRecap(onDone: (String?) -> Unit) = viewModelScope.launch {
+        val hs = com.todocompanion.app.domain.habit.HabitStats
+        val today = java.time.LocalDate.now(zone).toEpochDay()
+        val weekDays = (0 until 7).map { today - it }.toSet()
+        val cks = habitCheckins.value
+        val habitsList = habits.value.filter { !it.archived }
+        val checkinsThisWeek = cks.count { it.epochDay in weekDays && it.status == "done" }
+        val bestStreak = habitsList.maxOfOrNull { h ->
+            val d = cks.filter { it.habitId == h.id && it.status == "done" && hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
+            val s = cks.filter { it.habitId == h.id && it.status == "skip" }.map { it.epochDay }.toSet()
+            val r = cks.filter { it.habitId == h.id && hs.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
+            hs.currentStreak(h, d, s, r, today)
+        } ?: 0
+        val tasksDone = tasks.value.count { t -> t.completedAt?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate().toEpochDay() in weekDays } == true }
+        val focusMin = focusSessions.value.filter { it.epochDay in weekDays }.sumOf { it.minutes }
+        val stats = listOf(
+            "check-ins" to checkinsThisWeek.toString(),
+            "tasks done" to tasksDone.toString(),
+            "best streak" to "${bestStreak}d",
+            "focus" to "${focusMin}m",
+        )
+        val sub = "Last 7 days · " + java.time.LocalDate.now(zone).format(java.time.format.DateTimeFormatter.ofPattern("MMM d"))
+        val res = withContext(Dispatchers.IO) {
+            val bmp = com.todocompanion.app.util.ProgressCard.renderStatsCard("Your week", sub, stats)
+            com.todocompanion.app.util.ProgressCard.saveAndShareUri(appCtx, bmp, "todo-companion-week.png")
+        }
+        res.shareUri?.let { com.todocompanion.app.util.ProgressCard.share(appCtx, it) }
+        onDone(res.savedLocation)
+    }
     /** M2: create a whole themed routine at once (one reschedule/refresh for the batch). */
     fun addHabits(habits: List<com.todocompanion.app.data.entity.HabitEntity>) = viewModelScope.launch {
         val ws = settings.value.activeWorkspaceId
@@ -924,16 +954,42 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.getHabitsOnce().firstOrNull { it.id == id }?.let { com.todocompanion.app.reminders.LocationReminders.unregisterHabit(appCtx, it) }
         repo.deleteHabit(id); refreshHabitWidgets()
     }
+    // N2: reward-unlock celebration — surfaced to the Habits screen (confetti + toast) and a notification.
+    val rewardCelebration = MutableStateFlow<String?>(null)
+    private fun celebrateIfRewardReached(h: com.todocompanion.app.data.entity.HabitEntity) {
+        if (h.rewardText.isBlank() || h.rewardAtStreak <= 0 || h.habitType == "break") return
+        viewModelScope.launch {
+            val hs = com.todocompanion.app.domain.habit.HabitStats
+            val cks = repo.getHabitCheckinsOnce().filter { it.habitId == h.id }
+            val done = cks.filter { it.status == "done" && hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
+            val skip = cks.filter { it.status == "skip" }.map { it.epochDay }.toSet()
+            val rel = cks.filter { hs.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
+            val streak = hs.currentStreak(h, done, skip, rel, java.time.LocalDate.now().toEpochDay())
+            if (streak == h.rewardAtStreak) {
+                com.todocompanion.app.reminders.Notifications.showReward(appCtx, h.name, h.rewardText, streak)
+                rewardCelebration.value = h.rewardText
+            }
+        }
+    }
     fun cycleHabit(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, current: Int) = viewModelScope.launch {
         repo.cycleCheckin(h.id, epochDay, h.targetPerDay, current, h.clickIncrement, h.extraTarget)
-        refreshHabitWidgets()
+        refreshHabitWidgets(); celebrateIfRewardReached(h)
     }
     /** Numeric / exact value entry for a day (also used to record a break-habit relapse amount). */
     fun setHabitValue(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, count: Int) = viewModelScope.launch {
-        repo.setCheckinValue(h.id, epochDay, count); refreshHabitWidgets()
+        repo.setCheckinValue(h.id, epochDay, count); refreshHabitWidgets(); celebrateIfRewardReached(h)
     }
     fun skipHabitDay(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, reason: String = "") = viewModelScope.launch {
         repo.skipDay(h.id, epochDay, reason); refreshHabitWidgets()
+    }
+    /** N6: log a break-habit slip with an optional trigger (kept in the day's note for a trigger breakdown). */
+    fun logSlip(h: com.todocompanion.app.data.entity.HabitEntity, trigger: String) = viewModelScope.launch {
+        val today = java.time.LocalDate.now(zone).toEpochDay()
+        val existing = repo.getHabitCheckinsOnce().firstOrNull { it.habitId == h.id && it.epochDay == today }
+        val count = (existing?.count ?: 0) + 1
+        val note = (existing?.reason?.takeIf { it.isNotBlank() }?.plus("; ") ?: "") + trigger.trim().ifBlank { "slip" }
+        repo.setDay(h.id, today, count, "done", note)
+        refreshHabitWidgets()
     }
     fun clearHabitDay(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long) = viewModelScope.launch {
         repo.clearCheckin(h.id, epochDay); refreshHabitWidgets()

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -195,6 +196,52 @@ fun HabitDetailScreen(
                             }) { Text("Restart fresh today") }
                         }
                     }
+                }
+            }
+
+            // N6: break-habit craving/slip log with a trigger breakdown.
+            if (isBreak) {
+                var showSlip by remember { mutableStateOf(false) }
+                val triggers = remember(hc) {
+                    hc.flatMap { it.reason.split(";").map { s -> s.trim() } }
+                        .filter { it.isNotBlank() && !it.equals("slip", true) }
+                        .groupingBy { it.lowercase() }.eachCount().entries.sortedByDescending { it.value }.take(4)
+                }
+                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Cravings & slips", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        Text("You're on a $current-day clean streak. Log a slip if it happens — noting the trigger builds awareness.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
+                        if (triggers.isNotEmpty()) {
+                            Spacer(Modifier.height(8.dp))
+                            Text("Your top triggers", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            triggers.forEach { (t, n) ->
+                                Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(t.replaceFirstChar { it.uppercase() }, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                                    Text("×$n", style = MaterialTheme.typography.labelMedium, color = color, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                        TextButton(onClick = { showSlip = true }, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp), modifier = Modifier.padding(top = 6.dp)) {
+                            Text("Log a slip…")
+                        }
+                    }
+                }
+                if (showSlip) {
+                    var trig by remember { mutableStateOf("") }
+                    AlertDialog(
+                        onDismissRequest = { showSlip = false },
+                        confirmButton = { TextButton(onClick = { vm.logSlip(h, trig); showSlip = false }) { Text("Log slip") } },
+                        dismissButton = { TextButton(onClick = { showSlip = false }) { Text("Cancel") } },
+                        title = { Text("Log a slip") },
+                        text = {
+                            Column {
+                                Text("It's okay — awareness is progress. What triggered it? (optional)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(Modifier.height(8.dp))
+                                OutlinedTextField(trig, { trig = it.take(30) }, singleLine = true, label = { Text("Trigger (e.g. stress, boredom)") }, modifier = Modifier.fillMaxWidth())
+                            }
+                        },
+                    )
                 }
             }
 

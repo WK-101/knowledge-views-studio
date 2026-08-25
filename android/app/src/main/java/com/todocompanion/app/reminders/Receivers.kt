@@ -66,11 +66,18 @@ class ReminderReceiver : BroadcastReceiver() {
                     try {
                         val zone = ZoneId.systemDefault()
                         val today = Instant.now().atZone(zone).toLocalDate()
-                        val count = app.repository.allTasksOnce().count {
+                        val tasksOnce = app.repository.allTasksOnce()
+                        val count = tasksOnce.count {
                             !it.completed && !it.trashed && !it.abandoned && it.dueDate != null &&
                                 !Instant.ofEpochMilli(it.dueDate!!).atZone(zone).toLocalDate().isAfter(today)
                         }
-                        Notifications.showSummary(context, count)
+                        // N1: the daily coach brief — keystone + at-risk streak — in the morning notification.
+                        val brief = runCatching {
+                            com.todocompanion.app.domain.habit.HabitInsights.dailyBrief(
+                                app.repository.getHabitsOnce(), app.repository.getHabitCheckinsOnce(), tasksOnce, today.toEpochDay(), zone
+                            )?.let { b -> (listOf(b.headline) + b.moves.take(1).map { "${it.emoji} ${it.text}" }).joinToString(" · ") }
+                        }.getOrNull()
+                        Notifications.showSummary(context, count, brief)
                         val s = app.repository.settingsSnapshot()
                         if (s.dailySummaryEnabled) AlarmScheduler.scheduleDailySummary(context, s.dailySummaryHour, s.dailySummaryMinute)
                     } finally { pending.finish() }

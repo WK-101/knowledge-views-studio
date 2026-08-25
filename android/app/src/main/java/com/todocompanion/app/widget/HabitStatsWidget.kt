@@ -39,9 +39,17 @@ class HabitStatsWidget : AppWidgetProvider() {
                     if (scheduled) { due++; if (!HabitStats.dueToday(h, today, doneDays, todayCount)) done++ }
                     bestStreak = maxOf(bestStreak, HabitStats.currentStreak(h, doneDays, skipDays, relapse, today))
                 }
+                // N5: the coach brief on the home screen — top move for the day.
+                val brief = runCatching {
+                    val tasks = app.repository.allTasksOnce()
+                    com.todocompanion.app.domain.habit.HabitInsights.dailyBrief(
+                        app.repository.getHabitsOnce(), checkins, tasks, today, ZoneId.systemDefault()
+                    )?.moves?.firstOrNull()?.let { "${it.emoji} ${it.text}" }
+                }.getOrNull()
                 val views = RemoteViews(context.packageName, R.layout.widget_habitstats)
                 views.setTextViewText(R.id.hs_done, "$done/$due")
                 views.setTextViewText(R.id.hs_streak, if (bestStreak > 0) "🔥 $bestStreak best streak" else "Start a streak")
+                views.setTextViewText(R.id.hs_brief, brief ?: "")
                 views.setOnClickPendingIntent(R.id.hs_root, openHabits(context))
                 ids.forEach { manager.updateAppWidget(it, views) }
             } finally { pending.finish() }

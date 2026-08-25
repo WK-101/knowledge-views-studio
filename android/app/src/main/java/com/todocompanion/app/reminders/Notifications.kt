@@ -180,17 +180,36 @@ object Notifications {
         runCatching { NotificationManagerCompat.from(context).notify(("habit:$habitId").hashCode(), b.build()) }
     }
 
-    fun showSummary(context: Context, dueToday: Int) {
+    fun showSummary(context: Context, dueToday: Int, brief: String? = null) {
         ensureChannel(context)
-        val text = if (dueToday == 0) "No tasks due today — enjoy!" else "You have $dueToday task${if (dueToday == 1) "" else "s"} due today."
+        val tasksLine = if (dueToday == 0) "No tasks due today — enjoy!" else "You have $dueToday task${if (dueToday == 1) "" else "s"} due today."
+        // N1: lead with the habit coach brief when there is one, then the task line.
+        val body = if (!brief.isNullOrBlank()) "$brief\n$tasksLine" else tasksLine
         val n = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_agenda)
-            .setContentTitle("Today")
-            .setContentText(text)
+            .setContentTitle(if (!brief.isNullOrBlank()) "Your day" else "Today")
+            .setContentText(if (!brief.isNullOrBlank()) brief else tasksLine)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .setContentIntent(openApp(context))
             .build()
         runCatching { NotificationManagerCompat.from(context).notify(SUMMARY_ID, n) }
+    }
+
+    /** N2: celebrate a habit reaching its self-chosen reward streak. */
+    fun showReward(context: Context, name: String, reward: String, streak: Int) {
+        ensureChannel(context)
+        val text = "You hit a $streak-day streak on ‘$name’. You earned it: $reward 🎉"
+        val n = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.btn_star_big_on)
+            .setContentTitle("Reward unlocked! 🎁")
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(openApp(context))
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(("reward:$name").hashCode(), n) }
     }
 }

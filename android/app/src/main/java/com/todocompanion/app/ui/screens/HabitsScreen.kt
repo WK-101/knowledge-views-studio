@@ -208,6 +208,16 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
         if (perfectDay && !celebrated) { celebrated = true; showConfetti = true }
         if (!perfectDay) celebrated = false
     }
+    // N2: a reward-unlock celebration when a habit reaches its self-chosen reward streak.
+    val reward by vm.rewardCelebration.collectAsState()
+    val rewardCtx = LocalContext.current
+    LaunchedEffect(reward) {
+        reward?.let { r ->
+            showConfetti = true
+            android.widget.Toast.makeText(rewardCtx, "🎁 Reward unlocked: $r", android.widget.Toast.LENGTH_LONG).show()
+            vm.rewardCelebration.value = null
+        }
+    }
 
     Box(modifier.fillMaxSize()) {
       Column(Modifier.fillMaxSize()) {
@@ -732,10 +742,15 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
                     OutlinedTextField(unit, { unit = it.take(12) }, singleLine = true, label = { Text("Unit") }, modifier = Modifier.weight(1.4f))
                 }
                 Spacer(Modifier.size(12.dp))
-                Text("Colour", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 8.dp)) {
+                // Compact colour picker: one swatch shown; tap it to reveal the palette (space-optimised).
+                var colorsOpen by remember { mutableStateOf(false) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Colour", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Box(Modifier.size(30.dp).clip(CircleShape).background(Color(color)).border(2.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape).clickable { colorsOpen = !colorsOpen })
+                }
+                if (colorsOpen) androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 10.dp)) {
                     HABIT_COLORS.forEach { c ->
-                        Box(Modifier.size(30.dp).clip(CircleShape).background(Color(c)).border(if (c == color) 3.dp else 0.dp, MaterialTheme.colorScheme.onSurface, CircleShape).clickable { color = c })
+                        Box(Modifier.size(30.dp).clip(CircleShape).background(Color(c)).border(if (c == color) 3.dp else 0.dp, MaterialTheme.colorScheme.onSurface, CircleShape).clickable { color = c; colorsOpen = false })
                     }
                 }
             }
