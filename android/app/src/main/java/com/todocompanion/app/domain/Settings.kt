@@ -58,6 +58,8 @@ data class AppSettings(
     val dailySummaryMinute: Int = 0,
     // Sidebar favourites, pinned to the top. Each token is "type:id" (list/folder/tag/context/filter/smart).
     val pinnedRefs: List<String> = emptyList(),
+    // Saved view tabs (view + group + sort + outline/hierarchy + zoom), JSON-encoded.
+    val viewTabsJson: String = "",
 ) {
     fun toMap(): Map<String, String> = mapOf(
         Keys.FIRST_VIEW to firstView.name,
@@ -92,6 +94,7 @@ data class AppSettings(
         Keys.SUMMARY_H to dailySummaryHour.toString(),
         Keys.SUMMARY_M to dailySummaryMinute.toString(),
         Keys.PINNED to pinnedRefs.joinToString("|"),
+        Keys.VIEW_TABS to viewTabsJson,
     )
 
     object Keys {
@@ -127,6 +130,7 @@ data class AppSettings(
         const val SUMMARY_H = "summary_h"
         const val SUMMARY_M = "summary_m"
         const val PINNED = "pinned_refs"
+        const val VIEW_TABS = "view_tabs"
     }
 
     companion object {
@@ -169,6 +173,7 @@ data class AppSettings(
             calendarDefaultMode = m[Keys.CAL_MODE] ?: "month",
             calendarListFilter = (m[Keys.CAL_FILTER] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             pinnedRefs = (m[Keys.PINNED] ?: "").split("|").filter { it.isNotBlank() },
+            viewTabsJson = m[Keys.VIEW_TABS] ?: "",
             dailySummaryEnabled = m[Keys.SUMMARY_ON]?.toBooleanStrictOrNull() ?: false,
             dailySummaryHour = m[Keys.SUMMARY_H]?.toIntOrNull() ?: 8,
             dailySummaryMinute = m[Keys.SUMMARY_M]?.toIntOrNull() ?: 0,

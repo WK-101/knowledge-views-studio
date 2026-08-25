@@ -10,6 +10,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -170,6 +173,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         var filterEdit by remember { mutableStateOf<com.todocompanion.app.data.entity.FilterEntity?>(null) }
         var showStats by remember { mutableStateOf(false) }
         var showReview by remember { mutableStateOf(false) }
+        var saveTab by remember { mutableStateOf(false) }
         var menu by remember { mutableStateOf(false) }
         // Hoisted per-tab controls, surfaced in the shared top bar to free screen space.
         var calMode by remember { mutableStateOf(settings.calendarDefaultMode) }
@@ -311,6 +315,8 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                                         listOf("Manual" to SortMode.MANUAL, "Priority" to SortMode.PRIORITY, "Due" to SortMode.DUE, "Title" to SortMode.TITLE).forEach { (l, m) ->
                                             DropdownMenuItem(text = { Text(l) }, onClick = { vm.sortMode.value = m; menu = false })
                                         }
+                                        androidx.compose.material3.HorizontalDivider()
+                                        DropdownMenuItem(text = { Text("Save current view as tab") }, leadingIcon = { Icon(Icons.Filled.Add, null, modifier = Modifier.size(20.dp)) }, onClick = { menu = false; saveTab = true })
                                     }
                                 }
                                 Tab.CALENDAR -> {
@@ -349,7 +355,12 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                 Box(Modifier.padding(padding).fillMaxSize()) {
                     Crossfade(targetState = tab, animationSpec = tween(180), label = "tab") { t ->
                         when (t) {
-                            Tab.TASKS -> if (boardMode) com.todocompanion.app.ui.screens.KanbanScreen(vm, ::openTask) else TasksScreen(vm, ::openTask)
+                            Tab.TASKS -> androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()) {
+                                ViewTabStrip(vm)
+                                Box(Modifier.weight(1f)) {
+                                    if (boardMode) com.todocompanion.app.ui.screens.KanbanScreen(vm, ::openTask) else TasksScreen(vm, ::openTask)
+                                }
+                            }
                             Tab.SEARCH -> SearchScreen(vm, ::openTask, searchQuery)
                             Tab.SETTINGS -> SettingsScreen(vm)
                             Tab.CALENDAR -> CalendarScreen(vm, ::openTask, calMode, { calMode = it }, onAddOnDate = { d ->
@@ -369,6 +380,16 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         editing?.let { id -> TaskDetailScreen(vm, id, onBack = { editing = null }) }
         if (showStats) com.todocompanion.app.ui.screens.StatisticsScreen(vm, onBack = { showStats = false })
         if (showReview) com.todocompanion.app.ui.screens.ReviewScreen(vm, onOpenTask = { showReview = false; openTask(it) }, onBack = { showReview = false })
+        if (saveTab) {
+            var tabName by remember { mutableStateOf(vm.currentTitle()) }
+            AlertDialog(
+                onDismissRequest = { saveTab = false },
+                confirmButton = { TextButton(onClick = { vm.saveCurrentAsTab(tabName); saveTab = false }) { Text("Save") } },
+                dismissButton = { TextButton(onClick = { saveTab = false }) { Text("Cancel") } },
+                title = { Text("Save view as tab") },
+                text = { OutlinedTextField(tabName, { tabName = it }, singleLine = true, label = { Text("Tab name") }, modifier = Modifier.fillMaxWidth()) },
+            )
+        }
         if (showQuickAdd) QuickAddSheet(vm, initialDue = quickAddDue, initialHasTime = quickAddWithTime, onDismiss = { showQuickAdd = false; quickAddDue = null; quickAddWithTime = false })
 
         newReq?.let { req ->
@@ -533,6 +554,50 @@ private fun FilterBuilderDialog(
             }
         },
     )
+}
+
+/** Saved view-tab strip (MLO tabs): tap to restore a whole view state, long-press to manage. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun ViewTabStrip(vm: AppViewModel) {
+    val tabs by vm.viewTabs.collectAsState()
+    val current by vm.currentView.collectAsState()
+    if (tabs.isEmpty()) return
+    var menuFor by remember { mutableStateOf<String?>(null) }
+    var renaming by remember { mutableStateOf<com.todocompanion.app.domain.view.ViewTab?>(null) }
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 5.dp),
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        tabs.forEach { t ->
+            val active = com.todocompanion.app.domain.view.ViewTabs.viewOf(t.ref) == current
+            Box {
+                androidx.compose.material3.Surface(
+                    shape = androidx.compose.foundation.shape.CircleShape,
+                    color = if (active) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.combinedClickable(onClick = { vm.applyTab(t) }, onLongClick = { menuFor = t.id }),
+                ) {
+                    Text(t.name, Modifier.padding(horizontal = 14.dp, vertical = 7.dp), style = MaterialTheme.typography.labelLarge,
+                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (active) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                DropdownMenu(expanded = menuFor == t.id, onDismissRequest = { menuFor = null }) {
+                    DropdownMenuItem(text = { Text("Rename") }, onClick = { renaming = t; menuFor = null })
+                    DropdownMenuItem(text = { Text("Delete", color = MaterialTheme.colorScheme.error) }, onClick = { vm.deleteTab(t.id); menuFor = null })
+                }
+            }
+        }
+    }
+    renaming?.let { t ->
+        var nm by remember { mutableStateOf(t.name) }
+        AlertDialog(
+            onDismissRequest = { renaming = null },
+            confirmButton = { TextButton(onClick = { vm.renameTab(t.id, nm); renaming = null }) { Text("Save") } },
+            dismissButton = { TextButton(onClick = { renaming = null }) { Text("Cancel") } },
+            title = { Text("Rename tab") },
+            text = { OutlinedTextField(nm, { nm = it }, singleLine = true, modifier = Modifier.fillMaxWidth()) },
+        )
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)

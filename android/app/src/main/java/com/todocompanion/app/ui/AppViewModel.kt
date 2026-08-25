@@ -659,6 +659,41 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.saveSettings(settings.value.copy(pinnedRefs = if (ref in cur) cur - ref else cur + ref))
     }
 
+    // ---------- saved view tabs ----------
+    val viewTabs: StateFlow<List<com.todocompanion.app.domain.view.ViewTab>> =
+        settings.map { com.todocompanion.app.domain.view.ViewTabs.decode(it.viewTabsJson) }.state(emptyList())
+
+    fun saveCurrentAsTab(name: String) = viewModelScope.launch {
+        val tab = com.todocompanion.app.domain.view.ViewTab(
+            id = UUID.randomUUID().toString(), name = name.trim().ifBlank { "View" },
+            ref = com.todocompanion.app.domain.view.ViewTabs.refOf(currentView.value),
+            group = groupMode.value.name, sort = sortMode.value.name,
+            outline = outlineMode.value, hierarchy = filterHierarchy.value, zoom = outlineZoom.value,
+        )
+        val next = viewTabs.value + tab
+        repo.saveSettings(settings.value.copy(viewTabsJson = com.todocompanion.app.domain.view.ViewTabs.encode(next)))
+    }
+
+    fun applyTab(tab: com.todocompanion.app.domain.view.ViewTab) {
+        val v = com.todocompanion.app.domain.view.ViewTabs.viewOf(tab.ref) ?: return
+        currentView.value = v
+        groupMode.value = runCatching { GroupMode.valueOf(tab.group) }.getOrDefault(GroupMode.DATE)
+        sortMode.value = runCatching { SortMode.valueOf(tab.sort) }.getOrDefault(SortMode.MANUAL)
+        outlineMode.value = tab.outline
+        filterHierarchy.value = tab.hierarchy
+        outlineZoom.value = tab.zoom
+    }
+
+    fun deleteTab(id: String) = viewModelScope.launch {
+        val next = viewTabs.value.filterNot { it.id == id }
+        repo.saveSettings(settings.value.copy(viewTabsJson = com.todocompanion.app.domain.view.ViewTabs.encode(next)))
+    }
+
+    fun renameTab(id: String, name: String) = viewModelScope.launch {
+        val next = viewTabs.value.map { if (it.id == id) it.copy(name = name.trim().ifBlank { it.name }) else it }
+        repo.saveSettings(settings.value.copy(viewTabsJson = com.todocompanion.app.domain.view.ViewTabs.encode(next)))
+    }
+
     // ---------- search ----------
     fun search(query: String): List<TaskEntity> {
         val q = query.trim().lowercase()
