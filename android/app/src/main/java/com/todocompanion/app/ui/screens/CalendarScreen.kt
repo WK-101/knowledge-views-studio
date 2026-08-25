@@ -44,14 +44,22 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.CalendarViewMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Today
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -91,8 +99,16 @@ private fun Modifier.swipeNav(onPrev: () -> Unit, onNext: () -> Unit): Modifier 
     detectHorizontalDragGestures(onDragEnd = { if (total > 80) onPrev() else if (total < -80) onNext(); total = 0f }) { _, dragAmount -> total += dragAmount }
 }
 
+/** All calendar view modes, in picker order. */
+val CAL_MODES = listOf("list" to "List", "day" to "Day", "3day" to "3-Day", "week" to "Week", "weekly" to "Weekly", "month" to "Month", "year" to "Year")
+
 @Composable
-fun CalendarScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, mode: String, onModeChange: (String) -> Unit, onAddOnDate: (LocalDate) -> Unit, onAddAt: (LocalDate, Int) -> Unit = { d, _ -> onAddOnDate(d) }, modifier: Modifier = Modifier) {
+fun CalendarScreen(
+    vm: AppViewModel, onOpenTask: (String) -> Unit, mode: String, onModeChange: (String) -> Unit,
+    onAddOnDate: (LocalDate) -> Unit, onAddAt: (LocalDate, Int) -> Unit = { d, _ -> onAddOnDate(d) },
+    onOpenDrawer: () -> Unit = {}, onOpenFilter: () -> Unit = {}, filterActive: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
     val s by vm.settings.collectAsState()
     val tasks by vm.tasks.collectAsState()
     val zone = ZoneId.systemDefault()
@@ -107,37 +123,65 @@ fun CalendarScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, mode: String,
             .groupBy { Instant.ofEpochMilli(it.dueDate!!).atZone(zone).toLocalDate() }
     }
 
-    Column(modifier.fillMaxSize()) {
-        val onToggle: (TaskEntity) -> Unit = { vm.toggleComplete(it) }
-        val onTrash: (TaskEntity) -> Unit = { vm.trash(it) }
-        val onResize: (String, Int) -> Unit = { id, dur -> vm.setDuration(id, dur) }
-        val onMoveTaskTo: (LocalDate, String, Int) -> Unit = { d, id, min -> vm.rescheduleToMinute(id, d, min) }
-        val onJump: (YearMonth) -> Unit = { ym -> anchor = ym.atDay(1) }
-        // One swipe config for every calendar task row, straight from the global swipe settings.
-        val swipe = CalSwipe(s.swipeRight, s.swipeRightFar, s.swipeLeft, s.swipeLeftFar) { a, t ->
-            when (a) {
-                SwipeAction.COMPLETE -> vm.toggleComplete(t)
-                SwipeAction.TRASH -> vm.trash(t)
-                SwipeAction.STAR -> vm.toggleStar(t)
-                SwipeAction.WONT_DO -> vm.setAbandoned(t, !t.abandoned)
-                SwipeAction.CYCLE_PRIORITY -> vm.cyclePriority(t)
-                SwipeAction.SCHEDULE_TOMORROW -> {
-                    val ms = LocalDate.now(zone).plusDays(1).atStartOfDay(zone).plusHours(9).toInstant().toEpochMilli()
-                    vm.save(t.copy(dueDate = ms))
-                }
-                SwipeAction.EDIT -> onOpenTask(t.id)
-                SwipeAction.NONE -> {}
+    val onResize: (String, Int) -> Unit = { id, dur -> vm.setDuration(id, dur) }
+    val onMoveTaskTo: (LocalDate, String, Int) -> Unit = { d, id, min -> vm.rescheduleToMinute(id, d, min) }
+    val onJump: (YearMonth) -> Unit = { ym -> anchor = ym.atDay(1) }
+    // One swipe config for every calendar task row, straight from the global swipe settings.
+    val swipe = CalSwipe(s.swipeRight, s.swipeRightFar, s.swipeLeft, s.swipeLeftFar) { a, t ->
+        when (a) {
+            SwipeAction.COMPLETE -> vm.toggleComplete(t)
+            SwipeAction.TRASH -> vm.trash(t)
+            SwipeAction.STAR -> vm.toggleStar(t)
+            SwipeAction.WONT_DO -> vm.setAbandoned(t, !t.abandoned)
+            SwipeAction.CYCLE_PRIORITY -> vm.cyclePriority(t)
+            SwipeAction.SCHEDULE_TOMORROW -> {
+                val ms = LocalDate.now(zone).plusDays(1).atStartOfDay(zone).plusHours(9).toInstant().toEpochMilli()
+                vm.save(t.copy(dueDate = ms))
             }
+            SwipeAction.EDIT -> onOpenTask(t.id)
+            SwipeAction.NONE -> {}
         }
+    }
+
+    // Period label + step direction depend on the active mode.
+    fun step(dir: Int) {
+        anchor = when (mode) {
+            "month" -> anchor.plusMonths(dir.toLong())
+            "week", "weekly" -> anchor.plusWeeks(dir.toLong())
+            "3day" -> anchor.plusDays(3L * dir)
+            "day" -> anchor.plusDays(dir.toLong())
+            "year" -> anchor.plusYears(dir.toLong())
+            else -> anchor
+        }
+    }
+    val label = when (mode) {
+        "month" -> "${anchor.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${anchor.year}"
+        "week", "weekly" -> { val st = startOfWeek(anchor, firstDow); rangeTitle(st, st.plusDays(6)) }
+        "3day" -> rangeTitle(anchor, anchor.plusDays(2))
+        "day" -> "${anchor.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${anchor.dayOfMonth} ${anchor.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())}"
+        "year" -> anchor.year.toString()
+        else -> "Agenda"
+    }
+    val showNav = mode != "list"
+
+    Column(modifier.fillMaxSize()) {
+        // Single combined top bar: menu · prev · period ▾ · next · today · view-type · filter.
+        CalHeader(
+            label = label, current = YearMonth.from(anchor), showNav = showNav,
+            onPrev = { step(-1) }, onNext = { step(1) }, onToday = { anchor = LocalDate.now(); selected = LocalDate.now() },
+            onPick = onJump, onOpenDrawer = onOpenDrawer, mode = mode, onModeChange = onModeChange,
+            onOpenFilter = onOpenFilter, filterActive = filterActive,
+        )
         when (mode) {
-            "month" -> MonthView(anchor, selected, dueByDate, firstDow, onSelect = { selected = it }, onPrev = { anchor = anchor.minusMonths(1) }, onNext = { anchor = anchor.plusMonths(1) }, onToday = { anchor = LocalDate.now(); selected = LocalDate.now() }, onJump = onJump, onOpenTask = onOpenTask, swipe = swipe, onAdd = { onAddOnDate(selected) })
+            "month" -> MonthView(anchor, selected, dueByDate, firstDow, onSelect = { selected = it }, onPrev = { step(-1) }, onNext = { step(1) }, onOpenTask = onOpenTask, swipe = swipe, onAdd = { onAddOnDate(selected) })
             "week" -> {
                 val start = startOfWeek(anchor, firstDow)
-                TimelineView((0..6).map { start.plusDays(it.toLong()) }, dueByDate, zone, rangeTitle(start, start.plusDays(6)), onPrev = { anchor = anchor.minusWeeks(1) }, onNext = { anchor = anchor.plusWeeks(1) }, onToday = { anchor = LocalDate.now() }, onJump = onJump, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo)
+                TimelineView((0..6).map { start.plusDays(it.toLong()) }, dueByDate, zone, onPrev = { step(-1) }, onNext = { step(1) }, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo)
             }
-            "3day" -> TimelineView((0..2).map { anchor.plusDays(it.toLong()) }, dueByDate, zone, rangeTitle(anchor, anchor.plusDays(2)), onPrev = { anchor = anchor.minusDays(3) }, onNext = { anchor = anchor.plusDays(3) }, onToday = { anchor = LocalDate.now() }, onJump = onJump, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo)
-            "day" -> TimelineView(listOf(anchor), dueByDate, zone, "${anchor.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${anchor.dayOfMonth} ${anchor.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())}", onPrev = { anchor = anchor.minusDays(1) }, onNext = { anchor = anchor.plusDays(1) }, onToday = { anchor = LocalDate.now() }, onJump = onJump, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo)
-            "year" -> YearView(anchor, dueByDate, onPrev = { anchor = anchor.minusYears(1) }, onNext = { anchor = anchor.plusYears(1) }, onToday = { anchor = LocalDate.now() }, onMonth = { m -> anchor = m.atDay(1); onModeChange("month") }, onDay = { d -> anchor = d; onModeChange("day") })
+            "weekly" -> WeeklyView(startOfWeek(anchor, firstDow), dueByDate, onPrev = { step(-1) }, onNext = { step(1) }, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate)
+            "3day" -> TimelineView((0..2).map { anchor.plusDays(it.toLong()) }, dueByDate, zone, onPrev = { step(-1) }, onNext = { step(1) }, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo)
+            "day" -> TimelineView(listOf(anchor), dueByDate, zone, onPrev = { step(-1) }, onNext = { step(1) }, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo)
+            "year" -> YearView(anchor, dueByDate, onPrev = { step(-1) }, onNext = { step(1) }, onMonth = { m -> anchor = m.atDay(1); onModeChange("month") }, onDay = { d -> anchor = d; onModeChange("day") })
             else -> AgendaView(dueByDate, onOpenTask, swipe)
         }
     }
@@ -154,22 +198,47 @@ private fun startOfWeek(d: LocalDate, firstDow: DayOfWeek): LocalDate {
     return d.minusDays(diff.toLong())
 }
 
-/** Compact one-row calendar header: prev · a clickable period label (opens a month/year picker) ·
- *  next · an iconized Today. Replaces the old bulky centred banner + "Today" text button. */
+/** The single combined calendar top bar — menu · prev · clickable period label (opens a month/year
+ *  picker) · next · Today · view-type menu · list filter. Replaces both the old "Calendar" app-bar
+ *  banner and the separate in-screen nav row, so everything lives on one space-saving line. */
 @Composable
-private fun NavHeader(label: String, current: YearMonth, onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onPick: (YearMonth) -> Unit) {
+private fun CalHeader(
+    label: String, current: YearMonth, showNav: Boolean,
+    onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onPick: (YearMonth) -> Unit,
+    onOpenDrawer: () -> Unit, mode: String, onModeChange: (String) -> Unit,
+    onOpenFilter: () -> Unit, filterActive: Boolean,
+) {
     var showPicker by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onPrev) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Previous") }
+    var typeMenu by remember { mutableStateOf(false) }
+    Row(
+        Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars)
+            .padding(horizontal = 2.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onOpenDrawer) { Icon(Icons.Filled.Menu, "Menu") }
+        if (showNav) IconButton(onClick = onPrev) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Previous") }
         Row(
-            Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable { showPicker = true }.padding(vertical = 6.dp, horizontal = 8.dp),
+            Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable(enabled = showNav) { showPicker = true }.padding(vertical = 6.dp, horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,
         ) {
-            Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
-            Icon(Icons.Filled.ArrowDropDown, "Pick month", modifier = Modifier.size(20.dp))
+            Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (showNav) Icon(Icons.Filled.ArrowDropDown, "Pick period", modifier = Modifier.size(20.dp))
         }
-        IconButton(onClick = onNext) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next") }
+        if (showNav) IconButton(onClick = onNext) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next") }
         IconButton(onClick = onToday) { Icon(Icons.Filled.Today, "Today") }
+        Box {
+            IconButton(onClick = { typeMenu = true }) { Icon(Icons.Filled.CalendarViewMonth, "View type") }
+            androidx.compose.material3.DropdownMenu(expanded = typeMenu, onDismissRequest = { typeMenu = false }) {
+                CAL_MODES.forEach { (k, l) ->
+                    androidx.compose.material3.DropdownMenuItem(
+                        text = { Text(l) },
+                        leadingIcon = { if (mode == k) Icon(Icons.Filled.Check, null) else Spacer(Modifier.width(24.dp)) },
+                        onClick = { onModeChange(k); typeMenu = false },
+                    )
+                }
+            }
+        }
+        IconButton(onClick = onOpenFilter) { Icon(Icons.Filled.FilterList, "Filter lists", tint = if (filterActive) MaterialTheme.colorScheme.primary else androidx.compose.material3.LocalContentColor.current) }
     }
     if (showPicker) MonthYearPicker(current, onDismiss = { showPicker = false }) { ym -> onPick(ym); showPicker = false }
 }
@@ -215,9 +284,8 @@ private fun MonthYearPicker(current: YearMonth, onDismiss: () -> Unit, onPick: (
 }
 
 @Composable
-private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onJump: (YearMonth) -> Unit, onOpenTask: (String) -> Unit, swipe: CalSwipe, onAdd: () -> Unit) {
+private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, swipe: CalSwipe, onAdd: () -> Unit) {
     val ym = YearMonth.from(anchor)
-    NavHeader("${ym.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${ym.year}", ym, onPrev, onNext, onToday, onJump)
     val labels = (0..6).map { firstDow.plus(it.toLong()) }
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
         labels.forEach { d -> Text(d.getDisplayName(TextStyle.NARROW, Locale.getDefault()), Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -333,12 +401,10 @@ private fun layoutEvents(tasks: List<TaskEntity>, zone: ZoneId): List<Placed> {
 
 @Composable
 private fun TimelineView(
-    days: List<LocalDate>, dueByDate: Map<LocalDate, List<TaskEntity>>, zone: ZoneId, title: String,
-    onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onJump: (YearMonth) -> Unit, onOpenTask: (String) -> Unit, onAddOnDate: (LocalDate) -> Unit,
+    days: List<LocalDate>, dueByDate: Map<LocalDate, List<TaskEntity>>, zone: ZoneId,
+    onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, onAddOnDate: (LocalDate) -> Unit,
     onAddAt: (LocalDate, Int) -> Unit, onResize: (String, Int) -> Unit, onMoveAt: (LocalDate, String, Int) -> Unit,
 ) {
-    NavHeader(title, YearMonth.from(days.firstOrNull() ?: LocalDate.now()), onPrev, onNext, onToday, onJump)
-
     val allDayByDay = days.associateWith { d -> dueByDate[d].orEmpty().filter { it.isAllDay || !hasTime(it.dueDate!!, zone) } }
     val hasAllDay = allDayByDay.values.any { it.isNotEmpty() }
     val today = LocalDate.now()
@@ -482,8 +548,7 @@ private fun AllDayChip(task: TaskEntity, onOpenTask: (String) -> Unit) {
 }
 
 @Composable
-private fun YearView(anchor: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onMonth: (YearMonth) -> Unit, onDay: (LocalDate) -> Unit) {
-    NavHeader(anchor.year.toString(), YearMonth.of(anchor.year, 1), onPrev, onNext, onToday, onPick = { ym -> onMonth(ym) })
+private fun YearView(anchor: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, onPrev: () -> Unit, onNext: () -> Unit, onMonth: (YearMonth) -> Unit, onDay: (LocalDate) -> Unit) {
     val daysWithTasks = remember(dueByDate, anchor.year) {
         dueByDate.keys.filter { it.year == anchor.year }.toSet()
     }
@@ -545,6 +610,63 @@ private fun MiniMonth(ym: YearMonth, daysWithTasks: Set<LocalDate>, onMonth: (Ye
                 }
             }
         }
+    }
+}
+
+/** TickTick-style Weekly view: one card per day of the week, each listing that day's tasks as
+ *  colour-coded pills. Swipe left/right to move week-by-week. */
+@Composable
+private fun WeeklyView(weekStart: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, onAddOnDate: (LocalDate) -> Unit) {
+    val days = (0..6).map { weekStart.plusDays(it.toLong()) }
+    val today = LocalDate.now()
+    LazyColumn(
+        Modifier.fillMaxSize().swipeNav(onPrev, onNext),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(days, key = { it.toString() }) { d ->
+            val list = dueByDate[d].orEmpty().sortedBy { it.dueDate }
+            val isToday = d == today
+            val accent = MaterialTheme.colorScheme.primary
+            Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(d.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault()),
+                            style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
+                            color = if (isToday) accent else MaterialTheme.colorScheme.onSurface)
+                        Spacer(Modifier.size(6.dp))
+                        Text("${d.dayOfMonth} ${d.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())}",
+                            style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (isToday) { Spacer(Modifier.size(6.dp)); Box(Modifier.clip(RoundedCornerShape(999.dp)).background(accent).padding(horizontal = 7.dp, vertical = 1.dp)) { Text("Today", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary) } }
+                        Spacer(Modifier.weight(1f))
+                        IconButton(onClick = { onAddOnDate(d) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.Add, "Add on this day", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp)) }
+                    }
+                    if (list.isEmpty()) {
+                        Text("—", Modifier.padding(top = 2.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                    } else {
+                        Spacer(Modifier.size(4.dp))
+                        list.forEach { t -> WeekChip(t, onOpenTask) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WeekChip(task: TaskEntity, onOpenTask: (String) -> Unit) {
+    val level = PriorityLevel.from(task.importance, task.urgency)
+    val c = if (level == PriorityLevel.NONE) MaterialTheme.colorScheme.primary else priorityColor(level)
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 2.dp).clip(RoundedCornerShape(7.dp))
+            .background(c.copy(alpha = 0.14f)).clickable { onOpenTask(task.id) }.padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(7.dp).clip(CircleShape).background(c))
+        Spacer(Modifier.size(8.dp))
+        Text(task.title.ifBlank { "Untitled" }, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.bodyMedium,
+            textDecoration = if (task.completed) androidx.compose.ui.text.style.TextDecoration.LineThrough else null,
+            color = if (task.completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
     }
 }
 
@@ -624,7 +746,10 @@ private fun TaskLine(task: TaskEntity, onOpenTask: (String) -> Unit, swipe: CalS
                     },
                 ),
             shape = RoundedCornerShape(12.dp),
-            color = if (level == PriorityLevel.NONE) MaterialTheme.colorScheme.surface else accent.copy(alpha = 0.09f),
+            // OPAQUE fill: a translucent priority tint would let the swipe-action panel bleed through
+            // the whole pill (the old "colours the whole row" bug), so composite it over the surface.
+            color = if (level == PriorityLevel.NONE) MaterialTheme.colorScheme.surface
+                    else accent.copy(alpha = 0.09f).compositeOver(MaterialTheme.colorScheme.surface),
             tonalElevation = if (level == PriorityLevel.NONE) 1.dp else 0.dp,
         ) {
             Row(Modifier.height(IntrinsicSize.Min).clickable { onOpenTask(task.id) }, verticalAlignment = Alignment.CenterVertically) {

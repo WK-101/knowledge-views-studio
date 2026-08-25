@@ -129,8 +129,6 @@ private enum class Tab(val label: String, val icon: ImageVector) {
 
 private data class NewReq(val isFolder: Boolean, val parentId: String?)
 
-private val CAL_MODES = listOf("list" to "List", "day" to "Day", "3day" to "3-Day", "week" to "Week", "month" to "Month", "year" to "Year")
-
 /** Compact, icon-only bottom navigation (TickTick-style) — shorter than the Material NavigationBar. */
 @Composable
 private fun CompactBottomBar(tabs: List<Tab>, current: Tab, onSelect: (Tab) -> Unit) {
@@ -187,7 +185,6 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         var menu by remember { mutableStateOf(false) }
         // Hoisted per-tab controls, surfaced in the shared top bar to free screen space.
         var calMode by remember { mutableStateOf(settings.calendarDefaultMode) }
-        var calMenu by remember { mutableStateOf(false) }
         var matrixSettings by remember { mutableStateOf(false) }
         var searchQuery by remember { mutableStateOf("") }
         var calFilter by remember { mutableStateOf(false) }
@@ -283,7 +280,9 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         ) {
             Scaffold(
                 topBar = {
-                    TopAppBar(
+                    // The calendar renders its own single combined header (menu · period · today ·
+                    // type · filter), so it gets no app-bar banner here — saving a whole row.
+                    if (tab != Tab.CALENDAR) TopAppBar(
                         windowInsets = androidx.compose.material3.TopAppBarDefaults.windowInsets,
                         title = {
                             if (tab == Tab.SEARCH) {
@@ -337,21 +336,6 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                                         DropdownMenuItem(text = { Text("New from template…") }, leadingIcon = { Icon(Icons.Filled.ContentCopy, null, modifier = Modifier.size(20.dp)) }, onClick = { menu = false; templatePicker = true })
                                     }
                                 }
-                                Tab.CALENDAR -> {
-                                    IconButton(onClick = { calFilter = true }) {
-                                        Icon(Icons.Filled.FilterList, "Filter lists", tint = if (settings.calendarListFilter.isEmpty()) LocalContentColor.current else MaterialTheme.colorScheme.primary)
-                                    }
-                                    IconButton(onClick = { calMenu = true }) { Icon(Icons.Filled.CalendarViewMonth, "Calendar view") }
-                                    DropdownMenu(expanded = calMenu, onDismissRequest = { calMenu = false }) {
-                                        CAL_MODES.forEach { (k, label) ->
-                                            DropdownMenuItem(
-                                                text = { Text(label) },
-                                                leadingIcon = { if (calMode == k) Icon(Icons.Filled.Check, null) else Spacer(Modifier.width(24.dp)) },
-                                                onClick = { calMode = k; calMenu = false },
-                                            )
-                                        }
-                                    }
-                                }
                                 Tab.MATRIX -> IconButton(onClick = { matrixSettings = true }) { Icon(Icons.Filled.Tune, "Matrix settings") }
                                 Tab.SEARCH -> if (searchQuery.isNotEmpty()) IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Filled.Close, "Clear") }
                                 else -> {}
@@ -386,7 +370,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                                 openQuickAdd(d.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli())
                             }, onAddAt = { d, minute ->
                                 openQuickAdd(d.atStartOfDay(ZoneId.systemDefault()).plusMinutes(minute.toLong()).toInstant().toEpochMilli(), withTime = true)
-                            })
+                            }, onOpenDrawer = { scope.launch { drawerState.open() } }, onOpenFilter = { calFilter = true }, filterActive = settings.calendarListFilter.isNotEmpty())
                             Tab.TIMELINE -> com.todocompanion.app.ui.screens.TimelineScreen(vm, ::openTask)
                             Tab.MATRIX -> MatrixScreen(vm, ::openTask, matrixSettings, { matrixSettings = false })
                             Tab.HABITS -> com.todocompanion.app.ui.screens.HabitsScreen(vm)
