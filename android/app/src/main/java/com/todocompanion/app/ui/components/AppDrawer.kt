@@ -199,7 +199,9 @@ fun AppDrawer(
                 }
             }.forEach { k ->
                 DrawerRow(smartIcon(k), k.title, count = counts[k]?.takeIf { it > 0 },
-                    selected = (current as? ViewRef.Smart)?.kind == k, onClick = { onSelect(ViewRef.Smart(k)) })
+                    selected = (current as? ViewRef.Smart)?.kind == k,
+                    onLongClick = { vm.togglePinnedRef("smart:${k.name}") },  // long-press to add/remove from Favourites
+                    onClick = { onSelect(ViewRef.Smart(k)) })
             }
             }
 
@@ -480,6 +482,7 @@ private fun PinnedFavourites(
     val resolved = refs.mapNotNull { ref ->
         val id = ref.substringAfter(':')
         when (ref.substringBefore(':')) {
+            "smart" -> runCatching { SmartKind.valueOf(id) }.getOrNull()?.let { k -> Pin(smartIcon(k), null, k.title, null, ViewRef.Smart(k), ref) }
             "list" -> lists.firstOrNull { it.id == id }?.let { Pin(Icons.AutoMirrored.Filled.FormatListBulleted, it.emoji, it.name, it.colorArgb?.let(::Color), ViewRef.ListView(id), ref) }
             "folder" -> folders.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.Folder, it.icon, it.name, null, ViewRef.FolderView(id), ref) }
             "tag" -> tags.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.Label, null, "#" + it.name, it.colorArgb?.let(::Color), ViewRef.TagView(id), ref) }
@@ -591,12 +594,14 @@ private fun ContextNode(
     children.forEach { ContextNode(it, depth + 1, all, current, vm, onSelect, onNew, onManage, onMove) }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun DrawerRow(icon: ImageVector, label: String, count: Int? = null, selected: Boolean = false, muted: Boolean = false, onClick: () -> Unit = {}) {
+private fun DrawerRow(icon: ImageVector, label: String, count: Int? = null, selected: Boolean = false, muted: Boolean = false, onLongClick: (() -> Unit)? = null, onClick: () -> Unit = {}) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
             .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
-            .clickable { onClick() }.padding(start = 12.dp, top = 9.dp, bottom = 9.dp, end = 10.dp),
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .padding(start = 12.dp, top = 9.dp, bottom = 9.dp, end = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(icon, null, tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))

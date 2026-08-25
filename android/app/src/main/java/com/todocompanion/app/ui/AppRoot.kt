@@ -188,6 +188,10 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         var matrixSettings by remember { mutableStateOf(false) }
         var searchQuery by remember { mutableStateOf("") }
         var calFilter by remember { mutableStateOf(false) }
+        // Timeline filter, surfaced as a compact top-bar dropdown (no space-hungry chip row).
+        var timelineLists by remember { mutableStateOf(setOf<String>()) }
+        var timelineShowDone by remember { mutableStateOf(false) }
+        var timelineMenu by remember { mutableStateOf(false) }
 
         val currentView by vm.currentView.collectAsState()
         val lists by vm.lists.collectAsState()
@@ -284,6 +288,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                     // type · filter), so it gets no app-bar banner here — saving a whole row.
                     if (tab != Tab.CALENDAR) TopAppBar(
                         windowInsets = androidx.compose.material3.TopAppBarDefaults.windowInsets,
+                        expandedHeight = 52.dp,   // denser than the 64dp default, TickTick-like
                         title = {
                             if (tab == Tab.SEARCH) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -336,6 +341,26 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                                         DropdownMenuItem(text = { Text("New from template…") }, leadingIcon = { Icon(Icons.Filled.ContentCopy, null, modifier = Modifier.size(20.dp)) }, onClick = { menu = false; templatePicker = true })
                                     }
                                 }
+                                Tab.TIMELINE -> {
+                                    Box {
+                                        IconButton(onClick = { timelineMenu = true }) {
+                                            Icon(Icons.Filled.FilterList, "Filter timeline", tint = if (timelineLists.isEmpty() && !timelineShowDone) LocalContentColor.current else MaterialTheme.colorScheme.primary)
+                                        }
+                                        DropdownMenu(expanded = timelineMenu, onDismissRequest = { timelineMenu = false }) {
+                                            Text("SHOW LISTS", Modifier.padding(14.dp, 8.dp, 14.dp, 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            DropdownMenuItem(text = { Text("All lists") }, leadingIcon = { if (timelineLists.isEmpty()) Icon(Icons.Filled.Check, null, modifier = Modifier.size(18.dp)) else Spacer(Modifier.width(18.dp)) }, onClick = { timelineLists = emptySet() })
+                                            lists.filter { !it.archived }.forEach { l ->
+                                                DropdownMenuItem(
+                                                    text = { Text((l.emoji?.plus(" ") ?: "") + l.name) },
+                                                    leadingIcon = { if (l.id in timelineLists) Icon(Icons.Filled.Check, null, modifier = Modifier.size(18.dp)) else Spacer(Modifier.width(18.dp)) },
+                                                    onClick = { timelineLists = if (l.id in timelineLists) timelineLists - l.id else timelineLists + l.id },
+                                                )
+                                            }
+                                            androidx.compose.material3.HorizontalDivider()
+                                            DropdownMenuItem(text = { Text("Show completed") }, leadingIcon = { if (timelineShowDone) Icon(Icons.Filled.Check, null, modifier = Modifier.size(18.dp)) else Spacer(Modifier.width(18.dp)) }, onClick = { timelineShowDone = !timelineShowDone })
+                                        }
+                                    }
+                                }
                                 Tab.MATRIX -> IconButton(onClick = { matrixSettings = true }) { Icon(Icons.Filled.Tune, "Matrix settings") }
                                 Tab.SEARCH -> if (searchQuery.isNotEmpty()) IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Filled.Close, "Clear") }
                                 else -> {}
@@ -371,7 +396,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                             }, onAddAt = { d, minute ->
                                 openQuickAdd(d.atStartOfDay(ZoneId.systemDefault()).plusMinutes(minute.toLong()).toInstant().toEpochMilli(), withTime = true)
                             }, onOpenDrawer = { scope.launch { drawerState.open() } }, onOpenFilter = { calFilter = true }, filterActive = settings.calendarListFilter.isNotEmpty())
-                            Tab.TIMELINE -> com.todocompanion.app.ui.screens.TimelineScreen(vm, ::openTask)
+                            Tab.TIMELINE -> com.todocompanion.app.ui.screens.TimelineScreen(vm, ::openTask, selectedLists = timelineLists, showDone = timelineShowDone)
                             Tab.MATRIX -> MatrixScreen(vm, ::openTask, matrixSettings, { matrixSettings = false })
                             Tab.HABITS -> com.todocompanion.app.ui.screens.HabitsScreen(vm)
                             Tab.FOCUS -> com.todocompanion.app.ui.screens.FocusScreen(vm, onOpenStats = { showStats = true })

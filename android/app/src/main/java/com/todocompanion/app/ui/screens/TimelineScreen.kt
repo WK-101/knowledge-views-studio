@@ -55,7 +55,11 @@ import java.util.Locale
  * the task. Fully offline — just a layout over the same tasks.
  */
 @Composable
-fun TimelineScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifier = Modifier) {
+fun TimelineScreen(
+    vm: AppViewModel, onOpenTask: (String) -> Unit,
+    selectedLists: Set<String> = emptySet(), showDone: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
     val tasks by vm.tasks.collectAsState()
     val lists by vm.lists.collectAsState()
     val zone = ZoneId.systemDefault()
@@ -63,10 +67,6 @@ fun TimelineScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Mod
 
     val listColor = remember(lists) { lists.associate { it.id to it.colorArgb } }
     fun dayOf(ms: Long): LocalDate = Instant.ofEpochMilli(ms).atZone(zone).toLocalDate()
-
-    // Filters: which lists to show (empty = all) and whether to include completed tasks.
-    var selectedLists by remember { mutableStateOf(setOf<String>()) }
-    var showDone by remember { mutableStateOf(false) }
 
     val allDated = remember(tasks) {
         tasks.filter { !it.trashed && !it.abandoned && (it.startDate != null || it.dueDate != null) }
@@ -103,22 +103,6 @@ fun TimelineScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Mod
     val hScroll = rememberScrollState()
 
     Column(modifier.fillMaxSize()) {
-        // Filter bar: pick specific lists (empty = all) and toggle completed tasks.
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically,
-        ) {
-            androidx.compose.material3.FilterChip(selected = selectedLists.isEmpty(), onClick = { selectedLists = emptySet() }, label = { Text("All lists") })
-            lists.filter { !it.archived }.forEach { l ->
-                androidx.compose.material3.FilterChip(
-                    selected = l.id in selectedLists,
-                    onClick = { selectedLists = if (l.id in selectedLists) selectedLists - l.id else selectedLists + l.id },
-                    label = { Text((l.emoji?.plus(" ") ?: "") + l.name) },
-                )
-            }
-            androidx.compose.material3.FilterChip(selected = showDone, onClick = { showDone = !showDone }, label = { Text("Show done") })
-        }
-        androidx.compose.material3.HorizontalDivider()
         if (dated.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No tasks match this filter", color = MaterialTheme.colorScheme.onSurfaceVariant)

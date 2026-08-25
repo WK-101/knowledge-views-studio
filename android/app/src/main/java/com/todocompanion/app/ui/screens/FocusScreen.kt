@@ -1,15 +1,21 @@
 package com.todocompanion.app.ui.screens
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.BarChart
@@ -94,27 +100,30 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
     val focusTitle = focusTaskId?.let { id -> tasks.firstOrNull { it.id == id }?.title }
     var taskMenu by remember { mutableStateOf(false) }
 
-    Column(modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        // Stats shortcut, top-right.
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            androidx.compose.material3.TextButton(onClick = onOpenStats) {
-                androidx.compose.material3.Icon(Icons.Filled.BarChart, null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp)); Text("Statistics")
+    val track = MaterialTheme.colorScheme.outlineVariant
+    val progress = if (pomo) (elapsed.toFloat() / pomoSeconds).coerceIn(0f, 1f) else ((elapsed % 60) / 60f)
+
+    Column(modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        // Top controls: mode + Pomodoro length + task + stats shortcut.
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Spacer(Modifier.width(48.dp))
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                SingleChoiceSegmentedButtonRow {
+                    SegmentedButton(selected = pomo, onClick = { if (!running) { pomo = true; baseElapsed = 0 } }, shape = SegmentedButtonDefaults.itemShape(0, 2)) { Text("Pomodoro") }
+                    SegmentedButton(selected = !pomo, onClick = { if (!running) { pomo = false; baseElapsed = 0 } }, shape = SegmentedButtonDefaults.itemShape(1, 2)) { Text("Stopwatch") }
+                }
             }
-        }
-        SingleChoiceSegmentedButtonRow {
-            SegmentedButton(selected = pomo, onClick = { if (!running) { pomo = true; baseElapsed = 0 } }, shape = SegmentedButtonDefaults.itemShape(0, 2)) { Text("Pomodoro") }
-            SegmentedButton(selected = !pomo, onClick = { if (!running) { pomo = false; baseElapsed = 0 } }, shape = SegmentedButtonDefaults.itemShape(1, 2)) { Text("Stopwatch") }
+            androidx.compose.material3.IconButton(onClick = onOpenStats) { androidx.compose.material3.Icon(Icons.Filled.BarChart, "Statistics") }
         }
         if (pomo && !running && elapsed == 0) {
-            Spacer(Modifier.size(12.dp))
+            Spacer(Modifier.size(10.dp))
             androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf(15, 25, 45, 60).forEach { m ->
                     androidx.compose.material3.FilterChip(selected = pomoMin == m, onClick = { pomoMin = m }, label = { Text("$m min") })
                 }
             }
         }
-        Spacer(Modifier.size(20.dp))
+        Spacer(Modifier.size(12.dp))
         // Task the session is spent on.
         Box {
             androidx.compose.material3.OutlinedButton(onClick = { taskMenu = true }) {
@@ -129,23 +138,33 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
                 }
             }
         }
-        Spacer(Modifier.size(20.dp))
-        Box(
-            Modifier.size(260.dp).clip(CircleShape)
-                .background(accent.copy(alpha = if (running) 0.10f else 0.05f))
-                .border(3.dp, if (running) accent else MaterialTheme.colorScheme.outlineVariant, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("%02d:%02d".format(mm, ss), fontSize = 62.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                Text(if (pomo) "Focus" else "Elapsed", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+        // The ring grows to fill all the space between the controls above and below.
+        BoxWithConstraints(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+            val ring = minOf(minOf(maxWidth, maxHeight) - 16.dp, 360.dp)
+            Box(Modifier.size(ring), contentAlignment = Alignment.Center) {
+                Canvas(Modifier.fillMaxSize()) {
+                    val sw = 16.dp.toPx()
+                    val inset = sw / 2
+                    val arc = Size(size.width - sw, size.height - sw)
+                    val off = Offset(inset, inset)
+                    drawArc(color = track, startAngle = -90f, sweepAngle = 360f, useCenter = false, topLeft = off, size = arc, style = Stroke(sw, cap = StrokeCap.Round))
+                    drawArc(color = accent, startAngle = -90f, sweepAngle = 360f * progress, useCenter = false, topLeft = off, size = arc, style = Stroke(sw, cap = StrokeCap.Round))
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("%02d:%02d".format(mm, ss), fontSize = 68.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    Text(if (pomo) (if (running) "Focusing" else "Focus") else "Elapsed", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    focusTitle?.let {
+                        Spacer(Modifier.size(6.dp))
+                        Text(it, style = MaterialTheme.typography.bodyMedium, color = accent, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 24.dp))
+                    }
+                }
             }
         }
-        Spacer(Modifier.size(36.dp))
+
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Button(onClick = {
                 if (running) {
-                    // Pause: bank the elapsed time and cancel the pending completion alarm.
                     baseElapsed = elapsedNow(); running = false; AlarmScheduler.cancelFocusDone(context)
                 } else {
                     if (baseElapsed == 0) startMillis = System.currentTimeMillis()
@@ -158,9 +177,9 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
             if (elapsed > 0) OutlinedButton(onClick = { finish() }) { Text("Finish") }
             if (elapsed > 0 && !running) OutlinedButton(onClick = { baseElapsed = 0 }) { Text("Reset") }
         }
-        Spacer(Modifier.size(30.dp))
+        Spacer(Modifier.size(18.dp))
         Text("Today: ${todayMinutes} min · ${todayCount} session${if (todayCount == 1) "" else "s"}",
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("Keeps time in the background; you'll get a notification when a Pomodoro ends.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(top = 4.dp))
+        Text("Keeps time in the background; you'll get a notification when a Pomodoro ends.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(top = 4.dp, bottom = 6.dp))
     }
 }
