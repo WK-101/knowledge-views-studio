@@ -3,6 +3,7 @@ package com.todocompanion.app.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -72,6 +73,8 @@ fun TaskRow(
         val level = PriorityLevel.from(task.importance, task.urgency)
         Row(
             Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)
+                // Structural ancestors in a filtered outline are dimmed; matches stay solid.
+                .graphicsLayer { alpha = if (row.matched) 1f else 0.5f }
                 .combinedClickable(onClick = onClick, onLongClick = onZoom)
                 .padding(start = (6 + row.depth * 18).dp, end = 6.dp, top = rowVerticalPadding(density) / 2, bottom = rowVerticalPadding(density) / 2),
             verticalAlignment = Alignment.CenterVertically,

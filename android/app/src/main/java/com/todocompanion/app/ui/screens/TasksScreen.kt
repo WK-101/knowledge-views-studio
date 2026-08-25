@@ -99,6 +99,9 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
 
     if (outline && vm.canOutline()) { OutlineList(vm, settings.density, onOpenTask, modifier); return }
 
+    val hierarchy by vm.filterHierarchy.collectAsState()
+    if (hierarchy && vm.canHierarchy()) { HierarchyList(vm, settings.density, onOpenTask, modifier); return }
+
     val groups by vm.groups.collectAsState()
     val isTrash = (view as? ViewRef.Smart)?.kind == SmartKind.TRASH
     val collapsed = remember { mutableStateMapOf<String, Boolean>() }
@@ -355,6 +358,34 @@ private fun EmptyState(view: ViewRef? = null) {
         Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.size(4.dp))
         Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+    }
+}
+
+@Composable
+private fun HierarchyList(vm: AppViewModel, density: Density, onOpenTask: (String) -> Unit, modifier: Modifier) {
+    val rows by vm.hierarchyRows.collectAsState()
+    if (rows.isEmpty()) { EmptyState(); return }
+    Column(modifier.fillMaxSize()) {
+        Surface(color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxWidth()) {
+            Text("Matches shown in their outline — ancestors dimmed", Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+        }
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(12.dp)) {
+            item {
+                Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+                    Column {
+                        rows.forEachIndexed { i, row ->
+                            if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                            com.todocompanion.app.ui.components.TaskRow(row, density,
+                                onClick = { onOpenTask(row.task.id) },
+                                onToggleComplete = { vm.toggleComplete(row.task) },
+                                onToggleCollapse = {}, onCycleFlag = { vm.cycleFlag(row.task) }, onToggleStar = { vm.toggleStar(row.task) },
+                                onDelete = { vm.trash(row.task) })
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

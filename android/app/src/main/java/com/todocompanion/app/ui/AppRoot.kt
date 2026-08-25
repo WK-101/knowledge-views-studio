@@ -290,6 +290,15 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                             if (canOutline && !boardMode) IconButton(onClick = { vm.outlineMode.value = !outlineMode }) {
                                 Icon(if (outlineMode) Icons.AutoMirrored.Filled.FormatListBulleted else Icons.Filled.AccountTree, if (outlineMode) "List view" else "Outline view")
                             }
+                            // Hierarchy-preserving output for filter/tag/context views (MLO outline filtering).
+                            val canHierarchy = tab == Tab.TASKS && (currentView is ViewRef.FilterView || currentView is ViewRef.TagView || currentView is ViewRef.ContextView)
+                            if (canHierarchy && !boardMode) {
+                                val hier by vm.filterHierarchy.collectAsState()
+                                IconButton(onClick = { vm.filterHierarchy.value = !hier }) {
+                                    Icon(if (hier) Icons.AutoMirrored.Filled.FormatListBulleted else Icons.Filled.AccountTree, if (hier) "Flat list" else "Show in outline",
+                                        tint = if (hier) MaterialTheme.colorScheme.primary else LocalContentColor.current)
+                                }
+                            }
                             when (tab) {
                                 Tab.TASKS -> {
                                     IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Sort & group") }
@@ -465,9 +474,10 @@ private fun FilterBuilderDialog(
     var flagged by remember { mutableStateOf(q0.flaggedOnly) }
     var dueWithin by remember { mutableStateOf(q0.dueWithinDays) }
     var maxDur by remember { mutableStateOf(q0.maxDurationMin) }
+    var inclChildren by remember { mutableStateOf(q0.includeChildren) }
 
     fun save() {
-        val q = com.todocompanion.app.domain.view.FilterQuery(matchAll, listIds, tagIds, ctxIds, levels, flagged, dueWithin, maxDur, false)
+        val q = com.todocompanion.app.domain.view.FilterQuery(matchAll, listIds, tagIds, ctxIds, levels, flagged, dueWithin, maxDur, false, inclChildren)
         onSave(filter.copy(name = name.trim().ifBlank { "Filter" }, queryJson = com.todocompanion.app.domain.view.Filters.encode(q)))
     }
     AlertDialog(
@@ -514,6 +524,10 @@ private fun FilterBuilderDialog(
                 Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Flagged only", Modifier.weight(1f))
                     androidx.compose.material3.Switch(checked = flagged, onCheckedChange = { flagged = it })
+                }
+                Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Include subtasks of matches", Modifier.weight(1f))
+                    androidx.compose.material3.Switch(checked = inclChildren, onCheckedChange = { inclChildren = it })
                 }
             }
             }

@@ -37,8 +37,9 @@ import kotlinx.coroutines.withContext
 import java.time.ZoneId
 import java.util.UUID
 
-/** A flattened, indented outline row. */
-data class OutlineRow(val task: TaskEntity, val depth: Int, val hasChildren: Boolean, val collapsed: Boolean)
+/** A flattened, indented outline row. [matched] is false for a structural ancestor shown only
+ *  to keep a filtered match in its tree position (rendered dimmed). */
+data class OutlineRow(val task: TaskEntity, val depth: Int, val hasChildren: Boolean, val collapsed: Boolean, val matched: Boolean = true)
 
 /** Options captured by the quick-add option toolbar; override anything parsed from text. */
 data class QuickAddOptions(
@@ -96,6 +97,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val sortMode = MutableStateFlow(SortMode.MANUAL)
     val outlineMode = MutableStateFlow(false)
     val boardMode = MutableStateFlow(false)
+    /** MLO-style "show matches in the tree" for filter/tag/context views. */
+    val filterHierarchy = MutableStateFlow(false)
 
     private val zone: ZoneId get() = ZoneId.systemDefault()
 
@@ -151,7 +154,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     val q = com.todocompanion.app.domain.view.Filters.parse(filterList.firstOrNull { it.id == v.filterId }?.queryJson)
                     val tagsByTask = ttRefs.groupBy { it.taskId }.mapValues { e -> e.value.map { it.tagId }.toSet() }
                     val ctxByTask = tcRefs.groupBy { it.taskId }.mapValues { e -> e.value.map { it.contextId }.toSet() }
-                    all.filter { com.todocompanion.app.domain.view.Filters.matches(q, it, tagsByTask[it.id].orEmpty(), ctxByTask[it.id].orEmpty(), now, zone) }
+                    val hit = all.filter { com.todocompanion.app.domain.view.Filters.matches(q, it, tagsByTask[it.id].orEmpty(), ctxByTask[it.id].orEmpty(), now, zone) }
+                    if (q.includeChildren) {
+                        val keep = expandWithDescendants(hit.map { it.id }.toSet(), all)
+                        all.filter { it.id in keep && !it.trashed }
+                    } else hit
                 }
                 is ViewRef.ListView -> all.filter { !it.trashed && !it.completed && !it.abandoned && it.listId == v.listId }
                 is ViewRef.FolderView -> {
@@ -202,6 +209,36 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Title of the current zoom root, for the breadcrumb, or null when not zoomed. */
     fun zoomTitle(): String? = outlineZoom.value?.let { z -> tasks.value.firstOrNull { it.id == z }?.title }
+
+    /** True when the current view can render as a hierarchy-preserving filter (filter/tag/context). */
+    fun canHierarchy(): Boolean = currentView.value.let { it is ViewRef.FilterView || it is ViewRef.TagView || it is ViewRef.ContextView }
+
+    /**
+     * MLO "outline filtering": the matched tasks of a filter/tag/context view rendered in their real
+     * tree position — matches solid, structural ancestors dimmed. Empty unless [filterHierarchy] is on.
+     */
+    val hierarchyRows: StateFlow<List<OutlineRow>> =
+        combine(
+            wsTasks, currentView, filterHierarchy,
+            combine(repo.taskTagRefs, repo.taskContextRefs, repo.allFilters) { tt, tc, f -> Triple(tt, tc, f) },
+        ) { all, v, on, refs ->
+            if (!on) return@combine emptyList()
+            val (ttRefs, tcRefs, filters) = refs
+            val now = System.currentTimeMillis()
+            val matched: Set<String> = when (v) {
+                is ViewRef.FilterView -> {
+                    val q = com.todocompanion.app.domain.view.Filters.parse(filters.firstOrNull { it.id == v.filterId }?.queryJson)
+                    val tagsByTask = ttRefs.groupBy { it.taskId }.mapValues { e -> e.value.map { it.tagId }.toSet() }
+                    val ctxByTask = tcRefs.groupBy { it.taskId }.mapValues { e -> e.value.map { it.contextId }.toSet() }
+                    val hit = all.filter { com.todocompanion.app.domain.view.Filters.matches(q, it, tagsByTask[it.id].orEmpty(), ctxByTask[it.id].orEmpty(), now, zone) }.map { it.id }.toSet()
+                    if (q.includeChildren) expandWithDescendants(hit, all) else hit
+                }
+                is ViewRef.TagView -> ttRefs.filter { it.tagId == v.tagId }.map { it.taskId }.toSet()
+                is ViewRef.ContextView -> tcRefs.filter { it.contextId == v.contextId }.map { it.taskId }.toSet()
+                else -> return@combine emptyList()
+            }
+            buildFilteredOutline(all.filter { !it.trashed }, matched)
+        }.state(emptyList())
 
     private fun rankDoNext(
         base: List<TaskEntity>, all: List<TaskEntity>, now: Long, cfg: PriorityEngine.Config,
@@ -669,6 +706,43 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             out.add(OutlineRow(root, 0, kids.isNotEmpty(), root.collapsed))
             if (!root.collapsed) dfs(startId, 1)
         } else dfs(null, 0)
+        return out
+    }
+
+    /** Grow an id set to include every descendant of its members (for "include subtasks" filters). */
+    private fun expandWithDescendants(ids: Set<String>, all: List<TaskEntity>): Set<String> {
+        val byParent = all.groupBy { it.parentId }
+        val out = HashSet(ids)
+        val stack = ArrayDeque(ids)
+        while (stack.isNotEmpty()) {
+            val id = stack.removeLast()
+            byParent[id].orEmpty().forEach { if (out.add(it.id)) stack.addLast(it.id) }
+        }
+        return out
+    }
+
+    /** Build an outline of the [matched] tasks plus every ancestor needed to place them in the tree.
+     *  Ancestors that aren't themselves matches are flagged (rendered dimmed). Ignores collapse. */
+    private fun buildFilteredOutline(all: List<TaskEntity>, matched: Set<String>): List<OutlineRow> {
+        if (matched.isEmpty()) return emptyList()
+        val byId = all.associateBy { it.id }
+        val included = HashSet<String>()
+        matched.forEach { id ->
+            var cur: String? = id
+            while (cur != null && cur !in included && cur in byId) { included.add(cur); cur = byId[cur]?.parentId }
+        }
+        val inc = all.filter { it.id in included }
+        val byParent = inc.groupBy { it.parentId }
+        val out = ArrayList<OutlineRow>(inc.size)
+        fun dfs(t: TaskEntity, depth: Int) {
+            val kids = byParent[t.id].orEmpty()
+            out.add(OutlineRow(t, depth, kids.isNotEmpty(), collapsed = false, matched = t.id in matched))
+            kids.sortedBy { it.sortOrder }.forEach { dfs(it, depth + 1) }
+        }
+        // Roots = included tasks whose parent isn't part of this filtered forest.
+        inc.filter { it.parentId == null || it.parentId !in included }
+            .sortedWith(compareBy({ it.listId }, { it.sortOrder }))
+            .forEach { dfs(it, 0) }
         return out
     }
 }

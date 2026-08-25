@@ -23,6 +23,7 @@ data class FilterQuery(
     val dueWithinDays: Int? = null,           // null = ignore; N = due within N days (0 = today or overdue)
     val maxDurationMin: Int? = null,          // null = ignore; N = task estimate fits within N minutes
     val includeCompleted: Boolean = false,
+    val includeChildren: Boolean = false,     // also include the subtasks of any matched task
 ) {
     fun isEmpty(): Boolean =
         listIds.isEmpty() && tagIds.isEmpty() && contextIds.isEmpty() && levels.isEmpty() && !flaggedOnly && dueWithinDays == null && maxDurationMin == null
