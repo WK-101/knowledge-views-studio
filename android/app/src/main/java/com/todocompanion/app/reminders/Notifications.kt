@@ -58,6 +58,22 @@ object Notifications {
         runCatching { NotificationManagerCompat.from(context).notify(("ctxarr:$contextId").hashCode(), n) }
     }
 
+    fun showHabitArrival(context: Context, habitId: String, name: String, place: String) {
+        ensureChannel(context)
+        val where = place.takeIf { it.isNotBlank() }?.let { " at $it" } ?: " here"
+        val n = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setContentTitle("You're$where — time for $name?")
+            .setContentText("Tap to log it.")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(openAppRoute(context, "open_habits", ("habitarr:$habitId").hashCode()))
+            .addAction(0, "Done", broadcast(context, AlarmScheduler.ACTION_HABIT_DONE, ("habitarr:$habitId").hashCode() + 1,
+                mapOf(AlarmScheduler.EXTRA_HABIT_ID to habitId, AlarmScheduler.EXTRA_HABIT_NAME to name, AlarmScheduler.EXTRA_HABIT_MIN to "-1")))
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(("habitarr:$habitId").hashCode(), n) }
+    }
+
     const val EVENING_ID = 424244
 
     fun showEvening(context: Context, leftover: Int) {
@@ -145,15 +161,17 @@ object Notifications {
         "Future-you says thanks.", "Consistency beats intensity.", "You've got this.", "One rep for momentum.",
     )
 
-    fun showHabit(context: Context, habitId: String, name: String, minute: Int = -1) {
+    fun showHabit(context: Context, habitId: String, name: String, minute: Int = -1, why: String = "") {
         ensureChannel(context)
-        val line = HABIT_LINES[(habitId.hashCode() + (System.currentTimeMillis() / 86_400_000L).toInt()).let { ((it % HABIT_LINES.size) + HABIT_LINES.size) % HABIT_LINES.size }]
+        // K3: if a motivation/"why" is set, lead with it — it lands harder than a generic line.
+        val line = why.takeIf { it.isNotBlank() } ?: HABIT_LINES[(habitId.hashCode() + (System.currentTimeMillis() / 86_400_000L).toInt()).let { ((it % HABIT_LINES.size) + HABIT_LINES.size) % HABIT_LINES.size }]
         val reqBase = ("habit:$habitId").hashCode()
         val doneExtras = mapOf(AlarmScheduler.EXTRA_HABIT_ID to habitId, AlarmScheduler.EXTRA_HABIT_NAME to name, AlarmScheduler.EXTRA_HABIT_MIN to minute.toString())
         val b = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle("Time for $name")
             .setContentText(line)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(line))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(openApp(context))

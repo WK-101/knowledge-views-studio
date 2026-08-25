@@ -453,3 +453,40 @@ class HabitStatsTierITest {
         assertFalse(com.todocompanion.app.domain.habit.HabitStats.dueToday(h, today, empty, 0))
     }
 }
+
+class HabitInsightsTest {
+    private val today = 20000L
+    private fun habit(id: String, name: String = id, type: String = "build") =
+        com.todocompanion.app.data.entity.HabitEntity(id = id, name = name, createdAt = 0L, habitType = type, freqType = "weekly")
+    private fun checkin(hid: String, day: Long, count: Int = 1) =
+        com.todocompanion.app.data.entity.HabitCheckinEntity(habitId = hid, epochDay = day, count = count, status = "done")
+
+    @Test fun nearBestStreakSurfaces() {
+        val h = habit("h", "Meditate")
+        // Best streak 10 (days 100..91 ago), current streak 8 ending today.
+        val done = ((today - 9)..today).toList() + ((today - 110)..(today - 101)).toList()
+        val insights = com.todocompanion.app.domain.habit.HabitInsights.compute(listOf(h), done.map { checkin("h", it) }, emptyList(), today)
+        assertTrue(insights.any { it.text.contains("Meditate") && it.text.contains("best") })
+    }
+
+    @Test fun habitTaskCorrelationSurfaces() {
+        val h = habit("h", "Exercise")
+        val window = (0 until 88).map { today - it }
+        val exDays = window.filter { it % 2 == 0L }               // exercise done on even days
+        val checkins = exDays.map { checkin("h", it) }
+        // Every day gets one task; exercise days get a second — so on-days average 2, off-days 1.
+        val tasks = ArrayList<com.todocompanion.app.data.entity.TaskEntity>()
+        fun taskOn(d: Long, n: Int) = repeat(n) { i ->
+            tasks += com.todocompanion.app.data.entity.TaskEntity(id = "t$d-$i", listId = "l", title = "x", completed = true,
+                completedAt = d * 86_400_000L + 43_200_000L, createdAt = 0L, updatedAt = 0L)
+        }
+        window.forEach { d -> taskOn(d, if (d % 2 == 0L) 2 else 1) }
+        val insights = com.todocompanion.app.domain.habit.HabitInsights.compute(listOf(h), checkins, tasks, today,
+            zone = java.time.ZoneId.of("UTC"))
+        assertTrue(insights.any { it.text.contains("Exercise") && it.text.contains("tasks") })
+    }
+
+    @Test fun noInsightsWithoutData() {
+        assertTrue(com.todocompanion.app.domain.habit.HabitInsights.compute(emptyList(), emptyList(), emptyList(), today).isEmpty())
+    }
+}

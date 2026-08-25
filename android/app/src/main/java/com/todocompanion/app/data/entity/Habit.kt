@@ -49,6 +49,21 @@ data class HabitEntity(
     val moneyPerUnit: Double? = null,
     // Optional grouping label, shown as a section header. "" = ungrouped.
     val category: String = "",
+    // --- Tier K ---
+    // K3: an identity statement this habit is a vote for, e.g. "I'm a writer". "" = none.
+    val identity: String = "",
+    // K4: habit stacking — the id of the habit this one is anchored to ("after I <anchor>, I do this").
+    val anchorHabitId: String? = null,
+    // K2: earned "streak freezes" — spend one to protect a missed day; gained by overachieving.
+    val freezeTokens: Int = 0,
+    // K5 (light): a self-chosen reward and the streak length that unlocks it (0 = no reward set).
+    val rewardText: String = "",
+    val rewardAtStreak: Int = 0,
+    // K6: an optional place geofence — arriving here can surface/notify this habit. Fully on-device.
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val geofenceRadius: Double? = null,
+    val placeLabel: String = "",
 ) {
     /** null-safe first day this habit counts from. */
     fun startEpochDay(zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): Long =
@@ -68,6 +83,8 @@ data class HabitCheckinEntity(
     val count: Int = 1,
     val status: String = "done",   // "done" | "skip"
     val reason: String = "",
+    // K5: an optional photo attached to this day (a content/file uri copied into app storage).
+    val photoUri: String? = null,
 )
 
 /** A completed focus (Pomodoro / stopwatch) session, for the focus tab + statistics. */

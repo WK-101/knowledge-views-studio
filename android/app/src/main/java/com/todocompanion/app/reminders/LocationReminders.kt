@@ -87,6 +87,33 @@ object LocationReminders {
         runCatching { lm.removeProximityAlert(contextPendingIntent(context, ctx.id, ctx.name)) }
     }
 
+    // ---------- habit geofences (K6: nudge a habit on arrival at its place) ----------
+    private fun habitPendingIntent(context: Context, habitId: String, habitName: String, place: String): PendingIntent {
+        val i = Intent(context, ReminderReceiver::class.java)
+            .setAction(ACTION_PROXIMITY)
+            .putExtra("habitId", habitId)
+            .putExtra("habitName", habitName)
+            .putExtra("habitPlace", place)
+            .putExtra("onEnter", true)
+        return PendingIntent.getBroadcast(context, ("habitprox:$habitId").hashCode(), i, proximityFlags)
+    }
+
+    @SuppressLint("MissingPermission")
+    fun registerHabit(context: Context, habit: com.todocompanion.app.data.entity.HabitEntity) {
+        val lat = habit.latitude ?: return
+        val lng = habit.longitude ?: return
+        if (habit.archived) return
+        val radius = (habit.geofenceRadius ?: 150.0).toFloat()
+        if (!hasPermission(context)) return
+        val lm = context.getSystemService(LocationManager::class.java) ?: return
+        runCatching { lm.addProximityAlert(lat, lng, radius, -1L, habitPendingIntent(context, habit.id, habit.name, habit.placeLabel)) }
+    }
+
+    fun unregisterHabit(context: Context, habit: com.todocompanion.app.data.entity.HabitEntity) {
+        val lm = context.getSystemService(LocationManager::class.java) ?: return
+        runCatching { lm.removeProximityAlert(habitPendingIntent(context, habit.id, habit.name, habit.placeLabel)) }
+    }
+
     /** Re-arm every location reminder and context geofence (after boot, permission grant, app start). */
     suspend fun registerAll(context: Context, repo: AppRepository) {
         if (!hasPermission(context)) return
@@ -95,5 +122,6 @@ object LocationReminders {
             register(context, r, task)
         }
         repo.getContextsOnce().filter { it.latitude != null && it.longitude != null }.forEach { registerContext(context, it) }
+        repo.getHabitsOnce().filter { it.latitude != null && it.longitude != null && !it.archived }.forEach { registerHabit(context, it) }
     }
 }

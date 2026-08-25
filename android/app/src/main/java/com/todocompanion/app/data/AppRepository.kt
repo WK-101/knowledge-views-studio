@@ -151,16 +151,38 @@ class AppRepository(private val db: AppDatabase) {
         val next = current + increment.coerceAtLeast(1)
         if (next > ceiling) habits.deleteCheckin(habitId, epochDay)
         else {
-            val note = habits.getCheckin(habitId, epochDay)?.reason ?: ""
-            habits.upsertCheckin(HabitCheckinEntity(habitId, epochDay, next, status = "done", reason = note))
+            val existing = habits.getCheckin(habitId, epochDay)
+            habits.upsertCheckin(HabitCheckinEntity(habitId, epochDay, next, status = "done", reason = existing?.reason ?: "", photoUri = existing?.photoUri))
+            // K2: reaching the stretch goal earns a streak-freeze token (once per day, capped).
+            if (extra != null && current < extra && next >= extra) awardFreeze(habitId)
         }
+    }
+    /** K2: grant one streak-freeze token, capped at 5, for overachieving. */
+    suspend fun awardFreeze(habitId: String) {
+        habits.getAll().firstOrNull { it.id == habitId }?.let { h ->
+            if (h.freezeTokens < 5) habits.upsert(h.copy(freezeTokens = h.freezeTokens + 1))
+        }
+    }
+    /** K2: spend one freeze to protect a missed day — records it as a neutral skip. No-op if none left. */
+    suspend fun spendFreeze(habitId: String, epochDay: Long): Boolean {
+        val h = habits.getAll().firstOrNull { it.id == habitId } ?: return false
+        if (h.freezeTokens <= 0) return false
+        habits.upsert(h.copy(freezeTokens = h.freezeTokens - 1))
+        habits.upsertCheckin(HabitCheckinEntity(habitId, epochDay, 0, status = "skip", reason = "❄️ Streak freeze"))
+        return true
+    }
+    /** K5: attach or clear a photo on a day, preserving the day's count/status/note. */
+    suspend fun setCheckinPhoto(habitId: String, epochDay: Long, photoUri: String?) {
+        val existing = habits.getCheckin(habitId, epochDay)
+        val base = existing ?: HabitCheckinEntity(habitId, epochDay, 0, status = "done")
+        habits.upsertCheckin(base.copy(photoUri = photoUri))
     }
     /** Set an exact value for a day (numeric entry / relapse amount). 0 clears the day. Preserves any note. */
     suspend fun setCheckinValue(habitId: String, epochDay: Long, count: Int) {
         if (count <= 0) habits.deleteCheckin(habitId, epochDay)
         else {
-            val note = habits.getCheckin(habitId, epochDay)?.reason ?: ""
-            habits.upsertCheckin(HabitCheckinEntity(habitId, epochDay, count, status = "done", reason = note))
+            val existing = habits.getCheckin(habitId, epochDay)
+            habits.upsertCheckin(HabitCheckinEntity(habitId, epochDay, count, status = "done", reason = existing?.reason ?: "", photoUri = existing?.photoUri))
         }
     }
     /**
@@ -169,8 +191,9 @@ class AppRepository(private val db: AppDatabase) {
      */
     suspend fun setDay(habitId: String, epochDay: Long, count: Int, status: String, note: String) {
         val c = count.coerceAtLeast(0)
-        if (status == "done" && c <= 0 && note.isBlank()) habits.deleteCheckin(habitId, epochDay)
-        else habits.upsertCheckin(HabitCheckinEntity(habitId, epochDay, c, status = status, reason = note))
+        val photo = habits.getCheckin(habitId, epochDay)?.photoUri
+        if (status == "done" && c <= 0 && note.isBlank() && photo == null) habits.deleteCheckin(habitId, epochDay)
+        else habits.upsertCheckin(HabitCheckinEntity(habitId, epochDay, c, status = status, reason = note, photoUri = photo))
     }
     /** Mark a day as skipped (a neutral rest day: streak and score are unaffected). */
     suspend fun skipDay(habitId: String, epochDay: Long, reason: String = "") =

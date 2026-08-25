@@ -108,6 +108,12 @@ class ReminderReceiver : BroadcastReceiver() {
                     Notifications.showContextArrival(context, ctxId, ctxName)
                     return
                 }
+                // Habit geofence (K6): nudge the habit on arrival at its place.
+                val hId = intent.getStringExtra("habitId")
+                if (hId != null) {
+                    Notifications.showHabitArrival(context, hId, intent.getStringExtra("habitName") ?: "your habit", intent.getStringExtra("habitPlace") ?: "")
+                    return
+                }
                 if (app == null || taskId == null) return
                 val place = intent.getStringExtra("place")?.takeIf { it.isNotBlank() }
                 val pending = goAsync()
@@ -161,7 +167,7 @@ class ReminderReceiver : BroadcastReceiver() {
                             val doneDays = checkins.filter { it.habitId == habitId && it.status == "done" && stats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
                             val todayCount = checkins.firstOrNull { it.habitId == habitId && it.epochDay == todayEpoch }?.count ?: 0
                             val stillDue = stats.dueToday(h, todayEpoch, doneDays, todayCount)
-                            if (scheduledToday && stillDue) Notifications.showHabit(context, habitId, name, min)
+                            if (scheduledToday && stillDue) Notifications.showHabit(context, habitId, name, min, why = h.description)
                             AlarmScheduler.rescheduleHabit(context, habitId, name, min)
                         }
                     } finally { pending.finish() }

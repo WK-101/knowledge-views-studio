@@ -847,15 +847,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun saveHabit(h: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch {
         repo.upsertHabit(h)
         com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
+        // K6: keep the place geofence in sync with the saved coordinates.
+        if (h.latitude != null && h.longitude != null) com.todocompanion.app.reminders.LocationReminders.registerHabit(appCtx, h)
+        else com.todocompanion.app.reminders.LocationReminders.unregisterHabit(appCtx, h)
         com.todocompanion.app.widget.HabitsWidget.refresh(appCtx)
     }
     /** Create from a fully-built habit (Tier I editor). Workspace defaults to the active one. */
     fun addHabit(h: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch {
         repo.createHabit(h.copy(workspaceId = h.workspaceId.ifBlank { settings.value.activeWorkspaceId }))
         com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
+        if (h.latitude != null && h.longitude != null) com.todocompanion.app.reminders.LocationReminders.registerAll(appCtx, repo)
         refreshHabitWidgets()
     }
-    fun deleteHabit(id: String) = viewModelScope.launch { repo.deleteHabit(id); refreshHabitWidgets() }
+    fun deleteHabit(id: String) = viewModelScope.launch {
+        repo.getHabitsOnce().firstOrNull { it.id == id }?.let { com.todocompanion.app.reminders.LocationReminders.unregisterHabit(appCtx, it) }
+        repo.deleteHabit(id); refreshHabitWidgets()
+    }
     fun cycleHabit(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, current: Int) = viewModelScope.launch {
         repo.cycleCheckin(h.id, epochDay, h.targetPerDay, current, h.clickIncrement, h.extraTarget)
         refreshHabitWidgets()
@@ -873,6 +880,31 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Write a whole day from the per-day editor: value, done/skip, and a free-text note. */
     fun setHabitDay(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, count: Int, status: String, note: String) = viewModelScope.launch {
         repo.setDay(h.id, epochDay, count, status, note); refreshHabitWidgets()
+    }
+    // ---- Tier K ----
+    /** K2: spend one earned freeze to protect a missed day. */
+    fun spendHabitFreeze(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+        val ok = repo.spendFreeze(h.id, epochDay); refreshHabitWidgets(); onDone(ok)
+    }
+    /** K5: attach a photo to a day — the picked image is downscaled and copied into app storage. */
+    fun setHabitPhoto(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, uri: Uri?) = viewModelScope.launch {
+        if (uri == null) { repo.setCheckinPhoto(h.id, epochDay, null); refreshHabitWidgets(); return@launch }
+        val path = withContext(Dispatchers.IO) {
+            runCatching {
+                val bytes = appCtx.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@runCatching null
+                val src = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return@runCatching null
+                val maxDim = 1280
+                val scale = minOf(1f, maxDim.toFloat() / maxOf(src.width, src.height).coerceAtLeast(1))
+                val bmp = if (scale < 1f) android.graphics.Bitmap.createScaledBitmap(src, (src.width * scale).toInt().coerceAtLeast(1), (src.height * scale).toInt().coerceAtLeast(1), true) else src
+                val out = java.io.ByteArrayOutputStream()
+                bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 78, out)
+                val dir = java.io.File(appCtx.filesDir, "habit_photos").apply { mkdirs() }
+                val f = java.io.File(dir, UUID.randomUUID().toString() + ".jpg")
+                f.writeBytes(out.toByteArray())
+                f.absolutePath
+            }.getOrNull()
+        }
+        if (path != null) { repo.setCheckinPhoto(h.id, epochDay, path); refreshHabitWidgets() } else toast("Couldn't read that image")
     }
     fun setHabitPaused(h: com.todocompanion.app.data.entity.HabitEntity, paused: Boolean) = viewModelScope.launch {
         repo.setHabitPaused(h.id, paused); com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo); refreshHabitWidgets()

@@ -1,7 +1,10 @@
 package com.todocompanion.app.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
@@ -57,6 +60,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -115,7 +119,13 @@ fun HabitDetailScreen(
     val doneDays = hc.filter { it.status == "done" && HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
     val skipDays = hc.filter { it.status == "skip" }.map { it.epochDay }.toSet()
     val relapseDays = hc.filter { HabitStats.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
+    val photoByDay = hc.filter { it.photoUri != null }.associate { it.epochDay to it.photoUri!! }
     var editorDay by remember { mutableStateOf<Long?>(null) }
+    // K5: pick a photo for the day currently open in the editor.
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        val day = editorDay
+        if (uri != null && day != null) vm.setHabitPhoto(h, day, uri)
+    }
 
     val color = h.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
     val strength = HabitStats.strength(h, doneDays, skipDays, relapseDays, today)
@@ -153,6 +163,52 @@ fun HabitDetailScreen(
         ) {
             // 1. Header
             Header(h, color)
+
+            // 1b. Identity, momentum, freezes & reward (Tier K)
+            run {
+                val identityCount = doneDays.count { today - it in 0 until 30 }
+                val adaptiveUp = !isBreak && strength >= 85 && current >= 14 &&
+                    (h.freqType == HabitStats.FREQ_TIMES_WEEK || h.freqType == HabitStats.FREQ_TIMES_MONTH || h.targetPerDay > 1)
+                val adaptiveDown = !isBreak && strength <= 35 && best >= 5 &&
+                    (h.freqType == HabitStats.FREQ_TIMES_WEEK || h.freqType == HabitStats.FREQ_TIMES_MONTH || h.targetPerDay > 1)
+                val showReward = h.rewardText.isNotBlank() && h.rewardAtStreak > 0
+                if (h.identity.isNotBlank() || h.freezeTokens > 0 || adaptiveUp || adaptiveDown || showReward) {
+                    SectionCard {
+                        if (h.identity.isNotBlank()) {
+                            Text("You've been ${h.identity} on ${identityCount} of the last 30 days.",
+                                style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = color)
+                            if (h.freezeTokens > 0 || adaptiveUp || adaptiveDown || showReward) Spacer(Modifier.height(10.dp))
+                        }
+                        if (h.freezeTokens > 0) {
+                            Text("❄️  ${h.freezeTokens} streak ${if (h.freezeTokens == 1) "freeze" else "freezes"} banked — spend one to protect a missed day (long-press it on the calendar).",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (showReward) {
+                            Spacer(Modifier.height(if (h.freezeTokens > 0) 8.dp else 0.dp))
+                            val reached = best >= h.rewardAtStreak
+                            Text((if (reached) "🎉 " else "🎁 ") + "Reward: ${h.rewardText} — ${current.coerceAtMost(h.rewardAtStreak)}/${h.rewardAtStreak}" + if (reached) " · earned!" else "",
+                                style = MaterialTheme.typography.bodySmall, fontWeight = if (reached) FontWeight.SemiBold else FontWeight.Normal,
+                                color = if (reached) color else MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (adaptiveUp || adaptiveDown) {
+                            Spacer(Modifier.height(10.dp))
+                            if (adaptiveUp) {
+                                Text("You're crushing it. Ready to level up?", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                TextButton(onClick = {
+                                    val nh = if (h.freqType == HabitStats.FREQ_TIMES_WEEK || h.freqType == HabitStats.FREQ_TIMES_MONTH) h.copy(freqParam = h.freqParam + 1) else h.copy(targetPerDay = h.targetPerDay + 1)
+                                    vm.saveHabit(nh)
+                                }) { Text("Raise the goal") }
+                            } else {
+                                Text("Struggling lately? Make it easier to rebuild momentum.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                TextButton(onClick = {
+                                    val nh = if (h.freqType == HabitStats.FREQ_TIMES_WEEK || h.freqType == HabitStats.FREQ_TIMES_MONTH) h.copy(freqParam = (h.freqParam - 1).coerceAtLeast(1)) else h.copy(targetPerDay = (h.targetPerDay - 1).coerceAtLeast(1))
+                                    vm.saveHabit(nh)
+                                }) { Text("Ease the goal") }
+                            }
+                        }
+                    }
+                }
+            }
 
             // 2. Strength ring
             SectionCard {
@@ -199,6 +255,7 @@ fun HabitDetailScreen(
     }
 
     editorDay?.let { day ->
+        val missedPast = day < today && day >= startDay && day !in doneDays && day !in skipDays && HabitStats.isExpectedDay(h, day)
         DayEditorDialog(
             habit = h,
             epochDay = day,
@@ -206,6 +263,11 @@ fun HabitDetailScreen(
             initialSkip = day in skipDays,
             initialNote = notesByDay[day] ?: "",
             color = color,
+            photoPath = photoByDay[day],
+            canFreeze = h.freezeTokens > 0 && missedPast,
+            onFreeze = { vm.spendHabitFreeze(h, day); editorDay = null },
+            onPickPhoto = { runCatching { photoPicker.launch("image/*") } },
+            onRemovePhoto = { vm.setHabitPhoto(h, day, null) },
             onDismiss = { editorDay = null },
             onSave = { count, skip, note ->
                 vm.setHabitDay(h, day, count, if (skip) "skip" else "done", note)
@@ -282,6 +344,11 @@ private fun DayEditorDialog(
     initialSkip: Boolean,
     initialNote: String,
     color: Color,
+    photoPath: String?,
+    canFreeze: Boolean,
+    onFreeze: () -> Unit,
+    onPickPhoto: () -> Unit,
+    onRemovePhoto: () -> Unit,
     onDismiss: () -> Unit,
     onSave: (count: Int, skip: Boolean, note: String) -> Unit,
 ) {
@@ -291,6 +358,7 @@ private fun DayEditorDialog(
     val date = LocalDate.ofEpochDay(epochDay)
     val step = habit.clickIncrement.coerceAtLeast(1)
     val unit = habit.unit?.takeIf { it.isNotBlank() }
+    val photoBitmap = remember(photoPath) { photoPath?.let { runCatching { android.graphics.BitmapFactory.decodeFile(it)?.asImageBitmap() }.getOrNull() } }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(date.format(DateTimeFormatter.ofPattern("EEE, MMM d"))) },
@@ -315,11 +383,26 @@ private fun DayEditorDialog(
                     label = { Text("Rest day (skip — protects the streak)") },
                     leadingIcon = if (skip) { { Icon(Icons.Filled.Check, null, Modifier.size(FilterChipDefaults.IconSize)) } } else null,
                 )
+                if (canFreeze) {
+                    TextButton(onClick = onFreeze) { Text("❄️ Protect with a streak freeze") }
+                }
                 OutlinedTextField(
                     value = note, onValueChange = { note = it },
                     label = { Text("Note for this day (optional)") },
                     minLines = 2, modifier = Modifier.fillMaxWidth(),
                 )
+                // K5: per-day photo journal.
+                if (photoBitmap != null) {
+                    Image(photoBitmap, contentDescription = "Day photo",
+                        modifier = Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(12.dp)),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        TextButton(onClick = onPickPhoto) { Text("Change photo") }
+                        TextButton(onClick = onRemovePhoto) { Text("Remove", color = MaterialTheme.colorScheme.error) }
+                    }
+                } else {
+                    TextButton(onClick = onPickPhoto) { Text("📷 Add a photo") }
+                }
             }
         },
         confirmButton = { TextButton(onClick = { onSave(count, skip, note) }) { Text("Save") } },

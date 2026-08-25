@@ -67,7 +67,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         com.todocompanion.app.data.entity.ActivityEntity::class,
         com.todocompanion.app.data.entity.TaskRevisionEntity::class,
     ],
-    version = 28,
+    version = 29,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -318,6 +318,22 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Tier K: identity, habit-stacking anchor, streak freezes, self-reward, place geofence, day photo.
+        private val MIGRATION_28_29 = object : Migration(28, 29) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `identity` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `anchorHabitId` TEXT")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `freezeTokens` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `rewardText` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `rewardAtStreak` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `latitude` REAL")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `longitude` REAL")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `geofenceRadius` REAL")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `placeLabel` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habit_checkins` ADD COLUMN `photoUri` TEXT")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -325,7 +341,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "todocompanion.db",
                 )
-                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28)
+                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29)
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { INSTANCE = it }

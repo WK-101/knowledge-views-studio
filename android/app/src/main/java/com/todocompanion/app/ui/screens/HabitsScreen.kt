@@ -1,6 +1,8 @@
 package com.todocompanion.app.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -127,7 +129,12 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
     val density by vm.habitDensity.collectAsState()
     val batchOpen by vm.habitBatchOpen.collectAsState()
     val presetOpen by vm.habitPresetOpen.collectAsState()
+    val tasks by vm.tasks.collectAsState()
     var valueFor by remember { mutableStateOf<HabitEntity?>(null) }
+    // K1: on-device insights over the shared habit/task store.
+    val insights = remember(habits, checkins, tasks, today) {
+        com.todocompanion.app.domain.habit.HabitInsights.compute(habits, checkins, tasks, today)
+    }
 
     // Perfect-day: every habit that was scheduled today is now done. Celebrate on the rising edge.
     val stillDue = habits.count { h ->
@@ -177,6 +184,7 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
             val order = (0..3).filter { bySection.containsKey(it) }
             val showHeaders = order.size > 1
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 4.dp, bottom = 100.dp)) {
+                if (insights.isNotEmpty()) item(key = "insights") { InsightsCard(insights) }
                 order.forEach { sec ->
                     if (showHeaders) item(key = "sec$sec") {
                         Text(HABIT_SECTIONS[sec].uppercase(), Modifier.padding(start = 18.dp, top = 12.dp, bottom = 2.dp),
@@ -184,7 +192,7 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
                     }
                     items(bySection[sec]!!, key = { it.id }) { h ->
                         HabitRow(
-                            h, checkins, today,
+                            h, checkins, today, allHabits = habits,
                             onCycle = {
                                 val cur = daysFor(h, checkins).counts[today] ?: 0
                                 if (h.habitType == "break") {
@@ -280,10 +288,36 @@ fun HabitsHeader(vm: AppViewModel, onOpenDrawer: () -> Unit) {
     )
 }
 
+/** K1: the on-device coach card — plain-language patterns from the shared habit/task store. */
+@Composable
+private fun InsightsCard(insights: List<com.todocompanion.app.domain.habit.Insight>) {
+    Surface(
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .55f),
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("✨", style = MaterialTheme.typography.labelLarge)
+                Spacer(Modifier.width(6.dp))
+                Text("Insights", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+            }
+            insights.forEach { ins ->
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.Top) {
+                    Text(ins.emoji, style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.width(8.dp))
+                    Text(ins.text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HabitRow(
     h: HabitEntity, checkins: List<com.todocompanion.app.data.entity.HabitCheckinEntity>, today: Long,
+    allHabits: List<HabitEntity> = emptyList(),
     onCycle: () -> Unit, onOpen: () -> Unit, onSkip: () -> Unit, onClear: () -> Unit,
     onSetValue: () -> Unit, onPause: () -> Unit, onEdit: () -> Unit, onFocus: () -> Unit,
 ) {
@@ -298,6 +332,9 @@ private fun HabitRow(
     val skippedToday = today in d.skip
     val scheduledToday = HabitStats.isExpectedDay(h, today) || h.freqType == HabitStats.FREQ_TIMES_WEEK || h.freqType == HabitStats.FREQ_TIMES_MONTH
     var rowMenu by remember { mutableStateOf(false) }
+    // K4: habit-stacking anchor — surface "after <anchor>" and highlight once the anchor is done today.
+    val anchor = h.anchorHabitId?.let { aid -> allHabits.firstOrNull { it.id == aid } }
+    val anchorDoneToday = anchor?.let { a -> val ad = daysFor(a, checkins); HabitStats.meetsGoal(a, ad.counts[today] ?: 0) } ?: false
 
     Surface(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
@@ -337,6 +374,11 @@ private fun HabitRow(
                 }
                 Text("${strength}% · ${HabitStats.frequencyLabel(h)}" + (h.unit?.let { " · ${h.targetPerDay} $it" } ?: ""),
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (anchor != null && !done) {
+                    Text("▸ after ${anchor.name}" + if (anchorDoneToday) " · now's the time" else "",
+                        style = MaterialTheme.typography.labelSmall, fontWeight = if (anchorDoneToday) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (anchorDoneToday) color else MaterialTheme.colorScheme.outline, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
             if (streak > 0) Text((if (isBreak) "✨ " else "🔥 ") + streak, style = MaterialTheme.typography.labelLarge, color = color)
             Box {
@@ -467,8 +509,37 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
     var extra by remember { mutableStateOf(existing?.extraTarget) }
     var description by remember { mutableStateOf(existing?.description ?: "") }
     var money by remember { mutableStateOf(existing?.moneyPerUnit?.toString() ?: "") }
+    // Tier K editor fields.
+    var identity by remember { mutableStateOf(existing?.identity ?: "") }
+    var anchorId by remember { mutableStateOf(existing?.anchorHabitId) }
+    var rewardText by remember { mutableStateOf(existing?.rewardText ?: "") }
+    var rewardAt by remember { mutableStateOf(existing?.rewardAtStreak ?: 0) }
+    var lat by remember { mutableStateOf(existing?.latitude) }
+    var lng by remember { mutableStateOf(existing?.longitude) }
+    var placeLabel by remember { mutableStateOf(existing?.placeLabel ?: "") }
+    var locating by remember { mutableStateOf(false) }
     val ctx = LocalContext.current
     val isBreak = habitType == "break"
+    val allHabits by vm.habits.collectAsState()
+
+    fun captureLocation() {
+        locating = true
+        com.todocompanion.app.reminders.LocationFix.lastKnown(ctx)?.let { (la, ln) -> lat = la; lng = ln; locating = false; return }
+        com.todocompanion.app.reminders.LocationFix.requestFix(ctx) { fix ->
+            locating = false
+            if (fix != null) { lat = fix.first; lng = fix.second }
+            else android.widget.Toast.makeText(ctx, "Couldn't get a location fix. Turn on Location, then try again.", android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+    val locPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
+        if (grants.values.any { it }) captureLocation() else { locating = false; android.widget.Toast.makeText(ctx, "Location permission is needed", android.widget.Toast.LENGTH_SHORT).show() }
+    }
+    fun setPlace() {
+        val fine = androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val coarse = androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (fine || coarse) captureLocation()
+        else { locating = true; runCatching { locPerm.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)) } }
+    }
 
     fun buildHabit(): HabitEntity {
         val base = existing ?: HabitEntity(id = "", name = "", createdAt = 0L)
@@ -482,6 +553,9 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
             freqType = freqType, freqParam = freqParam,
             clickIncrement = increment.coerceAtLeast(1), extraTarget = extra?.takeIf { it > target },
             description = description.trim(), moneyPerUnit = money.trim().toDoubleOrNull(),
+            identity = identity.trim(), anchorHabitId = anchorId,
+            rewardText = rewardText.trim(), rewardAtStreak = rewardAt,
+            latitude = lat, longitude = lng, geofenceRadius = if (lat != null) 150.0 else null, placeLabel = placeLabel.trim(),
         )
     }
     fun save() {
@@ -597,7 +671,56 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
                     StepperRow("Each tap adds", increment.toString(), onMinus = { increment = (increment - 1).coerceAtLeast(1) }, onPlus = { increment = (increment + 1).coerceAtMost(1000) }, modifier = Modifier.padding(top = 8.dp))
                     StepperRow("Stretch goal", extra?.toString() ?: "—", onMinus = { extra = ((extra ?: target) - 1).takeIf { it > target } }, onPlus = { extra = (extra ?: target) + 1 })
                 }
-                OutlinedTextField(description, { description = it }, label = { Text("Notes / reason") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                OutlinedTextField(description, { description = it }, label = { Text("Why — your motivation (shown when you're about to slip)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+            }
+
+            // 6. Motivation & extras (Tier K)
+            EditorCard {
+                Text("Identity & stacking", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(identity, { identity = it.take(60) }, singleLine = true,
+                    label = { Text("I'm becoming… (e.g. “a writer”)") }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
+                // Anchor picker (K4).
+                var anchorMenu by remember { mutableStateOf(false) }
+                val candidates = allHabits.filter { it.id != existing?.id }
+                val anchorName = candidates.firstOrNull { it.id == anchorId }?.name
+                Box(Modifier.padding(top = 10.dp)) {
+                    Surface(Modifier.fillMaxWidth().clickable(enabled = candidates.isNotEmpty()) { anchorMenu = true }, shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)) {
+                        Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(if (anchorName != null) "After I: $anchorName" else if (candidates.isEmpty()) "Add another habit to stack after" else "Stack after another habit (optional)",
+                                Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
+                                color = if (anchorName != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (anchorId != null) TextButton(onClick = { anchorId = null }) { Text("Clear") }
+                        }
+                    }
+                    DropdownMenu(expanded = anchorMenu, onDismissRequest = { anchorMenu = false }) {
+                        candidates.forEach { c ->
+                            DropdownMenuItem(text = { Text((c.emoji?.plus(" ") ?: "") + c.name) }, onClick = { anchorId = c.id; anchorMenu = false })
+                        }
+                    }
+                }
+
+                // Self-reward (K5, light).
+                Text("Reward", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 14.dp))
+                OutlinedTextField(rewardText, { rewardText = it.take(80) }, singleLine = true,
+                    label = { Text("Treat yourself when you hit a streak (optional)") }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
+                if (rewardText.isNotBlank()) StepperRow("…at a streak of", if (rewardAt <= 0) "30" else rewardAt.toString(),
+                    onMinus = { rewardAt = ((if (rewardAt <= 0) 30 else rewardAt) - 5).coerceAtLeast(5) },
+                    onPlus = { rewardAt = ((if (rewardAt <= 0) 30 else rewardAt) + 5).coerceAtMost(1000) }, modifier = Modifier.padding(top = 6.dp))
+
+                // Place geofence (K6).
+                Text("Place reminder", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 14.dp))
+                Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(if (lat != null) "📍 Set — arriving here can nudge you" else "Nudge me when I arrive at a place", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
+                        color = if (lat != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (locating) androidx.compose.material3.CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    else if (lat != null) TextButton(onClick = { lat = null; lng = null }) { Text("Clear") }
+                    else TextButton(onClick = { setPlace() }) { Text("Use my location") }
+                }
+                if (lat != null) OutlinedTextField(placeLabel, { placeLabel = it.take(40) }, singleLine = true,
+                    label = { Text("Place name (e.g. Gym)") }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
+                Text("On-device only — coordinates never leave the phone, no Google services.",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(top = 6.dp))
             }
             Spacer(Modifier.height(40.dp))
         }
