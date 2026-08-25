@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -182,6 +183,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         var saveTab by remember { mutableStateOf(false) }
         var templatePicker by remember { mutableStateOf(false) }
         var showAttachments by remember { mutableStateOf(false) }
+        var showPlan by remember { mutableStateOf(false) }
         var menu by remember { mutableStateOf(false) }
         // Hoisted per-tab controls, surfaced in the shared top bar to free screen space.
         var calMode by remember { mutableStateOf(settings.calendarDefaultMode) }
@@ -302,6 +304,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                         },
                         navigationIcon = { IconButton(onClick = { scope.launch { drawerState.open() } }) { Icon(Icons.Filled.Menu, "Menu") } },
                         actions = {
+                            if (tab == Tab.TASKS) IconButton(onClick = { showPlan = true }) { Icon(Icons.Filled.Bolt, "Plan your day") }
                             if (tab == Tab.TASKS) IconButton(onClick = { vm.boardMode.value = !boardMode }) {
                                 Icon(Icons.Filled.ViewColumn, if (boardMode) "List view" else "Board view", tint = if (boardMode) MaterialTheme.colorScheme.primary else LocalContentColor.current)
                             }
@@ -397,6 +400,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         editing?.let { id -> TaskDetailScreen(vm, id, onBack = { editing = null }) }
         if (showStats) com.todocompanion.app.ui.screens.StatisticsScreen(vm, onBack = { showStats = false })
         if (showAttachments) com.todocompanion.app.ui.screens.AttachmentsScreen(vm, onOpenTask = { showAttachments = false; openTask(it) }, onBack = { showAttachments = false })
+        if (showPlan) com.todocompanion.app.ui.screens.PlanYourDayScreen(vm, onOpenTask = { showPlan = false; openTask(it) }, onBack = { showPlan = false })
         if (showReview) com.todocompanion.app.ui.screens.ReviewScreen(vm, onOpenTask = { showReview = false; openTask(it) }, onBack = { showReview = false })
         if (saveTab) {
             var tabName by remember { mutableStateOf(vm.currentTitle()) }

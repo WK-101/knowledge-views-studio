@@ -633,6 +633,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleStar(t: TaskEntity) = viewModelScope.launch { repo.saveTask(t.copy(star = !t.star)) }
     fun setPriority(t: TaskEntity, level: PriorityLevel) = viewModelScope.launch { repo.saveTask(t.copy(importance = level.importance, urgency = level.urgency)) }
     fun setDuration(taskId: String, minutes: Int) = viewModelScope.launch { repo.getTask(taskId)?.let { repo.saveTask(it.copy(durationMin = minutes.coerceIn(15, 24 * 60))) } }
+    /** Shift a task's start and due dates by [days] (Timeline drag-to-reschedule; preserves span). */
+    fun shiftTaskDays(taskId: String, days: Int) = viewModelScope.launch {
+        if (days == 0) return@launch
+        repo.getTask(taskId)?.let { t ->
+            val d = days * 86_400_000L
+            repo.saveTask(t.copy(startDate = t.startDate?.plus(d), dueDate = t.dueDate?.plus(d)))
+        }
+    }
     /** Move a task's due time to [minute] of [day] (time-blocking drag on the calendar). */
     fun rescheduleToMinute(taskId: String, day: java.time.LocalDate, minute: Int) = viewModelScope.launch {
         repo.getTask(taskId)?.let { t ->

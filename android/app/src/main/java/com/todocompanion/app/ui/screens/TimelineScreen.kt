@@ -2,7 +2,9 @@ package com.todocompanion.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -187,11 +189,23 @@ fun TimelineScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Mod
                                 Box(Modifier.padding(start = dayWidth * ti).width(dayWidth).height(rowHeight)
                                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)))
                             }
+                            // Long-press then drag a bar horizontally to shift its dates by whole days.
+                            var dragDays by remember(task.id, startIdx) { mutableStateOf(0) }
+                            var dragging by remember(task.id) { mutableStateOf(false) }
+                            val dayPx = with(androidx.compose.ui.platform.LocalDensity.current) { dayWidth.toPx() }
                             Box(
-                                Modifier.padding(start = dayWidth * startIdx, top = 8.dp, bottom = 8.dp)
+                                Modifier.padding(start = dayWidth * (startIdx + dragDays).coerceAtLeast(0), top = 8.dp, bottom = 8.dp)
                                     .width(dayWidth * spanDays)
                                     .clip(RoundedCornerShape(7.dp))
-                                    .background(bar.copy(alpha = if (task.completed) 0.4f else 0.9f))
+                                    .background(bar.copy(alpha = if (dragging) 1f else if (task.completed) 0.4f else 0.9f))
+                                    .pointerInput(task.id) {
+                                        detectDragGesturesAfterLongPress(
+                                            onDragStart = { dragging = true },
+                                            onDrag = { _, off -> dragDays = ((dragDays * dayPx + off.x) / dayPx).toInt() },
+                                            onDragEnd = { dragging = false; vm.shiftTaskDays(task.id, dragDays); dragDays = 0 },
+                                            onDragCancel = { dragging = false; dragDays = 0 },
+                                        )
+                                    }
                                     .clickable { onOpenTask(task.id) }
                                     .padding(horizontal = 8.dp),
                                 contentAlignment = Alignment.CenterStart,
