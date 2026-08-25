@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -104,6 +105,41 @@ fun PlanYourDayScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: ()
             }
             autoMsg?.let { Spacer(Modifier.size(6.dp)); Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center) }
             Spacer(Modifier.size(14.dp))
+
+            // L5: one timeline for today — timed habits and time-blocked tasks, in order.
+            run {
+                data class Ev(val min: Int, val label: String, val isHabit: Boolean, val color: Color)
+                val evs = ArrayList<Ev>()
+                allHabits.filter { !it.paused && !it.archived }.forEach { h ->
+                    val expected = com.todocompanion.app.domain.habit.HabitStats.isExpectedDay(h, today.toEpochDay()) ||
+                        h.freqType == com.todocompanion.app.domain.habit.HabitStats.FREQ_TIMES_WEEK || h.freqType == com.todocompanion.app.domain.habit.HabitStats.FREQ_TIMES_MONTH
+                    if (expected) h.reminderTimes.split(",").mapNotNull { it.trim().toIntOrNull() }.filter { it in 0..1439 }.forEach { m ->
+                        evs += Ev(m, (h.emoji?.plus(" ") ?: "") + h.name, true, h.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.tertiary)
+                    }
+                }
+                tasks.filter { !it.completed && !it.trashed && !it.abandoned && it.dueDate != null && it.dueDate!! in today.atStartOfDay(zone).toInstant().toEpochMilli() until endToday && !it.isAllDay }.forEach { t ->
+                    val z = java.time.Instant.ofEpochMilli(t.dueDate!!).atZone(zone)
+                    if (z.hour != 0 || z.minute != 0) evs += Ev(z.hour * 60 + z.minute, t.title, false, MaterialTheme.colorScheme.primary)
+                }
+                if (evs.isNotEmpty()) {
+                    AppCard {
+                        Text("Today's timeline", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.size(6.dp))
+                        Column(Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState())) {
+                            evs.sortedBy { it.min }.forEach { e ->
+                                Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text("%02d:%02d".format(e.min / 60, e.min % 60), Modifier.width(52.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Box(Modifier.size(8.dp).clip(RoundedCornerShape(2.dp)).background(e.color))
+                                    Spacer(Modifier.size(8.dp))
+                                    Text(e.label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(if (e.isHabit) "habit" else "task", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.size(14.dp))
+                }
+            }
 
             // Deadline-risk radar (G3): the week's committed work vs the time you actually have.
             val risk = remember(tasks) { vm.deadlineRisk(7) }

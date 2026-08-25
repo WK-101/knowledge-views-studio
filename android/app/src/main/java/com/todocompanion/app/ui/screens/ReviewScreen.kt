@@ -92,6 +92,10 @@ fun ReviewScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> U
             }
             Spacer(Modifier.height(12.dp))
 
+            // L3: weekly habit review — the week's wins and the one that's slipping.
+            HabitsReviewCard(vm)
+            Spacer(Modifier.height(12.dp))
+
             // Procrastination breaker (E2): tasks pushed 3+ times — decide instead of deferring again.
             val moveCounts by androidx.compose.runtime.produceState(initialValue = emptyMap<String, Int>()) { value = vm.rescheduleCounts() }
             val slipping = active.filter { (moveCounts[it.id] ?: 0) >= 3 }.sortedByDescending { moveCounts[it.id] ?: 0 }
@@ -184,4 +188,42 @@ private fun ReviewSection(
         }
     }
     Spacer(Modifier.height(10.dp))
+}
+
+/** L3: a weekly habit snapshot for the review — today's completion, week's check-ins, the slipping one. */
+@Composable
+private fun HabitsReviewCard(vm: AppViewModel) {
+    val habits by vm.habits.collectAsState()
+    val checkins by vm.habitCheckins.collectAsState()
+    if (habits.isEmpty()) return
+    val stats = com.todocompanion.app.domain.habit.HabitStats
+    val today = LocalDate.now().toEpochDay()
+    fun done(h: com.todocompanion.app.data.entity.HabitEntity) =
+        checkins.filter { it.habitId == h.id && it.status == "done" && stats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
+    fun skip(h: com.todocompanion.app.data.entity.HabitEntity) =
+        checkins.filter { it.habitId == h.id && it.status == "skip" }.map { it.epochDay }.toSet()
+
+    val active = habits.filter { !it.paused && it.habitType != "break" }
+    val dueOrDone = active.filter { stats.isExpectedDay(it, today) || it.freqType == stats.FREQ_TIMES_WEEK || it.freqType == stats.FREQ_TIMES_MONTH }
+    val doneToday = dueOrDone.count { today in done(it) }
+    val weekChecks = checkins.count { it.status == "done" && it.epochDay > today - 7 }
+    val slipping = active.mapNotNull { h ->
+        val r = stats.rate(h, done(h), skip(h), today, 14)
+        if (r < 0.5f) h to r else null
+    }.minByOrNull { it.second }
+
+    com.todocompanion.app.ui.components.AppCard {
+        Text("Habits this week", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(4.dp))
+        Text("$doneToday/${dueOrDone.size} done today · $weekChecks check-ins in the last 7 days",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (slipping != null) {
+            Spacer(Modifier.height(6.dp))
+            Text("Slipping: ‘${slipping.first.name}’ at ${(slipping.second * 100).toInt()}% (14d) — make it your focus next week.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+        } else if (dueOrDone.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            Text("Every habit is holding steady. Nice work.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
 }

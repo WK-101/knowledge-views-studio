@@ -733,6 +733,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val habitBatchOpen = MutableStateFlow(false)
     val habitPresetOpen = MutableStateFlow(false)
     val habitEditor = MutableStateFlow<HabitEditRequest?>(null)   // non-null → the full-screen editor is open
+    val habitQuickAddOpen = MutableStateFlow(false)               // L6: natural-language "type a habit" dialog
     /** Credit a finished Focus session's minutes to a habit's check-in (marks time habits done). */
     fun logHabitFocus(habitId: String, minutes: Int) = viewModelScope.launch {
         if (minutes <= 0) return@launch

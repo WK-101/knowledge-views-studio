@@ -129,6 +129,7 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
     val density by vm.habitDensity.collectAsState()
     val batchOpen by vm.habitBatchOpen.collectAsState()
     val presetOpen by vm.habitPresetOpen.collectAsState()
+    val quickAddOpen by vm.habitQuickAddOpen.collectAsState()
     val tasks by vm.tasks.collectAsState()
     var valueFor by remember { mutableStateOf<HabitEntity?>(null) }
     // K1: on-device insights over the shared habit/task store.
@@ -184,7 +185,7 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
             val order = (0..3).filter { bySection.containsKey(it) }
             val showHeaders = order.size > 1
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 4.dp, bottom = 100.dp)) {
-                if (insights.isNotEmpty()) item(key = "insights") { InsightsCard(insights) }
+                if (insights.isNotEmpty()) item(key = "insights") { InsightsCard(insights, vm) }
                 order.forEach { sec ->
                     if (showHeaders) item(key = "sec$sec") {
                         Text(HABIT_SECTIONS[sec].uppercase(), Modifier.padding(start = 18.dp, top = 12.dp, bottom = 2.dp),
@@ -221,6 +222,11 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
       if (showConfetti) ConfettiOverlay(onDone = { showConfetti = false })
     }
 
+    if (quickAddOpen) HabitQuickAddDialog(
+        onDismiss = { vm.habitQuickAddOpen.value = false },
+        onAdd = { draft -> vm.addHabit(draft); vm.habitQuickAddOpen.value = false },
+        onAdvanced = { draft -> vm.habitQuickAddOpen.value = false; vm.habitEditor.value = com.todocompanion.app.ui.HabitEditRequest(draft.takeIf { it.name.isNotBlank() }) },
+    )
     if (presetOpen) HabitPresetDialog(onDismiss = { vm.habitPresetOpen.value = false }, onPick = { p ->
         vm.createHabit(p.name, p.emoji, p.color, p.target, p.unit, "", ""); vm.habitPresetOpen.value = false
     })
@@ -270,7 +276,7 @@ fun HabitsHeader(vm: AppViewModel, onOpenDrawer: () -> Unit) {
                         }
                     }
                 }
-                IconButton(onClick = { vm.habitEditor.value = com.todocompanion.app.ui.HabitEditRequest() }) { Icon(Icons.Filled.Add, "New habit") }
+                IconButton(onClick = { vm.habitQuickAddOpen.value = true }) { Icon(Icons.Filled.Add, "New habit") }
                 var menu by remember { mutableStateOf(false) }
                 Box {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "More") }
@@ -282,15 +288,16 @@ fun HabitsHeader(vm: AppViewModel, onOpenDrawer: () -> Unit) {
                     }
                 }
             } else {
-                IconButton(onClick = { vm.habitEditor.value = com.todocompanion.app.ui.HabitEditRequest() }) { Icon(Icons.Filled.Add, "New habit") }
+                IconButton(onClick = { vm.habitQuickAddOpen.value = true }) { Icon(Icons.Filled.Add, "New habit") }
             }
         },
     )
 }
 
-/** K1: the on-device coach card — plain-language patterns from the shared habit/task store. */
+/** K1/L1: the on-device coach card — plain-language patterns from the shared habit/task store, each
+ *  with a one-tap action (open the habit, or stack two habits). */
 @Composable
-private fun InsightsCard(insights: List<com.todocompanion.app.domain.habit.Insight>) {
+private fun InsightsCard(insights: List<com.todocompanion.app.domain.habit.Insight>, vm: AppViewModel) {
     Surface(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
         shape = RoundedCornerShape(16.dp),
@@ -303,10 +310,26 @@ private fun InsightsCard(insights: List<com.todocompanion.app.domain.habit.Insig
                 Text("Insights", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
             }
             insights.forEach { ins ->
-                Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.Top) {
+                val action = ins.action
+                val openId = (action as? com.todocompanion.app.domain.habit.InsightAction.Open)?.habitId
+                    ?: (action as? com.todocompanion.app.domain.habit.InsightAction.Stack)?.childId
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 8.dp)
+                        .then(if (openId != null) Modifier.clickable { vm.habitDetailId.value = openId } else Modifier),
+                    verticalAlignment = Alignment.Top,
+                ) {
                     Text(ins.emoji, style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.width(8.dp))
-                    Text(ins.text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                    Column(Modifier.weight(1f)) {
+                        Text(ins.text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                        if (action is com.todocompanion.app.domain.habit.InsightAction.Stack) {
+                            TextButton(onClick = {
+                                vm.habits.value.firstOrNull { it.id == action.childId }?.let { vm.saveHabit(it.copy(anchorHabitId = action.anchorId)) }
+                            }, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)) {
+                                Text("Stack ‘${action.childName}’ after ‘${action.anchorName}’")
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -748,6 +771,40 @@ private fun StepperRow(label: String, value: String, onMinus: () -> Unit, onPlus
         Text(value, style = MaterialTheme.typography.titleMedium, modifier = Modifier.width(44.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         TextButton(onClick = onPlus) { Text("+", style = MaterialTheme.typography.titleLarge) }
     }
+}
+
+/** L6: type a habit in plain language ("meditate 10 min every morning") — parsed into a draft. */
+@Composable
+private fun HabitQuickAddDialog(onDismiss: () -> Unit, onAdd: (HabitEntity) -> Unit, onAdvanced: (HabitEntity) -> Unit) {
+    var text by remember { mutableStateOf("") }
+    val draft = remember(text) { com.todocompanion.app.domain.habit.HabitQuickParser.parse(text) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("New habit") },
+        text = {
+            Column {
+                OutlinedTextField(text, { text = it }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("e.g. meditate 10 min every morning") })
+                if (text.isNotBlank()) {
+                    Spacer(Modifier.size(8.dp))
+                    Text("→ ${draft.name.ifBlank { "?" }} · ${HabitStats.frequencyLabel(draft)}" +
+                        (draft.unit?.let { " · ${draft.targetPerDay} $it" } ?: "") +
+                        (draft.reminderTimes.split(",").firstOrNull { it.isNotBlank() }?.toIntOrNull()?.let { " · 🔔 %02d:%02d".format(it / 60, it % 60) } ?: ""),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Spacer(Modifier.size(4.dp))
+                Text("Try “gym 3x a week”, “read 20 pages daily”, “journal every evening at 9pm”.",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+            }
+        },
+        confirmButton = { TextButton(enabled = draft.name.isNotBlank(), onClick = { onAdd(draft) }) { Text("Add") } },
+        dismissButton = {
+            Row {
+                TextButton(onClick = { onAdvanced(draft) }) { Text("Advanced…") }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        },
+    )
 }
 
 @Composable

@@ -164,6 +164,29 @@ fun HabitDetailScreen(
             // 1. Header
             Header(h, color)
 
+            // 1a. L4 — recovery mode: when strength has crashed but there's real history, replace the
+            //     broken-streak sting with a kind restart. Resetting the start date gives a clean slate.
+            if (!isBreak && strength < 25 && (best >= 7 || hc.size >= 14)) {
+                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .7f)) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Rough patch — that's OK.", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                        Spacer(Modifier.height(4.dp))
+                        Text("A streak doesn't define you. You've done this ${hc.count { it.epochDay in doneDays }} times before — you can start again today.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 8.dp)) {
+                            TextButton(onClick = {
+                                val nh = if (h.freqType == HabitStats.FREQ_TIMES_WEEK || h.freqType == HabitStats.FREQ_TIMES_MONTH) h.copy(freqParam = (h.freqParam - 1).coerceAtLeast(1)) else h.copy(targetPerDay = (h.targetPerDay - 1).coerceAtLeast(1))
+                                vm.saveHabit(nh)
+                            }) { Text("Make it easier") }
+                            TextButton(onClick = {
+                                val todayMs = LocalDate.now().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                                vm.saveHabit(h.copy(startDate = todayMs))
+                            }) { Text("Restart fresh today") }
+                        }
+                    }
+                }
+            }
+
             // 1b. Identity, momentum, freezes & reward (Tier K)
             run {
                 val identityCount = doneDays.count { today - it in 0 until 30 }

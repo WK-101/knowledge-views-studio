@@ -490,3 +490,35 @@ class HabitInsightsTest {
         assertTrue(com.todocompanion.app.domain.habit.HabitInsights.compute(emptyList(), emptyList(), emptyList(), today).isEmpty())
     }
 }
+
+class HabitQuickParserTest {
+    private val P = com.todocompanion.app.domain.habit.HabitQuickParser
+
+    @Test fun parsesMinutesAndMorning() {
+        val h = P.parse("meditate 10 min every morning")
+        assertEquals("Meditate", h.name)
+        assertEquals("min", h.unit)
+        assertEquals(10, h.targetPerDay)
+        assertTrue(h.reminderTimes.split(",").mapNotNull { it.toIntOrNull() }.contains(8 * 60))
+    }
+
+    @Test fun parsesTimesPerWeek() {
+        val h = P.parse("gym 3x a week")
+        assertEquals(com.todocompanion.app.domain.habit.HabitStats.FREQ_TIMES_WEEK, h.freqType)
+        assertEquals(3, h.freqParam)
+        assertEquals("Gym", h.name)
+    }
+
+    @Test fun parsesEveningTimeAndPages() {
+        val h = P.parse("read 20 pages every evening at 9pm")
+        assertEquals("pages", h.unit)
+        assertEquals(20, h.targetPerDay)
+        assertTrue(h.reminderTimes.split(",").mapNotNull { it.toIntOrNull() }.contains(21 * 60))
+        assertEquals("Read", h.name)
+    }
+
+    @Test fun parsesWeekdays() {
+        val h = P.parse("standup weekdays")
+        assertEquals("1,2,3,4,5", h.scheduleDays)
+    }
+}
