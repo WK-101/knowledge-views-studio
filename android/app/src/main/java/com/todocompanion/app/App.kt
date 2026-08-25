@@ -4,6 +4,7 @@ import android.app.Application
 import com.todocompanion.app.data.AppDatabase
 import com.todocompanion.app.data.AppRepository
 import com.todocompanion.app.reminders.Notifications
+import com.todocompanion.app.widget.AgendaWidget
 import com.todocompanion.app.widget.TodayWidget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,7 +25,7 @@ class App : Application() {
         appScope.launch { repository.ensureSeed() }
         // Keep any placed home-screen widget in sync with task changes.
         appScope.launch {
-            repository.allTasks.debounce(400).collect { TodayWidget.refresh(this@App) }
+            repository.allTasks.debounce(400).collect { TodayWidget.refresh(this@App); AgendaWidget.refresh(this@App) }
         }
     }
 }

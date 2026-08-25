@@ -224,9 +224,11 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
 
         // One-shot launch action from the home-screen widget's "＋ Add" button.
         LaunchedEffect(launchAction.value) {
-            if (launchAction.value == com.todocompanion.app.MainActivity.ACTION_QUICK_ADD) {
-                openQuickAdd(null)
-                launchAction.value = null
+            val a = launchAction.value
+            when {
+                a == com.todocompanion.app.MainActivity.ACTION_QUICK_ADD -> { openQuickAdd(null); launchAction.value = null }
+                a != null && a.startsWith("open_task:") -> { openTask(a.removePrefix("open_task:")); launchAction.value = null }
+                a == "open_focus" -> { tab = Tab.FOCUS; launchAction.value = null }
             }
         }
 

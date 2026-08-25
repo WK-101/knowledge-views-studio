@@ -57,6 +57,34 @@
                 android:resource="@xml/widget_today_info" />
         </receiver>
 
+        <!-- Home-screen "Agenda" list widget: today's + overdue tasks. Offline, reads local DB. -->
+        <receiver
+            android:name=".widget.AgendaWidget"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_agenda_info" />
+        </receiver>
+        <service
+            android:name=".widget.AgendaWidgetService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
+
+        <!-- Compact quick-add button widget. -->
+        <receiver
+            android:name=".widget.QuickAddWidget"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_quickadd_info" />
+        </receiver>
+
         <!-- Fires a scheduled reminder notification. Not exported. -->
         <receiver
             android:name=".reminders.ReminderReceiver"
