@@ -59,6 +59,7 @@ class AppRepository(private val db: AppDatabase) {
     val allFlags: Flow<List<FlagEntity>> = flags.observeAll()
     val allTemplates: Flow<List<TemplateEntity>> = templates.observeAll()
     val allCountdowns: Flow<List<com.todocompanion.app.data.entity.CountdownEntity>> = countdowns.observeAll()
+    suspend fun allCountdownsOnce(): List<com.todocompanion.app.data.entity.CountdownEntity> = countdowns.getAll()
     suspend fun upsertCountdown(c: com.todocompanion.app.data.entity.CountdownEntity) = countdowns.upsert(c)
     suspend fun deleteCountdown(id: String) = countdowns.deleteById(id)
     val allSettings: Flow<List<SettingEntity>> = settings.observeAll()

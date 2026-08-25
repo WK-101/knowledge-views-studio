@@ -101,9 +101,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             (existing ?: com.todocompanion.app.data.entity.CountdownEntity(id = UUID.randomUUID().toString(), title = title, targetMillis = targetMillis, createdAt = System.currentTimeMillis()))
                 .copy(title = title.trim().ifBlank { "Countdown" }, targetMillis = targetMillis, emoji = emoji, colorArgb = colorArgb)
         )
+        com.todocompanion.app.widget.CountdownWidget.refresh(appCtx)
     }
-    fun deleteCountdown(id: String) = viewModelScope.launch { repo.deleteCountdown(id) }
-    fun toggleCountdownPin(c: com.todocompanion.app.data.entity.CountdownEntity) = viewModelScope.launch { repo.upsertCountdown(c.copy(pinned = !c.pinned)) }
+    fun deleteCountdown(id: String) = viewModelScope.launch { repo.deleteCountdown(id); com.todocompanion.app.widget.CountdownWidget.refresh(appCtx) }
+    fun toggleCountdownPin(c: com.todocompanion.app.data.entity.CountdownEntity) = viewModelScope.launch { repo.upsertCountdown(c.copy(pinned = !c.pinned)); com.todocompanion.app.widget.CountdownWidget.refresh(appCtx) }
     val filters = combine(repo.allFilters, activeWs) { f, ws -> f.filter { it.workspaceId == ws } }.state(emptyList())
     val habits = combine(repo.allHabits, activeWs) { h, ws -> h.filter { it.workspaceId == ws && !it.archived } }.state(emptyList())
     val habitCheckins = repo.allCheckins.state(emptyList())

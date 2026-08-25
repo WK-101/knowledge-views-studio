@@ -239,6 +239,8 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                 a == com.todocompanion.app.MainActivity.ACTION_QUICK_ADD -> { openQuickAdd(null); launchAction.value = null }
                 a != null && a.startsWith("open_task:") -> { openTask(a.removePrefix("open_task:")); launchAction.value = null }
                 a == "open_focus" -> { tab = Tab.FOCUS; launchAction.value = null }
+                a == "open_countdowns" -> { showCountdowns = true; launchAction.value = null }
+                a == "open_matrix" -> { tab = Tab.MATRIX; launchAction.value = null }
             }
         }
 

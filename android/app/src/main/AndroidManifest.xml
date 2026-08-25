@@ -83,6 +83,18 @@
             </intent-filter>
         </activity>
 
+        <!-- Countdown widget: days remaining to a pinned date. Offline. -->
+        <receiver
+            android:name=".widget.CountdownWidget"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_countdown_info" />
+        </receiver>
+
         <!-- Compact quick-add button widget. -->
         <receiver
             android:name=".widget.QuickAddWidget"
