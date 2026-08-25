@@ -105,30 +105,35 @@ fun PriorityCheckbox(checked: Boolean, level: PriorityLevel, onCheckedChange: ()
             Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(15.dp).scale(prog))
         }
     }
-    // A centred modal, not a checkbox-anchored dropdown — a dropdown on a bottom row lands under
-    // the add button. Centred, it never collides with the FAB and the swatches are easy to hit.
+    // A bottom sheet, not a checkbox-anchored dropdown — a dropdown on a bottom row lands under
+    // the add button. A sheet slides up over everything (including the FAB) and is the pattern
+    // TickTick itself uses, so it can never collide with the add button.
     if (onSetLevel != null && picker) {
-        androidx.compose.ui.window.Dialog(onDismissRequest = { picker = false }) {
-            Surface(shape = RoundedCornerShape(22.dp), tonalElevation = 4.dp, color = MaterialTheme.colorScheme.surface) {
-                Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Set priority", style = MaterialTheme.typography.titleSmall)
-                    Spacer(Modifier.size(14.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        PriorityLevel.entries.forEach { lvl ->
-                            val c = priorityColor(lvl)
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Box(
-                                    Modifier.size(44.dp).clip(RoundedCornerShape(11.dp))
-                                        .background(c.copy(alpha = if (lvl == PriorityLevel.NONE) 0.12f else 0.22f))
-                                        .border(2.dp, c, RoundedCornerShape(11.dp))
-                                        .clickable { onSetLevel(lvl); picker = false },
-                                    contentAlignment = Alignment.Center,
-                                ) { if (lvl == level) Icon(Icons.Filled.Check, null, tint = c, modifier = Modifier.size(22.dp)) }
-                                Spacer(Modifier.size(6.dp))
-                                Text(lvl.label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
+        PrioritySheet(current = level, onPick = { onSetLevel(it); picker = false }, onDismiss = { picker = false })
+    }
+}
+
+/** Bottom-sheet priority picker — full-width rows with a coloured flag, a label, and a tick on the
+ *  current level. Slides over the FAB, so it never overlaps the add button. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun PrioritySheet(current: PriorityLevel, onPick: (PriorityLevel) -> Unit, onDismiss: () -> Unit) {
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+            Text("Set priority", Modifier.padding(start = 20.dp, top = 4.dp, bottom = 8.dp),
+                style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+            listOf(PriorityLevel.HIGH, PriorityLevel.MEDIUM, PriorityLevel.LOW, PriorityLevel.NONE).forEach { lvl ->
+                val c = priorityColor(lvl)
+                Row(
+                    Modifier.fillMaxWidth().clickable { onPick(lvl) }.padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(if (lvl == PriorityLevel.NONE) Icons.Outlined.Flag else Icons.Filled.Flag, null,
+                        tint = c, modifier = Modifier.size(24.dp))
+                    Spacer(Modifier.size(16.dp))
+                    Text(lvl.label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface)
+                    if (lvl == current) Icon(Icons.Filled.Check, "Selected", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
                 }
             }
         }
@@ -182,12 +187,27 @@ fun formatDue(millis: Long): String {
 
 fun isOverdue(millis: Long): Boolean = millis < System.currentTimeMillis()
 
-/** Compact, borderless date label (TickTick-style): coloured text, no chip background. */
+/** Days-remaining label: "Today" / "3d left" / "2d ago". */
+fun countdownLabel(millis: Long): String {
+    val zone = ZoneId.systemDefault()
+    val d = Instant.ofEpochMilli(millis).atZone(zone).toLocalDate()
+    val days = java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), d)
+    return when {
+        days == 0L -> "Today"
+        days > 0 -> "${days}d left"
+        else -> "${-days}d ago"
+    }
+}
+
+/** Compact, borderless date label (TickTick-style): coloured text, no chip background.
+ *  Tap to toggle between the date and a live days-remaining countdown. */
 @Composable
 fun DueChip(millis: Long) {
     val overdue = isOverdue(millis)
+    var countdown by remember(millis) { mutableStateOf(false) }
     Text(
-        formatDue(millis),
+        if (countdown) countdownLabel(millis) else formatDue(millis),
+        modifier = Modifier.clickable { countdown = !countdown },
         style = MaterialTheme.typography.labelMedium,
         color = if (overdue) Color(0xFFE5484D) else MaterialTheme.colorScheme.onSurfaceVariant,
         maxLines = 1, overflow = TextOverflow.Ellipsis,

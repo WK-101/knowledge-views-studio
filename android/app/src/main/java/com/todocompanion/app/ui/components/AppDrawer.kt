@@ -176,14 +176,17 @@ fun AppDrawer(
                 }
             }
 
-            val collapsed = remember { mutableStateMapOf<String, Boolean>() }
-            fun open(k: String) = collapsed[k] != true
-            fun toggle(k: String) { collapsed[k] = open(k) }
+            // Fold state persists in settings so it survives an app restart.
+            val collapsedKeys = settings.sidebarCollapsed
+            val hidden = settings.sidebarHidden
+            fun open(k: String) = k !in collapsedKeys
+            fun toggle(k: String) { vm.toggleSidebarSection(k) }
             // Expand state for nested lists (default expanded).
             val listExpand = remember { mutableStateMapOf<String, Boolean>() }
 
-            PinnedFavourites(settings.pinnedRefs, lists, folders, tags, contexts, vm, current, onSelect)
+            if ("fav" !in hidden) PinnedFavourites(settings.pinnedRefs, lists, folders, tags, contexts, vm, current, onSelect, open = open("fav"), onToggle = { toggle("fav") })
 
+            if ("smart" !in hidden) {
             SectionHeader("Smart lists", open = open("smart"), onToggle = { toggle("smart") })
             if (open("smart")) listOf(
                 SmartKind.INBOX, SmartKind.TODAY, SmartKind.TOMORROW, SmartKind.NEXT7, SmartKind.DO_NEXT,
@@ -198,7 +201,9 @@ fun AppDrawer(
                 DrawerRow(smartIcon(k), k.title, count = counts[k]?.takeIf { it > 0 },
                     selected = (current as? ViewRef.Smart)?.kind == k, onClick = { onSelect(ViewRef.Smart(k)) })
             }
+            }
 
+            if ("lists" !in hidden) {
             SectionHeader("Lists", open = open("lists"), onToggle = { toggle("lists") }, onAdd = { onNewList(null) })
             if (open("lists")) {
                 folders.filter { it.parentId == null }.sortedBy { it.sortOrder }.forEach { f ->
@@ -207,14 +212,17 @@ fun AppDrawer(
                 ReorderableListGroup(lists.filter { it.folderId == null && it.parentListId == null && it.id != ListEntity.INBOX_ID && !it.archived }.sortedBy { it.sortOrder },
                     lists, listExpand, 0, current, vm, onSelect, onManageList, onMoveList)
             }
+            }
 
+            if ("tags" !in hidden) {
             SectionHeader("Tags", open = open("tags"), onToggle = { toggle("tags") }, onAdd = { onNewTag(null) })
             if (open("tags")) tags.filter { it.parentId == null }.sortedWith(compareBy({ it.sortOrder }, { it.name })).forEach { t ->
                 TagNode(t, 0, tags, current, vm, onSelect, onNewTag, onManageTag, onMoveTag)
             }
+            }
 
             val filters by vm.filters.collectAsState()
-            if (filters.isNotEmpty() || open("filters")) {
+            if ("filters" !in hidden && (filters.isNotEmpty() || open("filters"))) {
                 SectionHeader("Filters", open = open("filters"), onToggle = { toggle("filters") }, onAdd = { onEditFilter(null) })
                 if (open("filters")) filters.sortedBy { it.sortOrder }.forEach { f ->
                     var menu by remember(f.id) { mutableStateOf(false) }
@@ -241,23 +249,33 @@ fun AppDrawer(
                 }
             }
 
+            if ("contexts" !in hidden) {
             SectionHeader("Contexts", open = open("contexts"), onToggle = { toggle("contexts") }, onAdd = { onNewContext(null) })
             if (open("contexts")) contexts.filter { it.parentId == null }.sortedWith(compareBy({ it.name })).forEach { c ->
                 ContextNode(c, 0, contexts, current, vm, onSelect, onNewContext, onManageContext, onMoveContext)
             }
+            }
 
-            SectionHeader("Views")
-            DrawerRow(Icons.Filled.CalendarMonth, "Calendar", onClick = { onOpenTab("CALENDAR") })
-            DrawerRow(Icons.Filled.ViewTimeline, "Timeline", onClick = { onOpenTab("TIMELINE") })
-            DrawerRow(Icons.Filled.GridView, "Matrix", onClick = { onOpenTab("MATRIX") })
-            DrawerRow(Icons.Filled.LocalFireDepartment, "Habits", onClick = { onOpenTab("HABITS") })
-            DrawerRow(Icons.Filled.Timer, "Focus", onClick = { onOpenTab("FOCUS") })
+            if ("views" !in hidden) {
+            SectionHeader("Views", open = open("views"), onToggle = { toggle("views") })
+            if (open("views")) {
+                if ("view_calendar" !in hidden) DrawerRow(Icons.Filled.CalendarMonth, "Calendar", onClick = { onOpenTab("CALENDAR") })
+                if ("view_timeline" !in hidden) DrawerRow(Icons.Filled.ViewTimeline, "Timeline", onClick = { onOpenTab("TIMELINE") })
+                if ("view_matrix" !in hidden) DrawerRow(Icons.Filled.GridView, "Matrix", onClick = { onOpenTab("MATRIX") })
+                if ("view_habits" !in hidden) DrawerRow(Icons.Filled.LocalFireDepartment, "Habits", onClick = { onOpenTab("HABITS") })
+                if ("view_focus" !in hidden) DrawerRow(Icons.Filled.Timer, "Focus", onClick = { onOpenTab("FOCUS") })
+            }
+            }
 
-            SectionHeader("")
-            DrawerRow(Icons.Filled.ContentCopy, "Templates", onClick = onOpenTemplates)
-            DrawerRow(Icons.Filled.AttachFile, "Attachments", onClick = onOpenAttachments)
-            DrawerRow(Icons.Filled.BarChart, "Statistics", onClick = onOpenStats)
-            DrawerRow(Icons.Filled.ChecklistRtl, "Weekly review", onClick = onOpenReview)
+            if ("more" !in hidden) {
+            SectionHeader("More", open = open("more"), onToggle = { toggle("more") })
+            if (open("more")) {
+                if ("templates" !in hidden) DrawerRow(Icons.Filled.ContentCopy, "Templates", onClick = onOpenTemplates)
+                if ("attachments" !in hidden) DrawerRow(Icons.Filled.AttachFile, "Attachments", onClick = onOpenAttachments)
+                if ("statistics" !in hidden) DrawerRow(Icons.Filled.BarChart, "Statistics", onClick = onOpenStats)
+                if ("review" !in hidden) DrawerRow(Icons.Filled.ChecklistRtl, "Weekly review", onClick = onOpenReview)
+            }
+            }
             DrawerRow(Icons.Filled.Settings, "Settings", onClick = onOpenSettings)
         }
     }
@@ -455,6 +473,7 @@ private fun PinnedFavourites(
     lists: List<ListEntity>, folders: List<FolderEntity>,
     tags: List<com.todocompanion.app.data.entity.TagEntity>, contexts: List<com.todocompanion.app.data.entity.ContextEntity>,
     vm: AppViewModel, current: ViewRef, onSelect: (ViewRef) -> Unit,
+    open: Boolean = true, onToggle: (() -> Unit)? = null,
 ) {
     val filters by vm.filters.collectAsState()
     data class Pin(val icon: ImageVector, val emoji: String?, val label: String, val color: Color?, val view: ViewRef, val ref: String)
@@ -471,7 +490,8 @@ private fun PinnedFavourites(
     }
     if (resolved.isEmpty()) return
     var unpinTarget by remember { mutableStateOf<String?>(null) }
-    SectionHeader("Favourites")
+    SectionHeader("Favourites", open = open, onToggle = onToggle)
+    if (!open) return
     Column(Modifier.padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         resolved.chunked(4).forEach { rowItems ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

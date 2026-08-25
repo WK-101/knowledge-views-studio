@@ -207,6 +207,16 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                     vm.saveSettings(s.copy(bottomTabsHidden = next))
                 }
             }
+            Spacer(Modifier.height(10.dp)); Sub("Drawer sections")
+            Text("Show or hide whole sections of the navigation drawer. Settings always stays visible.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
+            listOf(
+                "fav" to "Favourites", "smart" to "Smart lists", "lists" to "Lists", "tags" to "Tags",
+                "filters" to "Filters", "contexts" to "Contexts", "views" to "Views", "more" to "More (Templates, Attachments…)",
+            ).forEach { (key, label) ->
+                Toggle(label, key !in s.sidebarHidden) { on ->
+                    vm.setSidebarSectionHidden(key, !on)
+                }
+            }
         }
 
         SettingsGroup(Icons.Filled.Schedule, "Date & time", open["datetime"] == true, { open["datetime"] = open["datetime"] != true }) {

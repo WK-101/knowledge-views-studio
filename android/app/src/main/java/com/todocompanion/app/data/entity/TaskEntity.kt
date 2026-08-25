@@ -56,6 +56,7 @@ data class TaskEntity(
     val pinned: Boolean = false,
     val isNote: Boolean = false,   // a "note" is a task with no checkbox
 
+    val progressPct: Int? = null,   // manual completion 0..100 for a leaf task (null = none / use rollup)
     val isGoal: Boolean = false,
     val isProject: Boolean = false,
     val reviewEveryDays: Int? = null,

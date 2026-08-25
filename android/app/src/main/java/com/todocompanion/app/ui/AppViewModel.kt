@@ -51,6 +51,7 @@ data class QuickAddOptions(
     val listId: String? = null,
     val tagIds: List<String> = emptyList(),
     val reminderMillis: Long? = null,
+    val note: String = "",
 )
 
 enum class UndoKind { COMPLETED, ABANDONED, TRASHED }
@@ -104,7 +105,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** MLO-style "show matches in the tree" for filter/tag/context views. */
     val filterHierarchy = MutableStateFlow(false)
 
-    private val zone: ZoneId get() = ZoneId.systemDefault()
+    // Honour the configured time zone (Settings) for all date math; fall back to the device zone.
+    private val zone: ZoneId get() = settings.value.timeZone.takeIf { it.isNotBlank() }
+        ?.let { runCatching { ZoneId.of(it) }.getOrNull() } ?: ZoneId.systemDefault()
 
     /** Live task count per smart list, for the drawer. */
     val smartCounts: StateFlow<Map<SmartKind, Int>> =
@@ -368,8 +371,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             repo.setTaskContexts(id, ctxIds.distinct())
         }
 
-        // Natural-language recurrence ("every Tuesday", "monthly", "every 2 weeks").
-        if (parsed.rrule != null) repo.getTask(id)?.let { repo.saveTask(it.copy(rrule = parsed.rrule)) }
+        // Natural-language recurrence ("every Tuesday", "monthly", "every 2 weeks") + optional note.
+        if (parsed.rrule != null || opts.note.isNotBlank()) repo.getTask(id)?.let {
+            repo.saveTask(it.copy(rrule = parsed.rrule ?: it.rrule, note = opts.note.ifBlank { it.note }))
+        }
 
         val reminderAt = opts.reminderMillis ?: (if (parsed.hasTime && due != null) due else null)
         if (reminderAt != null) {
@@ -801,6 +806,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun togglePinnedRef(ref: String) = viewModelScope.launch {
         val cur = settings.value.pinnedRefs
         repo.saveSettings(settings.value.copy(pinnedRefs = if (ref in cur) cur - ref else cur + ref))
+    }
+
+    // ---------- sidebar section fold + visibility (persisted) ----------
+    fun toggleSidebarSection(key: String) = viewModelScope.launch {
+        val cur = settings.value.sidebarCollapsed
+        repo.saveSettings(settings.value.copy(sidebarCollapsed = if (key in cur) cur - key else cur + key))
+    }
+    fun setSidebarSectionHidden(key: String, hidden: Boolean) = viewModelScope.launch {
+        val cur = settings.value.sidebarHidden
+        repo.saveSettings(settings.value.copy(sidebarHidden = if (hidden) cur + key else cur - key))
     }
 
     // ---------- saved view tabs ----------

@@ -864,33 +864,10 @@ private fun ManageListDialog(
     )
 }
 
-private val FOLDER_EMOJIS = listOf("📁", "📂", "🗂️", "📥", "⭐", "🎯", "💼", "🏠", "🛒", "✈️", "📚", "💡", "❤️", "🔥", "✅", "🧠", "💪", "🎨", "🎵", "🍽️", "🏦", "💰", "🩺", "🏋️", "🎓", "🐾", "🌱", "☕", "🎮", "📝")
-
-/** Icon picker: quick suggestions plus a field that accepts ANY emoji typed on the system keyboard. */
-@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+/** Icon picker: a comprehensive categorised emoji grid plus a free-type field. */
 @Composable
 private fun EmojiPicker(current: String?, onPick: (String?) -> Unit) {
-    var typed by remember { mutableStateOf(current ?: "") }
-    Column {
-        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Box(Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(if (current == null) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant).clickable { typed = ""; onPick(null) }, contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.Folder, "No icon", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            FOLDER_EMOJIS.forEach { e ->
-                Box(Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(if (current == e) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant).clickable { typed = e; onPick(e) }, contentAlignment = Alignment.Center) {
-                    Text(e, style = MaterialTheme.typography.titleMedium)
-                }
-            }
-        }
-        Spacer(Modifier.size(8.dp))
-        OutlinedTextField(
-            value = typed,
-            onValueChange = { v -> typed = v; onPick(v.trim().ifBlank { null }) },
-            singleLine = true,
-            label = { Text("Or type any emoji") },
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
+    com.todocompanion.app.ui.components.EmojiGridPicker(current = current, onPick = onPick)
 }
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)

@@ -221,6 +221,20 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                     Spacer(Modifier.height(6.dp))
                     androidx.compose.material3.LinearProgressIndicator(progress = { pct.toFloat() }, modifier = Modifier.fillMaxWidth().height(7.dp).clip(RoundedCornerShape(4.dp)))
                 }
+            } else {
+                // Leaf task: a manual progress slider (partial completion, distinct from done).
+                AppCard {
+                    var p by remember(task.id, task.progressPct) { mutableStateOf((task.progressPct ?: 0).toFloat()) }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CardLabel("Progress"); Spacer(Modifier.weight(1f))
+                        Text("${p.toInt()}%", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    androidx.compose.material3.Slider(
+                        value = p, onValueChange = { p = it },
+                        onValueChangeFinished = { update { it.copy(progressPct = p.toInt().takeIf { v -> v > 0 }) } },
+                        valueRange = 0f..100f, steps = 19,
+                    )
+                }
             }
 
             AppCard {

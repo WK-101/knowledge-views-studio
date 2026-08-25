@@ -67,6 +67,10 @@ data class AppSettings(
     val resumeLastView: Boolean = false,
     val lastViewRef: String = "",       // ref token of the last-opened view (kept only when resume is on)
     val defaultViewRef: String = "",    // ref token to open on launch (empty = Today)
+    // Sidebar section keys currently collapsed (persisted so folds survive an app restart).
+    val sidebarCollapsed: Set<String> = emptySet(),
+    // Sidebar section keys the user has hidden entirely from the drawer.
+    val sidebarHidden: Set<String> = emptySet(),
 ) {
     fun toMap(): Map<String, String> = mapOf(
         Keys.FIRST_VIEW to firstView.name,
@@ -108,6 +112,8 @@ data class AppSettings(
         Keys.RESUME_LAST to resumeLastView.toString(),
         Keys.LAST_VIEW to lastViewRef,
         Keys.DEFAULT_VIEW to defaultViewRef,
+        Keys.SIDEBAR_COLLAPSED to sidebarCollapsed.joinToString(","),
+        Keys.SIDEBAR_HIDDEN to sidebarHidden.joinToString(","),
     )
 
     object Keys {
@@ -150,6 +156,8 @@ data class AppSettings(
         const val RESUME_LAST = "resume_last"
         const val LAST_VIEW = "last_view"
         const val DEFAULT_VIEW = "default_view"
+        const val SIDEBAR_COLLAPSED = "sidebar_collapsed"
+        const val SIDEBAR_HIDDEN = "sidebar_hidden"
     }
 
     companion object {
@@ -199,6 +207,8 @@ data class AppSettings(
             resumeLastView = m[Keys.RESUME_LAST]?.toBooleanStrictOrNull() ?: false,
             lastViewRef = m[Keys.LAST_VIEW] ?: "",
             defaultViewRef = m[Keys.DEFAULT_VIEW] ?: "",
+            sidebarCollapsed = (m[Keys.SIDEBAR_COLLAPSED] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
+            sidebarHidden = (m[Keys.SIDEBAR_HIDDEN] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             dailySummaryEnabled = m[Keys.SUMMARY_ON]?.toBooleanStrictOrNull() ?: false,
             dailySummaryHour = m[Keys.SUMMARY_H]?.toIntOrNull() ?: 8,
             dailySummaryMinute = m[Keys.SUMMARY_M]?.toIntOrNull() ?: 0,
