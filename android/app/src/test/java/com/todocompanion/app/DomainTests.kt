@@ -440,4 +440,16 @@ class HabitStatsTierITest {
         assertTrue(com.todocompanion.app.domain.habit.HabitStats.isExpectedDay(h, 30003L))   // 30003 % 3 == 0
         assertFalse(com.todocompanion.app.domain.habit.HabitStats.isExpectedDay(h, 30004L))
     }
+
+    @Test fun breakHabitIsNeverActivelyDue() {
+        // A clean-kept break habit has no positive daily action, so it must not read as "due" —
+        // otherwise it blocks the perfect-day banner and pollutes batch check-in.
+        val h = habit(type = "break", target = 0)
+        assertFalse(com.todocompanion.app.domain.habit.HabitStats.dueToday(h, today, empty, 0))
+    }
+
+    @Test fun pausedHabitIsNotDue() {
+        val h = habit().copy(paused = true)
+        assertFalse(com.todocompanion.app.domain.habit.HabitStats.dueToday(h, today, empty, 0))
+    }
 }

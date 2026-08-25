@@ -113,10 +113,13 @@ private class HabitsFactory(private val context: Context) : RemoteViewsService.R
         val today = LocalDate.now(ZoneId.systemDefault()).toEpochDay()
         val habits = runBlocking { app.repository.getHabitsOnce() }.filter { !it.archived }
         val checkins = runBlocking { app.repository.getHabitCheckinsOnce() }
-        rows = habits.filter { HabitStats.isScheduled(today, HabitStats.parseSchedule(it.scheduleDays)) }
+        // Respect the full frequency model (interval / times-per-week/month), skip paused habits, and
+        // omit break habits (a tap here would mislog a relapse). "Done" uses meetsGoal so a target of 0
+        // isn't perpetually shown as checked.
+        rows = habits.filter { !it.paused && it.habitType != "break" && HabitStats.isExpectedDay(it, today) }
             .map { h ->
                 val count = checkins.firstOrNull { it.habitId == h.id && it.epochDay == today }?.count ?: 0
-                Row(h.id, (h.emoji?.plus(" ") ?: "") + h.name, count >= h.targetPerDay,
+                Row(h.id, (h.emoji?.plus(" ") ?: "") + h.name, HabitStats.meetsGoal(h, count),
                     if (h.targetPerDay > 1) "$count/${h.targetPerDay}" else "")
             }
     }

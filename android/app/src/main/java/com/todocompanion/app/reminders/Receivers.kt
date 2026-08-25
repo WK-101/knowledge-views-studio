@@ -179,6 +179,7 @@ class ReminderReceiver : BroadcastReceiver() {
                         val h = app.repository.getHabitsOnce().firstOrNull { it.id == habitId }
                         if (h != null) app.repository.setCheckinValue(habitId, todayEpoch, h.targetPerDay.coerceAtLeast(1))
                         com.todocompanion.app.widget.HabitsWidget.refresh(context)
+                        com.todocompanion.app.widget.HabitStatsWidget.refresh(context)
                     } finally { pending.finish() }
                 }
             }

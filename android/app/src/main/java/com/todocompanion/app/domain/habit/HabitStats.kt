@@ -83,6 +83,10 @@ object HabitStats {
     /** Should the user still act on this habit today? (Not paused, expected, and not already satisfied.) */
     fun dueToday(habit: HabitEntity, today: Long, doneDays: Set<Long>, todayCount: Int): Boolean {
         if (habit.paused || habit.archived) return false
+        // A break habit has no positive daily action — success is passive (not exceeding the limit),
+        // so it is never "due" to complete. This keeps it out of the due strip, batch check-in and the
+        // perfect-day tally, where treating it as due would mislog a relapse or block the celebration.
+        if (habit.habitType == "break") return false
         if (today < habit.startEpochDay()) return false
         return when (habit.freqType) {
             FREQ_TIMES_WEEK -> rollingCount(doneDays, today, 7) < habit.freqParam.coerceAtLeast(1)
