@@ -269,6 +269,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                     onOpenStats = { showStats = true; scope.launch { drawerState.close() } },
                     onOpenReview = { showReview = true; scope.launch { drawerState.close() } },
                     onOpenSettings = { tab = Tab.SETTINGS; scope.launch { drawerState.close() } },
+                    onOpenTab = { name -> runCatching { Tab.valueOf(name) }.getOrNull()?.let { tab = it }; scope.launch { drawerState.close() } },
                 )
             },
         ) {

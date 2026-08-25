@@ -305,6 +305,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         currentView.value = view
         groupMode.value = if (view is ViewRef.ListView) GroupMode.NONE else GroupMode.DATE
         outlineMode.value = false
+        // Remember the last place, when the user opted into resuming there.
+        val s = settings.value
+        if (s.resumeLastView) viewModelScope.launch { repo.saveSettings(repo.settingsSnapshot().copy(lastViewRef = com.todocompanion.app.domain.view.ViewTabs.refOf(view))) }
+    }
+
+    /** On launch, open the resume-last view (if enabled) or the configured default view. */
+    init {
+        viewModelScope.launch {
+            val s = repo.settingsSnapshot()
+            val ref = if (s.resumeLastView && s.lastViewRef.isNotBlank()) s.lastViewRef else s.defaultViewRef.ifBlank { null }
+            if (ref != null) com.todocompanion.app.domain.view.ViewTabs.viewOf(ref)?.let { v ->
+                currentView.value = v
+                groupMode.value = if (v is ViewRef.ListView) GroupMode.NONE else GroupMode.DATE
+            }
+        }
     }
 
     fun currentTitle(): String = when (val v = currentView.value) {

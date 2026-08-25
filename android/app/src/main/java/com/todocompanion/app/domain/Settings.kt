@@ -63,6 +63,10 @@ data class AppSettings(
     val pinnedRefs: List<String> = emptyList(),
     // Saved view tabs (view + group + sort + outline/hierarchy + zoom), JSON-encoded.
     val viewTabsJson: String = "",
+    // Startup: which view opens on launch. resumeLastView wins over defaultViewRef; both empty = Today.
+    val resumeLastView: Boolean = false,
+    val lastViewRef: String = "",       // ref token of the last-opened view (kept only when resume is on)
+    val defaultViewRef: String = "",    // ref token to open on launch (empty = Today)
 ) {
     fun toMap(): Map<String, String> = mapOf(
         Keys.FIRST_VIEW to firstView.name,
@@ -101,6 +105,9 @@ data class AppSettings(
         Keys.SUMMARY_M to dailySummaryMinute.toString(),
         Keys.PINNED to pinnedRefs.joinToString("|"),
         Keys.VIEW_TABS to viewTabsJson,
+        Keys.RESUME_LAST to resumeLastView.toString(),
+        Keys.LAST_VIEW to lastViewRef,
+        Keys.DEFAULT_VIEW to defaultViewRef,
     )
 
     object Keys {
@@ -140,6 +147,9 @@ data class AppSettings(
         const val SUMMARY_M = "summary_m"
         const val PINNED = "pinned_refs"
         const val VIEW_TABS = "view_tabs"
+        const val RESUME_LAST = "resume_last"
+        const val LAST_VIEW = "last_view"
+        const val DEFAULT_VIEW = "default_view"
     }
 
     companion object {
@@ -186,6 +196,9 @@ data class AppSettings(
             calendarListFilter = (m[Keys.CAL_FILTER] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             pinnedRefs = (m[Keys.PINNED] ?: "").split("|").filter { it.isNotBlank() },
             viewTabsJson = m[Keys.VIEW_TABS] ?: "",
+            resumeLastView = m[Keys.RESUME_LAST]?.toBooleanStrictOrNull() ?: false,
+            lastViewRef = m[Keys.LAST_VIEW] ?: "",
+            defaultViewRef = m[Keys.DEFAULT_VIEW] ?: "",
             dailySummaryEnabled = m[Keys.SUMMARY_ON]?.toBooleanStrictOrNull() ?: false,
             dailySummaryHour = m[Keys.SUMMARY_H]?.toIntOrNull() ?: 8,
             dailySummaryMinute = m[Keys.SUMMARY_M]?.toIntOrNull() ?: 0,

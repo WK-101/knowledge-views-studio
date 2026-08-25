@@ -27,6 +27,10 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AllInbox
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.ViewTimeline
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeleteOutline
@@ -124,6 +128,7 @@ fun AppDrawer(
     onOpenStats: () -> Unit,
     onOpenReview: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenTab: (String) -> Unit = {},
 ) {
     val folders by vm.folders.collectAsState()
     val lists by vm.lists.collectAsState()
@@ -236,6 +241,13 @@ fun AppDrawer(
             if (open("contexts")) contexts.filter { it.parentId == null }.sortedWith(compareBy({ it.name })).forEach { c ->
                 ContextNode(c, 0, contexts, current, vm, onSelect, onNewContext, onManageContext, onMoveContext)
             }
+
+            SectionHeader("Views")
+            DrawerRow(Icons.Filled.CalendarMonth, "Calendar", onClick = { onOpenTab("CALENDAR") })
+            DrawerRow(Icons.Filled.ViewTimeline, "Timeline", onClick = { onOpenTab("TIMELINE") })
+            DrawerRow(Icons.Filled.GridView, "Matrix", onClick = { onOpenTab("MATRIX") })
+            DrawerRow(Icons.Filled.LocalFireDepartment, "Habits", onClick = { onOpenTab("HABITS") })
+            DrawerRow(Icons.Filled.Timer, "Focus", onClick = { onOpenTab("FOCUS") })
 
             SectionHeader("")
             DrawerRow(Icons.Filled.BarChart, "Statistics", onClick = onOpenStats)

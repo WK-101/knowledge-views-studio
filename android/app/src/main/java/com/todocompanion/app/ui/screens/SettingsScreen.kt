@@ -32,13 +32,26 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.RocketLaunch
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.ViewSidebar
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Surface
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -67,6 +80,7 @@ import androidx.compose.ui.unit.dp
 import com.todocompanion.app.domain.AppSettings
 import com.todocompanion.app.domain.ThemeMode
 import com.todocompanion.app.domain.TimeFormat
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.todocompanion.app.data.entity.FlagEntity
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
@@ -92,10 +106,12 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         if (uri != null) vm.importFrom(uri) { ok -> Toast.makeText(context, if (ok) "Imported" else "Import failed", Toast.LENGTH_SHORT).show() }
     }
 
-    Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
+    // Collapsible category groups (TickTick-style compact list). All start collapsed.
+    val open = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
 
-        Section("Appearance")
-        AppCard {
+    Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 12.dp)) {
+
+        SettingsGroup(Icons.Filled.Palette, "Appearance", open["appearance"] == true, { open["appearance"] = open["appearance"] != true }) {
             Sub("Theme")
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 ThemeMode.entries.forEachIndexed { i, m ->
@@ -132,9 +148,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Text("A short swipe runs the first action; a longer swipe runs the “full” action.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
-        Spacer(Modifier.height(18.dp))
-        Section("Do-Next priority")
-        AppCard {
+        SettingsGroup(Icons.Filled.Tune, "Do-Next priority", open["priority"] == true, { open["priority"] = open["priority"] != true }) {
             Toggle("Use computed priority", s.priorityComputed) { vm.saveSettings(s.copy(priorityComputed = it)) }
             Text(if (s.priorityComputed) "MLO-style score ranks the Do-Next list — importance & urgency compound down the outline, plus a date term."
                  else "Computed score off. Do-Next orders by star, then importance/urgency, then your manual order.",
@@ -160,9 +174,23 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
 
-        Spacer(Modifier.height(18.dp))
-        Section("Sidebar")
-        AppCard {
+        SettingsGroup(Icons.Filled.RocketLaunch, "Startup", open["startup"] == true, { open["startup"] = open["startup"] != true }) {
+            Toggle("Resume where I left off", s.resumeLastView) { vm.saveSettings(s.copy(resumeLastView = it)) }
+            Text("Reopen the last view you had open. Overrides the default view below.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(10.dp)); Sub("Default view")
+            val startupChoices = listOf(
+                "" to "Today", "smart:INBOX" to "Inbox", "smart:DO_NEXT" to "Do Next",
+                "smart:NEXT7" to "Next 7 Days", "smart:SCHEDULED" to "Scheduled", "smart:ALL" to "All", "smart:GOALS" to "Goals",
+            )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                startupChoices.forEach { (ref, label) ->
+                    FilterChip(selected = s.defaultViewRef == ref, onClick = { vm.saveSettings(s.copy(defaultViewRef = ref)) }, label = { Text(label) })
+                }
+            }
+        }
+
+        SettingsGroup(Icons.Filled.ViewSidebar, "Sidebar & tabs", open["sidebar"] == true, { open["sidebar"] = open["sidebar"] != true }) {
             Sub("Smart lists")
             Text("Choose which smart lists appear in the navigation drawer.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
             SMART_KINDS.forEach { k ->
@@ -172,8 +200,8 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 }
             }
             Spacer(Modifier.height(10.dp)); Sub("Bottom bar")
-            Text("Tasks always shows. Hidden tabs stay reachable from the menu.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
-            listOf("CALENDAR" to "Calendar", "MATRIX" to "Matrix", "SEARCH" to "Search", "SETTINGS" to "Settings").forEach { (key, label) ->
+            Text("Tasks always shows. Hidden tabs stay reachable from the drawer menu.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
+            listOf("CALENDAR" to "Calendar", "TIMELINE" to "Timeline", "MATRIX" to "Matrix", "HABITS" to "Habits", "FOCUS" to "Focus", "SEARCH" to "Search", "SETTINGS" to "Settings").forEach { (key, label) ->
                 Toggle(label, key !in s.bottomTabsHidden) { on ->
                     val next = if (on) s.bottomTabsHidden - key else s.bottomTabsHidden + key
                     vm.saveSettings(s.copy(bottomTabsHidden = next))
@@ -181,9 +209,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
 
-        Spacer(Modifier.height(18.dp))
-        Section("Date & time")
-        AppCard {
+        SettingsGroup(Icons.Filled.Schedule, "Date & time", open["datetime"] == true, { open["datetime"] = open["datetime"] != true }) {
             Sub("Week starts on")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 val labels = listOf("System" to 0, "Mon" to 1, "Tue" to 2, "Wed" to 3, "Thu" to 4, "Fri" to 5, "Sat" to 6, "Sun" to 7)
@@ -206,9 +232,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
 
-        Spacer(Modifier.height(18.dp))
-        Section("Reminders")
-        AppCard {
+        SettingsGroup(Icons.Filled.Notifications, "Reminders", open["reminders"] == true, { open["reminders"] = open["reminders"] != true }) {
             Toggle("Daily summary notification", s.dailySummaryEnabled) { vm.saveSettings(s.copy(dailySummaryEnabled = it)) }
             if (s.dailySummaryEnabled) {
                 Row(Modifier.fillMaxWidth().clickable { showTime = true }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -218,9 +242,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
 
-        Spacer(Modifier.height(18.dp))
-        Section("Flags")
-        AppCard {
+        SettingsGroup(Icons.Filled.Flag, "Flags", open["flags"] == true, { open["flags"] = open["flags"] != true }) {
             Text("Named, coloured markers you can sort and group by. A flag stays on a task; the star is a separate ‘focus now’ toggle.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
             flags.forEachIndexed { i, f ->
@@ -241,9 +263,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
 
-        Spacer(Modifier.height(18.dp))
-        Section("Backup")
-        AppCard {
+        SettingsGroup(Icons.Filled.CloudSync, "Backup", open["backup"] == true, { open["backup"] = open["backup"] != true }) {
             Action("Export all data (JSON)") { exportLauncher.launch("todo-companion-backup.json") }
             Action("Import / restore (JSON)") { importLauncher.launch(arrayOf("application/json", "text/*", "*/*")) }
             Text("Complete, lossless local backup. No account, no cloud, no network.",
@@ -344,6 +364,28 @@ private fun FlagEditDialog(initial: FlagEntity?, onDismiss: () -> Unit, onSave: 
             }
         },
     )
+}
+
+/** A collapsible, iconized settings category (TickTick-style): a tidy header row that expands
+ *  its controls inline, so the screen reads as a compact list instead of one long lump. */
+@Composable
+private fun SettingsGroup(icon: ImageVector, title: String, expanded: Boolean, onToggle: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+        Column {
+            Row(Modifier.fillMaxWidth().clickable { onToggle() }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = .14f)), contentAlignment = Alignment.Center) {
+                    Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(19.dp))
+                }
+                Spacer(Modifier.width(12.dp))
+                Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Icon(if (expanded) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            AnimatedVisibility(visible = expanded) {
+                Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp)) { content() }
+            }
+        }
+    }
 }
 
 @Composable private fun Section(t: String) { Text(t, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary); Spacer(Modifier.height(8.dp)) }
