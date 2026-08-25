@@ -153,14 +153,42 @@ class ReminderReceiver : BroadcastReceiver() {
                         // Self-heal: only fire + reschedule while the time is still configured.
                         val stillWanted = h != null && !h.archived &&
                             h.reminderTimes.split(",").mapNotNull { it.trim().toIntOrNull() }.contains(min)
-                        if (stillWanted) {
-                            val scheduledToday = com.todocompanion.app.domain.habit.HabitStats.isScheduled(todayEpoch, com.todocompanion.app.domain.habit.HabitStats.parseSchedule(h!!.scheduleDays))
-                            val done = app.repository.getHabitCheckinsOnce().any { it.habitId == habitId && it.epochDay == todayEpoch && it.count >= h.targetPerDay }
-                            if (scheduledToday && !done) Notifications.showHabit(context, habitId, name)
+                        if (stillWanted && !h!!.paused) {
+                            val stats = com.todocompanion.app.domain.habit.HabitStats
+                            val scheduledToday = stats.isExpectedDay(h, todayEpoch) ||
+                                h.freqType == stats.FREQ_TIMES_WEEK || h.freqType == stats.FREQ_TIMES_MONTH
+                            val checkins = app.repository.getHabitCheckinsOnce()
+                            val doneDays = checkins.filter { it.habitId == habitId && it.status == "done" && stats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
+                            val todayCount = checkins.firstOrNull { it.habitId == habitId && it.epochDay == todayEpoch }?.count ?: 0
+                            val stillDue = stats.dueToday(h, todayEpoch, doneDays, todayCount)
+                            if (scheduledToday && stillDue) Notifications.showHabit(context, habitId, name, min)
                             AlarmScheduler.rescheduleHabit(context, habitId, name, min)
                         }
                     } finally { pending.finish() }
                 }
+            }
+
+            AlarmScheduler.ACTION_HABIT_DONE -> {
+                if (app == null) return
+                val habitId = intent.getStringExtra(AlarmScheduler.EXTRA_HABIT_ID) ?: return
+                androidx.core.app.NotificationManagerCompat.from(context).cancel(("habit:$habitId").hashCode())
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val todayEpoch = java.time.LocalDate.now(ZoneId.systemDefault()).toEpochDay()
+                        val h = app.repository.getHabitsOnce().firstOrNull { it.id == habitId }
+                        if (h != null) app.repository.setCheckinValue(habitId, todayEpoch, h.targetPerDay.coerceAtLeast(1))
+                        com.todocompanion.app.widget.HabitsWidget.refresh(context)
+                    } finally { pending.finish() }
+                }
+            }
+
+            AlarmScheduler.ACTION_HABIT_SNOOZE -> {
+                val habitId = intent.getStringExtra(AlarmScheduler.EXTRA_HABIT_ID) ?: return
+                val name = intent.getStringExtra(AlarmScheduler.EXTRA_HABIT_NAME) ?: "your habit"
+                val min = intent.getStringExtra(AlarmScheduler.EXTRA_HABIT_MIN)?.toIntOrNull() ?: 0
+                androidx.core.app.NotificationManagerCompat.from(context).cancel(("habit:$habitId").hashCode())
+                AlarmScheduler.snoozeHabit(context, habitId, name, min, 60)
             }
         }
     }

@@ -137,6 +137,12 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     val exportIcsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/calendar")) { uri ->
         if (uri != null) vm.exportIcsTo(uri, includeCompleted = false) { ok -> Toast.makeText(context, if (ok) "Calendar exported" else "Export failed", Toast.LENGTH_SHORT).show() }
     }
+    val exportHabitsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        if (uri != null) vm.exportHabitsCsvTo(uri) { ok -> Toast.makeText(context, if (ok) "Habits exported" else "Export failed", Toast.LENGTH_SHORT).show() }
+    }
+    val importHabitsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) vm.importHabitsCsv(uri) { _, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() }
+    }
     // Opening the system document picker (Storage Access Framework) can throw
     // ActivityNotFoundException on devices whose Files / DocumentsUI app is missing or disabled —
     // which crashed every import/export action. Guard the launch so it shows a message instead.
@@ -483,6 +489,11 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             Action("Import from Todoist / TickTick / MLO") { safePick { importExternalLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "text/xml", "application/xml", "text/*", "*/*")) } }
             Text("Reads their CSV export (Todoist, TickTick) or OPML (MLO) on-device — no account, nothing uploaded.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+            HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+            Action("Export habits (CSV)") { safePick { exportHabitsLauncher.launch("todo-companion-habits.csv") } }
+            Action("Import habits (Loop / CSV)") { safePick { importHabitsLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "text/*", "*/*")) } }
+            Text("Move habit check-ins in and out — reads Loop Habit Tracker's Checkmarks export or our own habit CSV.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
         }
 

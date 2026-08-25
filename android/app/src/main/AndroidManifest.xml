@@ -183,6 +183,13 @@
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_next7_info" />
         </receiver>
 
+        <receiver android:name=".widget.HabitStatsWidget" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_habitstats_info" />
+        </receiver>
+
         <!-- H5: Quick Settings tile → jump straight into quick-add from the notification shade. -->
         <service
             android:name=".tiles.CaptureTileService"

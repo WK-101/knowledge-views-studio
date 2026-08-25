@@ -104,6 +104,26 @@ object Export {
         return sb.toString()
     }
 
+    /** Long-format CSV of habit check-ins (re-importable by us; opens in any spreadsheet). */
+    fun toHabitsCsv(
+        habits: List<com.todocompanion.app.data.entity.HabitEntity>,
+        checkins: List<com.todocompanion.app.data.entity.HabitCheckinEntity>,
+    ): String {
+        fun esc(s: String): String =
+            if (s.any { it == ',' || it == '"' || it == '\n' || it == '\r' }) "\"" + s.replace("\"", "\"\"") + "\"" else s
+        val byId = habits.associateBy { it.id }
+        val sb = StringBuilder()
+        sb.append("Habit,Type,Unit,Target,Frequency,Date,Value,Status\n")
+        checkins.sortedWith(compareBy({ it.habitId }, { it.epochDay })).forEach { c ->
+            val h = byId[c.habitId] ?: return@forEach
+            val date = java.time.LocalDate.ofEpochDay(c.epochDay).format(DATE)
+            val row = listOf(h.name, h.habitType, h.unit ?: "", h.targetPerDay.toString(),
+                com.todocompanion.app.domain.habit.HabitStats.frequencyLabel(h), date, c.count.toString(), c.status)
+            sb.append(row.joinToString(",") { esc(it) }).append('\n')
+        }
+        return sb.toString()
+    }
+
     private val ICS_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
     private val ICS_DTUTC: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'")
 

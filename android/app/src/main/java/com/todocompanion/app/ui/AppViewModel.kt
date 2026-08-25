@@ -850,6 +850,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
     private fun refreshHabitWidgets() {
         com.todocompanion.app.widget.HabitsWidget.refresh(appCtx)
+        com.todocompanion.app.widget.HabitStatsWidget.refresh(appCtx)
     }
 
     // ---------- deep-work coach (H4) ----------
@@ -1259,6 +1260,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             appCtx.contentResolver.openOutputStream(uri)?.use { it.write(ics.toByteArray()) }
         }.isSuccess
         onDone(ok)
+    }
+    fun exportHabitsCsvTo(uri: Uri, onDone: (Boolean) -> Unit) = viewModelScope.launch {
+        val ok = runCatching {
+            val csv = repo.exportHabitsCsv()
+            appCtx.contentResolver.openOutputStream(uri)?.use { it.write(csv.toByteArray()) }
+        }.isSuccess
+        onDone(ok)
+    }
+    fun importHabitsCsv(uri: Uri, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
+        val n = runCatching {
+            val text = appCtx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: return@runCatching -1
+            repo.importHabitsCsv(text)
+        }.getOrDefault(-1)
+        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
+        com.todocompanion.app.widget.HabitsWidget.refresh(appCtx)
+        when { n < 0 -> onDone(false, "Couldn't read that CSV — export from Loop, or our habit CSV"); n == 0 -> onDone(false, "No check-ins found in that file"); else -> onDone(true, "Imported $n habit check-ins") }
     }
     // ---------- Tier D: folder backup & account-free sync ----------
     private fun ensureDeviceId(): String {

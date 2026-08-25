@@ -12,4 +12,5 @@
     <string name="widget_donext_desc">Your computed Do-Next list — filter by energy and time you have</string>
     <string name="widget_next7_desc">A workload bar per day for the next week vs your capacity</string>
     <string name="tile_capture_label">Add task</string>
+    <string name="widget_habitstats_desc">Habits done today and your best current streak</string>
 </resources>

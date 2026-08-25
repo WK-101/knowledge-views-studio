@@ -140,17 +140,26 @@ object Notifications {
         runCatching { NotificationManagerCompat.from(context).notify(FOCUS_ID, n) }
     }
 
-    fun showHabit(context: Context, habitId: String, name: String) {
+    private val HABIT_LINES = listOf(
+        "Small steps, big change.", "Keep the streak alive 🔥", "Two minutes is enough to start.",
+        "Future-you says thanks.", "Consistency beats intensity.", "You've got this.", "One rep for momentum.",
+    )
+
+    fun showHabit(context: Context, habitId: String, name: String, minute: Int = -1) {
         ensureChannel(context)
-        val n = NotificationCompat.Builder(context, CHANNEL_ID)
+        val line = HABIT_LINES[(habitId.hashCode() + (System.currentTimeMillis() / 86_400_000L).toInt()).let { ((it % HABIT_LINES.size) + HABIT_LINES.size) % HABIT_LINES.size }]
+        val reqBase = ("habit:$habitId").hashCode()
+        val doneExtras = mapOf(AlarmScheduler.EXTRA_HABIT_ID to habitId, AlarmScheduler.EXTRA_HABIT_NAME to name, AlarmScheduler.EXTRA_HABIT_MIN to minute.toString())
+        val b = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle("Habit reminder")
-            .setContentText("Time for $name")
+            .setContentTitle("Time for $name")
+            .setContentText(line)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(openApp(context))
-            .build()
-        runCatching { NotificationManagerCompat.from(context).notify(("habit:$habitId").hashCode(), n) }
+            .addAction(0, "Done", broadcast(context, AlarmScheduler.ACTION_HABIT_DONE, reqBase + 1, doneExtras))
+            .addAction(0, "Snooze 1h", broadcast(context, AlarmScheduler.ACTION_HABIT_SNOOZE, reqBase + 2, doneExtras))
+        runCatching { NotificationManagerCompat.from(context).notify(("habit:$habitId").hashCode(), b.build()) }
     }
 
     fun showSummary(context: Context, dueToday: Int) {

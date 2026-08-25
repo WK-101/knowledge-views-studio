@@ -23,6 +23,8 @@ object AlarmScheduler {
     const val ACTION_AUTO_BACKUP = "com.todocompanion.app.action.AUTO_BACKUP"
     const val ACTION_FOCUS_DONE = "com.todocompanion.app.action.FOCUS_DONE"
     const val ACTION_HABIT = "com.todocompanion.app.action.HABIT"
+    const val ACTION_HABIT_DONE = "com.todocompanion.app.action.HABIT_DONE"
+    const val ACTION_HABIT_SNOOZE = "com.todocompanion.app.action.HABIT_SNOOZE"
 
     const val EXTRA_TASK_ID = "taskId"
     const val EXTRA_TITLE = "title"
@@ -170,6 +172,13 @@ object AlarmScheduler {
                     mapOf(EXTRA_HABIT_ID to h.id, EXTRA_HABIT_NAME to ((h.emoji?.plus(" ") ?: "") + h.name), EXTRA_HABIT_MIN to min.toString())))
             }
         }
+    }
+
+    /** Snooze a habit reminder: fire it again [delayMin] minutes from now (notification action). */
+    fun snoozeHabit(context: Context, habitId: String, habitName: String, minute: Int, delayMin: Int = 60) {
+        val at = System.currentTimeMillis() + delayMin * 60_000L
+        setAlarm(context, at, broadcast(context, ACTION_HABIT, habitReqCode(habitId, minute) + 7,
+            mapOf(EXTRA_HABIT_ID to habitId, EXTRA_HABIT_NAME to habitName, EXTRA_HABIT_MIN to minute.toString())))
     }
 
     /** Reschedule a single habit-reminder alarm for the next day (called from the receiver). */

@@ -739,6 +739,27 @@ class AppRepository(private val db: AppDatabase) {
             tasks = tasks.getAll(), includeCompleted = includeCompleted, now = System.currentTimeMillis(),
         )
 
+    /** Habit check-ins as long-format CSV (re-importable). */
+    suspend fun exportHabitsCsv(): String =
+        com.todocompanion.app.domain.port.Export.toHabitsCsv(habits.getAll(), habits.getCheckins())
+
+    /** Import habit check-ins from our CSV or a Loop "Checkmarks" export; returns rows imported. */
+    suspend fun importHabitsCsv(text: String): Int {
+        val res = com.todocompanion.app.data.sync.HabitImporter.parse(text) ?: return 0
+        val existing = habits.getAll().associateBy { it.name.lowercase() }.toMutableMap()
+        res.rows.groupBy { it.habit }.forEach { (name, rows) ->
+            val h = existing[name.lowercase()] ?: run {
+                val id = createHabit(name.trim(), null, null, 1, com.todocompanion.app.data.entity.WorkspaceEntity.DEFAULT_ID)
+                habits.getAll().first { it.id == id }.also { existing[name.lowercase()] = it }
+            }
+            rows.forEach { r ->
+                if (r.count > 0 || r.status == "skip")
+                    habits.upsertCheckin(HabitCheckinEntity(h.id, r.epochDay, r.count, r.status))
+            }
+        }
+        return res.rows.size
+    }
+
     /** Flat CSV (lossy, portable — opens in any spreadsheet). */
     suspend fun exportCsv(includeCompleted: Boolean): String =
         com.todocompanion.app.domain.port.Export.toCsv(
