@@ -187,6 +187,8 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         var showAttachments by remember { mutableStateOf(false) }
         var showCountdowns by remember { mutableStateOf(false) }
         var showPlan by remember { mutableStateOf(false) }
+        // G4 interactive time-blocking: which (day, minute) slot the user tapped on the calendar.
+        var blockAt by remember { mutableStateOf<Pair<java.time.LocalDate, Int>?>(null) }
         var menu by remember { mutableStateOf(false) }
         // Hoisted per-tab controls, surfaced in the shared top bar to free screen space.
         var calMode by remember { mutableStateOf(settings.calendarDefaultMode) }
@@ -507,9 +509,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                                 calAnchor, calSelected, { calAnchor = it }, { calSelected = it },
                                 onAddOnDate = { d ->
                                     openQuickAdd(d.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli())
-                                }, onAddAt = { d, minute ->
-                                    openQuickAdd(d.atStartOfDay(ZoneId.systemDefault()).plusMinutes(minute.toLong()).toInstant().toEpochMilli(), withTime = true)
-                                })
+                                }, onAddAt = { d, minute -> blockAt = d to minute })
                             Tab.TIMELINE -> com.todocompanion.app.ui.screens.TimelineScreen(vm, ::openTask, selectedLists = timelineLists, showDone = timelineShowDone)
                             Tab.MATRIX -> MatrixScreen(vm, ::openTask, matrixSettings, { matrixSettings = false })
                             Tab.HABITS -> com.todocompanion.app.ui.screens.HabitsScreen(vm)
@@ -673,6 +673,39 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                 onDismiss = { filterEdit = null },
                 onDelete = { vm.deleteFilter(f); filterEdit = null },
                 onSave = { updated -> vm.saveFilter(updated); vm.select(ViewRef.FilterView(updated.id)); tab = Tab.TASKS; filterEdit = null })
+        }
+
+        // Time-block chooser (G4): tapping an empty calendar slot places a task there.
+        blockAt?.let { (day, minute) ->
+            val atMillis = day.atStartOfDay(ZoneId.systemDefault()).plusMinutes(minute.toLong()).toInstant().toEpochMilli()
+            val candidates = remember(blockAt) { vm.unscheduledForBlocking(12) }
+            AlertDialog(
+                onDismissRequest = { blockAt = null },
+                confirmButton = {},
+                dismissButton = { TextButton(onClick = { blockAt = null }) { Text("Cancel") } },
+                title = { Text("Block ${"%02d:%02d".format(minute / 60, minute % 60)}") },
+                text = {
+                    androidx.compose.foundation.layout.Column {
+                        androidx.compose.material3.TextButton(onClick = { blockAt = null; openQuickAdd(atMillis, withTime = true) }) {
+                            Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("New task here")
+                        }
+                        if (candidates.isNotEmpty()) {
+                            androidx.compose.material3.HorizontalDivider()
+                            Text("Or schedule an unplanned one:", style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 6.dp))
+                            androidx.compose.foundation.layout.Column(Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState())) {
+                                candidates.forEach { t ->
+                                    Text(t.title.ifBlank { "Untitled" },
+                                        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                                            .clickable { vm.scheduleTaskAt(t.id, atMillis); blockAt = null }
+                                            .padding(vertical = 10.dp, horizontal = 4.dp),
+                                        maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                        }
+                    }
+                },
+            )
         }
 
         // First-run tour (F1) — drawn last so it overlays everything until dismissed.

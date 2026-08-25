@@ -15,7 +15,7 @@ import com.todocompanion.app.domain.port.BackupFile
  */
 object SyncEngine {
 
-    data class Result(val ok: Boolean, val message: String)
+    data class Result(val ok: Boolean, val message: String, val updated: Int = 0, val added: Int = 0, val peers: Int = 0)
 
     private fun fileName(deviceId: String) = "sync-$deviceId.json"
 
@@ -57,34 +57,51 @@ object SyncEngine {
         )
     }
 
-    /** One sync pass. Returns a human-readable outcome. */
-    suspend fun sync(context: Context, repo: AppRepository, folderUri: String, deviceId: String): Result {
+    /** One sync pass. Encrypts written files when [passphrase] is set; reports what changed (G2). */
+    suspend fun sync(context: Context, repo: AppRepository, folderUri: String, deviceId: String, passphrase: String = ""): Result {
         if (folderUri.isBlank()) return Result(false, "No sync folder chosen")
         if (BackupIO.tree(context, folderUri) == null) return Result(false, "Sync folder not accessible")
 
         val local = repo.snapshot()
-        // Fold in every other device's snapshot found in the folder.
+        val localById = local.tasks.associateBy { it.id }
         var merged = local
         var peers = 0
+        var wrongPass = false
         BackupIO.listJson(context, folderUri)
             .filter { it != fileName(deviceId) && it.startsWith("sync-") }
             .forEach { name ->
-                val text = BackupIO.readText(context, folderUri, name) ?: return@forEach
+                val raw = BackupIO.readText(context, folderUri, name) ?: return@forEach
+                val text = Crypto.decrypt(raw, passphrase)
+                if (text == null) { wrongPass = true; return@forEach }   // encrypted with a different key
                 val remote = runCatching { Backup.decode(text) }.getOrNull() ?: return@forEach
                 merged = merge(merged, remote); peers++
             }
 
+        // What changed from peers: tasks that are new locally or whose version was replaced (G2).
+        var updated = 0; var added = 0
+        merged.tasks.forEach { m ->
+            val was = localById[m.id]
+            if (was == null) added++ else if (was.updatedAt != m.updatedAt) updated++
+        }
+
         if (peers > 0) repo.applyMerged(merged)
-        // Write this device's snapshot (the merged view) so peers can pick up our edits.
-        val out = repo.snapshot().copy()
-        val ok = BackupIO.writeText(context, folderUri, fileName(deviceId), Backup.encode(out))
-        return if (!ok) Result(false, "Couldn't write to the sync folder")
-        else Result(true, if (peers == 0) "Synced (this device only so far)" else "Synced with $peers other device${if (peers == 1) "" else "s"}")
+        val out = repo.snapshot()
+        val payload = Crypto.encrypt(Backup.encode(out), passphrase)
+        val ok = BackupIO.writeText(context, folderUri, fileName(deviceId), payload)
+        if (!ok) return Result(false, "Couldn't write to the sync folder")
+        val changed = updated + added
+        val msg = buildString {
+            append(if (peers == 0) "Synced — this device only so far" else "Synced with $peers device${if (peers == 1) "" else "s"}")
+            if (changed > 0) append(" · $changed task${if (changed == 1) "" else "s"} updated")
+            if (wrongPass) append(" · a peer file couldn't be decrypted (check the passphrase)")
+        }
+        return Result(true, msg, updated, added, peers)
     }
 
-    /** Auto-backup: write a single timestamped, read-only copy of the full backup. */
-    suspend fun backup(context: Context, repo: AppRepository, folderUri: String, stampName: String): Boolean {
+    /** Auto-backup: write a timestamped copy of the full backup, encrypted when a passphrase is set. */
+    suspend fun backup(context: Context, repo: AppRepository, folderUri: String, stampName: String, passphrase: String = ""): Boolean {
         if (folderUri.isBlank()) return false
-        return BackupIO.writeText(context, folderUri, stampName, repo.exportJson())
+        val payload = Crypto.encrypt(repo.exportJson(), passphrase)
+        return BackupIO.writeText(context, folderUri, stampName, payload)
     }
 }

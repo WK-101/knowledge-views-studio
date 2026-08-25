@@ -418,9 +418,31 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             if (s.syncEnabled || s.syncFolder.isNotBlank()) {
                 Action(if (s.syncFolder.isBlank()) "Choose sync folder…" else "Sync folder: " + folderLabel(s.syncFolder)) { syncFolderLauncher.launch(null) }
                 Action("Sync now") { vm.runSyncNow { ok, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() } }
-                if (s.lastSyncAt > 0) Text("Last synced " + formatDue(s.lastSyncAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // G2: last-sync change summary is more informative than just a timestamp.
+                if (s.lastSyncSummary.isNotBlank()) Text(s.lastSyncSummary + (if (s.lastSyncAt > 0) " · " + formatDue(s.lastSyncAt) else ""),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                else if (s.lastSyncAt > 0) Text("Last synced " + formatDue(s.lastSyncAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("Point every device at the same folder. Merges are last-write-wins per task; each device keeps its own settings.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+            // G1: at-rest encryption for whatever lands in the folder.
+            var pass by remember(s.syncPassphrase) { mutableStateOf(s.syncPassphrase) }
+            var showPass by remember { mutableStateOf(false) }
+            Text("Encrypt folder files", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 2.dp))
+            Text("Set a passphrase and every backup/sync file is AES-encrypted — unreadable to the drive it lands on, and to us. Keep it safe: lose it and those files can't be recovered.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+            OutlinedTextField(
+                value = pass, onValueChange = { pass = it },
+                label = { Text("Passphrase (blank = off)") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                visualTransformation = if (showPass) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                trailingIcon = { TextButton(onClick = { showPass = !showPass }) { Text(if (showPass) "Hide" else "Show") } },
+            )
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.End) {
+                TextButton(enabled = pass != s.syncPassphrase, onClick = {
+                    vm.setSyncPassphrase(pass)
+                    Toast.makeText(context, if (pass.isBlank()) "Encryption off" else "Encryption on — new files will be encrypted", Toast.LENGTH_SHORT).show()
+                }) { Text("Save passphrase") }
             }
         }
 

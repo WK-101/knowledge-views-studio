@@ -612,6 +612,10 @@ class AppRepository(private val db: AppDatabase) {
         settings.putAll(s.toMap().map { SettingEntity(it.key, it.value) })
 
     // ============ export / import ============
+    /** Settings for export/sync, minus device-secret keys (the encryption passphrase never leaves). */
+    private suspend fun exportableSettings(): List<SettingEntity> =
+        settings.getAll().filterNot { it.key == com.todocompanion.app.domain.AppSettings.Keys.SYNC_PASS }
+
     suspend fun exportJson(): String = Backup.encode(
         BackupFile(
             exportedAt = now(),
@@ -630,7 +634,7 @@ class AppRepository(private val db: AppDatabase) {
             taskContexts = contexts.getCrossRefs(),
             reminders = reminders.getAll(),
             dependencies = deps.getAll(),
-            settings = settings.getAll(),
+            settings = exportableSettings(),
             attachments = hydratedAttachments(),
             flags = flags.getAll(),
             templates = templates.getAll(),
@@ -692,7 +696,7 @@ class AppRepository(private val db: AppDatabase) {
             tags = tags.getAll(), taskTags = tags.getCrossRefs(), contexts = contexts.getAll(),
             taskContexts = contexts.getCrossRefs(), reminders = reminders.getAll(), dependencies = deps.getAll(),
             // Attachment bytes stay local — syncing megabytes through the folder isn't worth it.
-            settings = settings.getAll(), attachments = attachments.getAll().map { it.copy(contentBase64 = "") }, flags = flags.getAll(),
+            settings = exportableSettings(), attachments = attachments.getAll().map { it.copy(contentBase64 = "") }, flags = flags.getAll(),
             templates = templates.getAll(), countdowns = countdowns.getAll(), activities = activity.getAll(),
         )
 

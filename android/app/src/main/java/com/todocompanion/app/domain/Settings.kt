@@ -90,6 +90,11 @@ data class AppSettings(
     val syncFolder: String = "",
     val deviceId: String = "",          // stable per-install id, seeded on first sync
     val lastSyncAt: Long = 0L,
+    // Optional passphrase (Tier G1) — AES-encrypts files written to the sync/backup folder at rest.
+    // Empty = plaintext. Stored locally only; never travels in a synced/exported file.
+    val syncPassphrase: String = "",
+    // Human-readable summary of the last sync ("Synced · 3 updated from Tablet") — G2.
+    val lastSyncSummary: String = "",
     // First-run onboarding shown (Tier F1).
     val onboarded: Boolean = false,
     // Curated theme-pack id ("" = none / use dynamic-or-accent). See ThemePrefs.
@@ -168,6 +173,8 @@ data class AppSettings(
         Keys.SYNC_DIR to syncFolder,
         Keys.DEVICE_ID to deviceId,
         Keys.LAST_SYNC to lastSyncAt.toString(),
+        Keys.SYNC_PASS to syncPassphrase,
+        Keys.LAST_SYNC_SUMMARY to lastSyncSummary,
         Keys.ONBOARDED to onboarded.toString(),
         Keys.THEME_PACK to themePack,
         Keys.PINNED to pinnedRefs.joinToString("|"),
@@ -238,6 +245,8 @@ data class AppSettings(
         const val SYNC_DIR = "sync_dir"
         const val DEVICE_ID = "device_id"
         const val LAST_SYNC = "last_sync"
+        const val SYNC_PASS = "sync_pass"
+        const val LAST_SYNC_SUMMARY = "last_sync_summary"
         const val ONBOARDED = "onboarded"
         const val THEME_PACK = "theme_pack"
         const val PINNED = "pinned_refs"
@@ -328,6 +337,8 @@ data class AppSettings(
             syncFolder = m[Keys.SYNC_DIR] ?: "",
             deviceId = m[Keys.DEVICE_ID] ?: "",
             lastSyncAt = m[Keys.LAST_SYNC]?.toLongOrNull() ?: 0L,
+            syncPassphrase = m[Keys.SYNC_PASS] ?: "",
+            lastSyncSummary = m[Keys.LAST_SYNC_SUMMARY] ?: "",
             onboarded = m[Keys.ONBOARDED]?.toBooleanStrictOrNull() ?: false,
             themePack = m[Keys.THEME_PACK] ?: "",
         )

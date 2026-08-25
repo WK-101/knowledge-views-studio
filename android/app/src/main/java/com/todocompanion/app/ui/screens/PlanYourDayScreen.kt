@@ -22,6 +22,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.PlaylistAddCheck
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material3.Button
@@ -95,6 +97,30 @@ fun PlanYourDayScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: ()
             }
             autoMsg?.let { Spacer(Modifier.size(6.dp)); Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center) }
             Spacer(Modifier.size(14.dp))
+
+            // Deadline-risk radar (G3): the week's committed work vs the time you actually have.
+            val risk = remember(tasks) { vm.deadlineRisk(7) }
+            if (risk.atRisk > 0) {
+                val over = risk.overCommitted
+                AppCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(if (over) Icons.Filled.Warning else Icons.Filled.CheckCircle, null,
+                            tint = if (over) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                        Spacer(Modifier.size(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(if (over) "Over-committed this week" else "This week fits", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                            Text("${risk.atRisk} deadline${if (risk.atRisk == 1) "" else "s"} need ~${"%.0f".format(risk.neededH)}h · about ${"%.0f".format(risk.freeH)}h free",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    if (over) {
+                        Spacer(Modifier.size(6.dp))
+                        Text("You're short ~${"%.0f".format(risk.neededH - risk.freeH)}h. Move, shrink, or drop something before it slips.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                Spacer(Modifier.size(14.dp))
+            }
 
             // ---------- Pick N for today (B1): commit a few backlog tasks to today ----------
             var showPick by remember { mutableStateOf(false) }

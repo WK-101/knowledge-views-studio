@@ -130,7 +130,7 @@ class ReminderReceiver : BroadcastReceiver() {
                         val folder = s.autoBackupFolder.ifBlank { s.syncFolder }
                         if (s.autoBackupEnabled && folder.isNotBlank()) {
                             val stamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
-                            com.todocompanion.app.data.sync.SyncEngine.backup(context, app.repository, folder, "todo-backup-$stamp.json")
+                            com.todocompanion.app.data.sync.SyncEngine.backup(context, app.repository, folder, "todo-backup-$stamp.json", s.syncPassphrase)
                             AlarmScheduler.scheduleAutoBackup(context, s.autoBackupHour)
                         }
                     } finally { pending.finish() }

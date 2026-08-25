@@ -387,12 +387,44 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val due = java.time.LocalDate.now(zone).atStartOfDay(zone).plusHours(9).toInstant().toEpochMilli()
         repo.saveTask(t.copy(dueDate = due))
     }
+    /** Place an existing task onto the calendar at [atMillis] as a timed block (G4). */
+    fun scheduleTaskAt(taskId: String, atMillis: Long, durationMin: Int? = null) = viewModelScope.launch {
+        val t = repo.getTask(taskId) ?: return@launch
+        val dur = durationMin ?: t.durationMin ?: t.estimateMin ?: t.estimateMax ?: 60
+        repo.saveTask(t.copy(dueDate = atMillis, isAllDay = false, durationMin = dur))
+    }
+    /** Ranked unscheduled candidates for dropping onto the calendar. */
+    fun unscheduledForBlocking(limit: Int = 12): List<TaskEntity> =
+        doNextRanked().filter { it.dueDate == null }.take(limit)
 
     /**
      * Lay today's actionable Do-Next tasks onto the timeline between the configured working hours,
      * packing each by its estimate (default 30 min) in ranked order. Undated and today/overdue tasks
      * are candidates; future-dated ones are left alone. Reports (scheduled, didn't-fit). Fully offline.
      */
+    /** Deadline-risk radar (G3): does the week's committed work fit the time you actually have? */
+    data class DeadlineRisk(val neededH: Double, val freeH: Double, val atRisk: Int, val days: Int) {
+        val overCommitted get() = neededH > freeH
+    }
+    fun deadlineRisk(days: Int = 7): DeadlineRisk {
+        val now = System.currentTimeMillis()
+        val end = java.time.LocalDate.now(zone).plusDays(days.toLong()).atStartOfDay(zone).toInstant().toEpochMilli()
+        fun est(t: TaskEntity) = (t.estimateMin ?: t.estimateMax ?: t.durationMin ?: 30)
+        val open = tasks.value.filter { !it.trashed && !it.completed && !it.abandoned && !it.isNote }
+        // A task "has a deadline in the window" if its hard deadline OR its due date falls inside it.
+        fun deadlineIn(t: TaskEntity): Boolean {
+            val d = listOfNotNull(t.deadlineDate, t.dueDate).minOrNull() ?: return false
+            return d in (now + 1)..end
+        }
+        val atRisk = open.filter { deadlineIn(it) }
+        val neededMin = atRisk.sumOf { est(it) }
+        // Free time = the window's capacity minus other planned (dated, non-deadline) work in it.
+        val otherPlannedMin = open.filter { !deadlineIn(it) && it.dueDate != null && it.dueDate!! in (now + 1)..end }.sumOf { est(it) }
+        val capacityMin = settings.value.dailyCapacityHours * 60 * days
+        val freeMin = (capacityMin - otherPlannedMin).coerceAtLeast(0)
+        return DeadlineRisk(neededMin / 60.0, freeMin / 60.0, atRisk.size, days)
+    }
+
     /** The hour of day you most often finish things (learned from completion history) — your peak.
      *  Falls back to the configured work-start hour when there's not enough history. */
     fun peakHour(): Int {
@@ -914,6 +946,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- templates ----------
     fun saveAsTemplate(taskId: String, name: String) = viewModelScope.launch { repo.saveAsTemplate(taskId, name) }
+
+    /** Repeated task shapes worth turning into a template (G5). */
+    data class TemplateSuggestion(val title: String, val count: Int, val exampleId: String)
+    fun suggestedTemplates(minCount: Int = 3): List<TemplateSuggestion> {
+        val existing = templates.value.map { it.name.trim().lowercase() }.toSet()
+        return tasks.value.asSequence()
+            .filter { !it.trashed && !it.isNote && it.title.isNotBlank() }
+            .groupBy { it.title.trim().lowercase() }
+            .filter { (norm, list) -> list.size >= minCount && norm !in existing }
+            .map { (_, list) ->
+                val newest = list.maxByOrNull { it.createdAt }!!
+                TemplateSuggestion(newest.title.trim(), list.size, newest.id)
+            }
+            .sortedByDescending { it.count }
+            .take(5)
+    }
     fun deleteTemplate(id: String) = viewModelScope.launch { repo.deleteTemplate(id) }
     fun renameTemplate(id: String, name: String) = viewModelScope.launch { repo.renameTemplate(id, name) }
     /** Drop a template into the current view's list (or Inbox), opening its new root if requested. */
@@ -1166,13 +1214,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setSyncEnabled(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(syncEnabled = on)) }
     fun markOnboarded() = viewModelScope.launch { repo.saveSettings(settings.value.copy(onboarded = true)) }
 
+    fun setSyncPassphrase(pass: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(syncPassphrase = pass)) }
+
     fun runSyncNow(onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
         val folder = settings.value.syncFolder
         if (folder.isBlank()) { onDone(false, "Choose a sync folder first"); return@launch }
         val dev = ensureDeviceId()
-        val r = com.todocompanion.app.data.sync.SyncEngine.sync(appCtx, repo, folder, dev)
+        val r = com.todocompanion.app.data.sync.SyncEngine.sync(appCtx, repo, folder, dev, settings.value.syncPassphrase)
         if (r.ok) {
-            repo.saveSettings(settings.value.copy(lastSyncAt = System.currentTimeMillis(), deviceId = dev))
+            repo.saveSettings(settings.value.copy(lastSyncAt = System.currentTimeMillis(), deviceId = dev, lastSyncSummary = r.message))
             AlarmScheduler.rescheduleAll(appCtx, repo)
         }
         onDone(r.ok, r.message)
@@ -1182,7 +1232,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val folder = settings.value.autoBackupFolder.ifBlank { settings.value.syncFolder }
         if (folder.isBlank()) { onDone(false); return@launch }
         val stamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
-        onDone(com.todocompanion.app.data.sync.SyncEngine.backup(appCtx, repo, folder, "todo-backup-$stamp.json"))
+        onDone(com.todocompanion.app.data.sync.SyncEngine.backup(appCtx, repo, folder, "todo-backup-$stamp.json", settings.value.syncPassphrase))
     }
 
     /** Import tasks from a Todoist/TickTick CSV or MLO OPML file. Returns (ok, message). */
@@ -1214,10 +1264,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun importFrom(uri: Uri, onDone: (Boolean) -> Unit) = viewModelScope.launch {
         val ok = runCatching {
-            val text = appCtx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: return@runCatching
+            val raw = appCtx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: return@runCatching false
+            // Transparently decrypt an encrypted backup (G1) using the stored passphrase.
+            val text = com.todocompanion.app.data.sync.Crypto.decrypt(raw, settings.value.syncPassphrase) ?: return@runCatching false
             repo.importJsonReplace(text)
             AlarmScheduler.rescheduleAll(appCtx, repo)
-        }.isSuccess
+            true
+        }.getOrDefault(false)
         onDone(ok)
     }
 

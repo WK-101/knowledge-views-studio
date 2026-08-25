@@ -113,6 +113,31 @@ fun ReviewScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> U
             ReviewSection("Never scheduled", unscheduled, "Everything actionable has a date.", onOpenTask,
                 action = "Today" to { t: TaskEntity -> vm.save(t.copy(dueDate = todayAt9())) })
 
+            // Template auto-suggest (G5): task shapes you keep re-creating.
+            val context = androidx.compose.ui.platform.LocalContext.current
+            var suggestions by remember { mutableStateOf(vm.suggestedTemplates()) }
+            if (suggestions.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
+                AppCard {
+                    Text("Recurring patterns", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text("You keep creating these — save one as a template to reuse in a tap.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp, bottom = 6.dp))
+                    suggestions.forEach { s ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(s.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                Text("seen ${s.count}×", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            androidx.compose.material3.FilledTonalButton(onClick = {
+                                vm.saveAsTemplate(s.exampleId, s.title)
+                                suggestions = suggestions.filterNot { it.exampleId == s.exampleId }
+                                android.widget.Toast.makeText(context, "Saved “${s.title}” as a template", android.widget.Toast.LENGTH_SHORT).show()
+                            }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 4.dp)) { Text("Save") }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+            }
             Spacer(Modifier.height(8.dp))
             Text("Review runs entirely on-device from your data.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
         }
