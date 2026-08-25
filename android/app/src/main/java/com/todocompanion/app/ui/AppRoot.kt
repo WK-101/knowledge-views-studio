@@ -441,7 +441,8 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                 onColor = { vm.saveList(l.copy(colorArgb = it)) },
                 onDelete = { vm.deleteList(l.id); if (currentView == ViewRef.ListView(l.id)) vm.select(ViewRef.Smart(SmartKind.TODAY)); manageList = null },
                 onPickBackground = { vm.setListBackgroundFromUri(l.id, it) },
-                onClearBackground = { vm.clearListBackground(l.id) })
+                onClearBackground = { vm.clearListBackground(l.id) },
+                onEmoji = { vm.saveList(l.copy(emoji = it)) })
         }
         manageFolder?.let { f ->
             ManageFolderDialog(f, onDismiss = { manageFolder = null },
@@ -800,7 +801,7 @@ private val SWATCHES = listOf(0xFFE5484D, 0xFFF59E0B, 0xFF12A594, 0xFF3E7BFA, 0x
 @Composable
 private fun ManageListDialog(
     list: ListEntity, onDismiss: () -> Unit, onRename: (String) -> Unit, onColor: (Long) -> Unit, onDelete: () -> Unit,
-    onPickBackground: (android.net.Uri) -> Unit, onClearBackground: () -> Unit,
+    onPickBackground: (android.net.Uri) -> Unit, onClearBackground: () -> Unit, onEmoji: (String?) -> Unit,
 ) {
     var name by remember { mutableStateOf(list.name) }
     val bgPicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
@@ -822,6 +823,10 @@ private fun ManageListDialog(
                     SWATCHES.forEach { c -> Box(Modifier.size(26.dp).clip(CircleShape).background(Color(c)).clickable { onColor(c) }) }
                 }
                 Spacer(Modifier.size(12.dp))
+                Text("Icon", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.size(6.dp))
+                EmojiPicker(current = list.emoji, onPick = onEmoji)
+                Spacer(Modifier.size(12.dp))
                 Text("Background image", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = { bgPicker.launch("image/*") }) { Text(if (list.backgroundBase64 == null) "Set image" else "Change image") }
@@ -832,7 +837,34 @@ private fun ManageListDialog(
     )
 }
 
-private val FOLDER_EMOJIS = listOf("📁", "📂", "🗂️", "📥", "⭐", "🎯", "💼", "🏠", "🛒", "✈️", "📚", "💡", "❤️", "🔥", "✅", "🧠", "💪", "🎨", "🎵", "🍽️")
+private val FOLDER_EMOJIS = listOf("📁", "📂", "🗂️", "📥", "⭐", "🎯", "💼", "🏠", "🛒", "✈️", "📚", "💡", "❤️", "🔥", "✅", "🧠", "💪", "🎨", "🎵", "🍽️", "🏦", "💰", "🩺", "🏋️", "🎓", "🐾", "🌱", "☕", "🎮", "📝")
+
+/** Icon picker: quick suggestions plus a field that accepts ANY emoji typed on the system keyboard. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun EmojiPicker(current: String?, onPick: (String?) -> Unit) {
+    var typed by remember { mutableStateOf(current ?: "") }
+    Column {
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Box(Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(if (current == null) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant).clickable { typed = ""; onPick(null) }, contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.Folder, "No icon", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            FOLDER_EMOJIS.forEach { e ->
+                Box(Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(if (current == e) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant).clickable { typed = e; onPick(e) }, contentAlignment = Alignment.Center) {
+                    Text(e, style = MaterialTheme.typography.titleMedium)
+                }
+            }
+        }
+        Spacer(Modifier.size(8.dp))
+        OutlinedTextField(
+            value = typed,
+            onValueChange = { v -> typed = v; onPick(v.trim().ifBlank { null }) },
+            singleLine = true,
+            label = { Text("Or type any emoji") },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
@@ -849,16 +881,7 @@ private fun ManageFolderDialog(folder: FolderEntity, onDismiss: () -> Unit, onRe
                 Spacer(Modifier.size(12.dp))
                 Text("Icon", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.size(6.dp))
-                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Box(Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(if (folder.icon == null) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant).clickable { onIcon(null) }, contentAlignment = Alignment.Center) {
-                        Icon(Icons.Filled.Folder, "No icon", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    FOLDER_EMOJIS.forEach { e ->
-                        Box(Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(if (folder.icon == e) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant).clickable { onIcon(e) }, contentAlignment = Alignment.Center) {
-                            Text(e, style = MaterialTheme.typography.titleMedium)
-                        }
-                    }
-                }
+                EmojiPicker(current = folder.icon, onPick = onIcon)
             }
         },
     )

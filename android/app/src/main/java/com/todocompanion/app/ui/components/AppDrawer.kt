@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,6 +34,7 @@ import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Inbox
@@ -74,6 +77,7 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.todocompanion.app.data.entity.FolderEntity
 import com.todocompanion.app.data.entity.ListEntity
 import com.todocompanion.app.domain.SmartVis
@@ -424,7 +428,9 @@ private fun TagNode(
     children.forEach { TagNode(it, depth + 1, allTags, current, vm, onSelect, onNewTag, onManageTag, onMoveTag) }
 }
 
-/** MLO-style favourites pinned to the very top, with larger icons for quick access. */
+/** MLO-style favourites pinned to the top as big tiles, 1–4 per row (dynamically sharing the
+ *  width). Tap opens; long-press reveals an unpin badge so the control never steals row space. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun PinnedFavourites(
     refs: List<String>,
@@ -433,36 +439,58 @@ private fun PinnedFavourites(
     vm: AppViewModel, current: ViewRef, onSelect: (ViewRef) -> Unit,
 ) {
     val filters by vm.filters.collectAsState()
-    data class Pin(val icon: ImageVector, val label: String, val color: Color?, val view: ViewRef, val ref: String)
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    data class Pin(val icon: ImageVector, val emoji: String?, val label: String, val color: Color?, val view: ViewRef, val ref: String)
     val resolved = refs.mapNotNull { ref ->
         val id = ref.substringAfter(':')
         when (ref.substringBefore(':')) {
-            "list" -> lists.firstOrNull { it.id == id }?.let { Pin(Icons.AutoMirrored.Filled.FormatListBulleted, it.name, it.colorArgb?.let(::Color), ViewRef.ListView(id), ref) }
-            "folder" -> folders.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.Folder, it.name, null, ViewRef.FolderView(id), ref) }
-            "tag" -> tags.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.Label, "#" + it.name, it.colorArgb?.let(::Color), ViewRef.TagView(id), ref) }
-            "context" -> contexts.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.Place, "@" + it.name, it.colorArgb?.let(::Color), ViewRef.ContextView(id), ref) }
-            "filter" -> filters.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.FilterList, it.name, it.colorArgb?.let(::Color), ViewRef.FilterView(id), ref) }
+            "list" -> lists.firstOrNull { it.id == id }?.let { Pin(Icons.AutoMirrored.Filled.FormatListBulleted, it.emoji, it.name, it.colorArgb?.let(::Color), ViewRef.ListView(id), ref) }
+            "folder" -> folders.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.Folder, it.icon, it.name, null, ViewRef.FolderView(id), ref) }
+            "tag" -> tags.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.Label, null, "#" + it.name, it.colorArgb?.let(::Color), ViewRef.TagView(id), ref) }
+            "context" -> contexts.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.Place, null, "@" + it.name, it.colorArgb?.let(::Color), ViewRef.ContextView(id), ref) }
+            "filter" -> filters.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.FilterList, null, it.name, it.colorArgb?.let(::Color), ViewRef.FilterView(id), ref) }
             else -> null
         }
     }
     if (resolved.isEmpty()) return
+    var unpinTarget by remember { mutableStateOf<String?>(null) }
     SectionHeader("Favourites")
-    resolved.forEach { p ->
-        val selected = current == p.view
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(12.dp))
-                .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
-                .clickable { onSelect(p.view) }.padding(start = 10.dp, top = 8.dp, bottom = 8.dp, end = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background((p.color ?: MaterialTheme.colorScheme.primary).copy(alpha = .14f)), contentAlignment = Alignment.Center) {
-                Icon(p.icon, null, tint = p.color ?: MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+    Column(Modifier.padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        resolved.chunked(4).forEach { rowItems ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                rowItems.forEach { p ->
+                    val selected = current == p.view
+                    val accent = p.color ?: MaterialTheme.colorScheme.primary
+                    Box(Modifier.weight(1f)) {
+                        Column(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+                                .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f))
+                                .combinedClickable(
+                                    onClick = { if (unpinTarget != null) unpinTarget = null else onSelect(p.view) },
+                                    onLongClick = { unpinTarget = if (unpinTarget == p.ref) null else p.ref },
+                                )
+                                .padding(vertical = 12.dp, horizontal = 6.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(accent.copy(alpha = .16f)), contentAlignment = Alignment.Center) {
+                                if (p.emoji != null) Text(p.emoji, style = MaterialTheme.typography.titleLarge)
+                                else Icon(p.icon, null, tint = accent, modifier = Modifier.size(24.dp))
+                            }
+                            Text(p.label, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center, lineHeight = 15.sp,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)
+                        }
+                        if (unpinTarget == p.ref) {
+                            Box(
+                                Modifier.align(Alignment.TopEnd).padding(3.dp).size(22.dp).clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.error).clickable { vm.togglePinnedRef(p.ref); unpinTarget = null },
+                                contentAlignment = Alignment.Center,
+                            ) { Icon(Icons.Filled.Close, "Unpin", tint = MaterialTheme.colorScheme.onError, modifier = Modifier.size(14.dp)) }
+                        }
+                    }
+                }
             }
-            Spacer(Modifier.width(12.dp))
-            Text(p.label, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)
-            Icon(Icons.Filled.PushPin, "Unpin", tint = muted, modifier = Modifier.size(17.dp).clip(CircleShape).clickable { vm.togglePinnedRef(p.ref) })
         }
     }
 }
