@@ -135,6 +135,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private fun AppSettings.priorityConfig() = PriorityEngine.Config(
         mode = when (priorityMode) { "importance" -> PriorityEngine.Mode.IMPORTANCE; "urgency" -> PriorityEngine.Mode.URGENCY; else -> PriorityEngine.Mode.BOTH },
         dueWeight = priorityDueWeight, startWeight = priorityStartWeight, goalWeight = priorityGoalWeight, overdueBoost = priorityOverdueBoost,
+        starBoost = priorityStarBoost, curveBase = priorityCurveBase, computed = priorityComputed,
     )
 
     val groups: StateFlow<List<TaskGroup>> =

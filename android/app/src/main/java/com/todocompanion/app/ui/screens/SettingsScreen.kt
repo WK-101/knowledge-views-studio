@@ -135,20 +135,29 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         Spacer(Modifier.height(18.dp))
         Section("Do-Next priority")
         AppCard {
-            Sub("Weigh by")
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                val modes = listOf("importance" to "Importance", "urgency" to "Urgency", "both" to "Both")
-                modes.forEachIndexed { i, (k, label) ->
-                    SegmentedButton(selected = s.priorityMode == k, onClick = { vm.saveSettings(s.copy(priorityMode = k)) },
-                        shape = SegmentedButtonDefaults.itemShape(i, modes.size)) { Text(label) }
+            Toggle("Use computed priority", s.priorityComputed) { vm.saveSettings(s.copy(priorityComputed = it)) }
+            Text(if (s.priorityComputed) "MLO-style score ranks the Do-Next list — importance & urgency compound down the outline, plus a date term."
+                 else "Computed score off. Do-Next orders by star, then importance/urgency, then your manual order.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+            if (s.priorityComputed) {
+                Spacer(Modifier.height(8.dp)); Sub("Weigh by")
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    val modes = listOf("importance" to "Importance", "urgency" to "Urgency", "both" to "Both")
+                    modes.forEachIndexed { i, (k, label) ->
+                        SegmentedButton(selected = s.priorityMode == k, onClick = { vm.saveSettings(s.copy(priorityMode = k)) },
+                            shape = SegmentedButtonDefaults.itemShape(i, modes.size)) { Text(label) }
+                    }
                 }
+                Spacer(Modifier.height(8.dp)); Sub("Influence of each factor")
+                WeightRow("Due-date weight", s.priorityDueWeight) { vm.saveSettings(s.copy(priorityDueWeight = it)) }
+                WeightRow("Start-date weight", s.priorityStartWeight) { vm.saveSettings(s.copy(priorityStartWeight = it)) }
+                WeightRow("Weekly-goal weight", s.priorityGoalWeight) { vm.saveSettings(s.copy(priorityGoalWeight = it)) }
+                FactorRow("Star boost", s.priorityStarBoost, 1.0f, 3.0f, 7) { vm.saveSettings(s.copy(priorityStarBoost = it)) }
+                FactorRow("Level curve", s.priorityCurveBase, 1.1f, 2.5f, 13) { vm.saveSettings(s.copy(priorityCurveBase = it)) }
+                Text("Level curve sets how sharply each importance/urgency step raises the score.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Toggle("Boost overdue tasks", s.priorityOverdueBoost) { vm.saveSettings(s.copy(priorityOverdueBoost = it)) }
             }
-            Text("Computed priority multiplies importance & urgency down the outline, then adds a date term. These weights tune how much dates matter.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp, bottom = 2.dp))
-            WeightRow("Due-date weight", s.priorityDueWeight) { vm.saveSettings(s.copy(priorityDueWeight = it)) }
-            WeightRow("Start-date weight", s.priorityStartWeight) { vm.saveSettings(s.copy(priorityStartWeight = it)) }
-            WeightRow("Weekly-goal weight", s.priorityGoalWeight) { vm.saveSettings(s.copy(priorityGoalWeight = it)) }
-            Toggle("Boost overdue tasks", s.priorityOverdueBoost) { vm.saveSettings(s.copy(priorityOverdueBoost = it)) }
         }
 
         Spacer(Modifier.height(18.dp))
@@ -355,6 +364,17 @@ private fun WeightRow(label: String, value: Double, onChange: (Double) -> Unit) 
         androidx.compose.material3.Slider(
             value = value.toFloat(), onValueChange = { onChange((Math.round(it * 2f) / 2.0)) },
             valueRange = 0f..10f, steps = 19, modifier = Modifier.width(150.dp),
+        )
+    }
+}
+
+@Composable
+private fun FactorRow(label: String, value: Double, min: Float, max: Float, steps: Int, onChange: (Double) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("$label  ${"%.2f×".format(value)}", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        androidx.compose.material3.Slider(
+            value = value.toFloat().coerceIn(min, max), onValueChange = { onChange(((it * 100).toInt() / 100.0)) },
+            valueRange = min..max, steps = steps, modifier = Modifier.width(150.dp),
         )
     }
 }

@@ -36,6 +36,9 @@ object PriorityEngine {
         val goalWeight: Double = 5.0,
         val overdueBoost: Boolean = true,
         val curveBase: Double = 1.5,
+        val starBoost: Double = 1.25,
+        /** When false, the Do-Next list ignores the computed score and orders by importance then manual. */
+        val computed: Boolean = true,
     )
 
     val DEFAULT = Config()
@@ -116,7 +119,7 @@ object PriorityEngine {
             Mode.URGENCY -> urg
             Mode.BOTH -> imp * urg
         }
-        return base * (if (task.star) 1.25 else 1.0) + dateTerm(task, now, cfg)
+        return base * (if (task.star) cfg.starBoost else 1.0) + dateTerm(task, now, cfg)
     }
 
     /** Back-compat proximity multiplier (still used by a couple of call sites / tests). */
@@ -146,16 +149,24 @@ object PriorityEngine {
         cfg: Config = DEFAULT,
     ): List<Ranked> {
         val byId = all.associateBy { it.id }
-        return all.asSequence()
+        val actionable = all.asSequence()
             .filter { !it.completed && !it.trashed && !it.abandoned }
             .filter { !hasIncompleteChild(it.id) }
             .filter { !(it.hideInTodoUntilStart && it.startDate != null && it.startDate!! > now) }
             .filter { !(it.hideInTodoIfBlocked && it.id in blocked) }
             .filter { contextAvailable(it.id) }
             .filter { !orderBlocked(it.id) }
-            .map { Ranked(it, score(it, now, byId, cfg)) }
-            .sortedByDescending { it.score }
             .toList()
+        // Manual mode: skip the computed score entirely — star first, then importance/urgency, then manual order.
+        if (!cfg.computed) {
+            val cmp = compareByDescending<TaskEntity> { it.star }
+                .thenByDescending { maxOf(it.importance, it.urgency) }
+                .thenBy { it.sortOrder }
+                .thenBy { it.id }
+            return actionable.sortedWith(cmp).map { Ranked(it, 0.0) }
+        }
+        return actionable.map { Ranked(it, score(it, now, byId, cfg)) }
+            .sortedByDescending { it.score }
     }
 
     /** Eisenhower quadrant index for the Matrix view (configurable thresholds). */

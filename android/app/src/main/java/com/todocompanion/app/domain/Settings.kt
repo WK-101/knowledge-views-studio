@@ -28,7 +28,10 @@ data class AppSettings(
     val priorityDueWeight: Double = 3.0,
     val priorityStartWeight: Double = 2.0,
     val priorityGoalWeight: Double = 5.0,
+    val priorityStarBoost: Double = 1.25,     // score multiplier for a starred task (1.0 = off)
+    val priorityCurveBase: Double = 1.5,      // steepness of the importance/urgency level curve
     val priorityOverdueBoost: Boolean = true,
+    val priorityComputed: Boolean = true,     // false = ignore the computed score, order by importance then manual
     val density: Density = Density.DEFAULT,
     val weekStart: Int = 0,
     val timeFormat: TimeFormat = TimeFormat.SYSTEM,
@@ -71,7 +74,10 @@ data class AppSettings(
         Keys.PRIO_DUE to priorityDueWeight.toString(),
         Keys.PRIO_START to priorityStartWeight.toString(),
         Keys.PRIO_GOAL to priorityGoalWeight.toString(),
+        Keys.PRIO_STAR to priorityStarBoost.toString(),
+        Keys.PRIO_CURVE to priorityCurveBase.toString(),
         Keys.PRIO_OVERDUE to priorityOverdueBoost.toString(),
+        Keys.PRIO_COMPUTED to priorityComputed.toString(),
         Keys.DENSITY to density.name,
         Keys.WEEK_START to weekStart.toString(),
         Keys.TIME_FORMAT to timeFormat.name,
@@ -118,7 +124,10 @@ data class AppSettings(
         const val PRIO_DUE = "prio_due"
         const val PRIO_START = "prio_start"
         const val PRIO_GOAL = "prio_goal"
+        const val PRIO_STAR = "prio_star"
+        const val PRIO_CURVE = "prio_curve"
         const val PRIO_OVERDUE = "prio_overdue"
+        const val PRIO_COMPUTED = "prio_computed"
         const val MX_IMP = "mx_imp"
         const val MX_URG = "mx_urg"
         const val MX_DONE = "mx_done"
@@ -147,7 +156,10 @@ data class AppSettings(
             priorityDueWeight = m[Keys.PRIO_DUE]?.toDoubleOrNull() ?: 3.0,
             priorityStartWeight = m[Keys.PRIO_START]?.toDoubleOrNull() ?: 2.0,
             priorityGoalWeight = m[Keys.PRIO_GOAL]?.toDoubleOrNull() ?: 5.0,
+            priorityStarBoost = m[Keys.PRIO_STAR]?.toDoubleOrNull() ?: 1.25,
+            priorityCurveBase = m[Keys.PRIO_CURVE]?.toDoubleOrNull() ?: 1.5,
             priorityOverdueBoost = m[Keys.PRIO_OVERDUE]?.toBooleanStrictOrNull() ?: true,
+            priorityComputed = m[Keys.PRIO_COMPUTED]?.toBooleanStrictOrNull() ?: true,
             density = parse(m[Keys.DENSITY], Density.DEFAULT),
             weekStart = m[Keys.WEEK_START]?.toIntOrNull() ?: 0,
             timeFormat = parse(m[Keys.TIME_FORMAT], TimeFormat.SYSTEM),

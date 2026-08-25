@@ -169,6 +169,19 @@ class PriorityEngineTest {
         assertFalse(result.contains("blocked")) // blocked by incomplete predecessor
     }
 
+    @Test fun manualModeOrdersByStarThenImportanceNotScore() {
+        val now = 1_000_000L
+        // Low-importance but very-soon due (would win on computed score); high-importance starred; plain high.
+        val soon = task("soon", importance = 1, urgency = 1).copy(dueDate = now + 3_600_000L, sortOrder = 1.0)
+        val starred = task("starred", importance = 4).copy(star = true, sortOrder = 2.0)
+        val high = task("high", importance = 5, urgency = 5).copy(sortOrder = 3.0)
+        val all = listOf(soon, starred, high)
+        val cfg = PriorityEngine.Config(computed = false)
+        val out = PriorityEngine.doNext(all, now, emptySet(), { false }, { true }, cfg = cfg).map { it.task.id }
+        // Star wins first; then importance/urgency (high 5>4); the imminent due date is ignored.
+        assertEquals(listOf("starred", "high", "soon"), out)
+    }
+
     @Test fun delayedDependencyHoldsThenReleases() {
         val doneAt = 1_000_000L
         val pred = task("p", completed = true, completedAt = doneAt)
