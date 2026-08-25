@@ -141,6 +141,9 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
     var selected by remember { mutableStateOf(setOf<String>()) }
     val selectionMode = selected.isNotEmpty()
     fun toggleSel(id: String) { selected = if (id in selected) selected - id else selected + id }
+    // Tell the shell so it can hide the add FAB while the selection bar is up (no overlap).
+    androidx.compose.runtime.LaunchedEffect(selectionMode) { vm.selectionActive.value = selectionMode }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { vm.selectionActive.value = false } }
     val allLists by vm.lists.collectAsState()
 
     Box(modifier.fillMaxSize()) {

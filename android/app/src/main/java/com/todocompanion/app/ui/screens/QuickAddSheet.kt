@@ -112,7 +112,7 @@ fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Bo
                 )
             }
             // Description — borderless, muted.
-            Box(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 6.dp)) {
+            Box(Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 2.dp)) {
                 if (note.isEmpty()) Text("Description",
                     color = MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.bodyMedium)
                 BasicTextField(
@@ -123,17 +123,9 @@ fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Bo
                 )
             }
 
-            // Selected list / tags / reminder as light chips (only when set).
-            if (listId != null || tagIds.isNotEmpty() || reminder != null) {
-                FlowRow(Modifier.padding(bottom = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listId?.let { id -> lists.firstOrNull { it.id == id }?.let { ValueChip(it.name) { listMenu = true } } }
-                    tagIds.forEach { id -> tags.firstOrNull { it.id == id }?.let { ValueChip("#" + it.name) { tagMenu = true } } }
-                    reminder?.let { ValueChip("🔔 " + formatDue(it)) { showReminder = true } }
-                }
-            }
-
-            // The single TickTick-style icon row.
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            // The single TickTick-style icon row. Chosen list/tags/reminder read from each icon's
+            // active tint — no extra chip row, so the sheet stays as compact as TickTick's.
+            Row(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 // Date: an inline coloured chip when set, otherwise a plain calendar glyph.
                 if (due != null) {
                     Row(
@@ -206,11 +198,3 @@ private fun IconTool(icon: ImageVector, label: String, on: Boolean, tint: Color?
     }
 }
 
-/** A light rounded chip showing a chosen value (list / tag / reminder), tap to change. */
-@Composable
-private fun ValueChip(label: String, onClick: () -> Unit) {
-    Box(
-        Modifier.clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .6f))
-            .clickable { onClick() }.padding(horizontal = 10.dp, vertical = 5.dp),
-    ) { Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-}

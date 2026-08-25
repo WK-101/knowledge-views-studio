@@ -646,7 +646,7 @@ private fun ContextNode(
                 MenuItem(if (vm.isPinned(pinRef)) Icons.Filled.PushPin else Icons.Filled.PushPin, if (vm.isPinned(pinRef)) "Unpin from top" else "Pin to top") { vm.togglePinnedRef(pinRef); menu = false }
                 MenuItem(Icons.Filled.Add, "New sub-context") { onNew(ctx.id); menu = false }
                 MenuItem(Icons.Filled.DriveFileMove, "Move to…") { onMove(ctx); menu = false }
-                MenuItem(Icons.Filled.Edit, "Rename / colour / delete") { onManage(ctx); menu = false }
+                MenuItem(Icons.Filled.Edit, "Edit · availability & open-hours") { onManage(ctx); menu = false }
             }
         }
     }

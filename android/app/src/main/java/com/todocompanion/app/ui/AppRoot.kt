@@ -185,6 +185,9 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         var menu by remember { mutableStateOf(false) }
         // Hoisted per-tab controls, surfaced in the shared top bar to free screen space.
         var calMode by remember { mutableStateOf(settings.calendarDefaultMode) }
+        // Calendar navigation state, hoisted so the combined header can live in the app-bar slot.
+        var calAnchor by remember { mutableStateOf(java.time.LocalDate.now()) }
+        var calSelected by remember { mutableStateOf(java.time.LocalDate.now()) }
         var matrixSettings by remember { mutableStateOf(false) }
         var searchQuery by remember { mutableStateOf("") }
         var calFilter by remember { mutableStateOf(false) }
@@ -216,7 +219,10 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         val snackbar = remember { androidx.compose.material3.SnackbarHostState() }
         LaunchedEffect(Unit) {
             vm.undoEvents.collect { e ->
-                val res = snackbar.showSnackbar(e.message, actionLabel = "Undo", duration = androidx.compose.material3.SnackbarDuration.Short)
+                // Drop any prior snackbar so a fresh completion always re-shows Undo immediately,
+                // and use a Long duration so the Undo action is easy to notice and hit.
+                snackbar.currentSnackbarData?.dismiss()
+                val res = snackbar.showSnackbar(e.message, actionLabel = "Undo", withDismissAction = true, duration = androidx.compose.material3.SnackbarDuration.Long)
                 if (res == androidx.compose.material3.SnackbarResult.ActionPerformed) vm.undo(e)
             }
         }
@@ -284,9 +290,24 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         ) {
             Scaffold(
                 topBar = {
-                    // The calendar renders its own single combined header (menu · period · today ·
-                    // type · filter), so it gets no app-bar banner here — saving a whole row.
-                    if (tab != Tab.CALENDAR) TopAppBar(
+                    // The calendar's combined header (menu · period ▾ · today · type · filter) is
+                    // rendered right here in the app-bar slot, so its insets, height and button
+                    // placement match every other screen and the tab switch never shifts layout.
+                    if (tab == Tab.CALENDAR) {
+                        val firstDow = if (settings.weekStart in 1..7) java.time.DayOfWeek.of(settings.weekStart)
+                            else java.time.temporal.WeekFields.of(java.util.Locale.getDefault()).firstDayOfWeek
+                        com.todocompanion.app.ui.screens.CalHeader(
+                            label = com.todocompanion.app.ui.screens.calLabel(calMode, calAnchor, firstDow),
+                            current = java.time.YearMonth.from(calAnchor), showNav = calMode != "list",
+                            onPrev = { calAnchor = com.todocompanion.app.ui.screens.calStep(calMode, calAnchor, -1) },
+                            onNext = { calAnchor = com.todocompanion.app.ui.screens.calStep(calMode, calAnchor, 1) },
+                            onToday = { calAnchor = java.time.LocalDate.now(); calSelected = java.time.LocalDate.now() },
+                            onPick = { ym -> calAnchor = ym.atDay(1) },
+                            onOpenDrawer = { scope.launch { drawerState.open() } },
+                            mode = calMode, onModeChange = { calMode = it },
+                            onOpenFilter = { calFilter = true }, filterActive = settings.calendarListFilter.isNotEmpty(),
+                        )
+                    } else TopAppBar(
                         windowInsets = androidx.compose.material3.TopAppBarDefaults.windowInsets,
                         expandedHeight = 52.dp,   // denser than the 64dp default, TickTick-like
                         title = {
@@ -374,7 +395,8 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                 },
                 snackbarHost = { androidx.compose.material3.SnackbarHost(snackbar) },
                 floatingActionButton = {
-                    if (tab == Tab.TASKS || tab == Tab.CALENDAR || tab == Tab.MATRIX) {
+                    val selecting by vm.selectionActive.collectAsState()
+                    if ((tab == Tab.TASKS || tab == Tab.CALENDAR || tab == Tab.MATRIX) && !(tab == Tab.TASKS && selecting)) {
                         FloatingActionButton(onClick = { openQuickAdd(null) }) { Icon(Icons.Filled.Add, "Add task") }
                     }
                 },
@@ -391,11 +413,13 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                             }
                             Tab.SEARCH -> SearchScreen(vm, ::openTask, searchQuery)
                             Tab.SETTINGS -> SettingsScreen(vm)
-                            Tab.CALENDAR -> CalendarScreen(vm, ::openTask, calMode, { calMode = it }, onAddOnDate = { d ->
-                                openQuickAdd(d.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli())
-                            }, onAddAt = { d, minute ->
-                                openQuickAdd(d.atStartOfDay(ZoneId.systemDefault()).plusMinutes(minute.toLong()).toInstant().toEpochMilli(), withTime = true)
-                            }, onOpenDrawer = { scope.launch { drawerState.open() } }, onOpenFilter = { calFilter = true }, filterActive = settings.calendarListFilter.isNotEmpty())
+                            Tab.CALENDAR -> CalendarScreen(vm, ::openTask, calMode, { calMode = it },
+                                calAnchor, calSelected, { calAnchor = it }, { calSelected = it },
+                                onAddOnDate = { d ->
+                                    openQuickAdd(d.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli())
+                                }, onAddAt = { d, minute ->
+                                    openQuickAdd(d.atStartOfDay(ZoneId.systemDefault()).plusMinutes(minute.toLong()).toInstant().toEpochMilli(), withTime = true)
+                                })
                             Tab.TIMELINE -> com.todocompanion.app.ui.screens.TimelineScreen(vm, ::openTask, selectedLists = timelineLists, showDone = timelineShowDone)
                             Tab.MATRIX -> MatrixScreen(vm, ::openTask, matrixSettings, { matrixSettings = false })
                             Tab.HABITS -> com.todocompanion.app.ui.screens.HabitsScreen(vm)
@@ -840,14 +864,16 @@ private fun ManageListDialog(
     onPickBackground: (android.net.Uri) -> Unit, onClearBackground: () -> Unit, onEmoji: (String?) -> Unit,
 ) {
     var name by remember { mutableStateOf(list.name) }
+    var confirmDelete by remember { mutableStateOf(false) }
     val bgPicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) onPickBackground(uri)
     }
+    if (confirmDelete) ConfirmDeleteDialog("list", list.name, onCancel = { confirmDelete = false }, onConfirm = { confirmDelete = false; onDelete() })
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onRename(name.trim()) }) { Text("Save") } },
         dismissButton = {
-            if (list.id != ListEntity.INBOX_ID) TextButton(onClick = onDelete) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+            if (list.id != ListEntity.INBOX_ID) TextButton(onClick = { confirmDelete = true }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
             else TextButton(onClick = onDismiss) { Text("Close") }
         },
         title = { Text("List") },
@@ -879,14 +905,28 @@ private fun EmojiPicker(current: String?, onPick: (String?) -> Unit) {
     com.todocompanion.app.ui.components.EmojiGridPicker(current = current, onPick = onPick)
 }
 
+/** A destructive-action confirmation. Deleting a list/folder is not undoable, so always ask first. */
+@Composable
+private fun ConfirmDeleteDialog(kind: String, name: String, onCancel: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onCancel,
+        confirmButton = { TextButton(onClick = onConfirm) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
+        dismissButton = { TextButton(onClick = onCancel) { Text("Cancel") } },
+        title = { Text("Delete $kind?") },
+        text = { Text("“$name” and its contents will be removed. This can't be undone.") },
+    )
+}
+
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun ManageFolderDialog(folder: FolderEntity, onDismiss: () -> Unit, onRename: (String) -> Unit, onIcon: (String?) -> Unit, onDelete: () -> Unit) {
     var name by remember { mutableStateOf(folder.name) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    if (confirmDelete) ConfirmDeleteDialog("folder", folder.name, onCancel = { confirmDelete = false }, onConfirm = { confirmDelete = false; onDelete() })
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onRename(name.trim()) }) { Text("Save") } },
-        dismissButton = { TextButton(onClick = onDelete) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
+        dismissButton = { TextButton(onClick = { confirmDelete = true }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
         title = { Text("Folder") },
         text = {
             Column {

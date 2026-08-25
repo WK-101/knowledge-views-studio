@@ -102,19 +102,36 @@ private fun Modifier.swipeNav(onPrev: () -> Unit, onNext: () -> Unit): Modifier 
 /** All calendar view modes, in picker order. */
 val CAL_MODES = listOf("list" to "List", "day" to "Day", "3day" to "3-Day", "week" to "Week", "weekly" to "Weekly", "month" to "Month", "year" to "Year")
 
+/** Advance the calendar anchor by one period for the active mode. */
+fun calStep(mode: String, anchor: LocalDate, dir: Int): LocalDate = when (mode) {
+    "month" -> anchor.plusMonths(dir.toLong())
+    "week", "weekly" -> anchor.plusWeeks(dir.toLong())
+    "3day" -> anchor.plusDays(3L * dir)
+    "day" -> anchor.plusDays(dir.toLong())
+    "year" -> anchor.plusYears(dir.toLong())
+    else -> anchor
+}
+
+/** The period label shown in the calendar header for the active mode. */
+fun calLabel(mode: String, anchor: LocalDate, firstDow: DayOfWeek): String = when (mode) {
+    "month" -> "${anchor.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${anchor.year}"
+    "week", "weekly" -> { val st = startOfWeek(anchor, firstDow); rangeTitle(st, st.plusDays(6)) }
+    "3day" -> rangeTitle(anchor, anchor.plusDays(2))
+    "day" -> "${anchor.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${anchor.dayOfMonth} ${anchor.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())}"
+    "year" -> anchor.year.toString()
+    else -> "Agenda"
+}
+
 @Composable
 fun CalendarScreen(
     vm: AppViewModel, onOpenTask: (String) -> Unit, mode: String, onModeChange: (String) -> Unit,
+    anchor: LocalDate, selected: LocalDate, onAnchor: (LocalDate) -> Unit, onSelected: (LocalDate) -> Unit,
     onAddOnDate: (LocalDate) -> Unit, onAddAt: (LocalDate, Int) -> Unit = { d, _ -> onAddOnDate(d) },
-    onOpenDrawer: () -> Unit = {}, onOpenFilter: () -> Unit = {}, filterActive: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val s by vm.settings.collectAsState()
     val tasks by vm.tasks.collectAsState()
     val zone = ZoneId.systemDefault()
-
-    var anchor by remember { mutableStateOf(LocalDate.now()) }
-    var selected by remember { mutableStateOf(LocalDate.now()) }
 
     val firstDow = if (s.weekStart in 1..7) DayOfWeek.of(s.weekStart) else WeekFields.of(Locale.getDefault()).firstDayOfWeek
     val listFilter = s.calendarListFilter
@@ -125,7 +142,6 @@ fun CalendarScreen(
 
     val onResize: (String, Int) -> Unit = { id, dur -> vm.setDuration(id, dur) }
     val onMoveTaskTo: (LocalDate, String, Int) -> Unit = { d, id, min -> vm.rescheduleToMinute(id, d, min) }
-    val onJump: (YearMonth) -> Unit = { ym -> anchor = ym.atDay(1) }
     // One swipe config for every calendar task row, straight from the global swipe settings.
     val swipe = CalSwipe(s.swipeRight, s.swipeRightFar, s.swipeLeft, s.swipeLeftFar) { a, t ->
         when (a) {
@@ -142,46 +158,22 @@ fun CalendarScreen(
             SwipeAction.NONE -> {}
         }
     }
+    val prev = { onAnchor(calStep(mode, anchor, -1)) }
+    val next = { onAnchor(calStep(mode, anchor, 1)) }
 
-    // Period label + step direction depend on the active mode.
-    fun step(dir: Int) {
-        anchor = when (mode) {
-            "month" -> anchor.plusMonths(dir.toLong())
-            "week", "weekly" -> anchor.plusWeeks(dir.toLong())
-            "3day" -> anchor.plusDays(3L * dir)
-            "day" -> anchor.plusDays(dir.toLong())
-            "year" -> anchor.plusYears(dir.toLong())
-            else -> anchor
-        }
-    }
-    val label = when (mode) {
-        "month" -> "${anchor.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${anchor.year}"
-        "week", "weekly" -> { val st = startOfWeek(anchor, firstDow); rangeTitle(st, st.plusDays(6)) }
-        "3day" -> rangeTitle(anchor, anchor.plusDays(2))
-        "day" -> "${anchor.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${anchor.dayOfMonth} ${anchor.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())}"
-        "year" -> anchor.year.toString()
-        else -> "Agenda"
-    }
-    val showNav = mode != "list"
-
+    // The combined header lives in the app-bar slot (see AppRoot), so switching tabs never shifts
+    // the content and the buttons line up with every other screen.
     Column(modifier.fillMaxSize()) {
-        // Single combined top bar: menu · prev · period ▾ · next · today · view-type · filter.
-        CalHeader(
-            label = label, current = YearMonth.from(anchor), showNav = showNav,
-            onPrev = { step(-1) }, onNext = { step(1) }, onToday = { anchor = LocalDate.now(); selected = LocalDate.now() },
-            onPick = onJump, onOpenDrawer = onOpenDrawer, mode = mode, onModeChange = onModeChange,
-            onOpenFilter = onOpenFilter, filterActive = filterActive,
-        )
         when (mode) {
-            "month" -> MonthView(anchor, selected, dueByDate, firstDow, onSelect = { selected = it }, onPrev = { step(-1) }, onNext = { step(1) }, onOpenTask = onOpenTask, swipe = swipe, onAdd = { onAddOnDate(selected) })
+            "month" -> MonthView(anchor, selected, dueByDate, firstDow, onSelect = { onSelected(it) }, onPrev = prev, onNext = next, onOpenTask = onOpenTask, swipe = swipe, onAdd = { onAddOnDate(selected) })
             "week" -> {
                 val start = startOfWeek(anchor, firstDow)
-                TimelineView((0..6).map { start.plusDays(it.toLong()) }, dueByDate, zone, onPrev = { step(-1) }, onNext = { step(1) }, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo)
+                TimelineView((0..6).map { start.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo)
             }
-            "weekly" -> WeeklyView(startOfWeek(anchor, firstDow), dueByDate, onPrev = { step(-1) }, onNext = { step(1) }, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate)
-            "3day" -> TimelineView((0..2).map { anchor.plusDays(it.toLong()) }, dueByDate, zone, onPrev = { step(-1) }, onNext = { step(1) }, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo)
-            "day" -> TimelineView(listOf(anchor), dueByDate, zone, onPrev = { step(-1) }, onNext = { step(1) }, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo)
-            "year" -> YearView(anchor, dueByDate, onPrev = { step(-1) }, onNext = { step(1) }, onMonth = { m -> anchor = m.atDay(1); onModeChange("month") }, onDay = { d -> anchor = d; onModeChange("day") })
+            "weekly" -> WeeklyView(startOfWeek(anchor, firstDow), dueByDate, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate)
+            "3day" -> TimelineView((0..2).map { anchor.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo)
+            "day" -> TimelineView(listOf(anchor), dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo)
+            "year" -> YearView(anchor, dueByDate, onPrev = prev, onNext = next, onMonth = { m -> onAnchor(m.atDay(1)); onModeChange("month") }, onDay = { d -> onAnchor(d); onModeChange("day") })
             else -> AgendaView(dueByDate, onOpenTask, swipe)
         }
     }
@@ -201,8 +193,11 @@ private fun startOfWeek(d: LocalDate, firstDow: DayOfWeek): LocalDate {
 /** The single combined calendar top bar — menu · prev · clickable period label (opens a month/year
  *  picker) · next · Today · view-type menu · list filter. Replaces both the old "Calendar" app-bar
  *  banner and the separate in-screen nav row, so everything lives on one space-saving line. */
+/** The calendar's combined app-bar: menu · prev · period ▾ · next · Today · view-type · filter.
+ *  Rendered in the Scaffold's top-bar slot so its insets, height and icon placement match every
+ *  other screen and switching to the calendar never shifts the layout. */
 @Composable
-private fun CalHeader(
+fun CalHeader(
     label: String, current: YearMonth, showNav: Boolean,
     onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onPick: (YearMonth) -> Unit,
     onOpenDrawer: () -> Unit, mode: String, onModeChange: (String) -> Unit,
@@ -210,16 +205,15 @@ private fun CalHeader(
 ) {
     var showPicker by remember { mutableStateOf(false) }
     var typeMenu by remember { mutableStateOf(false) }
+    androidx.compose.material3.Surface(color = MaterialTheme.colorScheme.surface) {
     Row(
-        // No status-bar inset here: the Scaffold already applies the top inset to the calendar
-        // content when its app-bar is hidden. Adding it again left a blank band above the header.
-        Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 2.dp),
+        Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).height(52.dp).padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onOpenDrawer) { Icon(Icons.Filled.Menu, "Menu") }
         if (showNav) IconButton(onClick = onPrev) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Previous") }
         Row(
-            Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable(enabled = showNav) { showPicker = true }.padding(vertical = 6.dp, horizontal = 6.dp),
+            Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable(enabled = showNav) { showPicker = true }.padding(vertical = 4.dp, horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,
         ) {
             Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -240,6 +234,7 @@ private fun CalHeader(
             }
         }
         IconButton(onClick = onOpenFilter) { Icon(Icons.Filled.FilterList, "Filter lists", tint = if (filterActive) MaterialTheme.colorScheme.primary else androidx.compose.material3.LocalContentColor.current) }
+    }
     }
     if (showPicker) MonthYearPicker(current, onDismiss = { showPicker = false }) { ym -> onPick(ym); showPicker = false }
 }

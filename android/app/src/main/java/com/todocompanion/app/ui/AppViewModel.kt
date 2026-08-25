@@ -109,6 +109,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val sortMode = MutableStateFlow(SortMode.MANUAL)
     val outlineMode = MutableStateFlow(false)
     val boardMode = MutableStateFlow(false)
+    /** True while the task list is in multi-select mode — used to hide the add FAB so its
+     *  action bar (cancel/complete/flag/move/delete) doesn't overlap the button. */
+    val selectionActive = MutableStateFlow(false)
     /** MLO-style "show matches in the tree" for filter/tag/context views. */
     val filterHierarchy = MutableStateFlow(false)
 
@@ -346,8 +349,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun canOutline(): Boolean = currentView.value is ViewRef.ListView
 
-    private fun targetListForAdd(): String =
-        (currentView.value as? ViewRef.ListView)?.listId ?: ListEntity.INBOX_ID
+    // Resolve which list a new task lands in from the current view. A folder view adds into the
+    // folder's first list — or a freshly-created "Tasks" list if the folder is still empty — so
+    // you can capture straight into a folder.
+    private suspend fun resolveAddList(): String = when (val v = currentView.value) {
+        is ViewRef.ListView -> v.listId
+        is ViewRef.FolderView -> lists.value
+            .filter { it.folderId == v.folderId && it.parentListId == null && !it.archived }
+            .minByOrNull { it.sortOrder }?.id
+            ?: repo.createList("Tasks", v.folderId, null, workspaceId = settings.value.activeWorkspaceId)
+        else -> ListEntity.INBOX_ID
+    }
 
     // ---------- quick add ----------
     fun submitQuickAdd(text: String, opts: QuickAddOptions) = viewModelScope.launch {
@@ -360,7 +372,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         // ~list resolves to an existing list by name (case-insensitive); otherwise fall back.
         val listId = opts.listId
             ?: parsed.list?.let { name -> lists.value.firstOrNull { !it.archived && it.name.equals(name, ignoreCase = true) }?.id }
-            ?: targetListForAdd()
+            ?: resolveAddList()
         val id = repo.createTask(listId, parsed.title.ifBlank { "Untitled" }, importance = imp, urgency = urg, dueDate = due)
 
         val tagIds = opts.tagIds.toMutableList()
@@ -700,7 +712,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun renameTemplate(id: String, name: String) = viewModelScope.launch { repo.renameTemplate(id, name) }
     /** Drop a template into the current view's list (or Inbox), opening its new root if requested. */
     fun insertTemplateHere(templateId: String, onDone: (String?) -> Unit = {}) = viewModelScope.launch {
-        val id = repo.instantiateTemplate(templateId, targetListForAdd())
+        val id = repo.instantiateTemplate(templateId, resolveAddList())
         onDone(id)
     }
     fun cyclePriority(t: TaskEntity) = viewModelScope.launch {
