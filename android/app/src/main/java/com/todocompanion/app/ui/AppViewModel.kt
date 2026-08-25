@@ -169,14 +169,39 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
             val sorted = if ((cfg.view as? ViewRef.Smart)?.kind == SmartKind.DO_NEXT) filtered
             else TaskViews.sort(filtered, cfg.sort)
-            TaskViews.group(sorted, if ((cfg.view as? ViewRef.Smart)?.kind == SmartKind.DO_NEXT) GroupMode.NONE else cfg.group, now, zone)
+            val gm = if ((cfg.view as? ViewRef.Smart)?.kind == SmartKind.DO_NEXT) GroupMode.NONE else cfg.group
+            if (gm == GroupMode.CONTEXT) {
+                // Active-by-context (GTD): group each task under every context it carries.
+                val ctxNameById = ctxEntities.associate { it.id to it.name }
+                val ctxByTask = tcRefs.groupBy { it.taskId }.mapValues { e -> e.value.map { it.contextId } }
+                val buckets = LinkedHashMap<String, MutableList<TaskEntity>>()
+                sorted.forEach { t ->
+                    val cids = ctxByTask[t.id].orEmpty()
+                    if (cids.isEmpty()) buckets.getOrPut("￿No context") { mutableListOf() }.add(t)
+                    else cids.forEach { cid -> buckets.getOrPut(ctxNameById[cid] ?: "?") { mutableListOf() }.add(t) }
+                }
+                buckets.entries.sortedBy { it.key }.map { (name, ts) ->
+                    val label = if (name.startsWith("￿")) "No context" else "@$name"
+                    TaskGroup("ctx:$name", label, ts)
+                }
+            } else TaskViews.group(sorted, gm, now, zone)
         }.state(emptyList())
 
+    /** When set, the outline is zoomed into this task's subtree (MLO-style focus). */
+    val outlineZoom = MutableStateFlow<String?>(null)
+    fun zoomInto(taskId: String?) { outlineZoom.value = taskId }
+
     val outlineRows: StateFlow<List<OutlineRow>> =
-        combine(wsTasks, currentView) { all, v ->
+        combine(wsTasks, currentView, outlineZoom) { all, v, zoom ->
             val listId = (v as? ViewRef.ListView)?.listId ?: return@combine emptyList()
-            buildOutline(all.filter { it.listId == listId && !it.trashed })
+            val listTasks = all.filter { it.listId == listId && !it.trashed }
+            // Zoom only holds while its task still exists in this list.
+            val start = zoom?.takeIf { z -> listTasks.any { it.id == z } }
+            buildOutline(listTasks, start)
         }.state(emptyList())
+
+    /** Title of the current zoom root, for the breadcrumb, or null when not zoomed. */
+    fun zoomTitle(): String? = outlineZoom.value?.let { z -> tasks.value.firstOrNull { it.id == z }?.title }
 
     private fun rankDoNext(
         base: List<TaskEntity>, all: List<TaskEntity>, now: Long, cfg: PriorityEngine.Config,
@@ -628,7 +653,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         onDone(ok)
     }
 
-    private fun buildOutline(all: List<TaskEntity>): List<OutlineRow> {
+    private fun buildOutline(all: List<TaskEntity>, startId: String? = null): List<OutlineRow> {
         val byParent = all.groupBy { it.parentId }
         val out = ArrayList<OutlineRow>(all.size)
         fun dfs(parentId: String?, depth: Int) {
@@ -638,7 +663,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 if (!t.collapsed) dfs(t.id, depth + 1)
             }
         }
-        dfs(null, 0)
+        if (startId != null) {
+            val root = all.firstOrNull { it.id == startId } ?: return emptyList()
+            val kids = byParent[startId].orEmpty()
+            out.add(OutlineRow(root, 0, kids.isNotEmpty(), root.collapsed))
+            if (!root.collapsed) dfs(startId, 1)
+        } else dfs(null, 0)
         return out
     }
 }

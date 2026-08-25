@@ -132,9 +132,12 @@ fun formatDue(millis: Long): String {
         in today..today.plusDays(6) -> d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault())
         else -> "${d.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${d.dayOfMonth}"
     }
+    // Countdown badge for dates beyond a week — an at-a-glance "days remaining".
+    val daysOut = java.time.temporal.ChronoUnit.DAYS.between(today, d)
+    val countdown = if (daysOut > 6) " · ${daysOut}d" else ""
     // Midnight (00:00) is the all-day sentinel; any other time (incl. 9:00 AM) is a real time.
     val hasTime = !(dt.hour == 0 && dt.minute == 0)
-    return if (hasTime) "$day ${"%02d:%02d".format(dt.hour, dt.minute)}" else day
+    return (if (hasTime) "$day ${"%02d:%02d".format(dt.hour, dt.minute)}" else day) + countdown
 }
 
 fun isOverdue(millis: Long): Boolean = millis < System.currentTimeMillis()

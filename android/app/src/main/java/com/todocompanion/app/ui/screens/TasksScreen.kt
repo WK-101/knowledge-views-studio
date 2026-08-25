@@ -361,19 +361,33 @@ private fun EmptyState(view: ViewRef? = null) {
 @Composable
 private fun OutlineList(vm: AppViewModel, density: Density, onOpenTask: (String) -> Unit, modifier: Modifier) {
     val rows by vm.outlineRows.collectAsState()
-    if (rows.isEmpty()) { EmptyState(); return }
-    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(12.dp)) {
-        item {
-            Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
-                Column {
-                    rows.forEachIndexed { i, row ->
-                        if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-                        com.todocompanion.app.ui.components.TaskRow(row, density,
-                            onClick = { onOpenTask(row.task.id) },
-                            onToggleComplete = { vm.toggleComplete(row.task) },
-                            onToggleCollapse = { vm.toggleCollapsed(row.task) },
-                            onCycleFlag = { vm.cycleFlag(row.task) }, onToggleStar = { vm.toggleStar(row.task) },
-                            onDelete = { vm.trash(row.task) })
+    val zoom by vm.outlineZoom.collectAsState()
+    Column(modifier.fillMaxSize()) {
+        // Zoom breadcrumb: long-press a parent task to focus its subtree; tap here to exit.
+        if (zoom != null) {
+            Surface(color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxWidth()) {
+                Row(Modifier.fillMaxWidth().clickable { vm.zoomInto(null) }.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Close, "Exit zoom", modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Zoomed in · tap to exit", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+        if (rows.isEmpty()) { EmptyState(); return }
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(12.dp)) {
+            item {
+                Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+                    Column {
+                        rows.forEachIndexed { i, row ->
+                            if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                            com.todocompanion.app.ui.components.TaskRow(row, density,
+                                onClick = { onOpenTask(row.task.id) },
+                                onToggleComplete = { vm.toggleComplete(row.task) },
+                                onToggleCollapse = { vm.toggleCollapsed(row.task) },
+                                onCycleFlag = { vm.cycleFlag(row.task) }, onToggleStar = { vm.toggleStar(row.task) },
+                                onDelete = { vm.trash(row.task) },
+                                onZoom = { if (row.hasChildren) vm.zoomInto(row.task.id) })
+                        }
                     }
                 }
             }

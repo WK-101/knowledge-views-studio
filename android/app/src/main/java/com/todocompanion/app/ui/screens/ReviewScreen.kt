@@ -66,7 +66,10 @@ fun ReviewScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> U
     fun todayAt9() = today.atStartOfDay(zone).toInstant().toEpochMilli()
 
     val active = allTasks.filter { !it.trashed && !it.completed && !it.abandoned }
+    val startOfTomorrow = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+    fun tomorrowAt9() = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
     val dueForReview = active.filter { it.reviewEveryDays != null && (it.reviewedAt ?: it.createdAt) + it.reviewEveryDays!! * 86_400_000L <= now }
+    val dueToday = active.filter { it.dueDate != null && it.dueDate in startOfToday until startOfTomorrow }.sortedBy { it.dueDate }
     val inbox = active.filter { it.listId == ListEntity.INBOX_ID && it.parentId == null }
     val overdue = active.filter { it.dueDate != null && it.dueDate < startOfToday }.sortedBy { it.dueDate }
     val stale = active.filter { it.updatedAt < staleCutoff && it.dueDate == null && it.listId != ListEntity.INBOX_ID }
@@ -89,6 +92,8 @@ fun ReviewScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> U
             }
             Spacer(Modifier.height(12.dp))
 
+            ReviewSection("Plan today — due today", dueToday, "Nothing due today.", onOpenTask,
+                action = "Tomorrow" to { t: TaskEntity -> vm.save(t.copy(dueDate = tomorrowAt9())) })
             ReviewSection("Due for review", dueForReview, "Nothing is due for a review.", onOpenTask,
                 action = "Reviewed" to { t: TaskEntity -> vm.markReviewed(t) })
             ReviewSection("Process your inbox", inbox, "Nothing waiting in the inbox.", onOpenTask)

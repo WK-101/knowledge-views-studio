@@ -30,7 +30,7 @@ enum class SmartKind(val title: String) {
     TRASH("Trash"),
 }
 
-enum class GroupMode { NONE, DATE, PRIORITY }
+enum class GroupMode { NONE, DATE, PRIORITY, CONTEXT }
 enum class SortMode { MANUAL, PRIORITY, DUE, TITLE }
 
 enum class Bucket(val label: String) {
@@ -97,6 +97,8 @@ object TaskViews {
                     if (items.isEmpty()) null else TaskGroup(label, label, items)
                 }
             }
+            // Context grouping needs cross-ref data, so it's handled in the ViewModel; here it's a no-op.
+            GroupMode.CONTEXT -> listOf(TaskGroup("all", "", tasks))
         }
     }
 

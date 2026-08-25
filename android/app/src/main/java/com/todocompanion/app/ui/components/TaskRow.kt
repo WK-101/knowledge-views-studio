@@ -2,6 +2,7 @@ package com.todocompanion.app.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -34,6 +35,7 @@ import com.todocompanion.app.domain.priority.PriorityLevel
 import com.todocompanion.app.ui.OutlineRow
 
 @Composable
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 fun TaskRow(
     row: OutlineRow,
     density: Density,
@@ -43,6 +45,7 @@ fun TaskRow(
     onCycleFlag: () -> Unit,
     onToggleStar: () -> Unit,
     onDelete: () -> Unit,
+    onZoom: () -> Unit = {},
 ) {
     val state = rememberSwipeToDismissBoxState(confirmValueChange = { v ->
         when (v) {
@@ -68,7 +71,8 @@ fun TaskRow(
         val task = row.task
         val level = PriorityLevel.from(task.importance, task.urgency)
         Row(
-            Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).clickable { onClick() }
+            Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)
+                .combinedClickable(onClick = onClick, onLongClick = onZoom)
                 .padding(start = (6 + row.depth * 18).dp, end = 6.dp, top = rowVerticalPadding(density) / 2, bottom = rowVerticalPadding(density) / 2),
             verticalAlignment = Alignment.CenterVertically,
         ) {
