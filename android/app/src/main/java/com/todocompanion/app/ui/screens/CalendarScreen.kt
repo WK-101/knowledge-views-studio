@@ -211,8 +211,9 @@ private fun CalHeader(
     var showPicker by remember { mutableStateOf(false) }
     var typeMenu by remember { mutableStateOf(false) }
     Row(
-        Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars)
-            .padding(horizontal = 2.dp, vertical = 2.dp),
+        // No status-bar inset here: the Scaffold already applies the top inset to the calendar
+        // content when its app-bar is hidden. Adding it again left a blank band above the header.
+        Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onOpenDrawer) { Icon(Icons.Filled.Menu, "Menu") }
@@ -552,13 +553,13 @@ private fun YearView(anchor: LocalDate, dueByDate: Map<LocalDate, List<TaskEntit
     val daysWithTasks = remember(dueByDate, anchor.year) {
         dueByDate.keys.filter { it.year == anchor.year }.toSet()
     }
-    LazyColumn(Modifier.fillMaxSize().swipeNav(onPrev, onNext), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp, )) {
+    // Four weighted rows of three months fill the whole screen height instead of cramming at the top.
+    Column(Modifier.fillMaxSize().swipeNav(onPrev, onNext).padding(horizontal = 8.dp, vertical = 6.dp)) {
         (1..12).chunked(3).forEach { rowMonths ->
-            item(key = "r${rowMonths.first()}") {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    rowMonths.forEach { m ->
-                        MiniMonth(YearMonth.of(anchor.year, m), daysWithTasks, onMonth = onMonth, onDay = onDay, modifier = Modifier.weight(1f).padding(vertical = 6.dp, horizontal = 2.dp))
-                    }
+            Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                rowMonths.forEach { m ->
+                    MiniMonth(YearMonth.of(anchor.year, m), daysWithTasks, onMonth = onMonth, onDay = onDay,
+                        modifier = Modifier.weight(1f).fillMaxHeight().padding(vertical = 4.dp, horizontal = 2.dp))
                 }
             }
         }
@@ -580,19 +581,20 @@ private fun MiniMonth(ym: YearMonth, daysWithTasks: Set<LocalDate>, onMonth: (Ye
     Column(modifier) {
         Text(ym.month.getDisplayName(TextStyle.FULL, Locale.getDefault()),
             Modifier.clip(RoundedCornerShape(6.dp)).clickable { onMonth(ym) }.padding(horizontal = 2.dp, vertical = 1.dp),
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelLarge,
             color = if (YearMonth.from(today) == ym) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.size(3.dp))
+        // Weeks share the remaining cell height so the month expands to fill its slot.
         cells.chunked(7).forEach { week ->
-            Row(Modifier.fillMaxWidth()) {
+            Row(Modifier.fillMaxWidth().weight(1f)) {
                 week.forEach { d ->
-                    Box(Modifier.weight(1f).aspectRatio(1f), contentAlignment = Alignment.Center) {
+                    Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
                         if (d != null) {
                             val isToday = d == today
                             val hasTasks = d in daysWithTasks
                             Box(
-                                Modifier.fillMaxSize().padding(1.dp).clip(CircleShape)
+                                Modifier.fillMaxWidth().aspectRatio(1f).padding(1.dp).clip(CircleShape)
                                     .background(when {
                                         isToday -> MaterialTheme.colorScheme.primary
                                         hasTasks -> MaterialTheme.colorScheme.primary.copy(alpha = .20f)

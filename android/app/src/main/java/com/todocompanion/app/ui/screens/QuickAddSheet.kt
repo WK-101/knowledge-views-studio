@@ -87,7 +87,6 @@ fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Bo
     var showReminder by remember { mutableStateOf(false) }
     var listMenu by remember { mutableStateOf(false) }
     var tagMenu by remember { mutableStateOf(false) }
-    var prioMenu by remember { mutableStateOf(false) }
 
     val focus = remember { FocusRequester() }
 
@@ -151,17 +150,15 @@ fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Bo
                 } else {
                     IconTool(Icons.Filled.CalendarMonth, "Date", false) { showDue = true }
                 }
-                Box {
-                    IconTool(Icons.Filled.Flag, "Priority", priority != null && priority != PriorityLevel.NONE,
-                        tint = priority?.takeIf { it != PriorityLevel.NONE }?.let { priorityColor(it) }) { prioMenu = true }
-                    DropdownMenu(expanded = prioMenu, onDismissRequest = { prioMenu = false }) {
-                        listOf(PriorityLevel.HIGH, PriorityLevel.MEDIUM, PriorityLevel.LOW, PriorityLevel.NONE).forEach { p ->
-                            DropdownMenuItem(
-                                text = { Text(p.label) },
-                                leadingIcon = { Icon(Icons.Filled.Flag, null, tint = priorityColor(p), modifier = Modifier.size(18.dp)) },
-                                onClick = { priority = p; prioMenu = false },
-                            )
-                        }
+                // Tap to cycle priority (High → Medium → Low → None) — no popup, so nothing can
+                // land over the send button.
+                IconTool(Icons.Filled.Flag, "Priority", priority != null && priority != PriorityLevel.NONE,
+                    tint = priority?.takeIf { it != PriorityLevel.NONE }?.let { priorityColor(it) }) {
+                    priority = when (priority) {
+                        null, PriorityLevel.NONE -> PriorityLevel.HIGH
+                        PriorityLevel.HIGH -> PriorityLevel.MEDIUM
+                        PriorityLevel.MEDIUM -> PriorityLevel.LOW
+                        PriorityLevel.LOW -> PriorityLevel.NONE
                     }
                 }
                 Box {

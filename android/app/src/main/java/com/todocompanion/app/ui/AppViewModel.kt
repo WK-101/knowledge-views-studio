@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -69,7 +70,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initial)
 
     val settings: StateFlow<AppSettings> =
-        repo.allSettings.map { AppSettings.fromMap(it.associate { s -> s.key to s.value }) }.state(AppSettings())
+        repo.allSettings.map { AppSettings.fromMap(it.associate { s -> s.key to s.value }) }
+            // Mirror theme fields to a synchronous cache so the next cold start's first frame is correct.
+            .onEach { com.todocompanion.app.domain.ThemePrefs.save(appCtx, it) }
+            // Seed the initial value from that cache — no dark→light flash on launch.
+            .state(com.todocompanion.app.domain.ThemePrefs.read(appCtx).let { (mode, dyn, accent) ->
+                AppSettings(themeMode = mode, dynamicColor = dyn, accentArgb = accent)
+            })
 
     // ---------- workspaces ----------
     val workspaces = repo.allWorkspaces.state(emptyList())
