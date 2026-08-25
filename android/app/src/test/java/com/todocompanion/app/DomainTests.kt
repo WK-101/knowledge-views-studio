@@ -362,3 +362,27 @@ class BackupTest {
         assertEquals(original, decoded)
     }
 }
+
+class NeedsAttentionTest {
+    private val now = 1_000L * 86_400_000L   // day 1000, arbitrary "now"
+    private val old = now - 30L * 86_400_000L // 30 days ago
+    private val recent = now - 3L * 86_400_000L
+
+    @Test fun surfacesOnlyStaleUndatedLeaves() {
+        val stale = task("stale").copy(dueDate = null, updatedAt = old)
+        val dated = task("dated").copy(dueDate = now, updatedAt = old)
+        val fresh = task("fresh").copy(dueDate = null, updatedAt = recent)
+        val parent = task("parent").copy(dueDate = null, updatedAt = old)
+        val child = task("child", parent = "parent").copy(dueDate = null, updatedAt = old)
+        val out = com.todocompanion.app.domain.view.TaskViews
+            .filterSmart(listOf(stale, dated, fresh, parent, child),
+                com.todocompanion.app.domain.view.SmartKind.NEEDS_ATTENTION, now)
+            .map { it.id }.toSet()
+        // stale + the stale child qualify; dated (has a date), fresh (recent), and the container parent do not.
+        assertTrue("stale" in out)
+        assertTrue("child" in out)
+        assertFalse("dated" in out)
+        assertFalse("fresh" in out)
+        assertFalse("parent" in out)
+    }
+}

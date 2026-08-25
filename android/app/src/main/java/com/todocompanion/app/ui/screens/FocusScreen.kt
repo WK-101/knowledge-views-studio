@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Adjust
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -133,6 +134,13 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
                 Text(focusTitle ?: "Focus on a task…", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             }
             androidx.compose.material3.DropdownMenu(expanded = taskMenu, onDismissRequest = { taskMenu = false }) {
+                // Let the priority engine pick — the top actionable task right now (availability-aware).
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text("✨ Suggest for me") },
+                    leadingIcon = { androidx.compose.material3.Icon(Icons.Filled.AutoAwesome, null, modifier = Modifier.size(18.dp)) },
+                    onClick = { vm.topDoNext()?.let { focusTaskId = it.id }; taskMenu = false },
+                )
+                androidx.compose.material3.HorizontalDivider()
                 androidx.compose.material3.DropdownMenuItem(text = { Text("No task") }, onClick = { focusTaskId = null; taskMenu = false })
                 tasks.filter { !it.completed && !it.trashed && !it.abandoned }.take(50).forEach { t ->
                     androidx.compose.material3.DropdownMenuItem(text = { Text(t.title, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }, onClick = { focusTaskId = t.id; taskMenu = false })

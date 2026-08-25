@@ -44,6 +44,7 @@ import androidx.compose.material.icons.outlined.DoNotDisturb
 import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Inbox
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Notes
 import androidx.compose.material.icons.outlined.WbSunny
@@ -367,6 +368,7 @@ private fun EmptyState(view: ViewRef? = null) {
         SmartKind.FLAGGED -> Triple(Icons.Outlined.Flag, "Nothing flagged", "Flag a task to keep it in view")
         SmartKind.GOALS -> Triple(Icons.Outlined.EmojiEvents, "No goals yet", "Mark a task as a goal to track it here")
         SmartKind.SCHEDULED -> Triple(Icons.Outlined.Schedule, "Nothing scheduled", "Tasks with a date will appear here")
+        SmartKind.NEEDS_ATTENTION -> Triple(Icons.Outlined.Notifications, "Nothing neglected", "Undated tasks you haven't touched in a while show up here")
         else -> Triple(Icons.Outlined.CheckCircle, "All clear", "Tap + to add a task")
     }
     Column(Modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {

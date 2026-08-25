@@ -24,6 +24,7 @@ enum class SmartKind(val title: String) {
     SCHEDULED("Scheduled"),
     FLAGGED("Flagged"),
     GOALS("Goals"),
+    NEEDS_ATTENTION("Needs Attention"),
     ALL("All"),
     COMPLETED("Completed"),
     WONT_DO("Won't Do"),
@@ -41,6 +42,9 @@ enum class Bucket(val label: String) {
 data class TaskGroup(val key: String, val title: String, val tasks: List<TaskEntity>)
 
 object TaskViews {
+
+    /** A task counts as neglected after this long with no edits (and no date). */
+    private const val STALE_MS = 21L * 86_400_000L
 
     // [dayStartMin] shifts the day boundary later than midnight ("day starts at" setting): a moment
     // is mapped to the day it belongs to *after* subtracting the rollover, so e.g. with a 3am start,
@@ -78,6 +82,12 @@ object TaskViews {
             SmartKind.SCHEDULED -> all.filter { isOpen(it) && it.dueDate != null }
             SmartKind.FLAGGED -> all.filter { isOpen(it) && it.flagId != null }
             SmartKind.GOALS -> all.filter { isOpen(it) && it.isGoal }
+            SmartKind.NEEDS_ATTENTION -> {
+                // The silent backlog: open, undated, leaf tasks untouched for a while. Container
+                // parents are represented by their children, so they're excluded.
+                val parents = all.asSequence().filter { !it.trashed }.mapNotNull { it.parentId }.toSet()
+                all.filter { isOpen(it) && !it.isNote && it.dueDate == null && it.id !in parents && (now - it.updatedAt) >= STALE_MS }
+            }
             SmartKind.ALL -> all.filter { isOpen(it) }
             SmartKind.DO_NEXT -> all.filter { isOpen(it) }   // ranking applied separately by the engine
             SmartKind.COMPLETED -> all.filter { it.completed && !it.trashed }

@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AllInbox
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.NotificationImportant
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ContentCopy
@@ -103,6 +104,7 @@ private fun smartIcon(k: SmartKind): ImageVector = when (k) {
     SmartKind.SCHEDULED -> Icons.Filled.EventAvailable
     SmartKind.FLAGGED -> Icons.Filled.Star
     SmartKind.GOALS -> Icons.Filled.EmojiEvents
+    SmartKind.NEEDS_ATTENTION -> Icons.Filled.NotificationImportant
     SmartKind.ALL -> Icons.Filled.AllInbox
     SmartKind.COMPLETED -> Icons.Filled.CheckCircle
     SmartKind.WONT_DO -> Icons.Filled.Cancel
@@ -204,13 +206,15 @@ fun AppDrawer(
             if (open("smart")) {
                 val defaultSmart = listOf(
                     SmartKind.INBOX, SmartKind.TODAY, SmartKind.TOMORROW, SmartKind.NEXT7, SmartKind.DO_NEXT,
-                    SmartKind.SCHEDULED, SmartKind.FLAGGED, SmartKind.GOALS, SmartKind.ALL, SmartKind.COMPLETED, SmartKind.WONT_DO, SmartKind.TRASH,
+                    SmartKind.SCHEDULED, SmartKind.FLAGGED, SmartKind.GOALS, SmartKind.NEEDS_ATTENTION, SmartKind.ALL, SmartKind.COMPLETED, SmartKind.WONT_DO, SmartKind.TRASH,
                 )
                 // Apply the user's saved drag order, appending any not-yet-ordered kinds.
                 val savedSmart = settings.smartOrder.mapNotNull { runCatching { SmartKind.valueOf(it) }.getOrNull() }
                 val orderedSmart = (savedSmart + defaultSmart).distinct().filter { it in defaultSmart }
                 val visibleSmart = orderedSmart.filter { k ->
-                    when (settings.smartListVis[k] ?: SmartVis.SHOW) {
+                    // "Needs Attention" is a gentle nudge — it only appears when it has something in it.
+                    val default = if (k == SmartKind.NEEDS_ATTENTION) SmartVis.AUTO else SmartVis.SHOW
+                    when (settings.smartListVis[k] ?: default) {
                         SmartVis.SHOW -> true
                         SmartVis.HIDE -> (current as? ViewRef.Smart)?.kind == k   // keep visible if it's the active view
                         SmartVis.AUTO -> (counts[k] ?: 0) > 0 || (current as? ViewRef.Smart)?.kind == k

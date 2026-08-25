@@ -336,6 +336,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         ).map { it.task }
     }
 
+    /** The single best task to do right now per the Do-Next engine (priority + due urgency +
+     *  dependency propagation + context open-hours availability). Powers "Suggest a task" in Focus. */
+    fun topDoNext(): TaskEntity? {
+        val now = System.currentTimeMillis()
+        val all = tasks.value
+        val base = TaskViews.filterSmart(all, SmartKind.DO_NEXT, now, zone, dayStartMin)
+        return rankDoNext(base, all, now, settings.value.priorityConfig(), dependencies.value, taskContexts.value, contexts.value).firstOrNull()
+    }
+
     fun observeTask(id: String): Flow<TaskEntity?> = repo.observeTask(id)
 
     // ---------- navigation ----------
