@@ -181,6 +181,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         var saveTab by remember { mutableStateOf(false) }
         var templatePicker by remember { mutableStateOf(false) }
         var showAttachments by remember { mutableStateOf(false) }
+        var showCountdowns by remember { mutableStateOf(false) }
         var showPlan by remember { mutableStateOf(false) }
         var menu by remember { mutableStateOf(false) }
         // Hoisted per-tab controls, surfaced in the shared top bar to free screen space.
@@ -285,6 +286,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                     onOpenTab = { name -> runCatching { Tab.valueOf(name) }.getOrNull()?.let { tab = it }; scope.launch { drawerState.close() } },
                     onOpenTemplates = { templatePicker = true; scope.launch { drawerState.close() } },
                     onOpenAttachments = { showAttachments = true; scope.launch { drawerState.close() } },
+                    onOpenCountdowns = { showCountdowns = true; scope.launch { drawerState.close() } },
                 )
             },
         ) {
@@ -453,6 +455,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         editing?.let { id -> TaskDetailScreen(vm, id, onBack = { editing = null }) }
         if (showStats) com.todocompanion.app.ui.screens.StatisticsScreen(vm, onBack = { showStats = false })
         if (showAttachments) com.todocompanion.app.ui.screens.AttachmentsScreen(vm, onOpenTask = { showAttachments = false; openTask(it) }, onBack = { showAttachments = false })
+        if (showCountdowns) com.todocompanion.app.ui.screens.CountdownScreen(vm, onBack = { showCountdowns = false })
         if (showPlan) com.todocompanion.app.ui.screens.PlanYourDayScreen(vm, onOpenTask = { showPlan = false; openTask(it) }, onBack = { showPlan = false })
         if (showReview) com.todocompanion.app.ui.screens.ReviewScreen(vm, onOpenTask = { showReview = false; openTask(it) }, onBack = { showReview = false })
         if (saveTab) {

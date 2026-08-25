@@ -63,8 +63,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AttachmentEntity::class,
         FlagEntity::class,
         TemplateEntity::class,
+        com.todocompanion.app.data.entity.CountdownEntity::class,
     ],
-    version = 20,
+    version = 21,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -84,6 +85,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun attachmentDao(): AttachmentDao
     abstract fun flagDao(): FlagDao
     abstract fun templateDao(): TemplateDao
+    abstract fun countdownDao(): com.todocompanion.app.data.dao.CountdownDao
 
     companion object {
         @Volatile
@@ -245,6 +247,11 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE `habits` ADD COLUMN `scheduleDays` TEXT NOT NULL DEFAULT ''")
             }
         }
+        private val MIGRATION_20_21 = object : Migration(20, 21) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `countdowns` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `targetMillis` INTEGER NOT NULL, `emoji` TEXT, `colorArgb` INTEGER, `pinned` INTEGER NOT NULL DEFAULT 0, `sortOrder` REAL NOT NULL DEFAULT 0, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+            }
+        }
 
         fun get(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
@@ -253,7 +260,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "todocompanion.db",
                 )
-                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20)
+                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21)
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { INSTANCE = it }

@@ -144,6 +144,27 @@ interface TemplateDao {
 }
 
 @Dao
+interface CountdownDao {
+    @Query("SELECT * FROM countdowns ORDER BY targetMillis")
+    fun observeAll(): Flow<List<com.todocompanion.app.data.entity.CountdownEntity>>
+
+    @Query("SELECT * FROM countdowns")
+    suspend fun getAll(): List<com.todocompanion.app.data.entity.CountdownEntity>
+
+    @Upsert
+    suspend fun upsert(c: com.todocompanion.app.data.entity.CountdownEntity)
+
+    @Upsert
+    suspend fun upsertAll(c: List<com.todocompanion.app.data.entity.CountdownEntity>)
+
+    @Query("DELETE FROM countdowns WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM countdowns")
+    suspend fun clear()
+}
+
+@Dao
 interface FilterDao {
     @Query("SELECT * FROM filters ORDER BY sortOrder")
     fun observeAll(): Flow<List<FilterEntity>>

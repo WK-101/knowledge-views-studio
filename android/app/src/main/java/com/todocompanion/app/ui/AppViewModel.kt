@@ -94,6 +94,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val contexts: StateFlow<List<ContextEntity>> = repo.allContexts.state(emptyList())
     val flags: StateFlow<List<FlagEntity>> = repo.allFlags.state(emptyList())
     val templates: StateFlow<List<TemplateEntity>> = repo.allTemplates.state(emptyList())
+    val countdowns = repo.allCountdowns.state(emptyList())
+    fun saveCountdown(id: String?, title: String, targetMillis: Long, emoji: String?, colorArgb: Long?) = viewModelScope.launch {
+        val existing = id?.let { cid -> countdowns.value.firstOrNull { it.id == cid } }
+        repo.upsertCountdown(
+            (existing ?: com.todocompanion.app.data.entity.CountdownEntity(id = UUID.randomUUID().toString(), title = title, targetMillis = targetMillis, createdAt = System.currentTimeMillis()))
+                .copy(title = title.trim().ifBlank { "Countdown" }, targetMillis = targetMillis, emoji = emoji, colorArgb = colorArgb)
+        )
+    }
+    fun deleteCountdown(id: String) = viewModelScope.launch { repo.deleteCountdown(id) }
+    fun toggleCountdownPin(c: com.todocompanion.app.data.entity.CountdownEntity) = viewModelScope.launch { repo.upsertCountdown(c.copy(pinned = !c.pinned)) }
     val filters = combine(repo.allFilters, activeWs) { f, ws -> f.filter { it.workspaceId == ws } }.state(emptyList())
     val habits = combine(repo.allHabits, activeWs) { h, ws -> h.filter { it.workspaceId == ws && !it.archived } }.state(emptyList())
     val habitCheckins = repo.allCheckins.state(emptyList())

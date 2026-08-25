@@ -42,6 +42,7 @@ class AppRepository(private val db: AppDatabase) {
     private val attachments = db.attachmentDao()
     private val flags = db.flagDao()
     private val templates = db.templateDao()
+    private val countdowns = db.countdownDao()
     private val templateJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     // ----- reactive reads -----
@@ -57,6 +58,9 @@ class AppRepository(private val db: AppDatabase) {
     val allDependencies: Flow<List<DependencyEntity>> = deps.observeAll()
     val allFlags: Flow<List<FlagEntity>> = flags.observeAll()
     val allTemplates: Flow<List<TemplateEntity>> = templates.observeAll()
+    val allCountdowns: Flow<List<com.todocompanion.app.data.entity.CountdownEntity>> = countdowns.observeAll()
+    suspend fun upsertCountdown(c: com.todocompanion.app.data.entity.CountdownEntity) = countdowns.upsert(c)
+    suspend fun deleteCountdown(id: String) = countdowns.deleteById(id)
     val allSettings: Flow<List<SettingEntity>> = settings.observeAll()
     private val habits = db.habitDao()
     val allHabits: Flow<List<HabitEntity>> = habits.observeAll()
@@ -579,6 +583,7 @@ class AppRepository(private val db: AppDatabase) {
             attachments = attachments.getAll(),
             flags = flags.getAll(),
             templates = templates.getAll(),
+            countdowns = countdowns.getAll(),
         )
     )
 
@@ -587,7 +592,7 @@ class AppRepository(private val db: AppDatabase) {
         tasks.clear(); folders.clear(); lists.clear(); checklist.clear()
         tags.clear(); tags.clearCrossRefs(); contexts.clear(); contexts.clearCrossRefs()
         reminders.clear(); deps.clear(); settings.clear(); workspaces.clear(); filters.clear()
-        habits.clear(); habits.clearCheckins(); focus.clear(); attachments.clear(); flags.clear(); templates.clear()
+        habits.clear(); habits.clearCheckins(); focus.clear(); attachments.clear(); flags.clear(); templates.clear(); countdowns.clear()
         folders.upsertAll(b.folders)
         lists.upsertAll(b.lists)
         tasks.upsertAll(b.tasks)
@@ -604,6 +609,7 @@ class AppRepository(private val db: AppDatabase) {
         attachments.upsertAll(b.attachments)
         flags.upsertAll(b.flags)
         templates.upsertAll(b.templates)
+        countdowns.upsertAll(b.countdowns)
         ensureDefaultWorkspace()
         ensureInbox()
         ensureDefaultFlags()

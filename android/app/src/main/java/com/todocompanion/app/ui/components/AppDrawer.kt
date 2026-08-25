@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Timelapse
 import androidx.compose.material.icons.filled.ViewTimeline
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
@@ -133,6 +134,7 @@ fun AppDrawer(
     onOpenTab: (String) -> Unit = {},
     onOpenTemplates: () -> Unit = {},
     onOpenAttachments: () -> Unit = {},
+    onOpenCountdowns: () -> Unit = {},
 ) {
     val folders by vm.folders.collectAsState()
     val lists by vm.lists.collectAsState()
@@ -290,6 +292,7 @@ fun AppDrawer(
             SectionHeader("More", open = open("more"), onToggle = { toggle("more") })
             if (open("more")) {
                 if ("templates" !in hidden) DrawerRow(Icons.Filled.ContentCopy, "Templates", onClick = onOpenTemplates)
+                if ("countdowns" !in hidden) DrawerRow(Icons.Filled.Timelapse, "Countdowns", onClick = onOpenCountdowns)
                 if ("attachments" !in hidden) DrawerRow(Icons.Filled.AttachFile, "Attachments", onClick = onOpenAttachments)
                 if ("statistics" !in hidden) DrawerRow(Icons.Filled.BarChart, "Statistics", onClick = onOpenStats)
                 if ("review" !in hidden) DrawerRow(Icons.Filled.ChecklistRtl, "Weekly review", onClick = onOpenReview)
