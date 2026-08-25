@@ -467,6 +467,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- attachments ----------
     fun attachmentMeta(taskId: String) = repo.attachmentMeta(taskId)
+    val allAttachments = repo.allAttachmentMeta.state(emptyList())
     suspend fun attachmentContent(id: String): String? = repo.attachmentContent(id)
     fun addAttachment(taskId: String, uri: Uri) = viewModelScope.launch {
         val cr = appCtx.contentResolver
@@ -670,6 +671,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- templates ----------
     fun saveAsTemplate(taskId: String, name: String) = viewModelScope.launch { repo.saveAsTemplate(taskId, name) }
     fun deleteTemplate(id: String) = viewModelScope.launch { repo.deleteTemplate(id) }
+    fun renameTemplate(id: String, name: String) = viewModelScope.launch { repo.renameTemplate(id, name) }
     /** Drop a template into the current view's list (or Inbox), opening its new root if requested. */
     fun insertTemplateHere(templateId: String, onDone: (String?) -> Unit = {}) = viewModelScope.launch {
         val id = repo.instantiateTemplate(templateId, targetListForAdd())

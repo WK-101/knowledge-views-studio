@@ -378,6 +378,7 @@ class AppRepository(private val db: AppDatabase) {
      *  just keeps any single file from bloating the backup. */
     val maxAttachmentBytes = 25L * 1024 * 1024
     fun attachmentMeta(taskId: String): Flow<List<AttachmentMeta>> = attachments.observeMetaForTask(taskId)
+    val allAttachmentMeta: Flow<List<AttachmentMeta>> = attachments.observeAllMeta()
     fun attachmentCount(taskId: String): Flow<Int> = attachments.observeCountForTask(taskId)
     suspend fun attachmentContent(id: String): String? = attachments.contentOf(id)
     /** Store raw bytes as a task attachment. Returns false if it exceeds the size cap. */
@@ -448,6 +449,9 @@ class AppRepository(private val db: AppDatabase) {
     // ============ templates ============
     suspend fun deleteTemplate(id: String) = templates.deleteById(id)
     suspend fun getTemplatesOnce(): List<TemplateEntity> = templates.getAll()
+    suspend fun renameTemplate(id: String, name: String) {
+        templates.getById(id)?.let { templates.upsert(it.copy(name = name.ifBlank { it.name })) }
+    }
 
     private fun dayOffset(millis: Long?, todayStart: Long): Int? =
         millis?.let { ((it - todayStart) / 86_400_000L).toInt() }

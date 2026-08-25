@@ -26,7 +26,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AllInbox
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Timer
@@ -129,6 +131,8 @@ fun AppDrawer(
     onOpenReview: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenTab: (String) -> Unit = {},
+    onOpenTemplates: () -> Unit = {},
+    onOpenAttachments: () -> Unit = {},
 ) {
     val folders by vm.folders.collectAsState()
     val lists by vm.lists.collectAsState()
@@ -250,6 +254,8 @@ fun AppDrawer(
             DrawerRow(Icons.Filled.Timer, "Focus", onClick = { onOpenTab("FOCUS") })
 
             SectionHeader("")
+            DrawerRow(Icons.Filled.ContentCopy, "Templates", onClick = onOpenTemplates)
+            DrawerRow(Icons.Filled.AttachFile, "Attachments", onClick = onOpenAttachments)
             DrawerRow(Icons.Filled.BarChart, "Statistics", onClick = onOpenStats)
             DrawerRow(Icons.Filled.ChecklistRtl, "Weekly review", onClick = onOpenReview)
             DrawerRow(Icons.Filled.Settings, "Settings", onClick = onOpenSettings)

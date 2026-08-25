@@ -25,7 +25,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,12 +62,19 @@ fun TimelineScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Mod
     val listColor = remember(lists) { lists.associate { it.id to it.colorArgb } }
     fun dayOf(ms: Long): LocalDate = Instant.ofEpochMilli(ms).atZone(zone).toLocalDate()
 
-    val dated = remember(tasks) {
-        tasks.filter { !it.completed && !it.trashed && !it.abandoned && (it.startDate != null || it.dueDate != null) }
+    // Filters: which lists to show (empty = all) and whether to include completed tasks.
+    var selectedLists by remember { mutableStateOf(setOf<String>()) }
+    var showDone by remember { mutableStateOf(false) }
+
+    val allDated = remember(tasks) {
+        tasks.filter { !it.trashed && !it.abandoned && (it.startDate != null || it.dueDate != null) }
+    }
+    val dated = remember(allDated, selectedLists, showDone) {
+        allDated.filter { (showDone || !it.completed) && (selectedLists.isEmpty() || it.listId in selectedLists) }
             .sortedBy { (it.startDate ?: it.dueDate) }
     }
 
-    if (dated.isEmpty()) {
+    if (allDated.isEmpty()) {
         Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(Icons.Filled.ViewTimeline, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(48.dp))
@@ -92,6 +101,27 @@ fun TimelineScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Mod
     val hScroll = rememberScrollState()
 
     Column(modifier.fillMaxSize()) {
+        // Filter bar: pick specific lists (empty = all) and toggle completed tasks.
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically,
+        ) {
+            androidx.compose.material3.FilterChip(selected = selectedLists.isEmpty(), onClick = { selectedLists = emptySet() }, label = { Text("All lists") })
+            lists.filter { !it.archived }.forEach { l ->
+                androidx.compose.material3.FilterChip(
+                    selected = l.id in selectedLists,
+                    onClick = { selectedLists = if (l.id in selectedLists) selectedLists - l.id else selectedLists + l.id },
+                    label = { Text((l.emoji?.plus(" ") ?: "") + l.name) },
+                )
+            }
+            androidx.compose.material3.FilterChip(selected = showDone, onClick = { showDone = !showDone }, label = { Text("Show done") })
+        }
+        androidx.compose.material3.HorizontalDivider()
+        if (dated.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No tasks match this filter", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else {
         // Header: month band + day-of-month numbers, scrolling with the bars.
         Row(Modifier.fillMaxWidth()) {
             Spacer(Modifier.width(titleWidth))
@@ -178,6 +208,7 @@ fun TimelineScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Mod
                 androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
             }
             Spacer(Modifier.height(100.dp))
+        }
         }
     }
 }

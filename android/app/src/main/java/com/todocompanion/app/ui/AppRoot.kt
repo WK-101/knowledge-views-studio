@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
@@ -180,6 +181,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         var showReview by remember { mutableStateOf(false) }
         var saveTab by remember { mutableStateOf(false) }
         var templatePicker by remember { mutableStateOf(false) }
+        var showAttachments by remember { mutableStateOf(false) }
         var menu by remember { mutableStateOf(false) }
         // Hoisted per-tab controls, surfaced in the shared top bar to free screen space.
         var calMode by remember { mutableStateOf(settings.calendarDefaultMode) }
@@ -270,6 +272,8 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                     onOpenReview = { showReview = true; scope.launch { drawerState.close() } },
                     onOpenSettings = { tab = Tab.SETTINGS; scope.launch { drawerState.close() } },
                     onOpenTab = { name -> runCatching { Tab.valueOf(name) }.getOrNull()?.let { tab = it }; scope.launch { drawerState.close() } },
+                    onOpenTemplates = { templatePicker = true; scope.launch { drawerState.close() } },
+                    onOpenAttachments = { showAttachments = true; scope.launch { drawerState.close() } },
                 )
             },
         ) {
@@ -390,6 +394,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
 
         editing?.let { id -> TaskDetailScreen(vm, id, onBack = { editing = null }) }
         if (showStats) com.todocompanion.app.ui.screens.StatisticsScreen(vm, onBack = { showStats = false })
+        if (showAttachments) com.todocompanion.app.ui.screens.AttachmentsScreen(vm, onOpenTask = { showAttachments = false; openTask(it) }, onBack = { showAttachments = false })
         if (showReview) com.todocompanion.app.ui.screens.ReviewScreen(vm, onOpenTask = { showReview = false; openTask(it) }, onBack = { showReview = false })
         if (saveTab) {
             var tabName by remember { mutableStateOf(vm.currentTitle()) }
@@ -403,23 +408,28 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         }
         if (templatePicker) {
             val templates by vm.templates.collectAsState()
+            var renaming by remember { mutableStateOf<com.todocompanion.app.data.entity.TemplateEntity?>(null) }
             AlertDialog(
                 onDismissRequest = { templatePicker = false },
                 confirmButton = { TextButton(onClick = { templatePicker = false }) { Text("Close") } },
-                title = { Text("New from template") },
+                title = { Text("Templates") },
                 text = {
                     if (templates.isEmpty()) {
                         Text("No templates yet. Open a task and choose “Save as template” to create one.",
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else {
-                        androidx.compose.foundation.layout.Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+                        androidx.compose.foundation.layout.Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
+                            Text("Tap a template to drop it into the current list.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
                             templates.forEach { t ->
                                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Filled.ContentCopy, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                    Spacer(Modifier.width(10.dp))
                                     Text(t.name, Modifier.weight(1f).clickable {
                                         templatePicker = false
                                         tab = Tab.TASKS
                                         vm.insertTemplateHere(t.id) { newId -> newId?.let { openTask(it) } }
                                     }.padding(vertical = 12.dp), style = MaterialTheme.typography.bodyLarge)
+                                    IconButton(onClick = { renaming = t }) { Icon(Icons.Filled.Edit, "Rename template") }
                                     IconButton(onClick = { vm.deleteTemplate(t.id) }) { Icon(Icons.Filled.Delete, "Delete template", tint = MaterialTheme.colorScheme.error) }
                                 }
                             }
@@ -427,6 +437,16 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                     }
                 },
             )
+            renaming?.let { t ->
+                var nm by remember(t.id) { mutableStateOf(t.name) }
+                AlertDialog(
+                    onDismissRequest = { renaming = null },
+                    confirmButton = { TextButton(onClick = { vm.renameTemplate(t.id, nm.trim()); renaming = null }) { Text("Save") } },
+                    dismissButton = { TextButton(onClick = { renaming = null }) { Text("Cancel") } },
+                    title = { Text("Rename template") },
+                    text = { OutlinedTextField(nm, { nm = it }, singleLine = true, modifier = Modifier.fillMaxWidth()) },
+                )
+            }
         }
         if (showQuickAdd) QuickAddSheet(vm, initialDue = quickAddDue, initialHasTime = quickAddWithTime, onDismiss = { showQuickAdd = false; quickAddDue = null; quickAddWithTime = false })
 
