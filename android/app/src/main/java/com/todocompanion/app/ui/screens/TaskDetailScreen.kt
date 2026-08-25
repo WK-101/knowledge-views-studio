@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.LocationOn
@@ -157,6 +158,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     var showScore by remember { mutableStateOf(false) }
     var showBlockPicker by remember { mutableStateOf(false) }
     var saveTemplate by remember { mutableStateOf(false) }
+    var showHistory by remember { mutableStateOf(false) }
     var notePreview by remember(taskId) { mutableStateOf(true) }
 
     fun update(block: (TaskEntity) -> TaskEntity) {
@@ -181,6 +183,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     DropdownMenuItem(text = { Text(if (task?.isNote == true) "Convert to task" else "Convert to note") }, onClick = { task?.let { vm.toggleNote(it) }; menu = false })
                     DropdownMenuItem(text = { Text("Duplicate") }, onClick = { task?.let { vm.duplicateTask(it) }; menu = false; onBack() })
                     DropdownMenuItem(text = { Text("Save as template") }, onClick = { menu = false; saveTemplate = true })
+                    DropdownMenuItem(text = { Text("History…") }, leadingIcon = { Icon(Icons.Filled.History, null, modifier = Modifier.size(18.dp)) }, onClick = { menu = false; showHistory = true })
                     if (!task?.rrule.isNullOrBlank()) DropdownMenuItem(text = { Text("Skip this occurrence") }, onClick = { task?.let { vm.skipOccurrence(it) }; menu = false; onBack() })
                     if (!task?.rrule.isNullOrBlank()) DropdownMenuItem(text = { Text("Edit only this occurrence") }, onClick = { task?.let { vm.detachOccurrence(it) { newId -> } }; menu = false })
                     DropdownMenuItem(text = { Text(if (task?.abandoned == true) "Undo won't do" else "Won't do") }, onClick = { task?.let { vm.setAbandoned(it, !it.abandoned) }; menu = false })
@@ -648,6 +651,37 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(10.dp))
                     OutlinedTextField(tplName, { tplName = it }, singleLine = true, label = { Text("Template name") }, modifier = Modifier.fillMaxWidth())
+                }
+            },
+        )
+    }
+    if (showHistory && task != null) {
+        val revisions by remember(task.id) { vm.taskRevisions(task.id) }.collectAsState(initial = emptyList())
+        AlertDialog(
+            onDismissRequest = { showHistory = false },
+            confirmButton = { TextButton(onClick = { showHistory = false }) { Text("Done") } },
+            title = { Text("History") },
+            text = {
+                Column {
+                    Text("Earlier versions of this task, captured as you edit. Restore any one — your current version is saved first, so it's reversible.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(10.dp))
+                    if (revisions.isEmpty()) {
+                        Text("No earlier versions yet. Edits you make from now on will appear here.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else {
+                        Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
+                            revisions.forEachIndexed { i, r ->
+                                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(r.label.ifBlank { "(untitled)" }, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                        Text(if (i == 0) "Most recent · ${relativeTime(r.at)}" else relativeTime(r.at), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    TextButton(onClick = { vm.restoreRevision(r.id); showHistory = false }) { Text("Restore") }
+                                }
+                                if (i < revisions.lastIndex) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                            }
+                        }
+                    }
                 }
             },
         )

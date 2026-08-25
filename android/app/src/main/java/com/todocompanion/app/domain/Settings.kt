@@ -64,6 +64,8 @@ data class AppSettings(
     val dailyCapacityHours: Int = 8,
     // Optional per-weekday capacity (Mon..Sun, 7 entries). Empty = use dailyCapacityHours for every day.
     val capacityByDay: List<Int> = emptyList(),
+    // Deep-work coach (H4): the daily focused-minutes goal that powers today's progress + streak.
+    val deepWorkGoalMin: Int = 60,
     val workStartHour: Int = 9,
     val workEndHour: Int = 18,
     // The hour a new "day" begins (0–6). Tasks before this hour still count as the previous day,
@@ -179,6 +181,7 @@ data class AppSettings(
         Keys.APP_BG to appBackground,
         Keys.CAPACITY to dailyCapacityHours.toString(),
         Keys.CAPACITY_DAYS to capacityByDay.joinToString(","),
+        Keys.DEEPWORK_GOAL to deepWorkGoalMin.toString(),
         Keys.WORK_START to workStartHour.toString(),
         Keys.WORK_END to workEndHour.toString(),
         Keys.DAY_START to dayStartHour.toString(),
@@ -255,6 +258,7 @@ data class AppSettings(
         const val APP_BG = "app_bg"
         const val CAPACITY = "daily_capacity_h"
         const val CAPACITY_DAYS = "capacity_by_day"
+        const val DEEPWORK_GOAL = "deepwork_goal_min"
         const val WORK_START = "work_start_h"
         const val WORK_END = "work_end_h"
         const val DAY_START = "day_start"
@@ -360,6 +364,7 @@ data class AppSettings(
             appBackground = m[Keys.APP_BG] ?: "none",
             dailyCapacityHours = m[Keys.CAPACITY]?.toIntOrNull()?.coerceIn(1, 16) ?: 8,
             capacityByDay = (m[Keys.CAPACITY_DAYS] ?: "").split(",").mapNotNull { it.trim().toIntOrNull() }.takeIf { it.size == 7 } ?: emptyList(),
+            deepWorkGoalMin = m[Keys.DEEPWORK_GOAL]?.toIntOrNull()?.coerceIn(15, 600) ?: 60,
             workStartHour = m[Keys.WORK_START]?.toIntOrNull()?.coerceIn(0, 23) ?: 9,
             workEndHour = m[Keys.WORK_END]?.toIntOrNull()?.coerceIn(1, 24) ?: 18,
             dayStartHour = m[Keys.DAY_START]?.toIntOrNull()?.coerceIn(0, 6) ?: 0,

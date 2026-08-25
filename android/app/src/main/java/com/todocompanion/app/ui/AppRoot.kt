@@ -166,6 +166,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         var showQuickAdd by remember { mutableStateOf(false) }
         var quickAddDue by remember { mutableStateOf<Long?>(null) }
         var quickAddWithTime by remember { mutableStateOf(false) }
+        var quickAddText by remember { mutableStateOf("") }
         var newReq by remember { mutableStateOf<NewReq?>(null) }
         var manageList by remember { mutableStateOf<ListEntity?>(null) }
         var manageFolder by remember { mutableStateOf<FolderEntity?>(null) }
@@ -252,13 +253,17 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
 
         fun openTask(id: String) { editing = id }
         fun goTasks() { tab = Tab.TASKS }
-        fun openQuickAdd(due: Long?, withTime: Boolean = false) { quickAddDue = due; quickAddWithTime = withTime; showQuickAdd = true }
+        fun openQuickAdd(due: Long?, withTime: Boolean = false) { quickAddDue = due; quickAddWithTime = withTime; quickAddText = ""; showQuickAdd = true }
 
         // One-shot launch action from the home-screen widget's "＋ Add" button.
         LaunchedEffect(launchAction.value) {
             val a = launchAction.value
             when {
                 a == com.todocompanion.app.MainActivity.ACTION_QUICK_ADD -> { openQuickAdd(null); launchAction.value = null }
+                a != null && a.startsWith(com.todocompanion.app.MainActivity.ACTION_QUICK_ADD_TEXT) -> {
+                    quickAddText = a.removePrefix(com.todocompanion.app.MainActivity.ACTION_QUICK_ADD_TEXT)
+                    quickAddDue = null; quickAddWithTime = false; showQuickAdd = true; goTasks(); launchAction.value = null
+                }
                 a != null && a.startsWith("open_task:") -> { openTask(a.removePrefix("open_task:")); launchAction.value = null }
                 a == "open_focus" -> { tab = Tab.FOCUS; launchAction.value = null }
                 a == "open_habits" -> { tab = Tab.HABITS; launchAction.value = null }
@@ -582,7 +587,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                 )
             }
         }
-        if (showQuickAdd) QuickAddSheet(vm, initialDue = quickAddDue, initialHasTime = quickAddWithTime, onDismiss = { showQuickAdd = false; quickAddDue = null; quickAddWithTime = false })
+        if (showQuickAdd) QuickAddSheet(vm, initialDue = quickAddDue, initialHasTime = quickAddWithTime, initialText = quickAddText, onDismiss = { showQuickAdd = false; quickAddDue = null; quickAddWithTime = false; quickAddText = "" })
 
         newReq?.let { req ->
             NewContainerDialog(req, folders, onDismiss = { newReq = null }) { name, isFolder, parentId ->

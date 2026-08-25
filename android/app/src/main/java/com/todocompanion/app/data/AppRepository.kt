@@ -44,7 +44,60 @@ class AppRepository(private val db: AppDatabase) {
     private val templates = db.templateDao()
     private val countdowns = db.countdownDao()
     private val activity = db.activityDao()
+    private val revisions = db.revisionDao()
     private val templateJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = true }
+
+    // ----- task time-travel: sparse revision history (H5) -----
+    private val lastRevSig = HashMap<String, Int>()
+    private val lastRevAt = HashMap<String, Long>()
+    private companion object { const val REV_KEEP = 25; const val REV_MIN_GAP_MS = 30_000L }
+
+    /** Fields worth versioning — cosmetic/order/timestamp churn is deliberately excluded. */
+    private fun revisionSignature(t: TaskEntity): Int = listOf(
+        t.title, t.note, t.importance, t.urgency, t.startDate, t.dueDate, t.deadlineDate,
+        t.listId, t.folderId, t.flagId, t.energy, t.rrule, t.estimateMin, t.estimateMax,
+        t.durationMin, t.completed, t.abandoned, t.isNote, t.isGoal, t.isProject, t.progressPct,
+    ).hashCode()
+
+    private fun revisionLabel(t: TaskEntity): String = when {
+        t.abandoned -> "Won't do — ${t.title.take(40)}"
+        t.completed -> "Completed — ${t.title.take(40)}"
+        else -> t.title.ifBlank { "Untitled" }.take(48)
+    }
+
+    /**
+     * Records a snapshot when a meaningful field changed since the last one, coalescing rapid
+     * keystrokes (min gap) so history stays sparse. Cheap: one hash compare on the hot path.
+     */
+    private suspend fun maybeRecordRevision(t: TaskEntity) {
+        val sig = revisionSignature(t)
+        val prevSig = lastRevSig[t.id]
+        if (prevSig == sig) return
+        val now = now()
+        val last = lastRevAt[t.id] ?: revisions.lastAt(t.id) ?: 0L
+        if (prevSig != null && now - last < REV_MIN_GAP_MS) { lastRevSig[t.id] = sig; return }
+        runCatching {
+            revisions.insert(
+                com.todocompanion.app.data.entity.TaskRevisionEntity(
+                    id = uid(), taskId = t.id, at = now, snapshotJson = templateJson.encodeToString(TaskEntity.serializer(), t), label = revisionLabel(t),
+                )
+            )
+            revisions.trim(t.id, REV_KEEP)
+        }
+        lastRevSig[t.id] = sig; lastRevAt[t.id] = now
+    }
+
+    fun taskRevisions(taskId: String): Flow<List<com.todocompanion.app.data.entity.TaskRevisionEntity>> = revisions.observeForTask(taskId)
+
+    /** Restores a saved revision, snapshotting the current state first so the restore is reversible. */
+    suspend fun restoreRevision(revisionId: String) {
+        val rev = revisions.byId(revisionId) ?: return
+        val current = tasks.getById(rev.taskId)
+        if (current != null) maybeRecordRevision(current)
+        val restored = runCatching { templateJson.decodeFromString(TaskEntity.serializer(), rev.snapshotJson) }.getOrNull() ?: return
+        tasks.upsert(restored.copy(updatedAt = now()))
+        logActivity(rev.taskId, "restored", "version")
+    }
 
     // ----- activity log (private, on-device audit trail) -----
     fun taskActivity(taskId: String): Flow<List<com.todocompanion.app.data.entity.ActivityEntity>> = activity.observeForTask(taskId)
@@ -156,8 +209,10 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun saveTask(task: TaskEntity) {
         // Capture user-visible reschedules for the activity log (title/note edits don't log).
         val old = tasks.getById(task.id)
-        tasks.upsert(task.copy(updatedAt = now()))
+        val saved = task.copy(updatedAt = now())
+        tasks.upsert(saved)
         if (old != null && old.dueDate != task.dueDate) logActivity(task.id, "rescheduled", task.dueDate?.toString())
+        maybeRecordRevision(saved)
     }
 
     suspend fun setCompleted(task: TaskEntity, completed: Boolean) {
@@ -650,6 +705,12 @@ class AppRepository(private val db: AppDatabase) {
             taskTagPairs = tags.getCrossRefs().map { it.taskId to it.tagId }, includeCompleted = includeCompleted,
         )
 
+    /** iCalendar (.ics) of dated tasks + deadlines — importable by any calendar app. */
+    suspend fun exportIcs(includeCompleted: Boolean): String =
+        com.todocompanion.app.domain.port.Export.toIcs(
+            tasks = tasks.getAll(), includeCompleted = includeCompleted, now = System.currentTimeMillis(),
+        )
+
     /** Flat CSV (lossy, portable — opens in any spreadsheet). */
     suspend fun exportCsv(includeCompleted: Boolean): String =
         com.todocompanion.app.domain.port.Export.toCsv(
@@ -662,7 +723,7 @@ class AppRepository(private val db: AppDatabase) {
         tasks.clear(); folders.clear(); lists.clear(); checklist.clear()
         tags.clear(); tags.clearCrossRefs(); contexts.clear(); contexts.clearCrossRefs()
         reminders.clear(); deps.clear(); settings.clear(); workspaces.clear(); filters.clear()
-        habits.clear(); habits.clearCheckins(); focus.clear(); attachments.clear(); flags.clear(); templates.clear(); countdowns.clear(); activity.clear()
+        habits.clear(); habits.clearCheckins(); focus.clear(); attachments.clear(); flags.clear(); templates.clear(); countdowns.clear(); activity.clear(); revisions.clear()
         folders.upsertAll(b.folders)
         lists.upsertAll(b.lists)
         tasks.upsertAll(b.tasks)

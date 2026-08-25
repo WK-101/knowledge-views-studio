@@ -69,7 +69,7 @@ import com.todocompanion.app.ui.components.priorityColor
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Boolean = false, onDismiss: () -> Unit) {
+fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Boolean = false, initialText: String = "", onDismiss: () -> Unit) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val lists by vm.lists.collectAsState()
     val tags by vm.tags.collectAsState()
@@ -77,7 +77,7 @@ fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Bo
     // Date-only entries use midnight (the all-day sentinel); a real time is set via the picker.
     fun dayMillis(d: java.time.LocalDate) = d.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
 
-    var text by remember { mutableStateOf("") }
+    var text by remember { mutableStateOf(initialText) }
     var note by remember { mutableStateOf("") }
     var due by remember { mutableStateOf(initialDue) }
     var hasTime by remember { mutableStateOf(initialHasTime) }

@@ -103,4 +103,79 @@ object Export {
             }
         return sb.toString()
     }
+
+    private val ICS_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
+    private val ICS_DTUTC: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'")
+
+    private fun icsEscape(s: String): String =
+        s.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\n", "\\n")
+
+    /** Fold long lines to 75 octets per RFC 5545 (continuation lines start with a space). */
+    private fun icsFold(line: String): String {
+        if (line.length <= 73) return line
+        val sb = StringBuilder()
+        var i = 0
+        while (i < line.length) {
+            val end = minOf(i + 73, line.length)
+            if (i > 0) sb.append("\r\n ")
+            sb.append(line, i, end)
+            i = end
+        }
+        return sb.toString()
+    }
+
+    /**
+     * A standards-compliant iCalendar (.ics) of every dated task — a VEVENT per due date and one
+     * per deadline — so any calendar app (Google Calendar, Apple, Outlook, Thunderbird) can import
+     * your plan. Pure text; the caller writes it to a file or the share sheet. Offline by nature.
+     */
+    fun toIcs(
+        tasks: List<TaskEntity>,
+        includeCompleted: Boolean = false,
+        zone: ZoneId = ZoneId.systemDefault(),
+        now: Long = 0L,
+    ): String {
+        val sb = StringBuilder()
+        fun line(s: String) { sb.append(icsFold(s)).append("\r\n") }
+        line("BEGIN:VCALENDAR")
+        line("VERSION:2.0")
+        line("PRODID:-//ToDo Companion//Tasks//EN")
+        line("CALSCALE:GREGORIAN")
+        line("METHOD:PUBLISH")
+        line("X-WR-CALNAME:ToDo Companion")
+        val stampUtc = if (now > 0) Instant.ofEpochMilli(now).atZone(ZoneId.of("UTC")).format(ICS_DTUTC) else "19700101T000000Z"
+
+        fun event(uid: String, summary: String, whenMillis: Long, allDay: Boolean, durationMin: Int?, note: String) {
+            val z = Instant.ofEpochMilli(whenMillis).atZone(zone)
+            line("BEGIN:VEVENT")
+            line("UID:$uid@todocompanion")
+            line("DTSTAMP:$stampUtc")
+            if (allDay) {
+                line("DTSTART;VALUE=DATE:${z.format(ICS_DATE)}")
+                line("DTEND;VALUE=DATE:${z.plusDays(1).format(ICS_DATE)}")
+            } else {
+                val startUtc = z.withZoneSameInstant(ZoneId.of("UTC"))
+                val endUtc = z.plusMinutes((durationMin ?: 30).toLong()).withZoneSameInstant(ZoneId.of("UTC"))
+                line("DTSTART:${startUtc.format(ICS_DTUTC)}")
+                line("DTEND:${endUtc.format(ICS_DTUTC)}")
+            }
+            line("SUMMARY:${icsEscape(summary)}")
+            if (note.isNotBlank()) line("DESCRIPTION:${icsEscape(note)}")
+            line("END:VEVENT")
+        }
+
+        tasks.filter { !it.trashed && (includeCompleted || (!it.completed && !it.abandoned)) }.forEach { t ->
+            val title = t.title.ifBlank { "Untitled" }
+            t.dueDate?.let { due ->
+                val timed = !t.isAllDay && Instant.ofEpochMilli(due).atZone(zone).let { it.hour != 0 || it.minute != 0 }
+                event(t.id, title, due, !timed, t.durationMin, t.note)
+            }
+            t.deadlineDate?.let { dl ->
+                val timed = Instant.ofEpochMilli(dl).atZone(zone).let { it.hour != 0 || it.minute != 0 }
+                event("${t.id}-deadline", "⛳ $title (deadline)", dl, !timed, null, t.note)
+            }
+        }
+        line("END:VCALENDAR")
+        return sb.toString()
+    }
 }

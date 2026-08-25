@@ -476,6 +476,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** The private, on-device activity trail for one task (created / completed / rescheduled …). */
     fun taskActivity(id: String): Flow<List<com.todocompanion.app.data.entity.ActivityEntity>> = repo.taskActivity(id)
+    fun taskRevisions(id: String): Flow<List<com.todocompanion.app.data.entity.TaskRevisionEntity>> = repo.taskRevisions(id)
+    fun restoreRevision(revisionId: String) = viewModelScope.launch { repo.restoreRevision(revisionId) }
     /** How many times each task has been rescheduled — the procrastination signal (E2). */
     suspend fun rescheduleCounts(): Map<String, Int> =
         repo.getActivitiesOnce().filter { it.type == "rescheduled" }.groupingBy { it.taskId }.eachCount()
@@ -823,6 +825,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun cycleHabit(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, current: Int) = viewModelScope.launch {
         repo.cycleCheckin(h.id, epochDay, h.targetPerDay, current)
         com.todocompanion.app.widget.HabitsWidget.refresh(appCtx)
+    }
+
+    // ---------- deep-work coach (H4) ----------
+    data class DeepWorkStatus(val todayMin: Int, val goalMin: Int, val streakDays: Int, val best: TaskEntity?, val bestBlockMin: Int)
+
+    /** Today's focused minutes against the daily goal, the current streak of goal-met days, and the
+     *  single best task to sink a block into next (with a suggested block length from its estimate). */
+    fun deepWorkStatus(): DeepWorkStatus {
+        val goal = settings.value.deepWorkGoalMin.coerceAtLeast(1)
+        val today = java.time.LocalDate.now(zone).toEpochDay()
+        val byDay = focusSessions.value.groupBy { it.epochDay }.mapValues { e -> e.value.sumOf { it.minutes } }
+        val todayMin = byDay[today] ?: 0
+        // Count consecutive goal-met days back from today; today counting only once it's already met,
+        // so a day still in progress never breaks the streak.
+        var streak = 0
+        var d = if (todayMin >= goal) today else today - 1
+        while ((byDay[d] ?: 0) >= goal) { streak++; d-- }
+        val best = topDoNext()
+        val blockMin = (best?.estimateMin ?: best?.estimateMax ?: best?.durationMin ?: 25).coerceIn(10, 90)
+        return DeepWorkStatus(todayMin, goal, streak, best, blockMin)
     }
 
     // ---------- focus ----------
@@ -1203,6 +1225,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val ok = runCatching {
             val csv = repo.exportCsv(includeCompleted)
             appCtx.contentResolver.openOutputStream(uri)?.use { it.write(csv.toByteArray()) }
+        }.isSuccess
+        onDone(ok)
+    }
+    fun exportIcsTo(uri: Uri, includeCompleted: Boolean, onDone: (Boolean) -> Unit) = viewModelScope.launch {
+        val ok = runCatching {
+            val ics = repo.exportIcs(includeCompleted)
+            appCtx.contentResolver.openOutputStream(uri)?.use { it.write(ics.toByteArray()) }
         }.isSuccess
         onDone(ok)
     }

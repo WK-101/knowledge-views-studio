@@ -186,6 +186,31 @@ interface ActivityDao {
 }
 
 @Dao
+interface TaskRevisionDao {
+    @Query("SELECT * FROM task_revisions WHERE taskId = :taskId ORDER BY at DESC")
+    fun observeForTask(taskId: String): Flow<List<com.todocompanion.app.data.entity.TaskRevisionEntity>>
+
+    @Query("SELECT * FROM task_revisions WHERE id = :id")
+    suspend fun byId(id: String): com.todocompanion.app.data.entity.TaskRevisionEntity?
+
+    @Query("SELECT at FROM task_revisions WHERE taskId = :taskId ORDER BY at DESC LIMIT 1")
+    suspend fun lastAt(taskId: String): Long?
+
+    @Insert
+    suspend fun insert(r: com.todocompanion.app.data.entity.TaskRevisionEntity)
+
+    // Keep only the newest [keep] revisions for a task; older ones fall off.
+    @Query("DELETE FROM task_revisions WHERE taskId = :taskId AND id NOT IN (SELECT id FROM task_revisions WHERE taskId = :taskId ORDER BY at DESC LIMIT :keep)")
+    suspend fun trim(taskId: String, keep: Int)
+
+    @Query("DELETE FROM task_revisions WHERE taskId = :taskId")
+    suspend fun clearForTask(taskId: String)
+
+    @Query("DELETE FROM task_revisions")
+    suspend fun clear()
+}
+
+@Dao
 interface FilterDao {
     @Query("SELECT * FROM filters ORDER BY sortOrder")
     fun observeAll(): Flow<List<FilterEntity>>

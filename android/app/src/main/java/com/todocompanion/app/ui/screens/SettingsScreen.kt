@@ -134,6 +134,9 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     val exportCsvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         if (uri != null) vm.exportCsvTo(uri, includeCompleted = true) { ok -> Toast.makeText(context, if (ok) "Exported" else "Export failed", Toast.LENGTH_SHORT).show() }
     }
+    val exportIcsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/calendar")) { uri ->
+        if (uri != null) vm.exportIcsTo(uri, includeCompleted = false) { ok -> Toast.makeText(context, if (ok) "Calendar exported" else "Export failed", Toast.LENGTH_SHORT).show() }
+    }
 
     // Collapsible category groups (TickTick-style compact list). All start collapsed.
     val open = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
@@ -353,6 +356,14 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 Text("%02d:00".format(s.workEndHour), style = MaterialTheme.typography.titleSmall)
                 TextButton(onClick = { vm.saveSettings(s.copy(workEndHour = (s.workEndHour + 1).coerceAtMost(24))) }) { Text("+") }
             }
+            Spacer(Modifier.height(10.dp)); Sub("Deep-work goal")
+            Text("Minutes of focused time you aim for each day. Powers the Focus coach's progress and streak.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(30, 60, 90, 120, 180).forEach { m ->
+                    FilterChip(selected = s.deepWorkGoalMin == m, onClick = { vm.saveSettings(s.copy(deepWorkGoalMin = m)) }, label = { Text(if (m >= 60) "${m / 60}h${if (m % 60 != 0) " ${m % 60}m" else ""}" else "${m}m") })
+                }
+            }
         }
 
         SettingsGroup(Icons.Filled.EditNote, "Task editor", open["editor"] == true, { open["editor"] = open["editor"] != true }) {
@@ -458,7 +469,8 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             Action("Export as Markdown (.md)") { exportMdLauncher.launch("todo-companion.md") }
             Action("Export as CSV (spreadsheet)") { exportCsvLauncher.launch("todo-companion.csv") }
-            Text("Readable, portable snapshots for sharing or archiving. (Restore uses JSON.)",
+            Action("Export to calendar (.ics)") { exportIcsLauncher.launch("todo-companion.ics") }
+            Text("Readable, portable snapshots for sharing or archiving. The .ics imports your dated tasks and deadlines into any calendar app. (Restore uses JSON.)",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
             HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             Action("Import from Todoist / TickTick / MLO") { importExternalLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "text/xml", "application/xml", "text/*", "*/*")) }

@@ -40,6 +40,18 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- H1: capture from the system share sheet — any app can share text into a new task. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <!-- H1: capture selected text via the text-selection menu (Android 6+). -->
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
         </activity>
 
         <!-- Shares a decoded attachment with a local viewer app. Grants are per-URI + temporary. -->
@@ -170,6 +182,18 @@
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_next7_info" />
         </receiver>
+
+        <!-- H5: Quick Settings tile → jump straight into quick-add from the notification shade. -->
+        <service
+            android:name=".tiles.CaptureTileService"
+            android:exported="true"
+            android:icon="@android:drawable/ic_input_add"
+            android:label="@string/tile_capture_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
 
         <!-- Fires a scheduled reminder notification + on-device proximity alerts. Not exported. -->
         <receiver

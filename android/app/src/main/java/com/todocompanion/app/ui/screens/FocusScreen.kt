@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -97,6 +99,14 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
         AlarmScheduler.cancelFocusDone(context)
     }
 
+    // Deep-work coach: start a Pomodoro of [min] minutes on a chosen task in one tap.
+    fun startFocus(taskId: String?, min: Int) {
+        focusTaskId = taskId
+        pomo = true; pomoMin = min.coerceIn(10, 90)
+        baseElapsed = 0; startMillis = System.currentTimeMillis(); segmentStart = startMillis; running = true
+        AlarmScheduler.scheduleFocusDone(context, startMillis + pomoMin * 60 * 1000L)
+    }
+
     // Tick once a second to recompute from the wall clock; on returning from the background this
     // re-syncs immediately, and a Pomodoro that elapsed while away auto-completes.
     LaunchedEffect(running) {
@@ -129,6 +139,49 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
                 }
             }
             androidx.compose.material3.IconButton(onClick = onOpenStats) { androidx.compose.material3.Icon(Icons.Filled.BarChart, "Statistics") }
+        }
+        // ---- Deep-work coach (H4): today's focused minutes vs goal, streak, and a one-tap next block ----
+        val dwSettings by vm.settings.collectAsState()
+        val coach = remember(sessions, dwSettings, tasks) { vm.deepWorkStatus() }
+        if (!running) {
+            Spacer(Modifier.size(10.dp))
+            androidx.compose.material3.Surface(
+                Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f),
+            ) {
+                Column(Modifier.padding(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Deep work today", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        if (coach.streakDays > 0) Text("🔥 ${coach.streakDays}-day streak", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    }
+                    Spacer(Modifier.size(8.dp))
+                    androidx.compose.material3.LinearProgressIndicator(
+                        progress = { (coach.todayMin.toFloat() / coach.goalMin).coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                    )
+                    Spacer(Modifier.size(6.dp))
+                    Text(
+                        if (coach.todayMin >= coach.goalMin) "Goal met — ${coach.todayMin} min focused today 🎉"
+                        else "${coach.todayMin} / ${coach.goalMin} min · ${coach.goalMin - coach.todayMin} to go",
+                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    val best = coach.best
+                    if (best != null) {
+                        Spacer(Modifier.size(10.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Next block", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(best.title.ifBlank { "Untitled" }, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            }
+                            androidx.compose.material3.Button(onClick = { startFocus(best.id, coach.bestBlockMin) }) {
+                                androidx.compose.material3.Icon(Icons.Filled.PlayArrow, null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("${coach.bestBlockMin}m")
+                            }
+                        }
+                    }
+                }
+            }
         }
         if (pomo && !running && elapsed == 0) {
             Spacer(Modifier.size(10.dp))
