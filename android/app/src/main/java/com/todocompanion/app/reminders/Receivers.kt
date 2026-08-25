@@ -18,6 +18,8 @@ class ReminderReceiver : BroadcastReceiver() {
         val title = intent.getStringExtra(AlarmScheduler.EXTRA_TITLE) ?: "Task reminder"
         val reminderId = intent.getStringExtra(AlarmScheduler.EXTRA_REMINDER_ID) ?: (taskId ?: "")
         val annoying = intent.getBooleanExtra(AlarmScheduler.EXTRA_ANNOYING, false)
+        val escalate = intent.getBooleanExtra(AlarmScheduler.EXTRA_ESCALATE, false)
+        val step = intent.getIntExtra(AlarmScheduler.EXTRA_STEP, 0)
 
         when (intent.action) {
             AlarmScheduler.ACTION_FIRE -> {
@@ -27,8 +29,15 @@ class ReminderReceiver : BroadcastReceiver() {
                     try {
                         val task = app.repository.getTask(taskId)
                         if (task != null && !task.completed && !task.trashed && !task.abandoned) {
-                            Notifications.show(context, taskId, title, reminderId, annoying)
-                            if (annoying) AlarmScheduler.scheduleFireIn(context, taskId, title, reminderId, true, 15)
+                            Notifications.show(context, taskId, title, reminderId, annoying || escalate, escalate, step)
+                            when {
+                                // Escalation ramps up: re-fire faster each round (5,5,4,3,2 min floor),
+                                // and the notification itself grows more insistent (see Notifications.show).
+                                escalate -> AlarmScheduler.scheduleFireIn(
+                                    context, taskId, title, reminderId, annoying = true,
+                                    delayMin = (6 - step).coerceIn(2, 5).toLong(), escalate = true, step = step + 1)
+                                annoying -> AlarmScheduler.scheduleFireIn(context, taskId, title, reminderId, true, 15)
+                            }
                         }
                     } finally { pending.finish() }
                 }
@@ -64,6 +73,43 @@ class ReminderReceiver : BroadcastReceiver() {
                         Notifications.showSummary(context, count)
                         val s = app.repository.settingsSnapshot()
                         if (s.dailySummaryEnabled) AlarmScheduler.scheduleDailySummary(context, s.dailySummaryHour, s.dailySummaryMinute)
+                    } finally { pending.finish() }
+                }
+            }
+
+            AlarmScheduler.ACTION_EVENING -> {
+                if (app == null) return
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val zone = ZoneId.systemDefault()
+                        val today = Instant.now().atZone(zone).toLocalDate()
+                        // Count today's open tasks left unfinished — the reason to sit down and plan tomorrow.
+                        val leftover = app.repository.allTasksOnce().count {
+                            !it.completed && !it.trashed && !it.abandoned && it.dueDate != null &&
+                                !Instant.ofEpochMilli(it.dueDate!!).atZone(zone).toLocalDate().isAfter(today)
+                        }
+                        Notifications.showEvening(context, leftover)
+                        val s = app.repository.settingsSnapshot()
+                        if (s.eveningReviewEnabled) AlarmScheduler.scheduleEveningReview(context, s.eveningReviewHour)
+                    } finally { pending.finish() }
+                }
+            }
+
+            LocationReminders.ACTION_PROXIMITY -> {
+                if (app == null || taskId == null) return
+                // The OS attaches KEY_PROXIMITY_ENTERING: true = arrived, false = left.
+                val entering = intent.getBooleanExtra(android.location.LocationManager.KEY_PROXIMITY_ENTERING, true)
+                val onEnter = intent.getBooleanExtra("onEnter", true)
+                if (entering != onEnter) return
+                val place = intent.getStringExtra("place")?.takeIf { it.isNotBlank() }
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val task = app.repository.getTask(taskId)
+                        if (task != null && !task.completed && !task.trashed && !task.abandoned) {
+                            Notifications.showLocation(context, taskId, title, reminderId, onEnter, place)
+                        }
                     } finally { pending.finish() }
                 }
             }
@@ -107,8 +153,10 @@ class BootReceiver : BroadcastReceiver() {
             try {
                 AlarmScheduler.rescheduleAll(context, app.repository)
                 AlarmScheduler.scheduleHabitReminders(context, app.repository)
+                LocationReminders.registerAll(context, app.repository)
                 val s = app.repository.settingsSnapshot()
                 if (s.dailySummaryEnabled) AlarmScheduler.scheduleDailySummary(context, s.dailySummaryHour, s.dailySummaryMinute)
+                if (s.eveningReviewEnabled) AlarmScheduler.scheduleEveningReview(context, s.eveningReviewHour)
             } finally { pending.finish() }
         }
     }

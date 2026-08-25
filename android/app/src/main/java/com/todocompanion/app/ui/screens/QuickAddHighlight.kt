@@ -16,6 +16,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 private data class Tok(val re: Regex, val color: Color, val bold: Boolean = true)
 
 private val TOKENS = listOf(
+    // reminder shortcut — !30m / !2h / !1d / !1w
+    Tok(Regex("(?i)(?<=\\s|^)!\\d{1,4}\\s*(m|min|mins|h|hr|hrs|hour|hours|d|day|days|w|wk|week|weeks)(?=\\s|$)"), Color(0xFF0891B2)),
     // priority — !, !!, !!! or p1..p4
     Tok(Regex("(?<=\\s|^)(!{1,3}|[pP][1-4])(?=\\s|$)"), Color(0xFFEA580C)),
     // list — ~name

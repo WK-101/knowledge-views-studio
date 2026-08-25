@@ -37,28 +37,79 @@ object Notifications {
         return PendingIntent.getActivity(context, 0, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     }
 
-    fun show(context: Context, taskId: String, title: String, reminderId: String, annoying: Boolean) {
+    /** Deep-link into the app carrying a launch action (routed by AppRoot). */
+    private fun openAppRoute(context: Context, action: String, reqCode: Int): PendingIntent {
+        val i = Intent(context, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            .putExtra(MainActivity.EXTRA_ACTION, action)
+        return PendingIntent.getActivity(context, reqCode, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    }
+
+    const val EVENING_ID = 424244
+
+    fun showEvening(context: Context, leftover: Int) {
+        ensureChannel(context)
+        val text = if (leftover == 0) "Everything's done. Take 2 minutes to line up tomorrow." else
+            "$leftover task${if (leftover == 1) "" else "s"} still open today. Plan tomorrow before you clock off."
+        val n = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_menu_my_calendar)
+            .setContentTitle("Evening review")
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(openAppRoute(context, "open_plan", 918_276))
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(EVENING_ID, n) }
+    }
+
+    fun show(context: Context, taskId: String, title: String, reminderId: String, annoying: Boolean, escalate: Boolean = false, step: Int = 0) {
         ensureChannel(context)
         val done = broadcast(context, AlarmScheduler.ACTION_DONE, ("done$taskId").hashCode(),
             mapOf(AlarmScheduler.EXTRA_TASK_ID to taskId))
         val snooze = broadcast(context, AlarmScheduler.ACTION_SNOOZE, ("snz$reminderId").hashCode(),
             mapOf(AlarmScheduler.EXTRA_TASK_ID to taskId, AlarmScheduler.EXTRA_TITLE to title,
                 AlarmScheduler.EXTRA_REMINDER_ID to reminderId, AlarmScheduler.EXTRA_ANNOYING to annoying))
-        val n = NotificationCompat.Builder(context, CHANNEL_ID)
+        // Escalation makes each successive alert harder to ignore: the text nags louder and, once it's
+        // been ignored a few rounds, it takes over the screen (full-screen intent) and vibrates.
+        val text = if (escalate && step > 0) "Still not done — reminder ×${step + 1}" else "Reminder"
+        val b = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
             .setContentTitle(title)
-            .setContentText("Reminder")
+            .setContentText(text)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(openApp(context))
             .addAction(0, "Done", done)
             .addAction(0, "Snooze 10m", snooze)
-            .build()
-        runCatching { NotificationManagerCompat.from(context).notify(taskId.hashCode(), n) }
+        if (escalate) {
+            b.setCategory(NotificationCompat.CATEGORY_ALARM)
+            b.setVibrate(longArrayOf(0, 400, 200, 400))
+            if (step >= 2) b.setFullScreenIntent(openApp(context), true)
+        }
+        runCatching { NotificationManagerCompat.from(context).notify(taskId.hashCode(), b.build()) }
     }
 
     fun cancel(context: Context, taskId: String) {
         runCatching { NotificationManagerCompat.from(context).cancel(taskId.hashCode()) }
+    }
+
+    fun showLocation(context: Context, taskId: String, title: String, reminderId: String, onEnter: Boolean, place: String?) {
+        ensureChannel(context)
+        val where = place?.let { " $it" } ?: " a saved place"
+        val text = if (onEnter) "You've arrived at$where" else "You're leaving$where"
+        val done = broadcast(context, AlarmScheduler.ACTION_DONE, ("done$taskId").hashCode(),
+            mapOf(AlarmScheduler.EXTRA_TASK_ID to taskId))
+        val n = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(openApp(context))
+            .addAction(0, "Done", done)
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(("loc:$taskId").hashCode(), n) }
     }
 
     const val FOCUS_ID = 424243

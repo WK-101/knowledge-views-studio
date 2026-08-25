@@ -2,13 +2,14 @@ package com.todocompanion.app
 
 import android.content.Intent
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.mutableStateOf
+import androidx.fragment.app.FragmentActivity
 import com.todocompanion.app.ui.AppRoot
 
-class MainActivity : ComponentActivity() {
+// FragmentActivity (a ComponentActivity subclass) so androidx.biometric's BiometricPrompt can attach.
+class MainActivity : FragmentActivity() {
     // Read by AppRoot; carries a one-shot launch action (e.g. from the home-screen widget).
     private val launchAction = mutableStateOf<String?>(null)
 

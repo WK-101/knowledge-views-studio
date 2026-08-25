@@ -76,6 +76,19 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
 
     fun elapsedNow(): Int = baseElapsed + if (running) ((System.currentTimeMillis() - segmentStart) / 1000L).toInt() else 0
 
+    // "Just start" hand-off: a task pre-selected from the detail screen lands here and auto-starts.
+    val pendingFocus by vm.pendingFocusTaskId.collectAsState()
+    LaunchedEffect(pendingFocus) {
+        pendingFocus?.let { id ->
+            focusTaskId = id
+            vm.pendingFocusTaskId.value = null
+            if (!running) {
+                running = true; baseElapsed = 0; segmentStart = System.currentTimeMillis(); startMillis = segmentStart
+                if (pomo) AlarmScheduler.scheduleFocusDone(context, System.currentTimeMillis() + pomoSeconds * 1000L)
+            }
+        }
+    }
+
     fun finish() {
         val e = elapsedNow()
         val mins = if (pomo) (minOf(e, pomoSeconds) / 60) else (e / 60)

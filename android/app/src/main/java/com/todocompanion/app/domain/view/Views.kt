@@ -24,6 +24,7 @@ enum class SmartKind(val title: String) {
     SCHEDULED("Scheduled"),
     FLAGGED("Flagged"),
     GOALS("Goals"),
+    WAITING("Waiting On"),
     NEEDS_ATTENTION("Needs Attention"),
     ALL("All"),
     COMPLETED("Completed"),
@@ -82,6 +83,9 @@ object TaskViews {
             SmartKind.SCHEDULED -> all.filter { isOpen(it) && it.dueDate != null }
             SmartKind.FLAGGED -> all.filter { isOpen(it) && it.flagId != null }
             SmartKind.GOALS -> all.filter { isOpen(it) && it.isGoal }
+            // WAITING is dependency-aware, so the real list is computed in the ViewModel; here we
+            // return an empty base to keep filterSmart pure on tasks.
+            SmartKind.WAITING -> emptyList()
             SmartKind.NEEDS_ATTENTION -> {
                 // The silent backlog: open, undated, leaf tasks untouched for a while. Container
                 // parents are represented by their children, so they're excluded.

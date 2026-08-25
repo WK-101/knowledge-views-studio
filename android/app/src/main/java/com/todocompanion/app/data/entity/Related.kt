@@ -62,8 +62,16 @@ data class ReminderEntity(
     val type: String = "absolute", // absolute | relativeToDue | relativeToStart | location
     val atTime: Long? = null,       // for absolute reminders (epoch millis)
     val offsetMin: Int? = null,     // for relative reminders (minutes before)
-    val contextId: String? = null,  // for location reminders (Phase 2)
+    val contextId: String? = null,  // optional context this location reminder borrows coords from
+    // Location reminders: fire on entering/leaving a radius around a point. All local (framework
+    // proximity alerts) — no Play Services, no INTERNET.
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val radiusM: Double? = null,
+    val placeName: String? = null,
+    val onEnter: Boolean = true,    // true = arrive, false = leave
     val annoying: Boolean = false,
+    val escalate: Boolean = false,  // keep re-alerting until acknowledged
     val tone: String? = null,
 )
 

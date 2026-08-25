@@ -53,7 +53,9 @@ import androidx.compose.material.icons.filled.ViewSidebar
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Surface
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -96,6 +98,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     var showZone by remember { mutableStateOf(false) }
     var showTime by remember { mutableStateOf(false) }
+    var showEveningTime by remember { mutableStateOf(false) }
     var editFlag by remember { mutableStateOf<FlagEntity?>(null) }
     var addingFlag by remember { mutableStateOf(false) }
 
@@ -104,6 +107,12 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) vm.importFrom(uri) { ok -> Toast.makeText(context, if (ok) "Imported" else "Import failed", Toast.LENGTH_SHORT).show() }
+    }
+    val exportMdLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri ->
+        if (uri != null) vm.exportMarkdownTo(uri, includeCompleted = true) { ok -> Toast.makeText(context, if (ok) "Exported" else "Export failed", Toast.LENGTH_SHORT).show() }
+    }
+    val exportCsvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        if (uri != null) vm.exportCsvTo(uri, includeCompleted = true) { ok -> Toast.makeText(context, if (ok) "Exported" else "Export failed", Toast.LENGTH_SHORT).show() }
     }
 
     // Collapsible category groups (TickTick-style compact list). All start collapsed.
@@ -130,12 +139,32 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 ACCENTS.forEach { c -> AccentSwatch(c, s.accentArgb) { vm.saveSettings(s.copy(accentArgb = c)) } }
             }
 
+            Spacer(Modifier.height(12.dp)); Sub("Theme pack")
+            Text("One tap sets a coordinated accent + background.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                THEME_PACKS.forEach { pack ->
+                    FilterChip(
+                        selected = s.themePack == pack.id,
+                        onClick = {
+                            vm.saveSettings(s.copy(themePack = pack.id, accentArgb = pack.accent, appBackground = pack.background,
+                                dynamicColor = if (pack.id.isBlank()) s.dynamicColor else false,
+                                themeMode = pack.themeMode ?: s.themeMode))
+                        },
+                        label = { Text(pack.label) },
+                        leadingIcon = { Box(Modifier.size(14.dp).clip(androidx.compose.foundation.shape.CircleShape).background(if (pack.accent == 0L) MaterialTheme.colorScheme.primary else Color(pack.accent))) },
+                    )
+                }
+            }
+
             Spacer(Modifier.height(12.dp)); Sub("App background")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf("none" to "None", "warm" to "Warm", "cool" to "Cool", "mint" to "Mint", "dusk" to "Dusk", "rose" to "Rose").forEach { (key, label) ->
                     FilterChip(selected = s.appBackground == key, onClick = { vm.saveSettings(s.copy(appBackground = key)) }, label = { Text(label) })
                 }
             }
+
+            Spacer(Modifier.height(10.dp))
+            Toggle("Completion sound", s.completionSound) { vm.saveSettings(s.copy(completionSound = it)) }
 
             Spacer(Modifier.height(12.dp)); Sub("Task density")
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -146,6 +175,15 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                     }
                 }
             }
+
+            Spacer(Modifier.height(12.dp)); Sub("Add button position")
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                listOf("start" to "Left", "center" to "Center", "end" to "Right").forEachIndexed { i, (key, label) ->
+                    SegmentedButton(selected = s.fabPosition == key, onClick = { vm.saveSettings(s.copy(fabPosition = key)) },
+                        shape = SegmentedButtonDefaults.itemShape(i, 3)) { Text(label) }
+                }
+            }
+            Text("Long-press the add button for quick actions (plan, focus, review).", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
 
             Spacer(Modifier.height(12.dp)); Sub("Swipe actions")
             SwipeRow("Swipe right", s.swipeRight) { vm.saveSettings(s.copy(swipeRight = it)) }
@@ -287,6 +325,28 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                     Text("%02d:%02d".format(s.dailySummaryHour, s.dailySummaryMinute), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
+            HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+            Toggle("Evening review nudge", s.eveningReviewEnabled) { vm.saveSettings(s.copy(eveningReviewEnabled = it)) }
+            if (s.eveningReviewEnabled) {
+                Row(Modifier.fillMaxWidth().clickable { showEveningTime = true }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Review time", Modifier.weight(1f))
+                    Text("%02d:00".format(s.eveningReviewHour), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Text("An end-of-day tap to line up tomorrow before you clock off.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+            Text("Reminder reliability", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 4.dp, bottom = 2.dp))
+            Text("Android may delay or drop alarms to save battery. Grant these once so reminders fire on time.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+            Action("Allow exact alarms") { openExactAlarmSettings(context) }
+            Action("Ignore battery optimisation") { openBatterySettings(context) }
+        }
+
+        SettingsGroup(Icons.Filled.Lock, "Privacy", open["privacy"] == true, { open["privacy"] = open["privacy"] != true }) {
+            Toggle("Require unlock to open", s.appLockEnabled) { vm.saveSettings(s.copy(appLockEnabled = it)) }
+            Text("Ask for your fingerprint, face or device PIN each time the app opens. All checks happen on-device.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         SettingsGroup(Icons.Filled.Flag, "Flags", open["flags"] == true, { open["flags"] = open["flags"] != true }) {
@@ -314,6 +374,11 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Action("Export all data (JSON)") { exportLauncher.launch("todo-companion-backup.json") }
             Action("Import / restore (JSON)") { importLauncher.launch(arrayOf("application/json", "text/*", "*/*")) }
             Text("Complete, lossless local backup. No account, no cloud, no network.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+            HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+            Action("Export as Markdown (.md)") { exportMdLauncher.launch("todo-companion.md") }
+            Action("Export as CSV (spreadsheet)") { exportCsvLauncher.launch("todo-companion.csv") }
+            Text("Readable, portable snapshots for sharing or archiving. (Restore uses JSON.)",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
         }
 
@@ -343,6 +408,42 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             title = { Text("Summary time") },
             text = { TimePicker(state = ts) },
         )
+    }
+    if (showEveningTime) {
+        val ts = rememberTimePickerState(initialHour = s.eveningReviewHour, initialMinute = 0)
+        AlertDialog(
+            onDismissRequest = { showEveningTime = false },
+            confirmButton = { TextButton(onClick = { vm.saveSettings(s.copy(eveningReviewHour = ts.hour)); showEveningTime = false }) { Text("OK") } },
+            dismissButton = { TextButton(onClick = { showEveningTime = false }) { Text("Cancel") } },
+            title = { Text("Evening review time") },
+            text = { TimePicker(state = ts) },
+        )
+    }
+}
+
+/** Open the OS screen where the user can grant exact-alarm scheduling (Android 12+). */
+private fun openExactAlarmSettings(context: android.content.Context) {
+    runCatching {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            context.startActivity(android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                android.net.Uri.parse("package:" + context.packageName)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+        } else {
+            context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                android.net.Uri.parse("package:" + context.packageName)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+    }
+}
+
+/** Ask the OS to exempt the app from battery optimisation so alarms aren't deferred. */
+private fun openBatterySettings(context: android.content.Context) {
+    runCatching {
+        context.startActivity(android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+            android.net.Uri.parse("package:" + context.packageName)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+    }.onFailure {
+        runCatching {
+            context.startActivity(android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
     }
 }
 
@@ -477,6 +578,19 @@ private fun Action(title: String, onClick: () -> Unit) {
 private val ACCENTS = listOf(
     0xFF5B57D9, 0xFF2F6BFF, 0xFF0EA5E9, 0xFF06B6D4, 0xFF12A594, 0xFF0EA371, 0xFF65A30D, 0xFFCA8A04,
     0xFFF59E0B, 0xFFEA580C, 0xFFE5484D, 0xFFEC4899, 0xFFDB2777, 0xFF8B5CF6, 0xFF7C3AED, 0xFF64748B,
+)
+
+/** A curated theme: coordinated accent colour + subtle app background (+ optional forced mode). */
+private data class ThemePack(val id: String, val label: String, val accent: Long, val background: String, val themeMode: ThemeMode? = null)
+private val THEME_PACKS = listOf(
+    ThemePack("", "Dynamic", 0L, "none"),
+    ThemePack("sunset", "Sunset", 0xFFEA580C, "warm"),
+    ThemePack("ocean", "Ocean", 0xFF0EA5E9, "cool"),
+    ThemePack("forest", "Forest", 0xFF0EA371, "mint"),
+    ThemePack("grape", "Grape", 0xFF7C3AED, "dusk"),
+    ThemePack("rose", "Rosé", 0xFFDB2777, "rose"),
+    ThemePack("midnight", "Midnight", 0xFF2F6BFF, "none", ThemeMode.AMOLED),
+    ThemePack("slate", "Slate", 0xFF64748B, "cool"),
 )
 
 @Composable

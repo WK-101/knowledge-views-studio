@@ -86,6 +86,9 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.9.2")
     implementation("androidx.navigation:navigation-compose:2.8.3")
 
+    // Biometric / device-credential app lock (local only, no network)
+    implementation("androidx.biometric:biometric:1.1.0")
+
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")

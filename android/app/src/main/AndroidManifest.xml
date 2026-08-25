@@ -4,14 +4,22 @@
     <!--
       NO android.permission.INTERNET is declared. The app is incapable of network
       access: fully offline and private by construction.
-      The permissions below are all local-only: scheduling reminders and posting
-      notifications on the device.
+      The permissions below are all local-only: scheduling reminders, posting
+      notifications, and reading the device's own GPS for on-device proximity
+      alerts (no network, no Play Services, no location ever leaves the device).
     -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- On-device location for arrive/leave reminders. Optional; requested at runtime. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 
     <application
         android:name=".App"
@@ -144,10 +152,14 @@
             android:exported="false" />
         <receiver android:name=".widget.HabitCheckReceiver" android:exported="false" />
 
-        <!-- Fires a scheduled reminder notification. Not exported. -->
+        <!-- Fires a scheduled reminder notification + on-device proximity alerts. Not exported. -->
         <receiver
             android:name=".reminders.ReminderReceiver"
-            android:exported="false" />
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.todocompanion.app.action.PROXIMITY" />
+            </intent-filter>
+        </receiver>
 
         <!-- Reschedules pending reminders after a device reboot. -->
         <receiver

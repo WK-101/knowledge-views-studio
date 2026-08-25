@@ -41,7 +41,13 @@ data class TaskEntity(
 
     val startDate: Long? = null,
     val dueDate: Long? = null,
+    // A hard deadline, distinct from the plan/due date: due = when you'll do it, deadline = when it's
+    // actually due. Approaching deadlines raise the computed urgency.
+    val deadlineDate: Long? = null,
     val isAllDay: Boolean = false,
+
+    // Energy required: 1 = low, 2 = medium, 3 = high (null = unset). Powers "right now" surfacing.
+    val energy: Int? = null,
 
     val durationMin: Int? = null,
     val estimateMin: Int? = null,

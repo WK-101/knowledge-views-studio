@@ -51,6 +51,8 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.BatteryChargingFull
+import androidx.compose.material.icons.filled.EventRepeat
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.ViewColumn
 import androidx.compose.material.icons.filled.ViewTimeline
@@ -148,13 +150,14 @@ private fun CompactBottomBar(tabs: List<Tab>, current: Tab, onSelect: (Tab) -> U
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
     val vm: AppViewModel = viewModel()
     val settings by vm.settings.collectAsState()
 
     AppTheme(themeMode = settings.themeMode, dynamicColor = settings.dynamicColor, accentArgb = settings.accentArgb) {
+      AppLockGate(enabled = settings.appLockEnabled) {
         val scope = rememberCoroutineScope()
         val drawerState = rememberDrawerState(DrawerValue.Closed)
         var tab by remember { mutableStateOf(Tab.TASKS) }
@@ -205,7 +208,11 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         val flagsList by vm.flags.collectAsState()
         val filtersList by vm.filters.collectAsState()
         val outlineMode by vm.outlineMode.collectAsState()
-        val boardMode by vm.boardMode.collectAsState()
+        val boardModeTransient by vm.boardMode.collectAsState()
+        // Per-list layout (A3): a real list remembers its Board/List choice; other views use the
+        // transient toggle. The current list id, when the active view is a plain list.
+        val currentListId = (currentView as? ViewRef.ListView)?.listId
+        val boardMode = if (currentListId != null) currentListId in settings.boardLists else boardModeTransient
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val perm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
@@ -215,6 +222,10 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         LaunchedEffect(settings.dailySummaryEnabled, settings.dailySummaryHour, settings.dailySummaryMinute) {
             if (settings.dailySummaryEnabled) AlarmScheduler.scheduleDailySummary(context, settings.dailySummaryHour, settings.dailySummaryMinute)
             else AlarmScheduler.cancelDailySummary(context)
+        }
+        LaunchedEffect(settings.eveningReviewEnabled, settings.eveningReviewHour) {
+            if (settings.eveningReviewEnabled) AlarmScheduler.scheduleEveningReview(context, settings.eveningReviewHour)
+            else AlarmScheduler.cancelEveningReview(context)
         }
 
         val snackbar = remember { androidx.compose.material3.SnackbarHostState() }
@@ -242,6 +253,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                 a == "open_habits" -> { tab = Tab.HABITS; launchAction.value = null }
                 a == "open_countdowns" -> { showCountdowns = true; launchAction.value = null }
                 a == "open_matrix" -> { tab = Tab.MATRIX; launchAction.value = null }
+                a == "open_plan" -> { showPlan = true; launchAction.value = null }
             }
         }
 
@@ -338,7 +350,10 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                         navigationIcon = { IconButton(onClick = { scope.launch { drawerState.open() } }) { Icon(Icons.Filled.Menu, "Menu") } },
                         actions = {
                             if (tab == Tab.TASKS) IconButton(onClick = { showPlan = true }) { Icon(Icons.Filled.Bolt, "Plan your day") }
-                            if (tab == Tab.TASKS) IconButton(onClick = { vm.boardMode.value = !boardMode }) {
+                            if (tab == Tab.TASKS) IconButton(onClick = {
+                                // On a real list, remember the choice for that list; elsewhere flip the transient toggle.
+                                if (currentListId != null) vm.setBoardList(currentListId, !boardMode) else vm.boardMode.value = !boardMode
+                            }) {
                                 Icon(Icons.Filled.ViewColumn, if (boardMode) "List view" else "Board view", tint = if (boardMode) MaterialTheme.colorScheme.primary else LocalContentColor.current)
                             }
                             if (canOutline && !boardMode) IconButton(onClick = { vm.outlineMode.value = !outlineMode }) {
@@ -368,6 +383,24 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                                                 text = { Text(label) },
                                                 leadingIcon = { if (avail == m) Icon(Icons.Filled.Check, null, modifier = Modifier.size(18.dp)) else Spacer(Modifier.width(18.dp)) },
                                                 onClick = { vm.timeAvailableMin.value = m; timeMenu = false },
+                                            )
+                                        }
+                                    }
+                                }
+                                // "Energy right now" planner — pairs with time-available on the Do-Next list.
+                                val energy by vm.energyAvailable.collectAsState()
+                                var energyMenu by remember { mutableStateOf(false) }
+                                Box {
+                                    IconButton(onClick = { energyMenu = true }) {
+                                        Icon(Icons.Filled.BatteryChargingFull, "Energy right now", tint = if (energy != null) MaterialTheme.colorScheme.primary else LocalContentColor.current)
+                                    }
+                                    DropdownMenu(expanded = energyMenu, onDismissRequest = { energyMenu = false }) {
+                                        Text("ENERGY RIGHT NOW", Modifier.padding(14.dp, 8.dp, 14.dp, 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        listOf<Pair<Int?, String>>(null to "Any energy", 1 to "Low — easy wins", 2 to "Medium", 3 to "High — deep work").forEach { (e, label) ->
+                                            DropdownMenuItem(
+                                                text = { Text(label) },
+                                                leadingIcon = { if (energy == e) Icon(Icons.Filled.Check, null, modifier = Modifier.size(18.dp)) else Spacer(Modifier.width(18.dp)) },
+                                                onClick = { vm.energyAvailable.value = e; energyMenu = false },
                                             )
                                         }
                                     }
@@ -422,10 +455,28 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                     CompactBottomBar(visibleTabs, tab) { tab = it }
                 },
                 snackbarHost = { androidx.compose.material3.SnackbarHost(snackbar) },
+                floatingActionButtonPosition = when (settings.fabPosition) {
+                    "center" -> androidx.compose.material3.FabPosition.Center
+                    "start" -> androidx.compose.material3.FabPosition.Start
+                    else -> androidx.compose.material3.FabPosition.End
+                },
                 floatingActionButton = {
                     val selecting by vm.selectionActive.collectAsState()
                     if ((tab == Tab.TASKS || tab == Tab.CALENDAR || tab == Tab.MATRIX) && !(tab == Tab.TASKS && selecting)) {
-                        FloatingActionButton(onClick = { openQuickAdd(null) }) { Icon(Icons.Filled.Add, "Add task") }
+                        var fabMenu by remember { mutableStateOf(false) }
+                        Box {
+                            // Tap adds; long-press opens quick actions (C1).
+                            FloatingActionButton(onClick = { openQuickAdd(null) }, modifier = Modifier.combinedClickable(
+                                onClick = { openQuickAdd(null) }, onLongClick = { fabMenu = true })) {
+                                Icon(Icons.Filled.Add, "Add task")
+                            }
+                            DropdownMenu(expanded = fabMenu, onDismissRequest = { fabMenu = false }) {
+                                DropdownMenuItem(text = { Text("New task") }, leadingIcon = { Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; openQuickAdd(null) })
+                                DropdownMenuItem(text = { Text("Plan my day") }, leadingIcon = { Icon(Icons.Filled.Bolt, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; showPlan = true })
+                                DropdownMenuItem(text = { Text("Focus") }, leadingIcon = { Icon(Icons.Filled.Timer, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; tab = Tab.FOCUS })
+                                DropdownMenuItem(text = { Text("Weekly review") }, leadingIcon = { Icon(Icons.Filled.EventRepeat, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; showReview = true })
+                            }
+                        }
                     }
                 },
             ) { padding ->
@@ -459,7 +510,8 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
           }
         }
 
-        editing?.let { id -> TaskDetailScreen(vm, id, onBack = { editing = null }) }
+        editing?.let { id -> TaskDetailScreen(vm, id, onBack = { editing = null },
+            onJustStart = { tid -> vm.pendingFocusTaskId.value = tid; editing = null; tab = Tab.FOCUS }) }
         if (showStats) com.todocompanion.app.ui.screens.StatisticsScreen(vm, onBack = { showStats = false })
         if (showAttachments) com.todocompanion.app.ui.screens.AttachmentsScreen(vm, onOpenTask = { showAttachments = false; openTask(it) }, onBack = { showAttachments = false })
         if (showCountdowns) com.todocompanion.app.ui.screens.CountdownScreen(vm, onBack = { showCountdowns = false })
@@ -609,6 +661,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                 onDelete = { vm.deleteFilter(f); filterEdit = null },
                 onSave = { updated -> vm.saveFilter(updated); vm.select(ViewRef.FilterView(updated.id)); tab = Tab.TASKS; filterEdit = null })
         }
+      }
     }
 }
 

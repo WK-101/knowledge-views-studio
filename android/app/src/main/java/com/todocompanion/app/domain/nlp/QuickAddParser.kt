@@ -19,16 +19,25 @@ data class ParsedQuickAdd(
     val contexts: List<String> = emptyList(),
     val list: String? = null,
     val rrule: String? = null,
+    /** Reminder lead time in minutes before the due date, from a "!30m / !2h / !1d" shortcut. */
+    val reminderOffsetMin: Int? = null,
 ) {
     /** Compact chips for the quick-add UI. */
     fun chips(): List<Chip> = buildList {
         dateTime?.let { add(Chip(ChipType.DATE, formatDate(it, hasTime))) }
         priority?.let { if (it != PriorityLevel.NONE) add(Chip(ChipType.PRIORITY, it.label)) }
+        reminderOffsetMin?.let { add(Chip(ChipType.REMINDER, "🔔 ${reminderLabel(it)}")) }
         tags.forEach { add(Chip(ChipType.TAG, "#$it")) }
         contexts.forEach { add(Chip(ChipType.CONTEXT, "@$it")) }
     }
 
     companion object {
+        internal fun reminderLabel(min: Int): String = when {
+            min == 0 -> "on time"
+            min % 1440 == 0 -> "${min / 1440}d before"
+            min % 60 == 0 -> "${min / 60}h before"
+            else -> "${min}m before"
+        }
         private fun formatDate(dt: LocalDateTime, hasTime: Boolean): String {
             val d = dt.toLocalDate()
             val today = LocalDate.now()
@@ -42,7 +51,7 @@ data class ParsedQuickAdd(
     }
 }
 
-enum class ChipType { DATE, PRIORITY, TAG, CONTEXT }
+enum class ChipType { DATE, PRIORITY, TAG, CONTEXT, REMINDER }
 data class Chip(val type: ChipType, val text: String)
 
 /**
@@ -75,6 +84,21 @@ object QuickAddParser {
             .onEach { strip.add(it.range) }.map { it.groupValues[1] }.toList()
         // ~list
         val list = Regex("(?<=\\s|^)~([\\p{L}0-9_-]+)").find(text)?.let { strip.add(it.range); it.groupValues[1] }
+
+        // reminder shortcut: "!30m", "!2h", "!1d", "!1w" → lead time before the due date.
+        // Parsed before priority so the "!" + digit form is claimed here, not by the "!" priority.
+        var reminderOffsetMin: Int? = null
+        Regex("(?<=\\s|^)!(\\d{1,4})\\s*(m|min|mins|h|hr|hrs|hour|hours|d|day|days|w|wk|week|weeks)\\b", RegexOption.IGNORE_CASE).find(text)?.let { m ->
+            val n = m.groupValues[1].toInt()
+            val unit = m.groupValues[2].lowercase()
+            reminderOffsetMin = when {
+                unit.startsWith("w") -> n * 10080
+                unit.startsWith("d") -> n * 1440
+                unit.startsWith("h") -> n * 60
+                else -> n
+            }
+            strip.add(m.range)
+        }
 
         // priority: p1..p4 or !!!/!!/!
         var priority: PriorityLevel? = null
@@ -207,6 +231,7 @@ object QuickAddParser {
             contexts = contexts,
             list = list,
             rrule = rrule,
+            reminderOffsetMin = reminderOffsetMin,
         )
     }
 

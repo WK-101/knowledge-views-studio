@@ -113,6 +113,11 @@ object PriorityEngine {
             val daysToDue = (due - now) / DAY_MS
             t += cfg.dueWeight * dueUrgency(daysToDue, lead, cfg.overdueBoost)
         }
+        // A hard deadline pulls harder than a soft plan-date as it nears (×1.3).
+        task.deadlineDate?.let { dl ->
+            val daysToDeadline = (dl - now) / DAY_MS
+            t += cfg.dueWeight * 1.3 * dueUrgency(daysToDeadline, lead, cfg.overdueBoost)
+        }
         task.startDate?.let { start ->
             val daysSinceStart = (now - start) / DAY_MS
             // Start gate: a task's boost peaks right after it becomes active, then decays over its lead window.
@@ -159,7 +164,7 @@ object PriorityEngine {
             add("Urgency ${task.urgency}/5" to "×%.2f".format(urg))
             add(when (cfg.mode) { Mode.IMPORTANCE -> "Base (importance)"; Mode.URGENCY -> "Base (urgency)"; Mode.BOTH -> "Base (importance × urgency)" } to "%.2f".format(base))
             if (task.star) add("Star boost" to "×%.2f".format(star))
-            if (date > 0.0001) add((if (task.dueDate != null && task.dueDate!! < now) "Overdue urgency" else "Date urgency") to "+%.2f".format(date))
+            if (date > 0.0001) add((when { task.deadlineDate != null && task.deadlineDate!! < now -> "Deadline passed"; task.deadlineDate != null -> "Deadline approaching"; task.dueDate != null && task.dueDate!! < now -> "Overdue urgency"; else -> "Date urgency" }) to "+%.2f".format(date))
             if (depBoost > 0.0001) add("Unblocks important work" to "+%.2f".format(depBoost))
             add("Score" to "%.2f".format(total))
         }

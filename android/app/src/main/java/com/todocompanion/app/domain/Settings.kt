@@ -71,6 +71,19 @@ data class AppSettings(
     val dailySummaryEnabled: Boolean = false,
     val dailySummaryHour: Int = 8,
     val dailySummaryMinute: Int = 0,
+    // Evening review: an end-of-day nudge to plan tomorrow (opens Plan-your-day).
+    val eveningReviewEnabled: Boolean = false,
+    val eveningReviewHour: Int = 20,
+    // Whether the user has dismissed the Android reliability onboarding (battery + exact-alarm).
+    val reliabilityOnboarded: Boolean = false,
+    // Completion sound on checking a task off.
+    val completionSound: Boolean = false,
+    // Require biometric / device credential to open the app.
+    val appLockEnabled: Boolean = false,
+    // Add-button (FAB) horizontal placement: end | center | start.
+    val fabPosition: String = "end",
+    // Curated theme-pack id ("" = none / use dynamic-or-accent). See ThemePrefs.
+    val themePack: String = "",
     // Sidebar favourites, pinned to the top. Each token is "type:id" (list/folder/tag/context/filter/smart).
     val pinnedRefs: List<String> = emptyList(),
     // Saved view tabs (view + group + sort + outline/hierarchy + zoom), JSON-encoded.
@@ -86,6 +99,8 @@ data class AppSettings(
     // User-defined drawer order for smart lists (SmartKind names) and views (view keys); empty = default.
     val smartOrder: List<String> = emptyList(),
     val viewsOrder: List<String> = emptyList(),
+    // List ids that open in Board (Kanban) layout instead of the flat list. Remembered per list.
+    val boardLists: Set<String> = emptySet(),
 ) {
     fun toMap(): Map<String, String> = mapOf(
         Keys.FIRST_VIEW to firstView.name,
@@ -130,6 +145,13 @@ data class AppSettings(
         Keys.SUMMARY_ON to dailySummaryEnabled.toString(),
         Keys.SUMMARY_H to dailySummaryHour.toString(),
         Keys.SUMMARY_M to dailySummaryMinute.toString(),
+        Keys.EVENING_ON to eveningReviewEnabled.toString(),
+        Keys.EVENING_H to eveningReviewHour.toString(),
+        Keys.RELIABILITY to reliabilityOnboarded.toString(),
+        Keys.COMPLETION_SOUND to completionSound.toString(),
+        Keys.APP_LOCK to appLockEnabled.toString(),
+        Keys.FAB_POS to fabPosition,
+        Keys.THEME_PACK to themePack,
         Keys.PINNED to pinnedRefs.joinToString("|"),
         Keys.VIEW_TABS to viewTabsJson,
         Keys.RESUME_LAST to resumeLastView.toString(),
@@ -139,6 +161,7 @@ data class AppSettings(
         Keys.SIDEBAR_HIDDEN to sidebarHidden.joinToString(","),
         Keys.SMART_ORDER to smartOrder.joinToString(","),
         Keys.VIEWS_ORDER to viewsOrder.joinToString(","),
+        Keys.BOARD_LISTS to boardLists.joinToString(","),
     )
 
     object Keys {
@@ -184,6 +207,13 @@ data class AppSettings(
         const val DAY_START = "day_start"
         const val SUMMARY_H = "summary_h"
         const val SUMMARY_M = "summary_m"
+        const val EVENING_ON = "evening_on"
+        const val EVENING_H = "evening_h"
+        const val RELIABILITY = "reliability_onboarded"
+        const val COMPLETION_SOUND = "completion_sound"
+        const val APP_LOCK = "app_lock"
+        const val FAB_POS = "fab_pos"
+        const val THEME_PACK = "theme_pack"
         const val PINNED = "pinned_refs"
         const val VIEW_TABS = "view_tabs"
         const val RESUME_LAST = "resume_last"
@@ -193,6 +223,7 @@ data class AppSettings(
         const val SIDEBAR_HIDDEN = "sidebar_hidden"
         const val SMART_ORDER = "smart_order"
         const val VIEWS_ORDER = "views_order"
+        const val BOARD_LISTS = "board_lists"
     }
 
     companion object {
@@ -249,6 +280,7 @@ data class AppSettings(
             sidebarHidden = (m[Keys.SIDEBAR_HIDDEN] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             smartOrder = (m[Keys.SMART_ORDER] ?: "").split(",").filter { it.isNotBlank() },
             viewsOrder = (m[Keys.VIEWS_ORDER] ?: "").split(",").filter { it.isNotBlank() },
+            boardLists = (m[Keys.BOARD_LISTS] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             dailySummaryEnabled = m[Keys.SUMMARY_ON]?.toBooleanStrictOrNull() ?: false,
             appBackground = m[Keys.APP_BG] ?: "none",
             dailyCapacityHours = m[Keys.CAPACITY]?.toIntOrNull()?.coerceIn(1, 16) ?: 8,
@@ -257,6 +289,13 @@ data class AppSettings(
             dayStartHour = m[Keys.DAY_START]?.toIntOrNull()?.coerceIn(0, 6) ?: 0,
             dailySummaryHour = m[Keys.SUMMARY_H]?.toIntOrNull() ?: 8,
             dailySummaryMinute = m[Keys.SUMMARY_M]?.toIntOrNull() ?: 0,
+            eveningReviewEnabled = m[Keys.EVENING_ON]?.toBooleanStrictOrNull() ?: false,
+            eveningReviewHour = m[Keys.EVENING_H]?.toIntOrNull()?.coerceIn(0, 23) ?: 20,
+            reliabilityOnboarded = m[Keys.RELIABILITY]?.toBooleanStrictOrNull() ?: false,
+            completionSound = m[Keys.COMPLETION_SOUND]?.toBooleanStrictOrNull() ?: false,
+            appLockEnabled = m[Keys.APP_LOCK]?.toBooleanStrictOrNull() ?: false,
+            fabPosition = m[Keys.FAB_POS] ?: "end",
+            themePack = m[Keys.THEME_PACK] ?: "",
         )
     }
 }

@@ -135,14 +135,29 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Live task count per smart list, for the drawer. */
     val smartCounts: StateFlow<Map<SmartKind, Int>> =
-        combine(wsTasks, currentView) { t, _ ->
-            SmartKind.entries.associateWith { TaskViews.filterSmart(t, it, System.currentTimeMillis(), zone, dayStartMin).size }
+        combine(wsTasks, repo.allDependencies) { t, deps ->
+            val now = System.currentTimeMillis()
+            SmartKind.entries.associateWith { k ->
+                when (k) {
+                    // Dependency-aware, so it can't go through the pure filterSmart path.
+                    SmartKind.WAITING -> {
+                        val byId = t.associateBy { it.id }
+                        val blocked = PriorityEngine.computeBlocked(deps, byId, now)
+                        t.count { !it.trashed && !it.completed && !it.abandoned && it.id in blocked }
+                    }
+                    else -> TaskViews.filterSmart(t, k, now, zone, dayStartMin).size
+                }
+            }
         }.state(emptyMap())
 
-    private data class Cfg(val view: ViewRef, val group: GroupMode, val sort: SortMode, val prio: PriorityEngine.Config, val flags: List<FlagEntity>, val timeAvail: Int? = null)
+    private data class Cfg(val view: ViewRef, val group: GroupMode, val sort: SortMode, val prio: PriorityEngine.Config, val flags: List<FlagEntity>, val timeAvail: Int? = null, val energyAvail: Int? = null)
 
     /** "I have N minutes" planner: when set, Do-Next hides tasks whose estimate exceeds N. null = off. */
     val timeAvailableMin = MutableStateFlow<Int?>(null)
+
+    /** "Right now I have X energy" planner: when set (1/2/3), Do-Next keeps tasks needing at most that
+     *  much energy (plus untagged). null = off. */
+    val energyAvailable = MutableStateFlow<Int?>(null)
 
     /** Cross-ref + container context threaded into the groups combine. */
     private data class ViewCtx(
@@ -173,7 +188,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val groups: StateFlow<List<TaskGroup>> =
         combine(
             wsTasks,
-            combine(currentView, groupMode, sortMode, settings, combine(repo.allFlags, timeAvailableMin) { fl, ta -> fl to ta }) { v, g, s, set, flTa -> Cfg(v, g, s, set.priorityConfig(), flTa.first, flTa.second) },
+            combine(currentView, groupMode, sortMode, settings, combine(repo.allFlags, timeAvailableMin, energyAvailable) { fl, ta, ea -> Triple(fl, ta, ea) }) { v, g, s, set, fte -> Cfg(v, g, s, set.priorityConfig(), fte.first, fte.second, fte.third) },
             repo.taskTagRefs,
             combine(repo.taskContextRefs, repo.allContexts, repo.allFilters, repo.allLists, repo.allFolders) { r, c, f, l, fo -> ViewCtx(r, c, f, l, fo) },
             repo.allDependencies,
@@ -182,12 +197,23 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val now = System.currentTimeMillis()
             val filtered = when (val v = cfg.view) {
                 is ViewRef.Smart -> {
-                    val base = TaskViews.filterSmart(all, v.kind, now, zone, dayStartMin)
-                    if (v.kind == SmartKind.DO_NEXT) {
-                        val ranked = rankDoNext(base, all, now, cfg.prio, deps, tcRefs, ctxEntities)
-                        // "Time available" planner: keep tasks that fit the slot (unestimated always fit).
-                        cfg.timeAvail?.let { avail -> ranked.filter { t -> (t.estimateMin ?: t.estimateMax)?.let { it <= avail } ?: true } } ?: ranked
-                    } else base
+                    when (v.kind) {
+                        SmartKind.DO_NEXT -> {
+                            val base = TaskViews.filterSmart(all, v.kind, now, zone, dayStartMin)
+                            val ranked = rankDoNext(base, all, now, cfg.prio, deps, tcRefs, ctxEntities)
+                            // "Time available" planner: keep tasks that fit the slot (unestimated always fit).
+                            val timed = cfg.timeAvail?.let { avail -> ranked.filter { t -> (t.estimateMin ?: t.estimateMax)?.let { it <= avail } ?: true } } ?: ranked
+                            // "Energy right now" planner: keep tasks needing at most that energy (untagged always fit).
+                            cfg.energyAvail?.let { cap -> timed.filter { t -> (t.energy ?: 0) <= cap } } ?: timed
+                        }
+                        // Waiting-on: open tasks currently blocked by an incomplete prerequisite.
+                        SmartKind.WAITING -> {
+                            val byId = all.associateBy { it.id }
+                            val blocked = PriorityEngine.computeBlocked(deps, byId, now)
+                            all.filter { !it.trashed && !it.completed && !it.abandoned && it.id in blocked }
+                        }
+                        else -> TaskViews.filterSmart(all, v.kind, now, zone, dayStartMin)
+                    }
                 }
                 is ViewRef.FilterView -> {
                     val q = com.todocompanion.app.domain.view.Filters.parse(filterList.firstOrNull { it.id == v.filterId }?.queryJson)
@@ -348,6 +374,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** The single best task to do right now. Powers "Suggest a task" in Focus. */
     fun topDoNext(): TaskEntity? = doNextRanked().firstOrNull()
 
+    /** Ranked backlog candidates for "pick N for today": actionable, not already due today or earlier. */
+    fun pickTodayCandidates(limit: Int = 20): List<TaskEntity> {
+        val zone = this.zone
+        val today = java.time.LocalDate.now(zone)
+        return doNextRanked().filter { t ->
+            t.dueDate == null || java.time.Instant.ofEpochMilli(t.dueDate!!).atZone(zone).toLocalDate().isAfter(today)
+        }.take(limit)
+    }
+    /** Commit a task to today (due today, 9am) — the pick-N-today action. */
+    fun commitToToday(t: TaskEntity) = viewModelScope.launch {
+        val due = java.time.LocalDate.now(zone).atStartOfDay(zone).plusHours(9).toInstant().toEpochMilli()
+        repo.saveTask(t.copy(dueDate = due))
+    }
+
     /**
      * Lay today's actionable Do-Next tasks onto the timeline between the configured working hours,
      * packing each by its estimate (default 30 min) in ranked order. Undated and today/overdue tasks
@@ -481,6 +521,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             repo.upsertReminder(r)
             repo.getTask(id)?.let { AlarmScheduler.schedule(appCtx, r, it) }
         }
+        // "!30m / !2h / !1d" shortcut: a lead-time reminder relative to the due date.
+        parsed.reminderOffsetMin?.let { off ->
+            if (due != null) {
+                val r = ReminderEntity(UUID.randomUUID().toString(), taskId = id, type = "relativeToDue", offsetMin = off)
+                repo.upsertReminder(r)
+                repo.getTask(id)?.let { AlarmScheduler.schedule(appCtx, r, it) }
+            }
+        }
     }
 
     // ---------- task actions ----------
@@ -510,8 +558,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
         } else {
             repo.setCompleted(t, !t.completed)
-            if (!t.completed) undoEvents.tryEmit(UndoEvent(UndoKind.COMPLETED, t.id, "Completed “${t.title.take(30)}”"))
+            if (!t.completed) {
+                undoEvents.tryEmit(UndoEvent(UndoKind.COMPLETED, t.id, "Completed “${t.title.take(30)}”"))
+                if (settings.value.completionSound) playCompletionChime()
+            }
         }
+    }
+
+    /** A short, pleasant two-note chime on completing a task. Built-in tones — no bundled audio. */
+    private fun playCompletionChime() = runCatching {
+        val tg = android.media.ToneGenerator(android.media.AudioManager.STREAM_NOTIFICATION, 70)
+        tg.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 120)
+        viewModelScope.launch { kotlinx.coroutines.delay(600); tg.release() }
     }
     /** Advance a repeating task to its next occurrence without logging a completion (MLO "skip"). */
     fun skipOccurrence(t: TaskEntity) = viewModelScope.launch {
@@ -569,6 +627,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- checklist ----------
     fun checklistFor(taskId: String) = checklist.value.filter { it.taskId == taskId }.sortedBy { it.sortOrder }
     fun addChecklistItem(taskId: String, text: String) = viewModelScope.launch { repo.addChecklistItem(taskId, text) }
+    /** Break a task into steps at once: one checklist item per non-blank line (C2 breakdown). */
+    fun addChecklistItems(taskId: String, lines: List<String>) = viewModelScope.launch {
+        lines.map { it.trim() }.filter { it.isNotEmpty() }.forEach { repo.addChecklistItem(taskId, it) }
+    }
+
+    /** "Just start" (C2): a task pre-selected for the next time the Focus screen opens. */
+    val pendingFocusTaskId = MutableStateFlow<String?>(null)
     fun toggleChecklist(item: ChecklistItemEntity) = viewModelScope.launch { repo.saveChecklistItem(item.copy(checked = !item.checked)) }
     fun deleteChecklistItem(id: String) = viewModelScope.launch { repo.deleteChecklistItem(id) }
 
@@ -766,6 +831,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.saveTask(t.copy(id = UUID.randomUUID().toString(), title = t.title + " (copy)", completed = false, completedAt = null,
             abandoned = false, trashed = false, sortOrder = t.sortOrder + 0.0001, createdAt = nowMs, updatedAt = nowMs))
     }
+    /**
+     * Detach the current occurrence of a recurring task so it can be edited without touching the
+     * series (B5 single-instance edit). The viewed task loses its rule (becomes a one-off you're free
+     * to change); a fresh copy carries the series forward to the next occurrence.
+     */
+    fun detachOccurrence(t: TaskEntity, onSeries: (String) -> Unit = {}) = viewModelScope.launch {
+        if (t.rrule.isNullOrBlank() || t.dueDate == null) return@launch
+        val (nextDue, newRule) = com.todocompanion.app.domain.recurrence.Recurrence.advance(t.rrule!!, t.dueDate!!, zone, System.currentTimeMillis())
+        // This occurrence keeps its date but drops the recurrence — now a standalone task.
+        repo.saveTask(t.copy(rrule = null))
+        if (nextDue != null) {
+            val nowMs = System.currentTimeMillis()
+            val delta = nextDue - t.dueDate!!
+            val seriesId = UUID.randomUUID().toString()
+            repo.saveTask(t.copy(id = seriesId, dueDate = nextDue, startDate = t.startDate?.plus(delta),
+                rrule = newRule, completed = false, completedAt = null, createdAt = nowMs, updatedAt = nowMs,
+                sortOrder = t.sortOrder + 0.0001))
+            onSeries(seriesId)
+        }
+    }
     /** Tap-to-flag on a row: cycle through the ordered flags, then back to none (MLO-style). */
     fun cycleFlag(t: TaskEntity) = viewModelScope.launch {
         val ordered = flags.value.sortedBy { it.sortOrder }
@@ -900,9 +985,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.upsertReminder(nr)
         AlarmScheduler.cancel(appCtx, reminder, task); AlarmScheduler.schedule(appCtx, nr, task)
     }
+    /** A geofence-style reminder that fires on arriving at / leaving a point. Fully on-device. */
+    fun addLocationReminder(task: TaskEntity, lat: Double, lng: Double, radiusM: Double, placeName: String?, onEnter: Boolean) = viewModelScope.launch {
+        val r = ReminderEntity(UUID.randomUUID().toString(), taskId = task.id, type = "location",
+            latitude = lat, longitude = lng, radiusM = radiusM, placeName = placeName, onEnter = onEnter)
+        repo.upsertReminder(r)
+        com.todocompanion.app.reminders.LocationReminders.register(appCtx, r, task)
+    }
     fun deleteReminder(reminder: ReminderEntity, task: TaskEntity) = viewModelScope.launch {
         repo.deleteReminder(reminder.id)
-        AlarmScheduler.cancel(appCtx, reminder, task)
+        if (reminder.type == "location") com.todocompanion.app.reminders.LocationReminders.unregister(appCtx, reminder, task)
+        else AlarmScheduler.cancel(appCtx, reminder, task)
+    }
+    /** Called after the user grants location permission, to arm any pending place reminders. */
+    fun rearmLocationReminders() = viewModelScope.launch {
+        com.todocompanion.app.reminders.LocationReminders.registerAll(appCtx, repo)
     }
 
     // ---------- settings ----------
@@ -928,6 +1025,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setTagOrder(ids: List<String>) = viewModelScope.launch { repo.setTagOrder(ids) }
     fun setContextOrder(ids: List<String>) = viewModelScope.launch { repo.setContextOrder(ids) }
     fun setFilterOrder(ids: List<String>) = viewModelScope.launch { repo.setFilterOrder(ids) }
+    /** Persisted per-list Board/List layout choice. */
+    fun isBoardList(listId: String): Boolean = listId in settings.value.boardLists
+    fun setBoardList(listId: String, board: Boolean) = viewModelScope.launch {
+        val cur = settings.value.boardLists
+        repo.saveSettings(settings.value.copy(boardLists = if (board) cur + listId else cur - listId))
+    }
     fun setSmartOrder(ids: List<String>) = viewModelScope.launch { repo.saveSettings(settings.value.copy(smartOrder = ids)) }
     fun setViewsOrder(ids: List<String>) = viewModelScope.launch { repo.saveSettings(settings.value.copy(viewsOrder = ids)) }
 
@@ -985,6 +1088,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val ok = runCatching {
             val json = repo.exportJson()
             appCtx.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+        }.isSuccess
+        onDone(ok)
+    }
+    fun exportMarkdownTo(uri: Uri, includeCompleted: Boolean, onDone: (Boolean) -> Unit) = viewModelScope.launch {
+        val ok = runCatching {
+            val md = repo.exportMarkdown(includeCompleted)
+            appCtx.contentResolver.openOutputStream(uri)?.use { it.write(md.toByteArray()) }
+        }.isSuccess
+        onDone(ok)
+    }
+    fun exportCsvTo(uri: Uri, includeCompleted: Boolean, onDone: (Boolean) -> Unit) = viewModelScope.launch {
+        val ok = runCatching {
+            val csv = repo.exportCsv(includeCompleted)
+            appCtx.contentResolver.openOutputStream(uri)?.use { it.write(csv.toByteArray()) }
         }.isSuccess
         onDone(ok)
     }

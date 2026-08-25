@@ -615,6 +615,20 @@ class AppRepository(private val db: AppDatabase) {
         )
     )
 
+    /** Human-readable Markdown outline (lossy, portable). */
+    suspend fun exportMarkdown(includeCompleted: Boolean): String =
+        com.todocompanion.app.domain.port.Export.toMarkdown(
+            tasks = tasks.getAll(), lists = lists.getAll(), tags = tags.getAll(),
+            taskTagPairs = tags.getCrossRefs().map { it.taskId to it.tagId }, includeCompleted = includeCompleted,
+        )
+
+    /** Flat CSV (lossy, portable — opens in any spreadsheet). */
+    suspend fun exportCsv(includeCompleted: Boolean): String =
+        com.todocompanion.app.domain.port.Export.toCsv(
+            tasks = tasks.getAll(), lists = lists.getAll(), tags = tags.getAll(),
+            taskTagPairs = tags.getCrossRefs().map { it.taskId to it.tagId }, includeCompleted = includeCompleted,
+        )
+
     suspend fun importJsonReplace(text: String) {
         val b = Backup.decode(text)
         tasks.clear(); folders.clear(); lists.clear(); checklist.clear()

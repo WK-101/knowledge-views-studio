@@ -141,6 +141,53 @@ fun StatisticsScreen(vm: AppViewModel, onBack: () -> Unit) {
                     }
                 }
             }
+            // ---------- Estimation calibration (B7): logged focus time vs your estimate ----------
+            val focusByTask = focus.filter { it.taskId != null }.groupBy { it.taskId }.mapValues { e -> e.value.sumOf { it.minutes } }
+            data class Calib(val title: String, val est: Int, val actual: Int)
+            val calibs = tasks.mapNotNull { t ->
+                val est = t.estimateMin ?: return@mapNotNull null
+                val act = focusByTask[t.id] ?: return@mapNotNull null
+                if (est <= 0 || act <= 0) null else Calib(t.title.ifBlank { "Untitled" }, est, act)
+            }.sortedByDescending { it.actual }
+            if (calibs.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                AppCard {
+                    val totalEst = calibs.sumOf { it.est }.coerceAtLeast(1)
+                    val totalAct = calibs.sumOf { it.actual }
+                    val pct = (totalAct * 100 / totalEst)
+                    val verdict = when {
+                        pct >= 115 -> "You take about ${pct - 100}% longer than you estimate — pad your estimates."
+                        pct <= 85 -> "You finish about ${100 - pct}% faster than you estimate — you can commit to more."
+                        else -> "Your estimates are on point (within 15%). Nice calibration."
+                    }
+                    Text("Estimation calibration", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(4.dp))
+                    Text(verdict, style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(10.dp))
+                    val maxV = calibs.take(6).maxOf { maxOf(it.est, it.actual) }.coerceAtLeast(1)
+                    calibs.take(6).forEach { c ->
+                        Column(Modifier.padding(vertical = 4.dp)) {
+                            Text(c.title, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Est", Modifier.width(34.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Box(Modifier.weight(1f).height(10.dp)) {
+                                    Box(Modifier.fillMaxWidth(c.est.toFloat() / maxV).height(10.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.secondary.copy(alpha = .8f)))
+                                }
+                                Spacer(Modifier.width(6.dp)); Text("${c.est}m", style = MaterialTheme.typography.labelSmall)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Actual", Modifier.width(34.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Box(Modifier.weight(1f).height(10.dp)) {
+                                    Box(Modifier.fillMaxWidth(c.actual.toFloat() / maxV).height(10.dp).clip(RoundedCornerShape(3.dp)).background(
+                                        if (c.actual > c.est) MaterialTheme.colorScheme.error.copy(alpha = .8f) else MaterialTheme.colorScheme.primary.copy(alpha = .85f)))
+                                }
+                                Spacer(Modifier.width(6.dp)); Text("${c.actual}m", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
+                    Text("Actual = focus time logged against the task.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                }
+            }
             Spacer(Modifier.height(16.dp))
             Text("All stats are computed on-device from your data.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

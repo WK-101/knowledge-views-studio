@@ -13,6 +13,11 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Segment
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -118,7 +123,7 @@ import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
+fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJustStart: ((String) -> Unit)? = null) {
     val loaded by vm.observeTask(taskId).collectAsState(initial = null)
     var draft by remember(taskId) { mutableStateOf<TaskEntity?>(null) }
     if (draft == null && loaded != null) draft = loaded
@@ -139,7 +144,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
 
     var showDue by remember { mutableStateOf(false) }
     var showStart by remember { mutableStateOf(false) }
+    var showDeadline by remember { mutableStateOf(false) }
     var showReminder by remember { mutableStateOf(false) }
+    var showLocationReminder by remember { mutableStateOf(false) }
     var newTag by remember { mutableStateOf("") }
     var newContext by remember { mutableStateOf("") }
     var newCheck by remember { mutableStateOf("") }
@@ -174,6 +181,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                     DropdownMenuItem(text = { Text("Duplicate") }, onClick = { task?.let { vm.duplicateTask(it) }; menu = false; onBack() })
                     DropdownMenuItem(text = { Text("Save as template") }, onClick = { menu = false; saveTemplate = true })
                     if (!task?.rrule.isNullOrBlank()) DropdownMenuItem(text = { Text("Skip this occurrence") }, onClick = { task?.let { vm.skipOccurrence(it) }; menu = false; onBack() })
+                    if (!task?.rrule.isNullOrBlank()) DropdownMenuItem(text = { Text("Edit only this occurrence") }, onClick = { task?.let { vm.detachOccurrence(it) { newId -> } }; menu = false })
                     DropdownMenuItem(text = { Text(if (task?.abandoned == true) "Undo won't do" else "Won't do") }, onClick = { task?.let { vm.setAbandoned(it, !it.abandoned) }; menu = false })
                     DropdownMenuItem(text = { Text("Delete", color = MaterialTheme.colorScheme.error) }, onClick = { task?.let { vm.trash(it) }; menu = false; onBack() })
                 }
@@ -252,6 +260,17 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             }
 
+            // "Just start" (C2): lower the barrier — jump straight into a focus session on this task.
+            if (onJustStart != null && !task.completed && !task.abandoned) {
+                FilledTonalButton(
+                    onClick = { onJustStart(task.id) },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 2.dp),
+                ) {
+                    Icon(Icons.Filled.PlayArrow, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Just start — focus now")
+                }
+                Spacer(Modifier.height(4.dp))
+            }
+
             // ---------- Compact property rows ----------
             val level = PriorityLevel.from(task.importance, task.urgency)
             val zone = java.time.ZoneId.systemDefault()
@@ -273,6 +292,17 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                 if (timed) MenuRow("Duration", task.durationMin?.let { "$it min" } ?: "30 min",
                     listOf(15, 30, 45, 60, 90, 120, 180, 240).map { it to "$it min" }) { m -> update { it.copy(durationMin = m) } }
             }
+
+            // A hard deadline is distinct from the work/plan date: it's the true drop-dead moment
+            // and the priority engine pulls harder as it nears (see PriorityEngine.dateTerm).
+            val deadlinePassed = task.deadlineDate?.let { it < System.currentTimeMillis() && !task.completed } == true
+            PropRow(Icons.Filled.Bolt, "Deadline", task.deadlineDate?.let { formatDue(it) } ?: "None",
+                valueColor = if (deadlinePassed) MaterialTheme.colorScheme.error else if (task.deadlineDate != null) MaterialTheme.colorScheme.tertiary else null,
+                onClear = if (task.deadlineDate != null) ({ update { it.copy(deadlineDate = null) } }) else null) { showDeadline = true }
+
+            // Energy tag — surfaced by the "right now" filter so you can match tasks to how you feel.
+            MenuRow("Energy", when (task.energy) { 1 -> "Low"; 2 -> "Medium"; 3 -> "High"; else -> "Any" },
+                listOf<Pair<Int?, String>>(null to "Any", 1 to "Low", 2 to "Medium", 3 to "High")) { e -> update { it.copy(energy = e) } }
 
             Box {
                 PropRow(Icons.Filled.Flag, "Priority", level.label, valueColor = priorityColor(level)) { prioMenu = true }
@@ -335,6 +365,10 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                     TextButton(onClick = { addMenu = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Icon(Icons.Filled.Add, null); Spacer(Modifier.width(4.dp)); Text("Add reminder") }
                     DropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
                         DropdownMenuItem(text = { Text("Pick a time…") }, onClick = { addMenu = false; showReminder = true })
+                        DropdownMenuItem(
+                            text = { Text("At a place…") },
+                            leadingIcon = { Icon(Icons.Filled.LocationOn, null, modifier = Modifier.size(18.dp)) },
+                            onClick = { addMenu = false; showLocationReminder = true })
                         if (task.dueDate != null) {
                             HorizontalDivider()
                             listOf(0 to "When due", 10 to "10 min before", 30 to "30 min before", 60 to "1 hour before", 1440 to "1 day before").forEach { (off, label) ->
@@ -362,6 +396,27 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                     }
                 }
                 AddInline(newCheck, { newCheck = it }, "Add checklist item") { if (it.isNotBlank()) { vm.addChecklistItem(task.id, it.trim()); newCheck = "" } }
+                // Break down (C2): paste several lines at once → one step per line.
+                var showBreakdown by remember { mutableStateOf(false) }
+                TextButton(onClick = { showBreakdown = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
+                    Icon(Icons.Filled.Segment, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("Break into steps")
+                }
+                if (showBreakdown) {
+                    var bulk by remember { mutableStateOf("") }
+                    AlertDialog(
+                        onDismissRequest = { showBreakdown = false },
+                        confirmButton = { TextButton(onClick = { vm.addChecklistItems(task.id, bulk.lines()); showBreakdown = false }) { Text("Add steps") } },
+                        dismissButton = { TextButton(onClick = { showBreakdown = false }) { Text("Cancel") } },
+                        title = { Text("Break into steps") },
+                        text = {
+                            Column {
+                                Text("One step per line.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(Modifier.height(8.dp))
+                                OutlinedTextField(bulk, { bulk = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp), placeholder = { Text("Draft outline\nGather sources\nWrite first pass\nEdit") })
+                            }
+                        },
+                    )
+                }
             }
 
             // ---------- Attachments ----------
@@ -524,7 +579,13 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
     }
     if (showDue) DateTimePickerDialog(task?.dueDate, { showDue = false }) { m -> update { it.copy(dueDate = m) }; showDue = false }
     if (showStart) DateTimePickerDialog(task?.startDate, { showStart = false }) { m -> update { it.copy(startDate = m) }; showStart = false }
+    if (showDeadline) DateTimePickerDialog(task?.deadlineDate, { showDeadline = false }) { m -> update { it.copy(deadlineDate = m) }; showDeadline = false }
     if (showReminder) DateTimePickerDialog(task?.dueDate ?: System.currentTimeMillis(), { showReminder = false }) { m -> task?.let { vm.addAbsoluteReminder(it, m) }; showReminder = false }
+    if (showLocationReminder) task?.let { t ->
+        LocationReminderDialog(onDismiss = { showLocationReminder = false }) { lat, lng, radius, place, onEnter ->
+            vm.addLocationReminder(t, lat, lng, radius, place, onEnter); showLocationReminder = false
+        }
+    }
     if (showBlockPicker && task != null) {
         val existing = allDeps.filter { it.taskId == task.id }.map { it.dependsOnTaskId }.toSet()
         val candidates = allTasks.filter { it.id != task.id && it.id !in existing && !it.trashed && it.parentId != task.id }
@@ -746,7 +807,74 @@ private fun reminderLabel(r: ReminderEntity): String = when (r.type) {
     "absolute" -> r.atTime?.let { formatDue(it) } ?: "Reminder"
     "relativeToDue" -> if ((r.offsetMin ?: 0) == 0) "When due" else "${offsetLabel(r.offsetMin)} before due"
     "relativeToStart" -> if ((r.offsetMin ?: 0) == 0) "When it starts" else "${offsetLabel(r.offsetMin)} before start"
+    "location" -> (if (r.onEnter) "Arrive: " else "Leave: ") + (r.placeName ?: "a place")
     else -> r.type
+}
+
+/** Add a geofence-style reminder from the device's current location. Fully on-device — no maps,
+ *  no network. Asks for location permission, grabs the last known fix, and lets the user tune it. */
+@Composable
+private fun LocationReminderDialog(onDismiss: () -> Unit, onConfirm: (Double, Double, Double, String?, Boolean) -> Unit) {
+    val context = LocalContext.current
+    var place by remember { mutableStateOf("") }
+    var radius by remember { mutableStateOf(150) }
+    var onEnter by remember { mutableStateOf(true) }
+    var coords by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+    var status by remember { mutableStateOf("Getting your location…") }
+
+    fun grabLocation() {
+        val fine = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val coarse = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (!fine && !coarse) { status = "Location permission needed"; return }
+        val lm = context.getSystemService(android.location.LocationManager::class.java)
+        @android.annotation.SuppressLint("MissingPermission")
+        val loc = runCatching {
+            lm?.getProviders(true)?.asReversed()?.firstNotNullOfOrNull { p -> lm.getLastKnownLocation(p) }
+        }.getOrNull()
+        if (loc != null) { coords = loc.latitude to loc.longitude; status = "Location captured ✓" }
+        else status = "No fix yet — move outdoors and reopen"
+    }
+
+    val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grabLocation() }
+    LaunchedEffect(Unit) {
+        val fine = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val coarse = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (fine || coarse) grabLocation()
+        else permLauncher.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION))
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(enabled = coords != null, onClick = {
+                coords?.let { (la, ln) -> onConfirm(la, ln, radius.toDouble(), place.ifBlank { null }, onEnter) }
+            }) { Text("Add") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Remind me at a place") },
+        text = {
+            Column {
+                Text(status, style = MaterialTheme.typography.bodySmall,
+                    color = if (coords != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(place, { place = it }, label = { Text("Place name (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(12.dp))
+                Text("Trigger", style = MaterialTheme.typography.labelMedium)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    FilterChip(selected = onEnter, onClick = { onEnter = true }, label = { Text("When I arrive") })
+                    Spacer(Modifier.width(8.dp))
+                    FilterChip(selected = !onEnter, onClick = { onEnter = false }, label = { Text("When I leave") })
+                }
+                Spacer(Modifier.height(12.dp))
+                Text("Radius: ${radius} m", style = MaterialTheme.typography.labelMedium)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    listOf(100, 150, 250, 500, 1000).forEach { r ->
+                        FilterChip(selected = radius == r, onClick = { radius = r }, label = { Text("${r}m") }, modifier = Modifier.padding(end = 6.dp))
+                    }
+                }
+            }
+        },
+    )
 }
 
 /** A compact, unboxed property row (Todoist-style): icon · label · value · chevron. Tapping edits;

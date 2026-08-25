@@ -1,6 +1,7 @@
 package com.todocompanion.app.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,13 +11,18 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.PlaylistAddCheck
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -89,6 +95,38 @@ fun PlanYourDayScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: ()
             }
             autoMsg?.let { Spacer(Modifier.size(6.dp)); Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center) }
             Spacer(Modifier.size(14.dp))
+
+            // ---------- Pick N for today (B1): commit a few backlog tasks to today ----------
+            var showPick by remember { mutableStateOf(false) }
+            val committedToday = queue.size
+            OutlinedButton(onClick = { showPick = !showPick }, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Filled.PlaylistAddCheck, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.size(8.dp))
+                Text(if (showPick) "Hide backlog picks" else "Pick tasks for today")
+            }
+            if (showPick) {
+                val candidates = remember(tasks) { vm.pickTodayCandidates(15) }
+                Spacer(Modifier.size(8.dp))
+                if (candidates.isEmpty()) {
+                    Text("No backlog tasks to pull in — you're all caught up.", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                } else {
+                    Text("$committedToday on today's plate · tap to add more", style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.size(6.dp))
+                    Column(Modifier.fillMaxWidth().heightIn(max = 260.dp).verticalScroll(rememberScrollState())) {
+                        candidates.forEach { t ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(t.title.ifBlank { "Untitled" }, Modifier.weight(1f).clickable { onOpenTask(t.id) },
+                                    style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                FilledTonalButton(onClick = { vm.commitToToday(t) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp)) {
+                                    Icon(Icons.Filled.Add, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.size(4.dp)); Text("Today")
+                                }
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.size(14.dp))
+            }
 
             if (current == null) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

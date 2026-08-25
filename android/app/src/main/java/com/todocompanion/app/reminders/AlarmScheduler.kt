@@ -19,6 +19,7 @@ object AlarmScheduler {
     const val ACTION_SNOOZE = "com.todocompanion.app.action.SNOOZE"
     const val ACTION_DONE = "com.todocompanion.app.action.DONE"
     const val ACTION_SUMMARY = "com.todocompanion.app.action.SUMMARY"
+    const val ACTION_EVENING = "com.todocompanion.app.action.EVENING"
     const val ACTION_FOCUS_DONE = "com.todocompanion.app.action.FOCUS_DONE"
     const val ACTION_HABIT = "com.todocompanion.app.action.HABIT"
 
@@ -26,11 +27,14 @@ object AlarmScheduler {
     const val EXTRA_TITLE = "title"
     const val EXTRA_REMINDER_ID = "reminderId"
     const val EXTRA_ANNOYING = "annoying"
+    const val EXTRA_ESCALATE = "escalate"
+    const val EXTRA_STEP = "step"
     const val EXTRA_HABIT_ID = "habitId"
     const val EXTRA_HABIT_NAME = "habitName"
     const val EXTRA_HABIT_MIN = "habitMin"
 
     private const val SUMMARY_REQ = 918_273
+    private const val EVENING_REQ = 918_275
 
     fun triggerTimeFor(reminder: ReminderEntity, task: TaskEntity): Long? {
         val offset = (reminder.offsetMin ?: 0) * 60_000L
@@ -48,6 +52,7 @@ object AlarmScheduler {
             when (v) {
                 is String -> intent.putExtra(k, v)
                 is Boolean -> intent.putExtra(k, v)
+                is Int -> intent.putExtra(k, v)
                 null -> {}
             }
         }
@@ -64,25 +69,26 @@ object AlarmScheduler {
         else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, pi)
     }
 
-    private fun fireExtras(taskId: String, title: String, reminderId: String, annoying: Boolean) =
-        mapOf(EXTRA_TASK_ID to taskId, EXTRA_TITLE to title, EXTRA_REMINDER_ID to reminderId, EXTRA_ANNOYING to annoying)
+    private fun fireExtras(taskId: String, title: String, reminderId: String, annoying: Boolean, escalate: Boolean = false, step: Int = 0) =
+        mapOf(EXTRA_TASK_ID to taskId, EXTRA_TITLE to title, EXTRA_REMINDER_ID to reminderId,
+            EXTRA_ANNOYING to annoying, EXTRA_ESCALATE to escalate, EXTRA_STEP to step)
 
     fun schedule(context: Context, reminder: ReminderEntity, task: TaskEntity) {
         if (task.completed || task.trashed || task.abandoned) return
         val at = triggerTimeFor(reminder, task) ?: return
         if (at <= System.currentTimeMillis()) return
-        val pi = broadcast(context, ACTION_FIRE, reminder.id.hashCode(), fireExtras(task.id, task.title, reminder.id, reminder.annoying))
+        val pi = broadcast(context, ACTION_FIRE, reminder.id.hashCode(), fireExtras(task.id, task.title, reminder.id, reminder.annoying, reminder.escalate))
         setAlarm(context, at, pi)
     }
 
     fun cancel(context: Context, reminder: ReminderEntity, task: TaskEntity) {
         val am = context.getSystemService(AlarmManager::class.java) ?: return
-        am.cancel(broadcast(context, ACTION_FIRE, reminder.id.hashCode(), fireExtras(task.id, task.title, reminder.id, reminder.annoying)))
+        am.cancel(broadcast(context, ACTION_FIRE, reminder.id.hashCode(), fireExtras(task.id, task.title, reminder.id, reminder.annoying, reminder.escalate)))
     }
 
-    /** Re-fire a reminder after [delayMin] minutes (snooze / annoying repeat). */
-    fun scheduleFireIn(context: Context, taskId: String, title: String, reminderId: String, annoying: Boolean, delayMin: Long) {
-        val pi = broadcast(context, ACTION_FIRE, reminderId.hashCode(), fireExtras(taskId, title, reminderId, annoying))
+    /** Re-fire a reminder after [delayMin] minutes (snooze / annoying repeat / escalation). */
+    fun scheduleFireIn(context: Context, taskId: String, title: String, reminderId: String, annoying: Boolean, delayMin: Long, escalate: Boolean = false, step: Int = 0) {
+        val pi = broadcast(context, ACTION_FIRE, reminderId.hashCode(), fireExtras(taskId, title, reminderId, annoying, escalate, step))
         setAlarm(context, System.currentTimeMillis() + delayMin * 60_000L, pi)
     }
 
@@ -105,6 +111,20 @@ object AlarmScheduler {
     fun cancelDailySummary(context: Context) {
         val am = context.getSystemService(AlarmManager::class.java) ?: return
         am.cancel(broadcast(context, ACTION_SUMMARY, SUMMARY_REQ, emptyMap()))
+    }
+
+    // ---------- evening review ----------
+    fun scheduleEveningReview(context: Context, hour: Int, zone: ZoneId = ZoneId.systemDefault()) {
+        val now = System.currentTimeMillis()
+        var next = LocalDate.now(zone).atTime(LocalTime.of(hour.coerceIn(0, 23), 0))
+            .atZone(zone).toInstant().toEpochMilli()
+        if (next <= now) next += 86_400_000L
+        setAlarm(context, next, broadcast(context, ACTION_EVENING, EVENING_REQ, emptyMap()))
+    }
+
+    fun cancelEveningReview(context: Context) {
+        val am = context.getSystemService(AlarmManager::class.java) ?: return
+        am.cancel(broadcast(context, ACTION_EVENING, EVENING_REQ, emptyMap()))
     }
 
     private const val FOCUS_REQ = 918_274

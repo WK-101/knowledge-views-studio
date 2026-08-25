@@ -2,7 +2,9 @@ package com.todocompanion.app.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -12,6 +14,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.todocompanion.app.domain.ThemeMode
 
 private val Brand = Color(0xFF5B57D9)
@@ -52,7 +57,26 @@ private fun darkScheme(primary: Color, black: Boolean) = darkColorScheme(
     surfaceVariant = if (black) Color(0xFF16181E) else Color(0xFF212530),
 )
 
-val AppTypography = Typography()
+// Material 3 Expressive-leaning refresh (C4): rounder, more generous shapes across every component
+// (cards, buttons, chips, sheets, dialogs) for a softer, more modern feel.
+val AppShapes = Shapes(
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(18.dp),
+    large = RoundedCornerShape(26.dp),
+    extraLarge = RoundedCornerShape(34.dp),
+)
+
+// Bolder headings + slightly tighter tracking give the type an expressive, confident tone.
+val AppTypography = Typography().run {
+    copy(
+        headlineLarge = headlineLarge.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp),
+        headlineMedium = headlineMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.25).sp),
+        headlineSmall = headlineSmall.copy(fontWeight = FontWeight.SemiBold),
+        titleLarge = titleLarge.copy(fontWeight = FontWeight.SemiBold),
+        titleMedium = titleMedium.copy(fontWeight = FontWeight.SemiBold),
+    )
+}
 
 @Composable
 fun AppTheme(
@@ -84,5 +108,5 @@ fun AppTheme(
         dark -> darkScheme(BrandDark, false)
         else -> lightScheme(Brand)
     }
-    MaterialTheme(colorScheme = colors, typography = AppTypography, content = content)
+    MaterialTheme(colorScheme = colors, typography = AppTypography, shapes = AppShapes, content = content)
 }
