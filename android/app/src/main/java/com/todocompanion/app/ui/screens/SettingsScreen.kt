@@ -256,6 +256,27 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                         label = { Text(if (h == 0) "Midnight" else "%d:00".format(h)) })
                 }
             }
+
+            Spacer(Modifier.height(12.dp)); Sub("Daily capacity")
+            Text("How many hours you can realistically commit per day — powers the workload forecast and auto-schedule.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(2, 4, 6, 8, 10, 12).forEach { h ->
+                    FilterChip(selected = s.dailyCapacityHours == h, onClick = { vm.saveSettings(s.copy(dailyCapacityHours = h)) }, label = { Text("${h}h") })
+                }
+            }
+            Spacer(Modifier.height(10.dp)); Sub("Working hours (auto-schedule)")
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Start", Modifier.weight(1f))
+                TextButton(onClick = { vm.saveSettings(s.copy(workStartHour = ((s.workStartHour - 1 + 24) % 24))) }) { Text("−") }
+                Text("%02d:00".format(s.workStartHour), style = MaterialTheme.typography.titleSmall)
+                TextButton(onClick = { vm.saveSettings(s.copy(workStartHour = ((s.workStartHour + 1) % 24))) }) { Text("+") }
+                Spacer(Modifier.width(16.dp))
+                Text("End", Modifier.weight(1f))
+                TextButton(onClick = { vm.saveSettings(s.copy(workEndHour = (s.workEndHour - 1).coerceAtLeast(s.workStartHour + 1))) }) { Text("−") }
+                Text("%02d:00".format(s.workEndHour), style = MaterialTheme.typography.titleSmall)
+                TextButton(onClick = { vm.saveSettings(s.copy(workEndHour = (s.workEndHour + 1).coerceAtMost(24))) }) { Text("+") }
+            }
         }
 
         SettingsGroup(Icons.Filled.Notifications, "Reminders", open["reminders"] == true, { open["reminders"] = open["reminders"] != true }) {

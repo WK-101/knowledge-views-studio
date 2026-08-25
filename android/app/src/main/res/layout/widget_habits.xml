@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/hb_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_bg"
+    android:padding="10dp">
+    <TextView android:id="@+id/hb_header" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="Habits · today" android:textColor="#FFFFFF" android:textSize="14sp" android:textStyle="bold" android:paddingBottom="6dp" />
+    <ListView android:id="@+id/hb_list" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:divider="#22FFFFFF" android:dividerHeight="1dp" />
+    <TextView android:id="@+id/hb_empty" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+        android:gravity="center" android:text="No habits scheduled today" android:textColor="#B9B4D0" android:textSize="13sp" />
+</LinearLayout>

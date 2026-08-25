@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.SkipNext
@@ -73,6 +74,22 @@ fun PlanYourDayScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: ()
         },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            // One-tap auto-schedule: lay today's Do-Next tasks onto the working-hours timeline.
+            var autoMsg by remember { mutableStateOf<String?>(null) }
+            OutlinedButton(
+                onClick = {
+                    vm.autoScheduleToday { done, skip ->
+                        autoMsg = if (done == 0) "Nothing to auto-schedule right now"
+                        else "Scheduled $done task${if (done == 1) "" else "s"}" + if (skip > 0) " · $skip didn't fit today" else ""
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Filled.AutoAwesome, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.size(8.dp)); Text("Auto-schedule my day")
+            }
+            autoMsg?.let { Spacer(Modifier.size(6.dp)); Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center) }
+            Spacer(Modifier.size(14.dp))
+
             if (current == null) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {

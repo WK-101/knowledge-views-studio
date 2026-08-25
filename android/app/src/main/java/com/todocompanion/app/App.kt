@@ -33,7 +33,11 @@ class App : Application() {
         // table read doesn't compete with the DB queries the first UI frame needs.
         appScope.launch {
             kotlinx.coroutines.delay(2_000)
-            repository.allTasks.debounce(400).collect { TodayWidget.refresh(this@App); AgendaWidget.refresh(this@App) }
+            repository.allTasks.debounce(400).collect {
+                TodayWidget.refresh(this@App); AgendaWidget.refresh(this@App)
+                com.todocompanion.app.widget.StatsWidget.refresh(this@App)
+                com.todocompanion.app.widget.MatrixWidget.refresh(this@App)
+            }
         }
     }
 }

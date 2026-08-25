@@ -60,6 +60,10 @@ data class AppSettings(
     val calendarListFilter: Set<String> = emptySet(),   // empty = all lists
     // A subtle whole-app background tint: none | warm | cool | mint | dusk | rose.
     val appBackground: String = "none",
+    // Planning: hours you can realistically commit per day (workload forecast + auto-schedule).
+    val dailyCapacityHours: Int = 8,
+    val workStartHour: Int = 9,
+    val workEndHour: Int = 18,
     // The hour a new "day" begins (0–6). Tasks before this hour still count as the previous day,
     // so late-night work stays under "Today". 0 = midnight (standard).
     val dayStartHour: Int = 0,
@@ -119,6 +123,9 @@ data class AppSettings(
         Keys.CAL_MODE to calendarDefaultMode,
         Keys.CAL_FILTER to calendarListFilter.joinToString(","),
         Keys.APP_BG to appBackground,
+        Keys.CAPACITY to dailyCapacityHours.toString(),
+        Keys.WORK_START to workStartHour.toString(),
+        Keys.WORK_END to workEndHour.toString(),
         Keys.DAY_START to dayStartHour.toString(),
         Keys.SUMMARY_ON to dailySummaryEnabled.toString(),
         Keys.SUMMARY_H to dailySummaryHour.toString(),
@@ -171,6 +178,9 @@ data class AppSettings(
         const val CAL_FILTER = "cal_filter"
         const val SUMMARY_ON = "summary_on"
         const val APP_BG = "app_bg"
+        const val CAPACITY = "daily_capacity_h"
+        const val WORK_START = "work_start_h"
+        const val WORK_END = "work_end_h"
         const val DAY_START = "day_start"
         const val SUMMARY_H = "summary_h"
         const val SUMMARY_M = "summary_m"
@@ -241,6 +251,9 @@ data class AppSettings(
             viewsOrder = (m[Keys.VIEWS_ORDER] ?: "").split(",").filter { it.isNotBlank() },
             dailySummaryEnabled = m[Keys.SUMMARY_ON]?.toBooleanStrictOrNull() ?: false,
             appBackground = m[Keys.APP_BG] ?: "none",
+            dailyCapacityHours = m[Keys.CAPACITY]?.toIntOrNull()?.coerceIn(1, 16) ?: 8,
+            workStartHour = m[Keys.WORK_START]?.toIntOrNull()?.coerceIn(0, 23) ?: 9,
+            workEndHour = m[Keys.WORK_END]?.toIntOrNull()?.coerceIn(1, 24) ?: 18,
             dayStartHour = m[Keys.DAY_START]?.toIntOrNull()?.coerceIn(0, 6) ?: 0,
             dailySummaryHour = m[Keys.SUMMARY_H]?.toIntOrNull() ?: 8,
             dailySummaryMinute = m[Keys.SUMMARY_M]?.toIntOrNull() ?: 0,

@@ -41,10 +41,11 @@ data class BackupFile(
     val flags: List<com.todocompanion.app.data.entity.FlagEntity> = emptyList(),
     val templates: List<com.todocompanion.app.data.entity.TemplateEntity> = emptyList(),
     val countdowns: List<com.todocompanion.app.data.entity.CountdownEntity> = emptyList(),
+    val activities: List<com.todocompanion.app.data.entity.ActivityEntity> = emptyList(),
 ) {
     companion object {
         const val FORMAT = "todo-companion"
-        const val VERSION = 5
+        const val VERSION = 6
     }
 }
 

@@ -43,7 +43,14 @@ class AppRepository(private val db: AppDatabase) {
     private val flags = db.flagDao()
     private val templates = db.templateDao()
     private val countdowns = db.countdownDao()
+    private val activity = db.activityDao()
     private val templateJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = true }
+
+    // ----- activity log (private, on-device audit trail) -----
+    fun taskActivity(taskId: String): Flow<List<com.todocompanion.app.data.entity.ActivityEntity>> = activity.observeForTask(taskId)
+    private suspend fun logActivity(taskId: String, type: String, detail: String? = null) {
+        activity.insert(com.todocompanion.app.data.entity.ActivityEntity(uid(), taskId, type, now(), detail))
+    }
 
     // ----- reactive reads -----
     val allTasks: Flow<List<TaskEntity>> = tasks.observeAll()
@@ -141,16 +148,26 @@ class AppRepository(private val db: AppDatabase) {
                 updatedAt = now(),
             )
         )
+        logActivity(id, "created")
         return id
     }
 
-    suspend fun saveTask(task: TaskEntity) = tasks.upsert(task.copy(updatedAt = now()))
+    suspend fun saveTask(task: TaskEntity) {
+        // Capture user-visible reschedules for the activity log (title/note edits don't log).
+        val old = tasks.getById(task.id)
+        tasks.upsert(task.copy(updatedAt = now()))
+        if (old != null && old.dueDate != task.dueDate) logActivity(task.id, "rescheduled", task.dueDate?.toString())
+    }
 
-    suspend fun setCompleted(task: TaskEntity, completed: Boolean) =
+    suspend fun setCompleted(task: TaskEntity, completed: Boolean) {
         tasks.upsert(task.copy(completed = completed, completedAt = if (completed) now() else null, abandoned = false, updatedAt = now()))
+        logActivity(task.id, if (completed) "completed" else "reopened")
+    }
 
-    suspend fun setAbandoned(task: TaskEntity, abandoned: Boolean) =
+    suspend fun setAbandoned(task: TaskEntity, abandoned: Boolean) {
         tasks.upsert(task.copy(abandoned = abandoned, completed = false, updatedAt = now()))
+        logActivity(task.id, if (abandoned) "wontdo" else "reopened")
+    }
 
     suspend fun setCollapsed(task: TaskEntity, collapsed: Boolean) =
         tasks.upsert(task.copy(collapsed = collapsed, updatedAt = now()))
@@ -174,6 +191,7 @@ class AppRepository(private val db: AppDatabase) {
             val t = tasks.getById(id) ?: continue
             tasks.upsert(t.copy(trashed = trashed, trashedAt = if (trashed) now() else null, updatedAt = now()))
         }
+        logActivity(rootId, if (trashed) "trashed" else "restored")
     }
 
     /** Permanently delete a task and its subtree. */
@@ -184,6 +202,7 @@ class AppRepository(private val db: AppDatabase) {
             reminders.deleteForTask(id)
             deps.removeAllInvolving(id)
             checklist.deleteForTask(id)
+            activity.clearForTask(id)
             tasks.deleteById(id)
         }
     }
@@ -243,6 +262,7 @@ class AppRepository(private val db: AppDatabase) {
                 tasks.upsert(t.copy(listId = newListId, folderId = null, updatedAt = now()))
             }
         }
+        logActivity(rootId, "moved", lists.getById(newListId)?.name)
     }
 
     // ============ workspaces ============
@@ -591,6 +611,7 @@ class AppRepository(private val db: AppDatabase) {
             flags = flags.getAll(),
             templates = templates.getAll(),
             countdowns = countdowns.getAll(),
+            activities = activity.getAll(),
         )
     )
 
@@ -599,7 +620,7 @@ class AppRepository(private val db: AppDatabase) {
         tasks.clear(); folders.clear(); lists.clear(); checklist.clear()
         tags.clear(); tags.clearCrossRefs(); contexts.clear(); contexts.clearCrossRefs()
         reminders.clear(); deps.clear(); settings.clear(); workspaces.clear(); filters.clear()
-        habits.clear(); habits.clearCheckins(); focus.clear(); attachments.clear(); flags.clear(); templates.clear(); countdowns.clear()
+        habits.clear(); habits.clearCheckins(); focus.clear(); attachments.clear(); flags.clear(); templates.clear(); countdowns.clear(); activity.clear()
         folders.upsertAll(b.folders)
         lists.upsertAll(b.lists)
         tasks.upsertAll(b.tasks)
@@ -617,6 +638,7 @@ class AppRepository(private val db: AppDatabase) {
         flags.upsertAll(b.flags)
         templates.upsertAll(b.templates)
         countdowns.upsertAll(b.countdowns)
+        activity.insertAll(b.activities)
         ensureDefaultWorkspace()
         ensureInbox()
         ensureDefaultFlags()

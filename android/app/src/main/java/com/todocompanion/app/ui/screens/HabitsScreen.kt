@@ -52,6 +52,29 @@ import java.time.LocalDate
 
 private val HABIT_COLORS = listOf(0xFF12A594, 0xFF3E7BFA, 0xFF8B5CF6, 0xFFE5484D, 0xFFF59E0B, 0xFFEC4899, 0xFF0EA371)
 
+private val HABIT_SECTIONS = listOf("Morning", "Afternoon", "Evening", "Anytime")
+/** Which time-of-day section a habit belongs to, from its earliest reminder (0=Morning … 3=Anytime). */
+private fun habitSectionOf(h: HabitEntity): Int {
+    val first = h.reminderTimes.split(",").mapNotNull { it.trim().toIntOrNull() }.minOrNull() ?: return 3
+    return when { first < 12 * 60 -> 0; first < 17 * 60 -> 1; else -> 2 }
+}
+
+private class HabitPreset(val emoji: String, val name: String, val unit: String?, val target: Int, val color: Long)
+private val HABIT_PRESETS = listOf(
+    HabitPreset("💧", "Drink water", "glasses", 8, 0xFF3E7BFA),
+    HabitPreset("🏃", "Exercise", null, 1, 0xFFE5484D),
+    HabitPreset("📖", "Read", "pages", 20, 0xFF8B5CF6),
+    HabitPreset("🧘", "Meditate", "min", 10, 0xFF12A594),
+    HabitPreset("🚶", "Walk", "steps", 8000, 0xFFF59E0B),
+    HabitPreset("✍️", "Journal", null, 1, 0xFFEC4899),
+    HabitPreset("💊", "Vitamins", null, 1, 0xFF14B8A6),
+    HabitPreset("🥗", "Eat healthy", null, 1, 0xFF0EA371),
+    HabitPreset("😴", "Sleep by 11", null, 1, 0xFF6366F1),
+    HabitPreset("📵", "No phone in bed", null, 1, 0xFF64748B),
+    HabitPreset("🙏", "Gratitude", null, 1, 0xFFF97316),
+    HabitPreset("🦷", "Floss", null, 1, 0xFF06B6D4),
+)
+
 @Composable
 fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     val habits by vm.habits.collectAsState()
@@ -59,6 +82,7 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     val today = LocalDate.now().toEpochDay()
     var editing by remember { mutableStateOf<HabitEntity?>(null) }
     var addOpen by remember { mutableStateOf(false) }
+    var presetOpen by remember { mutableStateOf(false) }
 
     if (habits.isEmpty()) {
         Column(modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -69,24 +93,45 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Text("Build a habit", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text("Track daily habits and keep your streak going.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.size(14.dp))
-            TextButton(onClick = { addOpen = true }) { Text("＋ New habit") }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { presetOpen = true }) { Text("✨ Starter habits") }
+                TextButton(onClick = { addOpen = true }) { Text("＋ New habit") }
+            }
         }
     } else {
+        // Group by time-of-day section derived from each habit's earliest reminder (Anytime = no reminder).
+        val bySection = remember(habits) { habits.groupBy { habitSectionOf(it) } }
+        val order = (0..3).filter { bySection.containsKey(it) }
+        val showHeaders = order.size > 1
         LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(top = 6.dp, bottom = 100.dp)) {
-            items(habits, key = { it.id }) { h ->
-                val hc = checkins.filter { it.habitId == h.id }
-                val todayCount = hc.firstOrNull { it.epochDay == today }?.count ?: 0
-                val doneDays = hc.filter { it.count >= h.targetPerDay }.map { it.epochDay }.toSet()
-                val countsByDay = hc.associate { it.epochDay to it.count }
-                val schedule = HabitStats.parseSchedule(h.scheduleDays)
-                HabitRow(h, todayCount, HabitStats.streak(doneDays, today, schedule), HabitStats.rate(doneDays, today, schedule),
-                    countsByDay, today, schedule, HabitStats.isScheduled(today, schedule),
-                    onCycle = { vm.cycleHabit(h, today, todayCount) }, onEdit = { editing = h })
+            order.forEach { sec ->
+                if (showHeaders) item(key = "sec$sec") {
+                    Text(HABIT_SECTIONS[sec].uppercase(), Modifier.padding(start = 18.dp, top = 12.dp, bottom = 2.dp),
+                        style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                items(bySection[sec]!!, key = { it.id }) { h ->
+                    val hc = checkins.filter { it.habitId == h.id }
+                    val todayCount = hc.firstOrNull { it.epochDay == today }?.count ?: 0
+                    val doneDays = hc.filter { it.count >= h.targetPerDay }.map { it.epochDay }.toSet()
+                    val countsByDay = hc.associate { it.epochDay to it.count }
+                    val schedule = HabitStats.parseSchedule(h.scheduleDays)
+                    HabitRow(h, todayCount, HabitStats.streak(doneDays, today, schedule), HabitStats.rate(doneDays, today, schedule),
+                        countsByDay, today, schedule, HabitStats.isScheduled(today, schedule),
+                        onCycle = { vm.cycleHabit(h, today, todayCount) }, onEdit = { editing = h })
+                }
             }
-            item { Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) { TextButton(onClick = { addOpen = true }) { Text("＋ New habit") } } }
+            item {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { presetOpen = true }) { Text("✨ Starter habits") }
+                    TextButton(onClick = { addOpen = true }) { Text("＋ New habit") }
+                }
+            }
         }
     }
 
+    if (presetOpen) HabitPresetDialog(onDismiss = { presetOpen = false }, onPick = { p ->
+        vm.createHabit(p.name, p.emoji, p.color, p.target, p.unit, "", ""); presetOpen = false
+    })
     if (addOpen) HabitDialog(null, onDismiss = { addOpen = false }, onDelete = {},
         onSave = { name, emoji, color, target, unit, sched, rem -> vm.createHabit(name, emoji, color, target, unit, sched, rem); addOpen = false })
     editing?.let { h ->
@@ -224,6 +269,35 @@ private fun HabitDialog(existing: HabitEntity?, onDismiss: () -> Unit, onDelete:
                 }) { Text("＋ Add reminder time") }
                 Text("A local notification fires at each time, on scheduled days, until you complete it.",
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+            }
+        },
+    )
+}
+
+@Composable
+private fun HabitPresetDialog(onDismiss: () -> Unit, onPick: (HabitPreset) -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        title = { Text("Starter habits") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text("Tap to add — tweak the target, schedule and reminders after.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.size(8.dp))
+                HABIT_PRESETS.forEach { p ->
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onPick(p) }.padding(vertical = 8.dp, horizontal = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(Modifier.size(34.dp).clip(CircleShape).background(Color(p.color).copy(alpha = .16f)), contentAlignment = Alignment.Center) {
+                            Text(p.emoji, style = MaterialTheme.typography.titleMedium)
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Text(p.name + (p.unit?.let { " · ${p.target} $it" } ?: ""), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                        Icon(Icons.Filled.Add, "Add", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    }
+                }
             }
         },
     )

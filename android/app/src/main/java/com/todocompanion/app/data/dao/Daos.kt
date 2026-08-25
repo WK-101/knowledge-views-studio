@@ -165,6 +165,27 @@ interface CountdownDao {
 }
 
 @Dao
+interface ActivityDao {
+    @Query("SELECT * FROM task_activity WHERE taskId = :taskId ORDER BY at DESC")
+    fun observeForTask(taskId: String): Flow<List<com.todocompanion.app.data.entity.ActivityEntity>>
+
+    @Query("SELECT * FROM task_activity")
+    suspend fun getAll(): List<com.todocompanion.app.data.entity.ActivityEntity>
+
+    @Insert
+    suspend fun insert(a: com.todocompanion.app.data.entity.ActivityEntity)
+
+    @Insert
+    suspend fun insertAll(a: List<com.todocompanion.app.data.entity.ActivityEntity>)
+
+    @Query("DELETE FROM task_activity WHERE taskId = :taskId")
+    suspend fun clearForTask(taskId: String)
+
+    @Query("DELETE FROM task_activity")
+    suspend fun clear()
+}
+
+@Dao
 interface FilterDao {
     @Query("SELECT * FROM filters ORDER BY sortOrder")
     fun observeAll(): Flow<List<FilterEntity>>

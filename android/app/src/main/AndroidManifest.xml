@@ -107,6 +107,43 @@
                 android:resource="@xml/widget_quickadd_info" />
         </receiver>
 
+        <!-- Stats widget: tasks done today + still due. Offline. -->
+        <receiver android:name=".widget.StatsWidget" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_stats_info" />
+        </receiver>
+
+        <!-- Matrix widget: quadrant counts. Offline. -->
+        <receiver android:name=".widget.MatrixWidget" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_matrix_info" />
+        </receiver>
+
+        <!-- Pomodoro launcher widget. Offline. -->
+        <receiver android:name=".widget.PomodoroWidget" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_pomodoro_info" />
+        </receiver>
+
+        <!-- Habits check-in widget: today's habits, tap to check. Offline. -->
+        <receiver android:name=".widget.HabitsWidget" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_habits_info" />
+        </receiver>
+        <service
+            android:name=".widget.HabitsWidgetService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
+        <receiver android:name=".widget.HabitCheckReceiver" android:exported="false" />
+
         <!-- Fires a scheduled reminder notification. Not exported. -->
         <receiver
             android:name=".reminders.ReminderReceiver"

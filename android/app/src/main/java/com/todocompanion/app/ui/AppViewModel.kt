@@ -336,16 +336,56 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         ).map { it.task }
     }
 
-    /** The single best task to do right now per the Do-Next engine (priority + due urgency +
-     *  dependency propagation + context open-hours availability). Powers "Suggest a task" in Focus. */
-    fun topDoNext(): TaskEntity? {
+    /** The full Do-Next ranking (priority + due urgency + dependency propagation + context
+     *  open-hours availability), most-actionable first. */
+    private fun doNextRanked(): List<TaskEntity> {
         val now = System.currentTimeMillis()
         val all = tasks.value
         val base = TaskViews.filterSmart(all, SmartKind.DO_NEXT, now, zone, dayStartMin)
-        return rankDoNext(base, all, now, settings.value.priorityConfig(), dependencies.value, taskContexts.value, contexts.value).firstOrNull()
+        return rankDoNext(base, all, now, settings.value.priorityConfig(), dependencies.value, taskContexts.value, contexts.value)
+    }
+
+    /** The single best task to do right now. Powers "Suggest a task" in Focus. */
+    fun topDoNext(): TaskEntity? = doNextRanked().firstOrNull()
+
+    /**
+     * Lay today's actionable Do-Next tasks onto the timeline between the configured working hours,
+     * packing each by its estimate (default 30 min) in ranked order. Undated and today/overdue tasks
+     * are candidates; future-dated ones are left alone. Reports (scheduled, didn't-fit). Fully offline.
+     */
+    fun autoScheduleToday(onDone: (Int, Int) -> Unit = { _, _ -> }) = viewModelScope.launch {
+        val s = settings.value
+        val startHour = s.workStartHour.coerceIn(0, 23)
+        val endHour = s.workEndHour.coerceIn(startHour + 1, 24)
+        val dayStart = java.time.LocalDate.now(zone).atStartOfDay(zone)
+        val windowEnd = dayStart.plusHours(endHour.toLong())
+        var cursor = dayStart.plusHours(startHour.toLong())
+        // Never schedule into the past: if the window has already begun, start from the next quarter-hour.
+        val now = System.currentTimeMillis()
+        if (cursor.toInstant().toEpochMilli() < now) {
+            val nowZ = java.time.Instant.ofEpochMilli(now).atZone(zone).withSecond(0).withNano(0)
+            cursor = nowZ.withMinute(0).plusMinutes((((nowZ.minute) / 15) + 1) * 15L)
+        }
+        val todayDate = java.time.LocalDate.now(zone)
+        val candidates = doNextRanked().filter { t ->
+            t.dueDate == null || java.time.Instant.ofEpochMilli(t.dueDate!!).atZone(zone).toLocalDate() <= todayDate
+        }
+        var scheduled = 0; var skipped = 0
+        for (t in candidates) {
+            val dur = (t.estimateMin ?: t.estimateMax ?: t.durationMin ?: 30).coerceIn(10, 480)
+            val end = cursor.plusMinutes(dur.toLong())
+            if (end.isAfter(windowEnd)) { skipped++; continue }
+            repo.saveTask(t.copy(dueDate = cursor.toInstant().toEpochMilli(), isAllDay = false))
+            cursor = end
+            scheduled++
+        }
+        onDone(scheduled, skipped)
     }
 
     fun observeTask(id: String): Flow<TaskEntity?> = repo.observeTask(id)
+
+    /** The private, on-device activity trail for one task (created / completed / rescheduled …). */
+    fun taskActivity(id: String): Flow<List<com.todocompanion.app.data.entity.ActivityEntity>> = repo.taskActivity(id)
 
     // ---------- navigation ----------
     fun select(view: ViewRef) {
@@ -632,14 +672,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun createHabit(name: String, emoji: String?, colorArgb: Long?, target: Int, unit: String? = null, scheduleDays: String = "", reminderTimes: String = "") = viewModelScope.launch {
         repo.createHabit(name.trim(), emoji, colorArgb, target, settings.value.activeWorkspaceId, unit, scheduleDays, reminderTimes)
         com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
+        com.todocompanion.app.widget.HabitsWidget.refresh(appCtx)
     }
     fun saveHabit(h: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch {
         repo.upsertHabit(h)
         com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
+        com.todocompanion.app.widget.HabitsWidget.refresh(appCtx)
     }
-    fun deleteHabit(id: String) = viewModelScope.launch { repo.deleteHabit(id) }
+    fun deleteHabit(id: String) = viewModelScope.launch { repo.deleteHabit(id); com.todocompanion.app.widget.HabitsWidget.refresh(appCtx) }
     fun cycleHabit(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, current: Int) = viewModelScope.launch {
         repo.cycleCheckin(h.id, epochDay, h.targetPerDay, current)
+        com.todocompanion.app.widget.HabitsWidget.refresh(appCtx)
     }
 
     // ---------- focus ----------

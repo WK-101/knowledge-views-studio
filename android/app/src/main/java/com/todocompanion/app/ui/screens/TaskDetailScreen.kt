@@ -48,6 +48,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.outlined.Edit
@@ -131,6 +133,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
     val checklist by vm.checklist.collectAsState()
     val lists by vm.lists.collectAsState()
     val folders by vm.folders.collectAsState()
+    val activityLog by remember(taskId) { vm.taskActivity(taskId) }.collectAsState(initial = emptyList())
     val allDeps by vm.dependencies.collectAsState()
     val allTasks by vm.tasks.collectAsState()
 
@@ -442,6 +445,22 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                     }
                 }
                 TextButton(onClick = { showBlockPicker = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text("＋ Add a blocker") }
+            }
+
+            // ---------- Activity log (private, on-device) ----------
+            DetailSection("Activity", activityLog.size.takeIf { it > 0 }?.toString(), false) {
+                if (activityLog.isEmpty()) {
+                    Text("No activity recorded yet.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    activityLog.take(40).forEach { a ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(activityIcon(a.type), null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(9.dp))
+                            Text(activityLabel(a.type, a.detail), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                            Text(relativeTime(a.at), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
             }
 
             // ---------- More options ----------
@@ -762,6 +781,43 @@ private fun <T> MenuRow(label: String, current: String, options: List<Pair<T, St
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             options.forEach { (v, l) -> DropdownMenuItem(text = { Text(l) }, onClick = { onPick(v); open = false }) }
         }
+    }
+}
+
+private fun activityIcon(type: String): androidx.compose.ui.graphics.vector.ImageVector = when (type) {
+    "created" -> Icons.Filled.Add
+    "completed" -> Icons.Filled.CheckCircle
+    "rescheduled" -> Icons.Filled.Event
+    "moved" -> Icons.AutoMirrored.Filled.DriveFileMove
+    "trashed" -> Icons.Filled.Delete
+    "restored" -> Icons.Filled.Restore
+    "wontdo" -> Icons.Filled.Cancel
+    else -> Icons.Filled.RadioButtonUnchecked   // reopened
+}
+
+private fun activityLabel(type: String, detail: String?): String = when (type) {
+    "created" -> "Created"
+    "completed" -> "Completed"
+    "reopened" -> "Marked not done"
+    "rescheduled" -> detail?.toLongOrNull()?.let { ms ->
+        val d = java.time.Instant.ofEpochMilli(ms).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+        "Rescheduled to ${d.dayOfMonth} ${d.month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault())}"
+    } ?: "Date cleared"
+    "moved" -> "Moved" + (detail?.let { " to $it" } ?: "")
+    "trashed" -> "Moved to Trash"
+    "restored" -> "Restored"
+    "wontdo" -> "Marked won't do"
+    else -> type.replaceFirstChar { it.uppercase() }
+}
+
+private fun relativeTime(at: Long): String {
+    val min = (System.currentTimeMillis() - at) / 60_000L
+    return when {
+        min < 1 -> "now"
+        min < 60 -> "${min}m"
+        min < 1440 -> "${min / 60}h"
+        min < 1440 * 30 -> "${min / 1440}d"
+        else -> java.time.Instant.ofEpochMilli(at).atZone(java.time.ZoneId.systemDefault()).toLocalDate().let { "${it.dayOfMonth}/${it.monthValue}" }
     }
 }
 

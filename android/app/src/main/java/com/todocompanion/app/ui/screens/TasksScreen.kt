@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -150,6 +152,8 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
 
     Box(modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 6.dp, bottom = if (selectionMode) 120.dp else 100.dp)) {
+            // Workload forecast bar at the top of Next-7-Days: committed estimate vs daily capacity.
+            if ((view as? ViewRef.Smart)?.kind == SmartKind.NEXT7) item(key = "workload") { WorkloadStrip(vm) }
             items(groups, key = { it.key }) { group ->
                 val open = collapsed[group.key] != true
                 Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
@@ -352,6 +356,66 @@ private fun Modifier.androidx_pointerReorder(
             }
         },
     )
+}
+
+/** Compact 7-day workload forecast: each upcoming day's committed estimate against the daily
+ *  capacity (Settings → Planning). Over-committed days show a red bar. Planning intelligence
+ *  neither MLO nor TickTick offers — and it reuses the estimate every task already carries. */
+@Composable
+private fun WorkloadStrip(vm: AppViewModel) {
+    val tasks by vm.tasks.collectAsState()
+    val settings by vm.settings.collectAsState()
+    val zone = java.time.ZoneId.systemDefault()
+    val today = java.time.LocalDate.now(zone)
+    val capacity = (settings.dailyCapacityHours * 60).coerceAtLeast(30)
+    val loads = remember(tasks, settings.dailyCapacityHours) {
+        (0..6).map { off ->
+            val d = today.plusDays(off.toLong())
+            val dayTasks = tasks.filter {
+                !it.completed && !it.trashed && !it.abandoned && it.dueDate != null &&
+                    java.time.Instant.ofEpochMilli(it.dueDate!!).atZone(zone).toLocalDate() == d
+            }
+            Triple(d, dayTasks.sumOf { it.estimateMin ?: it.estimateMax ?: it.durationMin ?: 0 }, dayTasks.size)
+        }
+    }
+    if (loads.all { it.third == 0 }) return
+    val over = loads.count { it.second > capacity }
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Column(Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Workload · next 7 days", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Text(
+                    if (over == 0) "On track" else "$over day${if (over == 1) "" else "s"} over",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (over == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                )
+            }
+            Spacer(Modifier.size(10.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
+                loads.forEach { (d, min, count) ->
+                    val frac = (min.toFloat() / capacity).coerceIn(0f, 1.25f)
+                    val overCap = min > capacity
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            if (min > 0) "${(min + 30) / 60}h" else if (count > 0) "$count" else "",
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
+                        )
+                        Spacer(Modifier.size(3.dp))
+                        Box(
+                            Modifier.fillMaxWidth().height((5 + frac * 44).dp).clip(RoundedCornerShape(5.dp))
+                                .background(if (overCap) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary.copy(alpha = if (count == 0) .14f else .85f)),
+                        )
+                        Spacer(Modifier.size(4.dp))
+                        Text(
+                            d.dayOfWeek.getDisplayName(java.time.format.TextStyle.NARROW, java.util.Locale.getDefault()),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (d == today) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable

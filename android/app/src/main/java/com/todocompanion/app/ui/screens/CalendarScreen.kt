@@ -724,15 +724,16 @@ private fun AllDayChip(task: TaskEntity, onOpenTask: (String) -> Unit) {
 
 @Composable
 private fun YearView(anchor: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, onPrev: () -> Unit, onNext: () -> Unit, onMonth: (YearMonth) -> Unit, onDay: (LocalDate) -> Unit) {
-    val daysWithTasks = remember(dueByDate, anchor.year) {
-        dueByDate.keys.filter { it.year == anchor.year }.toSet()
+    // Task count per day drives the heatmap intensity (busier days read darker).
+    val countByDay = remember(dueByDate, anchor.year) {
+        dueByDate.filterKeys { it.year == anchor.year }.mapValues { it.value.size }
     }
     // Four weighted rows of three months fill the whole screen height instead of cramming at the top.
     Column(Modifier.fillMaxSize().swipeNav(onPrev, onNext).padding(horizontal = 8.dp, vertical = 6.dp)) {
         (1..12).chunked(3).forEach { rowMonths ->
             Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 rowMonths.forEach { m ->
-                    MiniMonth(YearMonth.of(anchor.year, m), daysWithTasks, onMonth = onMonth, onDay = onDay,
+                    MiniMonth(YearMonth.of(anchor.year, m), countByDay, onMonth = onMonth, onDay = onDay,
                         modifier = Modifier.weight(1f).fillMaxHeight().padding(vertical = 4.dp, horizontal = 2.dp))
                 }
             }
@@ -740,10 +741,10 @@ private fun YearView(anchor: LocalDate, dueByDate: Map<LocalDate, List<TaskEntit
     }
 }
 
-/** A compact month for the Year view. Task-days get a tinted circle; tap a day to open it,
- *  or the month name to open the month. */
+/** A compact month for the Year view. Task-days get a circle tinted by how many tasks fall on them
+ *  (a real heatmap); tap a day to open it, or the month name to open the month. */
 @Composable
-private fun MiniMonth(ym: YearMonth, daysWithTasks: Set<LocalDate>, onMonth: (YearMonth) -> Unit, onDay: (LocalDate) -> Unit, modifier: Modifier) {
+private fun MiniMonth(ym: YearMonth, countByDay: Map<LocalDate, Int>, onMonth: (YearMonth) -> Unit, onDay: (LocalDate) -> Unit, modifier: Modifier) {
     val today = LocalDate.now()
     val first = ym.atDay(1)
     val lead = (first.dayOfWeek.value - 1 + 7) % 7   // week starts Monday for the mini grid
@@ -766,12 +767,14 @@ private fun MiniMonth(ym: YearMonth, daysWithTasks: Set<LocalDate>, onMonth: (Ye
                     Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
                         if (d != null) {
                             val isToday = d == today
-                            val hasTasks = d in daysWithTasks
+                            val n = countByDay[d] ?: 0
+                            val hasTasks = n > 0
                             Box(
                                 Modifier.fillMaxWidth().aspectRatio(1f).padding(1.dp).clip(CircleShape)
                                     .background(when {
                                         isToday -> MaterialTheme.colorScheme.primary
-                                        hasTasks -> MaterialTheme.colorScheme.primary.copy(alpha = .20f)
+                                        // Graded: 1 task ≈ 24% → 5+ tasks ≈ 72% opacity.
+                                        hasTasks -> MaterialTheme.colorScheme.primary.copy(alpha = (0.12f + 0.12f * n.coerceAtMost(5)).coerceAtMost(0.72f))
                                         else -> androidx.compose.ui.graphics.Color.Transparent
                                     })
                                     .clickable { onDay(d) },
