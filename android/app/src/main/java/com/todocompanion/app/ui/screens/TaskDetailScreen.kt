@@ -142,6 +142,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
     var listMenu by remember { mutableStateOf(false) }
     var prioMenu by remember { mutableStateOf(false) }
     var flagMenu by remember { mutableStateOf(false) }
+    var showScore by remember { mutableStateOf(false) }
     var showBlockPicker by remember { mutableStateOf(false) }
     var saveTemplate by remember { mutableStateOf(false) }
     var notePreview by remember(taskId) { mutableStateOf(true) }
@@ -281,6 +282,12 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
             if (settings.advancedPriority) {
                 Dial("Importance", task.importance) { v -> update { it.copy(importance = v) } }
                 Dial("Urgency", task.urgency) { v -> update { it.copy(urgency = v) } }
+            }
+            // Legible Do-Next score — the thing MLO never shows.
+            if (settings.priorityComputed) {
+                TextButton(onClick = { showScore = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 40.dp, end = 8.dp, top = 0.dp, bottom = 0.dp)) {
+                    Text("Why this priority?", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                }
             }
             Box {
                 PropRow(Icons.AutoMirrored.Filled.FormatListBulleted, "List", lists.firstOrNull { it.id == task.listId }?.name ?: "Inbox") { listMenu = true }
@@ -466,6 +473,32 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
         }
     }
 
+    if (showScore && task != null) {
+        val bd = remember(task, allDeps, settings) { vm.explainScore(task) }
+        AlertDialog(
+            onDismissRequest = { showScore = false },
+            confirmButton = { TextButton(onClick = { showScore = false }) { Text("Got it") } },
+            title = { Text("Why this priority?") },
+            text = {
+                Column {
+                    Text("How this task's Do-Next score is computed — adjust the weights in Settings → Do-Next priority.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(10.dp))
+                    bd.lines.forEachIndexed { i, (label, value) ->
+                        val last = i == bd.lines.lastIndex
+                        if (last) HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = if (last) FontWeight.SemiBold else FontWeight.Normal)
+                            Text(value, style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = if (last) FontWeight.Bold else FontWeight.Normal,
+                                color = if (last) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+                }
+            },
+        )
+    }
     if (showDue) DateTimePickerDialog(task?.dueDate, { showDue = false }) { m -> update { it.copy(dueDate = m) }; showDue = false }
     if (showStart) DateTimePickerDialog(task?.startDate, { showStart = false }) { m -> update { it.copy(startDate = m) }; showStart = false }
     if (showReminder) DateTimePickerDialog(task?.dueDate ?: System.currentTimeMillis(), { showReminder = false }) { m -> task?.let { vm.addAbsoluteReminder(it, m) }; showReminder = false }

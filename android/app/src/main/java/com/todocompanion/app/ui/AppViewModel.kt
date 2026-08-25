@@ -125,7 +125,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             SmartKind.entries.associateWith { TaskViews.filterSmart(t, it, System.currentTimeMillis(), zone).size }
         }.state(emptyMap())
 
-    private data class Cfg(val view: ViewRef, val group: GroupMode, val sort: SortMode, val prio: PriorityEngine.Config, val flags: List<FlagEntity>)
+    private data class Cfg(val view: ViewRef, val group: GroupMode, val sort: SortMode, val prio: PriorityEngine.Config, val flags: List<FlagEntity>, val timeAvail: Int? = null)
+
+    /** "I have N minutes" planner: when set, Do-Next hides tasks whose estimate exceeds N. null = off. */
+    val timeAvailableMin = MutableStateFlow<Int?>(null)
 
     /** Cross-ref + container context threaded into the groups combine. */
     private data class ViewCtx(
@@ -156,7 +159,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val groups: StateFlow<List<TaskGroup>> =
         combine(
             wsTasks,
-            combine(currentView, groupMode, sortMode, settings, repo.allFlags) { v, g, s, set, fl -> Cfg(v, g, s, set.priorityConfig(), fl) },
+            combine(currentView, groupMode, sortMode, settings, combine(repo.allFlags, timeAvailableMin) { fl, ta -> fl to ta }) { v, g, s, set, flTa -> Cfg(v, g, s, set.priorityConfig(), flTa.first, flTa.second) },
             repo.taskTagRefs,
             combine(repo.taskContextRefs, repo.allContexts, repo.allFilters, repo.allLists, repo.allFolders) { r, c, f, l, fo -> ViewCtx(r, c, f, l, fo) },
             repo.allDependencies,
@@ -166,7 +169,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val filtered = when (val v = cfg.view) {
                 is ViewRef.Smart -> {
                     val base = TaskViews.filterSmart(all, v.kind, now, zone)
-                    if (v.kind == SmartKind.DO_NEXT) rankDoNext(base, all, now, cfg.prio, deps, tcRefs, ctxEntities) else base
+                    if (v.kind == SmartKind.DO_NEXT) {
+                        val ranked = rankDoNext(base, all, now, cfg.prio, deps, tcRefs, ctxEntities)
+                        // "Time available" planner: keep tasks that fit the slot (unestimated always fit).
+                        cfg.timeAvail?.let { avail -> ranked.filter { t -> (t.estimateMin ?: t.estimateMax)?.let { it <= avail } ?: true } } ?: ranked
+                    } else base
                 }
                 is ViewRef.FilterView -> {
                     val q = com.todocompanion.app.domain.view.Filters.parse(filterList.firstOrNull { it.id == v.filterId }?.queryJson)
@@ -359,6 +366,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             .minByOrNull { it.sortOrder }?.id
             ?: repo.createList("Tasks", v.folderId, null, workspaceId = settings.value.activeWorkspaceId)
         else -> ListEntity.INBOX_ID
+    }
+
+    /** A legible breakdown of a task's Do-Next priority score — surfaced in the task detail. */
+    fun explainScore(task: TaskEntity): PriorityEngine.ScoreBreakdown {
+        val byId = tasks.value.associateBy { it.id }
+        val cfg = settings.value.priorityConfig()
+        val boost = PriorityEngine.dependencyBoosts(dependencies.value, byId, cfg)[task.id] ?: 0.0
+        return PriorityEngine.explain(task, System.currentTimeMillis(), byId, cfg, boost)
     }
 
     // ---------- quick add ----------

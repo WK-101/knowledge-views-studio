@@ -144,6 +144,28 @@ object PriorityEngine {
         return out
     }
 
+    /** A legible breakdown of a task's computed score — the thing MLO never shows. */
+    data class ScoreBreakdown(val total: Double, val lines: List<Pair<String, String>>)
+
+    fun explain(task: TaskEntity, now: Long, tasksById: Map<String, TaskEntity>, cfg: Config = DEFAULT, depBoost: Double = 0.0): ScoreBreakdown {
+        val imp = product(task, tasksById, cfg.curveBase) { it.importance }
+        val urg = product(task, tasksById, cfg.curveBase) { it.urgency }
+        val base = when (cfg.mode) { Mode.IMPORTANCE -> imp; Mode.URGENCY -> urg; Mode.BOTH -> imp * urg }
+        val star = if (task.star) cfg.starBoost else 1.0
+        val date = dateTerm(task, now, cfg)
+        val total = base * star + date + depBoost
+        val lines = buildList {
+            add("Importance ${task.importance}/5" to "×%.2f".format(imp))
+            add("Urgency ${task.urgency}/5" to "×%.2f".format(urg))
+            add(when (cfg.mode) { Mode.IMPORTANCE -> "Base (importance)"; Mode.URGENCY -> "Base (urgency)"; Mode.BOTH -> "Base (importance × urgency)" } to "%.2f".format(base))
+            if (task.star) add("Star boost" to "×%.2f".format(star))
+            if (date > 0.0001) add((if (task.dueDate != null && task.dueDate!! < now) "Overdue urgency" else "Date urgency") to "+%.2f".format(date))
+            if (depBoost > 0.0001) add("Unblocks important work" to "+%.2f".format(depBoost))
+            add("Score" to "%.2f".format(total))
+        }
+        return ScoreBreakdown(total, lines)
+    }
+
     /** Raw ranking score (ignores gating). Higher = do sooner. */
     fun score(task: TaskEntity, now: Long, tasksById: Map<String, TaskEntity>, cfg: Config = DEFAULT): Double {
         val imp = product(task, tasksById, cfg.curveBase) { it.importance }

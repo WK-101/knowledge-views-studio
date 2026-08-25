@@ -113,6 +113,34 @@ fun StatisticsScreen(vm: AppViewModel, onBack: () -> Unit) {
                 StatTile("Focus · 7 days", "${focusMin}m", Modifier.weight(1f), sub = "$focusSessions sessions")
                 StatTile("Habit rate", "${(avgHabit * 100).toInt()}%", Modifier.weight(1f), sub = "${habits.size} habits")
             }
+            // Focus time by list (last 30 days) — where your deep work actually went.
+            val lists by vm.lists.collectAsState()
+            val listById = lists.associateBy { it.id }
+            val taskListOf = tasks.associate { it.id to it.listId }
+            val focus30 = focus.filter { it.epochDay >= todayEpoch - 29 }
+            val byList = focus30.filter { it.taskId != null }
+                .groupBy { taskListOf[it.taskId] }
+                .mapNotNull { (listId, sess) -> listId?.let { (listById[it]?.name ?: "List") to sess.sumOf { s -> s.minutes } } }
+                .filter { it.second > 0 }
+                .sortedByDescending { it.second }
+            if (byList.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                AppCard {
+                    Text("Focus by list · 30 days", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(8.dp))
+                    val maxMin = byList.maxOf { it.second }.coerceAtLeast(1)
+                    byList.take(6).forEach { (name, min) ->
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 3.dp)) {
+                            Text(name, Modifier.width(110.dp), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            Box(Modifier.weight(1f).height(14.dp)) {
+                                Box(Modifier.fillMaxWidth(min.toFloat() / maxMin).height(14.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = .85f)))
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Text("${min}m", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
             Spacer(Modifier.height(16.dp))
             Text("All stats are computed on-device from your data.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -136,6 +137,28 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
                 tasks.filter { !it.completed && !it.trashed && !it.abandoned }.take(50).forEach { t ->
                     androidx.compose.material3.DropdownMenuItem(text = { Text(t.title, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }, onClick = { focusTaskId = t.id; taskMenu = false })
                 }
+            }
+        }
+        // Estimate vs. actual for the linked task: how much has been focused against its estimate.
+        focusTaskId?.let { id ->
+            val t = tasks.firstOrNull { it.id == id }
+            val estimate = t?.estimateMin
+            val logged = sessions.filter { it.taskId == id }.sumOf { it.minutes } + (if (running || elapsed > 0) elapsed / 60 else 0)
+            if (estimate != null && estimate > 0) {
+                Spacer(Modifier.size(6.dp))
+                Column(Modifier.fillMaxWidth(0.8f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Estimated ${estimate}m", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                        Text("$logged m logged", style = MaterialTheme.typography.labelMedium, color = if (logged > estimate) MaterialTheme.colorScheme.error else accent)
+                    }
+                    androidx.compose.material3.LinearProgressIndicator(
+                        progress = { (logged.toFloat() / estimate).coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth().padding(top = 3.dp).height(5.dp).clip(CircleShape),
+                    )
+                }
+            } else if (logged > 0) {
+                Spacer(Modifier.size(4.dp))
+                Text("$logged m logged on this task", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 

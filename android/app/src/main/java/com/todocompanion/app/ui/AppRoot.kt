@@ -345,6 +345,26 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                                         tint = if (hier) MaterialTheme.colorScheme.primary else LocalContentColor.current)
                                 }
                             }
+                            // "Time available" planner — only on the Do-Next list.
+                            if (tab == Tab.TASKS && (currentView as? ViewRef.Smart)?.kind == SmartKind.DO_NEXT && !boardMode) {
+                                val avail by vm.timeAvailableMin.collectAsState()
+                                var timeMenu by remember { mutableStateOf(false) }
+                                Box {
+                                    IconButton(onClick = { timeMenu = true }) {
+                                        Icon(Icons.Filled.Timer, "Time available", tint = if (avail != null) MaterialTheme.colorScheme.primary else LocalContentColor.current)
+                                    }
+                                    DropdownMenu(expanded = timeMenu, onDismissRequest = { timeMenu = false }) {
+                                        Text("I HAVE…", Modifier.padding(14.dp, 8.dp, 14.dp, 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        listOf<Pair<Int?, String>>(null to "Any amount of time", 15 to "15 minutes", 30 to "30 minutes", 45 to "45 minutes", 60 to "1 hour", 120 to "2 hours").forEach { (m, label) ->
+                                            DropdownMenuItem(
+                                                text = { Text(label) },
+                                                leadingIcon = { if (avail == m) Icon(Icons.Filled.Check, null, modifier = Modifier.size(18.dp)) else Spacer(Modifier.width(18.dp)) },
+                                                onClick = { vm.timeAvailableMin.value = m; timeMenu = false },
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                             when (tab) {
                                 Tab.TASKS -> {
                                     IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Sort & group") }
