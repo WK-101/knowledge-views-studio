@@ -1195,9 +1195,18 @@ private fun ManageContextDialog(
     // lifecycle throws when launched; this is what crashed "Alert me when I arrive here").
     val lctx = LocalContext.current
     var hasLoc by remember { mutableStateOf(ctx.latitude != null) }
-    fun captureAndSet() = runCatching {
-        captureLocation(lctx)?.let { (la, ln) -> onSetLocation(la, ln, 150.0); hasLoc = true }
-            ?: android.widget.Toast.makeText(lctx, "No location fix yet — move outdoors and try again", android.widget.Toast.LENGTH_SHORT).show()
+    var locating by remember { mutableStateOf(false) }
+    fun captureAndSet() {
+        // Fast path: a recent last-known fix is instant.
+        lastKnownLocation(lctx)?.let { (la, ln) -> onSetLocation(la, ln, 150.0); hasLoc = true; return }
+        // Otherwise actively request a single fresh fix (framework LocationManager — no Play Services).
+        locating = true
+        android.widget.Toast.makeText(lctx, "Getting your location…", android.widget.Toast.LENGTH_SHORT).show()
+        requestLocationFix(lctx) { fix ->
+            locating = false
+            if (fix != null) { onSetLocation(fix.first, fix.second, 150.0); hasLoc = true }
+            else android.widget.Toast.makeText(lctx, "Couldn't get a location fix — turn on location and move near a window, then retry", android.widget.Toast.LENGTH_LONG).show()
+        }
     }
     val locPermLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
         if (grants.values.any { it }) captureAndSet()
@@ -1255,10 +1264,14 @@ private fun ManageContextDialog(
                 // Location geofence (E3): arriving here surfaces this context's tasks.
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Alert me when I arrive here", Modifier.weight(1f))
-                    androidx.compose.material3.Switch(checked = hasLoc, onCheckedChange = { on -> toggleLocation(on) })
+                    if (locating) androidx.compose.material3.CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    else androidx.compose.material3.Switch(checked = hasLoc, onCheckedChange = { on -> toggleLocation(on) })
                 }
-                Text(if (hasLoc) "Uses your current location. On-device only — coordinates never leave the phone."
-                     else "Captures where you are now as this context's place.",
+                Text(when {
+                        locating -> "Getting a location fix…"
+                        hasLoc -> "Uses your current location. On-device only — coordinates never leave the phone."
+                        else -> "Captures where you are now as this context's place. Works without Google services."
+                    },
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
@@ -1267,11 +1280,9 @@ private fun ManageContextDialog(
 
 /** Best-effort current location from the platform's last known fix. Fully on-device. */
 @SuppressLint("MissingPermission")
-private fun captureLocation(context: android.content.Context): Pair<Double, Double>? {
-    val lm = context.getSystemService(android.location.LocationManager::class.java) ?: return null
-    val loc = runCatching { lm.getProviders(true).asReversed().firstNotNullOfOrNull { p -> lm.getLastKnownLocation(p) } }.getOrNull()
-    return loc?.let { it.latitude to it.longitude }
-}
+private fun lastKnownLocation(context: android.content.Context) = com.todocompanion.app.reminders.LocationFix.lastKnown(context)
+private fun requestLocationFix(context: android.content.Context, onResult: (Pair<Double, Double>?) -> Unit) =
+    com.todocompanion.app.reminders.LocationFix.requestFix(context, onResult = onResult)
 
 @Composable
 private fun HourStepper(hour: Int, onChange: (Int) -> Unit) {

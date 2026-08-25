@@ -57,6 +57,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
@@ -100,43 +101,6 @@ import com.todocompanion.app.ui.components.rowVerticalPadding
 
 @Composable
 fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifier = Modifier) {
-    // A folder view always gets a direct capture row on top, so a task can be added straight into
-    // the folder (no list) whether or not it already has any tasks.
-    val view by vm.currentView.collectAsState()
-    val folderId = (view as? ViewRef.FolderView)?.folderId
-    if (folderId != null) {
-        androidx.compose.foundation.layout.Column(modifier.fillMaxSize()) {
-            FolderCaptureRow(vm, folderId)
-            Box(Modifier.weight(1f)) { TaskListBody(vm, onOpenTask, Modifier.fillMaxSize()) }
-        }
-        return
-    }
-    TaskListBody(vm, onOpenTask, modifier)
-}
-
-@Composable
-private fun FolderCaptureRow(vm: AppViewModel, folderId: String) {
-    var text by remember(folderId) { mutableStateOf("") }
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(Icons.Filled.Add, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(8.dp))
-        androidx.compose.material3.OutlinedTextField(
-            value = text, onValueChange = { text = it },
-            placeholder = { Text("Add a task to this folder") },
-            singleLine = true, modifier = Modifier.weight(1f),
-            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
-            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { if (text.isNotBlank()) { vm.addTaskInFolder(folderId, text); text = "" } }),
-        )
-        if (text.isNotBlank()) androidx.compose.material3.TextButton(onClick = { vm.addTaskInFolder(folderId, text); text = "" }) { Text("Add") }
-    }
-    androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-}
-
-@Composable
-private fun TaskListBody(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifier = Modifier) {
     val outline by vm.outlineMode.collectAsState()
     val settings by vm.settings.collectAsState()
     val view by vm.currentView.collectAsState()
@@ -149,6 +113,8 @@ private fun TaskListBody(vm: AppViewModel, onOpenTask: (String) -> Unit, modifie
     val groups by vm.groups.collectAsState()
     val isTrash = (view as? ViewRef.Smart)?.kind == SmartKind.TRASH
     val collapsed = remember { mutableStateMapOf<String, Boolean>() }
+    // Deleting from Trash is permanent — confirm first.
+    var pendingPermanentDelete by remember { mutableStateOf<TaskEntity?>(null) }
 
     // Per-task @context / #tag lookups, MLO-style detail on each row.
     val allTags by vm.tags.collectAsState()
@@ -214,7 +180,7 @@ private fun TaskListBody(vm: AppViewModel, onOpenTask: (String) -> Unit, modifie
                                         leftFar = if (isTrash) SwipeAction.NONE else settings.swipeLeftFar, isTrash = isTrash,
                                         selected = task.id in selected, selectionMode = selectionMode, onLongPress = { toggleSel(task.id) },
                                         onOpen = { if (selectionMode) toggleSel(task.id) else onOpenTask(task.id) },
-                                        onAct = { a -> onSwipe(vm, a, task, isTrash) { onOpenTask(task.id) } },
+                                        onAct = { a -> onSwipe(vm, a, task, isTrash, { pendingPermanentDelete = it }) { onOpenTask(task.id) } },
                                         onCycleFlag = { vm.cycleFlag(task) }, onToggleStar = { vm.toggleStar(task) },
                                         onSetPriority = { vm.setPriority(task, it) })
                                   }
@@ -234,6 +200,15 @@ private fun TaskListBody(vm: AppViewModel, onOpenTask: (String) -> Unit, modifie
             onClear = { selected = emptySet() },
             modifier = Modifier.align(Alignment.BottomCenter),
         )
+        pendingPermanentDelete?.let { t ->
+            AlertDialog(
+                onDismissRequest = { pendingPermanentDelete = null },
+                confirmButton = { androidx.compose.material3.TextButton(onClick = { vm.deleteForever(t); pendingPermanentDelete = null }) { Text("Delete forever", color = MaterialTheme.colorScheme.error) } },
+                dismissButton = { androidx.compose.material3.TextButton(onClick = { pendingPermanentDelete = null }) { Text("Cancel") } },
+                title = { Text("Delete permanently?") },
+                text = { Text("“${t.title.ifBlank { "Untitled" }}” and its subtasks will be erased for good. This can't be undone.") },
+            )
+        }
     }
 }
 
@@ -270,8 +245,8 @@ private fun SelectionBar(
     }
 }
 
-private fun onSwipe(vm: AppViewModel, action: SwipeAction, task: TaskEntity, isTrash: Boolean, onOpen: () -> Unit) {
-    if (isTrash) { if (action == SwipeAction.COMPLETE) vm.restore(task) else vm.deleteForever(task); return }
+private fun onSwipe(vm: AppViewModel, action: SwipeAction, task: TaskEntity, isTrash: Boolean, onConfirmDelete: (TaskEntity) -> Unit, onOpen: () -> Unit) {
+    if (isTrash) { if (action == SwipeAction.COMPLETE) vm.restore(task) else onConfirmDelete(task); return }
     if (!vm.applyAction(action, task)) onOpen()
 }
 
@@ -321,7 +296,7 @@ private fun ManualReorderList(
                 SwipeActionBox(
                     taskId = task.id, rightNear = rightNear, rightFar = rightFar, leftNear = leftNear, leftFar = leftFar,
                     enabled = draggingId == null, isTrashRestore = false,
-                    onAct = { a -> onSwipe(vm, a, task, false) { onOpenTask(task.id) } },
+                    onAct = { a -> onSwipe(vm, a, task, false, {}) { onOpenTask(task.id) } },
                 ) {
                     ReorderRow(task, density, ctxByTask[task.id].orEmpty(), tagsByTask[task.id].orEmpty(), listNameOf(task.id),
                         onOpen = { onOpenTask(task.id) }, onToggle = { vm.toggleComplete(task) },

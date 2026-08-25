@@ -138,6 +138,21 @@ fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Bo
                 )
             }
 
+            // Destination cue: unless you pick a list below, the task lands in whatever you're
+            // viewing — including a folder directly, with no list.
+            val destView by vm.currentView.collectAsState()
+            val allFolders by vm.folders.collectAsState()
+            val destText = when {
+                listId != null -> lists.firstOrNull { it.id == listId }?.name ?: "List"
+                destView is com.todocompanion.app.domain.view.ViewRef.FolderView ->
+                    "📁 " + (allFolders.firstOrNull { it.id == (destView as com.todocompanion.app.domain.view.ViewRef.FolderView).folderId }?.name ?: "Folder")
+                destView is com.todocompanion.app.domain.view.ViewRef.ListView ->
+                    lists.firstOrNull { it.id == (destView as com.todocompanion.app.domain.view.ViewRef.ListView).listId }?.name ?: "List"
+                else -> "Inbox"
+            }
+            Text("Adding to $destText", style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp, start = 2.dp))
+
             // The single TickTick-style icon row. Chosen list/tags/reminder read from each icon's
             // active tint — no extra chip row, so the sheet stays as compact as TickTick's.
             Row(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {

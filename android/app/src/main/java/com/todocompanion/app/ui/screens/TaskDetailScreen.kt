@@ -903,13 +903,15 @@ private fun LocationReminderDialog(onDismiss: () -> Unit, onConfirm: (Double, Do
         val fine = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
         val coarse = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
         if (!fine && !coarse) { status = "Location permission needed"; return }
-        val lm = context.getSystemService(android.location.LocationManager::class.java)
-        @android.annotation.SuppressLint("MissingPermission")
-        val loc = runCatching {
-            lm?.getProviders(true)?.asReversed()?.firstNotNullOfOrNull { p -> lm.getLastKnownLocation(p) }
-        }.getOrNull()
-        if (loc != null) { coords = loc.latitude to loc.longitude; status = "Location captured ✓" }
-        else status = "No fix yet — move outdoors and reopen"
+        // Instant if a recent fix exists, otherwise actively request one (framework, no Play Services).
+        com.todocompanion.app.reminders.LocationFix.lastKnown(context)?.let {
+            coords = it; status = "Location captured ✓"; return
+        }
+        status = "Getting your location…"
+        com.todocompanion.app.reminders.LocationFix.requestFix(context) { fix ->
+            if (fix != null) { coords = fix; status = "Location captured ✓" }
+            else status = "Couldn't get a fix — turn on location and move near a window, then reopen"
+        }
     }
 
     val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grabLocation() }
