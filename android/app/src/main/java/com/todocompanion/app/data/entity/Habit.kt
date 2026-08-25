@@ -38,4 +38,5 @@ data class FocusSessionEntity(
     val startMillis: Long,
     val minutes: Int,
     val kind: String = "pomo",
+    val taskId: String? = null,   // the task this focus session was spent on, if any
 )

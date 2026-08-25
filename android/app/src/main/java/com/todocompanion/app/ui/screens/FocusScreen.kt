@@ -8,7 +8,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Adjust
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -40,17 +44,19 @@ import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.delay
 import java.time.LocalDate
 
-private const val POMO_SECONDS = 25 * 60
-
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-fun FocusScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
+fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifier = Modifier) {
     val sessions by vm.focusSessions.collectAsState()
+    val tasks by vm.tasks.collectAsState()
     val today = LocalDate.now().toEpochDay()
     val todayMinutes = sessions.filter { it.epochDay == today }.sumOf { it.minutes }
     val todayCount = sessions.count { it.epochDay == today }
     val context = LocalContext.current
 
     var pomo by remember { mutableStateOf(true) }
+    var pomoMin by remember { mutableIntStateOf(25) }          // configurable Pomodoro length
+    var focusTaskId by remember { mutableStateOf<String?>(null) } // the task this session is spent on
     var running by remember { mutableStateOf(false) }
     // Wall-clock model so the timer stays accurate across backgrounding / process death:
     // baseElapsed = seconds banked before the current run segment; segmentStart = its wall-clock start.
@@ -58,13 +64,14 @@ fun FocusScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     var segmentStart by remember { mutableLongStateOf(0L) }
     var startMillis by remember { mutableLongStateOf(0L) }
     var tick by remember { mutableIntStateOf(0) }
+    val pomoSeconds = pomoMin * 60
 
     fun elapsedNow(): Int = baseElapsed + if (running) ((System.currentTimeMillis() - segmentStart) / 1000L).toInt() else 0
 
     fun finish() {
         val e = elapsedNow()
-        val mins = if (pomo) (minOf(e, POMO_SECONDS) / 60) else (e / 60)
-        if (mins >= 1) vm.recordFocus(startMillis, mins, if (pomo) "pomo" else "stopwatch")
+        val mins = if (pomo) (minOf(e, pomoSeconds) / 60) else (e / 60)
+        if (mins >= 1) vm.recordFocus(startMillis, mins, if (pomo) "pomo" else "stopwatch", focusTaskId)
         running = false; baseElapsed = 0
         AlarmScheduler.cancelFocusDone(context)
     }
@@ -75,22 +82,54 @@ fun FocusScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         while (running) {
             delay(1000)
             tick++
-            if (pomo && elapsedNow() >= POMO_SECONDS) { finish(); break }
+            if (pomo && elapsedNow() >= pomoSeconds) { finish(); break }
         }
     }
 
     tick // read so recomposition tracks the tick
     val elapsed = elapsedNow()
-    val display = if (pomo) (POMO_SECONDS - elapsed).coerceAtLeast(0) else elapsed
+    val display = if (pomo) (pomoSeconds - elapsed).coerceAtLeast(0) else elapsed
     val mm = display / 60; val ss = display % 60
     val accent = MaterialTheme.colorScheme.primary
+    val focusTitle = focusTaskId?.let { id -> tasks.firstOrNull { it.id == id }?.title }
+    var taskMenu by remember { mutableStateOf(false) }
 
     Column(modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        // Stats shortcut, top-right.
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            androidx.compose.material3.TextButton(onClick = onOpenStats) {
+                androidx.compose.material3.Icon(Icons.Filled.BarChart, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp)); Text("Statistics")
+            }
+        }
         SingleChoiceSegmentedButtonRow {
             SegmentedButton(selected = pomo, onClick = { if (!running) { pomo = true; baseElapsed = 0 } }, shape = SegmentedButtonDefaults.itemShape(0, 2)) { Text("Pomodoro") }
             SegmentedButton(selected = !pomo, onClick = { if (!running) { pomo = false; baseElapsed = 0 } }, shape = SegmentedButtonDefaults.itemShape(1, 2)) { Text("Stopwatch") }
         }
-        Spacer(Modifier.size(36.dp))
+        if (pomo && !running && elapsed == 0) {
+            Spacer(Modifier.size(12.dp))
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(15, 25, 45, 60).forEach { m ->
+                    androidx.compose.material3.FilterChip(selected = pomoMin == m, onClick = { pomoMin = m }, label = { Text("$m min") })
+                }
+            }
+        }
+        Spacer(Modifier.size(20.dp))
+        // Task the session is spent on.
+        Box {
+            androidx.compose.material3.OutlinedButton(onClick = { taskMenu = true }) {
+                androidx.compose.material3.Icon(Icons.Filled.Adjust, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(focusTitle ?: "Focus on a task…", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            }
+            androidx.compose.material3.DropdownMenu(expanded = taskMenu, onDismissRequest = { taskMenu = false }) {
+                androidx.compose.material3.DropdownMenuItem(text = { Text("No task") }, onClick = { focusTaskId = null; taskMenu = false })
+                tasks.filter { !it.completed && !it.trashed && !it.abandoned }.take(50).forEach { t ->
+                    androidx.compose.material3.DropdownMenuItem(text = { Text(t.title, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }, onClick = { focusTaskId = t.id; taskMenu = false })
+                }
+            }
+        }
+        Spacer(Modifier.size(20.dp))
         Box(
             Modifier.size(260.dp).clip(CircleShape)
                 .background(accent.copy(alpha = if (running) 0.10f else 0.05f))
@@ -111,7 +150,7 @@ fun FocusScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 } else {
                     if (baseElapsed == 0) startMillis = System.currentTimeMillis()
                     segmentStart = System.currentTimeMillis(); running = true
-                    if (pomo) AlarmScheduler.scheduleFocusDone(context, System.currentTimeMillis() + (POMO_SECONDS - baseElapsed) * 1000L)
+                    if (pomo) AlarmScheduler.scheduleFocusDone(context, System.currentTimeMillis() + (pomoSeconds - baseElapsed) * 1000L)
                 }
             }) {
                 Text(if (running) "Pause" else if (elapsed == 0) "Start" else "Resume")

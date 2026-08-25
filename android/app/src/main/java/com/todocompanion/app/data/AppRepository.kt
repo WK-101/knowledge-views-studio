@@ -77,8 +77,8 @@ class AppRepository(private val db: AppDatabase) {
 
     private val focus = db.focusDao()
     val allFocusSessions: Flow<List<FocusSessionEntity>> = focus.observeAll()
-    suspend fun addFocusSession(epochDay: Long, startMillis: Long, minutes: Int, kind: String) =
-        focus.upsert(FocusSessionEntity(uid(), epochDay, startMillis, minutes, kind))
+    suspend fun addFocusSession(epochDay: Long, startMillis: Long, minutes: Int, kind: String, taskId: String? = null) =
+        focus.upsert(FocusSessionEntity(uid(), epochDay, startMillis, minutes, kind, taskId))
 
     private val filters = db.filterDao()
     val allFilters: Flow<List<FilterEntity>> = filters.observeAll()

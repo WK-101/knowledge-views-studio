@@ -385,7 +385,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                             Tab.TIMELINE -> com.todocompanion.app.ui.screens.TimelineScreen(vm, ::openTask)
                             Tab.MATRIX -> MatrixScreen(vm, ::openTask, matrixSettings, { matrixSettings = false })
                             Tab.HABITS -> com.todocompanion.app.ui.screens.HabitsScreen(vm)
-                            Tab.FOCUS -> com.todocompanion.app.ui.screens.FocusScreen(vm)
+                            Tab.FOCUS -> com.todocompanion.app.ui.screens.FocusScreen(vm, onOpenStats = { showStats = true })
                         }
                     }
                 }

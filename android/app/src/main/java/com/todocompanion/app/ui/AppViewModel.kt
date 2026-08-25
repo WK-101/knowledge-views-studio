@@ -572,10 +572,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---------- focus ----------
-    fun recordFocus(startMillis: Long, minutes: Int, kind: String) = viewModelScope.launch {
+    fun recordFocus(startMillis: Long, minutes: Int, kind: String, taskId: String? = null) = viewModelScope.launch {
         if (minutes <= 0) return@launch
         val day = java.time.Instant.ofEpochMilli(startMillis).atZone(zone).toLocalDate().toEpochDay()
-        repo.addFocusSession(day, startMillis, minutes, kind)
+        repo.addFocusSession(day, startMillis, minutes, kind, taskId)
     }
 
     // ---------- saved filters ----------
