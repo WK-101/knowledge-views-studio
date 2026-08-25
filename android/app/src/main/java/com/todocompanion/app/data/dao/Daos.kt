@@ -21,6 +21,7 @@ import com.todocompanion.app.data.entity.FilterEntity
 import com.todocompanion.app.data.entity.HabitEntity
 import com.todocompanion.app.data.entity.HabitCheckinEntity
 import com.todocompanion.app.data.entity.FocusSessionEntity
+import com.todocompanion.app.data.entity.FlagEntity
 import com.todocompanion.app.data.entity.WorkspaceEntity
 import com.todocompanion.app.data.entity.AttachmentEntity
 import com.todocompanion.app.data.entity.AttachmentMeta
@@ -91,6 +92,30 @@ interface HabitDao {
     @Query("DELETE FROM habit_checkins WHERE habitId = :habitId AND epochDay = :day") suspend fun deleteCheckin(habitId: String, day: Long)
     @Query("DELETE FROM habit_checkins WHERE habitId = :habitId") suspend fun clearHabit(habitId: String)
     @Query("DELETE FROM habit_checkins") suspend fun clearCheckins()
+}
+
+@Dao
+interface FlagDao {
+    @Query("SELECT * FROM flags ORDER BY sortOrder")
+    fun observeAll(): Flow<List<FlagEntity>>
+
+    @Query("SELECT * FROM flags")
+    suspend fun getAll(): List<FlagEntity>
+
+    @Query("SELECT COALESCE(MAX(sortOrder), 0.0) FROM flags")
+    suspend fun maxSortOrder(): Double
+
+    @Upsert
+    suspend fun upsert(f: FlagEntity)
+
+    @Upsert
+    suspend fun upsertAll(f: List<FlagEntity>)
+
+    @Query("DELETE FROM flags WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM flags")
+    suspend fun clear()
 }
 
 @Dao

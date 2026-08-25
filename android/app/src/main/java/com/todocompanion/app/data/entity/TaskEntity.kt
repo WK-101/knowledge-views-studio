@@ -50,7 +50,8 @@ data class TaskEntity(
 
     val star: Boolean = false,
     val starAt: Long? = null,
-    val flagColorArgb: Long? = null,
+    val flagId: String? = null,            // the assigned FlagEntity (source of truth)
+    val flagColorArgb: Long? = null,       // cache of the flag's colour, for row rendering
 
     val pinned: Boolean = false,
     val isNote: Boolean = false,   // a "note" is a task with no checkbox

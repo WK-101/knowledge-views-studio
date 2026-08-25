@@ -187,6 +187,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         val folders by vm.folders.collectAsState()
         val tags by vm.tags.collectAsState()
         val contexts by vm.contexts.collectAsState()
+        val flagsList by vm.flags.collectAsState()
         val filtersList by vm.filters.collectAsState()
         val outlineMode by vm.outlineMode.collectAsState()
         val boardMode by vm.boardMode.collectAsState()
@@ -308,11 +309,11 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                                     IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Sort & group") }
                                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                                         Text("Group by", Modifier.padding(12.dp, 8.dp, 12.dp, 2.dp), style = MaterialTheme.typography.labelSmall)
-                                        listOf("None" to GroupMode.NONE, "Date" to GroupMode.DATE, "Priority" to GroupMode.PRIORITY, "Context" to GroupMode.CONTEXT).forEach { (l, m) ->
+                                        listOf("None" to GroupMode.NONE, "Date" to GroupMode.DATE, "Priority" to GroupMode.PRIORITY, "Context" to GroupMode.CONTEXT, "Flag" to GroupMode.FLAG).forEach { (l, m) ->
                                             DropdownMenuItem(text = { Text(l) }, onClick = { vm.groupMode.value = m; menu = false })
                                         }
                                         Text("Sort by", Modifier.padding(12.dp, 8.dp, 12.dp, 2.dp), style = MaterialTheme.typography.labelSmall)
-                                        listOf("Manual" to SortMode.MANUAL, "Priority" to SortMode.PRIORITY, "Due" to SortMode.DUE, "Title" to SortMode.TITLE).forEach { (l, m) ->
+                                        listOf("Manual" to SortMode.MANUAL, "Priority" to SortMode.PRIORITY, "Due" to SortMode.DUE, "Title" to SortMode.TITLE, "Flag" to SortMode.FLAG).forEach { (l, m) ->
                                             DropdownMenuItem(text = { Text(l) }, onClick = { vm.sortMode.value = m; menu = false })
                                         }
                                         androidx.compose.material3.HorizontalDivider()
@@ -470,7 +471,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                 onDelete = { vm.deleteWorkspace(w.id); manageWs = null })
         }
         filterEdit?.let { f ->
-            FilterBuilderDialog(f, lists.filter { !it.archived }, tags, contexts,
+            FilterBuilderDialog(f, lists.filter { !it.archived }, tags, contexts, flagsList,
                 onDismiss = { filterEdit = null },
                 onDelete = { vm.deleteFilter(f); filterEdit = null },
                 onSave = { updated -> vm.saveFilter(updated); vm.select(ViewRef.FilterView(updated.id)); tab = Tab.TASKS; filterEdit = null })
@@ -483,6 +484,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
 private fun FilterBuilderDialog(
     filter: com.todocompanion.app.data.entity.FilterEntity,
     lists: List<ListEntity>, tags: List<com.todocompanion.app.data.entity.TagEntity>, contexts: List<com.todocompanion.app.data.entity.ContextEntity>,
+    flags: List<com.todocompanion.app.data.entity.FlagEntity>,
     onDismiss: () -> Unit, onDelete: () -> Unit, onSave: (com.todocompanion.app.data.entity.FilterEntity) -> Unit,
 ) {
     val q0 = com.todocompanion.app.domain.view.Filters.parse(filter.queryJson)
@@ -493,12 +495,18 @@ private fun FilterBuilderDialog(
     var ctxIds by remember { mutableStateOf(q0.contextIds) }
     var levels by remember { mutableStateOf(q0.levels) }
     var flagged by remember { mutableStateOf(q0.flaggedOnly) }
+    var starred by remember { mutableStateOf(q0.starredOnly) }
+    var flagIds by remember { mutableStateOf(q0.flagIds) }
     var dueWithin by remember { mutableStateOf(q0.dueWithinDays) }
     var maxDur by remember { mutableStateOf(q0.maxDurationMin) }
     var inclChildren by remember { mutableStateOf(q0.includeChildren) }
 
     fun save() {
-        val q = com.todocompanion.app.domain.view.FilterQuery(matchAll, listIds, tagIds, ctxIds, levels, flagged, dueWithin, maxDur, false, inclChildren)
+        val q = com.todocompanion.app.domain.view.FilterQuery(
+            matchAll = matchAll, listIds = listIds, tagIds = tagIds, contextIds = ctxIds, levels = levels,
+            flaggedOnly = flagged, starredOnly = starred, flagIds = flagIds,
+            dueWithinDays = dueWithin, maxDurationMin = maxDur, includeCompleted = false, includeChildren = inclChildren,
+        )
         onSave(filter.copy(name = name.trim().ifBlank { "Filter" }, queryJson = com.todocompanion.app.domain.view.Filters.encode(q)))
     }
     AlertDialog(
@@ -527,6 +535,9 @@ private fun FilterBuilderDialog(
                 if (contexts.isNotEmpty()) FilterGroup("Contexts") {
                     contexts.forEach { c -> FilterChip(selected = c.id in ctxIds, onClick = { ctxIds = if (c.id in ctxIds) ctxIds - c.id else ctxIds + c.id }, label = { Text("@" + c.name) }) }
                 }
+                if (flags.isNotEmpty()) FilterGroup("Flags") {
+                    flags.forEach { fl -> FilterChip(selected = fl.id in flagIds, onClick = { flagIds = if (fl.id in flagIds) flagIds - fl.id else flagIds + fl.id }, label = { Text(fl.name) }) }
+                }
                 FilterGroup("Priority") {
                     listOf("HIGH" to "High", "MEDIUM" to "Medium", "LOW" to "Low", "NONE" to "None").forEach { (k, l) ->
                         FilterChip(selected = k in levels, onClick = { levels = if (k in levels) levels - k else levels + k }, label = { Text(l) })
@@ -543,8 +554,12 @@ private fun FilterBuilderDialog(
                     }
                 }
                 Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Flagged only", Modifier.weight(1f))
+                    Text("Has any flag", Modifier.weight(1f))
                     androidx.compose.material3.Switch(checked = flagged, onCheckedChange = { flagged = it })
+                }
+                Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Starred only", Modifier.weight(1f))
+                    androidx.compose.material3.Switch(checked = starred, onCheckedChange = { starred = it })
                 }
                 Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Include subtasks of matches", Modifier.weight(1f))

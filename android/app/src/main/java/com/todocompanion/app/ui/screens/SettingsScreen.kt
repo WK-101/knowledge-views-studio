@@ -32,9 +32,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
@@ -59,17 +67,23 @@ import androidx.compose.ui.unit.dp
 import com.todocompanion.app.domain.AppSettings
 import com.todocompanion.app.domain.ThemeMode
 import com.todocompanion.app.domain.TimeFormat
+import com.todocompanion.app.data.entity.FlagEntity
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.FLAG_COLORS
+import com.todocompanion.app.ui.components.FlagIcons
 import java.time.ZoneId
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     val s by vm.settings.collectAsState()
+    val flags by vm.flags.collectAsState()
     val context = LocalContext.current
     var showZone by remember { mutableStateOf(false) }
     var showTime by remember { mutableStateOf(false) }
+    var editFlag by remember { mutableStateOf<FlagEntity?>(null) }
+    var addingFlag by remember { mutableStateOf(false) }
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) vm.exportTo(uri) { ok -> Toast.makeText(context, if (ok) "Exported" else "Export failed", Toast.LENGTH_SHORT).show() }
@@ -196,6 +210,29 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         }
 
         Spacer(Modifier.height(18.dp))
+        Section("Flags")
+        AppCard {
+            Text("Named, coloured markers you can sort and group by. A flag stays on a task; the star is a separate ‘focus now’ toggle.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
+            flags.forEachIndexed { i, f ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(FlagIcons.vector(f.icon), null, tint = Color(f.colorArgb), modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text(f.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                    IconButton(onClick = { vm.moveFlag(f, -1) }, enabled = i > 0) { Icon(Icons.Filled.KeyboardArrowUp, "Move up") }
+                    IconButton(onClick = { vm.moveFlag(f, +1) }, enabled = i < flags.lastIndex) { Icon(Icons.Filled.KeyboardArrowDown, "Move down") }
+                    IconButton(onClick = { editFlag = f }) { Icon(Icons.Filled.Edit, "Edit") }
+                    IconButton(onClick = { vm.deleteFlag(f.id) }) { Icon(Icons.Filled.Delete, "Delete", tint = MaterialTheme.colorScheme.error) }
+                }
+            }
+            Row(Modifier.fillMaxWidth().clickable { addingFlag = true }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Add, null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(8.dp))
+                Text("Add flag", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
+            }
+        }
+
+        Spacer(Modifier.height(18.dp))
         Section("Backup")
         AppCard {
             Action("Export all data (JSON)") { exportLauncher.launch("todo-companion-backup.json") }
@@ -207,6 +244,15 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         Spacer(Modifier.height(20.dp))
         Text("ToDo Companion · Phase 1a · offline & private by construction (no network permission).",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+
+    if (addingFlag) FlagEditDialog(null, onDismiss = { addingFlag = false }) { name, color, icon ->
+        vm.createFlag(name, color, icon); addingFlag = false
+    }
+    editFlag?.let { f ->
+        FlagEditDialog(f, onDismiss = { editFlag = null }) { name, color, icon ->
+            vm.updateFlag(f.copy(name = name, colorArgb = color, icon = icon)); editFlag = null
+        }
     }
 
     if (showZone) ZonePickerDialog(current = s.timeZone, onDismiss = { showZone = false }) { z ->
@@ -243,6 +289,47 @@ private fun ZonePickerDialog(current: String, onDismiss: () -> Unit, onPick: (St
                         val label = if (z.isBlank()) "Device (${ZoneId.systemDefault().id})" else z
                         Text(label, Modifier.fillMaxWidth().clickable { onPick(z) }.padding(vertical = 11.dp),
                             fontWeight = if (z == current) FontWeight.Bold else FontWeight.Normal)
+                    }
+                }
+            }
+        },
+    )
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FlagEditDialog(initial: FlagEntity?, onDismiss: () -> Unit, onSave: (String, Long, String) -> Unit) {
+    var name by remember { mutableStateOf(initial?.name ?: "") }
+    var color by remember { mutableStateOf(initial?.colorArgb ?: FLAG_COLORS.first()) }
+    var icon by remember { mutableStateOf(initial?.icon ?: "flag") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = { onSave(name.trim().ifBlank { "Flag" }, color, icon) }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text(if (initial == null) "New flag" else "Edit flag") },
+        text = {
+            Column {
+                OutlinedTextField(name, { name = it }, singleLine = true, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(12.dp)); Sub("Colour")
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    FLAG_COLORS.forEach { c ->
+                        Box(
+                            Modifier.size(30.dp).clip(CircleShape).background(Color(c))
+                                .border(width = if (c == color) 3.dp else 0.dp, color = MaterialTheme.colorScheme.primary, shape = CircleShape)
+                                .clickable { color = c },
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp)); Sub("Icon")
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlagIcons.keys.forEach { key ->
+                        Box(
+                            Modifier.size(40.dp).clip(CircleShape)
+                                .background(if (key == icon) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                                .clickable { icon = key },
+                            contentAlignment = Alignment.Center,
+                        ) { Icon(FlagIcons.vector(key), key, tint = Color(color), modifier = Modifier.size(22.dp)) }
                     }
                 }
             }

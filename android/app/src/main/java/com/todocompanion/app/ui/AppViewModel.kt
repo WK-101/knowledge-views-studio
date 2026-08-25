@@ -11,6 +11,7 @@ import com.todocompanion.app.data.entity.DependencyEntity
 import com.todocompanion.app.data.entity.FolderEntity
 import com.todocompanion.app.data.entity.ListEntity
 import com.todocompanion.app.data.entity.ReminderEntity
+import com.todocompanion.app.data.entity.FlagEntity
 import com.todocompanion.app.data.entity.TagEntity
 import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.domain.AppSettings
@@ -82,6 +83,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val lists = combine(repo.allLists, activeWs) { l, ws -> l.filter { it.workspaceId == ws || it.id == ListEntity.INBOX_ID } }.state(emptyList())
     val tags: StateFlow<List<TagEntity>> = repo.allTags.state(emptyList())
     val contexts: StateFlow<List<ContextEntity>> = repo.allContexts.state(emptyList())
+    val flags: StateFlow<List<FlagEntity>> = repo.allFlags.state(emptyList())
     val filters = combine(repo.allFilters, activeWs) { f, ws -> f.filter { it.workspaceId == ws } }.state(emptyList())
     val habits = combine(repo.allHabits, activeWs) { h, ws -> h.filter { it.workspaceId == ws && !it.archived } }.state(emptyList())
     val habitCheckins = repo.allCheckins.state(emptyList())
@@ -108,7 +110,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             SmartKind.entries.associateWith { TaskViews.filterSmart(t, it, System.currentTimeMillis(), zone).size }
         }.state(emptyMap())
 
-    private data class Cfg(val view: ViewRef, val group: GroupMode, val sort: SortMode, val prio: PriorityEngine.Config)
+    private data class Cfg(val view: ViewRef, val group: GroupMode, val sort: SortMode, val prio: PriorityEngine.Config, val flags: List<FlagEntity>)
 
     /** Cross-ref + container context threaded into the groups combine. */
     private data class ViewCtx(
@@ -138,7 +140,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val groups: StateFlow<List<TaskGroup>> =
         combine(
             wsTasks,
-            combine(currentView, groupMode, sortMode, settings) { v, g, s, set -> Cfg(v, g, s, set.priorityConfig()) },
+            combine(currentView, groupMode, sortMode, settings, repo.allFlags) { v, g, s, set, fl -> Cfg(v, g, s, set.priorityConfig(), fl) },
             repo.taskTagRefs,
             combine(repo.taskContextRefs, repo.allContexts, repo.allFilters, repo.allLists, repo.allFolders) { r, c, f, l, fo -> ViewCtx(r, c, f, l, fo) },
             repo.allDependencies,
@@ -174,10 +176,27 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     all.filter { it.id in ids && !it.trashed && !it.completed && !it.abandoned }
                 }
             }
+            val flagRank = cfg.flags.sortedBy { it.sortOrder }.mapIndexed { i, f -> f.id to i }.toMap()
             val sorted = if ((cfg.view as? ViewRef.Smart)?.kind == SmartKind.DO_NEXT) filtered
-            else TaskViews.sort(filtered, cfg.sort)
+            else TaskViews.sort(filtered, cfg.sort, flagRank)
             val gm = if ((cfg.view as? ViewRef.Smart)?.kind == SmartKind.DO_NEXT) GroupMode.NONE else cfg.group
-            if (gm == GroupMode.CONTEXT) {
+            if (gm == GroupMode.FLAG) {
+                // Group by flag, in the user's flag order; unflagged tasks fall into a trailing bucket.
+                val ordered = cfg.flags.sortedBy { it.sortOrder }
+                val nameById = ordered.associate { it.id to it.name }
+                val orderById = ordered.mapIndexed { i, f -> f.id to i }.toMap()
+                val buckets = LinkedHashMap<String, MutableList<TaskEntity>>()
+                sorted.forEach { t ->
+                    val key = t.flagId?.takeIf { it in nameById } ?: "￿No flag"
+                    buckets.getOrPut(key) { mutableListOf() }.add(t)
+                }
+                buckets.entries
+                    .sortedBy { (k, _) -> if (k.startsWith("￿")) Int.MAX_VALUE else (orderById[k] ?: Int.MAX_VALUE - 1) }
+                    .map { (k, ts) ->
+                        val label = if (k.startsWith("￿")) "No flag" else (nameById[k] ?: "Flag")
+                        TaskGroup("flag:$k", label, ts)
+                    }
+            } else if (gm == GroupMode.CONTEXT) {
                 // Active-by-context (GTD): group each task under every context it carries.
                 val ctxNameById = ctxEntities.associate { it.id to it.name }
                 val ctxByTask = tcRefs.groupBy { it.taskId }.mapValues { e -> e.value.map { it.contextId } }
@@ -580,8 +599,29 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.saveTask(t.copy(id = UUID.randomUUID().toString(), title = t.title + " (copy)", completed = false, completedAt = null,
             abandoned = false, trashed = false, sortOrder = t.sortOrder + 0.0001, createdAt = nowMs, updatedAt = nowMs))
     }
-    fun cycleFlag(t: TaskEntity) = viewModelScope.launch { repo.saveTask(t.copy(flagColorArgb = com.todocompanion.app.ui.components.nextFlagColor(t.flagColorArgb))) }
-    fun setFlag(t: TaskEntity, argb: Long?) = viewModelScope.launch { repo.saveTask(t.copy(flagColorArgb = argb)) }
+    /** Tap-to-flag on a row: cycle through the ordered flags, then back to none (MLO-style). */
+    fun cycleFlag(t: TaskEntity) = viewModelScope.launch {
+        val ordered = flags.value.sortedBy { it.sortOrder }
+        if (ordered.isEmpty()) return@launch
+        val idx = ordered.indexOfFirst { it.id == t.flagId }
+        val next = when {
+            t.flagId == null -> ordered.first().id
+            idx < 0 || idx == ordered.lastIndex -> null
+            else -> ordered[idx + 1].id
+        }
+        repo.setTaskFlag(t, next)
+    }
+    fun setFlag(t: TaskEntity, flagId: String?) = viewModelScope.launch { repo.setTaskFlag(t, flagId) }
+
+    // ---------- flag management ----------
+    fun createFlag(name: String, colorArgb: Long, icon: String = "flag") = viewModelScope.launch { repo.createFlag(name, colorArgb, icon) }
+    fun updateFlag(f: FlagEntity) = viewModelScope.launch {
+        repo.upsertFlag(f)
+        // Keep the colour cache on tasks wearing this flag in sync with the edited colour.
+        tasks.value.filter { it.flagId == f.id && it.flagColorArgb != f.colorArgb }.forEach { repo.saveTask(it.copy(flagColorArgb = f.colorArgb)) }
+    }
+    fun deleteFlag(id: String) = viewModelScope.launch { repo.deleteFlag(id) }
+    fun moveFlag(f: FlagEntity, dir: Int) = viewModelScope.launch { repo.moveFlagOrder(f, dir) }
     fun cyclePriority(t: TaskEntity) = viewModelScope.launch {
         val next = when (PriorityLevel.from(t.importance, t.urgency)) {
             PriorityLevel.NONE -> PriorityLevel.LOW

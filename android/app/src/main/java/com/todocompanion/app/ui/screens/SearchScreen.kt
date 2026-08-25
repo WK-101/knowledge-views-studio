@@ -60,7 +60,7 @@ fun SearchScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, query: String, 
                 SF.ALL -> true
                 SF.TODAY -> t.dueDate?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate() == today } == true
                 SF.OVERDUE -> t.dueDate?.let { it < nowMs && !t.completed } == true
-                SF.FLAGGED -> t.star
+                SF.FLAGGED -> t.flagId != null
                 SF.HIGH -> com.todocompanion.app.domain.priority.PriorityLevel.from(t.importance, t.urgency) == com.todocompanion.app.domain.priority.PriorityLevel.HIGH
                 SF.DONE -> t.completed
             }

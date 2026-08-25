@@ -30,8 +30,8 @@ enum class SmartKind(val title: String) {
     TRASH("Trash"),
 }
 
-enum class GroupMode { NONE, DATE, PRIORITY, CONTEXT }
-enum class SortMode { MANUAL, PRIORITY, DUE, TITLE }
+enum class GroupMode { NONE, DATE, PRIORITY, CONTEXT, FLAG }
+enum class SortMode { MANUAL, PRIORITY, DUE, TITLE, FLAG }
 
 enum class Bucket(val label: String) {
     OVERDUE("Overdue"), TODAY("Today"), TOMORROW("Tomorrow"),
@@ -73,7 +73,7 @@ object TaskViews {
             SmartKind.TOMORROW -> all.filter { isOpen(it) && it.dueDate != null && localDate(it.dueDate!!, zone) == today.plusDays(1) }
             SmartKind.NEXT7 -> all.filter { isOpen(it) && it.dueDate != null && !localDate(it.dueDate!!, zone).isAfter(today.plusDays(7)) }
             SmartKind.SCHEDULED -> all.filter { isOpen(it) && it.dueDate != null }
-            SmartKind.FLAGGED -> all.filter { isOpen(it) && it.star }
+            SmartKind.FLAGGED -> all.filter { isOpen(it) && it.flagId != null }
             SmartKind.GOALS -> all.filter { isOpen(it) && it.isGoal }
             SmartKind.ALL -> all.filter { isOpen(it) }
             SmartKind.DO_NEXT -> all.filter { isOpen(it) }   // ranking applied separately by the engine
@@ -97,8 +97,9 @@ object TaskViews {
                     if (items.isEmpty()) null else TaskGroup(label, label, items)
                 }
             }
-            // Context grouping needs cross-ref data, so it's handled in the ViewModel; here it's a no-op.
+            // Context + flag grouping need entity data, so they're handled in the ViewModel; no-op here.
             GroupMode.CONTEXT -> listOf(TaskGroup("all", "", tasks))
+            GroupMode.FLAG -> listOf(TaskGroup("all", "", tasks))
         }
     }
 
@@ -109,7 +110,7 @@ object TaskViews {
         }
     }
 
-    fun sort(tasks: List<TaskEntity>, mode: SortMode): List<TaskEntity> {
+    fun sort(tasks: List<TaskEntity>, mode: SortMode, flagRank: Map<String, Int> = emptyMap()): List<TaskEntity> {
         // A stable tiebreaker (createdAt, id) keeps order fixed when an unrelated field
         // (star, flag, updatedAt) changes — otherwise rows visually swap on toggle.
         val tie = compareBy<TaskEntity>({ it.createdAt }, { it.id })
@@ -118,6 +119,8 @@ object TaskViews {
             SortMode.PRIORITY -> compareByDescending<TaskEntity> { maxOf(it.importance, it.urgency) }
             SortMode.DUE -> compareBy(nullsLast()) { it: TaskEntity -> it.dueDate }
             SortMode.TITLE -> compareBy<TaskEntity> { it.title.lowercase() }
+            // Flagged tasks first in flag order; unflagged (rank = MAX) sink to the bottom.
+            SortMode.FLAG -> compareBy<TaskEntity> { it.flagId?.let { id -> flagRank[id] } ?: Int.MAX_VALUE }
         }
         // Pinned tasks always float to the top.
         val pin = compareByDescending<TaskEntity> { it.pinned }

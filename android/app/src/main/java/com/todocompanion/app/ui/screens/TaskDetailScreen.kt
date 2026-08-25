@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import com.todocompanion.app.ui.components.FLAG_COLORS
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -111,6 +110,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
     val settings by vm.settings.collectAsState()
     val allTags by vm.tags.collectAsState()
     val allContexts by vm.contexts.collectAsState()
+    val allFlags by vm.flags.collectAsState()
     val ttRefs by vm.taskTags.collectAsState()
     val tcRefs by vm.taskContexts.collectAsState()
     val reminders by vm.reminders.collectAsState()
@@ -244,9 +244,20 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                     Dial("Urgency", task.urgency) { v -> update { it.copy(urgency = v) } }
                 }
                 Spacer(Modifier.height(10.dp)); CardLabel("Flag"); Spacer(Modifier.height(6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    FlagSwatch(null, task.flagColorArgb) { update { it.copy(flagColorArgb = null) } }
-                    FLAG_COLORS.forEach { c -> FlagSwatch(c, task.flagColorArgb) { update { it.copy(flagColorArgb = c) } } }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(
+                        selected = task.flagId == null,
+                        onClick = { update { it.copy(flagId = null, flagColorArgb = null) } },
+                        label = { Text("None") },
+                    )
+                    allFlags.forEach { f ->
+                        FilterChip(
+                            selected = task.flagId == f.id,
+                            onClick = { update { it.copy(flagId = f.id, flagColorArgb = f.colorArgb) } },
+                            leadingIcon = { Icon(com.todocompanion.app.ui.components.FlagIcons.vector(f.icon), null, tint = Color(f.colorArgb), modifier = Modifier.size(18.dp)) },
+                            label = { Text(f.name) },
+                        )
+                    }
                 }
             }
 
@@ -470,21 +481,6 @@ private fun BorderlessField(
             modifier = Modifier.fillMaxWidth(),
         )
     }
-}
-
-@Composable
-private fun FlagSwatch(color: Long?, current: Long?, onClick: () -> Unit) {
-    val selected = color == current
-    Box(
-        Modifier.size(28.dp).clip(CircleShape)
-            .background(color?.let { Color(it) } ?: Color.Transparent)
-            .border(
-                width = if (selected) 3.dp else 2.dp,
-                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                shape = CircleShape,
-            )
-            .clickable { onClick() },
-    )
 }
 
 @Composable

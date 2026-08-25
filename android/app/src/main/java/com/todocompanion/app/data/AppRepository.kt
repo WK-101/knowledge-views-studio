@@ -7,6 +7,7 @@ import com.todocompanion.app.data.entity.FilterEntity
 import com.todocompanion.app.data.entity.HabitEntity
 import com.todocompanion.app.data.entity.HabitCheckinEntity
 import com.todocompanion.app.data.entity.FocusSessionEntity
+import com.todocompanion.app.data.entity.FlagEntity
 import com.todocompanion.app.data.entity.FolderEntity
 import com.todocompanion.app.data.entity.ListEntity
 import com.todocompanion.app.data.entity.ReminderEntity
@@ -37,6 +38,7 @@ class AppRepository(private val db: AppDatabase) {
     private val deps = db.dependencyDao()
     private val settings = db.settingDao()
     private val attachments = db.attachmentDao()
+    private val flags = db.flagDao()
 
     // ----- reactive reads -----
     val allTasks: Flow<List<TaskEntity>> = tasks.observeAll()
@@ -49,6 +51,7 @@ class AppRepository(private val db: AppDatabase) {
     val taskContextRefs: Flow<List<TaskContextCrossRef>> = contexts.observeCrossRefs()
     val allReminders: Flow<List<ReminderEntity>> = reminders.observeAll()
     val allDependencies: Flow<List<DependencyEntity>> = deps.observeAll()
+    val allFlags: Flow<List<FlagEntity>> = flags.observeAll()
     val allSettings: Flow<List<SettingEntity>> = settings.observeAll()
     private val habits = db.habitDao()
     val allHabits: Flow<List<HabitEntity>> = habits.observeAll()
@@ -399,6 +402,40 @@ class AppRepository(private val db: AppDatabase) {
         contexts.linkAll(contextIds.map { TaskContextCrossRef(taskId, it) })
     }
 
+    // ============ flags ============
+    suspend fun getFlagsOnce(): List<FlagEntity> = flags.getAll()
+    suspend fun upsertFlag(f: FlagEntity) = flags.upsert(f)
+    suspend fun createFlag(name: String, colorArgb: Long, icon: String = "flag"): String {
+        val id = uid()
+        flags.upsert(FlagEntity(id = id, name = name.ifBlank { "Flag" }, colorArgb = colorArgb, icon = icon, sortOrder = flags.maxSortOrder() + 1.0, createdAt = now()))
+        return id
+    }
+    /** Delete a flag and clear it (id + colour cache) from every task that wore it. */
+    suspend fun deleteFlag(id: String) {
+        tasks.getAll().filter { it.flagId == id }.forEach { tasks.upsert(it.copy(flagId = null, flagColorArgb = null, updatedAt = now())) }
+        flags.deleteById(id)
+    }
+    suspend fun moveFlagOrder(flag: FlagEntity, dir: Int) {
+        val sibs = flags.getAll().sortedBy { it.sortOrder }
+        val idx = sibs.indexOfFirst { it.id == flag.id }
+        val j = idx + dir
+        if (idx < 0 || j < 0 || j >= sibs.size) return
+        val other = sibs[j]
+        flags.upsert(flag.copy(sortOrder = other.sortOrder))
+        flags.upsert(other.copy(sortOrder = flag.sortOrder))
+    }
+    /** Assign (or clear, when [flagId] is null) a task's flag, caching the flag colour on the task. */
+    suspend fun setTaskFlag(task: TaskEntity, flagId: String?) {
+        val color = flagId?.let { fid -> flags.getAll().firstOrNull { it.id == fid }?.colorArgb }
+        tasks.upsert(task.copy(flagId = flagId, flagColorArgb = color, updatedAt = now()))
+    }
+    /** Seed the default flags once, unless the user has already been given them. */
+    suspend fun ensureDefaultFlags() {
+        if (settings.get("flagsSeeded") == "true") return
+        if (flags.getAll().isEmpty()) flags.upsertAll(FlagEntity.DEFAULTS)
+        settings.put(SettingEntity("flagsSeeded", "true"))
+    }
+
     // ============ reminders / deps ============
     suspend fun remindersFor(taskId: String): List<ReminderEntity> = reminders.forTask(taskId)
     suspend fun upsertReminder(reminder: ReminderEntity) = reminders.upsert(reminder)
@@ -435,6 +472,7 @@ class AppRepository(private val db: AppDatabase) {
             dependencies = deps.getAll(),
             settings = settings.getAll(),
             attachments = attachments.getAll(),
+            flags = flags.getAll(),
         )
     )
 
@@ -443,7 +481,7 @@ class AppRepository(private val db: AppDatabase) {
         tasks.clear(); folders.clear(); lists.clear(); checklist.clear()
         tags.clear(); tags.clearCrossRefs(); contexts.clear(); contexts.clearCrossRefs()
         reminders.clear(); deps.clear(); settings.clear(); workspaces.clear(); filters.clear()
-        habits.clear(); habits.clearCheckins(); focus.clear(); attachments.clear()
+        habits.clear(); habits.clearCheckins(); focus.clear(); attachments.clear(); flags.clear()
         folders.upsertAll(b.folders)
         lists.upsertAll(b.lists)
         tasks.upsertAll(b.tasks)
@@ -458,14 +496,17 @@ class AppRepository(private val db: AppDatabase) {
         habits.upsertAll(b.habits); habits.upsertCheckins(b.habitCheckins)
         focus.upsertAll(b.focusSessions)
         attachments.upsertAll(b.attachments)
+        flags.upsertAll(b.flags)
         ensureDefaultWorkspace()
         ensureInbox()
+        ensureDefaultFlags()
     }
 
     // ============ first-run seed ============
     suspend fun ensureSeed() {
         ensureDefaultWorkspace()
         ensureInbox()
+        ensureDefaultFlags()
         if (tasks.getAll().isNotEmpty()) return
         val work = createFolder("Work")
         val personal = createFolder("Personal")

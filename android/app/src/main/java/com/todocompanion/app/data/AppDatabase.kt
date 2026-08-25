@@ -10,6 +10,7 @@ import com.todocompanion.app.data.dao.DependencyDao
 import com.todocompanion.app.data.dao.FilterDao
 import com.todocompanion.app.data.dao.HabitDao
 import com.todocompanion.app.data.dao.FocusDao
+import com.todocompanion.app.data.dao.FlagDao
 import com.todocompanion.app.data.dao.FolderDao
 import com.todocompanion.app.data.dao.ListDao
 import com.todocompanion.app.data.dao.WorkspaceDao
@@ -32,6 +33,7 @@ import com.todocompanion.app.data.entity.FilterEntity
 import com.todocompanion.app.data.entity.HabitEntity
 import com.todocompanion.app.data.entity.HabitCheckinEntity
 import com.todocompanion.app.data.entity.FocusSessionEntity
+import com.todocompanion.app.data.entity.FlagEntity
 import com.todocompanion.app.data.entity.TaskTagCrossRef
 import com.todocompanion.app.data.entity.WorkspaceEntity
 import com.todocompanion.app.data.entity.AttachmentEntity
@@ -57,8 +59,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         DependencyEntity::class,
         SettingEntity::class,
         AttachmentEntity::class,
+        FlagEntity::class,
     ],
-    version = 13,
+    version = 14,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -76,6 +79,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun dependencyDao(): DependencyDao
     abstract fun settingDao(): SettingDao
     abstract fun attachmentDao(): AttachmentDao
+    abstract fun flagDao(): FlagDao
 
     companion object {
         @Volatile
@@ -162,6 +166,40 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v13→v14 introduces named/ordered flags. Creates the `flags` table + `tasks.flagId`,
+         * seeds the five default flags (whose colours match the old single-colour flag palette),
+         * then back-fills each task's flagId from its legacy flagColorArgb so nothing is lost.
+         * A `flagsSeeded` setting marks the defaults as planted so the app won't re-seed them
+         * (e.g. after the user deletes all flags).
+         */
+        private val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `flags` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                        "`colorArgb` INTEGER NOT NULL, `icon` TEXT NOT NULL, `sortOrder` REAL NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+                )
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `flagId` TEXT")
+                val defaults = listOf(
+                    Triple("flag-red", "Red", 0xFFE5484DL),
+                    Triple("flag-amber", "Amber", 0xFFF59E0BL),
+                    Triple("flag-teal", "Teal", 0xFF12A594L),
+                    Triple("flag-blue", "Blue", 0xFF3E7BFAL),
+                    Triple("flag-purple", "Purple", 0xFF8B5CF6L),
+                )
+                defaults.forEachIndexed { i, (id, name, color) ->
+                    db.execSQL(
+                        "INSERT OR IGNORE INTO `flags` (`id`,`name`,`colorArgb`,`icon`,`sortOrder`,`createdAt`) " +
+                            "VALUES (?, ?, ?, 'flag', ?, 0)",
+                        arrayOf<Any>(id, name, color, (i + 1).toDouble()),
+                    )
+                    db.execSQL("UPDATE `tasks` SET `flagId` = ? WHERE `flagColorArgb` = ?", arrayOf<Any>(id, color))
+                }
+                db.execSQL("INSERT OR REPLACE INTO `settings` (`key`,`value`) VALUES ('flagsSeeded','true')")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -169,7 +207,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "todocompanion.db",
                 )
-                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
+                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { INSTANCE = it }

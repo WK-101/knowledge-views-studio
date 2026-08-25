@@ -223,20 +223,34 @@ class HabitStatsTest {
 
 class FilterQueryTest {
     private val zone = java.time.ZoneId.of("UTC")
-    private fun t(id: String, listId: String = "l", imp: Int = 3, urg: Int = 3, star: Boolean = false) =
-        TaskEntity(id = id, listId = listId, title = id, importance = imp, urgency = urg, star = star, createdAt = 0, updatedAt = 0)
+    private fun t(id: String, listId: String = "l", imp: Int = 3, urg: Int = 3, flag: String? = null) =
+        TaskEntity(id = id, listId = listId, title = id, importance = imp, urgency = urg, flagId = flag, createdAt = 0, updatedAt = 0)
 
     @Test fun matchAllRequiresEveryGroup() {
         val q = com.todocompanion.app.domain.view.FilterQuery(matchAll = true, listIds = setOf("work"), flaggedOnly = true)
-        assertTrue(com.todocompanion.app.domain.view.Filters.matches(q, t("a", listId = "work", star = true), emptySet(), emptySet(), 0, zone))
-        assertFalse(com.todocompanion.app.domain.view.Filters.matches(q, t("b", listId = "work", star = false), emptySet(), emptySet(), 0, zone))
+        assertTrue(com.todocompanion.app.domain.view.Filters.matches(q, t("a", listId = "work", flag = "f1"), emptySet(), emptySet(), 0, zone))
+        assertFalse(com.todocompanion.app.domain.view.Filters.matches(q, t("b", listId = "work", flag = null), emptySet(), emptySet(), 0, zone))
     }
 
     @Test fun matchAnyNeedsOneGroup() {
         val q = com.todocompanion.app.domain.view.FilterQuery(matchAll = false, tagIds = setOf("home"), flaggedOnly = true)
-        assertTrue(com.todocompanion.app.domain.view.Filters.matches(q, t("a", star = true), emptySet(), emptySet(), 0, zone))       // flagged
+        assertTrue(com.todocompanion.app.domain.view.Filters.matches(q, t("a", flag = "f1"), emptySet(), emptySet(), 0, zone))       // flagged
         assertTrue(com.todocompanion.app.domain.view.Filters.matches(q, t("b"), setOf("home"), emptySet(), 0, zone))                 // tag
         assertFalse(com.todocompanion.app.domain.view.Filters.matches(q, t("c"), setOf("other"), emptySet(), 0, zone))               // neither
+    }
+
+    @Test fun specificFlagFilter() {
+        val q = com.todocompanion.app.domain.view.FilterQuery(matchAll = true, flagIds = setOf("red"))
+        assertTrue(com.todocompanion.app.domain.view.Filters.matches(q, t("a", flag = "red"), emptySet(), emptySet(), 0, zone))
+        assertFalse(com.todocompanion.app.domain.view.Filters.matches(q, t("b", flag = "blue"), emptySet(), emptySet(), 0, zone))
+        assertFalse(com.todocompanion.app.domain.view.Filters.matches(q, t("c", flag = null), emptySet(), emptySet(), 0, zone))
+    }
+
+    @Test fun sortByFlagRanksThenUnflaggedLast() {
+        val rank = mapOf("red" to 0, "blue" to 1)
+        val tasks = listOf(t("u", flag = null), t("b", flag = "blue"), t("r", flag = "red"))
+        val out = com.todocompanion.app.domain.view.TaskViews.sort(tasks, com.todocompanion.app.domain.view.SortMode.FLAG, rank).map { it.id }
+        assertEquals(listOf("r", "b", "u"), out)
     }
 }
 

@@ -19,14 +19,17 @@ data class FilterQuery(
     val tagIds: Set<String> = emptySet(),
     val contextIds: Set<String> = emptySet(),
     val levels: Set<String> = emptySet(),     // PriorityLevel names: HIGH/MEDIUM/LOW/NONE
-    val flaggedOnly: Boolean = false,
+    val flaggedOnly: Boolean = false,         // task carries any flag
+    val starredOnly: Boolean = false,         // task is starred (focus now)
+    val flagIds: Set<String> = emptySet(),    // task carries one of these specific flags
     val dueWithinDays: Int? = null,           // null = ignore; N = due within N days (0 = today or overdue)
     val maxDurationMin: Int? = null,          // null = ignore; N = task estimate fits within N minutes
     val includeCompleted: Boolean = false,
     val includeChildren: Boolean = false,     // also include the subtasks of any matched task
 ) {
     fun isEmpty(): Boolean =
-        listIds.isEmpty() && tagIds.isEmpty() && contextIds.isEmpty() && levels.isEmpty() && !flaggedOnly && dueWithinDays == null && maxDurationMin == null
+        listIds.isEmpty() && tagIds.isEmpty() && contextIds.isEmpty() && levels.isEmpty() &&
+            !flaggedOnly && !starredOnly && flagIds.isEmpty() && dueWithinDays == null && maxDurationMin == null
 }
 
 object Filters {
@@ -42,7 +45,9 @@ object Filters {
         if (q.tagIds.isNotEmpty()) checks += taskTagIds.any { it in q.tagIds }
         if (q.contextIds.isNotEmpty()) checks += taskCtxIds.any { it in q.contextIds }
         if (q.levels.isNotEmpty()) checks += PriorityLevel.from(task.importance, task.urgency).name in q.levels
-        if (q.flaggedOnly) checks += task.star
+        if (q.flaggedOnly) checks += task.flagId != null
+        if (q.starredOnly) checks += task.star
+        if (q.flagIds.isNotEmpty()) checks += task.flagId in q.flagIds
         q.dueWithinDays?.let { days ->
             val due = task.dueDate
             checks += due != null && run {
