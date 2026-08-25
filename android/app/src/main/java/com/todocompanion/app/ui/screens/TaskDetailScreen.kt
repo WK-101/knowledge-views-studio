@@ -304,7 +304,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                     }
                 }
                 if (attachments.isEmpty()) {
-                    Text("Any file — images, PDF, Office docs, epub, text. Stored on-device and included in backups. Max 25 MB each.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Any file — images, PDF, Office docs, epub, text. Up to 25 MB per file, add as many as you like. Stored on-device and in backups.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 attachments.forEach { a ->
                     Row(
