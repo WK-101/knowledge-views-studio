@@ -580,8 +580,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---------- habits ----------
-    fun createHabit(name: String, emoji: String?, colorArgb: Long?, target: Int) = viewModelScope.launch {
-        repo.createHabit(name.trim(), emoji, colorArgb, target, settings.value.activeWorkspaceId)
+    fun createHabit(name: String, emoji: String?, colorArgb: Long?, target: Int, unit: String? = null, scheduleDays: String = "") = viewModelScope.launch {
+        repo.createHabit(name.trim(), emoji, colorArgb, target, settings.value.activeWorkspaceId, unit, scheduleDays)
     }
     fun saveHabit(h: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch { repo.upsertHabit(h) }
     fun deleteHabit(id: String) = viewModelScope.launch { repo.deleteHabit(id) }

@@ -14,6 +14,8 @@ data class HabitEntity(
     val emoji: String? = null,
     val colorArgb: Long? = null,
     val targetPerDay: Int = 1,
+    val unit: String? = null,            // e.g. "glasses", "pages", "min" — shown with the count
+    val scheduleDays: String = "",       // day-of-week values 1..7 (Mon..Sun), comma-separated; "" = every day
     val sortOrder: Double = 0.0,
     val archived: Boolean = false,
     val workspaceId: String = WorkspaceEntity.DEFAULT_ID,

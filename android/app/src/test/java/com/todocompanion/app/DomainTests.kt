@@ -260,6 +260,22 @@ class HabitStatsTest {
         assertEquals(1, com.todocompanion.app.domain.habit.HabitStats.streak(setOf(98L, 100L), today))
         assertEquals(0, com.todocompanion.app.domain.habit.HabitStats.streak(emptySet(), today))
     }
+
+    @Test fun scheduleAwareStreakSkipsOffDays() {
+        val S = com.todocompanion.app.domain.habit.HabitStats
+        // Mon/Wed/Fri schedule. Pick a known Friday: 2026-01-02 is a Friday.
+        val fri = java.time.LocalDate.of(2026, 1, 2).toEpochDay()
+        val wed = java.time.LocalDate.of(2025, 12, 31).toEpochDay()
+        val mon = java.time.LocalDate.of(2025, 12, 29).toEpochDay()
+        val sched = S.parseSchedule("1,3,5")
+        // Done on all three scheduled days; the weekend gap between must NOT break the streak.
+        assertEquals(3, S.streak(setOf(mon, wed, fri), fri, sched))
+        // Off days aren't scheduled → isScheduled false.
+        val sat = java.time.LocalDate.of(2026, 1, 3).toEpochDay()
+        assertEquals(false, S.isScheduled(sat, sched))
+        // Rate counts only scheduled days.
+        assertEquals(1f, S.rate(setOf(mon, wed, fri), fri, sched, window = 5), 1e-6f)
+    }
 }
 
 class QuickAddRecurrenceTest {

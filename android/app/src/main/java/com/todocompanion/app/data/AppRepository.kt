@@ -61,9 +61,9 @@ class AppRepository(private val db: AppDatabase) {
     private val habits = db.habitDao()
     val allHabits: Flow<List<HabitEntity>> = habits.observeAll()
     val allCheckins: Flow<List<HabitCheckinEntity>> = habits.observeCheckins()
-    suspend fun createHabit(name: String, emoji: String?, colorArgb: Long?, target: Int, workspaceId: String): String {
+    suspend fun createHabit(name: String, emoji: String?, colorArgb: Long?, target: Int, workspaceId: String, unit: String? = null, scheduleDays: String = ""): String {
         val id = uid()
-        habits.upsert(HabitEntity(id = id, name = name, emoji = emoji, colorArgb = colorArgb, targetPerDay = target.coerceAtLeast(1), sortOrder = now().toDouble(), workspaceId = workspaceId, createdAt = now()))
+        habits.upsert(HabitEntity(id = id, name = name, emoji = emoji, colorArgb = colorArgb, targetPerDay = target.coerceAtLeast(1), unit = unit, scheduleDays = scheduleDays, sortOrder = now().toDouble(), workspaceId = workspaceId, createdAt = now()))
         return id
     }
     suspend fun upsertHabit(h: HabitEntity) = habits.upsert(h)
