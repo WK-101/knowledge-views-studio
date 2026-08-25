@@ -11,6 +11,7 @@ import com.todocompanion.app.data.dao.FilterDao
 import com.todocompanion.app.data.dao.HabitDao
 import com.todocompanion.app.data.dao.FocusDao
 import com.todocompanion.app.data.dao.FlagDao
+import com.todocompanion.app.data.dao.TemplateDao
 import com.todocompanion.app.data.dao.FolderDao
 import com.todocompanion.app.data.dao.ListDao
 import com.todocompanion.app.data.dao.WorkspaceDao
@@ -34,6 +35,7 @@ import com.todocompanion.app.data.entity.HabitEntity
 import com.todocompanion.app.data.entity.HabitCheckinEntity
 import com.todocompanion.app.data.entity.FocusSessionEntity
 import com.todocompanion.app.data.entity.FlagEntity
+import com.todocompanion.app.data.entity.TemplateEntity
 import com.todocompanion.app.data.entity.TaskTagCrossRef
 import com.todocompanion.app.data.entity.WorkspaceEntity
 import com.todocompanion.app.data.entity.AttachmentEntity
@@ -60,8 +62,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SettingEntity::class,
         AttachmentEntity::class,
         FlagEntity::class,
+        TemplateEntity::class,
     ],
-    version = 14,
+    version = 15,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -80,6 +83,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun settingDao(): SettingDao
     abstract fun attachmentDao(): AttachmentDao
     abstract fun flagDao(): FlagDao
+    abstract fun templateDao(): TemplateDao
 
     companion object {
         @Volatile
@@ -200,6 +204,16 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v14→v15 adds the reusable task-templates table without wiping existing data. */
+        private val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `templates` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                        "`payloadJson` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+                )
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -207,7 +221,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "todocompanion.db",
                 )
-                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
+                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { INSTANCE = it }

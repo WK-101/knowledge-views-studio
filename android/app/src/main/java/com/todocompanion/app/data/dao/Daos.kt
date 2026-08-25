@@ -22,6 +22,7 @@ import com.todocompanion.app.data.entity.HabitEntity
 import com.todocompanion.app.data.entity.HabitCheckinEntity
 import com.todocompanion.app.data.entity.FocusSessionEntity
 import com.todocompanion.app.data.entity.FlagEntity
+import com.todocompanion.app.data.entity.TemplateEntity
 import com.todocompanion.app.data.entity.WorkspaceEntity
 import com.todocompanion.app.data.entity.AttachmentEntity
 import com.todocompanion.app.data.entity.AttachmentMeta
@@ -115,6 +116,30 @@ interface FlagDao {
     suspend fun deleteById(id: String)
 
     @Query("DELETE FROM flags")
+    suspend fun clear()
+}
+
+@Dao
+interface TemplateDao {
+    @Query("SELECT * FROM templates ORDER BY name")
+    fun observeAll(): Flow<List<TemplateEntity>>
+
+    @Query("SELECT * FROM templates")
+    suspend fun getAll(): List<TemplateEntity>
+
+    @Query("SELECT * FROM templates WHERE id = :id")
+    suspend fun getById(id: String): TemplateEntity?
+
+    @Upsert
+    suspend fun upsert(t: TemplateEntity)
+
+    @Upsert
+    suspend fun upsertAll(t: List<TemplateEntity>)
+
+    @Query("DELETE FROM templates WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM templates")
     suspend fun clear()
 }
 

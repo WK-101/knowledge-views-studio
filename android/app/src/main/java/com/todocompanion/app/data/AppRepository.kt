@@ -8,6 +8,8 @@ import com.todocompanion.app.data.entity.HabitEntity
 import com.todocompanion.app.data.entity.HabitCheckinEntity
 import com.todocompanion.app.data.entity.FocusSessionEntity
 import com.todocompanion.app.data.entity.FlagEntity
+import com.todocompanion.app.data.entity.TemplateEntity
+import com.todocompanion.app.data.entity.TemplateTask
 import com.todocompanion.app.data.entity.FolderEntity
 import com.todocompanion.app.data.entity.ListEntity
 import com.todocompanion.app.data.entity.ReminderEntity
@@ -39,6 +41,8 @@ class AppRepository(private val db: AppDatabase) {
     private val settings = db.settingDao()
     private val attachments = db.attachmentDao()
     private val flags = db.flagDao()
+    private val templates = db.templateDao()
+    private val templateJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     // ----- reactive reads -----
     val allTasks: Flow<List<TaskEntity>> = tasks.observeAll()
@@ -52,6 +56,7 @@ class AppRepository(private val db: AppDatabase) {
     val allReminders: Flow<List<ReminderEntity>> = reminders.observeAll()
     val allDependencies: Flow<List<DependencyEntity>> = deps.observeAll()
     val allFlags: Flow<List<FlagEntity>> = flags.observeAll()
+    val allTemplates: Flow<List<TemplateEntity>> = templates.observeAll()
     val allSettings: Flow<List<SettingEntity>> = settings.observeAll()
     private val habits = db.habitDao()
     val allHabits: Flow<List<HabitEntity>> = habits.observeAll()
@@ -436,6 +441,84 @@ class AppRepository(private val db: AppDatabase) {
         settings.put(SettingEntity("flagsSeeded", "true"))
     }
 
+    // ============ templates ============
+    suspend fun deleteTemplate(id: String) = templates.deleteById(id)
+    suspend fun getTemplatesOnce(): List<TemplateEntity> = templates.getAll()
+
+    private fun dayOffset(millis: Long?, todayStart: Long): Int? =
+        millis?.let { ((it - todayStart) / 86_400_000L).toInt() }
+
+    /** Freeze a task subtree (note, priority, flag, recurrence, checklist, tags, contexts,
+     *  relative dates) into a named, reusable template. */
+    suspend fun saveAsTemplate(rootTaskId: String, name: String): String? {
+        val root = tasks.getById(rootTaskId) ?: return null
+        val tagName = tags.getAll().associate { it.id to it.name }
+        val ctxName = contexts.getAll().associate { it.id to it.name }
+        val tagRefs = tags.getCrossRefs().groupBy { it.taskId }
+        val ctxRefs = contexts.getCrossRefs().groupBy { it.taskId }
+        val todayStart = java.time.LocalDate.now().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        suspend fun node(t: TaskEntity): TemplateTask = TemplateTask(
+            title = t.title, note = t.note, isNote = t.isNote,
+            importance = t.importance, urgency = t.urgency,
+            flagId = t.flagId, flagColorArgb = t.flagColorArgb,
+            durationMin = t.durationMin, estimateMin = t.estimateMin, leadTimeMin = t.leadTimeMin,
+            completeInOrder = t.completeInOrder, isProject = t.isProject, isGoal = t.isGoal,
+            rrule = t.rrule, recurrenceMode = t.recurrenceMode,
+            startOffsetDays = dayOffset(t.startDate, todayStart), dueOffsetDays = dayOffset(t.dueDate, todayStart),
+            tagNames = tagRefs[t.id].orEmpty().mapNotNull { tagName[it.tagId] },
+            contextNames = ctxRefs[t.id].orEmpty().mapNotNull { ctxName[it.contextId] },
+            checklist = checklist.forTask(t.id).map { it.text },
+            children = tasks.childrenOf(t.id).map { node(it) },
+        )
+
+        val payload = node(root)
+        val id = uid()
+        templates.upsert(TemplateEntity(id, name.ifBlank { root.title }, templateJson.encodeToString(TemplateTask.serializer(), payload), now()))
+        return id
+    }
+
+    /** Instantiate a template into [listId] under [parentId], returning the new root task id. */
+    suspend fun instantiateTemplate(templateId: String, listId: String, parentId: String? = null): String? {
+        val tpl = templates.getById(templateId) ?: return null
+        val payload = runCatching { templateJson.decodeFromString(TemplateTask.serializer(), tpl.payloadJson) }.getOrNull() ?: return null
+        val todayStart = java.time.LocalDate.now().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val tagByName = tags.getAll().associate { it.name.lowercase() to it.id }.toMutableMap()
+        val ctxByName = contexts.getAll().associate { it.name.lowercase() to it.id }.toMutableMap()
+
+        suspend fun tagId(name: String): String = tagByName.getOrPut(name.lowercase()) {
+            uid().also { tags.upsert(TagEntity(it, name)) }
+        }
+        suspend fun ctxId(name: String): String = ctxByName.getOrPut(name.lowercase()) {
+            uid().also { contexts.upsert(ContextEntity(id = it, name = name)) }
+        }
+
+        suspend fun create(node: TemplateTask, parent: String?): String {
+            val id = uid()
+            val order = tasks.maxSortOrder(listId, parent) + 1.0
+            tasks.upsert(
+                TaskEntity(
+                    id = id, listId = listId, parentId = parent, sortOrder = order,
+                    title = node.title.ifBlank { "Untitled" }, note = node.note, isNote = node.isNote,
+                    importance = node.importance, urgency = node.urgency,
+                    flagId = node.flagId, flagColorArgb = node.flagColorArgb,
+                    durationMin = node.durationMin, estimateMin = node.estimateMin, leadTimeMin = node.leadTimeMin,
+                    completeInOrder = node.completeInOrder, isProject = node.isProject, isGoal = node.isGoal,
+                    rrule = node.rrule, recurrenceMode = node.recurrenceMode,
+                    startDate = node.startOffsetDays?.let { todayStart + it * 86_400_000L },
+                    dueDate = node.dueOffsetDays?.let { todayStart + it * 86_400_000L },
+                    createdAt = now(), updatedAt = now(),
+                ),
+            )
+            node.checklist.forEachIndexed { i, text -> checklist.upsert(ChecklistItemEntity(id = uid(), taskId = id, sortOrder = (i + 1).toDouble(), text = text)) }
+            if (node.tagNames.isNotEmpty()) tags.linkAll(node.tagNames.map { TaskTagCrossRef(id, tagId(it)) })
+            if (node.contextNames.isNotEmpty()) contexts.linkAll(node.contextNames.map { TaskContextCrossRef(id, ctxId(it)) })
+            node.children.forEach { create(it, id) }
+            return id
+        }
+        return create(payload, parentId)
+    }
+
     // ============ reminders / deps ============
     suspend fun remindersFor(taskId: String): List<ReminderEntity> = reminders.forTask(taskId)
     suspend fun upsertReminder(reminder: ReminderEntity) = reminders.upsert(reminder)
@@ -473,6 +556,7 @@ class AppRepository(private val db: AppDatabase) {
             settings = settings.getAll(),
             attachments = attachments.getAll(),
             flags = flags.getAll(),
+            templates = templates.getAll(),
         )
     )
 
@@ -481,7 +565,7 @@ class AppRepository(private val db: AppDatabase) {
         tasks.clear(); folders.clear(); lists.clear(); checklist.clear()
         tags.clear(); tags.clearCrossRefs(); contexts.clear(); contexts.clearCrossRefs()
         reminders.clear(); deps.clear(); settings.clear(); workspaces.clear(); filters.clear()
-        habits.clear(); habits.clearCheckins(); focus.clear(); attachments.clear(); flags.clear()
+        habits.clear(); habits.clearCheckins(); focus.clear(); attachments.clear(); flags.clear(); templates.clear()
         folders.upsertAll(b.folders)
         lists.upsertAll(b.lists)
         tasks.upsertAll(b.tasks)
@@ -497,6 +581,7 @@ class AppRepository(private val db: AppDatabase) {
         focus.upsertAll(b.focusSessions)
         attachments.upsertAll(b.attachments)
         flags.upsertAll(b.flags)
+        templates.upsertAll(b.templates)
         ensureDefaultWorkspace()
         ensureInbox()
         ensureDefaultFlags()

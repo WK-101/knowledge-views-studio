@@ -128,6 +128,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
     var listMenu by remember { mutableStateOf(false) }
     var showMore by remember { mutableStateOf(false) }
     var showBlockPicker by remember { mutableStateOf(false) }
+    var saveTemplate by remember { mutableStateOf(false) }
     var notePreview by remember(taskId) { mutableStateOf(true) }
 
     fun update(block: (TaskEntity) -> TaskEntity) {
@@ -151,6 +152,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                     DropdownMenuItem(text = { Text(if (task?.pinned == true) "Unpin" else "Pin to top") }, onClick = { task?.let { vm.togglePin(it) }; menu = false })
                     DropdownMenuItem(text = { Text(if (task?.isNote == true) "Convert to task" else "Convert to note") }, onClick = { task?.let { vm.toggleNote(it) }; menu = false })
                     DropdownMenuItem(text = { Text("Duplicate") }, onClick = { task?.let { vm.duplicateTask(it) }; menu = false; onBack() })
+                    DropdownMenuItem(text = { Text("Save as template") }, onClick = { menu = false; saveTemplate = true })
                     if (!task?.rrule.isNullOrBlank()) DropdownMenuItem(text = { Text("Skip this occurrence") }, onClick = { task?.let { vm.skipOccurrence(it) }; menu = false; onBack() })
                     DropdownMenuItem(text = { Text(if (task?.abandoned == true) "Undo won't do" else "Won't do") }, onClick = { task?.let { vm.setAbandoned(it, !it.abandoned) }; menu = false })
                     DropdownMenuItem(text = { Text("Delete", color = MaterialTheme.colorScheme.error) }, onClick = { task?.let { vm.trash(it) }; menu = false; onBack() })
@@ -445,6 +447,23 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
         BlockerPickerDialog(candidates, onDismiss = { showBlockPicker = false }) { picked ->
             vm.addDependency(task.id, picked); showBlockPicker = false
         }
+    }
+    if (saveTemplate && task != null) {
+        var tplName by remember(task.id) { mutableStateOf(task.title) }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { saveTemplate = false },
+            confirmButton = { TextButton(onClick = { vm.saveAsTemplate(task.id, tplName.trim()); saveTemplate = false }) { Text("Save") } },
+            dismissButton = { TextButton(onClick = { saveTemplate = false }) { Text("Cancel") } },
+            title = { Text("Save as template") },
+            text = {
+                Column {
+                    Text("Saves this task and its subtree — note, priority, flag, checklist, tags, contexts, recurrence and relative dates — for reuse.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(tplName, { tplName = it }, singleLine = true, label = { Text("Template name") }, modifier = Modifier.fillMaxWidth())
+                }
+            },
+        )
     }
 }
 

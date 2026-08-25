@@ -41,6 +41,8 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
@@ -176,6 +178,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         var showStats by remember { mutableStateOf(false) }
         var showReview by remember { mutableStateOf(false) }
         var saveTab by remember { mutableStateOf(false) }
+        var templatePicker by remember { mutableStateOf(false) }
         var menu by remember { mutableStateOf(false) }
         // Hoisted per-tab controls, surfaced in the shared top bar to free screen space.
         var calMode by remember { mutableStateOf(settings.calendarDefaultMode) }
@@ -320,6 +323,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                                         }
                                         androidx.compose.material3.HorizontalDivider()
                                         DropdownMenuItem(text = { Text("Save current view as tab") }, leadingIcon = { Icon(Icons.Filled.Add, null, modifier = Modifier.size(20.dp)) }, onClick = { menu = false; saveTab = true })
+                                        DropdownMenuItem(text = { Text("New from template…") }, leadingIcon = { Icon(Icons.Filled.ContentCopy, null, modifier = Modifier.size(20.dp)) }, onClick = { menu = false; templatePicker = true })
                                     }
                                 }
                                 Tab.CALENDAR -> {
@@ -392,6 +396,33 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                 dismissButton = { TextButton(onClick = { saveTab = false }) { Text("Cancel") } },
                 title = { Text("Save view as tab") },
                 text = { OutlinedTextField(tabName, { tabName = it }, singleLine = true, label = { Text("Tab name") }, modifier = Modifier.fillMaxWidth()) },
+            )
+        }
+        if (templatePicker) {
+            val templates by vm.templates.collectAsState()
+            AlertDialog(
+                onDismissRequest = { templatePicker = false },
+                confirmButton = { TextButton(onClick = { templatePicker = false }) { Text("Close") } },
+                title = { Text("New from template") },
+                text = {
+                    if (templates.isEmpty()) {
+                        Text("No templates yet. Open a task and choose “Save as template” to create one.",
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else {
+                        androidx.compose.foundation.layout.Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+                            templates.forEach { t ->
+                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(t.name, Modifier.weight(1f).clickable {
+                                        templatePicker = false
+                                        tab = Tab.TASKS
+                                        vm.insertTemplateHere(t.id) { newId -> newId?.let { openTask(it) } }
+                                    }.padding(vertical = 12.dp), style = MaterialTheme.typography.bodyLarge)
+                                    IconButton(onClick = { vm.deleteTemplate(t.id) }) { Icon(Icons.Filled.Delete, "Delete template", tint = MaterialTheme.colorScheme.error) }
+                                }
+                            }
+                        }
+                    }
+                },
             )
         }
         if (showQuickAdd) QuickAddSheet(vm, initialDue = quickAddDue, initialHasTime = quickAddWithTime, onDismiss = { showQuickAdd = false; quickAddDue = null; quickAddWithTime = false })

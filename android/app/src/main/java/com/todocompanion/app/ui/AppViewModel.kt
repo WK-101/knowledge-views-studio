@@ -12,6 +12,7 @@ import com.todocompanion.app.data.entity.FolderEntity
 import com.todocompanion.app.data.entity.ListEntity
 import com.todocompanion.app.data.entity.ReminderEntity
 import com.todocompanion.app.data.entity.FlagEntity
+import com.todocompanion.app.data.entity.TemplateEntity
 import com.todocompanion.app.data.entity.TagEntity
 import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.domain.AppSettings
@@ -84,6 +85,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val tags: StateFlow<List<TagEntity>> = repo.allTags.state(emptyList())
     val contexts: StateFlow<List<ContextEntity>> = repo.allContexts.state(emptyList())
     val flags: StateFlow<List<FlagEntity>> = repo.allFlags.state(emptyList())
+    val templates: StateFlow<List<TemplateEntity>> = repo.allTemplates.state(emptyList())
     val filters = combine(repo.allFilters, activeWs) { f, ws -> f.filter { it.workspaceId == ws } }.state(emptyList())
     val habits = combine(repo.allHabits, activeWs) { h, ws -> h.filter { it.workspaceId == ws && !it.archived } }.state(emptyList())
     val habitCheckins = repo.allCheckins.state(emptyList())
@@ -623,6 +625,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun deleteFlag(id: String) = viewModelScope.launch { repo.deleteFlag(id) }
     fun moveFlag(f: FlagEntity, dir: Int) = viewModelScope.launch { repo.moveFlagOrder(f, dir) }
+
+    // ---------- templates ----------
+    fun saveAsTemplate(taskId: String, name: String) = viewModelScope.launch { repo.saveAsTemplate(taskId, name) }
+    fun deleteTemplate(id: String) = viewModelScope.launch { repo.deleteTemplate(id) }
+    /** Drop a template into the current view's list (or Inbox), opening its new root if requested. */
+    fun insertTemplateHere(templateId: String, onDone: (String?) -> Unit = {}) = viewModelScope.launch {
+        val id = repo.instantiateTemplate(templateId, targetListForAdd())
+        onDone(id)
+    }
     fun cyclePriority(t: TaskEntity) = viewModelScope.launch {
         val next = when (PriorityLevel.from(t.importance, t.urgency)) {
             PriorityLevel.NONE -> PriorityLevel.LOW
