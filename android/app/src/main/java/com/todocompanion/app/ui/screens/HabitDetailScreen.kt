@@ -84,6 +84,7 @@ fun HabitDetailScreen(
     onBack: () -> Unit,
     onEdit: (com.todocompanion.app.data.entity.HabitEntity) -> Unit,
 ) {
+    androidx.activity.compose.BackHandler { onBack() }
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
     val h = habits.firstOrNull { it.id == habitId }

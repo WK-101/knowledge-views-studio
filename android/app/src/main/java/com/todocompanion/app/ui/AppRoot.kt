@@ -347,6 +347,9 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                             mode = calMode, onModeChange = { calMode = it },
                             onOpenFilter = { calFilter = true }, filterActive = settings.calendarListFilter.isNotEmpty(),
                         )
+                    } else if (tab == Tab.HABITS) {
+                        // The Habits tab renders its actions here so it shows one header like the rest.
+                        com.todocompanion.app.ui.screens.HabitsHeader(vm, onOpenDrawer = { scope.launch { drawerState.open() } })
                     } else TopAppBar(
                         windowInsets = androidx.compose.material3.TopAppBarDefaults.windowInsets,
                         expandedHeight = 52.dp,   // denser than the 64dp default, TickTick-like
@@ -474,7 +477,31 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                     val visibleTabs = Tab.entries.filter { it == Tab.TASKS || it.name !in settings.bottomTabsHidden }
                     CompactBottomBar(visibleTabs, tab) { tab = it }
                 },
-                snackbarHost = { androidx.compose.material3.SnackbarHost(snackbar) },
+                snackbarHost = {
+                    androidx.compose.material3.SnackbarHost(snackbar) { data ->
+                        // A rounded, branded snackbar that matches the app's card language (the default
+                        // Material pill looked foreign). Carries the message, an accent Undo, and a close.
+                        androidx.compose.material3.Surface(
+                            Modifier.padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth(),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.inverseSurface,
+                            contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                            tonalElevation = 6.dp, shadowElevation = 6.dp,
+                        ) {
+                            Row(Modifier.padding(start = 16.dp, end = 6.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(data.visuals.message, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                                data.visuals.actionLabel?.let { label ->
+                                    TextButton(onClick = { data.performAction() }) {
+                                        Text(label, color = MaterialTheme.colorScheme.inversePrimary, fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+                                if (data.visuals.withDismissAction) IconButton(onClick = { data.dismiss() }) {
+                                    Icon(Icons.Filled.Close, "Dismiss", modifier = Modifier.size(20.dp))
+                                }
+                            }
+                        }
+                    }
+                },
                 floatingActionButtonPosition = when (settings.fabPosition) {
                     "center" -> androidx.compose.material3.FabPosition.Center
                     "start" -> androidx.compose.material3.FabPosition.Start
@@ -530,6 +557,19 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
 
         editing?.let { id -> TaskDetailScreen(vm, id, onBack = { editing = null },
             onJustStart = { tid -> vm.pendingFocusTaskId.value = tid; editing = null; tab = Tab.FOCUS }) }
+
+        // Habit analytics + editor: full-screen overlays (like the task editor) so each shows a single
+        // top bar and Back returns to the Habits list, never the inbox.
+        val habitDetail by vm.habitDetailId.collectAsState()
+        habitDetail?.let { hid ->
+            com.todocompanion.app.ui.screens.HabitDetailScreen(vm, hid,
+                onBack = { vm.habitDetailId.value = null },
+                onEdit = { h -> vm.habitEditor.value = HabitEditRequest(h); vm.habitDetailId.value = null })
+        }
+        val habitEdit by vm.habitEditor.collectAsState()
+        habitEdit?.let { req ->
+            com.todocompanion.app.ui.screens.HabitEditorScreen(vm, req.habit, onClose = { vm.habitEditor.value = null })
+        }
         if (showStats) com.todocompanion.app.ui.screens.StatisticsScreen(vm, onBack = { showStats = false })
         if (showAttachments) com.todocompanion.app.ui.screens.AttachmentsScreen(vm, onOpenTask = { showAttachments = false; openTask(it) }, onBack = { showAttachments = false })
         if (showCountdowns) com.todocompanion.app.ui.screens.CountdownScreen(vm, onBack = { showCountdowns = false })
@@ -1197,27 +1237,28 @@ private fun ManageContextDialog(
     var hasLoc by remember { mutableStateOf(ctx.latitude != null) }
     var locating by remember { mutableStateOf(false) }
     fun captureAndSet() {
-        // Fast path: a recent last-known fix is instant.
-        lastKnownLocation(lctx)?.let { (la, ln) -> onSetLocation(la, ln, 150.0); hasLoc = true; return }
-        // Otherwise actively request a single fresh fix (framework LocationManager — no Play Services).
+        // Show progress for the whole capture so the switch never silently snaps back to off. Fast
+        // path: an instant last-known fix. Otherwise actively request one from every enabled provider
+        // (framework LocationManager — no Play Services). Only revert the switch if we truly get nothing.
         locating = true
-        android.widget.Toast.makeText(lctx, "Getting your location…", android.widget.Toast.LENGTH_SHORT).show()
+        lastKnownLocation(lctx)?.let { (la, ln) -> onSetLocation(la, ln, 150.0); hasLoc = true; locating = false; return }
         requestLocationFix(lctx) { fix ->
             locating = false
             if (fix != null) { onSetLocation(fix.first, fix.second, 150.0); hasLoc = true }
-            else android.widget.Toast.makeText(lctx, "Couldn't get a location fix — turn on location and move near a window, then retry", android.widget.Toast.LENGTH_LONG).show()
+            else { hasLoc = false; android.widget.Toast.makeText(lctx, "Couldn't get a location fix. Turn on Location in system settings, then try again — no internet needed.", android.widget.Toast.LENGTH_LONG).show() }
         }
     }
     val locPermLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
         if (grants.values.any { it }) captureAndSet()
-        else android.widget.Toast.makeText(lctx, "Location permission is needed for arrival alerts", android.widget.Toast.LENGTH_SHORT).show()
+        else { locating = false; android.widget.Toast.makeText(lctx, "Location permission is needed for arrival alerts", android.widget.Toast.LENGTH_SHORT).show() }
     }
     fun toggleLocation(on: Boolean) {
-        if (!on) { runCatching { onClearLocation() }; hasLoc = false; return }
+        if (!on) { runCatching { onClearLocation() }; hasLoc = false; locating = false; return }
         val fine = androidx.core.content.ContextCompat.checkSelfPermission(lctx, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
         val coarse = androidx.core.content.ContextCompat.checkSelfPermission(lctx, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
         if (fine || coarse) captureAndSet()
-        else runCatching { locPermLauncher.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)) }
+        // Requesting permission: show progress immediately so the toggle reads as "working", not "off".
+        else { locating = true; runCatching { locPermLauncher.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)) } }
     }
     AlertDialog(
         onDismissRequest = onDismiss,

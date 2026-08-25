@@ -221,8 +221,8 @@ class AppRepository(private val db: AppDatabase) {
         listId: String,
         title: String,
         parentId: String? = null,
-        importance: Int = 3,
-        urgency: Int = 3,
+        importance: Int = 2,   // default "None" priority (was 3 = Low)
+        urgency: Int = 2,
         dueDate: Long? = null,
         startDate: Long? = null,
         folderId: String? = null,

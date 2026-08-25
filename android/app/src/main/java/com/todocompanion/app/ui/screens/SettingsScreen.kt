@@ -110,11 +110,13 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) vm.exportTo(uri) { ok -> Toast.makeText(context, if (ok) "Exported" else "Export failed", Toast.LENGTH_SHORT).show() }
     }
-    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    // GetContent (ACTION_GET_CONTENT) is answered by ordinary file managers, not only the system
+    // document picker — so imports still work on devices without com.android.documentsui.
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) vm.importFrom(uri) { ok -> Toast.makeText(context, if (ok) "Imported" else "Import failed", Toast.LENGTH_SHORT).show() }
     }
     // Import from another app (Todoist/TickTick CSV, MLO OPML).
-    val importExternalLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val importExternalLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) vm.importExternal(uri) { ok, msg -> Toast.makeText(context, msg, if (ok) Toast.LENGTH_LONG else Toast.LENGTH_LONG).show() }
     }
     // Folder pickers for backup & sync — take a persistable grant so alarms can write later.
@@ -140,15 +142,28 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     val exportHabitsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         if (uri != null) vm.exportHabitsCsvTo(uri) { ok -> Toast.makeText(context, if (ok) "Habits exported" else "Export failed", Toast.LENGTH_SHORT).show() }
     }
-    val importHabitsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val importHabitsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) vm.importHabitsCsv(uri) { _, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() }
     }
     // Opening the system document picker (Storage Access Framework) can throw
     // ActivityNotFoundException on devices whose Files / DocumentsUI app is missing or disabled —
     // which crashed every import/export action. Guard the launch so it shows a message instead.
     fun safePick(block: () -> Unit) {
-        try { block() } catch (e: Exception) {
-            Toast.makeText(context, "No file manager is available on this device to pick a file.", Toast.LENGTH_LONG).show()
+        try { block() } catch (e: android.content.ActivityNotFoundException) {
+            Toast.makeText(context, "This device has no system file picker. Use \"Export all data (JSON)\" — it saves straight to your Downloads folder.", Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            Toast.makeText(context, "Couldn't open the file picker.", Toast.LENGTH_LONG).show()
+        }
+    }
+    // Exports have no third-party equivalent of the SAF "create document" picker, so when it's
+    // missing we fall back to writing the file straight into Downloads (offline, no permission).
+    fun safeExport(kind: String, block: () -> Unit) {
+        try { block() } catch (e: android.content.ActivityNotFoundException) {
+            vm.exportToDownloads(kind) { loc ->
+                Toast.makeText(context, if (loc != null) "Saved to $loc" else "Export failed", Toast.LENGTH_LONG).show()
+            }
+        } catch (e: Exception) {
+            Toast.makeText(context, "Export failed.", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -476,23 +491,23 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         }
 
         SettingsGroup(Icons.Filled.CloudSync, "Backup", open["backup"] == true, { open["backup"] = open["backup"] != true }) {
-            Action("Export all data (JSON)") { safePick { exportLauncher.launch("todo-companion-backup.json") } }
-            Action("Import / restore (JSON)") { safePick { importLauncher.launch(arrayOf("application/json", "text/*", "*/*")) } }
-            Text("Complete, lossless local backup. No account, no cloud, no network.",
+            Action("Export all data (JSON)") { safeExport("json") { exportLauncher.launch("todo-companion-backup.json") } }
+            Action("Import / restore (JSON)") { safePick { importLauncher.launch("*/*") } }
+            Text("Complete, lossless local backup. No account, no cloud, no network. If this device has no file picker, exports save straight to your Downloads folder.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
             HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-            Action("Export as Markdown (.md)") { safePick { exportMdLauncher.launch("todo-companion.md") } }
-            Action("Export as CSV (spreadsheet)") { safePick { exportCsvLauncher.launch("todo-companion.csv") } }
-            Action("Export to calendar (.ics)") { safePick { exportIcsLauncher.launch("todo-companion.ics") } }
+            Action("Export as Markdown (.md)") { safeExport("md") { exportMdLauncher.launch("todo-companion.md") } }
+            Action("Export as CSV (spreadsheet)") { safeExport("csv") { exportCsvLauncher.launch("todo-companion.csv") } }
+            Action("Export to calendar (.ics)") { safeExport("ics") { exportIcsLauncher.launch("todo-companion.ics") } }
             Text("Readable, portable snapshots for sharing or archiving. The .ics imports your dated tasks and deadlines into any calendar app. (Restore uses JSON.)",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
             HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-            Action("Import from Todoist / TickTick / MLO") { safePick { importExternalLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "text/xml", "application/xml", "text/*", "*/*")) } }
+            Action("Import from Todoist / TickTick / MLO") { safePick { importExternalLauncher.launch("*/*") } }
             Text("Reads their CSV export (Todoist, TickTick) or OPML (MLO) on-device — no account, nothing uploaded.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
             HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-            Action("Export habits (CSV)") { safePick { exportHabitsLauncher.launch("todo-companion-habits.csv") } }
-            Action("Import habits (Loop / CSV)") { safePick { importHabitsLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "text/*", "*/*")) } }
+            Action("Export habits (CSV)") { safeExport("habits") { exportHabitsLauncher.launch("todo-companion-habits.csv") } }
+            Action("Import habits (Loop / CSV)") { safePick { importHabitsLauncher.launch("*/*") } }
             Text("Move habit check-ins in and out — reads Loop Habit Tracker's Checkmarks export or our own habit CSV.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
         }

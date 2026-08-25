@@ -56,6 +56,9 @@ data class QuickAddOptions(
 )
 
 enum class UndoKind { COMPLETED, ABANDONED, TRASHED }
+
+/** What the full-screen habit editor is editing. A null [habit] means "create a new habit". */
+data class HabitEditRequest(val habit: com.todocompanion.app.data.entity.HabitEntity? = null)
 data class UndoEvent(val kind: UndoKind, val taskId: String, val message: String)
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
@@ -84,8 +87,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** The single isolation choke point: list ids belonging to the active workspace (+ the shared Inbox). */
     private val activeListIds: Flow<Set<String>> =
         combine(repo.allLists, activeWs) { all, ws -> all.filter { it.workspaceId == ws }.map { it.id }.toSet() + ListEntity.INBOX_ID }
+    /** Folders in the active workspace — the route into the set for tasks captured directly into a
+     *  folder with no list (listId == ""), which otherwise belong to no list and would be dropped. */
+    private val activeFolderIds: Flow<Set<String>> =
+        combine(repo.allFolders, activeWs) { all, ws -> all.filter { it.workspaceId == ws }.map { it.id }.toSet() }
     private val wsTasks: Flow<List<TaskEntity>> =
-        combine(repo.allTasks, activeListIds) { all, ids -> all.filter { it.listId in ids } }
+        combine(repo.allTasks, activeListIds, activeFolderIds) { all, listIds, folderIds ->
+            all.filter { it.listId in listIds || (it.folderId != null && it.folderId in folderIds) }
+        }
 
     val tasks: StateFlow<List<TaskEntity>> = wsTasks.state(emptyList())
     val folders = combine(repo.allFolders, activeWs) { f, ws -> f.filter { it.workspaceId == ws } }.state(emptyList())
@@ -538,8 +547,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (parsed.title.isBlank() && parsed.tags.isEmpty()) return@launch
         val due = opts.dueMillis ?: parsed.dateTime?.atZone(zone)?.toInstant()?.toEpochMilli()
         val level = opts.priority ?: parsed.priority
-        val imp = level?.importance ?: 3
-        val urg = level?.urgency ?: 3
+        // No priority chosen ⇒ "None" (importance/urgency 2), not Low.
+        val imp = level?.importance ?: com.todocompanion.app.domain.priority.PriorityLevel.NONE.importance
+        val urg = level?.urgency ?: com.todocompanion.app.domain.priority.PriorityLevel.NONE.urgency
         // ~list resolves to an existing list by name (case-insensitive); otherwise fall back to the
         // current view's target, which for a folder view is the folder itself (no list).
         val explicitList = opts.listId
@@ -695,6 +705,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val pendingFocusTaskId = MutableStateFlow<String?>(null)
     /** Fusion F2: a habit pre-selected to Focus on; the Focus screen consumes it and auto-logs. */
     val pendingFocusHabitId = MutableStateFlow<String?>(null)
+
+    // ---- Habits tab view-state, hoisted so the app's single top bar can drive it (one header) ----
+    val habitMatrixMode = MutableStateFlow(false)          // list (false) vs all-habits matrix (true)
+    val habitDensity = MutableStateFlow(1)                 // matrix density: 0 compact · 1 medium · 2 large
+    val habitDetailId = MutableStateFlow<String?>(null)    // non-null → the analytics screen overlays the tab
+    val habitBatchOpen = MutableStateFlow(false)
+    val habitPresetOpen = MutableStateFlow(false)
+    val habitEditor = MutableStateFlow<HabitEditRequest?>(null)   // non-null → the full-screen editor is open
     /** Credit a finished Focus session's minutes to a habit's check-in (marks time habits done). */
     fun logHabitFocus(habitId: String, minutes: Int) = viewModelScope.launch {
         if (minutes <= 0) return@launch
@@ -1281,6 +1299,25 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             appCtx.contentResolver.openOutputStream(uri)?.use { it.write(csv.toByteArray()) }
         }.isSuccess
         onDone(ok)
+    }
+    /**
+     * SAF-free export fallback: write the chosen export straight into the public Downloads folder
+     * (or the app's files dir on older devices). Used when the device has no system document picker.
+     * [onDone] receives a user-facing location like "Downloads/todo-companion-backup.json", or null.
+     */
+    fun exportToDownloads(kind: String, onDone: (String?) -> Unit) = viewModelScope.launch {
+        val loc = runCatching {
+            val (content, name, mime) = when (kind) {
+                "json" -> Triple(repo.exportJson(), "todo-companion-backup.json", "application/json")
+                "md" -> Triple(repo.exportMarkdown(true), "todo-companion.md", "text/markdown")
+                "csv" -> Triple(repo.exportCsv(true), "todo-companion.csv", "text/csv")
+                "ics" -> Triple(repo.exportIcs(false), "todo-companion.ics", "text/calendar")
+                "habits" -> Triple(repo.exportHabitsCsv(), "todo-companion-habits.csv", "text/csv")
+                else -> return@runCatching null
+            }
+            com.todocompanion.app.util.FileExport.saveToDownloads(appCtx, name, mime, content.toByteArray())
+        }.getOrNull()
+        onDone(loc)
     }
     fun importHabitsCsv(uri: Uri, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
         val n = runCatching {

@@ -161,17 +161,25 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     var showHistory by remember { mutableStateOf(false) }
     var notePreview by remember(taskId) { mutableStateOf(true) }
 
-    fun update(block: (TaskEntity) -> TaskEntity) {
-        val d = draft ?: return; val nd = block(d); draft = nd; vm.save(nd)
-    }
+    // Staged editing: edits mutate the local draft only and are persisted on Save — never on Back.
+    var savedSnapshot by remember(taskId) { mutableStateOf<TaskEntity?>(null) }
+    if (savedSnapshot == null && loaded != null) savedSnapshot = loaded
+    var confirmDiscard by remember { mutableStateOf(false) }
+    val dirty = draft != null && savedSnapshot != null && draft != savedSnapshot
 
-    BackHandler { onBack() }
+    fun update(block: (TaskEntity) -> TaskEntity) {
+        val d = draft ?: return; draft = block(d)
+    }
+    fun commit() { draft?.let { vm.save(it) }; savedSnapshot = draft; onBack() }
+    fun attemptBack() { if (dirty) confirmDiscard = true else onBack() }
+
+    BackHandler { attemptBack() }
 
     val task = draft
     Scaffold(topBar = {
         TopAppBar(
             title = { Text("Task") },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+            navigationIcon = { IconButton(onClick = { attemptBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
             actions = {
                 IconButton(onClick = { update { it.copy(star = !it.star) } }) {
                     Icon(if (task?.star == true) Icons.Filled.Star else Icons.Filled.StarBorder, "Star")
@@ -179,18 +187,18 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 var menu by remember { mutableStateOf(false) }
                 IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "More") }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    DropdownMenuItem(text = { Text(if (task?.pinned == true) "Unpin" else "Pin to top") }, onClick = { task?.let { vm.togglePin(it) }; menu = false })
-                    DropdownMenuItem(text = { Text(if (task?.isNote == true) "Convert to task" else "Convert to note") }, onClick = { task?.let { vm.toggleNote(it) }; menu = false })
+                    DropdownMenuItem(text = { Text(if (task?.pinned == true) "Unpin" else "Pin to top") }, onClick = { update { it.copy(pinned = !it.pinned) }; menu = false })
+                    DropdownMenuItem(text = { Text(if (task?.isNote == true) "Convert to task" else "Convert to note") }, onClick = { update { it.copy(isNote = !it.isNote) }; menu = false })
                     DropdownMenuItem(text = { Text("Duplicate") }, onClick = { task?.let { vm.duplicateTask(it) }; menu = false; onBack() })
                     DropdownMenuItem(text = { Text("Save as template") }, onClick = { menu = false; saveTemplate = true })
                     DropdownMenuItem(text = { Text("History…") }, leadingIcon = { Icon(Icons.Filled.History, null, modifier = Modifier.size(18.dp)) }, onClick = { menu = false; showHistory = true })
                     if (!task?.rrule.isNullOrBlank()) DropdownMenuItem(text = { Text("Skip this occurrence") }, onClick = { task?.let { vm.skipOccurrence(it) }; menu = false; onBack() })
                     if (!task?.rrule.isNullOrBlank()) DropdownMenuItem(text = { Text("Edit only this occurrence") }, onClick = { task?.let { vm.detachOccurrence(it) { newId -> } }; menu = false })
-                    DropdownMenuItem(text = { Text(if (task?.abandoned == true) "Undo won't do" else "Won't do") }, onClick = { task?.let { vm.setAbandoned(it, !it.abandoned) }; menu = false })
+                    DropdownMenuItem(text = { Text(if (task?.abandoned == true) "Undo won't do" else "Won't do") }, onClick = { update { it.copy(abandoned = !it.abandoned) }; menu = false })
                     DropdownMenuItem(text = { Text("Delete", color = MaterialTheme.colorScheme.error) }, onClick = { task?.let { vm.trash(it) }; menu = false; onBack() })
                 }
-                // Changes auto-save as you type; Done just confirms and closes.
-                TextButton(onClick = onBack) { Text("Done", fontWeight = FontWeight.SemiBold) }
+                // Edits are staged; Save persists them (Back offers to discard unsaved changes).
+                TextButton(onClick = { commit() }, enabled = dirty) { Text("Save", fontWeight = FontWeight.SemiBold) }
             },
         )
     }) { padding ->
@@ -325,7 +333,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 PropRow(Icons.AutoMirrored.Filled.FormatListBulleted, "List", where) { listMenu = true }
                 DropdownMenu(expanded = listMenu, onDismissRequest = { listMenu = false }) {
                     lists.filter { !it.archived }.forEach { l ->
-                        DropdownMenuItem(text = { Text(l.name) }, onClick = { vm.moveToList(task, l.id); draft = task.copy(listId = l.id, folderId = null); listMenu = false })
+                        DropdownMenuItem(text = { Text(l.name) }, onClick = { update { it.copy(listId = l.id, folderId = null) }; listMenu = false })
                     }
                 }
             }
@@ -619,6 +627,15 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     }
                 }
             },
+        )
+    }
+    if (confirmDiscard) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirmDiscard = false },
+            title = { Text("Unsaved changes") },
+            text = { Text("You've made changes that haven't been saved. Save them before leaving?") },
+            confirmButton = { TextButton(onClick = { confirmDiscard = false; commit() }) { Text("Save") } },
+            dismissButton = { TextButton(onClick = { confirmDiscard = false; onBack() }) { Text("Discard", color = MaterialTheme.colorScheme.error) } },
         )
     }
     if (showDue) DateTimePickerDialog(task?.dueDate, { showDue = false },

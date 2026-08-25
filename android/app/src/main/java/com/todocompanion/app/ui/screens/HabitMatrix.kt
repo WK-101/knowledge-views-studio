@@ -70,7 +70,7 @@ private val HEADER_HEIGHT = 26.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HabitMatrix(vm: AppViewModel, onOpenHabit: (HabitEntity) -> Unit, modifier: Modifier = Modifier) {
+fun HabitMatrix(vm: AppViewModel, density: Int, onOpenHabit: (HabitEntity) -> Unit, modifier: Modifier = Modifier) {
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
     val today = LocalDate.now().toEpochDay()
@@ -86,8 +86,7 @@ fun HabitMatrix(vm: AppViewModel, onOpenHabit: (HabitEntity) -> Unit, modifier: 
         return
     }
 
-    var density by remember { mutableIntStateOf(1) }
-    val preset = DENSITIES[density]
+    val preset = DENSITIES[density.coerceIn(0, DENSITIES.lastIndex)]
     val cell = preset.cell
     val rowHeight = cell + 6.dp
     // Oldest → newest, so the newest day lands on the right edge of the grid.
@@ -96,17 +95,6 @@ fun HabitMatrix(vm: AppViewModel, onOpenHabit: (HabitEntity) -> Unit, modifier: 
     val byKey = remember(checkins) { checkins.associateBy { it.habitId to it.epochDay } }
 
     Column(modifier.fillMaxSize()) {
-        // Density control — the Tickmate "grid density" idea.
-        SingleChoiceSegmentedButtonRow(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-            DENSITY_LABELS.forEachIndexed { i, label ->
-                SegmentedButton(
-                    selected = density == i,
-                    onClick = { density = i },
-                    shape = SegmentedButtonDefaults.itemShape(i, DENSITY_LABELS.size),
-                ) { Text(label) }
-            }
-        }
-
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
             Row(Modifier.fillMaxWidth()) {
                 // Frozen left column: header spacer + one label per habit.
@@ -129,7 +117,11 @@ fun HabitMatrix(vm: AppViewModel, onOpenHabit: (HabitEntity) -> Unit, modifier: 
                             days.forEach { day ->
                                 val c = byKey[h.id to day]
                                 DayCell(h, c, day, today, color, cell) {
-                                    vm.cycleHabit(h, day, c?.count ?: 0)
+                                    val cur = c?.count ?: 0
+                                    // Break habits log a relapse (tap toggles it); build habits cycle toward target.
+                                    if (h.habitType == "break") {
+                                        if (HabitStats.isRelapse(h, cur)) vm.clearHabitDay(h, day) else vm.setHabitValue(h, day, h.targetPerDay + 1)
+                                    } else vm.cycleHabit(h, day, cur)
                                 }
                             }
                         }
