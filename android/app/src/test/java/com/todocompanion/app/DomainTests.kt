@@ -21,9 +21,10 @@ private fun task(
     completed: Boolean = false,
     due: Long? = null,
     start: Long? = null,
+    completedAt: Long? = null,
 ) = TaskEntity(
     id = id, listId = "l", parentId = parent, importance = importance, urgency = urgency,
-    completed = completed, dueDate = due, startDate = start, title = id,
+    completed = completed, completedAt = completedAt, dueDate = due, startDate = start, title = id,
     createdAt = 0, updatedAt = 0,
 )
 
@@ -166,6 +167,18 @@ class PriorityEngineTest {
         assertFalse(result.contains("p"))       // has incomplete child
         assertFalse(result.contains("done"))    // completed
         assertFalse(result.contains("blocked")) // blocked by incomplete predecessor
+    }
+
+    @Test fun delayedDependencyHoldsThenReleases() {
+        val doneAt = 1_000_000L
+        val pred = task("p", completed = true, completedAt = doneAt)
+        val t = task("t")
+        val byId = mapOf("p" to pred, "t" to t)
+        val deps = listOf(DependencyEntity("t", "p", "AND", delayDays = 2))
+        // Half a day after completion → still held by the 2-day delay.
+        assertTrue("t" in PriorityEngine.computeBlocked(deps, byId, doneAt + 43_200_000L))
+        // Three days after → released.
+        assertFalse("t" in PriorityEngine.computeBlocked(deps, byId, doneAt + 3L * 86_400_000L))
     }
 
     @Test fun overdueRanksHigher() {

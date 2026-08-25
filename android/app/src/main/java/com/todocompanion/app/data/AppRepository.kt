@@ -404,8 +404,8 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun upsertReminder(reminder: ReminderEntity) = reminders.upsert(reminder)
     suspend fun deleteReminder(id: String) = reminders.deleteById(id)
     suspend fun allRemindersOnce(): List<ReminderEntity> = reminders.getAll()
-    suspend fun addDependency(taskId: String, dependsOn: String, mode: String = "AND") =
-        deps.add(DependencyEntity(taskId, dependsOn, mode))
+    suspend fun addDependency(taskId: String, dependsOn: String, mode: String = "AND", delayDays: Int = 0) =
+        deps.add(DependencyEntity(taskId, dependsOn, mode, delayDays))
     suspend fun removeDependency(dep: DependencyEntity) = deps.remove(dep)
 
     // ============ settings ============

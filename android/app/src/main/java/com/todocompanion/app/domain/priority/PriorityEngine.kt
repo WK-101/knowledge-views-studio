@@ -43,14 +43,25 @@ object PriorityEngine {
     data class Ranked(val task: TaskEntity, val score: Double)
 
     /** Tasks blocked by an incomplete predecessor (respecting AND/OR mode). */
-    fun computeBlocked(deps: List<DependencyEntity>, tasksById: Map<String, TaskEntity>): Set<String> {
+    fun computeBlocked(deps: List<DependencyEntity>, tasksById: Map<String, TaskEntity>, now: Long = System.currentTimeMillis()): Set<String> {
         if (deps.isEmpty()) return emptySet()
         val blocked = mutableSetOf<String>()
         for ((taskId, list) in deps.groupBy { it.taskId }) {
-            val incomplete = list.map { tasksById[it.dependsOnTaskId]?.completed == false }
+            val preds = list.mapNotNull { tasksById[it.dependsOnTaskId] }
             val mode = list.firstOrNull()?.mode ?: "AND"
-            val isBlocked = if (mode.equals("OR", ignoreCase = true)) incomplete.all { it } else incomplete.any { it }
-            if (isBlocked) blocked.add(taskId)
+            val or = mode.equals("OR", ignoreCase = true)
+            val incomplete = preds.filter { !it.completed }
+            // Structural block: OR needs one done (all incomplete = blocked); AND needs all done (any incomplete = blocked).
+            val structBlocked = if (or) incomplete.size == preds.size else incomplete.isNotEmpty()
+            if (structBlocked) { blocked.add(taskId); continue }
+            // Delayed activation: hold until the delay has elapsed past the anchor completion —
+            // the last completed prerequisite under ALL, the first under ANY.
+            val delayDays = list.maxOf { it.delayDays }
+            if (delayDays > 0) {
+                val times = preds.filter { it.completed }.mapNotNull { it.completedAt }
+                val anchor = if (or) times.minOrNull() else times.maxOrNull()
+                if (anchor != null && anchor + delayDays * 86_400_000L > now) blocked.add(taskId)
+            }
         }
         return blocked
     }

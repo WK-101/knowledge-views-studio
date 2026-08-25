@@ -376,6 +376,17 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                         FilterChip(selected = mode == "OR", onClick = { vm.setDependencyMode(task.id, "OR") }, label = { Text("Any one unblocks") })
                     }
                 }
+                // Delayed activation: start N days after the blocker(s) complete.
+                if (myDeps.isNotEmpty()) {
+                    val delay = myDeps.first().delayDays
+                    Spacer(Modifier.height(4.dp))
+                    Text("Start after", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(0 to "No delay", 1 to "1 day", 3 to "3 days", 7 to "1 week").forEach { (d, l) ->
+                            FilterChip(selected = delay == d, onClick = { vm.setDependencyDelay(task.id, d) }, label = { Text(l) })
+                        }
+                    }
+                }
                 TextButton(onClick = { showBlockPicker = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text("＋ Add a blocker") }
             }
 

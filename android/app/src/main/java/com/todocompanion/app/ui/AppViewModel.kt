@@ -246,7 +246,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     ): List<TaskEntity> {
         val byParent = all.groupBy { it.parentId }
         val byId = all.associateBy { it.id }
-        val blocked = PriorityEngine.computeBlocked(deps, byId)
+        val blocked = PriorityEngine.computeBlocked(deps, byId, now)
         // "Complete subtasks in order": a task is gated while an earlier sibling under the same
         // ordered parent is still open — only the current step of the sequence surfaces.
         fun orderBlocked(id: String): Boolean {
@@ -648,7 +648,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun removeDependency(dep: DependencyEntity) = viewModelScope.launch { repo.removeDependency(dep) }
     /** Set the blocking mode (AND = all must finish, OR = any one unblocks) for every blocker of a task. */
     fun setDependencyMode(taskId: String, mode: String) = viewModelScope.launch {
-        dependencies.value.filter { it.taskId == taskId }.forEach { repo.removeDependency(it); repo.addDependency(it.taskId, it.dependsOnTaskId, mode) }
+        dependencies.value.filter { it.taskId == taskId }.forEach { repo.removeDependency(it); repo.addDependency(it.taskId, it.dependsOnTaskId, mode, it.delayDays) }
+    }
+    /** Set the activation delay (days after the anchor prerequisite completes) for a task's blockers. */
+    fun setDependencyDelay(taskId: String, days: Int) = viewModelScope.launch {
+        dependencies.value.filter { it.taskId == taskId }.forEach { repo.removeDependency(it); repo.addDependency(it.taskId, it.dependsOnTaskId, it.mode, days) }
     }
     fun setCompleteInOrder(t: TaskEntity, v: Boolean) = viewModelScope.launch { repo.saveTask(t.copy(completeInOrder = v)) }
     fun setProject(t: TaskEntity, v: Boolean) = viewModelScope.launch { repo.saveTask(t.copy(isProject = v)) }

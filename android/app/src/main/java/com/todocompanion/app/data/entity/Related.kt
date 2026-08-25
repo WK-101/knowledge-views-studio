@@ -73,6 +73,7 @@ data class DependencyEntity(
     val taskId: String,
     val dependsOnTaskId: String,
     val mode: String = "AND", // AND | OR
+    val delayDays: Int = 0,   // activate this many days after the anchor prerequisite completes
 )
 
 /** Key/value app settings, persisted locally. */
