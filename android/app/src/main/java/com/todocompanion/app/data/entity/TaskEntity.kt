@@ -19,6 +19,9 @@ import kotlinx.serialization.Serializable
 data class TaskEntity(
     @PrimaryKey val id: String,
     val listId: String,
+    // A task captured straight into a folder (no list) carries the folder here and an empty listId.
+    // Normal list tasks leave this null. Set exclusively of a real listId.
+    val folderId: String? = null,
     val parentId: String? = null,
     val sortOrder: Double = 0.0,
 

@@ -45,7 +45,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CalendarViewMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -198,8 +197,8 @@ private fun startOfWeek(d: LocalDate, firstDow: DayOfWeek): LocalDate {
  *  other screen and switching to the calendar never shifts the layout. */
 @Composable
 fun CalHeader(
-    label: String, current: YearMonth, showNav: Boolean,
-    onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onPick: (YearMonth) -> Unit,
+    label: String, anchor: LocalDate, showNav: Boolean,
+    onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onPickDate: (LocalDate) -> Unit,
     onOpenDrawer: () -> Unit, mode: String, onModeChange: (String) -> Unit,
     onOpenFilter: () -> Unit, filterActive: Boolean,
 ) {
@@ -217,7 +216,6 @@ fun CalHeader(
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,
         ) {
             Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (showNav) Icon(Icons.Filled.ArrowDropDown, "Pick period", modifier = Modifier.size(20.dp))
         }
         if (showNav) IconButton(onClick = onNext) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next") }
         IconButton(onClick = onToday) { Icon(Icons.Filled.Today, "Today") }
@@ -236,7 +234,111 @@ fun CalHeader(
         IconButton(onClick = onOpenFilter) { Icon(Icons.Filled.FilterList, "Filter lists", tint = if (filterActive) MaterialTheme.colorScheme.primary else androidx.compose.material3.LocalContentColor.current) }
     }
     }
-    if (showPicker) MonthYearPicker(current, onDismiss = { showPicker = false }) { ym -> onPick(ym); showPicker = false }
+    if (showPicker) CalPeriodPicker(mode, anchor, onDismiss = { showPicker = false }) { d -> onPickDate(d); showPicker = false }
+}
+
+/** The header period-picker, matched to the active view: a specific-date picker for the day/week
+ *  modes, a month grid for Month, and a year grid for Year. */
+@Composable
+private fun CalPeriodPicker(mode: String, anchor: LocalDate, onDismiss: () -> Unit, onPick: (LocalDate) -> Unit) {
+    when (mode) {
+        "year" -> YearGridPicker(anchor.year, onDismiss) { y -> onPick(anchor.withYear(y)) }
+        "month" -> MonthYearPicker(YearMonth.from(anchor), onDismiss) { ym -> onPick(ym.atDay(1)) }
+        else -> DayPicker(anchor, onDismiss, onPick)   // day / 3day / week / weekly → pick an exact day
+    }
+}
+
+/** A 3×4 grid of years with decade paging, styled like the month grid. */
+@Composable
+private fun YearGridPicker(currentYear: Int, onDismiss: () -> Unit, onPick: (Int) -> Unit) {
+    var base by remember { mutableStateOf(currentYear - (currentYear.mod(12))) }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
+                IconButton(onClick = { base -= 12 }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Earlier years") }
+                Text("$base – ${base + 11}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                IconButton(onClick = { base += 12 }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Later years") }
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                (0..3).forEach { r ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        (0..2).forEach { c ->
+                            val y = base + r * 3 + c
+                            val sel = y == currentYear
+                            Box(
+                                Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
+                                    .background(if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f))
+                                    .clickable { onPick(y) }.padding(vertical = 12.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(y.toString(), color = if (sel) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = if (sel) FontWeight.Bold else FontWeight.Medium)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+    )
+}
+
+/** A compact month calendar for choosing a specific day (used by the day/week header picker). */
+@Composable
+private fun DayPicker(anchor: LocalDate, onDismiss: () -> Unit, onPick: (LocalDate) -> Unit) {
+    var ym by remember { mutableStateOf(YearMonth.from(anchor)) }
+    val firstDow = WeekFields.of(Locale.getDefault()).firstDayOfWeek
+    val labels = (0..6).map { firstDow.plus(it.toLong()) }
+    val first = ym.atDay(1)
+    val leading = (first.dayOfWeek.value - firstDow.value + 7) % 7
+    val cells = buildList<LocalDate?> {
+        repeat(leading) { add(null) }
+        for (day in 1..ym.lengthOfMonth()) add(ym.atDay(day))
+        while (size % 7 != 0) add(null)
+    }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
+                IconButton(onClick = { ym = ym.minusMonths(1) }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Previous month") }
+                Text("${ym.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${ym.year}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                IconButton(onClick = { ym = ym.plusMonths(1) }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next month") }
+            }
+        },
+        text = {
+            Column {
+                Row(Modifier.fillMaxWidth()) {
+                    labels.forEach { d -> Text(d.getDisplayName(TextStyle.NARROW, Locale.getDefault()), Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
+                Spacer(Modifier.height(4.dp))
+                cells.chunked(7).forEach { week ->
+                    Row(Modifier.fillMaxWidth()) {
+                        week.forEach { d ->
+                            if (d == null) Box(Modifier.weight(1f).padding(2.dp).height(36.dp))
+                            else {
+                                val sel = d == anchor
+                                val today = d == LocalDate.now()
+                                Box(
+                                    Modifier.weight(1f).padding(2.dp).height(36.dp).clip(CircleShape)
+                                        .background(if (sel) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                        .clickable { onPick(d) },
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(d.dayOfMonth.toString(), style = MaterialTheme.typography.bodyMedium,
+                                        color = when { sel -> MaterialTheme.colorScheme.onPrimary; today -> MaterialTheme.colorScheme.primary; else -> MaterialTheme.colorScheme.onSurface },
+                                        fontWeight = if (sel || today) FontWeight.Bold else FontWeight.Normal)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+    )
 }
 
 /** A quick month/year chooser: a year stepper over a 3×4 grid of month chips. */

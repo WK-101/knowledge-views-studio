@@ -16,6 +16,7 @@ data class HabitEntity(
     val targetPerDay: Int = 1,
     val unit: String? = null,            // e.g. "glasses", "pages", "min" — shown with the count
     val scheduleDays: String = "",       // day-of-week values 1..7 (Mon..Sun), comma-separated; "" = every day
+    val reminderTimes: String = "",      // minutes-from-midnight, comma-separated (e.g. "540,1080" = 9:00, 18:00)
     val sortOrder: Double = 0.0,
     val archived: Boolean = false,
     val workspaceId: String = WorkspaceEntity.DEFAULT_ID,

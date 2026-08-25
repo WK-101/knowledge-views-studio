@@ -302,11 +302,11 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                             else java.time.temporal.WeekFields.of(java.util.Locale.getDefault()).firstDayOfWeek
                         com.todocompanion.app.ui.screens.CalHeader(
                             label = com.todocompanion.app.ui.screens.calLabel(calMode, calAnchor, firstDow),
-                            current = java.time.YearMonth.from(calAnchor), showNav = calMode != "list",
+                            anchor = calAnchor, showNav = calMode != "list",
                             onPrev = { calAnchor = com.todocompanion.app.ui.screens.calStep(calMode, calAnchor, -1) },
                             onNext = { calAnchor = com.todocompanion.app.ui.screens.calStep(calMode, calAnchor, 1) },
                             onToday = { calAnchor = java.time.LocalDate.now(); calSelected = java.time.LocalDate.now() },
-                            onPick = { ym -> calAnchor = ym.atDay(1) },
+                            onPickDate = { d -> calAnchor = d; calSelected = d },
                             onOpenDrawer = { scope.launch { drawerState.open() } },
                             mode = calMode, onModeChange = { calMode = it },
                             onOpenFilter = { calFilter = true }, filterActive = settings.calendarListFilter.isNotEmpty(),
@@ -520,7 +520,10 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                 newReq = null
             }
         }
-        manageList?.let { l ->
+        manageList?.let { stale ->
+            // Resolve the freshest row from the live flow so incremental icon/colour/background
+            // saves aren't clobbered when the final "Save" fires with a stale snapshot.
+            val l = lists.firstOrNull { it.id == stale.id } ?: stale
             ManageListDialog(l, onDismiss = { manageList = null },
                 onRename = { vm.saveList(l.copy(name = it)); manageList = null },
                 onColor = { vm.saveList(l.copy(colorArgb = it)) },
@@ -529,7 +532,8 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                 onClearBackground = { vm.clearListBackground(l.id) },
                 onEmoji = { vm.saveList(l.copy(emoji = it)) })
         }
-        manageFolder?.let { f ->
+        manageFolder?.let { stale ->
+            val f = folders.firstOrNull { it.id == stale.id } ?: stale
             ManageFolderDialog(f, onDismiss = { manageFolder = null },
                 onRename = { vm.renameFolder(f, it); manageFolder = null },
                 onIcon = { vm.setFolderIcon(f, it) },

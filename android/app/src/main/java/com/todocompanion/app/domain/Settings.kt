@@ -52,6 +52,9 @@ data class AppSettings(
     val matrixShowCompleted: Boolean = false,
     val matrixHideEmpty: Boolean = false,
     val matrixNames: List<String> = listOf("Urgent & Important", "Not Urgent & Important", "Urgent & Unimportant", "Not Urgent & Unimportant"),
+    val matrixListFilter: Set<String> = emptySet(),   // empty = all lists
+    val matrixMaxDuration: Int = 0,                   // minutes; 0 = no duration cap
+    val matrixOverdueOnly: Boolean = false,           // only tasks past their due date
     // Calendar
     val calendarDefaultMode: String = "month",
     val calendarListFilter: Set<String> = emptySet(),   // empty = all lists
@@ -105,6 +108,9 @@ data class AppSettings(
         Keys.MX_DONE to matrixShowCompleted.toString(),
         Keys.MX_HIDE_EMPTY to matrixHideEmpty.toString(),
         Keys.MX_NAMES to matrixNames.joinToString("|"),
+        Keys.MX_LISTS to matrixListFilter.joinToString(","),
+        Keys.MX_MAXDUR to matrixMaxDuration.toString(),
+        Keys.MX_OVERDUE to matrixOverdueOnly.toString(),
         Keys.CAL_MODE to calendarDefaultMode,
         Keys.CAL_FILTER to calendarListFilter.joinToString(","),
         Keys.SUMMARY_ON to dailySummaryEnabled.toString(),
@@ -151,6 +157,9 @@ data class AppSettings(
         const val MX_DONE = "mx_done"
         const val MX_HIDE_EMPTY = "mx_hide_empty"
         const val MX_NAMES = "mx_names"
+        const val MX_LISTS = "mx_lists"
+        const val MX_MAXDUR = "mx_maxdur"
+        const val MX_OVERDUE = "mx_overdue"
         const val CAL_MODE = "cal_mode"
         const val CAL_FILTER = "cal_filter"
         const val SUMMARY_ON = "summary_on"
@@ -207,6 +216,9 @@ data class AppSettings(
             matrixShowCompleted = m[Keys.MX_DONE]?.toBooleanStrictOrNull() ?: false,
             matrixHideEmpty = m[Keys.MX_HIDE_EMPTY]?.toBooleanStrictOrNull() ?: false,
             matrixNames = m[Keys.MX_NAMES]?.split("|")?.takeIf { it.size == 4 } ?: listOf("Urgent & Important", "Not Urgent & Important", "Urgent & Unimportant", "Not Urgent & Unimportant"),
+            matrixListFilter = (m[Keys.MX_LISTS] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
+            matrixMaxDuration = m[Keys.MX_MAXDUR]?.toIntOrNull() ?: 0,
+            matrixOverdueOnly = m[Keys.MX_OVERDUE]?.toBooleanStrictOrNull() ?: false,
             calendarDefaultMode = m[Keys.CAL_MODE] ?: "month",
             calendarListFilter = (m[Keys.CAL_FILTER] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             pinnedRefs = (m[Keys.PINNED] ?: "").split("|").filter { it.isNotBlank() },

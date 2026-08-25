@@ -133,6 +133,7 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
     if (sortMode == com.todocompanion.app.domain.view.SortMode.MANUAL && groups.size == 1 && groups.first().title.isBlank() && !isTrash) {
         ManualReorderList(vm, groups.first().tasks, settings.density, ctxByTask, tagsByTask,
             listNameOf = { id -> if (showList) listNameById[id]?.takeIf { it != "Inbox" } else null },
+            rightNear = settings.swipeRight, rightFar = settings.swipeRightFar, leftNear = settings.swipeLeft, leftFar = settings.swipeLeftFar,
             onOpenTask = onOpenTask, modifier = modifier)
         return
     }
@@ -232,7 +233,9 @@ private fun onSwipe(vm: AppViewModel, action: SwipeAction, task: TaskEntity, isT
 private fun ManualReorderList(
     vm: AppViewModel, tasks: List<TaskEntity>, density: Density,
     ctxByTask: Map<String, List<Pair<String, Long?>>>, tagsByTask: Map<String, List<Pair<String, Long?>>>,
-    listNameOf: (String) -> String?, onOpenTask: (String) -> Unit, modifier: Modifier,
+    listNameOf: (String) -> String?,
+    rightNear: SwipeAction, rightFar: SwipeAction, leftNear: SwipeAction, leftFar: SwipeAction,
+    onOpenTask: (String) -> Unit, modifier: Modifier,
 ) {
     // Local working order for the drag gesture.
     val listState = rememberLazyListState()
@@ -267,10 +270,18 @@ private fun ManualReorderList(
                 color = MaterialTheme.colorScheme.surface,
                 shadowElevation = if (dragging) 8.dp else 1.dp,
             ) {
-                ReorderRow(task, density, ctxByTask[task.id].orEmpty(), tagsByTask[task.id].orEmpty(), listNameOf(task.id),
-                    onOpen = { onOpenTask(task.id) }, onToggle = { vm.toggleComplete(task) },
-                    onCycleFlag = { vm.cycleFlag(task) }, onToggleStar = { vm.toggleStar(task) },
-                    onSetPriority = { vm.setPriority(task, it) })
+                // Same reveal-action swipe as the flat list; disabled mid-reorder so the two
+                // gestures never fight. Long-press still starts a drag (handled on the LazyColumn).
+                SwipeActionBox(
+                    taskId = task.id, rightNear = rightNear, rightFar = rightFar, leftNear = leftNear, leftFar = leftFar,
+                    enabled = draggingId == null, isTrashRestore = false,
+                    onAct = { a -> onSwipe(vm, a, task, false) { onOpenTask(task.id) } },
+                ) {
+                    ReorderRow(task, density, ctxByTask[task.id].orEmpty(), tagsByTask[task.id].orEmpty(), listNameOf(task.id),
+                        onOpen = { onOpenTask(task.id) }, onToggle = { vm.toggleComplete(task) },
+                        onCycleFlag = { vm.cycleFlag(task) }, onToggleStar = { vm.toggleStar(task) },
+                        onSetPriority = { vm.setPriority(task, it) })
+                }
             }
         }
     }
@@ -467,6 +478,64 @@ private fun GroupHeader(title: String, count: Int, open: Boolean, onToggle: () -
         Text(count.toString(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .6f))
         Spacer(Modifier.weight(1f))
         Icon(Icons.Filled.KeyboardArrowDown, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp).rotate(a))
+    }
+}
+
+/**
+ * Reveal-action horizontal swipe, factored out so both the flat list and the manual-reorder list
+ * (custom lists default to manual sort) get identical swipe behaviour. The [content] should paint
+ * its own opaque background so it slides cleanly over the coloured action revealed behind it.
+ */
+@Composable
+private fun SwipeActionBox(
+    taskId: String,
+    rightNear: SwipeAction, rightFar: SwipeAction, leftNear: SwipeAction, leftFar: SwipeAction,
+    enabled: Boolean, isTrashRestore: Boolean, onAct: (SwipeAction) -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val dens = LocalDensity.current
+    val nearPx = with(dens) { 76.dp.toPx() }
+    val farPx = with(dens) { 176.dp.toPx() }
+    val maxPx = with(dens) { 230.dp.toPx() }
+    val offsetX = remember(taskId) { Animatable(0f) }
+    val goingRight = offsetX.value > 0
+    val pendingAction = when {
+        goingRight && offsetX.value >= farPx && rightFar != SwipeAction.NONE -> rightFar
+        goingRight -> rightNear
+        !goingRight && -offsetX.value >= farPx && leftFar != SwipeAction.NONE -> leftFar
+        else -> leftNear
+    }
+    val (bgColor, bgIcon) = swipeVisual(pendingAction, isTrashRestore && goingRight)
+    Box(Modifier.fillMaxWidth()) {
+        if (offsetX.value != 0f && pendingAction != SwipeAction.NONE) {
+            Box(
+                Modifier.matchParentSize().background(bgColor).padding(horizontal = 24.dp),
+                contentAlignment = if (goingRight) Alignment.CenterStart else Alignment.CenterEnd,
+            ) { Icon(bgIcon, null, tint = Color.White) }
+        }
+        Box(
+            Modifier
+                .offset { androidx.compose.ui.unit.IntOffset(offsetX.value.roundToInt(), 0) }
+                .fillMaxWidth().background(MaterialTheme.colorScheme.surface)
+                .draggable(
+                    orientation = androidx.compose.foundation.gestures.Orientation.Horizontal,
+                    enabled = enabled,
+                    state = androidx.compose.foundation.gestures.rememberDraggableState { delta ->
+                        scope.launch { offsetX.snapTo((offsetX.value + delta).coerceIn(-maxPx, maxPx)) }
+                    },
+                    onDragStopped = {
+                        val v = offsetX.value
+                        when {
+                            v >= farPx && rightFar != SwipeAction.NONE -> onAct(rightFar)
+                            v >= nearPx -> onAct(rightNear)
+                            v <= -farPx && leftFar != SwipeAction.NONE -> onAct(leftFar)
+                            v <= -nearPx -> onAct(leftNear)
+                        }
+                        offsetX.animateTo(0f)
+                    },
+                ),
+        ) { content() }
     }
 }
 

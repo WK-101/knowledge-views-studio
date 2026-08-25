@@ -60,6 +60,7 @@ import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.Text
@@ -152,16 +153,26 @@ fun AppDrawer(
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
             var wsMenu by remember { mutableStateOf(false) }
             Box {
-                Row(Modifier.fillMaxWidth().clickable { wsMenu = true }.padding(20.dp, 22.dp, 12.dp, 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Filled.CheckCircle, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(22.dp))
+                Row(Modifier.fillMaxWidth().padding(start = 14.dp, top = 18.dp, end = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    // Workspace switcher (tap the name area) …
+                    Row(
+                        Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).clickable { wsMenu = true }.padding(start = 6.dp, top = 6.dp, bottom = 6.dp, end = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Filled.CheckCircle, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(22.dp))
+                        }
+                        Spacer(Modifier.width(11.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(activeWs?.name ?: "ToDo Companion", fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("Workspace · offline · free", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.Filled.KeyboardArrowDown, "Workspaces", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Spacer(Modifier.width(11.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(activeWs?.name ?: "ToDo Companion", fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text("Workspace · offline · free", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    // … Settings lives here, always reachable at the top rather than buried at the bottom.
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Filled.Settings, "Settings", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Icon(Icons.Filled.KeyboardArrowDown, "Workspaces", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 DropdownMenu(expanded = wsMenu, onDismissRequest = { wsMenu = false }) {
                     Text("WORKSPACES", Modifier.padding(14.dp, 8.dp, 14.dp, 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -214,7 +225,7 @@ fun AppDrawer(
             }
 
             if ("lists" !in hidden) {
-            SectionHeader("Lists", open = open("lists"), onToggle = { toggle("lists") }, onAdd = { onNewList(null) })
+            SectionHeader("Folders & lists", open = open("lists"), onToggle = { toggle("lists") }, onAdd = { onNewList(null) })
             if (open("lists")) {
                 folders.filter { it.parentId == null }.sortedBy { it.sortOrder }.forEach { f ->
                     FolderNode(f, 0, folders, lists, listExpand, current, vm, onSelect, onNewList, onNewFolder, onManageList, onManageFolder, onMoveList, onMoveFolder)
@@ -298,7 +309,6 @@ fun AppDrawer(
                 if ("review" !in hidden) DrawerRow(Icons.Filled.ChecklistRtl, "Weekly review", onClick = onOpenReview)
             }
             }
-            DrawerRow(Icons.Filled.Settings, "Settings", onClick = onOpenSettings)
         }
     }
 }

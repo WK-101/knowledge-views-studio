@@ -62,7 +62,16 @@ fun MatrixScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, showSettings: B
     val s by vm.settings.collectAsState()
     val tasks by vm.tasks.collectAsState()
 
-    val visible = tasks.filter { !it.trashed && !it.abandoned && (s.matrixShowCompleted || !it.completed) }
+    val now = System.currentTimeMillis()
+    val visible = tasks.filter {
+        !it.trashed && !it.abandoned && (s.matrixShowCompleted || !it.completed) &&
+            // List filter (empty = all).
+            (s.matrixListFilter.isEmpty() || it.listId in s.matrixListFilter) &&
+            // Duration cap: keep tasks estimated to fit; unestimated tasks always pass.
+            (s.matrixMaxDuration == 0 || ((it.estimateMin ?: it.estimateMax ?: it.durationMin)?.let { d -> d <= s.matrixMaxDuration } ?: true)) &&
+            // Overdue-only: past its due date and not yet done.
+            (!s.matrixOverdueOnly || (it.dueDate != null && it.dueDate!! < now && !it.completed))
+    }
     val byQuad = visible.groupBy { PriorityEngine.quadrant(it, s.matrixImportanceThreshold, s.matrixUrgencyThreshold) }
         .mapValues { (_, list) -> list.sortedByDescending { maxOf(it.importance, it.urgency) } }
 
@@ -146,9 +155,11 @@ private fun QuadrantCard(q: Int, title: String, tasks: List<TaskEntity>, onOpenT
     }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun MatrixSettings(vm: AppViewModel, s: com.todocompanion.app.domain.AppSettings) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp)) {
+    val lists by vm.lists.collectAsState()
+    Column(Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 4.dp)) {
         Text("Matrix settings", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(14.dp))
         Text("Quadrant names", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -164,7 +175,60 @@ private fun MatrixSettings(vm: AppViewModel, s: com.todocompanion.app.domain.App
         ThresholdRow("Urgent when urgency ≥", s.matrixUrgencyThreshold) { vm.saveSettings(s.copy(matrixUrgencyThreshold = it)) }
         ToggleRow("Show completed", s.matrixShowCompleted) { vm.saveSettings(s.copy(matrixShowCompleted = it)) }
         ToggleRow("List view (hide empty quadrants)", s.matrixHideEmpty) { vm.saveSettings(s.copy(matrixHideEmpty = it)) }
+
+        androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 12.dp))
+        Text("Filters", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(2.dp))
+
+        // Overdue-only.
+        ToggleRow("Overdue only", s.matrixOverdueOnly) { vm.saveSettings(s.copy(matrixOverdueOnly = it)) }
+
+        // Duration cap. 0 = Any; steps of 15 min up to 4h.
         Spacer(Modifier.height(6.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            val durLabel = if (s.matrixMaxDuration == 0) "Any" else "≤ ${s.matrixMaxDuration} min"
+            Text("Max estimated time  $durLabel", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            Slider(
+                value = s.matrixMaxDuration.toFloat(), onValueChange = { vm.saveSettings(s.copy(matrixMaxDuration = (it / 15f).roundToInt() * 15)) },
+                valueRange = 0f..240f, steps = 15, modifier = Modifier.width(150.dp),
+            )
+        }
+
+        // Lists to include (empty = all).
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Lists", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (s.matrixListFilter.isNotEmpty()) Text("Clear", Modifier.clickable { vm.saveSettings(s.copy(matrixListFilter = emptySet())) },
+                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        }
+        Spacer(Modifier.height(4.dp))
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            val allLabel = s.matrixListFilter.isEmpty()
+            FilterChipCell("All", allLabel) { vm.saveSettings(s.copy(matrixListFilter = emptySet())) }
+            lists.filter { !it.archived }.forEach { l ->
+                val on = l.id in s.matrixListFilter
+                FilterChipCell((l.emoji?.plus(" ") ?: "") + l.name, on) {
+                    val next = if (on) s.matrixListFilter - l.id else s.matrixListFilter + l.id
+                    vm.saveSettings(s.copy(matrixListFilter = next))
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FilterChipCell(label: String, selected: Boolean, onClick: () -> Unit) {
+    androidx.compose.material3.Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(20.dp),
+        color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f),
+        border = if (selected) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
+    ) {
+        Text(label, Modifier.padding(horizontal = 12.dp, vertical = 7.dp), style = MaterialTheme.typography.labelMedium,
+            color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

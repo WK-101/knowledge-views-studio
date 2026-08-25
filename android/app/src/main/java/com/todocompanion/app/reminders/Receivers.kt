@@ -69,6 +69,30 @@ class ReminderReceiver : BroadcastReceiver() {
             }
 
             AlarmScheduler.ACTION_FOCUS_DONE -> Notifications.showFocusDone(context)
+
+            AlarmScheduler.ACTION_HABIT -> {
+                if (app == null) return
+                val habitId = intent.getStringExtra(AlarmScheduler.EXTRA_HABIT_ID) ?: return
+                val name = intent.getStringExtra(AlarmScheduler.EXTRA_HABIT_NAME) ?: "your habit"
+                val min = intent.getStringExtra(AlarmScheduler.EXTRA_HABIT_MIN)?.toIntOrNull() ?: return
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val zone = ZoneId.systemDefault()
+                        val todayEpoch = java.time.LocalDate.now(zone).toEpochDay()
+                        val h = app.repository.getHabitsOnce().firstOrNull { it.id == habitId }
+                        // Self-heal: only fire + reschedule while the time is still configured.
+                        val stillWanted = h != null && !h.archived &&
+                            h.reminderTimes.split(",").mapNotNull { it.trim().toIntOrNull() }.contains(min)
+                        if (stillWanted) {
+                            val scheduledToday = com.todocompanion.app.domain.habit.HabitStats.isScheduled(todayEpoch, com.todocompanion.app.domain.habit.HabitStats.parseSchedule(h!!.scheduleDays))
+                            val done = app.repository.getHabitCheckinsOnce().any { it.habitId == habitId && it.epochDay == todayEpoch && it.count >= h.targetPerDay }
+                            if (scheduledToday && !done) Notifications.showHabit(context, habitId, name)
+                            AlarmScheduler.rescheduleHabit(context, habitId, name, min)
+                        }
+                    } finally { pending.finish() }
+                }
+            }
         }
     }
 }
@@ -82,6 +106,7 @@ class BootReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 AlarmScheduler.rescheduleAll(context, app.repository)
+                AlarmScheduler.scheduleHabitReminders(context, app.repository)
                 val s = app.repository.settingsSnapshot()
                 if (s.dailySummaryEnabled) AlarmScheduler.scheduleDailySummary(context, s.dailySummaryHour, s.dailySummaryMinute)
             } finally { pending.finish() }

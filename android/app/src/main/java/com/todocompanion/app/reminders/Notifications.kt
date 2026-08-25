@@ -76,6 +76,19 @@ object Notifications {
         runCatching { NotificationManagerCompat.from(context).notify(FOCUS_ID, n) }
     }
 
+    fun showHabit(context: Context, habitId: String, name: String) {
+        ensureChannel(context)
+        val n = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setContentTitle("Habit reminder")
+            .setContentText("Time for $name")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(openApp(context))
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(("habit:$habitId").hashCode(), n) }
+    }
+
     fun showSummary(context: Context, dueToday: Int) {
         ensureChannel(context)
         val text = if (dueToday == 0) "No tasks due today — enjoy!" else "You have $dueToday task${if (dueToday == 1) "" else "s"} due today."

@@ -66,11 +66,13 @@ class AppRepository(private val db: AppDatabase) {
     private val habits = db.habitDao()
     val allHabits: Flow<List<HabitEntity>> = habits.observeAll()
     val allCheckins: Flow<List<HabitCheckinEntity>> = habits.observeCheckins()
-    suspend fun createHabit(name: String, emoji: String?, colorArgb: Long?, target: Int, workspaceId: String, unit: String? = null, scheduleDays: String = ""): String {
+    suspend fun createHabit(name: String, emoji: String?, colorArgb: Long?, target: Int, workspaceId: String, unit: String? = null, scheduleDays: String = "", reminderTimes: String = ""): String {
         val id = uid()
-        habits.upsert(HabitEntity(id = id, name = name, emoji = emoji, colorArgb = colorArgb, targetPerDay = target.coerceAtLeast(1), unit = unit, scheduleDays = scheduleDays, sortOrder = now().toDouble(), workspaceId = workspaceId, createdAt = now()))
+        habits.upsert(HabitEntity(id = id, name = name, emoji = emoji, colorArgb = colorArgb, targetPerDay = target.coerceAtLeast(1), unit = unit, scheduleDays = scheduleDays, reminderTimes = reminderTimes, sortOrder = now().toDouble(), workspaceId = workspaceId, createdAt = now()))
         return id
     }
+    suspend fun getHabitsOnce(): List<HabitEntity> = habits.getAll()
+    suspend fun getHabitCheckinsOnce(): List<HabitCheckinEntity> = habits.getCheckins()
     suspend fun upsertHabit(h: HabitEntity) = habits.upsert(h)
     suspend fun deleteHabit(id: String) { habits.clearHabit(id); habits.deleteById(id) }
     /** Cycle today's progress: +1 up to target, then back to 0 (removes the check-in). */
@@ -119,6 +121,7 @@ class AppRepository(private val db: AppDatabase) {
         urgency: Int = 3,
         dueDate: Long? = null,
         startDate: Long? = null,
+        folderId: String? = null,
     ): String {
         val id = uid()
         val order = tasks.maxSortOrder(listId, parentId) + 1.0
@@ -126,6 +129,7 @@ class AppRepository(private val db: AppDatabase) {
             TaskEntity(
                 id = id,
                 listId = listId,
+                folderId = folderId,
                 parentId = parentId,
                 sortOrder = order,
                 title = title.ifBlank { "Untitled" },
@@ -232,10 +236,11 @@ class AppRepository(private val db: AppDatabase) {
         val rootOrder = tasks.maxSortOrder(newListId, null) + 1.0
         for (id in ids) {
             val t = tasks.getById(id) ?: continue
+            // Moving into a real list clears any folder-direct association so it lives in one place.
             if (id == rootId) {
-                tasks.upsert(t.copy(listId = newListId, parentId = null, sortOrder = rootOrder, updatedAt = now()))
+                tasks.upsert(t.copy(listId = newListId, folderId = null, parentId = null, sortOrder = rootOrder, updatedAt = now()))
             } else {
-                tasks.upsert(t.copy(listId = newListId, updatedAt = now()))
+                tasks.upsert(t.copy(listId = newListId, folderId = null, updatedAt = now()))
             }
         }
     }
@@ -505,8 +510,9 @@ class AppRepository(private val db: AppDatabase) {
         return id
     }
 
-    /** Instantiate a template into [listId] under [parentId], returning the new root task id. */
-    suspend fun instantiateTemplate(templateId: String, listId: String, parentId: String? = null): String? {
+    /** Instantiate a template into [listId] under [parentId], returning the new root task id.
+     *  If [folderId] is set (and [parentId] is null), the root is captured directly into that folder. */
+    suspend fun instantiateTemplate(templateId: String, listId: String, parentId: String? = null, folderId: String? = null): String? {
         val tpl = templates.getById(templateId) ?: return null
         val payload = runCatching { templateJson.decodeFromString(TemplateTask.serializer(), tpl.payloadJson) }.getOrNull() ?: return null
         val todayStart = java.time.LocalDate.now().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
@@ -525,7 +531,7 @@ class AppRepository(private val db: AppDatabase) {
             val order = tasks.maxSortOrder(listId, parent) + 1.0
             tasks.upsert(
                 TaskEntity(
-                    id = id, listId = listId, parentId = parent, sortOrder = order,
+                    id = id, listId = listId, folderId = if (parent == null) folderId else null, parentId = parent, sortOrder = order,
                     title = node.title.ifBlank { "Untitled" }, note = node.note, isNote = node.isNote,
                     importance = node.importance, urgency = node.urgency,
                     flagId = node.flagId, flagColorArgb = node.flagColorArgb,

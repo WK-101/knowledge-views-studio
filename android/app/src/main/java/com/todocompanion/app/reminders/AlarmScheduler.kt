@@ -20,11 +20,15 @@ object AlarmScheduler {
     const val ACTION_DONE = "com.todocompanion.app.action.DONE"
     const val ACTION_SUMMARY = "com.todocompanion.app.action.SUMMARY"
     const val ACTION_FOCUS_DONE = "com.todocompanion.app.action.FOCUS_DONE"
+    const val ACTION_HABIT = "com.todocompanion.app.action.HABIT"
 
     const val EXTRA_TASK_ID = "taskId"
     const val EXTRA_TITLE = "title"
     const val EXTRA_REMINDER_ID = "reminderId"
     const val EXTRA_ANNOYING = "annoying"
+    const val EXTRA_HABIT_ID = "habitId"
+    const val EXTRA_HABIT_NAME = "habitName"
+    const val EXTRA_HABIT_MIN = "habitMin"
 
     private const val SUMMARY_REQ = 918_273
 
@@ -114,5 +118,31 @@ object AlarmScheduler {
     fun cancelFocusDone(context: Context) {
         val am = context.getSystemService(AlarmManager::class.java) ?: return
         am.cancel(broadcast(context, ACTION_FOCUS_DONE, FOCUS_REQ, emptyMap()))
+    }
+
+    // ---------- habit reminders ----------
+    private fun habitReqCode(habitId: String, minute: Int): Int = (("h:$habitId:$minute").hashCode() and 0x3FFFFFFF) + 1_000_000
+
+    /** Schedule the next occurrence of every configured habit reminder time. Self-healing: a fired
+     *  alarm re-validates against the current habit before reshowing/rescheduling, so removed times
+     *  simply stop. Call after any habit change, at startup, and on boot. */
+    suspend fun scheduleHabitReminders(context: Context, repo: AppRepository, zone: ZoneId = ZoneId.systemDefault()) {
+        val now = System.currentTimeMillis()
+        repo.getHabitsOnce().filter { !it.archived && it.reminderTimes.isNotBlank() }.forEach { h ->
+            h.reminderTimes.split(",").mapNotNull { it.trim().toIntOrNull() }.filter { it in 0..1439 }.forEach { min ->
+                var next = LocalDate.now(zone).atTime(LocalTime.of(min / 60, min % 60)).atZone(zone).toInstant().toEpochMilli()
+                if (next <= now) next += 86_400_000L
+                setAlarm(context, next, broadcast(context, ACTION_HABIT, habitReqCode(h.id, min),
+                    mapOf(EXTRA_HABIT_ID to h.id, EXTRA_HABIT_NAME to ((h.emoji?.plus(" ") ?: "") + h.name), EXTRA_HABIT_MIN to min.toString())))
+            }
+        }
+    }
+
+    /** Reschedule a single habit-reminder alarm for the next day (called from the receiver). */
+    fun rescheduleHabit(context: Context, habitId: String, habitName: String, minute: Int, zone: ZoneId = ZoneId.systemDefault()) {
+        var next = LocalDate.now(zone).atTime(LocalTime.of(minute / 60, minute % 60)).atZone(zone).toInstant().toEpochMilli()
+        if (next <= System.currentTimeMillis()) next += 86_400_000L
+        setAlarm(context, next, broadcast(context, ACTION_HABIT, habitReqCode(habitId, minute),
+            mapOf(EXTRA_HABIT_ID to habitId, EXTRA_HABIT_NAME to habitName, EXTRA_HABIT_MIN to minute.toString())))
     }
 }

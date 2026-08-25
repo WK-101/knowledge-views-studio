@@ -130,6 +130,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
     val reminders by vm.reminders.collectAsState()
     val checklist by vm.checklist.collectAsState()
     val lists by vm.lists.collectAsState()
+    val folders by vm.folders.collectAsState()
     val allDeps by vm.dependencies.collectAsState()
     val allTasks by vm.tasks.collectAsState()
 
@@ -290,10 +291,13 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                 }
             }
             Box {
-                PropRow(Icons.AutoMirrored.Filled.FormatListBulleted, "List", lists.firstOrNull { it.id == task.listId }?.name ?: "Inbox") { listMenu = true }
+                // Folder-direct tasks (empty listId) show the folder they live in until moved to a list.
+                val where = task.folderId?.let { fid -> folders.firstOrNull { it.id == fid }?.name?.let { "📁 $it" } }
+                    ?: lists.firstOrNull { it.id == task.listId }?.name ?: "Inbox"
+                PropRow(Icons.AutoMirrored.Filled.FormatListBulleted, "List", where) { listMenu = true }
                 DropdownMenu(expanded = listMenu, onDismissRequest = { listMenu = false }) {
                     lists.filter { !it.archived }.forEach { l ->
-                        DropdownMenuItem(text = { Text(l.name) }, onClick = { vm.moveToList(task, l.id); draft = task.copy(listId = l.id); listMenu = false })
+                        DropdownMenuItem(text = { Text(l.name) }, onClick = { vm.moveToList(task, l.id); draft = task.copy(listId = l.id, folderId = null); listMenu = false })
                     }
                 }
             }

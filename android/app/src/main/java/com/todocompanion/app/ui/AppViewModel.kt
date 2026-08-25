@@ -199,7 +199,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 is ViewRef.ListView -> all.filter { !it.trashed && !it.completed && !it.abandoned && it.listId == v.listId }
                 is ViewRef.FolderView -> {
                     val listIds = folderListIds(v.folderId, vc.lists, vc.folders)
-                    all.filter { !it.trashed && !it.completed && !it.abandoned && it.listId in listIds }
+                    // Tasks in the folder's lists, plus tasks captured directly into the folder.
+                    all.filter { !it.trashed && !it.completed && !it.abandoned && (it.listId in listIds || it.folderId == v.folderId) }
                 }
                 is ViewRef.TagView -> {
                     val ids = ttRefs.filter { it.tagId == v.tagId }.map { it.taskId }.toSet()
@@ -367,16 +368,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun canOutline(): Boolean = currentView.value is ViewRef.ListView
 
-    // Resolve which list a new task lands in from the current view. A folder view adds into the
-    // folder's first list — or a freshly-created "Tasks" list if the folder is still empty — so
-    // you can capture straight into a folder.
-    private suspend fun resolveAddList(): String = when (val v = currentView.value) {
-        is ViewRef.ListView -> v.listId
-        is ViewRef.FolderView -> lists.value
-            .filter { it.folderId == v.folderId && it.parentListId == null && !it.archived }
-            .minByOrNull { it.sortOrder }?.id
-            ?: repo.createList("Tasks", v.folderId, null, workspaceId = settings.value.activeWorkspaceId)
-        else -> ListEntity.INBOX_ID
+    // Resolve where a new task lands from the current view, as (listId, folderId). A folder view
+    // captures the task *directly into the folder* (empty listId + folderId set) — no phantom list —
+    // so it shows in the folder alongside its lists' tasks.
+    private fun resolveAddTarget(): Pair<String, String?> = when (val v = currentView.value) {
+        is ViewRef.ListView -> v.listId to null
+        is ViewRef.FolderView -> "" to v.folderId
+        else -> ListEntity.INBOX_ID to null
     }
 
     /** A legible breakdown of a task's Do-Next priority score — surfaced in the task detail. */
@@ -395,11 +393,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val level = opts.priority ?: parsed.priority
         val imp = level?.importance ?: 3
         val urg = level?.urgency ?: 3
-        // ~list resolves to an existing list by name (case-insensitive); otherwise fall back.
-        val listId = opts.listId
+        // ~list resolves to an existing list by name (case-insensitive); otherwise fall back to the
+        // current view's target, which for a folder view is the folder itself (no list).
+        val explicitList = opts.listId
             ?: parsed.list?.let { name -> lists.value.firstOrNull { !it.archived && it.name.equals(name, ignoreCase = true) }?.id }
-            ?: resolveAddList()
-        val id = repo.createTask(listId, parsed.title.ifBlank { "Untitled" }, importance = imp, urgency = urg, dueDate = due)
+        val (listId, folderId) = if (explicitList != null) explicitList to null else resolveAddTarget()
+        val id = repo.createTask(listId, parsed.title.ifBlank { "Untitled" }, importance = imp, urgency = urg, dueDate = due, folderId = folderId)
 
         val tagIds = opts.tagIds.toMutableList()
         if (parsed.tags.isNotEmpty()) {
@@ -618,10 +617,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---------- habits ----------
-    fun createHabit(name: String, emoji: String?, colorArgb: Long?, target: Int, unit: String? = null, scheduleDays: String = "") = viewModelScope.launch {
-        repo.createHabit(name.trim(), emoji, colorArgb, target, settings.value.activeWorkspaceId, unit, scheduleDays)
+    fun createHabit(name: String, emoji: String?, colorArgb: Long?, target: Int, unit: String? = null, scheduleDays: String = "", reminderTimes: String = "") = viewModelScope.launch {
+        repo.createHabit(name.trim(), emoji, colorArgb, target, settings.value.activeWorkspaceId, unit, scheduleDays, reminderTimes)
+        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
     }
-    fun saveHabit(h: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch { repo.upsertHabit(h) }
+    fun saveHabit(h: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch {
+        repo.upsertHabit(h)
+        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
+    }
     fun deleteHabit(id: String) = viewModelScope.launch { repo.deleteHabit(id) }
     fun cycleHabit(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, current: Int) = viewModelScope.launch {
         repo.cycleCheckin(h.id, epochDay, h.targetPerDay, current)
@@ -738,7 +741,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun renameTemplate(id: String, name: String) = viewModelScope.launch { repo.renameTemplate(id, name) }
     /** Drop a template into the current view's list (or Inbox), opening its new root if requested. */
     fun insertTemplateHere(templateId: String, onDone: (String?) -> Unit = {}) = viewModelScope.launch {
-        val id = repo.instantiateTemplate(templateId, resolveAddList())
+        val (listId, folderId) = resolveAddTarget()
+        val id = repo.instantiateTemplate(templateId, listId, folderId = folderId)
         onDone(id)
     }
     fun cyclePriority(t: TaskEntity) = viewModelScope.launch {

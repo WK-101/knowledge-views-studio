@@ -41,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -87,10 +88,10 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     }
 
     if (addOpen) HabitDialog(null, onDismiss = { addOpen = false }, onDelete = {},
-        onSave = { name, emoji, color, target, unit, sched -> vm.createHabit(name, emoji, color, target, unit, sched); addOpen = false })
+        onSave = { name, emoji, color, target, unit, sched, rem -> vm.createHabit(name, emoji, color, target, unit, sched, rem); addOpen = false })
     editing?.let { h ->
         HabitDialog(h, onDismiss = { editing = null }, onDelete = { vm.deleteHabit(h.id); editing = null },
-            onSave = { name, emoji, color, target, unit, sched -> vm.saveHabit(h.copy(name = name, emoji = emoji, colorArgb = color, targetPerDay = target, unit = unit, scheduleDays = sched)); editing = null })
+            onSave = { name, emoji, color, target, unit, sched, rem -> vm.saveHabit(h.copy(name = name, emoji = emoji, colorArgb = color, targetPerDay = target, unit = unit, scheduleDays = sched, reminderTimes = rem)); editing = null })
     }
 }
 
@@ -151,16 +152,18 @@ private fun HabitRow(h: HabitEntity, todayCount: Int, streak: Int, rate: Float, 
 }
 
 @Composable
-private fun HabitDialog(existing: HabitEntity?, onDismiss: () -> Unit, onDelete: () -> Unit, onSave: (String, String?, Long?, Int, String?, String) -> Unit) {
+private fun HabitDialog(existing: HabitEntity?, onDismiss: () -> Unit, onDelete: () -> Unit, onSave: (String, String?, Long?, Int, String?, String, String) -> Unit) {
     var name by remember { mutableStateOf(existing?.name ?: "") }
     var emoji by remember { mutableStateOf(existing?.emoji ?: "") }
     var unit by remember { mutableStateOf(existing?.unit ?: "") }
     var color by remember { mutableStateOf(existing?.colorArgb ?: HABIT_COLORS.first()) }
     var target by remember { mutableStateOf(existing?.targetPerDay ?: 1) }
     var days by remember { mutableStateOf(HabitStats.parseSchedule(existing?.scheduleDays ?: "")) }
+    var reminders by remember { mutableStateOf(existing?.reminderTimes.orEmpty().split(",").mapNotNull { it.trim().toIntOrNull() }.filter { it in 0..1439 }.toSortedSet()) }
+    val ctx = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onSave(name.trim(), emoji.trim().ifBlank { null }, color, target, unit.trim().ifBlank { null }, days.sorted().joinToString(",")) }) { Text("Save") } },
+        confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onSave(name.trim(), emoji.trim().ifBlank { null }, color, target, unit.trim().ifBlank { null }, days.sorted().joinToString(","), reminders.sorted().joinToString(",")) }) { Text("Save") } },
         dismissButton = { if (existing != null) TextButton(onClick = onDelete) { Text("Delete", color = MaterialTheme.colorScheme.error) } else TextButton(onClick = onDismiss) { Text("Cancel") } },
         title = { Text(if (existing == null) "New habit" else "Habit") },
         text = {
@@ -205,6 +208,22 @@ private fun HabitDialog(existing: HabitEntity?, onDismiss: () -> Unit, onDelete:
                 }
                 Text(if (days.isEmpty()) "No days selected = every day" else "On selected days only",
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(top = 4.dp))
+
+                Spacer(Modifier.size(12.dp))
+                Text("Reminders", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                reminders.sorted().forEach { m ->
+                    Row(Modifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("🔔  " + "%02d:%02d".format(m / 60, m % 60), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        TextButton(onClick = { reminders = reminders.toSortedSet().also { it.remove(m) } }) { Text("Remove") }
+                    }
+                }
+                TextButton(onClick = {
+                    val n = java.time.LocalTime.now()
+                    android.app.TimePickerDialog(ctx, { _, h, min -> reminders = reminders.toSortedSet().also { it.add(h * 60 + min) } },
+                        n.hour, n.minute, android.text.format.DateFormat.is24HourFormat(ctx)).show()
+                }) { Text("＋ Add reminder time") }
+                Text("A local notification fires at each time, on scheduled days, until you complete it.",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
             }
         },
     )
