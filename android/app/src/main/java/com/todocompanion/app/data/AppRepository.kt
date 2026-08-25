@@ -157,10 +157,17 @@ class AppRepository(private val db: AppDatabase) {
         if (next > ceiling) habits.deleteCheckin(habitId, epochDay)
         else {
             val existing = habits.getCheckin(habitId, epochDay)
-            habits.upsertCheckin(HabitCheckinEntity(habitId, epochDay, next, status = "done", reason = existing?.reason ?: "", photoUri = existing?.photoUri))
+            habits.upsertCheckin(HabitCheckinEntity(habitId, epochDay, next, status = "done", reason = existing?.reason ?: "", photoUri = existing?.photoUri,
+                doneAtMinute = existing?.doneAtMinute ?: stampMinute(epochDay)))
             // K2: reaching the stretch goal earns a streak-freeze token (once per day, capped).
             if (extra != null && current < extra && next >= extra) awardFreeze(habitId)
         }
+    }
+    /** O2: the current minute-of-day (0–1439) when marking *today* done — else null (past days unstamped). */
+    private fun stampMinute(epochDay: Long): Int? {
+        val z = java.time.ZoneId.systemDefault()
+        if (java.time.LocalDate.now(z).toEpochDay() != epochDay) return null
+        val t = java.time.LocalTime.now(z); return t.hour * 60 + t.minute
     }
     /** K2: grant one streak-freeze token, capped at 5, for overachieving. */
     suspend fun awardFreeze(habitId: String) {
@@ -187,7 +194,8 @@ class AppRepository(private val db: AppDatabase) {
         if (count <= 0) habits.deleteCheckin(habitId, epochDay)
         else {
             val existing = habits.getCheckin(habitId, epochDay)
-            habits.upsertCheckin(HabitCheckinEntity(habitId, epochDay, count, status = "done", reason = existing?.reason ?: "", photoUri = existing?.photoUri))
+            habits.upsertCheckin(HabitCheckinEntity(habitId, epochDay, count, status = "done", reason = existing?.reason ?: "", photoUri = existing?.photoUri,
+                doneAtMinute = existing?.doneAtMinute ?: stampMinute(epochDay)))
         }
     }
     /**
@@ -837,6 +845,18 @@ class AppRepository(private val db: AppDatabase) {
         ensureDefaultWorkspace()
         ensureInbox()
         ensureDefaultFlags()
+    }
+
+    /**
+     * O4: import a backup by MERGING into the current data instead of replacing it — moving between
+     * phones, or combining two devices, without losing either side. Reuses the last-write-wins sync
+     * policy (tasks by updatedAt, check-ins by higher count, structural rows by the newer snapshot).
+     */
+    suspend fun importJsonMerge(text: String) {
+        val incoming = Backup.decode(text)
+        val merged = com.todocompanion.app.data.sync.SyncEngine.merge(snapshot(), incoming)
+        applyMerged(merged)
+        ensureDefaultWorkspace(); ensureInbox(); ensureDefaultFlags()
     }
 
     /** Full snapshot of the current data as a BackupFile (for sync merges). */

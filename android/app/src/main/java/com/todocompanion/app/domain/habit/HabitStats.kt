@@ -239,6 +239,22 @@ object HabitStats {
         return FloatArray(7) { if (opp[it] == 0) 0f else hit[it].toFloat() / opp[it] }
     }
 
+    /**
+     * O2: the typical time-of-day this habit is actually logged — the median stamped completion
+     * minute over recent done days. Needs at least [minSamples] stamps to be meaningful; else null.
+     */
+    fun typicalDoneMinute(checkins: List<com.todocompanion.app.data.entity.HabitCheckinEntity>, minSamples: Int = 4): Int? {
+        val mins = checkins.filter { it.status == "done" && it.doneAtMinute != null }.mapNotNull { it.doneAtMinute }.sorted()
+        if (mins.size < minSamples) return null
+        return mins[mins.size / 2]
+    }
+
+    /** Format a minute-of-day (0–1439) as a short local clock label, e.g. "8:10 AM". */
+    fun minuteLabel(minute: Int): String {
+        val t = java.time.LocalTime.of((minute / 60).coerceIn(0, 23), (minute % 60).coerceIn(0, 59))
+        return t.format(java.time.format.DateTimeFormatter.ofPattern("h:mm a"))
+    }
+
     /** A short human label for a habit's frequency. */
     fun frequencyLabel(habit: HabitEntity): String = when (habit.freqType) {
         FREQ_TIMES_WEEK -> "${habit.freqParam}× per week"

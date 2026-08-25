@@ -176,6 +176,13 @@ fun HabitDetailScreen(
             // 1. Header
             Header(h, color)
 
+            // O2: the real time-of-day this habit gets done, from stamped completions.
+            val typicalMinute = remember(hc) { HabitStats.typicalDoneMinute(hc) }
+            if (typicalMinute != null) {
+                Text("⏰ You usually do this around ${HabitStats.minuteLabel(typicalMinute)}",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
             // 1a. L4 — recovery mode: when strength has crashed but there's real history, replace the
             //     broken-streak sting with a kind restart. Resetting the start date gives a clean slate.
             if (!isBreak && strength < 25 && (best >= 7 || hc.size >= 14)) {
@@ -291,15 +298,21 @@ fun HabitDetailScreen(
                 }
             }
 
-            // 2. Strength ring
+            // 2+3. E3: strength ring and stat tiles share one row — the ring on the left, the key numbers
+            //      as a compact grid on the right, so the "at a glance" block fits one screen instead of two cards.
             SectionCard {
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     StrengthRing(strength, color)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        tiles.chunked(2).forEach { pair ->
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                pair.forEach { (label, value) -> StatTile(label, value, Modifier.weight(1f)) }
+                                if (pair.size == 1) Spacer(Modifier.weight(1f))
+                            }
+                        }
+                    }
                 }
             }
-
-            // 3. Stat tiles
-            StatGrid(tiles)
 
             // 4. Weekday bars
             SectionCard(title = "Best days") {
@@ -550,9 +563,9 @@ private fun SectionCard(title: String? = null, content: @Composable ColumnScope.
 @Composable
 private fun StrengthRing(strength: Int, color: Color) {
     val track = MaterialTheme.colorScheme.surfaceVariant
-    Box(Modifier.size(158.dp), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(128.dp), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
-            val stroke = 16.dp.toPx()
+            val stroke = 14.dp.toPx()
             val inset = stroke / 2f
             val arcSize = Size(size.width - stroke, size.height - stroke)
             drawArc(track, -90f, 360f, false, topLeft = Offset(inset, inset), size = arcSize, style = Stroke(stroke, cap = StrokeCap.Round))

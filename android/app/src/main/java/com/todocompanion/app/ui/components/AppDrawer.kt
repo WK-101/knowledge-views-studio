@@ -203,7 +203,18 @@ fun AppDrawer(
             // Expand state for nested lists (default expanded).
             val listExpand = remember { mutableStateMapOf<String, Boolean>() }
 
-            if ("fav" !in hidden) PinnedFavourites(settings.pinnedRefs, lists, folders, tags, contexts, vm, current, onSelect, open = open("fav"), onToggle = { toggle("fav") })
+            if ("fav" !in hidden) PinnedFavourites(settings.pinnedRefs, lists, folders, tags, contexts, vm, current, onSelect,
+                onOpenRef = { ref ->
+                    when {
+                        ref.startsWith("view:") -> onOpenTab(ref.removePrefix("view:"))
+                        ref == "more:templates" -> onOpenTemplates()
+                        ref == "more:countdowns" -> onOpenCountdowns()
+                        ref == "more:attachments" -> onOpenAttachments()
+                        ref == "more:statistics" -> onOpenStats()
+                        ref == "more:review" -> onOpenReview()
+                    }
+                },
+                open = open("fav"), onToggle = { toggle("fav") })
 
             if ("smart" !in hidden) {
             SectionHeader("Smart lists", open = open("smart"), onToggle = { toggle("smart") })
@@ -303,7 +314,9 @@ fun AppDrawer(
                     .mapNotNull { key -> defaultViews.firstOrNull { it.key == key } }
                     .filter { it.key !in hidden }
                 DragReorderColumn(orderedViews, id = { it.key }, onReorder = { vm.setViewsOrder(it) }) { v ->
-                    DrawerRow(v.icon, v.label, onClick = { onOpenTab(v.tab) })
+                    // E4: long-press any view to pin it to Favourites (token "view:TAB").
+                    DrawerRow(v.icon, v.label, pinned = vm.isPinned("view:${v.tab}"),
+                        onLongClick = { vm.togglePinnedRef("view:${v.tab}") }, onClick = { onOpenTab(v.tab) })
                 }
             }
             }
@@ -311,11 +324,12 @@ fun AppDrawer(
             if ("more" !in hidden) {
             SectionHeader("More", open = open("more"), onToggle = { toggle("more") })
             if (open("more")) {
-                if ("templates" !in hidden) DrawerRow(Icons.Filled.ContentCopy, "Templates", onClick = onOpenTemplates)
-                if ("countdowns" !in hidden) DrawerRow(Icons.Filled.Timelapse, "Countdowns", onClick = onOpenCountdowns)
-                if ("attachments" !in hidden) DrawerRow(Icons.Filled.AttachFile, "Attachments", onClick = onOpenAttachments)
-                if ("statistics" !in hidden) DrawerRow(Icons.Filled.BarChart, "Statistics", onClick = onOpenStats)
-                if ("review" !in hidden) DrawerRow(Icons.Filled.ChecklistRtl, "Weekly review", onClick = onOpenReview)
+                // E4: long-press any "More" item to pin it to Favourites (token "more:key").
+                if ("templates" !in hidden) DrawerRow(Icons.Filled.ContentCopy, "Templates", pinned = vm.isPinned("more:templates"), onLongClick = { vm.togglePinnedRef("more:templates") }, onClick = onOpenTemplates)
+                if ("countdowns" !in hidden) DrawerRow(Icons.Filled.Timelapse, "Countdowns", pinned = vm.isPinned("more:countdowns"), onLongClick = { vm.togglePinnedRef("more:countdowns") }, onClick = onOpenCountdowns)
+                if ("attachments" !in hidden) DrawerRow(Icons.Filled.AttachFile, "Attachments", pinned = vm.isPinned("more:attachments"), onLongClick = { vm.togglePinnedRef("more:attachments") }, onClick = onOpenAttachments)
+                if ("statistics" !in hidden) DrawerRow(Icons.Filled.BarChart, "Statistics", pinned = vm.isPinned("more:statistics"), onLongClick = { vm.togglePinnedRef("more:statistics") }, onClick = onOpenStats)
+                if ("review" !in hidden) DrawerRow(Icons.Filled.ChecklistRtl, "Weekly review", pinned = vm.isPinned("more:review"), onLongClick = { vm.togglePinnedRef("more:review") }, onClick = onOpenReview)
             }
             }
         }
@@ -515,19 +529,41 @@ private fun PinnedFavourites(
     lists: List<ListEntity>, folders: List<FolderEntity>,
     tags: List<com.todocompanion.app.data.entity.TagEntity>, contexts: List<com.todocompanion.app.data.entity.ContextEntity>,
     vm: AppViewModel, current: ViewRef, onSelect: (ViewRef) -> Unit,
+    onOpenRef: (String) -> Unit = {},
     open: Boolean = true, onToggle: (() -> Unit)? = null,
 ) {
     val filters by vm.filters.collectAsState()
-    data class Pin(val icon: ImageVector, val emoji: String?, val label: String, val color: Color?, val view: ViewRef, val ref: String)
+    val counts by vm.smartCounts.collectAsState()
+    val settings by vm.settings.collectAsState()
+    // E4: view:/more: pins open a tab or screen; they aren't a ViewRef, so they carry an action.
+    // E5: a smart pin set to "Show if not empty" (AUTO) drops out when its count is 0 (unless active),
+    // mirroring the Smart-lists section so a pinned tile can't linger empty.
+    data class Pin(val icon: ImageVector, val emoji: String?, val label: String, val color: Color?, val ref: String, val selected: Boolean, val onOpen: () -> Unit)
+    fun viewMeta(tab: String): Pair<ImageVector, String>? = when (tab) {
+        "CALENDAR" -> Icons.Filled.CalendarMonth to "Calendar"; "TIMELINE" -> Icons.Filled.ViewTimeline to "Timeline"
+        "MATRIX" -> Icons.Filled.GridView to "Matrix"; "HABITS" -> Icons.Filled.LocalFireDepartment to "Habits"
+        "FOCUS" -> Icons.Filled.Timer to "Focus"; else -> null
+    }
+    fun moreMeta(key: String): Pair<ImageVector, String>? = when (key) {
+        "templates" -> Icons.Filled.ContentCopy to "Templates"; "countdowns" -> Icons.Filled.Timelapse to "Countdowns"
+        "attachments" -> Icons.Filled.AttachFile to "Attachments"; "statistics" -> Icons.Filled.BarChart to "Statistics"
+        "review" -> Icons.Filled.ChecklistRtl to "Weekly review"; else -> null
+    }
     val resolved = refs.mapNotNull { ref ->
         val id = ref.substringAfter(':')
         when (ref.substringBefore(':')) {
-            "smart" -> runCatching { SmartKind.valueOf(id) }.getOrNull()?.let { k -> Pin(smartIcon(k), null, k.title, null, ViewRef.Smart(k), ref) }
-            "list" -> lists.firstOrNull { it.id == id }?.let { Pin(Icons.AutoMirrored.Filled.FormatListBulleted, it.emoji, it.name, it.colorArgb?.let(::Color), ViewRef.ListView(id), ref) }
-            "folder" -> folders.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.Folder, it.icon, it.name, null, ViewRef.FolderView(id), ref) }
-            "tag" -> tags.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.Label, null, "#" + it.name, it.colorArgb?.let(::Color), ViewRef.TagView(id), ref) }
-            "context" -> contexts.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.Place, null, "@" + it.name, it.colorArgb?.let(::Color), ViewRef.ContextView(id), ref) }
-            "filter" -> filters.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.FilterList, null, it.name, it.colorArgb?.let(::Color), ViewRef.FilterView(id), ref) }
+            "smart" -> runCatching { SmartKind.valueOf(id) }.getOrNull()?.let { k ->
+                val active = (current as? ViewRef.Smart)?.kind == k
+                val hideEmpty = (settings.smartListVis[k] ?: SmartVis.SHOW) == SmartVis.AUTO && (counts[k] ?: 0) == 0 && !active
+                if (hideEmpty) null else Pin(smartIcon(k), null, k.title, null, ref, active) { onSelect(ViewRef.Smart(k)) }
+            }
+            "list" -> lists.firstOrNull { it.id == id }?.let { Pin(Icons.AutoMirrored.Filled.FormatListBulleted, it.emoji, it.name, it.colorArgb?.let(::Color), ref, current == ViewRef.ListView(id)) { onSelect(ViewRef.ListView(id)) } }
+            "folder" -> folders.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.Folder, it.icon, it.name, null, ref, current == ViewRef.FolderView(id)) { onSelect(ViewRef.FolderView(id)) } }
+            "tag" -> tags.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.Label, null, "#" + it.name, it.colorArgb?.let(::Color), ref, current == ViewRef.TagView(id)) { onSelect(ViewRef.TagView(id)) } }
+            "context" -> contexts.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.Place, null, "@" + it.name, it.colorArgb?.let(::Color), ref, current == ViewRef.ContextView(id)) { onSelect(ViewRef.ContextView(id)) } }
+            "filter" -> filters.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.FilterList, null, it.name, it.colorArgb?.let(::Color), ref, current == ViewRef.FilterView(id)) { onSelect(ViewRef.FilterView(id)) } }
+            "view" -> viewMeta(id)?.let { (ic, lbl) -> Pin(ic, null, lbl, null, ref, false) { onOpenRef(ref) } }
+            "more" -> moreMeta(id)?.let { (ic, lbl) -> Pin(ic, null, lbl, null, ref, false) { onOpenRef(ref) } }
             else -> null
         }
     }
@@ -539,14 +575,14 @@ private fun PinnedFavourites(
         resolved.chunked(4).forEach { rowItems ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 rowItems.forEach { p ->
-                    val selected = current == p.view
+                    val selected = p.selected
                     val accent = p.color ?: MaterialTheme.colorScheme.primary
                     Box(Modifier.weight(1f)) {
                         Column(
                             Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
                                 .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f))
                                 .combinedClickable(
-                                    onClick = { if (unpinTarget != null) unpinTarget = null else onSelect(p.view) },
+                                    onClick = { if (unpinTarget != null) unpinTarget = null else p.onOpen() },
                                     onLongClick = { unpinTarget = if (unpinTarget == p.ref) null else p.ref },
                                 )
                                 .padding(vertical = 12.dp, horizontal = 6.dp),
@@ -705,7 +741,7 @@ private fun SmartRow(kind: SmartKind, count: Int?, selected: Boolean, vm: AppVie
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun DrawerRow(icon: ImageVector, label: String, count: Int? = null, selected: Boolean = false, muted: Boolean = false, onLongClick: (() -> Unit)? = null, onClick: () -> Unit = {}) {
+private fun DrawerRow(icon: ImageVector, label: String, count: Int? = null, selected: Boolean = false, muted: Boolean = false, pinned: Boolean = false, onLongClick: (() -> Unit)? = null, onClick: () -> Unit = {}) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
             .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
@@ -718,6 +754,8 @@ private fun DrawerRow(icon: ImageVector, label: String, count: Int? = null, sele
         Text(label, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
             color = if (muted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
-        if (count != null) Text(count.toString(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // E4: a small filled pin marks a favourited row; long-press toggles it.
+        if (pinned) Icon(Icons.Filled.PushPin, "Pinned", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(15.dp))
+        if (count != null) { if (pinned) Spacer(Modifier.width(6.dp)); Text(count.toString(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }

@@ -880,16 +880,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun saveHabit(h: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch {
         repo.upsertHabit(h)
         com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
-        // K6: keep the place geofence in sync with the saved coordinates.
-        if (h.latitude != null && h.longitude != null) com.todocompanion.app.reminders.LocationReminders.registerHabit(appCtx, h)
-        else com.todocompanion.app.reminders.LocationReminders.unregisterHabit(appCtx, h)
         com.todocompanion.app.widget.HabitsWidget.refresh(appCtx)
     }
     /** Create from a fully-built habit (Tier I editor). Workspace defaults to the active one. */
     fun addHabit(h: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch {
         repo.createHabit(h.copy(workspaceId = h.workspaceId.ifBlank { settings.value.activeWorkspaceId }))
         com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
-        if (h.latitude != null && h.longitude != null) com.todocompanion.app.reminders.LocationReminders.registerAll(appCtx, repo)
         refreshHabitWidgets()
     }
     /** M4: render a habit's progress to a PNG on-device and open the share sheet. onDone gets the saved location. */
@@ -947,11 +943,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val ws = settings.value.activeWorkspaceId
         habits.forEach { repo.createHabit(it.copy(workspaceId = it.workspaceId.ifBlank { ws })) }
         com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
-        com.todocompanion.app.reminders.LocationReminders.registerAll(appCtx, repo)
         refreshHabitWidgets()
     }
     fun deleteHabit(id: String) = viewModelScope.launch {
-        repo.getHabitsOnce().firstOrNull { it.id == id }?.let { com.todocompanion.app.reminders.LocationReminders.unregisterHabit(appCtx, it) }
         repo.deleteHabit(id); refreshHabitWidgets()
     }
     // N2: reward-unlock celebration — surfaced to the Habits screen (confetti + toast) and a notification.
@@ -1268,22 +1262,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /**
      * The dialog hands each mutator an open-time [ContextEntity] snapshot that is never refreshed, so
      * a `c.copy(...)` on it silently reverts every field another mutator changed while the dialog was
-     * open (e.g. Save's rename wiping the geofence lat/lng that "arrive here" had just written). Always
-     * read-modify-write the *current* persisted row so edits merge instead of clobbering.
+     * open. Always read-modify-write the *current* persisted row so edits merge instead of clobbering.
      */
     private fun curContext(c: ContextEntity): ContextEntity = contexts.value.firstOrNull { it.id == c.id } ?: c
     fun renameContext(c: ContextEntity, name: String) = viewModelScope.launch { repo.upsertContext(curContext(c).copy(name = name.trim())) }
     fun setContextColor(c: ContextEntity, argb: Long?) = viewModelScope.launch { repo.upsertContext(curContext(c).copy(colorArgb = argb)) }
-    /** Give a context a geofence so arriving there auto-surfaces its tasks (E3). */
-    fun setContextLocation(c: ContextEntity, lat: Double, lng: Double, radiusM: Double = 150.0) = viewModelScope.launch {
-        val nc = curContext(c).copy(latitude = lat, longitude = lng, radiusM = radiusM)
-        repo.upsertContext(nc)
-        com.todocompanion.app.reminders.LocationReminders.registerContext(appCtx, nc)
-    }
-    fun clearContextLocation(c: ContextEntity) = viewModelScope.launch {
-        com.todocompanion.app.reminders.LocationReminders.unregisterContext(appCtx, c)
-        repo.upsertContext(curContext(c).copy(latitude = null, longitude = null, radiusM = null))
-    }
     fun setContextActive(c: ContextEntity, active: Boolean) = viewModelScope.launch { repo.upsertContext(curContext(c).copy(active = active)) }
     fun setContextHours(c: ContextEntity, json: String?) = viewModelScope.launch { repo.upsertContext(curContext(c).copy(openHoursJson = json)) }
     fun deleteContext(c: ContextEntity) = viewModelScope.launch {
@@ -1331,21 +1314,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.upsertReminder(nr)
         AlarmScheduler.cancel(appCtx, reminder, task); AlarmScheduler.schedule(appCtx, nr, task)
     }
-    /** A geofence-style reminder that fires on arriving at / leaving a point. Fully on-device. */
-    fun addLocationReminder(task: TaskEntity, lat: Double, lng: Double, radiusM: Double, placeName: String?, onEnter: Boolean) = viewModelScope.launch {
-        val r = ReminderEntity(UUID.randomUUID().toString(), taskId = task.id, type = "location",
-            latitude = lat, longitude = lng, radiusM = radiusM, placeName = placeName, onEnter = onEnter)
-        repo.upsertReminder(r)
-        com.todocompanion.app.reminders.LocationReminders.register(appCtx, r, task)
-    }
     fun deleteReminder(reminder: ReminderEntity, task: TaskEntity) = viewModelScope.launch {
         repo.deleteReminder(reminder.id)
-        if (reminder.type == "location") com.todocompanion.app.reminders.LocationReminders.unregister(appCtx, reminder, task)
-        else AlarmScheduler.cancel(appCtx, reminder, task)
-    }
-    /** Called after the user grants location permission, to arm any pending place reminders. */
-    fun rearmLocationReminders() = viewModelScope.launch {
-        com.todocompanion.app.reminders.LocationReminders.registerAll(appCtx, repo)
+        AlarmScheduler.cancel(appCtx, reminder, task)
     }
 
     // ---------- settings ----------
@@ -1428,6 +1399,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         return tasks.value.filter {
             !it.trashed && (it.title.lowercase().contains(q) || it.note.lowercase().contains(q) || it.id in byTag || it.id in byCtx)
         }
+    }
+
+    /** E1: search across all habits too — name, description, identity/"why", category and unit. */
+    fun searchHabits(query: String): List<com.todocompanion.app.data.entity.HabitEntity> {
+        val q = query.trim().lowercase().removePrefix("#").removePrefix("@")
+        if (q.isBlank()) return emptyList()
+        return habits.value.filter { h ->
+            !h.archived && (h.name.lowercase().contains(q) || h.description.lowercase().contains(q) ||
+                h.identity.lowercase().contains(q) || h.category.lowercase().contains(q) ||
+                (h.unit?.lowercase()?.contains(q) == true))
+        }.sortedBy { it.sortOrder }
     }
 
     // ---------- export / import ----------
@@ -1608,6 +1590,32 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 repo.importJsonReplace(plain); AlarmScheduler.rescheduleAll(appCtx, repo); true
             }.getOrDefault(false)
             onDone(ok, if (ok) "Restored from ${s.name}" else "Restore failed — is this a ToDo Companion backup?")
+        } else importExternalText(text, onDone)
+    }
+
+    /**
+     * E9: import a backup a file manager handed us via "Open with" / "Share" (a content:// URI that
+     * grants a temporary read — no storage permission needed). Reuses the restore pipeline; sniffs
+     * JSON vs external (CSV/OPML) when the filename carries no usable extension.
+     */
+    fun importFromIntent(uri: Uri, merge: Boolean = false, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
+        val name = displayNameOf(uri) ?: ""
+        val text = withContext(Dispatchers.IO) {
+            runCatching { appCtx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull()
+        }
+        if (text.isNullOrBlank()) { onDone(false, "Couldn't read that file. Try 'Share → ToDo Companion' from your file manager."); return@launch }
+        val external = name.endsWith(".csv", true) || name.endsWith(".opml", true) ||
+            name.endsWith(".md", true) || name.endsWith(".txt", true) || name.endsWith(".ics", true)
+        val looksJson = !external && (name.endsWith(".json", true) ||
+            text.trimStart().firstOrNull()?.let { it == '{' || it == '[' } == true)
+        if (looksJson) {
+            val ok = runCatching {
+                val plain = com.todocompanion.app.data.sync.Crypto.decrypt(text, settings.value.syncPassphrase) ?: text
+                if (merge) repo.importJsonMerge(plain) else repo.importJsonReplace(plain)
+                AlarmScheduler.rescheduleAll(appCtx, repo); true
+            }.getOrDefault(false)
+            val verb = if (merge) "Merged" else "Restored"
+            onDone(ok, if (ok) "$verb ${name.ifBlank { "your backup" }}" else "That file isn't a valid ToDo Companion backup")
         } else importExternalText(text, onDone)
     }
 

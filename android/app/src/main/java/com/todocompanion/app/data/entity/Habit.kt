@@ -85,6 +85,9 @@ data class HabitCheckinEntity(
     val reason: String = "",
     // K5: an optional photo attached to this day (a content/file uri copied into app storage).
     val photoUri: String? = null,
+    // O2: minute-of-day (0–1439) this day was first marked done, for real "you usually do this at…"
+    // timing insight and a time-of-day view. Null for days logged before O2 or backfilled.
+    val doneAtMinute: Int? = null,
 )
 
 /** A completed focus (Pomodoro / stopwatch) session, for the focus tab + statistics. */

@@ -5,8 +5,7 @@
       NO android.permission.INTERNET is declared. The app is incapable of network
       access: fully offline and private by construction.
       The permissions below are all local-only: scheduling reminders, posting
-      notifications, and reading the device's own GPS for on-device proximity
-      alerts (no network, no Play Services, no location ever leaves the device).
+      notifications, and reading a user-chosen backup file (no network of any kind).
     -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
@@ -14,21 +13,17 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    <!-- On-device location for arrive/leave reminders. Optional; requested at runtime. -->
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <!--
       Browse & read a user-chosen backup file with NO system document picker (de-Googled ROMs lack
       com.android.documentsui). These are LOCAL-STORAGE permissions only — they grant filesystem access,
       never network. INTERNET remains absent, so the app is still incapable of any network access.
+      The primary import path (Open with / Share → ToDo Companion) needs NEITHER of these; they only
+      back the optional in-app file browser.
       READ_EXTERNAL_STORAGE is capped at API 29 (it does nothing for non-media files on 30+);
       MANAGE_EXTERNAL_STORAGE ("All files access", user-granted & revocable) covers API 30+.
     -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
-    <uses-feature android:name="android.hardware.location" android:required="false" />
-    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 
     <application
         android:name=".App"
@@ -61,6 +56,43 @@
                 <action android:name="android.intent.action.PROCESS_TEXT" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
+            </intent-filter>
+            <!--
+              E9 — the robust import path for de-Googled phones: let the user's OWN file manager hand
+              the backup to us via "Open with → ToDo Companion". The resulting content:// URI carries a
+              temporary read grant, so NO storage permission or system document picker is involved — the
+              one channel that survives a stripped-down AOSP ROM. Still fully offline.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/json" />
+                <data android:mimeType="application/zip" />
+                <data android:mimeType="application/octet-stream" />
+            </intent-filter>
+            <!-- Many file managers set mimeType="*/*"; a path-pattern filter also catches our extensions. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:host="*" />
+                <data android:mimeType="*/*" />
+                <data android:pathPattern=".*\\.json" />
+                <data android:pathPattern=".*\\.todobackup" />
+                <data android:pathPattern=".*\\.zip" />
+            </intent-filter>
+            <!-- Share a backup INTO the app: "Share → ToDo Companion". Non-text SEND only (text/plain stays quick-add). -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/json" />
+                <data android:mimeType="application/zip" />
+                <data android:mimeType="application/octet-stream" />
             </intent-filter>
         </activity>
 
@@ -212,14 +244,10 @@
             </intent-filter>
         </service>
 
-        <!-- Fires a scheduled reminder notification + on-device proximity alerts. Not exported. -->
+        <!-- Fires scheduled reminder / summary / habit notifications. Not exported. -->
         <receiver
             android:name=".reminders.ReminderReceiver"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.todocompanion.app.action.PROXIMITY" />
-            </intent-filter>
-        </receiver>
+            android:exported="false" />
 
         <!-- Reschedules pending reminders after a device reboot. -->
         <receiver

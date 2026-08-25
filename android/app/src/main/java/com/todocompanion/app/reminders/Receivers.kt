@@ -77,7 +77,18 @@ class ReminderReceiver : BroadcastReceiver() {
                                 app.repository.getHabitsOnce(), app.repository.getHabitCheckinsOnce(), tasksOnce, today.toEpochDay(), zone
                             )?.let { b -> (listOf(b.headline) + b.moves.take(1).map { "${it.emoji} ${it.text}" }).joinToString(" · ") }
                         }.getOrNull()
-                        Notifications.showSummary(context, count, brief)
+                        // O1: find the top still-due build habit so the brief can be checked off in place.
+                        val topHabit = runCatching {
+                            val hs = com.todocompanion.app.domain.habit.HabitStats
+                            val checkins = app.repository.getHabitCheckinsOnce()
+                            val epoch = today.toEpochDay()
+                            app.repository.getHabitsOnce().filter { !it.archived && !it.paused && it.habitType != "break" }.firstOrNull { h ->
+                                val hc = checkins.filter { it.habitId == h.id }
+                                val doneDays = hc.filter { it.status == "done" && hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
+                                hs.dueToday(h, epoch, doneDays, hc.firstOrNull { it.epochDay == epoch }?.count ?: 0)
+                            }
+                        }.getOrNull()
+                        Notifications.showSummary(context, count, brief, topHabit?.id, topHabit?.name)
                         val s = app.repository.settingsSnapshot()
                         if (s.dailySummaryEnabled) AlarmScheduler.scheduleDailySummary(context, s.dailySummaryHour, s.dailySummaryMinute)
                     } finally { pending.finish() }
@@ -99,37 +110,6 @@ class ReminderReceiver : BroadcastReceiver() {
                         Notifications.showEvening(context, leftover)
                         val s = app.repository.settingsSnapshot()
                         if (s.eveningReviewEnabled) AlarmScheduler.scheduleEveningReview(context, s.eveningReviewHour)
-                    } finally { pending.finish() }
-                }
-            }
-
-            LocationReminders.ACTION_PROXIMITY -> {
-                // The OS attaches KEY_PROXIMITY_ENTERING: true = arrived, false = left.
-                val entering = intent.getBooleanExtra(android.location.LocationManager.KEY_PROXIMITY_ENTERING, true)
-                val onEnter = intent.getBooleanExtra("onEnter", true)
-                if (entering != onEnter) return
-                // Context geofence (E3): surface the matching context's tasks on arrival.
-                val ctxId = intent.getStringExtra("contextId")
-                if (ctxId != null) {
-                    val ctxName = intent.getStringExtra("contextName") ?: "a place"
-                    Notifications.showContextArrival(context, ctxId, ctxName)
-                    return
-                }
-                // Habit geofence (K6): nudge the habit on arrival at its place.
-                val hId = intent.getStringExtra("habitId")
-                if (hId != null) {
-                    Notifications.showHabitArrival(context, hId, intent.getStringExtra("habitName") ?: "your habit", intent.getStringExtra("habitPlace") ?: "")
-                    return
-                }
-                if (app == null || taskId == null) return
-                val place = intent.getStringExtra("place")?.takeIf { it.isNotBlank() }
-                val pending = goAsync()
-                CoroutineScope(Dispatchers.IO).launch {
-                    try {
-                        val task = app.repository.getTask(taskId)
-                        if (task != null && !task.completed && !task.trashed && !task.abandoned) {
-                            Notifications.showLocation(context, taskId, title, reminderId, onEnter, place)
-                        }
                     } finally { pending.finish() }
                 }
             }
@@ -218,7 +198,6 @@ class BootReceiver : BroadcastReceiver() {
             try {
                 AlarmScheduler.rescheduleAll(context, app.repository)
                 AlarmScheduler.scheduleHabitReminders(context, app.repository)
-                LocationReminders.registerAll(context, app.repository)
                 val s = app.repository.settingsSnapshot()
                 if (s.dailySummaryEnabled) AlarmScheduler.scheduleDailySummary(context, s.dailySummaryHour, s.dailySummaryMinute)
                 if (s.eveningReviewEnabled) AlarmScheduler.scheduleEveningReview(context, s.eveningReviewHour)

@@ -158,7 +158,12 @@ object HabitInsights {
                 if (rate in 0.05f..0.5f) {
                     val t = h.reminderTimes.split(",").mapNotNull { it.trim().toIntOrNull() }.minOrNull()
                     val tl = t?.let { " (${"%02d:%02d".format(it / 60, it % 60)})" } ?: ""
-                    out += Insight("⏰", "‘${h.name}’ gets missed a lot at its reminder$tl — try a time that better fits your day.", 50, InsightAction.Open(h.id))
+                    // O2: when we have real completion stamps, make it literal — name the time it actually happens.
+                    val actual = HabitStats.typicalDoneMinute(checkins.filter { it.habitId == h.id })
+                    val text = if (actual != null && (t == null || kotlin.math.abs(actual - t) >= 45))
+                        "You usually do ‘${h.name}’ around ${HabitStats.minuteLabel(actual)}, not$tl — move the reminder to match?"
+                    else "‘${h.name}’ gets missed a lot at its reminder$tl — try a time that better fits your day."
+                    out += Insight("⏰", text, 50, InsightAction.Open(h.id))
                 }
             }
         }

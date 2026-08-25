@@ -45,35 +45,6 @@ object Notifications {
         return PendingIntent.getActivity(context, reqCode, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     }
 
-    fun showContextArrival(context: Context, contextId: String, name: String) {
-        ensureChannel(context)
-        val n = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-            .setContentTitle("You're near @$name")
-            .setContentText("Open your @$name tasks")
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setAutoCancel(true)
-            .setContentIntent(openAppRoute(context, "open_context:$contextId", ("ctx:$contextId").hashCode()))
-            .build()
-        runCatching { NotificationManagerCompat.from(context).notify(("ctxarr:$contextId").hashCode(), n) }
-    }
-
-    fun showHabitArrival(context: Context, habitId: String, name: String, place: String) {
-        ensureChannel(context)
-        val where = place.takeIf { it.isNotBlank() }?.let { " at $it" } ?: " here"
-        val n = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-            .setContentTitle("You're$where — time for $name?")
-            .setContentText("Tap to log it.")
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setAutoCancel(true)
-            .setContentIntent(openAppRoute(context, "open_habits", ("habitarr:$habitId").hashCode()))
-            .addAction(0, "Done", broadcast(context, AlarmScheduler.ACTION_HABIT_DONE, ("habitarr:$habitId").hashCode() + 1,
-                mapOf(AlarmScheduler.EXTRA_HABIT_ID to habitId, AlarmScheduler.EXTRA_HABIT_NAME to name, AlarmScheduler.EXTRA_HABIT_MIN to "-1")))
-            .build()
-        runCatching { NotificationManagerCompat.from(context).notify(("habitarr:$habitId").hashCode(), n) }
-    }
-
     const val EVENING_ID = 424244
 
     fun showEvening(context: Context, leftover: Int) {
@@ -123,24 +94,6 @@ object Notifications {
         runCatching { NotificationManagerCompat.from(context).cancel(taskId.hashCode()) }
     }
 
-    fun showLocation(context: Context, taskId: String, title: String, reminderId: String, onEnter: Boolean, place: String?) {
-        ensureChannel(context)
-        val where = place?.let { " $it" } ?: " a saved place"
-        val text = if (onEnter) "You've arrived at$where" else "You're leaving$where"
-        val done = broadcast(context, AlarmScheduler.ACTION_DONE, ("done$taskId").hashCode(),
-            mapOf(AlarmScheduler.EXTRA_TASK_ID to taskId))
-        val n = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-            .setContentTitle(title)
-            .setContentText(text)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setAutoCancel(true)
-            .setContentIntent(openApp(context))
-            .addAction(0, "Done", done)
-            .build()
-        runCatching { NotificationManagerCompat.from(context).notify(("loc:$taskId").hashCode(), n) }
-    }
-
     const val FOCUS_ID = 424243
 
     fun showFocusDone(context: Context) {
@@ -180,12 +133,12 @@ object Notifications {
         runCatching { NotificationManagerCompat.from(context).notify(("habit:$habitId").hashCode(), b.build()) }
     }
 
-    fun showSummary(context: Context, dueToday: Int, brief: String? = null) {
+    fun showSummary(context: Context, dueToday: Int, brief: String? = null, topHabitId: String? = null, topHabitName: String? = null) {
         ensureChannel(context)
         val tasksLine = if (dueToday == 0) "No tasks due today — enjoy!" else "You have $dueToday task${if (dueToday == 1) "" else "s"} due today."
         // N1: lead with the habit coach brief when there is one, then the task line.
         val body = if (!brief.isNullOrBlank()) "$brief\n$tasksLine" else tasksLine
-        val n = NotificationCompat.Builder(context, CHANNEL_ID)
+        val b = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_agenda)
             .setContentTitle(if (!brief.isNullOrBlank()) "Your day" else "Today")
             .setContentText(if (!brief.isNullOrBlank()) brief else tasksLine)
@@ -193,8 +146,12 @@ object Notifications {
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .setContentIntent(openApp(context))
-            .build()
-        runCatching { NotificationManagerCompat.from(context).notify(SUMMARY_ID, n) }
+        // O1: make the brief two-way — check off the day's top habit straight from the notification.
+        if (!topHabitId.isNullOrBlank() && !topHabitName.isNullOrBlank()) {
+            b.addAction(0, "✓ ${topHabitName.take(22)}", broadcast(context, AlarmScheduler.ACTION_HABIT_DONE, ("summ:$topHabitId").hashCode(),
+                mapOf(AlarmScheduler.EXTRA_HABIT_ID to topHabitId, AlarmScheduler.EXTRA_HABIT_NAME to topHabitName, AlarmScheduler.EXTRA_HABIT_MIN to "-1")))
+        }
+        runCatching { NotificationManagerCompat.from(context).notify(SUMMARY_ID, b.build()) }
     }
 
     /** N2: celebrate a habit reaching its self-chosen reward streak. */

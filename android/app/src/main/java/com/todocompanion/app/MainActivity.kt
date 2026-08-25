@@ -1,6 +1,7 @@
 package com.todocompanion.app
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -12,6 +13,8 @@ import com.todocompanion.app.ui.AppRoot
 class MainActivity : FragmentActivity() {
     // Read by AppRoot; carries a one-shot launch action (e.g. from the home-screen widget).
     private val launchAction = mutableStateOf<String?>(null)
+    // E9: a backup file URI handed to us by the user's file manager ("Open with"/"Share").
+    private val importUri = mutableStateOf<Uri?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Swap the branded splash window for the plain (transparent) theme before the first frame,
@@ -19,14 +22,32 @@ class MainActivity : FragmentActivity() {
         setTheme(R.style.Theme_ToDoCompanion)
         super.onCreate(savedInstanceState)
         launchAction.value = resolveAction(intent)
+        importUri.value = resolveImport(intent)
         enableEdgeToEdge()
-        setContent { AppRoot(launchAction = launchAction) }
+        setContent { AppRoot(launchAction = launchAction, importUri = importUri) }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         launchAction.value = resolveAction(intent)
+        importUri.value = resolveImport(intent)
+    }
+
+    /**
+     * E9 — extract a backup file URI from an incoming intent: a VIEW ("Open with…") carries it in
+     * intent.data; a non-text SEND ("Share…") in EXTRA_STREAM. Text SEND stays with quick-add
+     * (resolveAction), so we exclude text/plain here. The content:// URI grants a temporary read,
+     * so no storage permission is needed — the file manager already opened the door.
+     */
+    private fun resolveImport(intent: Intent?): Uri? {
+        if (intent == null) return null
+        return when (intent.action) {
+            Intent.ACTION_VIEW -> intent.data
+            Intent.ACTION_SEND -> if (intent.type != "text/plain")
+                @Suppress("DEPRECATION") intent.getParcelableExtra(Intent.EXTRA_STREAM) else null
+            else -> null
+        }
     }
 
     /**

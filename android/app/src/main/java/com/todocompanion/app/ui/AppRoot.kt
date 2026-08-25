@@ -153,7 +153,10 @@ private fun CompactBottomBar(tabs: List<Tab>, current: Tab, onSelect: (Tab) -> U
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
+fun AppRoot(
+    launchAction: MutableState<String?> = mutableStateOf(null),
+    importUri: MutableState<android.net.Uri?> = mutableStateOf(null),
+) {
     val vm: AppViewModel = viewModel()
     val settings by vm.settings.collectAsState()
 
@@ -183,6 +186,9 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         var filterEdit by remember { mutableStateOf<com.todocompanion.app.data.entity.FilterEntity?>(null) }
         var showStats by remember { mutableStateOf(false) }
         var showReview by remember { mutableStateOf(false) }
+        // E9: a backup file handed in by the file manager ("Open with"), awaiting a restore confirm.
+        var pendingImport by remember { mutableStateOf<android.net.Uri?>(null) }
+        var importResult by remember { mutableStateOf<String?>(null) }
         var saveTab by remember { mutableStateOf(false) }
         var templatePicker by remember { mutableStateOf(false) }
         var showAttachments by remember { mutableStateOf(false) }
@@ -276,6 +282,40 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
             }
         }
 
+        // E9: a backup opened from a file manager ("Open with → ToDo Companion") — confirm, then restore.
+        LaunchedEffect(importUri.value) {
+            importUri.value?.let { pendingImport = it; importUri.value = null }
+        }
+        pendingImport?.let { uri ->
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { pendingImport = null },
+                // O4: Merge combines this file with your data (keep-newest); Replace wipes and restores.
+                confirmButton = { TextButton(onClick = {
+                    val u = uri; pendingImport = null
+                    vm.importFromIntent(u, merge = true) { _, msg -> importResult = msg }
+                }) { Text("Merge") } },
+                dismissButton = {
+                    Row {
+                        TextButton(onClick = { pendingImport = null }) { Text("Cancel") }
+                        TextButton(onClick = {
+                            val u = uri; pendingImport = null
+                            vm.importFromIntent(u, merge = false) { _, msg -> importResult = msg }
+                        }) { Text("Replace") }
+                    }
+                },
+                title = { Text("Import backup") },
+                text = { Text("Import from this file?\n\n• Merge — combine it with your current data, keeping the newer of any duplicates (great for moving between phones).\n• Replace — wipe everything and restore exactly this file.\n\nCSV/OPML files are always merged in.") },
+            )
+        }
+        importResult?.let { msg ->
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { importResult = null },
+                confirmButton = { TextButton(onClick = { importResult = null }) { Text("OK") } },
+                title = { Text("Import") },
+                text = { Text(msg) },
+            )
+        }
+
         // Back from a secondary tab returns to Tasks instead of exiting.
         BackHandler(enabled = tab != Tab.TASKS && editing == null && !showQuickAdd) { tab = Tab.TASKS }
 
@@ -359,7 +399,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                                     Icon(Icons.Filled.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                                     Spacer(Modifier.width(10.dp))
                                     Box(Modifier.weight(1f)) {
-                                        if (searchQuery.isEmpty()) Text("Search tasks, #tags, @contexts…", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
+                                        if (searchQuery.isEmpty()) Text("Search tasks, habits, #tags, @contexts…", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
                                         androidx.compose.foundation.text.BasicTextField(
                                             value = searchQuery, onValueChange = { searchQuery = it }, singleLine = true,
                                             textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
@@ -538,7 +578,7 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
                                     if (boardMode) com.todocompanion.app.ui.screens.KanbanScreen(vm, ::openTask) else TasksScreen(vm, ::openTask)
                                 }
                             }
-                            Tab.SEARCH -> SearchScreen(vm, ::openTask, searchQuery)
+                            Tab.SEARCH -> SearchScreen(vm, ::openTask, searchQuery, onOpenHabit = { hid -> vm.habitDetailId.value = hid; tab = Tab.HABITS })
                             Tab.SETTINGS -> SettingsScreen(vm)
                             Tab.CALENDAR -> CalendarScreen(vm, ::openTask, calMode, { calMode = it },
                                 calAnchor, calSelected, { calAnchor = it }, { calSelected = it },
@@ -690,8 +730,6 @@ fun AppRoot(launchAction: MutableState<String?> = mutableStateOf(null)) {
         }
         manageCtx?.let { c ->
             ManageContextDialog(c, onDismiss = { manageCtx = null },
-                onSetLocation = { la, ln, r -> vm.setContextLocation(c, la, ln, r) },
-                onClearLocation = { vm.clearContextLocation(c) },
                 onRename = { vm.renameContext(c, it); manageCtx = null },
                 onColor = { vm.setContextColor(c, it) },
                 onActive = { vm.setContextActive(c, it) },
@@ -1227,7 +1265,6 @@ private fun TagPickerDialog(title: String, tags: List<com.todocompanion.app.data
 private fun ManageContextDialog(
     ctx: com.todocompanion.app.data.entity.ContextEntity, onDismiss: () -> Unit,
     onRename: (String) -> Unit, onColor: (Long?) -> Unit, onActive: (Boolean) -> Unit, onHours: (String?) -> Unit, onDelete: () -> Unit,
-    onSetLocation: (Double, Double, Double) -> Unit = { _, _, _ -> }, onClearLocation: () -> Unit = {},
 ) {
     var name by remember { mutableStateOf(ctx.name) }
     val oh0 = com.todocompanion.app.domain.context.ContextAvailability.parse(ctx.openHoursJson)
@@ -1238,80 +1275,6 @@ private fun ManageContextDialog(
     fun persistHours() {
         onHours(if (restricted) com.todocompanion.app.domain.context.ContextAvailability.encode(
             com.todocompanion.app.domain.context.OpenHours(days, startH * 60, endH * 60)) else null)
-    }
-    // Location geofence state + permission launcher — declared at the composable's top level, NOT
-    // inside the AlertDialog content slot (a launcher registered against the dialog window's
-    // lifecycle throws when launched; this is what crashed "Alert me when I arrive here").
-    val lctx = LocalContext.current
-    var hasLoc by remember { mutableStateOf(ctx.latitude != null) }
-    var locating by remember { mutableStateOf(false) }
-    // Hard safety net: no matter what the platform location callback does (some devices never fire it),
-    // stop "locating" after a bounded wait so the switch can never spin forever.
-    LaunchedEffect(locating) {
-        if (locating) {
-            kotlinx.coroutines.delay(15_000)
-            if (locating) {
-                locating = false
-                if (!hasLoc) android.widget.Toast.makeText(lctx, "Still couldn't pin your location. Turn on Location in system settings and try again — no internet needed.", android.widget.Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-    // "Arriving here" is by definition a background event, so the OS only delivers the proximity
-    // broadcast if the user grants "Allow all the time" (ACCESS_BACKGROUND_LOCATION). Foreground
-    // FINE/COARSE alone lets addProximityAlert succeed but silently never fire in the background —
-    // which is exactly the "feature doesn't work" the user hit. Request background as a second step.
-    val bgPermLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { }
-    fun requestBackgroundIfNeeded() {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            val bg = androidx.core.content.ContextCompat.checkSelfPermission(lctx, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
-            // On Android 11+ background location CANNOT be granted via a runtime dialog (it silently
-            // returns denied) — the OS requires the user to pick "Allow all the time" in app settings.
-            // So route them there instead of firing a no-op prompt, otherwise the geofence is background-dead.
-            if (!bg) {
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                    android.widget.Toast.makeText(lctx, "For arrival alerts to fire in the background, set this app's Location to “Allow all the time”.", android.widget.Toast.LENGTH_LONG).show()
-                    runCatching { lctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.fromParts("package", lctx.packageName, null)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                } else runCatching { bgPermLauncher.launch(arrayOf(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION)) }
-            }
-        }
-    }
-    fun located(la: Double, ln: Double) { onSetLocation(la, ln, 150.0); hasLoc = true; requestBackgroundIfNeeded() }
-    fun captureAndSet() {
-        // Optimistic: the switch reads ON the moment you opt in; we pin coordinates in the background and
-        // only revert (with a message) if capture truly fails. Fast path uses an instant last-known fix.
-        locating = true
-        hasLoc = true
-        lastKnownLocation(lctx)?.let { (la, ln) -> located(la, ln); locating = false; return }
-        requestLocationFix(lctx) { fix ->
-            locating = false
-            if (fix != null) { located(fix.first, fix.second) }
-            else { hasLoc = false; android.widget.Toast.makeText(lctx, "Couldn't pin your location. Turn on Location in system settings, then try again — no internet needed.", android.widget.Toast.LENGTH_LONG).show() }
-        }
-    }
-    val locPermLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
-        if (grants.values.any { it }) captureAndSet()
-        else { locating = false; hasLoc = false; android.widget.Toast.makeText(lctx, "Location permission is needed for arrival alerts", android.widget.Toast.LENGTH_SHORT).show() }
-    }
-    fun toggleLocation(on: Boolean) {
-        if (!on) { runCatching { onClearLocation() }; hasLoc = false; locating = false; return }
-        // The usual reason "arrive here" won't turn on (esp. on de-Googled phones where permission is
-        // already granted, so no prompt appears): Location Services is OFF or has no usable provider, so
-        // capture silently fails and the switch reverts. Detect that up front and route to the toggle.
-        val lm = lctx.getSystemService(android.location.LocationManager::class.java)
-        if (lm == null || !androidx.core.location.LocationManagerCompat.isLocationEnabled(lm)) {
-            android.widget.Toast.makeText(lctx, "Turn on Location to set an arrival alert — no internet needed.", android.widget.Toast.LENGTH_LONG).show()
-            runCatching { lctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
-            hasLoc = false; locating = false
-            return
-        }
-        val fine = androidx.core.content.ContextCompat.checkSelfPermission(lctx, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
-        val coarse = androidx.core.content.ContextCompat.checkSelfPermission(lctx, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
-        if (fine || coarse) captureAndSet()
-        else {
-            locating = true; hasLoc = true
-            runCatching { locPermLauncher.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)) }
-                .onFailure { locating = false; hasLoc = false; android.widget.Toast.makeText(lctx, "This device can't show the location-permission prompt. Grant Location to the app in system settings.", android.widget.Toast.LENGTH_LONG).show() }
-        }
     }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1354,30 +1317,10 @@ private fun ManageContextDialog(
                         HourStepper(endH) { endH = it.coerceIn(startH, 24); persistHours() }
                     }
                 }
-                Spacer(Modifier.size(10.dp))
-                // Location geofence (E3): arriving here surfaces this context's tasks. The switch stays
-                // interactive the whole time (a small caption shows progress) so it can never lock up.
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Alert me when I arrive here", Modifier.weight(1f))
-                    if (locating) { androidx.compose.material3.CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp); Spacer(Modifier.size(10.dp)) }
-                    androidx.compose.material3.Switch(checked = hasLoc, onCheckedChange = { on -> toggleLocation(on) })
-                }
-                Text(when {
-                        locating -> "Pinning your location… (you can turn this off any time)"
-                        hasLoc -> "Uses your current location. On-device only — coordinates never leave the phone."
-                        else -> "Captures where you are now as this context's place. Works without Google services."
-                    },
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
     )
 }
-
-/** Best-effort current location from the platform's last known fix. Fully on-device. */
-@SuppressLint("MissingPermission")
-private fun lastKnownLocation(context: android.content.Context) = com.todocompanion.app.reminders.LocationFix.lastKnown(context)
-private fun requestLocationFix(context: android.content.Context, onResult: (Pair<Double, Double>?) -> Unit) =
-    com.todocompanion.app.reminders.LocationFix.requestFix(context, onResult = onResult)
 
 @Composable
 private fun HourStepper(hour: Int, onChange: (Int) -> Unit) {

@@ -34,6 +34,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.DragHandle
@@ -283,6 +285,10 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
                                 onPause = { vm.setHabitPaused(h, !h.paused) },
                                 onEdit = { vm.habitEditor.value = com.todocompanion.app.ui.HabitEditRequest(h) },
                                 onFocus = { onFocusHabit(h.id) },
+                                onAddValue = { delta ->
+                                    val cur = daysFor(h, checkins).counts[today] ?: 0
+                                    vm.setHabitValue(h, today, (cur + delta).coerceAtLeast(0))
+                                },
                             )
                         }
                     }
@@ -459,6 +465,7 @@ private fun HabitRow(
     allHabits: List<HabitEntity> = emptyList(),
     onCycle: () -> Unit, onOpen: () -> Unit, onSkip: () -> Unit, onClear: () -> Unit,
     onSetValue: () -> Unit, onPause: () -> Unit, onEdit: () -> Unit, onFocus: () -> Unit,
+    onAddValue: (Int) -> Unit = {},
 ) {
     val color = h.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
     val emptyCell = MaterialTheme.colorScheme.surfaceVariant
@@ -519,7 +526,23 @@ private fun HabitRow(
                         color = if (anchorDoneToday) color else MaterialTheme.colorScheme.outline, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
-            if (streak > 0) Text((if (isBreak) "✨ " else "🔥 ") + streak, style = MaterialTheme.typography.labelLarge, color = color)
+            // E2: friction-free numeric entry — an inline −/+ stepper right on the row, no digging into
+            // a menu. + adds the habit's per-tap step (so 10 000 steps takes a few taps, not 10 000);
+            // tap the number to type an exact value. Falls back to the streak flame for yes/no habits.
+            val isNumeric = !isBreak && (h.targetPerDay > 1 || h.unit != null || h.clickIncrement > 1)
+            if (isNumeric && scheduledToday && !skippedToday) {
+                val step = h.clickIncrement.coerceAtLeast(1)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    StepBtn("−", enabled = todayCount > 0) { onAddValue(-step) }
+                    Text(
+                        if (h.targetPerDay > 1) "$todayCount/${h.targetPerDay}" else "$todayCount",
+                        Modifier.clip(RoundedCornerShape(6.dp)).clickable { onSetValue() }.padding(horizontal = 8.dp, vertical = 2.dp),
+                        style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold,
+                        color = if (done) color else MaterialTheme.colorScheme.onSurface,
+                    )
+                    StepBtn("+", enabled = true) { onAddValue(step) }
+                }
+            } else if (streak > 0) Text((if (isBreak) "✨ " else "🔥 ") + streak, style = MaterialTheme.typography.labelLarge, color = color)
             Box {
                 DropdownMenu(expanded = rowMenu, onDismissRequest = { rowMenu = false }) {
                     DropdownMenuItem(text = { Text("Open analytics") }, onClick = { rowMenu = false; onOpen() })
@@ -560,6 +583,20 @@ private fun HabitRow(
             }
         }
       }
+    }
+}
+
+/** E2: a compact round −/+ button for inline numeric habit entry. */
+@Composable
+private fun StepBtn(label: String, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier.size(30.dp).clip(CircleShape)
+            .background(if (enabled) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .7f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .3f))
+            .clickable(enabled = enabled) { onClick() },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, style = MaterialTheme.typography.titleMedium,
+            color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline)
     }
 }
 
@@ -653,40 +690,20 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
     var anchorId by remember { mutableStateOf(existing?.anchorHabitId) }
     var rewardText by remember { mutableStateOf(existing?.rewardText ?: "") }
     var rewardAt by remember { mutableStateOf(existing?.rewardAtStreak ?: 0) }
-    var lat by remember { mutableStateOf(existing?.latitude) }
-    var lng by remember { mutableStateOf(existing?.longitude) }
-    var placeLabel by remember { mutableStateOf(existing?.placeLabel ?: "") }
     // M6: model tidy-ups — a grouping category and a user-editable start date (defaults to creation).
     var category by remember { mutableStateOf(existing?.category ?: "") }
     var startDate by remember { mutableStateOf(existing?.startDate) }
     var showStartPicker by remember { mutableStateOf(false) }
-    var locating by remember { mutableStateOf(false) }
+    // E6: keep the default editor as light as quick-add — advanced sections fold away, auto-opening
+    // only when editing a habit that already uses one of them.
+    var advancedOpen by remember { mutableStateOf(
+        existing != null && (existing.identity.isNotBlank() || existing.anchorHabitId != null ||
+            existing.rewardText.isNotBlank() || existing.category.isNotBlank() || existing.habitType == "break" ||
+            existing.moneyPerUnit != null || existing.startDate != null || existing.clickIncrement > 1 || existing.extraTarget != null)
+    ) }
     val ctx = LocalContext.current
     val isBreak = habitType == "break"
     val allHabits by vm.habits.collectAsState()
-
-    // Safety net: never let the "Use my location" spinner hang if the platform callback never fires.
-    LaunchedEffect(locating) {
-        if (locating) { kotlinx.coroutines.delay(15_000); if (locating) locating = false }
-    }
-    fun captureLocation() {
-        locating = true
-        com.todocompanion.app.reminders.LocationFix.lastKnown(ctx)?.let { (la, ln) -> lat = la; lng = ln; locating = false; return }
-        com.todocompanion.app.reminders.LocationFix.requestFix(ctx) { fix ->
-            locating = false
-            if (fix != null) { lat = fix.first; lng = fix.second }
-            else android.widget.Toast.makeText(ctx, "Couldn't get a location fix. Turn on Location, then try again.", android.widget.Toast.LENGTH_LONG).show()
-        }
-    }
-    val locPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
-        if (grants.values.any { it }) captureLocation() else { locating = false; android.widget.Toast.makeText(ctx, "Location permission is needed", android.widget.Toast.LENGTH_SHORT).show() }
-    }
-    fun setPlace() {
-        val fine = androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
-        val coarse = androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
-        if (fine || coarse) captureLocation()
-        else { locating = true; runCatching { locPerm.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)) } }
-    }
 
     fun buildHabit(): HabitEntity {
         val base = existing ?: HabitEntity(id = "", name = "", createdAt = 0L)
@@ -702,7 +719,6 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
             description = description.trim(), moneyPerUnit = money.trim().toDoubleOrNull(),
             identity = identity.trim(), anchorHabitId = anchorId,
             rewardText = rewardText.trim(), rewardAtStreak = rewardAt,
-            latitude = lat, longitude = lng, geofenceRadius = if (lat != null) 150.0 else null, placeLabel = placeLabel.trim(),
             category = category.trim(), startDate = startDate,
         )
     }
@@ -818,6 +834,18 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
                 }, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)) { Text("＋ Add reminder time") }
             }
 
+            // E6: everything below folds behind one tap so a new habit stays as simple as quick-add.
+            Surface(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable { advancedOpen = !advancedOpen },
+                shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f),
+            ) {
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Advanced — type, identity, stacking, reward, organise", Modifier.weight(1f),
+                        style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(if (advancedOpen) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            if (advancedOpen) {
             // 5. Type & advanced
             EditorCard {
                 Text("Type", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -880,20 +908,6 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
                 if (rewardText.isNotBlank()) StepperRow("…at a streak of", if (rewardAt <= 0) "30" else rewardAt.toString(),
                     onMinus = { rewardAt = ((if (rewardAt <= 0) 30 else rewardAt) - 5).coerceAtLeast(5) },
                     onPlus = { rewardAt = ((if (rewardAt <= 0) 30 else rewardAt) + 5).coerceAtMost(1000) }, modifier = Modifier.padding(top = 6.dp))
-
-                // Place geofence (K6).
-                Text("Place reminder", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 14.dp))
-                Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (lat != null) "📍 Set — arriving here can nudge you" else "Nudge me when I arrive at a place", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
-                        color = if (lat != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (locating) androidx.compose.material3.CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                    else if (lat != null) TextButton(onClick = { lat = null; lng = null }) { Text("Clear") }
-                    else TextButton(onClick = { setPlace() }) { Text("Use my location") }
-                }
-                if (lat != null) OutlinedTextField(placeLabel, { placeLabel = it.take(40) }, singleLine = true,
-                    label = { Text("Place name (e.g. Gym)") }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
-                Text("On-device only — coordinates never leave the phone, no Google services.",
-                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(top = 6.dp))
             }
 
             // 7. Organise (M6): category grouping + a user-editable start date.
@@ -910,6 +924,7 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
                 }
                 Text("Days before the start date aren't counted as misses.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
             }
+            } // advancedOpen
             Spacer(Modifier.height(40.dp))
         }
     }

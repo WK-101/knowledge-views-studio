@@ -47,9 +47,12 @@ private enum class SF(val label: String) { ALL("All"), TODAY("Today"), OVERDUE("
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-fun SearchScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, query: String, modifier: Modifier = Modifier) {
+fun SearchScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, query: String, modifier: Modifier = Modifier, onOpenHabit: (String) -> Unit = {}) {
     val tasks by vm.tasks.collectAsState()
+    val habits by vm.habits.collectAsState()
     val results = remember(query, tasks) { vm.search(query) }
+    // E1: habits are searchable too — shown only under the "All" filter (task filters don't apply).
+    val habitResults = remember(query, habits) { vm.searchHabits(query) }
     val lists by vm.lists.collectAsState()
     var filter by remember { mutableStateOf(SF.ALL) }
     val zone = java.time.ZoneId.systemDefault()
@@ -79,14 +82,48 @@ fun SearchScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, query: String, 
                 }
             }
         }
+        val showHabits = filter == SF.ALL && habitResults.isNotEmpty()
         when {
-            query.isBlank() -> SearchHint("Search everything", "Find any task by title, note, #tag or @context")
-            shown.isEmpty() -> SearchHint("No matches", "Nothing found for “$query”", off = true)
+            query.isBlank() -> SearchHint("Search everything", "Find any task or habit by title, note, #tag or @context")
+            shown.isEmpty() && !showHabits -> SearchHint("No matches", "Nothing found for “$query”", off = true)
             else -> {
-                Text("${shown.size} result${if (shown.size == 1) "" else "s"}",
+                val totalN = shown.size + (if (showHabits) habitResults.size else 0)
+                Text("$totalN result${if (totalN == 1) "" else "s"}",
                     Modifier.padding(start = 18.dp, top = 2.dp, bottom = 4.dp),
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+                    if (showHabits) {
+                        item(key = "habits-header") {
+                            Text("HABITS", Modifier.padding(start = 18.dp, top = 4.dp, bottom = 2.dp),
+                                style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                        }
+                        items(habitResults, key = { "h:" + it.id }) { h ->
+                            Surface(
+                                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
+                                shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
+                            ) {
+                                Row(
+                                    Modifier.fillMaxWidth().clickable { onOpenHabit(h.id) }.padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Box(Modifier.size(30.dp).clip(RoundedCornerShape(9.dp)).background((h.colorArgb?.let { androidx.compose.ui.graphics.Color(it) } ?: MaterialTheme.colorScheme.primary).copy(alpha = .16f)), contentAlignment = Alignment.Center) {
+                                        Text(h.emoji ?: "🔁", style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                    Spacer(Modifier.width(10.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(h.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
+                                        val sub = listOfNotNull(h.category.ifBlank { null }, h.identity.ifBlank { null }, h.description.ifBlank { null }).firstOrNull()
+                                        if (sub != null) Text(sub, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("Habit" + (if (h.paused) " · paused" else ""), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                        }
+                        if (shown.isNotEmpty()) item(key = "tasks-header") {
+                            Text("TASKS", Modifier.padding(start = 18.dp, top = 10.dp, bottom = 2.dp),
+                                style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
                     items(shown, key = { it.id }) { task ->
                         val level = com.todocompanion.app.domain.priority.PriorityLevel.from(task.importance, task.urgency)
                         Surface(
