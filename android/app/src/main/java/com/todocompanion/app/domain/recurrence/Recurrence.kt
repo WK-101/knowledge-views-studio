@@ -25,6 +25,11 @@ data class Recur(
     val byWeekday: Int? = null,
     // Regenerate the next occurrence from the completion date rather than the fixed schedule.
     val fromCompletion: Boolean = false,
+    // Monthly "first working day of the month" (Mon–Fri), overriding day-of-month.
+    val firstWorkday: Boolean = false,
+    // What happens to subtasks when the task recurs: "all" reset all, "allDone" reset only if all
+    // were completed, "keep" leave them as they are.
+    val subtaskReset: String = "all",
 )
 
 object Recurrence {
@@ -46,6 +51,8 @@ object Recurrence {
         if (r.byDays.isNotEmpty()) append(";DAYS=").append(r.byDays.sorted().joinToString(","))
         r.bySetPos?.let { append(";POS=").append(it) }
         r.byWeekday?.let { append(";WD=").append(it) }
+        if (r.firstWorkday) append(";FWD=1")
+        if (r.subtaskReset != "all") append(";SR=").append(r.subtaskReset)
         if (r.fromCompletion) append(";COMP=1")
         r.untilEpochDay?.let { append(";UNTIL=").append(it) }
         r.count?.let { append(";COUNT=").append(it) }
@@ -67,6 +74,8 @@ object Recurrence {
             byDays = m["DAYS"]?.split(",")?.mapNotNull { it.toIntOrNull() }?.toSet() ?: emptySet(),
             bySetPos = m["POS"]?.toIntOrNull(),
             byWeekday = m["WD"]?.toIntOrNull(),
+            firstWorkday = m["FWD"] == "1",
+            subtaskReset = m["SR"] ?: "all",
             fromCompletion = m["COMP"] == "1",
             untilEpochDay = m["UNTIL"]?.toLongOrNull(),
             count = m["COUNT"]?.toIntOrNull(),
@@ -85,7 +94,11 @@ object Recurrence {
             }
             Freq.MONTHLY -> {
                 val head = if (r.interval == 1) "Monthly" else "Every ${every}months"
-                if (r.bySetPos != null && r.byWeekday != null) "$head on the ${posLabel(r.bySetPos)} ${DAY_ABBR[r.byWeekday - 1]}" else head
+                when {
+                    r.firstWorkday -> "$head on the first working day"
+                    r.bySetPos != null && r.byWeekday != null -> "$head on the ${posLabel(r.bySetPos)} ${DAY_ABBR[r.byWeekday - 1]}"
+                    else -> head
+                }
             }
             Freq.YEARLY -> if (r.interval == 1) "Yearly" else "Every ${every}years"
         }
@@ -101,6 +114,13 @@ object Recurrence {
     fun posLabel(pos: Int): String = when (pos) { 1 -> "1st"; 2 -> "2nd"; 3 -> "3rd"; 4 -> "4th"; else -> "last" }
 
     private val DAY_ABBR = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+    /** First working day (Mon–Fri) of the given year-month. */
+    private fun firstWorkdayOf(ym: java.time.YearMonth): java.time.LocalDate {
+        var d = ym.atDay(1)
+        while (d.dayOfWeek == DayOfWeek.SATURDAY || d.dayOfWeek == DayOfWeek.SUNDAY) d = d.plusDays(1)
+        return d
+    }
 
     /** The date of the nth (or last) [weekday] in the given year-month. */
     private fun nthWeekdayOf(ym: java.time.YearMonth, pos: Int, weekday: Int): java.time.LocalDate {
@@ -122,12 +142,12 @@ object Recurrence {
         val nd = when (r.freq) {
             Freq.DAILY -> dt.plusDays(r.interval.toLong())
             Freq.MONTHLY -> {
-                if (r.bySetPos != null && r.byWeekday != null) {
-                    // Advance whole months, then land on the nth (or last) weekday of that month.
-                    val ym = java.time.YearMonth.from(dt).plusMonths(r.interval.toLong())
-                    val date = nthWeekdayOf(ym, r.bySetPos, r.byWeekday)
-                    date.atTime(dt.toLocalTime()).atZone(zone)
-                } else dt.plusMonths(r.interval.toLong())
+                val ym = java.time.YearMonth.from(dt).plusMonths(r.interval.toLong())
+                when {
+                    r.firstWorkday -> firstWorkdayOf(ym).atTime(dt.toLocalTime()).atZone(zone)
+                    r.bySetPos != null && r.byWeekday != null -> nthWeekdayOf(ym, r.bySetPos, r.byWeekday).atTime(dt.toLocalTime()).atZone(zone)
+                    else -> dt.plusMonths(r.interval.toLong())
+                }
             }
             Freq.YEARLY -> dt.plusYears(r.interval.toLong())
             Freq.WEEKDAYS -> {

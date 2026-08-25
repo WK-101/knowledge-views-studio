@@ -151,6 +151,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                     DropdownMenuItem(text = { Text(if (task?.pinned == true) "Unpin" else "Pin to top") }, onClick = { task?.let { vm.togglePin(it) }; menu = false })
                     DropdownMenuItem(text = { Text(if (task?.isNote == true) "Convert to task" else "Convert to note") }, onClick = { task?.let { vm.toggleNote(it) }; menu = false })
                     DropdownMenuItem(text = { Text("Duplicate") }, onClick = { task?.let { vm.duplicateTask(it) }; menu = false; onBack() })
+                    if (!task?.rrule.isNullOrBlank()) DropdownMenuItem(text = { Text("Skip this occurrence") }, onClick = { task?.let { vm.skipOccurrence(it) }; menu = false; onBack() })
                     DropdownMenuItem(text = { Text(if (task?.abandoned == true) "Undo won't do" else "Won't do") }, onClick = { task?.let { vm.setAbandoned(it, !it.abandoned) }; menu = false })
                     DropdownMenuItem(text = { Text("Delete", color = MaterialTheme.colorScheme.error) }, onClick = { task?.let { vm.trash(it) }; menu = false; onBack() })
                 }
@@ -268,7 +269,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit) {
                         }
                     }
                 }
-                RepeatRow(task.rrule) { rule -> update { it.copy(rrule = rule) } }
+                RepeatRow(task.rrule, allTasks.any { it.parentId == task.id && !it.trashed }) { rule -> update { it.copy(rrule = rule) } }
                 Spacer(Modifier.height(8.dp)); CardLabel("Reminders")
                 reminders.filter { it.taskId == task.id }.forEach { r ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -476,18 +477,18 @@ private fun FlagSwatch(color: Long?, current: Long?, onClick: () -> Unit) {
 }
 
 @Composable
-private fun RepeatRow(rule: String?, onChange: (String?) -> Unit) {
+private fun RepeatRow(rule: String?, hasChildren: Boolean, onChange: (String?) -> Unit) {
     var show by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().clickable { show = true }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Text("Repeat", Modifier.weight(1f))
         Text(com.todocompanion.app.domain.recurrence.Recurrence.label(rule) ?: "Does not repeat", color = MaterialTheme.colorScheme.primary)
     }
-    if (show) RepeatDialog(rule, onDismiss = { show = false }) { onChange(it); show = false }
+    if (show) RepeatDialog(rule, hasChildren, onDismiss = { show = false }) { onChange(it); show = false }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun RepeatDialog(rule: String?, onDismiss: () -> Unit, onSave: (String?) -> Unit) {
+private fun RepeatDialog(rule: String?, hasChildren: Boolean, onDismiss: () -> Unit, onSave: (String?) -> Unit) {
     val r0 = com.todocompanion.app.domain.recurrence.Recurrence.parse(rule)
     var freq by remember { mutableStateOf(r0?.freq) }   // null = does not repeat
     var interval by remember { mutableStateOf(r0?.interval ?: 1) }
@@ -497,22 +498,25 @@ private fun RepeatDialog(rule: String?, onDismiss: () -> Unit, onSave: (String?)
     var until by remember { mutableStateOf(r0?.untilEpochDay ?: java.time.LocalDate.now().plusMonths(3).toEpochDay()) }
     var count by remember { mutableStateOf(r0?.count ?: 10) }
     var showUntil by remember { mutableStateOf(false) }
-    // Monthly "nth weekday" + regenerate-from-completion.
-    var byWeekdayMode by remember { mutableStateOf(r0?.bySetPos != null && r0.byWeekday != null) }
+    // Monthly mode: 0 day-of-month, 1 nth weekday, 2 first working day. + regenerate-from-completion.
+    var monthMode by remember { mutableStateOf(if (r0?.firstWorkday == true) 2 else if (r0?.bySetPos != null && r0.byWeekday != null) 1 else 0) }
     var pos by remember { mutableStateOf(r0?.bySetPos ?: 1) }
     var weekday by remember { mutableStateOf(r0?.byWeekday ?: 1) }
     var fromCompletion by remember { mutableStateOf(r0?.fromCompletion ?: false) }
+    var subtaskReset by remember { mutableStateOf(r0?.subtaskReset ?: "all") }
 
     fun build(): String? {
         val f = freq ?: return null
-        val monthly = f == com.todocompanion.app.domain.recurrence.Freq.MONTHLY && byWeekdayMode
+        val isMonthly = f == com.todocompanion.app.domain.recurrence.Freq.MONTHLY
         return com.todocompanion.app.domain.recurrence.Recurrence.encode(
             com.todocompanion.app.domain.recurrence.Recur(
                 freq = f, interval = interval.coerceAtLeast(1),
                 byDays = if (f == com.todocompanion.app.domain.recurrence.Freq.WEEKLY) days else emptySet(),
-                bySetPos = if (monthly) pos else null,
-                byWeekday = if (monthly) weekday else null,
+                bySetPos = if (isMonthly && monthMode == 1) pos else null,
+                byWeekday = if (isMonthly && monthMode == 1) weekday else null,
+                firstWorkday = isMonthly && monthMode == 2,
                 fromCompletion = fromCompletion,
+                subtaskReset = subtaskReset,
                 untilEpochDay = if (endMode == 1) until else null,
                 count = if (endMode == 2) count.coerceAtLeast(1) else null,
             )
@@ -555,10 +559,11 @@ private fun RepeatDialog(rule: String?, onDismiss: () -> Unit, onSave: (String?)
                 if (freq == com.todocompanion.app.domain.recurrence.Freq.MONTHLY) {
                     Spacer(Modifier.size(8.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        FilterChip(selected = !byWeekdayMode, onClick = { byWeekdayMode = false }, label = { Text("On day of month") })
-                        FilterChip(selected = byWeekdayMode, onClick = { byWeekdayMode = true }, label = { Text("On a weekday") })
+                        FilterChip(selected = monthMode == 0, onClick = { monthMode = 0 }, label = { Text("On day of month") })
+                        FilterChip(selected = monthMode == 1, onClick = { monthMode = 1 }, label = { Text("On a weekday") })
+                        FilterChip(selected = monthMode == 2, onClick = { monthMode = 2 }, label = { Text("First working day") })
                     }
-                    if (byWeekdayMode) {
+                    if (monthMode == 1) {
                         Spacer(Modifier.size(6.dp))
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             listOf(1 to "1st", 2 to "2nd", 3 to "3rd", 4 to "4th", -1 to "Last").forEach { (p, l) ->
@@ -578,6 +583,14 @@ private fun RepeatDialog(rule: String?, onDismiss: () -> Unit, onSave: (String?)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Repeat after completion", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                         Switch(checked = fromCompletion, onCheckedChange = { fromCompletion = it })
+                    }
+                }
+                if (freq != null && hasChildren) {
+                    Spacer(Modifier.size(10.dp)); Text("Subtasks each cycle", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("all" to "Reset all", "allDone" to "Only if all done", "keep" to "Keep").forEach { (k, l) ->
+                            FilterChip(selected = subtaskReset == k, onClick = { subtaskReset = k }, label = { Text(l) })
+                        }
                     }
                 }
                 if (freq != null) {

@@ -350,8 +350,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (nextDue != null) {
             val delta = nextDue - t.dueDate!!
             repo.saveTask(t.copy(dueDate = nextDue, startDate = t.startDate?.plus(delta), rrule = newRule, completed = false, completedAt = null))
-            // Reset the subtasks of a recurring task so the routine starts fresh each cycle.
-            tasks.value.filter { it.parentId == t.id && it.completed && !it.trashed }.forEach { repo.setCompleted(it, false) }
+            // Reset the subtasks of a recurring task per its chosen mode (all / only-if-all-done / keep).
+            val kids = tasks.value.filter { it.parentId == t.id && !it.trashed }
+            val doneKids = kids.filter { it.completed }
+            when (com.todocompanion.app.domain.recurrence.Recurrence.parse(t.rrule)?.subtaskReset ?: "all") {
+                "keep" -> {}
+                "allDone" -> if (kids.isNotEmpty() && doneKids.size == kids.size) doneKids.forEach { repo.setCompleted(it, false) }
+                else -> doneKids.forEach { repo.setCompleted(it, false) }
+            }
             val updated = repo.getTask(t.id)
             reminders.value.filter { it.taskId == t.id && it.atTime != null }.forEach { r ->
                 val nr = r.copy(atTime = r.atTime!! + delta)
@@ -361,6 +367,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         } else {
             repo.setCompleted(t, !t.completed)
             if (!t.completed) undoEvents.tryEmit(UndoEvent(UndoKind.COMPLETED, t.id, "Completed “${t.title.take(30)}”"))
+        }
+    }
+    /** Advance a repeating task to its next occurrence without logging a completion (MLO "skip"). */
+    fun skipOccurrence(t: TaskEntity) = viewModelScope.launch {
+        if (t.rrule.isNullOrBlank() || t.dueDate == null) return@launch
+        val (nextDue, newRule) = com.todocompanion.app.domain.recurrence.Recurrence.advance(t.rrule!!, t.dueDate!!, zone, System.currentTimeMillis())
+        if (nextDue == null) { repo.setCompleted(t, true); return@launch }
+        val delta = nextDue - t.dueDate!!
+        repo.saveTask(t.copy(dueDate = nextDue, startDate = t.startDate?.plus(delta), rrule = newRule))
+        val updated = repo.getTask(t.id)
+        reminders.value.filter { it.taskId == t.id && it.atTime != null }.forEach { r ->
+            val nr = r.copy(atTime = r.atTime!! + delta); repo.upsertReminder(nr); updated?.let { AlarmScheduler.schedule(appCtx, nr, it) }
         }
     }
     fun setAbandoned(t: TaskEntity, v: Boolean) = viewModelScope.launch {

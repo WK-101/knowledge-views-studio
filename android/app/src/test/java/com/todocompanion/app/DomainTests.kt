@@ -114,6 +114,19 @@ class RecurrenceTest {
         assertEquals(ms(2026, 2, 27), com.todocompanion.app.domain.recurrence.Recurrence.next(rule, ms(2026, 1, 30), zone))
     }
 
+    @Test fun firstWorkingDayOfMonth() {
+        // From 2026-01-01 (a Thursday, itself the 1st working day) next is 2026-02-02 (Feb 1 is Sunday → Mon 2nd).
+        val rule = com.todocompanion.app.domain.recurrence.Recurrence.encode(
+            com.todocompanion.app.domain.recurrence.Recur(com.todocompanion.app.domain.recurrence.Freq.MONTHLY, 1, firstWorkday = true))
+        assertEquals(ms(2026, 2, 2), com.todocompanion.app.domain.recurrence.Recurrence.next(rule, ms(2026, 1, 1), zone))
+    }
+
+    @Test fun subtaskResetRoundTrips() {
+        val rule = com.todocompanion.app.domain.recurrence.Recurrence.encode(
+            com.todocompanion.app.domain.recurrence.Recur(com.todocompanion.app.domain.recurrence.Freq.DAILY, 1, subtaskReset = "allDone"))
+        assertEquals("allDone", com.todocompanion.app.domain.recurrence.Recurrence.parse(rule)?.subtaskReset)
+    }
+
     @Test fun regenerateFromCompletion() {
         // "every 3 days after completion": due Jan 1, completed late on Jan 5 → next due Jan 8.
         val rule = com.todocompanion.app.domain.recurrence.Recurrence.encode(
