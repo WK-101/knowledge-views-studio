@@ -234,14 +234,21 @@ class AppRepository(private val db: AppDatabase) {
     val allTimeActivities: Flow<List<com.todocompanion.app.data.entity.TimeActivityEntity>> = timeTrack.observeActivities()
     val allTimeEntries: Flow<List<com.todocompanion.app.data.entity.TimeEntryEntity>> = timeTrack.observeEntries()
 
-    suspend fun createTimeActivity(name: String, emoji: String?, colorArgb: Long?): String {
+    suspend fun createTimeActivity(name: String, emoji: String?, colorArgb: Long?, goalMinutesPerDay: Int = 0): String {
         val id = uid()
         val order = (timeTrack.getActivities().maxOfOrNull { it.sortOrder } ?: 0.0) + 1.0
-        timeTrack.upsertActivity(com.todocompanion.app.data.entity.TimeActivityEntity(id, name.trim().ifBlank { "Activity" }, emoji, colorArgb, false, order, now()))
+        timeTrack.upsertActivity(com.todocompanion.app.data.entity.TimeActivityEntity(id, name.trim().ifBlank { "Activity" }, emoji, colorArgb, false, order, now(), goalMinutesPerDay, ""))
         return id
     }
     suspend fun upsertTimeActivity(a: com.todocompanion.app.data.entity.TimeActivityEntity) = timeTrack.upsertActivity(a)
-    suspend fun deleteTimeActivity(id: String) = timeTrack.deleteActivity(id)
+    /** T7 (I2): deleting an activity that has intervals SOFT-ARCHIVES it (its time survives); only a truly
+     *  unused activity is removed. Any habit linked to it is unlinked. */
+    suspend fun deleteTimeActivity(id: String) {
+        habits.getAll().filter { it.timeActivityId == id }.forEach { habits.upsert(it.copy(timeActivityId = null)) }
+        if (timeTrack.getEntries().any { it.activityId == id }) {
+            timeTrack.getActivities().firstOrNull { it.id == id }?.let { timeTrack.upsertActivity(it.copy(archived = true)) }
+        } else timeTrack.deleteActivity(id)
+    }
 
     /** Start tracking an activity. Single-timer discipline: any running entry is stopped first. */
     suspend fun startTimeTracking(activityId: String, taskId: String? = null, habitId: String? = null): String {
@@ -254,14 +261,52 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun stopTimeTracking() {
         val running = timeTrack.runningEntry() ?: return
         val end = now()
-        if (end - running.startMillis < 1_000L) timeTrack.deleteEntry(running.id)
-        else timeTrack.upsertEntry(running.copy(endMillis = end))
+        if (end - running.startMillis < 1_000L) { timeTrack.deleteEntry(running.id); return }
+        timeTrack.upsertEntry(running.copy(endMillis = end))
+        // T3 (I4): a habit-linked interval credits the habit's check-in once, with its minutes — the same
+        // single auto-log the Focus coach uses, so a timed habit is never logged twice. The link can be
+        // direct (entry.habitId) or via the activity a habit is bound to (Habit.timeActivityId).
+        val mins = ((end - running.startMillis) / 60_000L).toInt()
+        if (mins > 0) {
+            val hid = running.habitId
+                ?: habits.getAll().firstOrNull { it.timeActivityId == running.activityId && !it.archived }?.id
+            if (hid != null) {
+                val day = java.time.Instant.ofEpochMilli(end).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toEpochDay()
+                val cur = habits.getCheckins().firstOrNull { it.habitId == hid && it.epochDay == day }?.count ?: 0
+                setCheckinValue(hid, day, cur + mins)
+            }
+        }
     }
     suspend fun addManualTimeEntry(activityId: String, startMillis: Long, endMillis: Long, note: String = "", taskId: String? = null, habitId: String? = null) =
         timeTrack.upsertEntry(com.todocompanion.app.data.entity.TimeEntryEntity(uid(), activityId, startMillis, endMillis, note, taskId, habitId, now()))
     suspend fun upsertTimeEntry(e: com.todocompanion.app.data.entity.TimeEntryEntity) = timeTrack.upsertEntry(e)
     suspend fun deleteTimeEntry(id: String) = timeTrack.deleteEntry(id)
     suspend fun runningTimeEntry(): com.todocompanion.app.data.entity.TimeEntryEntity? = timeTrack.runningEntry()
+
+    /** T1 (I1): a stable "Focus" activity used to mirror Focus/Pomodoro sessions onto the one timeline. */
+    suspend fun ensureFocusActivity(): String {
+        timeTrack.getActivities().firstOrNull { it.name == "Focus" && !it.archived }?.let { return it.id }
+        return createTimeActivity("Focus", "🎯", 0xFF6650A4L)
+    }
+    /** T1 (I1): record a completed Focus session as a time interval (kind=focus) so the tracker is the
+     *  single source of truth for time. A completed interval — it never disturbs the running entry. */
+    suspend fun mirrorFocusInterval(startMillis: Long, endMillis: Long, activityId: String, taskId: String?, habitId: String?) {
+        if (endMillis <= startMillis) return
+        timeTrack.upsertEntry(
+            com.todocompanion.app.data.entity.TimeEntryEntity(
+                id = uid(), activityId = activityId, startMillis = startMillis, endMillis = endMillis,
+                note = "", taskId = taskId, habitId = habitId, createdAt = now(), kind = "focus",
+            )
+        )
+    }
+    /** T2: total minutes tracked against a task (all intervals, focus + manual). Single source of truth. */
+    suspend fun trackedMinutesForTask(taskId: String): Int =
+        timeTrack.getEntries().filter { it.taskId == taskId }.sumOf { it.minutes(now()) }
+    /** T2: a stable "Tasks" activity — the generic bucket for time tracked against a task with no chosen activity. */
+    suspend fun ensureTaskActivity(): String {
+        timeTrack.getActivities().firstOrNull { it.name == "Tasks" && !it.archived }?.let { return it.id }
+        return createTimeActivity("Tasks", "📋", 0xFF3E6DDFL)
+    }
 
     private val filters = db.filterDao()
     val allFilters: Flow<List<FilterEntity>> = filters.observeAll()

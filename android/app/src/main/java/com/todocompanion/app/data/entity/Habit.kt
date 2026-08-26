@@ -64,6 +64,10 @@ data class HabitEntity(
     val longitude: Double? = null,
     val geofenceRadius: Double? = null,
     val placeLabel: String = "",
+    // Tier T3: an optional time-activity this habit is tracked under. When set, tracking that activity
+    // counts toward the habit, and the two share one goal (the habit's). Nullable — invisible unless the
+    // Time module is used.
+    val timeActivityId: String? = null,
 ) {
     /** null-safe first day this habit counts from. */
     fun startEpochDay(zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): Long =

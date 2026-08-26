@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Timelapse
 import androidx.compose.material.icons.filled.ViewTimeline
 import androidx.compose.material.icons.filled.Cancel
@@ -313,11 +314,14 @@ fun AppDrawer(
                     VItem("view_timeline", "Timeline", Icons.Filled.ViewTimeline, "TIMELINE"),
                     VItem("view_matrix", "Matrix", Icons.Filled.GridView, "MATRIX"),
                     VItem("view_habits", "Habits", Icons.Filled.LocalFireDepartment, "HABITS"),
+                    VItem("view_time", "Time", Icons.Filled.Schedule, "TIME"),
                     VItem("view_focus", "Focus", Icons.Filled.Timer, "FOCUS"),
                 )
                 val orderedViews = (settings.viewsOrder + defaultViews.map { it.key }).distinct()
                     .mapNotNull { key -> defaultViews.firstOrNull { it.key == key } }
                     .filter { it.key !in hidden }
+                    // T0: hide a view whose module is switched off.
+                    .filter { v -> com.todocompanion.app.domain.Modules.moduleOfTab(v.tab)?.let { com.todocompanion.app.domain.Modules.isEnabled(settings, it) } ?: true }
                 DragReorderColumn(orderedViews, id = { it.key }, onReorder = { vm.setViewsOrder(it) }) { v ->
                     // E4: long-press any view to pin it to Favourites (token "view:TAB").
                     DrawerRow(v.icon, v.label, pinned = vm.isPinned("view:${v.tab}"),
@@ -331,7 +335,6 @@ fun AppDrawer(
             if (open("more")) {
                 // E4: long-press any "More" item to pin it to Favourites (token "more:key").
                 if ("momentum" !in hidden) DrawerRow(Icons.Filled.Insights, "Momentum", pinned = vm.isPinned("more:momentum"), onLongClick = { vm.togglePinnedRef("more:momentum") }, onClick = onOpenMomentum)
-                if ("time" !in hidden) DrawerRow(Icons.Filled.Timer, "Time", pinned = vm.isPinned("more:time"), onLongClick = { vm.togglePinnedRef("more:time") }, onClick = onOpenTime)
                 if ("templates" !in hidden) DrawerRow(Icons.Filled.ContentCopy, "Templates", pinned = vm.isPinned("more:templates"), onLongClick = { vm.togglePinnedRef("more:templates") }, onClick = onOpenTemplates)
                 if ("countdowns" !in hidden) DrawerRow(Icons.Filled.Timelapse, "Countdowns", pinned = vm.isPinned("more:countdowns"), onLongClick = { vm.togglePinnedRef("more:countdowns") }, onClick = onOpenCountdowns)
                 if ("attachments" !in hidden) DrawerRow(Icons.Filled.AttachFile, "Attachments", pinned = vm.isPinned("more:attachments"), onLongClick = { vm.togglePinnedRef("more:attachments") }, onClick = onOpenAttachments)

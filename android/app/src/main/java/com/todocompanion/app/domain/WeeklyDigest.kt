@@ -37,6 +37,8 @@ object WeeklyDigest {
         momentum: Int,
         today: Long,
         zone: ZoneId,
+        timeThisWeek: Int = 0,   // T6: tracked minutes this week / last week (0,0 ⇒ no Time row)
+        timeLastWeek: Int = 0,
     ): Digest {
         val thisWeek = ((today - 6)..today).toSet()
         val lastWeek = ((today - 13)..(today - 7)).toSet()
@@ -72,11 +74,14 @@ object WeeklyDigest {
 
         val hasData = active.isNotEmpty() || tasks.any { it.completedAt != null } || focus.isNotEmpty()
 
-        val metrics = listOf(
-            Metric("Check-ins", ciNow.toString(), ciNow - ciPrev),
-            Metric("Tasks done", tNow.toString(), tNow - tPrev),
-            Metric("Focus", "${fNow}m", fNow - fPrev, "m"),
-        )
+        val metrics = buildList {
+            add(Metric("Check-ins", ciNow.toString(), ciNow - ciPrev))
+            add(Metric("Tasks done", tNow.toString(), tNow - tPrev))
+            add(Metric("Focus", "${fNow}m", fNow - fPrev, "m"))
+            // T6: fold tracked time in when there's any (Time module on with data).
+            if (timeThisWeek > 0 || timeLastWeek > 0)
+                add(Metric("Time", "${timeThisWeek}m", timeThisWeek - timeLastWeek, "m"))
+        }
 
         val headline = when {
             !hasData -> "Your week is a blank page — start one habit or finish one task and this fills in."

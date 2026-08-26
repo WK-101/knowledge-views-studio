@@ -31,6 +31,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -78,10 +79,12 @@ private fun fmtDur(min: Int): String = when {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit) {
-    BackHandler(onBack = onBack)
+fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean = false) {
+    // T0: as a bottom-nav tab (embedded), there is no back — the tab bar handles navigation.
+    if (!embedded) BackHandler(onBack = onBack)
     val activities by vm.timeActivities.collectAsState()
     val entries by vm.timeEntries.collectAsState()
+    val habits by vm.habits.collectAsState()   // T3: link an activity to a habit
     val zone = ZoneId.systemDefault()
     val timeFmt = remember { DateTimeFormatter.ofPattern("HH:mm") }
 
@@ -109,12 +112,20 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit) {
     var showManual by remember { mutableStateOf(false) }
     var editEntry by remember { mutableStateOf<TimeEntryEntity?>(null) }
 
-    if (showNewActivity) ActivityDialog(null, onDismiss = { showNewActivity = false }) { name, emoji, color ->
-        vm.createTimeActivity(name, emoji, color); showNewActivity = false
+    if (showNewActivity) ActivityDialog(null, onDismiss = { showNewActivity = false }) { name, emoji, color, goal ->
+        vm.createTimeActivity(name, emoji, color, goal); showNewActivity = false
     }
     editActivity?.let { a ->
-        ActivityDialog(a, onDismiss = { editActivity = null }, onDelete = { vm.deleteTimeActivity(a.id); editActivity = null }) { name, emoji, color ->
-            vm.updateTimeActivity(a.copy(name = name, emoji = emoji, colorArgb = color)); editActivity = null
+        ActivityDialog(
+            a, onDismiss = { editActivity = null }, onDelete = { vm.deleteTimeActivity(a.id); editActivity = null },
+            habitLinks = habits.filter { !it.archived }.map { it.id to it.name },
+            linkedHabitId = habits.firstOrNull { it.timeActivityId == a.id }?.id,
+            onLinkHabit = { hid ->
+                habits.filter { it.timeActivityId == a.id }.forEach { vm.setHabitTimeActivity(it.id, null) }
+                hid?.let { vm.setHabitTimeActivity(it, a.id) }
+            },
+        ) { name, emoji, color, goal ->
+            vm.updateTimeActivity(a.copy(name = name, emoji = emoji, colorArgb = color, goalMinutesPerDay = goal)); editActivity = null
         }
     }
     if (showManual) ManualEntryDialog(activities, day, zone, onDismiss = { showManual = false }) { actId, start, end ->
@@ -129,7 +140,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit) {
     Scaffold(topBar = {
         TopAppBar(
             title = { Text("Time") },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+            navigationIcon = { if (!embedded) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
         )
     }) { padding ->
         Column(
@@ -205,13 +216,22 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit) {
                 totals.forEach { t ->
                     val a = actById[t.activityId]
                     val c = a?.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
+                    // T4: an activity with a daily goal shows progress toward it; the bar fills against the
+                    // goal (else against the day's largest activity), and reads met with a ✓.
+                    val goalMin = a?.goalMinutesPerDay ?: 0
+                    val goalMet = goalMin in 1..t.minutes
+                    val frac = if (goalMin > 0) (t.minutes / goalMin.toFloat()).coerceIn(0f, 1f) else t.minutes / max.toFloat()
                     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text((a?.emoji?.plus(" ") ?: "") + (a?.name ?: "—"), Modifier.width(110.dp), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Box(Modifier.weight(1f).height(14.dp).clip(RoundedCornerShape(7.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
-                            Box(Modifier.fillMaxWidth(t.minutes / max.toFloat()).height(14.dp).clip(RoundedCornerShape(7.dp)).background(c))
+                            Box(Modifier.fillMaxWidth(frac).height(14.dp).clip(RoundedCornerShape(7.dp)).background(if (goalMet) MaterialTheme.colorScheme.tertiary else c))
                         }
                         Spacer(Modifier.width(8.dp))
-                        Text(fmtDur(t.minutes), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            fmtDur(t.minutes) + (if (goalMin > 0) " / ${fmtDur(goalMin)}" else "") + (if (goalMet) " ✓" else ""),
+                            style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold,
+                            color = if (goalMet) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurface,
+                        )
                     }
                 }
             }
@@ -248,10 +268,15 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit) {
 /** New/edit an activity: name, optional emoji, a colour swatch. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ActivityDialog(existing: TimeActivityEntity?, onDismiss: () -> Unit, onDelete: (() -> Unit)? = null, onSave: (String, String?, Long?) -> Unit) {
+private fun ActivityDialog(
+    existing: TimeActivityEntity?, onDismiss: () -> Unit, onDelete: (() -> Unit)? = null,
+    habitLinks: List<Pair<String, String>> = emptyList(), linkedHabitId: String? = null, onLinkHabit: (String?) -> Unit = {},
+    onSave: (String, String?, Long?, Int) -> Unit,
+) {
     var name by remember { mutableStateOf(existing?.name ?: "") }
     var emoji by remember { mutableStateOf(existing?.emoji ?: "") }
     var color by remember { mutableStateOf(existing?.colorArgb ?: PALETTE.first()) }
+    var goal by remember { mutableStateOf(existing?.goalMinutesPerDay?.takeIf { it > 0 }?.toString() ?: "") }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (existing == null) "New activity" else "Edit activity") },
@@ -260,6 +285,9 @@ private fun ActivityDialog(existing: TimeActivityEntity?, onDismiss: () -> Unit,
                 OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(emoji, { emoji = it.take(2) }, label = { Text("Emoji (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(8.dp))
+                // T4: an optional daily time goal (minutes). Progress is computed from tracked intervals.
+                OutlinedTextField(goal, { v -> goal = v.filter { it.isDigit() }.take(4) }, label = { Text("Daily goal (minutes, optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     PALETTE.forEach { swatch ->
@@ -271,9 +299,21 @@ private fun ActivityDialog(existing: TimeActivityEntity?, onDismiss: () -> Unit,
                         ) { if (color == swatch) Text("✓", color = Color.White) }
                     }
                 }
+                // T3 (I4): link this activity to a habit — tracking it then counts the habit, sharing one goal.
+                if (habitLinks.isNotEmpty()) {
+                    Spacer(Modifier.height(14.dp))
+                    Text("Counts toward habit", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(6.dp))
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = linkedHabitId == null, onClick = { onLinkHabit(null) }, label = { Text("None") })
+                        habitLinks.forEach { (hid, hname) ->
+                            FilterChip(selected = linkedHabitId == hid, onClick = { onLinkHabit(hid) }, label = { Text(hname, maxLines = 1) })
+                        }
+                    }
+                }
             }
         },
-        confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { onSave(name.trim(), emoji.trim().ifBlank { null }, color) }) { Text("Save") } },
+        confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { onSave(name.trim(), emoji.trim().ifBlank { null }, color, goal.toIntOrNull() ?: 0) }) { Text("Save") } },
         dismissButton = {
             Row {
                 if (onDelete != null) TextButton(onClick = onDelete) { Text("Delete", color = MaterialTheme.colorScheme.error) }

@@ -72,6 +72,9 @@ data class TaskEntity(
     // the goal (the reason it matters); rewardText fires as a celebration when the goal is completed.
     val whyText: String = "",
     val rewardText: String = "",
+    // Tier T2: the time-activity this task tracks under by default, so "Start timer" is one tap. Nullable
+    // link — absent (and invisible) unless the Time module is used.
+    val defaultActivityId: String? = null,
     val reviewEveryDays: Int? = null,
     val reviewedAt: Long? = null,
     val completeInOrder: Boolean = false,

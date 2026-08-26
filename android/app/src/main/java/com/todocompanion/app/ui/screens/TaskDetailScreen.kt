@@ -146,6 +146,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     val activityLog by remember(taskId) { vm.taskActivity(taskId) }.collectAsState(initial = emptyList())
     val allDeps by vm.dependencies.collectAsState()
     val allTasks by vm.tasks.collectAsState()
+    val timeEntries by vm.timeEntries.collectAsState()   // T2
 
     var showDue by remember { mutableStateOf(false) }
     var showStart by remember { mutableStateOf(false) }
@@ -315,6 +316,32 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 val timed = task.dueDate != null && !task.isAllDay && java.time.Instant.ofEpochMilli(task.dueDate!!).atZone(zone).let { it.hour != 0 || it.minute != 0 }
                 if (timed) PropRow(Icons.Filled.Schedule, "Duration", task.durationMin?.let { fmtDuration(it) } ?: "Not set", indent = true,
                     onClear = if (task.durationMin != null) ({ update { it.copy(durationMin = null) } }) else null) { showDuration = true }
+            }
+
+            // T2: track time against this task (Time module only). Planned (duration/estimate) vs actual.
+            if (com.todocompanion.app.domain.Modules.isEnabled(settings, com.todocompanion.app.domain.Modules.TIME)) {
+                val nowMs = System.currentTimeMillis()
+                val mine = timeEntries.filter { it.taskId == task.id }
+                val trackedMin = mine.sumOf { it.minutes(nowMs) }
+                val isRunning = mine.any { it.running }
+                val planned = task.durationMin ?: task.estimateMin
+                Row(Modifier.fillMaxWidth().padding(start = 34.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Schedule, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Time tracked", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            (if (trackedMin > 0) fmtDuration(trackedMin) else "None yet") +
+                                (planned?.let { " · ${fmtDuration(it)} planned" } ?: "") +
+                                (if (planned != null && trackedMin > planned) "  ⚠ over" else ""),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (planned != null && trackedMin > planned) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    androidx.compose.material3.TextButton(onClick = { if (isRunning) vm.stopTimeTracking() else vm.startTimeTrackingForTask(task) }) {
+                        Text(if (isRunning) "Stop" else "Start timer")
+                    }
+                }
             }
 
             // ---------- Priority & list (core, always shown) ----------

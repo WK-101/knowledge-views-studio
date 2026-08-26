@@ -1060,9 +1060,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** R2: the weekly "state of you" digest — this week vs last, across habits, tasks and focus. */
     fun weeklyDigest(): com.todocompanion.app.domain.WeeklyDigest.Digest {
         val today = java.time.LocalDate.now(zone).toEpochDay()
+        val now = System.currentTimeMillis()
+        val wkStart = java.time.LocalDate.now(zone).minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli()
+        val lastStart = java.time.LocalDate.now(zone).minusDays(13).atStartOfDay(zone).toInstant().toEpochMilli()
+        val dayEnd = java.time.LocalDate.now(zone).plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val TT = com.todocompanion.app.domain.TimeTracking
+        val timeOn = com.todocompanion.app.domain.Modules.isEnabled(settings.value, com.todocompanion.app.domain.Modules.TIME)
+        val tWk = if (timeOn) TT.totalMinutes(timeEntries.value, wkStart, dayEnd, now) else 0
+        val tLast = if (timeOn) TT.totalMinutes(timeEntries.value, lastStart, wkStart, now) else 0
         return com.todocompanion.app.domain.WeeklyDigest.compute(
             habits.value, habitCheckins.value, tasks.value, focusSessions.value,
-            momentumSnapshot().momentum, today, zone,
+            momentumSnapshot().momentum, today, zone, tWk, tLast,
         )
     }
 
@@ -1073,7 +1081,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun smartCapture(text: String, forceKind: com.todocompanion.app.domain.nlp.SmartCapture.Kind? = null, onDone: (com.todocompanion.app.domain.nlp.SmartCapture.Kind) -> Unit = {}) {
         val trimmed = text.trim()
         if (trimmed.isBlank()) return
-        val kind = forceKind ?: com.todocompanion.app.domain.nlp.SmartCapture.classify(trimmed).kind
+        val hbt = com.todocompanion.app.domain.nlp.SmartCapture.Kind.HABIT
+        val tsk = com.todocompanion.app.domain.nlp.SmartCapture.Kind.TASK
+        val M = com.todocompanion.app.domain.Modules
+        val s = settings.value
+        val kind0 = forceKind ?: com.todocompanion.app.domain.nlp.SmartCapture.classify(trimmed).kind
+        // I6: never file into a disabled module. A habit line with Habits off becomes a task (and vice
+        // versa when Tasks is off but Habits is on).
+        val kind = when {
+            kind0 == hbt && !M.isEnabled(s, M.HABITS) -> tsk
+            kind0 == tsk && !M.isEnabled(s, M.TASKS) && M.isEnabled(s, M.HABITS) -> hbt
+            else -> kind0
+        }
         if (kind == com.todocompanion.app.domain.nlp.SmartCapture.Kind.HABIT) {
             addHabit(com.todocompanion.app.domain.habit.HabitQuickParser.parse(trimmed))
         } else {
@@ -1083,8 +1102,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---------- Tier S: time tracking ----------
-    fun createTimeActivity(name: String, emoji: String?, colorArgb: Long?) = viewModelScope.launch {
-        repo.createTimeActivity(name, emoji, colorArgb)
+    fun createTimeActivity(name: String, emoji: String?, colorArgb: Long?, goalMinutesPerDay: Int = 0) = viewModelScope.launch {
+        repo.createTimeActivity(name, emoji, colorArgb, goalMinutesPerDay)
     }
     fun updateTimeActivity(a: com.todocompanion.app.data.entity.TimeActivityEntity) = viewModelScope.launch { repo.upsertTimeActivity(a) }
     fun deleteTimeActivity(id: String) = viewModelScope.launch { repo.deleteTimeActivity(id) }
@@ -1092,12 +1111,31 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun startTimeTracking(activityId: String, taskId: String? = null, habitId: String? = null) = viewModelScope.launch {
         repo.startTimeTracking(activityId, taskId, habitId)
     }
-    fun stopTimeTracking() = viewModelScope.launch { repo.stopTimeTracking() }
+    fun stopTimeTracking() = viewModelScope.launch { repo.stopTimeTracking(); refreshHabitWidgets() }
     fun addManualTimeEntry(activityId: String, startMillis: Long, endMillis: Long, note: String = "") = viewModelScope.launch {
         if (endMillis > startMillis) repo.addManualTimeEntry(activityId, startMillis, endMillis, note)
     }
     fun updateTimeEntry(e: com.todocompanion.app.data.entity.TimeEntryEntity) = viewModelScope.launch { repo.upsertTimeEntry(e) }
     fun deleteTimeEntry(id: String) = viewModelScope.launch { repo.deleteTimeEntry(id) }
+
+    // T2: start tracking time against a task (its default activity, else the generic "Tasks" bucket).
+    fun startTimeTrackingForTask(task: TaskEntity) = viewModelScope.launch {
+        val actId = task.defaultActivityId?.takeIf { id -> timeActivities.value.any { it.id == id && !it.archived } }
+            ?: repo.ensureTaskActivity()
+        repo.startTimeTracking(actId, taskId = task.id)
+    }
+    fun setTaskDefaultActivity(taskId: String, activityId: String?) = viewModelScope.launch {
+        repo.getTask(taskId)?.let { repo.saveTask(it.copy(defaultActivityId = activityId)) }
+    }
+    // T3: start tracking time against a habit (its linked activity, else a generic bucket).
+    fun startTimeTrackingForHabit(habit: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch {
+        val actId = habit.timeActivityId?.takeIf { id -> timeActivities.value.any { it.id == id && !it.archived } }
+            ?: repo.ensureFocusActivity()
+        repo.startTimeTracking(actId, habitId = habit.id)
+    }
+    fun setHabitTimeActivity(habitId: String, activityId: String?) = viewModelScope.launch {
+        habits.value.firstOrNull { it.id == habitId }?.let { repo.upsertHabit(it.copy(timeActivityId = activityId)) }
+    }
 
     /** M2: create a whole themed routine at once (one reschedule/refresh for the batch). */
     fun addHabits(habits: List<com.todocompanion.app.data.entity.HabitEntity>) = viewModelScope.launch {
@@ -1210,10 +1248,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---------- focus ----------
-    fun recordFocus(startMillis: Long, minutes: Int, kind: String, taskId: String? = null) = viewModelScope.launch {
+    fun recordFocus(startMillis: Long, minutes: Int, kind: String, taskId: String? = null, habitId: String? = null) = viewModelScope.launch {
         if (minutes <= 0) return@launch
         val day = java.time.Instant.ofEpochMilli(startMillis).atZone(zone).toLocalDate().toEpochDay()
         repo.addFocusSession(day, startMillis, minutes, kind, taskId)
+        // T1 (I1): when the Time module is on, mirror this session onto the one tracker timeline so that
+        // "time" is counted once, from a single source. The activity is the task's / habit's linked one,
+        // else a generic "Focus" activity.
+        val M = com.todocompanion.app.domain.Modules
+        if (M.isEnabled(settings.value, M.TIME)) {
+            val actId = taskId?.let { tid -> tasks.value.firstOrNull { it.id == tid }?.defaultActivityId }
+                ?: habitId?.let { hid -> habits.value.firstOrNull { it.id == hid }?.timeActivityId }
+                ?: repo.ensureFocusActivity()
+            repo.mirrorFocusInterval(startMillis, startMillis + minutes * 60_000L, actId, taskId, habitId)
+        }
     }
 
     // ---------- saved filters ----------
@@ -1499,6 +1547,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val cur = settings.value.sidebarHidden
         repo.saveSettings(settings.value.copy(sidebarHidden = if (hidden) cur + key else cur - key))
     }
+    // ---------- T0: modular module config ----------
+    fun setPrimaryModule(module: String) = viewModelScope.launch {
+        repo.saveSettings(settings.value.copy(primaryModule = module, disabledModules = settings.value.disabledModules - module))
+    }
+    fun setModuleEnabled(module: String, on: Boolean) = viewModelScope.launch {
+        val s = settings.value
+        if (!on && module == s.primaryModule) return@launch   // the primary module is never disabled
+        repo.saveSettings(s.copy(disabledModules = if (on) s.disabledModules - module else s.disabledModules + module))
+    }
+    /** First-run picker result: choose a primary and which others stay on. */
+    fun applyModulePreset(primary: String, enabledOthers: Set<String>) = viewModelScope.launch {
+        val disabled = com.todocompanion.app.domain.Modules.ALL.filter { it != primary && it !in enabledOthers }.toSet()
+        repo.saveSettings(settings.value.copy(primaryModule = primary, disabledModules = disabled, onboardedModules = true))
+    }
+    fun markModulesOnboarded() = viewModelScope.launch { repo.saveSettings(settings.value.copy(onboardedModules = true)) }
     // Drag-reorder persistence for the drawer sections.
     fun setTagOrder(ids: List<String>) = viewModelScope.launch { repo.setTagOrder(ids) }
     fun setHabitOrder(ids: List<String>) = viewModelScope.launch { repo.setHabitOrder(ids); refreshHabitWidgets() }

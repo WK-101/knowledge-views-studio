@@ -70,6 +70,11 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
     val tasks by vm.tasks.collectAsState()
     val focus by vm.focusSessions.collectAsState()
     val reliability by vm.taskReliability.collectAsState()
+    val settings by vm.settings.collectAsState()
+    val timeEntries by vm.timeEntries.collectAsState()
+    val habitsOn = com.todocompanion.app.domain.Modules.isEnabled(settings, com.todocompanion.app.domain.Modules.HABITS)
+    val tasksOn = com.todocompanion.app.domain.Modules.isEnabled(settings, com.todocompanion.app.domain.Modules.TASKS)
+    val timeOn = com.todocompanion.app.domain.Modules.isEnabled(settings, com.todocompanion.app.domain.Modules.TIME)
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now().toEpochDay()
 
@@ -92,9 +97,10 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
             },
         )
     }) { padding ->
-        // Habit strength (avg over active build habits).
+        // Habit strength (avg over active build habits). I5: gated to null when the Habits module is off,
+        // so a disabled module never feeds the blend or shows a tile.
         val activeHabits = habits.filter { !it.archived }
-        val habitStrength = remember(habits, checkins, today) {
+        val habitStrengthRaw = remember(habits, checkins, today) {
             val vals = activeHabits.map { h ->
                 val hc = checkins.filter { it.habitId == h.id }
                 val done = hc.filter { it.status == "done" && HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
@@ -104,11 +110,17 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
             }
             if (vals.isEmpty()) null else vals.average().toInt()
         }
+        val habitStrength = if (habitsOn) habitStrengthRaw else null
         // Task reliability (avg over recurring tasks that have a score).
-        val taskRel = reliability.values.map { it.score }.let { if (it.isEmpty()) null else it.average().toInt() }
+        val taskRel = if (tasksOn) reliability.values.map { it.score }.let { if (it.isEmpty()) null else it.average().toInt() } else null
         // Focus minutes this week.
         val weekDays = (0 until 7).map { today - it }.toSet()
         val focusWeek = focus.filter { it.epochDay in weekDays }.sumOf { it.minutes }
+        // Time tracked today (I5: informational; shown as a tile when the Time module is on).
+        val nowMs = System.currentTimeMillis()
+        val dayStart = LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
+        val dayEnd = LocalDate.now(zone).plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val timeTodayMin = if (timeOn) com.todocompanion.app.domain.TimeTracking.totalMinutes(timeEntries, dayStart, dayEnd, nowMs) else 0
         val tasksDoneWeek = tasks.count { t -> t.completedAt?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate().toEpochDay() in weekDays } == true }
 
         // One blended momentum score from whatever signals exist (weights renormalise).
@@ -127,9 +139,19 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                 .filter { it.emoji in setOf("🔗", "⚡", "🗝️", "📉") }
         }
 
-        if (activeHabits.isEmpty() && reliability.isEmpty()) {
+        // I5: when only one module is enabled, "momentum" relabels to that module's own summary rather
+        // than a degenerate one-input score.
+        val enabledMods = com.todocompanion.app.domain.Modules.enabled(settings)
+        val ringTitle = if (enabledMods.size == 1) when (enabledMods[0]) {
+            com.todocompanion.app.domain.Modules.HABITS -> "Your habits"
+            com.todocompanion.app.domain.Modules.TIME -> "Your time"
+            else -> "Your tasks"
+        } else "Today's momentum"
+
+        val nothing = (!habitsOn || activeHabits.isEmpty()) && (!tasksOn || reliability.isEmpty()) && (!timeOn || timeEntries.isEmpty())
+        if (nothing) {
             Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Add a few habits or recurring tasks to see your momentum.", Modifier.padding(32.dp),
+                Text("Start a habit, a task, or a timer and your momentum fills in here.", Modifier.padding(32.dp),
                     style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
@@ -157,7 +179,7 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                         Text("$momentum", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     }
                     Column {
-                        Text("Today's momentum", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(ringTitle, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         Text(when {
                             momentum >= 75 -> "Strong — you're carrying real consistency across the board."
                             momentum >= 45 -> "Steady — a few nudges away from a great week."
@@ -167,11 +189,19 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                 }
             }
 
-            // The three inputs.
+            // The inputs — a disabled module's tile is dropped so the row only shows what's live.
+            fun fmtMin(m: Int) = if (m >= 60) "${m / 60}h ${m % 60}m" else "${m}m"
+            val weekStartMs = LocalDate.now(zone).minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli()
+            val timeWeekMin = if (timeOn) com.todocompanion.app.domain.TimeTracking.totalMinutes(timeEntries, weekStartMs, dayEnd, nowMs) else 0
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MTile("Habit strength", habitStrength?.let { "$it" } ?: "—", Modifier.weight(1f))
-                MTile("Task reliability", taskRel?.let { "$it%" } ?: "—", Modifier.weight(1f))
+                if (habitsOn) MTile("Habit strength", habitStrength?.let { "$it" } ?: "—", Modifier.weight(1f))
+                if (tasksOn) MTile("Task reliability", taskRel?.let { "$it%" } ?: "—", Modifier.weight(1f))
                 MTile("Focus (7d)", "${focusWeek}m", Modifier.weight(1f))
+                if (timeOn) MTile("Time today", fmtMin(timeTodayMin), Modifier.weight(1f))
+            }
+            if (timeOn) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                MTile("Time (7d)", fmtMin(timeWeekMin), Modifier.weight(1f))
+                Spacer(Modifier.weight(2f))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 MTile("Habits", "${activeHabits.size}", Modifier.weight(1f))
@@ -179,9 +209,12 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                 MTile("Done (7d)", "$tasksDoneWeek", Modifier.weight(1f))
             }
 
-            // R2 — the weekly "state of you" digest: this week vs last, across all three signals.
-            val digest = remember(habits, checkins, tasks, focus, momentum) {
-                WeeklyDigest.compute(habits, checkins, tasks, focus, momentum, today, zone)
+            // R2 / T6 — the weekly "state of you" digest: this week vs last, across every live signal.
+            val lastWeekStart = LocalDate.now(zone).minusDays(13).atStartOfDay(zone).toInstant().toEpochMilli()
+            val timeWk = if (timeOn) com.todocompanion.app.domain.TimeTracking.totalMinutes(timeEntries, weekStartMs, dayEnd, nowMs) else 0
+            val timeLastWk = if (timeOn) com.todocompanion.app.domain.TimeTracking.totalMinutes(timeEntries, lastWeekStart, weekStartMs, nowMs) else 0
+            val digest = remember(habits, checkins, tasks, focus, momentum, timeWk, timeLastWk) {
+                WeeklyDigest.compute(habits, checkins, tasks, focus, momentum, today, zone, timeWk, timeLastWk)
             }
             AppCard {
                 Text("Your week", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
@@ -229,9 +262,12 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                 Text("How this fits together", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "Habits build strength, recurring tasks build reliability, and Focus sessions track deep work. " +
-                        "Momentum blends all three into one score. “Your week” compares your last 7 days to the 7 before. " +
-                        "The ＋ Capture box files whatever you type as a habit or a task automatically — tap the chip to override.",
+                    "Three modules share one store — Tasks, Habits and Time — and any can be your primary or switched " +
+                        "off in Settings ▸ Modules (nothing is deleted). Habits build strength, recurring tasks build " +
+                        "reliability, Focus and the Time tracker share one timeline, and a task or habit can be timed so " +
+                        "its minutes flow back in. Momentum blends whatever's on; with one module it becomes that module's " +
+                        "own summary. “Your week” compares the last 7 days to the 7 before, and ＋ Capture files a line as a " +
+                        "habit or a task automatically — never into a module you turned off.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

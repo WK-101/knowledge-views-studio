@@ -67,11 +67,13 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
+import com.todocompanion.app.domain.Modules
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -204,6 +206,29 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     val open = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
 
     Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 12.dp)) {
+
+        // T0: modular module system — pick the primary, switch any module off. Off hides it everywhere
+        // (nav, drawer, capture, widgets, Momentum, Today) but never deletes its data.
+        SettingsGroup(Icons.Filled.Dashboard, "Modules", open["modules"] == true, { open["modules"] = open["modules"] != true }) {
+            Sub("Primary (your home + always shown)")
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                Modules.ALL.forEachIndexed { i, m ->
+                    SegmentedButton(
+                        selected = Modules.primary(s) == m,
+                        onClick = { vm.setPrimaryModule(m) },
+                        shape = SegmentedButtonDefaults.itemShape(i, Modules.ALL.size),
+                    ) { Text(Modules.label(m)) }
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Sub("Turn a module on or off")
+            Modules.ALL.forEach { m ->
+                val isPrimary = Modules.primary(s) == m
+                Toggle(Modules.label(m) + if (isPrimary) "  (primary)" else "", Modules.isEnabled(s, m)) { on -> vm.setModuleEnabled(m, on) }
+            }
+            Text("The primary module can't be switched off — pick a different primary first.",
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
 
         SettingsGroup(Icons.Filled.Palette, "Appearance", open["appearance"] == true, { open["appearance"] = open["appearance"] != true }) {
             Sub("Theme")

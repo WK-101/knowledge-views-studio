@@ -24,6 +24,11 @@ data class TimeActivityEntity(
     val archived: Boolean = false,
     val sortOrder: Double = 0.0,
     val createdAt: Long,
+    // Tier T4: an optional per-activity time goal, computed as a fold over intervals (never a stored
+    // counter). 0 = no goal. goalDays is a CSV of ISO weekdays (1=Mon..7=Sun) the goal applies to;
+    // "" = every day. Progress is summed minutes tracked to this activity on a goal day.
+    val goalMinutesPerDay: Int = 0,
+    val goalDays: String = "",
 )
 
 @Serializable
@@ -38,6 +43,9 @@ data class TimeEntryEntity(
     val taskId: String? = null,
     val habitId: String? = null,
     val createdAt: Long = 0,
+    // Tier T1 (invariant I1): where this interval originated. "manual" (the tracker) or "focus" (mirrored
+    // from a Focus/Pomodoro session so the tracker timeline is the single source of truth for "time").
+    val kind: String = "manual",
 ) {
     val running: Boolean get() = endMillis == null
     /** Elapsed minutes, clamped to a floor of 0. For a running entry, pass [nowMillis]. */

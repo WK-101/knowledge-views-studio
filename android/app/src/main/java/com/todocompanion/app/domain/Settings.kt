@@ -113,6 +113,12 @@ data class AppSettings(
     val resumeLastView: Boolean = false,
     val lastViewRef: String = "",       // ref token of the last-opened view (kept only when resume is on)
     val defaultViewRef: String = "",    // ref token to open on launch (empty = Today)
+    // Tier T0: the modular top-level system. primaryModule ∈ {tasks, habits, time} sets the launch home
+    // and the always-shown module. disabledModules holds fully-off modules (from {tasks, habits, time}),
+    // hidden from nav, drawer, capture, widgets, Momentum and Today — but never deleted.
+    val primaryModule: String = "tasks",
+    val disabledModules: Set<String> = emptySet(),
+    val onboardedModules: Boolean = false,   // has the first-run "what's your main use" picker been shown
     // Sidebar section keys currently collapsed (persisted so folds survive an app restart).
     val sidebarCollapsed: Set<String> = emptySet(),
     // Sidebar section keys the user has hidden entirely from the drawer.
@@ -169,6 +175,9 @@ data class AppSettings(
         Keys.SWIPE_LF to swipeLeftFar.name,
         Keys.SMART_VIS to smartListVis.entries.joinToString(",") { "${it.key.name}:${it.value.name}" },
         Keys.BOTTOM_HIDDEN to bottomTabsHidden.joinToString(","),
+        Keys.PRIMARY_MODULE to primaryModule,
+        Keys.DISABLED_MODULES to disabledModules.joinToString(","),
+        Keys.ONBOARDED_MODULES to onboardedModules.toString(),
         Keys.ACTIVE_WS to activeWorkspaceId,
         Keys.MX_IMP to matrixImportanceThreshold.toString(),
         Keys.MX_URG to matrixUrgencyThreshold.toString(),
@@ -238,6 +247,9 @@ data class AppSettings(
         const val SWIPE_LF = "swipe_lf"
         const val SMART_VIS = "smart_vis"
         const val BOTTOM_HIDDEN = "bottom_hidden"
+        const val PRIMARY_MODULE = "primary_module"
+        const val DISABLED_MODULES = "disabled_modules"
+        const val ONBOARDED_MODULES = "onboarded_modules"
         const val ACTIVE_WS = "active_ws"
         const val PRIO_MODE = "prio_mode"
         const val PRIO_DUE = "prio_due"
@@ -337,6 +349,9 @@ data class AppSettings(
                 if (k != null && v != null) k to v else null
             }.toMap(),
             bottomTabsHidden = (m[Keys.BOTTOM_HIDDEN] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
+            primaryModule = m[Keys.PRIMARY_MODULE]?.takeIf { it.isNotBlank() } ?: "tasks",
+            disabledModules = (m[Keys.DISABLED_MODULES] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
+            onboardedModules = m[Keys.ONBOARDED_MODULES]?.toBooleanStrictOrNull() ?: false,
             activeWorkspaceId = m[Keys.ACTIVE_WS]?.ifBlank { "default" } ?: "default",
             matrixImportanceThreshold = m[Keys.MX_IMP]?.toIntOrNull() ?: 4,
             matrixUrgencyThreshold = m[Keys.MX_URG]?.toIntOrNull() ?: 4,

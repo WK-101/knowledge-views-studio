@@ -111,8 +111,10 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
         val e = elapsedNow()
         val mins = if (pomo) (minOf(e, pomoSeconds) / 60) else (e / 60)
         if (mins >= 1) {
-            vm.recordFocus(startMillis, mins, if (pomo) "pomo" else "stopwatch", focusTaskId)
-            focusHabitId?.let { vm.logHabitFocus(it, mins) }   // credit the linked habit
+            // T1: pass the habit too so a Focus session is mirrored onto the one timeline (when Time is on).
+            vm.recordFocus(startMillis, mins, if (pomo) "pomo" else "stopwatch", focusTaskId, focusHabitId)
+            focusHabitId?.let { vm.logHabitFocus(it, mins) }   // credit the linked habit's check-in
+
         }
         running = false; baseElapsed = 0
         AlarmScheduler.cancelFocusDone(context)

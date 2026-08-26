@@ -49,9 +49,11 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timer
+import com.todocompanion.app.domain.Modules
 import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.EventRepeat
 import androidx.compose.material.icons.filled.Tune
@@ -125,6 +127,7 @@ private enum class Tab(val label: String, val icon: ImageVector) {
     TIMELINE("Timeline", Icons.Filled.ViewTimeline),
     MATRIX("Matrix", Icons.Filled.GridView),
     HABITS("Habits", Icons.Filled.LocalFireDepartment),
+    TIME("Time", Icons.Filled.Schedule),
     FOCUS("Focus", Icons.Filled.Timer),
     SEARCH("Search", Icons.Filled.Search),
     SETTINGS("Settings", Icons.Filled.Settings),
@@ -165,6 +168,20 @@ fun AppRoot(
         val scope = rememberCoroutineScope()
         val drawerState = rememberDrawerState(DrawerValue.Closed)
         var tab by remember { mutableStateOf(Tab.TASKS) }
+        // T0: land on the primary module's home once settings load (unless a default view / resume is set),
+        // and never leave the user stranded on a disabled module's tab.
+        var landedInitial by remember { mutableStateOf(false) }
+        LaunchedEffect(settings.primaryModule, settings.disabledModules) {
+            val primaryHomeTab = when (Modules.primary(settings)) {
+                Modules.HABITS -> Tab.HABITS; Modules.TIME -> Tab.TIME; else -> Tab.TASKS
+            }
+            if (!landedInitial) {
+                landedInitial = true
+                if (settings.defaultViewRef.isBlank() && !settings.resumeLastView) tab = primaryHomeTab
+            }
+            val m = Modules.moduleOfTab(tab.name)
+            if (m != null && !Modules.isEnabled(settings, m)) tab = primaryHomeTab
+        }
         var editing by remember { mutableStateOf<String?>(null) }
         var showQuickAdd by remember { mutableStateOf(false) }
         var quickAddDue by remember { mutableStateOf<Long?>(null) }
@@ -520,7 +537,17 @@ fun AppRoot(
                     )
                 },
                 bottomBar = {
-                    val visibleTabs = Tab.entries.filter { it == Tab.TASKS || it.name !in settings.bottomTabsHidden }
+                    // T0: gate tabs by module. A tab shows only if its module is enabled; the primary
+                    // module's home tab is always shown (relaxing the old "Tasks always shown"); the rest
+                    // still honour bottomTabsHidden.
+                    val primaryHomeTab = when (Modules.primary(settings)) {
+                        Modules.HABITS -> Tab.HABITS; Modules.TIME -> Tab.TIME; else -> Tab.TASKS
+                    }
+                    val visibleTabs = Tab.entries.filter { t ->
+                        val m = Modules.moduleOfTab(t.name)
+                        val moduleOk = m == null || Modules.isEnabled(settings, m)
+                        moduleOk && (t == primaryHomeTab || t.name !in settings.bottomTabsHidden)
+                    }
                     CompactBottomBar(visibleTabs, tab) { tab = it }
                 },
                 snackbarHost = {
@@ -594,6 +621,7 @@ fun AppRoot(
                             Tab.TIMELINE -> com.todocompanion.app.ui.screens.TimelineScreen(vm, ::openTask, selectedLists = timelineLists, showDone = timelineShowDone)
                             Tab.MATRIX -> MatrixScreen(vm, ::openTask, matrixSettings, { matrixSettings = false })
                             Tab.HABITS -> com.todocompanion.app.ui.screens.HabitsScreen(vm, onFocusHabit = { hid -> vm.pendingFocusHabitId.value = hid; tab = Tab.FOCUS })
+                            Tab.TIME -> com.todocompanion.app.ui.screens.TimeTrackingScreen(vm, onBack = {}, embedded = true)
                             Tab.FOCUS -> com.todocompanion.app.ui.screens.FocusScreen(vm, onOpenStats = { showStats = true })
                         }
                     }
@@ -626,6 +654,11 @@ fun AppRoot(
         if (showReview) com.todocompanion.app.ui.screens.ReviewScreen(vm, onOpenTask = { showReview = false; openTask(it) }, onBack = { showReview = false })
         if (showMomentum) com.todocompanion.app.ui.screens.MomentumScreen(vm, onBack = { showMomentum = false })
         if (showTimeTracking) com.todocompanion.app.ui.screens.TimeTrackingScreen(vm, onBack = { showTimeTracking = false })
+        // T0: one-time "what's your main use?" picker sets the primary module. All modules stay on.
+        if (!settings.onboardedModules) com.todocompanion.app.ui.screens.ModulePickerDialog(
+            onPick = { p -> vm.applyModulePreset(p, Modules.ALL.filterNot { it == p }.toSet()) },
+            onSkip = { vm.markModulesOnboarded() },
+        )
         if (saveTab) {
             var tabName by remember { mutableStateOf(vm.currentTitle()) }
             AlertDialog(
