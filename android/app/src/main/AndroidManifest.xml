@@ -63,6 +63,12 @@
               temporary read grant, so NO storage permission or system document picker is involved — the
               one channel that survives a stripped-down AOSP ROM. Still fully offline.
             -->
+            <!--
+              Broad by design: a de-Googled file manager tags a .json backup as anything from
+              application/json to text/plain to application/octet-stream, so we accept every data/text
+              MIME (application/* + text/*). Media types (image/*, video/*) are deliberately NOT matched,
+              so we only surface in "Open with" for documents/data — exactly the backup case.
+            -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -70,17 +76,17 @@
                 <data android:scheme="content" />
                 <data android:scheme="file" />
                 <data android:mimeType="application/json" />
-                <data android:mimeType="application/zip" />
                 <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="application/zip" />
+                <data android:mimeType="application/*" />
+                <data android:mimeType="text/*" />
             </intent-filter>
-            <!-- Many file managers set mimeType="*/*"; a path-pattern filter also catches our extensions. -->
+            <!-- file:// paths some managers hand over with no usable MIME — match by extension instead. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="content" />
                 <data android:scheme="file" />
-                <data android:host="*" />
                 <data android:mimeType="*/*" />
                 <data android:pathPattern=".*\\.json" />
                 <data android:pathPattern=".*\\.todobackup" />
@@ -91,8 +97,9 @@
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="application/json" />
-                <data android:mimeType="application/zip" />
                 <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="application/zip" />
+                <data android:mimeType="application/*" />
             </intent-filter>
         </activity>
 

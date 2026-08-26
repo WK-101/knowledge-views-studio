@@ -446,17 +446,23 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         return hist.indices.maxByOrNull { hist[it] } ?: settings.value.workStartHour
     }
 
-    fun autoScheduleToday(onDone: (Int, Int) -> Unit = { _, _ -> }) = viewModelScope.launch {
+    /** F4: one proposed placement — a task and the time the auto-scheduler would move it to. */
+    data class ScheduleProposal(val task: TaskEntity, val newDueMillis: Long, val durationMin: Int)
+    data class SchedulePlan(val proposals: List<ScheduleProposal>, val didNotFit: Int)
+
+    /**
+     * F4: compute the auto-schedule WITHOUT writing anything, so the user can preview, edit and
+     * confirm. Same rhythm-aware placement as before; the caller applies the accepted subset.
+     */
+    fun computeAutoSchedule(): SchedulePlan {
         val s = settings.value
         val startHour = s.workStartHour.coerceIn(0, 23)
         val endHour = s.workEndHour.coerceIn(startHour + 1, 24)
         val dayStart = java.time.LocalDate.now(zone).atStartOfDay(zone)
         val windowEnd = dayStart.plusHours(endHour.toLong())
-        // Rhythm-aware start: begin at your learned peak hour when it sits inside the work window,
-        // so the highest-energy tasks (placed first below) land on your best time of day.
+        // Rhythm-aware start: begin at your learned peak hour when it sits inside the work window.
         val peak = peakHour().coerceIn(startHour, endHour - 1)
         var cursor = dayStart.plusHours(peak.toLong())
-        // Never schedule into the past: if the window has already begun, start from the next quarter-hour.
         val now = System.currentTimeMillis()
         if (cursor.toInstant().toEpochMilli() < now) {
             val nowZ = java.time.Instant.ofEpochMilli(now).atZone(zone).withSecond(0).withNano(0)
@@ -466,19 +472,23 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val ranked = doNextRanked().filter { t ->
             t.dueDate == null || java.time.Instant.ofEpochMilli(t.dueDate!!).atZone(zone).toLocalDate() <= todayDate
         }
-        // Stable partition: high-energy (deep-work) tasks keep their ranked order but take the prime
-        // slots first at the peak; lighter tasks fill the time after.
         val candidates = ranked.filter { (it.energy ?: 0) >= 3 } + ranked.filter { (it.energy ?: 0) < 3 }
-        var scheduled = 0; var skipped = 0
+        val proposals = ArrayList<ScheduleProposal>()
+        var skipped = 0
         for (t in candidates) {
             val dur = (t.estimateMin ?: t.estimateMax ?: t.durationMin ?: 30).coerceIn(10, 480)
             val end = cursor.plusMinutes(dur.toLong())
             if (end.isAfter(windowEnd)) { skipped++; continue }
-            repo.saveTask(t.copy(dueDate = cursor.toInstant().toEpochMilli(), isAllDay = false))
+            proposals += ScheduleProposal(t, cursor.toInstant().toEpochMilli(), dur)
             cursor = end
-            scheduled++
         }
-        onDone(scheduled, skipped)
+        return SchedulePlan(proposals, skipped)
+    }
+
+    /** F4: apply only the proposals the user kept, in order. */
+    fun applyAutoSchedule(accepted: List<ScheduleProposal>, onDone: (Int) -> Unit = {}) = viewModelScope.launch {
+        accepted.forEach { p -> repo.saveTask(p.task.copy(dueDate = p.newDueMillis, isAllDay = false)) }
+        onDone(accepted.size)
     }
 
     fun observeTask(id: String): Flow<TaskEntity?> = repo.observeTask(id)

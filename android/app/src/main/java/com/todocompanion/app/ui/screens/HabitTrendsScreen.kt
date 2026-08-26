@@ -2,6 +2,7 @@ package com.todocompanion.app.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -108,6 +109,22 @@ fun HabitTrendsScreen(vm: AppViewModel, onBack: () -> Unit) {
             }
         }
 
+        // F5: a GitHub-style consistency heatmap — each day's shade is the share of habits kept that day.
+        val heat = remember(perHabit, today) {
+            val n = active.size.coerceAtLeast(1)
+            (0 until 182).associate { back ->
+                val d = today - back
+                val kept = perHabit.count { d in it.done }
+                d to kept.toFloat() / n
+            }
+        }
+        // F5 + O2: when in the day habits actually get done — a 24-hour distribution from stamped times.
+        val hourDist = remember(checkins) {
+            val arr = IntArray(24)
+            checkins.forEach { c -> c.doneAtMinute?.let { arr[(it / 60).coerceIn(0, 23)]++ } }
+            arr
+        }
+
         val correlations = remember(habits, checkins, tasks, today) {
             HabitInsights.compute(habits, checkins, tasks, today, max = 8)
                 .filter { it.emoji in setOf("🔗", "⚡", "🗝️", "📉") }
@@ -165,6 +182,43 @@ fun HabitTrendsScreen(vm: AppViewModel, onBack: () -> Unit) {
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
             }
 
+            // F5: consistency heatmap (26 weeks).
+            AppCard {
+                Text("Consistency — last 26 weeks", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                ConsistencyHeatmap(heat, today)
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Less", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    listOf(0.15f, 0.4f, 0.7f, 1f).forEach { a ->
+                        Box(Modifier.size(11.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = a)))
+                    }
+                    Text("More", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            // F5 + O2: time-of-day rhythm.
+            if (hourDist.any { it > 0 }) {
+                AppCard {
+                    Text("When you do your habits", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(8.dp))
+                    val maxH = (hourDist.maxOrNull() ?: 1).coerceAtLeast(1)
+                    val peak = hourDist.indices.maxByOrNull { hourDist[it] } ?: 0
+                    Row(Modifier.fillMaxWidth().height(70.dp), horizontalArrangement = Arrangement.spacedBy(1.dp), verticalAlignment = Alignment.Bottom) {
+                        for (h in 0..23) {
+                            val frac = hourDist[h].toFloat() / maxH
+                            Box(Modifier.weight(1f).height((3 + frac * 58).dp).clip(RoundedCornerShape(2.dp))
+                                .background(if (h == peak) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.tertiary.copy(alpha = .4f)))
+                        }
+                    }
+                    Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        listOf("12a", "6a", "12p", "6p", "11p").forEach { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    }
+                    Text("You're most active around ${HabitStats.minuteLabel(peak * 60)}.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+                }
+            }
+
             // Month-over-month overall strength.
             AppCard {
                 Text("Overall strength over time", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
@@ -196,6 +250,33 @@ fun HabitTrendsScreen(vm: AppViewModel, onBack: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(30.dp))
+        }
+    }
+}
+
+/** F5: GitHub-style consistency calendar — 26 week-columns × 7 day-rows, shaded by each day's kept-share. */
+@Composable
+private fun ConsistencyHeatmap(heat: Map<Long, Float>, today: Long) {
+    val base = MaterialTheme.colorScheme.primary
+    val empty = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)
+    val todayDow = LocalDate.ofEpochDay(today).dayOfWeek.value  // 1=Mon..7=Sun
+    val monday = today - (todayDow - 1)
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        for (w in 25 downTo 0) {
+            val weekMonday = monday - w * 7L
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                for (offset in 0..6) {
+                    val day = weekMonday + offset
+                    val cell = when {
+                        day > today -> Color.Transparent
+                        else -> {
+                            val v = heat[day] ?: 0f
+                            if (v <= 0f) empty else base.copy(alpha = (0.2f + v * 0.8f).coerceIn(0.2f, 1f))
+                        }
+                    }
+                    Box(Modifier.size(11.dp).clip(RoundedCornerShape(3.dp)).background(cell))
+                }
+            }
         }
     }
 }

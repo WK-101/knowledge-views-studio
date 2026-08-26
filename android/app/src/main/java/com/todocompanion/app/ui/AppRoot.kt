@@ -1121,7 +1121,7 @@ private fun ManageListDialog(
             if (list.id != ListEntity.INBOX_ID) TextButton(onClick = { confirmDelete = true }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
             else TextButton(onClick = onDismiss) { Text("Close") }
         },
-        title = { Text("List") },
+        title = { Text("Edit list") },
         text = {
             Column {
                 OutlinedTextField(name, { name = it }, singleLine = true, modifier = Modifier.fillMaxWidth(), label = { Text("Name") })
@@ -1176,7 +1176,7 @@ private fun ManageFolderDialog(folder: FolderEntity, onDismiss: () -> Unit, onSa
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onSave(name.trim(), description.trim()) }) { Text("Save") } },
         dismissButton = { TextButton(onClick = { confirmDelete = true }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
-        title = { Text("Folder") },
+        title = { Text("Edit folder") },
         text = {
             Column {
                 OutlinedTextField(name, { name = it }, singleLine = true, modifier = Modifier.fillMaxWidth(), label = { Text("Name") })

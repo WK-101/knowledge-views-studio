@@ -254,7 +254,9 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
                     .entries.sortedWith(compareBy({ it.key == "Other" }, { it.key.lowercase() })).map { it.key to it.value }
                 else (0..3).mapNotNull { sec -> habits.filter { habitSectionOf(it) == sec }.takeIf { it.isNotEmpty() }?.let { HABIT_SECTIONS[sec] to it } }
             }
-            val showHeaders = sections.size > 1
+            // Show the group header whenever the user set explicit groups — even a single named group
+            // like "Morning habits" gets its title (F2), not just when there are 2+ sections.
+            val showHeaders = sections.size > 1 || habits.any { it.category.isNotBlank() }
             // Drag-to-reorder persists a global habit order; a drag rearranges within its section, then the
             // whole order is saved (so categories/stacks stay grouped — "Morning habits" together, etc.).
             fun persistSection(sectionHabits: List<HabitEntity>, newIds: List<String>) {
@@ -757,6 +759,17 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
                     OutlinedTextField(emoji, { emoji = it.take(2) }, singleLine = true, label = { Text("Emoji") }, modifier = Modifier.weight(1f))
                     OutlinedTextField(unit, { unit = it.take(12) }, singleLine = true, label = { Text("Unit") }, modifier = Modifier.weight(1.4f))
                 }
+                Spacer(Modifier.size(10.dp))
+                // F2: group habits into named sections (e.g. "Morning", "Fitness"). Front-and-centre now,
+                // not buried in Advanced, with quick suggestions so a stack is one tap to create.
+                OutlinedTextField(category, { category = it.take(30) }, singleLine = true,
+                    label = { Text("Group (e.g. Morning, Fitness) — optional") }, modifier = Modifier.fillMaxWidth())
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
+                    val existingGroups = allHabits.mapNotNull { it.category.trim().ifBlank { null } }.distinct().take(6)
+                    (existingGroups + listOf("Morning", "Afternoon", "Evening").filter { it !in existingGroups }).take(6).forEach { g ->
+                        FilterChip(selected = category.trim().equals(g, true), onClick = { category = if (category.trim().equals(g, true)) "" else g }, label = { Text(g) })
+                    }
+                }
                 Spacer(Modifier.size(12.dp))
                 // Compact colour picker: one swatch shown; tap it to reveal the palette (space-optimised).
                 var colorsOpen by remember { mutableStateOf(false) }
@@ -910,11 +923,9 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
                     onPlus = { rewardAt = ((if (rewardAt <= 0) 30 else rewardAt) + 5).coerceAtMost(1000) }, modifier = Modifier.padding(top = 6.dp))
             }
 
-            // 7. Organise (M6): category grouping + a user-editable start date.
+            // 7. Organise (M6): a user-editable start date. (Grouping moved up to the main card — F2.)
             EditorCard {
-                Text("Organise", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                OutlinedTextField(category, { category = it.take(30) }, singleLine = true,
-                    label = { Text("Category (groups habits into sections, optional)") }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
+                Text("Start date", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     val startLabel = startDate?.let { java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
                         .format(java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy")) }

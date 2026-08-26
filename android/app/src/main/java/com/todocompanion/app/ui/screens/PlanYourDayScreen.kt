@@ -132,14 +132,15 @@ fun PlanYourDayScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: ()
                 Spacer(Modifier.size(14.dp))
             }
 
-            // One-tap auto-schedule: lay today's Do-Next tasks onto the working-hours timeline.
+            // F4: auto-schedule now PREVIEWS — compute a plan, show it for review/editing, apply on confirm.
             var autoMsg by remember { mutableStateOf<String?>(null) }
+            var plan by remember { mutableStateOf<AppViewModel.SchedulePlan?>(null) }
+            val accepted = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
             OutlinedButton(
                 onClick = {
-                    vm.autoScheduleToday { done, skip ->
-                        autoMsg = if (done == 0) "Nothing to auto-schedule right now"
-                        else "Scheduled $done task${if (done == 1) "" else "s"}" + if (skip > 0) " · $skip didn't fit today" else ""
-                    }
+                    val p = vm.computeAutoSchedule()
+                    if (p.proposals.isEmpty()) autoMsg = "Nothing to auto-schedule right now"
+                    else { accepted.clear(); p.proposals.forEach { accepted[it.task.id] = true }; plan = p; autoMsg = null }
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -147,6 +148,51 @@ fun PlanYourDayScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: ()
             }
             autoMsg?.let { Spacer(Modifier.size(6.dp)); Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center) }
             Spacer(Modifier.size(14.dp))
+
+            plan?.let { p ->
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { plan = null },
+                    confirmButton = {
+                        val keep = p.proposals.filter { accepted[it.task.id] == true }
+                        TextButton(enabled = keep.isNotEmpty(), onClick = {
+                            vm.applyAutoSchedule(keep) { n ->
+                                autoMsg = "Scheduled $n task${if (n == 1) "" else "s"}" + if (p.didNotFit > 0) " · ${p.didNotFit} didn't fit" else ""
+                            }
+                            plan = null
+                        }) { Text("Apply ${keep.size}") }
+                    },
+                    dismissButton = { TextButton(onClick = { plan = null }) { Text("Cancel") } },
+                    title = { Text("Review your day") },
+                    text = {
+                        Column {
+                            Text("Tap to keep or drop each suggested time. Nothing changes until you Apply.",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.size(8.dp))
+                            Column(Modifier.verticalScroll(rememberScrollState())) {
+                                p.proposals.forEach { pr ->
+                                    val on = accepted[pr.task.id] == true
+                                    val t = java.time.Instant.ofEpochMilli(pr.newDueMillis).atZone(java.time.ZoneId.systemDefault()).toLocalTime()
+                                    Row(
+                                        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                                            .clickable { accepted[pr.task.id] = !on }.padding(vertical = 8.dp, horizontal = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        androidx.compose.material3.Checkbox(checked = on, onCheckedChange = { accepted[pr.task.id] = it })
+                                        Spacer(Modifier.size(6.dp))
+                                        Text("%02d:%02d".format(t.hour, t.minute), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(52.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Text(pr.task.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Text("${pr.durationMin} min", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                }
+                                if (p.didNotFit > 0) Text("${p.didNotFit} task${if (p.didNotFit == 1) "" else "s"} didn't fit in your work hours today.",
+                                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+                            }
+                        }
+                    },
+                )
+            }
 
             // L5: one timeline for today — timed habits and time-blocked tasks, in order.
             run {
