@@ -672,7 +672,8 @@ fun AppRoot(
         if (showTimeTracking) com.todocompanion.app.ui.screens.TimeTrackingScreen(vm, onBack = { showTimeTracking = false })
         // T0: one-time "what's your main use?" picker sets the primary module. All modules stay on.
         if (!settings.onboardedModules) com.todocompanion.app.ui.screens.ModulePickerDialog(
-            onPick = { p -> vm.applyModulePreset(p, Modules.ALL.filterNot { it == p }.toSet()) },
+            // CU2: start with only the chosen modules — the rest stay off until the user wants them.
+            onPick = { primary, enabled -> vm.applyModulePreset(primary, enabled - primary) },
             onSkip = { vm.markModulesOnboarded() },
         )
         if (saveTab) {

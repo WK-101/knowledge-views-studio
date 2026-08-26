@@ -2594,6 +2594,61 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         com.todocompanion.app.widget.HabitsWidget.refresh(appCtx)
         when { n < 0 -> onDone(false, "Couldn't read that CSV — export from Loop, or our habit CSV"); n == 0 -> onDone(false, "No check-ins found in that file"); else -> onDone(true, "Imported $n habit check-ins") }
     }
+
+    // ── CU3 · import an .ics calendar into tasks (the other half of the 2-way bridge) ──────────────
+    fun importIcs(uri: Uri, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
+        val text = runCatching { appCtx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull()
+        if (text == null) { onDone(false, "Couldn't read that file"); return@launch }
+        val events = com.todocompanion.app.domain.port.Ics.parse(text)
+        if (events.isEmpty()) { onDone(false, "No events found in that .ics"); return@launch }
+        var n = 0
+        events.forEach { e ->
+            val due = e.start.atZone(zone).toInstant().toEpochMilli()
+            val id = repo.createTask(com.todocompanion.app.data.entity.ListEntity.INBOX_ID, e.summary.ifBlank { "Event" }, dueDate = due)
+            val durMin = if (!e.allDay && e.end != null) java.time.Duration.between(e.start, e.end).toMinutes().toInt().coerceIn(0, 1440) else null
+            if (e.allDay || durMin != null) repo.getTask(id)?.let { repo.saveTask(it.copy(isAllDay = e.allDay, durationMin = durMin)) }
+            n++
+        }
+        onDone(true, "Imported $n event${if (n == 1) "" else "s"} as tasks")
+    }
+
+    // ── CU4 · one-tap handoff — share a full copy through the system share sheet (0 permission) ────
+    fun shareBackupCopy(onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+        val uri = withContext(Dispatchers.IO) {
+            runCatching {
+                val json = repo.exportJson()
+                val dir = java.io.File(appCtx.cacheDir, "shared").apply { mkdirs() }
+                val f = java.io.File(dir, "modular-backup-${java.time.LocalDate.now(zone)}.json").apply { writeText(json) }
+                androidx.core.content.FileProvider.getUriForFile(appCtx, "${appCtx.packageName}.fileprovider", f)
+            }.getOrNull()
+        }
+        if (uri == null) { toast("Couldn't prepare the copy"); onDone(false); return@launch }
+        val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "application/json"; putExtra(android.content.Intent.EXTRA_STREAM, uri)
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val chooser = android.content.Intent.createChooser(send, "Send a copy to another device").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { appCtx.startActivity(chooser) }.onFailure { toast("No app to share with") }
+        onDone(true)
+    }
+
+    // ── CU5 · accountability snapshot — share a goal's progress as an image card (0 permission) ────
+    fun shareGoalSnapshot(g: com.todocompanion.app.domain.Goal, onDone: (String?) -> Unit = {}) = viewModelScope.launch {
+        val h = goalHealth(g)
+        val stats = buildList {
+            add("progress" to "${(h.overall * 100).toInt()}%")
+            if (g.hasTasks) add("tasks" to "${h.taskDone}/${h.taskTotal}")
+            if (g.hasHabit) add("streak" to "${h.habitStreak}d")
+            if (g.hasBudget) add("time" to "${h.minutesTracked / 60}h/${(h.budgetMin / 60)}h")
+        }.take(4)
+        val res = withContext(Dispatchers.IO) {
+            val bmp = com.todocompanion.app.util.ProgressCard.renderStatsCard("${g.emoji} ${g.name}", "Goal progress", stats)
+            com.todocompanion.app.util.ProgressCard.saveAndShareUri(appCtx, bmp, "modular-goal.png")
+        }
+        res.shareUri?.let { com.todocompanion.app.util.ProgressCard.share(appCtx, it) }
+        onDone(res.savedLocation)
+    }
+
     // ---------- Tier D: folder backup & account-free sync ----------
     private fun ensureDeviceId(): String {
         val cur = settings.value.deviceId

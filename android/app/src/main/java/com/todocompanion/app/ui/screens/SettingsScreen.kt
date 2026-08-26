@@ -128,6 +128,10 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     val importExternalLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) vm.importExternal(uri) { ok, msg -> Toast.makeText(context, msg, if (ok) Toast.LENGTH_LONG else Toast.LENGTH_LONG).show() }
     }
+    // CU3: import a calendar (.ics) back into tasks — the other half of the 2-way bridge.
+    val importIcsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) vm.importIcs(uri) { _, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() }
+    }
     // Folder pickers for backup & sync — take a persistable grant so alarms can write later.
     fun persist(uri: android.net.Uri) = runCatching {
         context.contentResolver.takePersistableUriPermission(uri,
@@ -713,7 +717,13 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Action("Export as Markdown (.md)") { safeExport("md") { exportMdLauncher.launch("todo-companion.md") } }
             Action("Export as CSV (spreadsheet)") { safeExport("csv") { exportCsvLauncher.launch("todo-companion.csv") } }
             Action("Export to calendar (.ics)") { safeExport("ics") { exportIcsLauncher.launch("todo-companion.ics") } }
-            Text("Readable, portable snapshots for sharing or archiving. The .ics imports your dated tasks and deadlines into any calendar app. (Restore uses JSON.)",
+            Action("Import a calendar (.ics) → tasks") { safeImport { importIcsLauncher.launch("*/*") } }
+            Text("A two-way calendar bridge: export your dated tasks into any calendar, or import an .ics that a calendar exported back in as tasks. Fully on-device — no network.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+            HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+            // CU4: one-tap handoff via the system share sheet — 0 permission, uses the OS's own Nearby Share/Bluetooth.
+            Action("Send a copy to another device") { vm.shareBackupCopy() }
+            Text("Hands a full JSON copy to Android's share sheet — beam it with Nearby Share, Bluetooth or any app you already have. Frictionless device-to-device, and we still ask for no network permission.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
             HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             Action("Import from Todoist / TickTick / MLO") { safeImport { importExternalLauncher.launch("*/*") } }

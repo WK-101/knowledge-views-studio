@@ -266,6 +266,10 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("${g.emoji} ${g.name}", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text("${(gh.overall * 100).toInt()}%", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            // CU5: share a read-only progress card to an accountability partner — no account, no server.
+                            IconButton(onClick = { vm.shareGoalSnapshot(g) }, modifier = Modifier.size(30.dp)) {
+                                Icon(Icons.Filled.Share, "Share progress", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                         Spacer(Modifier.height(4.dp))
                         Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {

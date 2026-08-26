@@ -118,9 +118,21 @@ object QuickAddParser {
         }
 
         // recurrence: "daily/weekly/monthly/yearly", "every [N] day|week|month|year|weekday",
-        // or "every mon,wed and fri" → weekly on those days.
+        // "every other <unit|weekday>" (interval 2), or "every mon,wed and fri" → weekly on those days.
         var rrule: String? = null
-        Regex("(?<=\\s|^)every\\s+(\\d+)?\\s*(weekdays?|days?|weeks?|months?|years?)\\b", RegexOption.IGNORE_CASE).find(text)?.let { m ->
+        // CU1: "every other tuesday" → weekly interval 2 on that weekday; "every other week/day/month" → interval 2.
+        run {
+            val wd = WEEKDAYS.keys.sortedByDescending { it.length }.joinToString("|")
+            Regex("(?<=\\s|^)every\\s+other\\s+($wd)\\b", RegexOption.IGNORE_CASE).find(text)?.let { m ->
+                WEEKDAYS[m.groupValues[1].lowercase()]?.let { day ->
+                    rrule = Recurrence.encode(Recur(Freq.WEEKLY, 2, byDays = setOf(day.value))); strip.add(m.range)
+                }
+            } ?: Regex("(?<=\\s|^)every\\s+other\\s+(day|week|month|year)\\b", RegexOption.IGNORE_CASE).find(text)?.let { m ->
+                val freq = when (m.groupValues[1].lowercase()) { "day" -> Freq.DAILY; "week" -> Freq.WEEKLY; "month" -> Freq.MONTHLY; else -> Freq.YEARLY }
+                rrule = Recurrence.encode(Recur(freq, 2)); strip.add(m.range)
+            }
+        }
+        if (rrule == null) Regex("(?<=\\s|^)every\\s+(\\d+)?\\s*(weekdays?|days?|weeks?|months?|years?)\\b", RegexOption.IGNORE_CASE).find(text)?.let { m ->
             val n = m.groupValues[1].toIntOrNull() ?: 1
             val unit = m.groupValues[2].lowercase()
             val freq = when {
@@ -167,6 +179,11 @@ object QuickAddParser {
                 time = t; strip.add(it.range)
             }
         }
+        // CU1: bare "at 3" (no am/pm) → assume the sensible waking hour (1–7 → afternoon/evening).
+        if (time == null) Regex("(?<=\\s|^)at\\s+(\\d{1,2})\\b", RegexOption.IGNORE_CASE).find(text)?.let {
+            val raw = it.groupValues[1].toInt()
+            if (raw in 0..23) { time = LocalTime.of(if (raw in 1..7) raw + 12 else raw, 0); strip.add(it.range) }
+        }
 
         // relative day words
         val today = now.toLocalDate()
@@ -174,16 +191,33 @@ object QuickAddParser {
 
         Regex("(?<=\\s|^)today\\b", RegexOption.IGNORE_CASE).find(text)?.let { setDate(today, it.range) }
         Regex("(?<=\\s|^)tonight\\b", RegexOption.IGNORE_CASE).find(text)?.let { setDate(today, it.range); if (time == null) time = LocalTime.of(20, 0) }
+        // "day after tomorrow" must be tested before "tomorrow" (which would otherwise claim the inner word).
+        Regex("(?<=\\s|^)(day\\s+after\\s+tomorrow|overmorrow)\\b", RegexOption.IGNORE_CASE).find(text)?.let { setDate(today.plusDays(2), it.range) }
         Regex("(?<=\\s|^)tomorrow\\b", RegexOption.IGNORE_CASE).find(text)?.let { setDate(today.plusDays(1), it.range) }
         Regex("(?<=\\s|^)next\\s+week\\b", RegexOption.IGNORE_CASE).find(text)?.let { setDate(today.plusWeeks(1), it.range) }
+        // CU1: relative month / year, and "this/next weekend" → the upcoming Saturday.
+        Regex("(?<=\\s|^)next\\s+month\\b", RegexOption.IGNORE_CASE).find(text)?.let { setDate(today.plusMonths(1), it.range) }
+        Regex("(?<=\\s|^)next\\s+year\\b", RegexOption.IGNORE_CASE).find(text)?.let { setDate(today.plusYears(1), it.range) }
+        Regex("(?<=\\s|^)(this\\s+|next\\s+)?weekend\\b", RegexOption.IGNORE_CASE).find(text)?.let {
+            var d = ((DayOfWeek.SATURDAY.value - today.dayOfWeek.value + 7) % 7)
+            if (d == 0) d = 7
+            setDate(today.plusDays(d.toLong()), it.range)
+        }
+        // CU1: "end of month" / "eom" → last day of the current month.
+        Regex("(?<=\\s|^)(end\\s+of\\s+month|eom)\\b", RegexOption.IGNORE_CASE).find(text)?.let {
+            setDate(today.withDayOfMonth(today.lengthOfMonth()), it.range)
+        }
 
-        // in N days/weeks/hours
-        Regex("(?<=\\s|^)in\\s+(\\d{1,3})\\s+(hour|hours|day|days|week|weeks)\\b", RegexOption.IGNORE_CASE).find(text)?.let {
-            val n = it.groupValues[1].toLong()
+        // in N days/weeks/hours/months/years — also "in a/an <unit>" (= 1).
+        Regex("(?<=\\s|^)in\\s+(a|an|\\d{1,3})\\s+(hour|hours|day|days|week|weeks|month|months|year|years)\\b", RegexOption.IGNORE_CASE).find(text)?.let {
+            val nRaw = it.groupValues[1].lowercase()
+            val n = if (nRaw == "a" || nRaw == "an") 1L else nRaw.toLong()
             when (it.groupValues[2].lowercase().removeSuffix("s")) {
                 "hour" -> { date = today; time = (time ?: now.toLocalTime()).plusHours(n) }
                 "day" -> setDate(today.plusDays(n), it.range)
                 "week" -> setDate(today.plusWeeks(n), it.range)
+                "month" -> setDate(today.plusMonths(n), it.range)
+                "year" -> setDate(today.plusYears(n), it.range)
             }
             strip.add(it.range)
         }
@@ -208,6 +242,21 @@ object QuickAddParser {
                     val day = m.groupValues[2].toInt().coerceIn(1, 28)
                     var d = LocalDate.of(today.year, mi + 1, day)
                     if (d.isBefore(today)) d = d.plusYears(1)
+                    setDate(d, m.range)
+                }
+            }
+        }
+        // CU1: day-of-month — "on the 15th" / "the 15th" → the 15th of this month, else next month.
+        if (date == null) {
+            Regex("(?<=\\s|^)(?:on\\s+)?the\\s+(\\d{1,2})(?:st|nd|rd|th)\\b", RegexOption.IGNORE_CASE).find(text)?.let { m ->
+                val dom = m.groupValues[1].toInt()
+                if (dom in 1..31) {
+                    val base = if (dom <= today.lengthOfMonth()) today.withDayOfMonth(dom) else today
+                    var d = base
+                    if (d.isBefore(today) || dom > today.lengthOfMonth()) {
+                        val nm = today.plusMonths(1)
+                        d = nm.withDayOfMonth(dom.coerceAtMost(nm.lengthOfMonth()))
+                    }
                     setDate(d, m.range)
                 }
             }

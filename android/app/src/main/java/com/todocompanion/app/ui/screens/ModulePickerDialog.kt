@@ -28,13 +28,16 @@ import androidx.compose.ui.unit.dp
 import com.todocompanion.app.domain.Modules
 
 /**
- * T0 — the first-run "what's your main use?" picker. Sets the primary module (the launch home and the
- * always-shown one); every module stays on, and any can be switched off later in Settings. Non-coercive
- * by design: this only chooses emphasis, never removes a capability.
+ * T0 / CU2 — the first-run picker, now a calmer, progressive multi-select. Choose which of the three
+ * modules to start with; the rest stay off until you want them, so a newcomer sees only what they came
+ * for. The first selected (Tasks → Habits → Time order) becomes the primary home. Nothing is deleted —
+ * every module can be switched on later in Settings.
  */
 @Composable
-fun ModulePickerDialog(onPick: (String) -> Unit, onSkip: () -> Unit) {
-    var choice by remember { mutableStateOf(Modules.TASKS) }
+fun ModulePickerDialog(onPick: (String, Set<String>) -> Unit, onSkip: () -> Unit) {
+    val order = listOf(Modules.TASKS, Modules.HABITS, Modules.TIME)
+    // Default: start with just Tasks — the calmest first run. The user can add the others with a tap.
+    var chosen by remember { mutableStateOf(setOf(Modules.TASKS)) }
     val options = listOf(
         Triple(Modules.TASKS, "✔  Tasks", "Plan and finish to-dos, projects, deadlines"),
         Triple(Modules.HABITS, "↻  Habits", "Build daily routines and streaks"),
@@ -42,20 +45,20 @@ fun ModulePickerDialog(onPick: (String) -> Unit, onSkip: () -> Unit) {
     )
     AlertDialog(
         onDismissRequest = onSkip,
-        title = { Text("What do you mainly want?") },
+        title = { Text("What do you want to start with?") },
         text = {
             Column {
-                Text("Pick what this app is for you. Everything else stays available — switch any part off later in Settings.",
+                Text("Pick one or more. You'll see only what you choose — add the rest any time in Settings. The first pick becomes your home screen.",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(12.dp))
                 options.forEach { (key, title, sub) ->
-                    val sel = key == choice
+                    val sel = key in chosen
                     Row(
                         Modifier.fillMaxWidth().padding(vertical = 4.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(if (sel) MaterialTheme.colorScheme.primaryContainer.copy(alpha = .5f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .35f))
                             .border(if (sel) 1.5.dp else 0.dp, if (sel) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Transparent, RoundedCornerShape(12.dp))
-                            .clickable { choice = key }
+                            .clickable { chosen = if (sel) (chosen - key).ifEmpty { setOf(key) } else chosen + key }
                             .padding(horizontal = 14.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -64,12 +67,12 @@ fun ModulePickerDialog(onPick: (String) -> Unit, onSkip: () -> Unit) {
                                 color = if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
                             Text(sub, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        if (sel) Text("●", color = MaterialTheme.colorScheme.primary)
+                        Text(if (sel) "☑" else "☐", color = if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onPick(choice) }) { Text("Set up") } },
+        confirmButton = { TextButton(onClick = { onPick(order.first { it in chosen }, chosen) }) { Text("Set up") } },
         dismissButton = { TextButton(onClick = onSkip) { Text("Skip") } },
     )
 }
