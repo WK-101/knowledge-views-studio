@@ -281,10 +281,78 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                             gh.daysLeft?.let { add(if (it >= 0) "⌛ ${it}d left" else "⌛ overdue") }
                         }
                         if (bits.isNotEmpty()) Text(bits.joinToString("    "), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        // Y1 — self-coaching: the goal proposes its own next move (and a session to start).
+                        val coach = remember(g, gh) { vm.goalCoaching(g) }
+                        if (coach != null) Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("🧭 ${coach.text}", Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                            coach.startActivityId?.let { act -> TextButton(onClick = { vm.startActivityTimer(act) }) { Text("Start") } }
+                        }
                     }
+                }
+                // Y8 — contention: goals competing for the same tracked hours.
+                val contention = remember(goals) { vm.goalContention() }
+                contention.forEach { c ->
+                    Text("⚠︎ $c", Modifier.padding(top = 8.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                 }
             }
             if (showGoals) GoalsEditorDialog(vm) { showGoals = false }
+
+            // Y6 — anti-burnout radar: hours climbing while habit adherence falls. A caring, early signal.
+            val burnout = remember(timeEntries, habits, checkins) { vm.burnoutSignal() }
+            if (burnout != null) Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.errorContainer.copy(alpha = .55f)) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("A gentle heads-up", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
+                    Spacer(Modifier.height(4.dp))
+                    Text(burnout, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                }
+            }
+
+            // Y3 — what-if capacity: does new work fit your real hours before you commit?
+            if (tasksOn) {
+                var extraH by remember { mutableStateOf(0) }
+                val snap = remember(tasks, settings) { vm.capacitySnapshot(14) }
+                AppCard {
+                    Text("What if I take this on?", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text("Next 2 weeks: ${fmtMin(snap.committedMin)} committed of ${fmtMin(snap.capacityMin)}${if (snap.tracked) " (your tracked capacity)" else ""} — ${fmtMin(snap.freeMin)} free.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Add", style = MaterialTheme.typography.bodyMedium)
+                        TextButton(onClick = { extraH = (extraH - 2).coerceAtLeast(0) }) { Text("−") }
+                        Text("${extraH}h", style = MaterialTheme.typography.titleSmall, modifier = Modifier.width(40.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                        TextButton(onClick = { extraH = (extraH + 2).coerceAtMost(80) }) { Text("+") }
+                    }
+                    if (extraH > 0) {
+                        val addMin = extraH * 60
+                        val over = (addMin - snap.freeMin).coerceAtLeast(0)
+                        Text(
+                            if (over == 0) "✓ Fits — you'd still have ${fmtMin(snap.freeMin - addMin)} free."
+                            else "✗ ${fmtMin(over)} over your real capacity — something already committed would slip.",
+                            style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium,
+                            color = if (over == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            }
+
+            // Y4 — your ideal day: a scaffold from your peak window + each habit's real rhythm.
+            val ideal = remember(timeEntries, habits, checkins) { vm.idealDay() }
+            if (ideal.size >= 2) AppCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Your ideal day", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text("Shaped from your own patterns — peak focus and habit rhythm.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    if (tasksOn && timeOn) TextButton(onClick = { vm.planMyDay { n -> android.widget.Toast.makeText(shareCtx, if (n > 0) "Blocked $n task${if (n == 1) "" else "s"}" else "Nothing to schedule", android.widget.Toast.LENGTH_SHORT).show() } }) { Text("Use it") }
+                }
+                Spacer(Modifier.height(6.dp))
+                ideal.take(6).forEach { b ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(HabitStats.minuteLabel(b.minute), Modifier.width(72.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(b.label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
 
             // X5 — end-of-day forecast: at your real pace, how many of today's tasks actually land.
             if (tasksOn) {
@@ -595,6 +663,13 @@ private fun GoalsEditorDialog(vm: AppViewModel, onDismiss: () -> Unit) {
                 }
                 Spacer(Modifier.height(6.dp))
                 Text("New goal", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                // Y5 — the goal library: one tap pre-shapes name, icon and budget.
+                Spacer(Modifier.height(6.dp)); Text("Start from a template", style = MaterialTheme.typography.labelSmall, color = faint)
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    com.todocompanion.app.domain.Goals.TEMPLATES.forEach { t ->
+                        FilterChip(selected = false, onClick = { name = t.name; emoji = t.emoji; budgetH = t.budgetHours.toString() }, label = { Text("${t.emoji} ${t.name}") })
+                    }
+                }
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(value = emoji, onValueChange = { emoji = it.take(2) }, modifier = Modifier.width(76.dp), label = { Text("Icon") }, singleLine = true)

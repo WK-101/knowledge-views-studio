@@ -31,6 +31,10 @@ data class Goal(
     val hasBudget get() = activityId.isNotBlank() && budgetMinutes > 0
 }
 
+/** Y5 — a starter for a Unified Goal: pre-shapes the name, icon and time budget so the three-arm
+ *  object has a one-tap on-ramp. The user still binds the actual list / habit / activity. */
+data class GoalTemplate(val name: String, val emoji: String, val budgetHours: Int, val note: String)
+
 object Goals {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
@@ -40,4 +44,14 @@ object Goals {
     fun encode(list: List<Goal>): String = runCatching { json.encodeToString(list) }.getOrDefault("")
 
     fun byId(list: List<Goal>, id: String): Goal? = list.firstOrNull { it.id == id }
+
+    /** Y5 — the goal library: common cross-module objectives, ready to instantiate and edit. */
+    val TEMPLATES = listOf(
+        GoalTemplate("Run a 5K", "🏃", 20, "Build up with a running habit and tracked sessions."),
+        GoalTemplate("Write daily", "✍️", 40, "A daily writing practice toward a body of work."),
+        GoalTemplate("Ship a side project", "🚀", 60, "A task list, a build habit and a time budget in one."),
+        GoalTemplate("Read 12 books", "📚", 100, "A steady reading habit toward a yearly target."),
+        GoalTemplate("Get fit", "💪", 50, "Workouts tracked and a movement habit kept."),
+        GoalTemplate("Learn a language", "🗣️", 80, "Daily practice plus focused study time."),
+    )
 }

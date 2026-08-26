@@ -207,6 +207,14 @@ fun HabitDetailScreen(
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
+            // Y2 — keystone badge: the app names (and quietly guards) your highest-leverage habit.
+            val isKeystone = remember(habits, checkins) { vm.keystoneHabitId() == h.id }
+            if (isKeystone) Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.primaryContainer) {
+                Text("🗝️ Keystone habit — days you keep this, you get more done",
+                    Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+            }
+
             // X6 — rhythm-matched schedule: this "daily" habit clearly clusters on a few weekdays; offer
             //      to reshape the plan to reality so it stops marking honest rest days as misses.
             val rhythm = remember(h, hc) { vm.rhythmSuggestion(h.id) }

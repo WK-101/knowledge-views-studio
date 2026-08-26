@@ -116,4 +116,39 @@ object Reasoning {
         val excludedOk = (0..6).all { (it + 1) in chosen || doneWeekdayCounts[it] <= total * 0.05 }
         return if (excludedOk) chosen.toSortedSet() else null
     }
+
+    // ── Y6 · burnout divergence — hours climbing while habit adherence falls ──────────────────────
+    /** True when tracked hours rose by ≥ [hoursUp] fraction week-over-week AND habit adherence fell by
+     *  ≥ [rateDown] fraction — the earliest honest shape of over-work. Both prior figures must be > 0. */
+    fun burnoutDiverges(
+        hoursThisWk: Double, hoursPrevWk: Double, rateThisWk: Double, ratePrevWk: Double,
+        hoursUp: Double = 0.25, rateDown: Double = 0.15,
+    ): Boolean {
+        if (hoursPrevWk <= 0.0 || ratePrevWk <= 0.0) return false
+        val hUp = (hoursThisWk - hoursPrevWk) / hoursPrevWk
+        val rDown = (ratePrevWk - rateThisWk) / ratePrevWk
+        return hUp >= hoursUp && rDown >= rateDown
+    }
+
+    // ── Y7 · greedy fit on already-costed minutes (per-task calibrated forecast) ──────────────────
+    /** Fit costs (in ranked order) into [availMin]; returns (fit, slip). Costs are pre-calibrated. */
+    fun fitCount(costsMin: List<Int>, availMin: Int): Pair<Int, Int> {
+        var used = 0; var finish = 0; var slip = 0
+        for (c in costsMin) { if (used + c <= availMin) { used += c; finish++ } else slip++ }
+        return finish to slip
+    }
+
+    // ── Y8 · seasonality — the heaviest and lightest weekday ──────────────────────────────────────
+    /** Given a 7-slot weekday total (index 0=Mon..6=Sun), the (heaviest, lightest) ISO weekdays (1..7),
+     *  or null when there's no signal or the spread between them is under [minShare] of the total. */
+    fun heaviestLightestWeekday(byWeekday: DoubleArray, minShare: Double = 0.05): Pair<Int, Int>? {
+        if (byWeekday.size != 7) return null
+        val total = byWeekday.sum()
+        if (total <= 0.0) return null
+        val hi = (0..6).maxByOrNull { byWeekday[it] } ?: return null
+        val lo = (0..6).minByOrNull { byWeekday[it] } ?: return null
+        if (hi == lo) return null
+        if ((byWeekday[hi] - byWeekday[lo]) / total < minShare) return null
+        return (hi + 1) to (lo + 1)
+    }
 }
