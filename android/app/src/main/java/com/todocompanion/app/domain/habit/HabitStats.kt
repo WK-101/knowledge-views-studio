@@ -326,6 +326,28 @@ object HabitStats {
     }
 
     /**
+     * B1 — the habits×time intersection (the "unclaimed" cross-module metric): average focused minutes on
+     * days this habit was done vs. days it wasn't, over the recent window since the habit began. Both sides
+     * carry their day counts so the caller can gate on significance before surfacing "on days you meditate,
+     * you focus 42% more". Only days from [sinceDay] onward count, so pre-habit history never dilutes it.
+     */
+    data class FocusLift(val onAvgMin: Int, val offAvgMin: Int, val onDays: Int, val offDays: Int) {
+        /** Relative lift in focused minutes on done-days, as a signed percentage (e.g. +42, -15). */
+        val liftPct: Int get() = if (offAvgMin <= 0) 0 else ((onAvgMin - offAvgMin) * 100 / offAvgMin)
+    }
+    fun focusLift(doneDays: Set<Long>, focusMinByDay: Map<Long, Int>, today: Long, sinceDay: Long, window: Int = 90): FocusLift {
+        var onSum = 0; var onN = 0; var offSum = 0; var offN = 0
+        val from = maxOf(today - window + 1, sinceDay)
+        var d = from
+        while (d <= today) {
+            val m = focusMinByDay[d] ?: 0
+            if (d in doneDays) { onSum += m; onN++ } else { offSum += m; offN++ }
+            d++
+        }
+        return FocusLift(if (onN > 0) onSum / onN else 0, if (offN > 0) offSum / offN else 0, onN, offN)
+    }
+
+    /**
      * O2: the typical time-of-day this habit is actually logged — the median stamped completion
      * minute over recent done days. Needs at least [minSamples] stamps to be meaningful; else null.
      */

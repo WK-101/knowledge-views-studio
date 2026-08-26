@@ -216,6 +216,36 @@ fun HabitDetailScreen(
                     style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
             }
 
+            // B1 — habits × time (the cross-module "unclaimed intersection"): how much more, or less, you
+            // focus on days you keep this habit. Now that Focus is unified into the one timeline, this joins
+            // check-ins with kind="focus" minutes directly. Shown only with enough of both kinds of days.
+            val settingsSnap by vm.settings.collectAsState()
+            val timeEntries by vm.timeEntries.collectAsState()
+            if (!isBreak && com.todocompanion.app.domain.Modules.isEnabled(settingsSnap, com.todocompanion.app.domain.Modules.TIME)) {
+                val lift = remember(timeEntries, doneDays, today) {
+                    HabitStats.focusLift(doneDays, vm.focusMinutesByDay(), today, h.startEpochDay())
+                }
+                if (lift.onDays >= 5 && lift.offDays >= 5 && (lift.onAvgMin > 0 || lift.offAvgMin > 0) && kotlin.math.abs(lift.liftPct) >= 10) {
+                    val up = lift.liftPct >= 0
+                    Surface(
+                        Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+                        color = (if (up) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer).copy(alpha = .7f),
+                    ) {
+                        Column(Modifier.padding(14.dp)) {
+                            Text(
+                                (if (up) "⚡ " else "💤 ") + "On days you keep this, you focus ${kotlin.math.abs(lift.liftPct)}% ${if (up) "more" else "less"}",
+                                style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
+                            )
+                            Spacer(Modifier.height(3.dp))
+                            Text(
+                                "${lift.onAvgMin}m focused on the days you did it vs ${lift.offAvgMin}m otherwise (last 90 days).",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+
             // X6 — rhythm-matched schedule: this "daily" habit clearly clusters on a few weekdays; offer
             //      to reshape the plan to reality so it stops marking honest rest days as misses.
             val rhythm = remember(h, hc) { vm.rhythmSuggestion(h.id) }
