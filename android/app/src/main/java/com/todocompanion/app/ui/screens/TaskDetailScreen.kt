@@ -77,6 +77,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -222,6 +223,14 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     strikethrough = task.completed,
                     modifier = Modifier.weight(1f).padding(top = 8.dp),
                 )
+            }
+            // Q2: a goal's "why" leads — the reason it matters, shown the moment you open it.
+            if ((task.isGoal || task.isProject) && task.whyText.isNotBlank()) {
+                Surface(Modifier.fillMaxWidth().padding(start = 42.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                    shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .6f)) {
+                    Text("🎯 " + task.whyText, Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                }
             }
             Row(Modifier.fillMaxWidth().padding(start = 42.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Notes", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
@@ -398,16 +407,42 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                         }
                     com.todocompanion.app.domain.EditorField.REPEAT -> {
                         RepeatRow(task.rrule, hasChildren) { rule -> update { it.copy(rrule = rule) } }
-                        // P1: reliability — how consistently you actually keep this recurring commitment.
+                        // P1/Q3/Q4: reliability — score, forgiving streak, trend and time-of-day rhythm.
                         val reliability by vm.taskReliability.collectAsState()
                         reliability[task.id]?.let { rel ->
-                            Row(Modifier.fillMaxWidth().padding(start = 6.dp, end = 4.dp, top = 4.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            val acts by vm.taskActivity(task.id).collectAsState(initial = emptyList())
+                            val trend = remember(acts, task.rrule) { com.todocompanion.app.domain.task.TaskReliability.trend(task, acts, System.currentTimeMillis()) }
+                            val hours = remember(acts, task.rrule) { com.todocompanion.app.domain.task.TaskReliability.completionHours(task, acts) }
+                            Row(Modifier.fillMaxWidth().padding(start = 6.dp, end = 4.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Filled.TrendingUp, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                                 Spacer(Modifier.width(14.dp))
                                 Text("Reliability", style = MaterialTheme.typography.bodyMedium)
+                                trend?.takeIf { it != 0 }?.let { Spacer(Modifier.width(6.dp)); Text(if (it > 0) "▲${it}" else "▼${-it}", style = MaterialTheme.typography.labelSmall, color = if (it > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error) }
                                 Spacer(Modifier.weight(1f))
+                                if (rel.streak >= 2) { Text("🔥 ${rel.streak}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.tertiary); Spacer(Modifier.width(8.dp)) }
                                 val relColor = when { rel.score >= 80 -> MaterialTheme.colorScheme.primary; rel.score >= 50 -> MaterialTheme.colorScheme.tertiary; else -> MaterialTheme.colorScheme.error }
                                 Text("${rel.score}% · ${rel.kept}/${rel.expected} kept", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = relColor)
+                            }
+                            if (hours.any { it > 0 }) {
+                                val maxH = (hours.maxOrNull() ?: 1).coerceAtLeast(1)
+                                Row(Modifier.fillMaxWidth().padding(start = 40.dp, end = 4.dp, top = 4.dp, bottom = 8.dp).height(28.dp), horizontalArrangement = Arrangement.spacedBy(1.dp), verticalAlignment = Alignment.Bottom) {
+                                    for (h in 0..23) {
+                                        val frac = hours[h].toFloat() / maxH
+                                        Box(Modifier.weight(1f).height((2 + frac * 24).dp).clip(RoundedCornerShape(2.dp))
+                                            .background(if (hours[h] > 0) MaterialTheme.colorScheme.tertiary.copy(alpha = .5f) else MaterialTheme.colorScheme.surfaceVariant))
+                                    }
+                                }
+                            }
+                            // Q5: chronically missed → the coach offers to ease the cadence, one tap.
+                            if (rel.score < 40 && rel.expected >= 5) {
+                                val easeCtx = LocalContext.current
+                                Surface(Modifier.fillMaxWidth().padding(start = 40.dp, end = 4.dp, bottom = 8.dp), shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .5f)) {
+                                    Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Text("Missed a lot lately — make it less frequent?", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                                        TextButton(onClick = { vm.easeCadence(task) { lbl -> if (lbl != null) android.widget.Toast.makeText(easeCtx, "Now: $lbl", android.widget.Toast.LENGTH_SHORT).show() } }) { Text("Ease") }
+                                    }
+                                }
                             }
                         }
                     }
@@ -582,6 +617,13 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 Dial("Estimate (min)", (task.estimateMin ?: 0).coerceIn(0, 5)) { v -> update { it.copy(estimateMin = v * 15) } }
                 SwitchRow("Mark as goal", task.isGoal) { v -> update { it.copy(isGoal = v) } }
                 SwitchRow("Mark as project", task.isProject) { v -> update { it.copy(isProject = v) } }
+                // Q2: goals & projects get the habit "why" + reward vocabulary.
+                if (task.isGoal || task.isProject) {
+                    OutlinedTextField(task.whyText, { v -> update { it.copy(whyText = v.take(140)) } }, singleLine = false,
+                        label = { Text("Why this matters (shown when you open it)") }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
+                    OutlinedTextField(task.rewardText, { v -> update { it.copy(rewardText = v.take(80)) } }, singleLine = true,
+                        label = { Text("Reward yourself when it's done (optional)") }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
+                }
                 if (hasChildren) SwitchRow("Complete subtasks in order", task.completeInOrder) { v -> update { it.copy(completeInOrder = v) } }
                 Spacer(Modifier.height(6.dp)); CardLabel("Review cadence")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

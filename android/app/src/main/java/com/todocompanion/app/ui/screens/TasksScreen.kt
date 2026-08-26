@@ -187,9 +187,9 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
     // P5: celebrate finishing a goal or project — a milestone, like a habit reward unlocking.
     val celebCtx = LocalContext.current
     LaunchedEffect(Unit) {
-        vm.goalCelebration.collect { title ->
-            if (title != null) {
-                android.widget.Toast.makeText(celebCtx, "🎉 Milestone reached — “$title” done!", android.widget.Toast.LENGTH_LONG).show()
+        vm.goalCelebration.collect { msg ->
+            if (msg != null) {
+                android.widget.Toast.makeText(celebCtx, msg, android.widget.Toast.LENGTH_LONG).show()
                 vm.goalCelebration.value = null
             }
         }

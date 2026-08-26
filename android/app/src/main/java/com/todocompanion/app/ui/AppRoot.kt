@@ -186,6 +186,7 @@ fun AppRoot(
         var filterEdit by remember { mutableStateOf<com.todocompanion.app.data.entity.FilterEntity?>(null) }
         var showStats by remember { mutableStateOf(false) }
         var showReview by remember { mutableStateOf(false) }
+        var showMomentum by remember { mutableStateOf(false) }   // Q1
         // E9: a backup file handed in by the file manager ("Open with"), awaiting a restore confirm.
         var pendingImport by remember { mutableStateOf<android.net.Uri?>(null) }
         var importResult by remember { mutableStateOf<String?>(null) }
@@ -362,6 +363,7 @@ fun AppRoot(
                     onOpenTemplates = { templatePicker = true; scope.launch { drawerState.close() } },
                     onOpenAttachments = { showAttachments = true; scope.launch { drawerState.close() } },
                     onOpenCountdowns = { showCountdowns = true; scope.launch { drawerState.close() } },
+                    onOpenMomentum = { showMomentum = true; scope.launch { drawerState.close() } },
                 )
             },
         ) {
@@ -618,6 +620,7 @@ fun AppRoot(
         if (showCountdowns) com.todocompanion.app.ui.screens.CountdownScreen(vm, onBack = { showCountdowns = false })
         if (showPlan) com.todocompanion.app.ui.screens.PlanYourDayScreen(vm, onOpenTask = { showPlan = false; openTask(it) }, onBack = { showPlan = false })
         if (showReview) com.todocompanion.app.ui.screens.ReviewScreen(vm, onOpenTask = { showReview = false; openTask(it) }, onBack = { showReview = false })
+        if (showMomentum) com.todocompanion.app.ui.screens.MomentumScreen(vm, onBack = { showMomentum = false })
         if (saveTab) {
             var tabName by remember { mutableStateOf(vm.currentTitle()) }
             AlertDialog(

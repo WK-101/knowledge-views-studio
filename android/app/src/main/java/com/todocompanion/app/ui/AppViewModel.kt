@@ -682,8 +682,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             if (!t.completed) {
                 undoEvents.tryEmit(UndoEvent(UndoKind.COMPLETED, t.id, "Completed “${t.title.take(30)}”"))
                 if (settings.value.completionSound) playCompletionChime()
-                // P5: finishing a goal or project is a milestone — mark it with a celebration, like a habit reward.
-                if (t.isGoal || t.isProject) goalCelebration.value = t.title.take(40)
+                // P5/Q2: finishing a goal or project is a milestone — celebrate it, and lead with the
+                // reward the user promised themselves if they set one.
+                if (t.isGoal || t.isProject) goalCelebration.value =
+                    if (t.rewardText.isNotBlank()) "“${t.title.take(32)}” done — you earned it: ${t.rewardText.take(50)} 🎉"
+                    else "Milestone reached — “${t.title.take(40)}” done! 🎉"
             }
         }
     }
@@ -697,6 +700,27 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         tg.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 120)
         viewModelScope.launch { kotlinx.coroutines.delay(600); tg.release() }
     }
+    /**
+     * Q5 — adaptive cadence: make a chronically-missed recurring task less demanding by easing it one
+     * step (daily→less often, or a longer interval), the task analogue of the habit adaptive-goal ease.
+     * Returns the new human label, or null if it can't be eased.
+     */
+    fun easeCadence(t: TaskEntity, onDone: (String?) -> Unit = {}) = viewModelScope.launch {
+        val rec = com.todocompanion.app.domain.recurrence.Recurrence
+        val r = t.rrule?.let { rec.parse(it) }
+        if (r == null) { onDone(null); return@launch }
+        val eased = when (r.freq) {
+            com.todocompanion.app.domain.recurrence.Freq.WEEKDAYS ->
+                r.copy(freq = com.todocompanion.app.domain.recurrence.Freq.DAILY, interval = 2, byDays = emptySet())
+            com.todocompanion.app.domain.recurrence.Freq.DAILY ->
+                if (r.interval < 2) r.copy(freq = com.todocompanion.app.domain.recurrence.Freq.WEEKLY, interval = 1) else r.copy(interval = r.interval + 1)
+            else -> r.copy(interval = r.interval + 1)
+        }
+        val rule = rec.encode(eased)
+        repo.saveTask(t.copy(rrule = rule))
+        onDone(rec.label(rule))
+    }
+
     /** Advance a repeating task to its next occurrence without logging a completion (MLO "skip"). */
     fun skipOccurrence(t: TaskEntity) = viewModelScope.launch {
         if (t.rrule.isNullOrBlank() || t.dueDate == null) return@launch

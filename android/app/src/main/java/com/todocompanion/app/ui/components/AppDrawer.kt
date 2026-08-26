@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Timelapse
@@ -142,6 +143,7 @@ fun AppDrawer(
     onOpenTemplates: () -> Unit = {},
     onOpenAttachments: () -> Unit = {},
     onOpenCountdowns: () -> Unit = {},
+    onOpenMomentum: () -> Unit = {},
 ) {
     val folders by vm.folders.collectAsState()
     val lists by vm.lists.collectAsState()
@@ -207,6 +209,7 @@ fun AppDrawer(
                 onOpenRef = { ref ->
                     when {
                         ref.startsWith("view:") -> onOpenTab(ref.removePrefix("view:"))
+                        ref == "more:momentum" -> onOpenMomentum()
                         ref == "more:templates" -> onOpenTemplates()
                         ref == "more:countdowns" -> onOpenCountdowns()
                         ref == "more:attachments" -> onOpenAttachments()
@@ -325,6 +328,7 @@ fun AppDrawer(
             SectionHeader("More", open = open("more"), onToggle = { toggle("more") })
             if (open("more")) {
                 // E4: long-press any "More" item to pin it to Favourites (token "more:key").
+                if ("momentum" !in hidden) DrawerRow(Icons.Filled.Insights, "Momentum", pinned = vm.isPinned("more:momentum"), onLongClick = { vm.togglePinnedRef("more:momentum") }, onClick = onOpenMomentum)
                 if ("templates" !in hidden) DrawerRow(Icons.Filled.ContentCopy, "Templates", pinned = vm.isPinned("more:templates"), onLongClick = { vm.togglePinnedRef("more:templates") }, onClick = onOpenTemplates)
                 if ("countdowns" !in hidden) DrawerRow(Icons.Filled.Timelapse, "Countdowns", pinned = vm.isPinned("more:countdowns"), onLongClick = { vm.togglePinnedRef("more:countdowns") }, onClick = onOpenCountdowns)
                 if ("attachments" !in hidden) DrawerRow(Icons.Filled.AttachFile, "Attachments", pinned = vm.isPinned("more:attachments"), onLongClick = { vm.togglePinnedRef("more:attachments") }, onClick = onOpenAttachments)
@@ -545,6 +549,7 @@ private fun PinnedFavourites(
         "FOCUS" -> Icons.Filled.Timer to "Focus"; else -> null
     }
     fun moreMeta(key: String): Pair<ImageVector, String>? = when (key) {
+        "momentum" -> Icons.Filled.Insights to "Momentum"
         "templates" -> Icons.Filled.ContentCopy to "Templates"; "countdowns" -> Icons.Filled.Timelapse to "Countdowns"
         "attachments" -> Icons.Filled.AttachFile to "Attachments"; "statistics" -> Icons.Filled.BarChart to "Statistics"
         "review" -> Icons.Filled.ChecklistRtl to "Weekly review"; else -> null

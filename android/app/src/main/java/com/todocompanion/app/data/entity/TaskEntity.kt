@@ -68,6 +68,10 @@ data class TaskEntity(
     val progressPct: Int? = null,   // manual completion 0..100 for a leaf task (null = none / use rollup)
     val isGoal: Boolean = false,
     val isProject: Boolean = false,
+    // Q2: the habit "identity/why" + reward vocabulary, on goals & projects. whyText shows when you open
+    // the goal (the reason it matters); rewardText fires as a celebration when the goal is completed.
+    val whyText: String = "",
+    val rewardText: String = "",
     val reviewEveryDays: Int? = null,
     val reviewedAt: Long? = null,
     val completeInOrder: Boolean = false,
