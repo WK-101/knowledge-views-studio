@@ -249,7 +249,11 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                     }
                 }
             }
-            if (activities.isEmpty()) Text("Add a few activities like “Deep work”, “Reading”, or “Exercise”.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (activities.isEmpty()) com.todocompanion.app.ui.components.EmptyState(
+                emoji = "⧗", title = "Track where time goes",
+                body = "Add a few activities like Deep work, Reading or Exercise, then tap one to start the timer.",
+                actionLabel = "＋ New activity", onAction = { showNewActivity = true },
+            )
 
             // Day navigator.
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

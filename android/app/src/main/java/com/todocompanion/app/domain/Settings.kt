@@ -172,6 +172,12 @@ data class AppSettings(
     val morningBriefHour: Int = 8,
     // Z8: opt-in — let a partially-met (graded) day earn partial credit toward the strength score.
     val gradedStrength: Boolean = false,
+    // PC1: honour reduced-motion — mute the app's own animations for people who prefer stillness.
+    val reduceMotion: Boolean = false,
+    // PC3: the first-completion celebration has been shown (one-time delight).
+    val firstWinCelebrated: Boolean = false,
+    // PC4: discoverability tips the user has dismissed (per-key, so a hint never nags twice).
+    val dismissedTips: Set<String> = emptySet(),
 ) {
     /** Effective tier for an optional editor field: user override, else its built-in default. */
     fun editorTier(f: EditorField): Int = editorFieldTiers[f.id] ?: f.defaultTier
@@ -286,6 +292,9 @@ data class AppSettings(
         Keys.MORNING_BRIEF to morningBriefEnabled.toString(),
         Keys.MORNING_BRIEF_HOUR to morningBriefHour.toString(),
         Keys.GRADED_STRENGTH to gradedStrength.toString(),
+        Keys.REDUCE_MOTION to reduceMotion.toString(),
+        Keys.FIRST_WIN to firstWinCelebrated.toString(),
+        Keys.DISMISSED_TIPS to dismissedTips.joinToString(","),
     )
 
     object Keys {
@@ -385,6 +394,9 @@ data class AppSettings(
         const val MORNING_BRIEF = "morning_brief"
         const val MORNING_BRIEF_HOUR = "morning_brief_hour"
         const val GRADED_STRENGTH = "graded_strength"
+        const val REDUCE_MOTION = "reduce_motion"
+        const val FIRST_WIN = "first_win_celebrated"
+        const val DISMISSED_TIPS = "dismissed_tips"
     }
 
     companion object {
@@ -475,6 +487,9 @@ data class AppSettings(
             morningBriefEnabled = m[Keys.MORNING_BRIEF]?.toBoolean() ?: false,
             morningBriefHour = m[Keys.MORNING_BRIEF_HOUR]?.toIntOrNull()?.coerceIn(0, 23) ?: 8,
             gradedStrength = m[Keys.GRADED_STRENGTH]?.toBoolean() ?: false,
+            reduceMotion = m[Keys.REDUCE_MOTION]?.toBoolean() ?: false,
+            firstWinCelebrated = m[Keys.FIRST_WIN]?.toBoolean() ?: false,
+            dismissedTips = (m[Keys.DISMISSED_TIPS] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             dailySummaryEnabled = m[Keys.SUMMARY_ON]?.toBooleanStrictOrNull() ?: false,
             appBackground = m[Keys.APP_BG] ?: "none",
             dailyCapacityHours = m[Keys.CAPACITY]?.toIntOrNull()?.coerceIn(1, 16) ?: 8,

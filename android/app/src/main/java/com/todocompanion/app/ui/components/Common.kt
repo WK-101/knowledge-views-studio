@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -43,6 +44,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsPropertyReceiver
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.toggleableState
@@ -383,4 +385,69 @@ fun CardLabel(text: String) {
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
     )
+}
+
+/**
+ * PC2 — a warm, consistent empty state: a big emoji in a soft disc, a title, a line of encouragement,
+ * and one clear call-to-action. Used wherever a list, grid or report has nothing in it yet, so the
+ * newcomer's first impression across the whole app is inviting rather than blank.
+ */
+@Composable
+fun EmptyState(
+    emoji: String,
+    title: String,
+    body: String,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            Modifier.size(88.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = .5f)),
+            contentAlignment = Alignment.Center,
+        ) { Text(emoji, style = MaterialTheme.typography.displaySmall) }
+        Spacer(Modifier.height(18.dp))
+        Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(6.dp))
+        Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+        if (actionLabel != null && onAction != null) {
+            Spacer(Modifier.height(18.dp))
+            Surface(
+                onClick = onAction,
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.primary,
+            ) {
+                Text(actionLabel, Modifier.padding(horizontal = 22.dp, vertical = 11.dp),
+                    style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimary)
+            }
+        }
+    }
+}
+
+/**
+ * PC4 — a dismissible, in-context discoverability hint. Surfaces a powerful-but-hidden capability with a
+ * light bulb, a one-line tip, and a "Got it" that remembers (per [tipKey]) so it never nags twice. The
+ * caller gates visibility on whether [tipKey] has been dismissed.
+ */
+@Composable
+fun TipBanner(text: String, onDismiss: () -> Unit, onAction: (() -> Unit)? = null, actionLabel: String? = null) {
+    Surface(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .55f),
+    ) {
+        Row(Modifier.padding(start = 14.dp, end = 6.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("💡", Modifier.padding(end = 10.dp))
+            Text(text, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+            if (actionLabel != null && onAction != null) {
+                Text(actionLabel, Modifier.clickable(role = Role.Button) { onAction() }.padding(horizontal = 8.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            }
+            Text("Got it", Modifier.clickable(role = Role.Button, onClickLabel = "Dismiss tip") { onDismiss() }.padding(horizontal = 8.dp, vertical = 4.dp),
+                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
 }

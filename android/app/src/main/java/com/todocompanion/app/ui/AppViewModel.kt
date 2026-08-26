@@ -703,6 +703,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 if (t.isGoal || t.isProject) goalCelebration.value =
                     if (t.rewardText.isNotBlank()) "“${t.title.take(32)}” done — you earned it: ${t.rewardText.take(50)} 🎉"
                     else "Milestone reached — “${t.title.take(40)}” done! 🎉"
+                // PC3: a one-time celebration on the very first completion — the moment a trial becomes a habit.
+                if (!settings.value.firstWinCelebrated) {
+                    repo.saveSettings(settings.value.copy(firstWinCelebrated = true))
+                    if (goalCelebration.value == null) goalCelebration.value = "Your first one, done 🎉 Small wins compound — you're off."
+                }
             }
         }
     }
@@ -1990,6 +1995,30 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         return binary.average().toInt() to graded.average().toInt()
     }
     fun setGradedStrength(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(gradedStrength = on)) }
+
+    // ══ PC · polish & correctness ════════════════════════════════════════════════════════════════
+
+    // PC1 · reduced motion; PC4 · dismissible discoverability tips.
+    fun setReduceMotion(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(reduceMotion = on)) }
+    fun dismissTip(key: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(dismissedTips = settings.value.dismissedTips + key)) }
+    fun isTipDismissed(key: String): Boolean = key in settings.value.dismissedTips
+
+    // PC6 · reminder-reliability self-check — warn when the OS is set up to throttle our alarms.
+    data class ReminderHealth(val exactAlarms: Boolean, val batteryUnrestricted: Boolean, val notifications: Boolean) {
+        val ok get() = exactAlarms && batteryUnrestricted && notifications
+        val issues: List<String> get() = buildList {
+            if (!notifications) add("Notifications are off — reminders can't appear. Turn them on for this app.")
+            if (!exactAlarms) add("Exact alarms are blocked — reminders may fire late. Allow them below.")
+            if (!batteryUnrestricted) add("Battery optimisation is on — Android may delay or drop alarms. Allow unrestricted below.")
+        }
+    }
+    fun reminderHealth(): ReminderHealth {
+        val exact = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S)
+            (appCtx.getSystemService(android.app.AlarmManager::class.java)?.canScheduleExactAlarms() ?: true) else true
+        val battery = appCtx.getSystemService(android.os.PowerManager::class.java)?.isIgnoringBatteryOptimizations(appCtx.packageName) ?: true
+        val notif = androidx.core.app.NotificationManagerCompat.from(appCtx).areNotificationsEnabled()
+        return ReminderHealth(exact, battery, notif)
+    }
 
     fun addManualTimeEntry(activityId: String, startMillis: Long, endMillis: Long, note: String = "") = viewModelScope.launch {
         if (endMillis > startMillis) repo.addManualTimeEntry(activityId, startMillis, endMillis, note)

@@ -250,6 +250,8 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
             Toggle("Dynamic color (Material You)", s.dynamicColor) { vm.saveSettings(s.copy(dynamicColor = it)) }
             Toggle("Advanced priority (importance + urgency)", s.advancedPriority) { vm.saveSettings(s.copy(advancedPriority = it)) }
+            // PC1: honour a preference for stillness — mute the app's own motion.
+            Toggle("Reduce motion", s.reduceMotion) { vm.setReduceMotion(it) }
 
             Spacer(Modifier.height(10.dp)); Sub("Accent colour")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -653,8 +655,13 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
             HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             Text("Reminder reliability", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 4.dp, bottom = 2.dp))
-            Text("Android may delay or drop alarms to save battery. Grant these once so reminders fire on time.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+            // PC6: a live self-check — surface exactly what the OS is set to throttle, in plain words.
+            val health = remember(s) { vm.reminderHealth() }
+            if (health.ok) {
+                Text("✓ All clear — reminders will fire on time.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 4.dp))
+            } else {
+                health.issues.forEach { Text("⚠︎ $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 2.dp)) }
+            }
             Action("Allow exact alarms") { openExactAlarmSettings(context) }
             Action("Ignore battery optimisation") { openBatterySettings(context) }
         }

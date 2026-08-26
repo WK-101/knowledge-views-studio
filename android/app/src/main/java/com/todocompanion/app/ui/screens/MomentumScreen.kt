@@ -57,8 +57,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.todocompanion.app.domain.habit.HabitInsights
 import com.todocompanion.app.domain.habit.HabitStats
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.TipBanner
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -165,6 +169,18 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
             // Z5 — capture this month's meta-metric snapshot the first time the dashboard opens each month.
             androidx.compose.runtime.LaunchedEffect(Unit) { vm.recordMonthlySnapshotIfNeeded() }
 
+            // PC6 — reminder-reliability heads-up: warn once if the OS is set to throttle our alarms.
+            val rHealth = remember(settings) { vm.reminderHealth() }
+            if (!rHealth.ok && !vm.isTipDismissed("reminderhealth")) TipBanner(
+                text = "Reminders may fire late — ${rHealth.issues.firstOrNull() ?: ""} Fix it in Settings ▸ Reminders.",
+                onDismiss = { vm.dismissTip("reminderhealth") },
+            )
+            // PC4 — discoverability: surface the omnibox capture power, once.
+            if (!vm.isTipDismissed("tip_capture")) TipBanner(
+                text = "Tip: in ＋ Capture, type “track deep work” to start a timer, or “read every night” to make a habit.",
+                onDismiss = { vm.dismissTip("tip_capture") },
+            )
+
             // W2 — Right Now: the single next best action, with one tap to act.
             val rn = remember(tasks, habits, checkins, timeEntries) { vm.rightNow() }
             if (rn != null) Surface(
@@ -210,9 +226,15 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                             drawArc(Color(0x33888888), -90f, 360f, false, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round))
                         }
                         val accent = MaterialTheme.colorScheme.primary
+                        // PC1: the ring fills with a gentle sweep on open — snapped instantly when Reduce motion is on.
+                        val ringFrac by animateFloatAsState(
+                            targetValue = momentum / 100f,
+                            animationSpec = if (settings.reduceMotion) snap() else tween(700),
+                            label = "ring",
+                        )
                         androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
                             val stroke = 11.dp.toPx()
-                            drawArc(accent, -90f, momentum / 100f * 360f, false, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+                            drawArc(accent, -90f, ringFrac * 360f, false, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round))
                         }
                         Text("$momentum", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     }
