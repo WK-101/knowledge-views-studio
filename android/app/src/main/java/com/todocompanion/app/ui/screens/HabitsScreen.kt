@@ -703,6 +703,9 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
     var anchorId by remember { mutableStateOf(existing?.anchorHabitId) }
     var rewardText by remember { mutableStateOf(existing?.rewardText ?: "") }
     var rewardAt by remember { mutableStateOf(existing?.rewardAtStreak ?: 0) }
+    // Tier V4: user-written encouragements (one per line). V3: how linked tracked time credits the habit.
+    var encouragements by remember { mutableStateOf(existing?.encouragements ?: "") }
+    var linkMode by remember { mutableStateOf(existing?.linkMode ?: "minutes") }
     // M6: model tidy-ups — a grouping category and a user-editable start date (defaults to creation).
     var category by remember { mutableStateOf(existing?.category ?: "") }
     var startDate by remember { mutableStateOf(existing?.startDate) }
@@ -733,6 +736,7 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
             identity = identity.trim(), anchorHabitId = anchorId,
             rewardText = rewardText.trim(), rewardAtStreak = rewardAt,
             category = category.trim(), startDate = startDate,
+            encouragements = encouragements.trim(), linkMode = linkMode,
         )
     }
     fun save() {
@@ -897,6 +901,15 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
                     StepperRow("Stretch goal", extra?.toString() ?: "—", onMinus = { extra = ((extra ?: target) - 1).takeIf { it > target } }, onPlus = { extra = (extra ?: target) + 1 })
                 }
                 OutlinedTextField(description, { description = it }, label = { Text("Why — your motivation (shown when you're about to slip)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                // V4: user-written encouragements, one shown at random on each check-off.
+                OutlinedTextField(encouragements, { encouragements = it }, label = { Text("Encouragements (one per line, shown on check-off)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                // V3: how tracked time on a linked activity credits this habit.
+                Text("When timed, count", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("minutes" to "Minutes", "sessions" to "Sessions", "off" to "Off").forEach { (v, lbl) ->
+                        FilterChip(selected = linkMode == v, onClick = { linkMode = v }, label = { Text(lbl) })
+                    }
+                }
             }
 
             // 6. Motivation & extras (Tier K)

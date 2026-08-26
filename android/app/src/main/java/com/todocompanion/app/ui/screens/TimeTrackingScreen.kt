@@ -330,6 +330,23 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                             tagTotals.forEach { tt -> AssistChip(onClick = {}, label = { Text("#${tt.tag} · ${fmtDur(tt.minutes)}") }) }
                         }
                     }
+                    // V10 — this week vs last: total tracked and its change.
+                    Spacer(Modifier.height(10.dp))
+                    Text("This week vs last", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    val wkStart = day.minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli()
+                    val prevStart = day.minusDays(13).atStartOfDay(zone).toInstant().toEpochMilli()
+                    val thisWk = TimeTracking.totalMinutes(entries, wkStart, winEnd, now)
+                    val lastWk = TimeTracking.totalMinutes(entries, prevStart, wkStart, now)
+                    val delta = thisWk - lastWk
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(fmtDur(thisWk), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            when { delta > 0 -> "▲ ${fmtDur(delta)} vs last week"; delta < 0 -> "▼ ${fmtDur(-delta)} vs last week"; else -> "— same as last week" },
+                            style = MaterialTheme.typography.labelMedium,
+                            color = when { delta > 0 -> MaterialTheme.colorScheme.primary; delta < 0 -> MaterialTheme.colorScheme.error; else -> MaterialTheme.colorScheme.onSurfaceVariant },
+                        )
+                    }
                 }
             }
 

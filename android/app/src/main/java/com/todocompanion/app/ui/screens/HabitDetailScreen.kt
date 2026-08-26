@@ -148,6 +148,22 @@ fun HabitDetailScreen(
         add(streakLabel to "$current")
         add("Best streak" to "$best")
         add("Days tracked" to "${hc.size}")
+        // V1: time-since — for a build habit, how long since the last done day + the average gap.
+        if (!isBreak) {
+            val since = HabitStats.daysSinceLastDone(doneDays, today)
+            add("Last done" to when { since < 0 -> "never"; since == 0 -> "today"; since == 1 -> "yesterday"; else -> "$since days ago" })
+            HabitStats.averageGapDays(doneDays, today, 90)?.let { add("Avg gap" to (String.format(Locale.US, "%.1f", it) + "d")) }
+        }
+        // V2: today's grade against target + stretch goal.
+        if (!isBreak && h.extraTarget != null) {
+            val tc = hc.firstOrNull { it.epochDay == today }?.count ?: 0
+            add("Today" to when (HabitStats.grade(h, tc)) {
+                HabitStats.DayGrade.EXTRA -> "🌟 goodjob"; HabitStats.DayGrade.MET -> "✓ on target"
+                HabitStats.DayGrade.PARTIAL -> "◑ partial"; HabitStats.DayGrade.NONE -> "—"
+            })
+        }
+        // V4: streak-freeze insurance you've banked.
+        if (h.freezeTokens > 0) add("Streak freezes" to "${h.freezeTokens} ❄️")
         if (isBreak && h.moneyPerUnit != null) {
             add("Money saved" to ("$" + String.format(Locale.US, "%.2f", h.moneyPerUnit!! * current)))
         }

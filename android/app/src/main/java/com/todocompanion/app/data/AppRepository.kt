@@ -278,12 +278,15 @@ class AppRepository(private val db: AppDatabase) {
         // direct (entry.habitId) or via the activity a habit is bound to (Habit.timeActivityId).
         val mins = ((end - running.startMillis) / 60_000L).toInt()
         if (mins > 0) {
-            val hid = running.habitId
-                ?: habits.getAll().firstOrNull { it.timeActivityId == running.activityId && !it.archived }?.id
-            if (hid != null) {
+            val all = habits.getAll()
+            val h = running.habitId?.let { id -> all.firstOrNull { it.id == id } }
+                ?: all.firstOrNull { it.timeActivityId == running.activityId && !it.archived }
+            // V3: credit by the habit's link mode — minutes (default), one session, or off.
+            if (h != null && h.linkMode != "off") {
+                val add = if (h.linkMode == "sessions") h.clickIncrement.coerceAtLeast(1) else mins
                 val day = java.time.Instant.ofEpochMilli(end).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toEpochDay()
-                val cur = habits.getCheckins().firstOrNull { it.habitId == hid && it.epochDay == day }?.count ?: 0
-                setCheckinValue(hid, day, cur + mins)
+                val cur = habits.getCheckins().firstOrNull { it.habitId == h.id && it.epochDay == day }?.count ?: 0
+                setCheckinValue(h.id, day, cur + add)
             }
         }
     }
@@ -398,8 +401,28 @@ class AppRepository(private val db: AppDatabase) {
     }
 
     suspend fun setCompleted(task: TaskEntity, completed: Boolean) {
+        val transition = completed && !task.completed
         tasks.upsert(task.copy(completed = completed, completedAt = if (completed) now() else null, abandoned = false, updatedAt = now()))
         logActivity(task.id, if (completed) "completed" else "reopened")
+        if (transition) onTaskCompleted(task)
+    }
+    /** V3: completing a task ticks any habit linked to it (via a shared time-activity). V12: earns a point. */
+    private suspend fun onTaskCompleted(task: TaskEntity) {
+        val actId = task.defaultActivityId
+        if (actId != null) {
+            val day = java.time.Instant.ofEpochMilli(now()).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toEpochDay()
+            habits.getAll().filter { it.timeActivityId == actId && !it.archived && !it.paused && it.linkMode != "off" && it.habitType != "break" }.forEach { h ->
+                val cur = habits.getCheckins().firstOrNull { it.habitId == h.id && it.epochDay == day }?.count ?: 0
+                setCheckinValue(h.id, day, cur + h.clickIncrement.coerceAtLeast(1))
+            }
+        }
+        awardPoints(1)
+    }
+    /** V12: add momentum points to the wallet (earned by finishing work). */
+    suspend fun awardPoints(n: Int) {
+        if (n == 0) return
+        val s = settingsSnapshot()
+        saveSettings(s.copy(pointsBalance = (s.pointsBalance + n).coerceAtLeast(0)))
     }
 
     /**

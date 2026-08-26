@@ -56,6 +56,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.RocketLaunch
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.ViewSidebar
@@ -486,6 +487,30 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
 
+        // V12: the self-defined rewards store.
+        SettingsGroup(Icons.Filled.Star, "Rewards", open["rewards"] == true, { open["rewards"] = open["rewards"] != true }) {
+            val rewards = com.todocompanion.app.domain.Rewards.parse(s.rewardsJson)
+            Text("You earn ⭐ points by keeping habits and finishing tasks — currently ${s.pointsBalance}. Spend them on treats you set for yourself. Encouragement, never punishment.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
+            rewards.forEach { r ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("${r.emoji} ${r.name} · ${r.cost} pts" + (if (r.redeemed > 0) "  (redeemed ${r.redeemed}×)" else ""), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    IconButton(onClick = { vm.saveRewards(rewards.filter { it.id != r.id }) }) { Icon(Icons.Filled.Delete, "Remove", modifier = Modifier.size(18.dp)) }
+                }
+            }
+            var rName by remember { mutableStateOf("") }
+            var rCost by remember { mutableStateOf("10") }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(rName, { rName = it }, label = { Text("New reward") }, singleLine = true, modifier = Modifier.weight(1f))
+                Spacer(Modifier.width(8.dp))
+                OutlinedTextField(rCost, { v -> rCost = v.filter { it.isDigit() }.take(4) }, label = { Text("Cost") }, singleLine = true, modifier = Modifier.width(90.dp))
+            }
+            TextButton(enabled = rName.isNotBlank(), onClick = {
+                vm.saveRewards(rewards + com.todocompanion.app.domain.Reward(id = java.util.UUID.randomUUID().toString(), name = rName.trim(), cost = rCost.toIntOrNull()?.coerceAtLeast(1) ?: 10))
+                rName = ""; rCost = "10"
+            }) { Text("＋ Add reward") }
+        }
+
         SettingsGroup(Icons.Filled.EditNote, "Task editor", open["editor"] == true, { open["editor"] = open["editor"] != true }) {
             Text("The editor shows a lean set of fields first and reveals the rest under “More fields.” Choose when each appears, or drag the order to match how you work. A field you’ve already filled always shows, whatever you pick here.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
@@ -629,6 +654,11 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 Text("Point every device at the same folder. Merges are last-write-wins per task; each device keeps its own settings.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            // V11: the honest, offline answer to cross-device sync — a documented Syncthing recipe.
+            HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+            Text("Multi-device, still offline", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 2.dp))
+            Text("Want your phone and tablet in sync without an account? Install Syncthing (free, open-source, peer-to-peer — no server sees your data) on both devices, share one folder between them, and point the sync folder above at it on each. Your encrypted backup files travel device-to-device over your own network. It's the private, account-free way to get real cross-device sync.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
             HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             // G1: at-rest encryption for whatever lands in the folder.
             var pass by remember(s.syncPassphrase) { mutableStateOf(s.syncPassphrase) }

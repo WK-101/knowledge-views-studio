@@ -263,6 +263,15 @@
         </receiver>
         <receiver android:name=".widget.TimeTrackReceiver" android:exported="false" />
 
+        <!-- V8: local intent API — automation apps (Tasker/MacroDroid) can start/stop tracking. Local IPC, no network. -->
+        <receiver android:name=".reminders.TimeIntentReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="com.todocompanion.app.api.START_ACTIVITY" />
+                <action android:name="com.todocompanion.app.api.STOP_ACTIVITY" />
+                <action android:name="com.todocompanion.app.api.STOP_ALL" />
+            </intent-filter>
+        </receiver>
+
         <!-- H5: Quick Settings tile → jump straight into quick-add from the notification shade. -->
         <service
             android:name=".tiles.CaptureTileService"

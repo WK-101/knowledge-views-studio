@@ -68,7 +68,16 @@ data class HabitEntity(
     // counts toward the habit, and the two share one goal (the habit's). Nullable — invisible unless the
     // Time module is used.
     val timeActivityId: String? = null,
+    // --- Tier V ---
+    // V3: how a linked time interval credits this habit — "minutes" (add its minutes, default/legacy),
+    // "sessions" (each completed interval adds clickIncrement, so N sessions completes the goal, Streaks-
+    // style), or "off" (tracking never auto-logs). Completing a linked task always ticks the habit once.
+    val linkMode: String = "minutes",
+    // V4: user-written encouragements, one per line; one is shown at random when the habit is checked off.
+    val encouragements: String = "",
 ) {
+    /** V4: the encouragement lines, trimmed and non-empty. */
+    fun encouragementList(): List<String> = encouragements.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
     /** null-safe first day this habit counts from. */
     fun startEpochDay(zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): Long =
         (startDate ?: createdAt).let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate().toEpochDay() }
@@ -92,6 +101,8 @@ data class HabitCheckinEntity(
     // O2: minute-of-day (0–1439) this day was first marked done, for real "you usually do this at…"
     // timing insight and a time-of-day view. Null for days logged before O2 or backfilled.
     val doneAtMinute: Int? = null,
+    // V5: an optional free-text journal note for the day ("what helped / what got in the way").
+    val note: String = "",
 )
 
 /** A completed focus (Pomodoro / stopwatch) session, for the focus tab + statistics. */

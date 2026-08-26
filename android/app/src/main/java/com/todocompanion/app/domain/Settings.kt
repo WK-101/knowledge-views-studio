@@ -148,6 +148,10 @@ data class AppSettings(
     val untrackedReveal: Boolean = false,
     // U12: lightweight on-device automation rules, JSON-encoded (see domain/AutomationRules.kt).
     val automationRulesJson: String = "",
+    // V12: a self-defined rewards store. rewardsJson is a list of {id,name,cost,redeemed}; pointsBalance
+    // is the momentum-points wallet (earned by keeping habits / finishing tasks, spent on rewards).
+    val rewardsJson: String = "",
+    val pointsBalance: Int = 0,
 ) {
     /** Effective tier for an optional editor field: user override, else its built-in default. */
     fun editorTier(f: EditorField): Int = editorFieldTiers[f.id] ?: f.defaultTier
@@ -249,6 +253,8 @@ data class AppSettings(
         Keys.FORGIVING_STREAKS to forgivingStreaks.toString(),
         Keys.UNTRACKED_REVEAL to untrackedReveal.toString(),
         Keys.AUTOMATION_RULES to automationRulesJson,
+        Keys.REWARDS to rewardsJson,
+        Keys.POINTS to pointsBalance.toString(),
     )
 
     object Keys {
@@ -335,6 +341,8 @@ data class AppSettings(
         const val FORGIVING_STREAKS = "forgiving_streaks"
         const val UNTRACKED_REVEAL = "untracked_reveal"
         const val AUTOMATION_RULES = "automation_rules"
+        const val REWARDS = "rewards"
+        const val POINTS = "points_balance"
     }
 
     companion object {
@@ -412,6 +420,8 @@ data class AppSettings(
             forgivingStreaks = m[Keys.FORGIVING_STREAKS]?.toBooleanStrictOrNull() ?: false,
             untrackedReveal = m[Keys.UNTRACKED_REVEAL]?.toBooleanStrictOrNull() ?: false,
             automationRulesJson = m[Keys.AUTOMATION_RULES] ?: "",
+            rewardsJson = m[Keys.REWARDS] ?: "",
+            pointsBalance = m[Keys.POINTS]?.toIntOrNull() ?: 0,
             dailySummaryEnabled = m[Keys.SUMMARY_ON]?.toBooleanStrictOrNull() ?: false,
             appBackground = m[Keys.APP_BG] ?: "none",
             dailyCapacityHours = m[Keys.CAPACITY]?.toIntOrNull()?.coerceIn(1, 16) ?: 8,

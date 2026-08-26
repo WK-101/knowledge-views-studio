@@ -53,6 +53,9 @@ data class QuickAddOptions(
     val tagIds: List<String> = emptyList(),
     val reminderMillis: Long? = null,
     val note: String = "",
+    // V9: applied from inline capture tokens (#t25, *).
+    val estimateMin: Int? = null,
+    val star: Boolean = false,
 )
 
 enum class UndoKind { COMPLETED, ABANDONED, TRASHED }
@@ -629,8 +632,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
 
         // Natural-language recurrence ("every Tuesday", "monthly", "every 2 weeks") + optional note.
-        if (parsed.rrule != null || opts.note.isNotBlank()) repo.getTask(id)?.let {
-            repo.saveTask(it.copy(rrule = parsed.rrule ?: it.rrule, note = opts.note.ifBlank { it.note }))
+        // V9: also apply inline-token estimate and star.
+        if (parsed.rrule != null || opts.note.isNotBlank() || opts.estimateMin != null || opts.star) repo.getTask(id)?.let {
+            repo.saveTask(it.copy(
+                rrule = parsed.rrule ?: it.rrule,
+                note = opts.note.ifBlank { it.note },
+                estimateMin = opts.estimateMin ?: it.estimateMin,
+                star = it.star || opts.star,
+            ))
         }
 
         val reminderAt = opts.reminderMillis ?: (if (parsed.hasTime && due != null) due else null)
@@ -1030,6 +1039,31 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         onDone(res.savedLocation)
     }
 
+    /** V7 — Reality Replay: a shareable recap of the last 7 days across all three modules, on-device. */
+    fun shareRecap(onDone: (String?) -> Unit) = viewModelScope.launch {
+        val now = System.currentTimeMillis()
+        val today = java.time.LocalDate.now(zone)
+        val weekStart = today.minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli()
+        val startDay = today.minusDays(6).toEpochDay(); val endDay = today.toEpochDay()
+        val trackedMin = com.todocompanion.app.domain.TimeTracking.totalMinutes(timeEntries.value, weekStart, now + 1, now)
+        val tasksDone = tasks.value.count { t -> t.completedAt?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate().toEpochDay() in startDay..endDay } == true }
+        val habitDays = habitCheckins.value.count { it.status == "done" && it.epochDay in startDay..endDay }
+        val m = momentumSnapshot()
+        val stats = listOf(
+            "tracked" to "${trackedMin / 60}h ${trackedMin % 60}m",
+            "tasks done" to "$tasksDone",
+            "habit days" to "$habitDays",
+            "momentum" to "${m.momentum}",
+        )
+        val sub = "${today.minusDays(6).format(java.time.format.DateTimeFormatter.ofPattern("MMM d"))} – ${today.format(java.time.format.DateTimeFormatter.ofPattern("MMM d"))}"
+        val res = withContext(Dispatchers.IO) {
+            val bmp = com.todocompanion.app.util.ProgressCard.renderStatsCard("Your week in review", sub, stats)
+            com.todocompanion.app.util.ProgressCard.saveAndShareUri(appCtx, bmp, "todo-companion-recap.png")
+        }
+        res.shareUri?.let { com.todocompanion.app.util.ProgressCard.share(appCtx, it) }
+        onDone(res.savedLocation)
+    }
+
     /** R1/R2: the unified momentum snapshot — one place both the dashboard, widget and digest read. */
     data class Momentum(val momentum: Int, val habitStrength: Int?, val taskReliability: Int?, val focusWeek: Int)
     fun momentumSnapshot(): Momentum {
@@ -1079,7 +1113,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * flip of the auto-classification; null means "use the classifier's guess".
      */
     fun smartCapture(text: String, forceKind: com.todocompanion.app.domain.nlp.SmartCapture.Kind? = null, onDone: (com.todocompanion.app.domain.nlp.SmartCapture.Kind) -> Unit = {}) {
-        val trimmed = text.trim()
+        // V9: strip inline tokens (#t25, *, !) first and carry them into the created task.
+        val tok = com.todocompanion.app.domain.nlp.QuickTokens.parse(text)
+        val trimmed = tok.text.trim()
         if (trimmed.isBlank()) return
         val hbt = com.todocompanion.app.domain.nlp.SmartCapture.Kind.HABIT
         val tsk = com.todocompanion.app.domain.nlp.SmartCapture.Kind.TASK
@@ -1096,7 +1132,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (kind == com.todocompanion.app.domain.nlp.SmartCapture.Kind.HABIT) {
             addHabit(com.todocompanion.app.domain.habit.HabitQuickParser.parse(trimmed))
         } else {
-            submitQuickAdd(trimmed, QuickAddOptions())
+            submitQuickAdd(trimmed, QuickAddOptions(estimateMin = tok.estimateMin, star = tok.star))
         }
         onDone(kind)
     }
@@ -1124,11 +1160,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun startTimeTracking(activityId: String, taskId: String? = null, habitId: String? = null) = viewModelScope.launch {
         repo.startTimeTracking(activityId, taskId, habitId, stopFirst = !settings.value.multiTimer)
         com.todocompanion.app.reminders.AutomationRunner.onStart(appCtx, repo, activityId)
+        com.todocompanion.app.reminders.TimeIntentApi.broadcastStarted(appCtx, timeActivities.value.firstOrNull { it.id == activityId }?.name ?: "")
         refreshTimeWidget()
     }
-    fun stopTimeTracking() = viewModelScope.launch { repo.stopTimeTracking(); refreshHabitWidgets(); refreshTimeWidget() }
+    fun stopTimeTracking() = viewModelScope.launch {
+        val nm = timeEntries.value.firstOrNull { it.running }?.let { r -> timeActivities.value.firstOrNull { it.id == r.activityId }?.name }
+        repo.stopTimeTracking(); refreshHabitWidgets(); refreshTimeWidget()
+        nm?.let { com.todocompanion.app.reminders.TimeIntentApi.broadcastStopped(appCtx, it) }
+    }
     /** U15: stop one specific running timer (when several overlap). */
-    fun stopTimeEntry(id: String) = viewModelScope.launch { repo.stopTimeEntry(id); refreshHabitWidgets(); refreshTimeWidget() }
+    fun stopTimeEntry(id: String) = viewModelScope.launch {
+        val nm = timeEntries.value.firstOrNull { it.id == id }?.let { r -> timeActivities.value.firstOrNull { it.id == r.activityId }?.name }
+        repo.stopTimeEntry(id); refreshHabitWidgets(); refreshTimeWidget()
+        nm?.let { com.todocompanion.app.reminders.TimeIntentApi.broadcastStopped(appCtx, it) }
+    }
 
     // ── U3 · pause / resume ─────────────────────────────────────────────────────────────────────
     // Pause finalizes the running interval (crediting any linked habit) and remembers what it was, so
@@ -1237,6 +1282,55 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         return out.sortedByDescending { it.first }.take(3).map { it.second }
     }
+
+    // ── V6 · cross-type tag report — hours + tasks + habit-days grouped by one tag ──────────────
+    data class TagLine(val tag: String, val minutes: Int, val tasksDone: Int, val habitDays: Int)
+    fun crossTypeTagReport(windowDays: Int = 7): List<TagLine> {
+        val zone = java.time.ZoneId.systemDefault()
+        val now = System.currentTimeMillis()
+        val today = java.time.LocalDate.now(zone)
+        val winStart = today.minusDays((windowDays - 1).toLong()).atStartOfDay(zone).toInstant().toEpochMilli()
+        val startDay = today.minusDays((windowDays - 1).toLong()).toEpochDay()
+        val endDay = today.toEpochDay()
+        val acc = HashMap<String, IntArray>()   // tag → [minutes, tasksDone, habitDays]
+        fun bucket(tag: String) = acc.getOrPut(tag.trim().lowercase()) { IntArray(3) }
+        // time (U11 tags)
+        com.todocompanion.app.domain.TimeInsights.totalsByTag(timeEntries.value, winStart, now + 1, now).forEach { bucket(it.tag)[0] += it.minutes }
+        // tasks completed in the window, by their tag names
+        val tagName = tags.value.associate { it.id to it.name }
+        val tagsByTask = taskTags.value.groupBy { it.taskId }.mapValues { e -> e.value.mapNotNull { tagName[it.tagId] } }
+        tasks.value.forEach { t ->
+            val ca = t.completedAt ?: return@forEach
+            val d = java.time.Instant.ofEpochMilli(ca).atZone(zone).toLocalDate().toEpochDay()
+            if (d in startDay..endDay) tagsByTask[t.id].orEmpty().forEach { if (it.isNotBlank()) bucket(it)[1] += 1 }
+        }
+        // habit "done" days in the window, keyed by the habit's category (used as a tag)
+        val habById = habits.value.associateBy { it.id }
+        val hs = com.todocompanion.app.domain.habit.HabitStats
+        habitCheckins.value.forEach { ci ->
+            if (ci.status != "done" || ci.epochDay !in startDay..endDay) return@forEach
+            val h = habById[ci.habitId] ?: return@forEach
+            if (h.category.isNotBlank() && hs.meetsGoal(h, ci.count)) bucket(h.category)[2] += 1
+        }
+        return acc.filter { it.value.any { v -> v > 0 } }
+            .map { TagLine(it.key, it.value[0], it.value[1], it.value[2]) }
+            .sortedByDescending { it.minutes + it.tasksDone * 30 + it.habitDays * 30 }
+    }
+
+    // ── V12 · rewards store ─────────────────────────────────────────────────────────────────────
+    fun rewards(): List<com.todocompanion.app.domain.Reward> = com.todocompanion.app.domain.Rewards.parse(settings.value.rewardsJson)
+    fun saveRewards(list: List<com.todocompanion.app.domain.Reward>) = viewModelScope.launch {
+        repo.saveSettings(settings.value.copy(rewardsJson = com.todocompanion.app.domain.Rewards.encode(list)))
+    }
+    fun redeemReward(r: com.todocompanion.app.domain.Reward) = viewModelScope.launch {
+        val s = settings.value
+        if (s.pointsBalance >= r.cost) {
+            val list = com.todocompanion.app.domain.Rewards.parse(s.rewardsJson).map { if (it.id == r.id) it.copy(redeemed = it.redeemed + 1) else it }
+            repo.saveSettings(s.copy(pointsBalance = s.pointsBalance - r.cost, rewardsJson = com.todocompanion.app.domain.Rewards.encode(list)))
+            toast("Enjoy your ${r.name}! 🎉")
+        } else toast("${r.cost - s.pointsBalance} more point${if (r.cost - s.pointsBalance == 1) "" else "s"} to go")
+    }
+
     fun addManualTimeEntry(activityId: String, startMillis: Long, endMillis: Long, note: String = "") = viewModelScope.launch {
         if (endMillis > startMillis) repo.addManualTimeEntry(activityId, startMillis, endMillis, note)
     }
@@ -1293,11 +1387,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun cycleHabit(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, current: Int) = viewModelScope.launch {
         repo.cycleCheckin(h.id, epochDay, h.targetPerDay, current, h.clickIncrement, h.extraTarget)
-        refreshHabitWidgets(); celebrateIfRewardReached(h)
+        refreshHabitWidgets(); celebrateIfRewardReached(h); awardIfNewlyDone(h, epochDay, current)
     }
     /** Numeric / exact value entry for a day (also used to record a break-habit relapse amount). */
     fun setHabitValue(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, count: Int) = viewModelScope.launch {
-        repo.setCheckinValue(h.id, epochDay, count); refreshHabitWidgets(); celebrateIfRewardReached(h)
+        val old = repo.getHabitCheckinsOnce().firstOrNull { it.habitId == h.id && it.epochDay == epochDay }?.count ?: 0
+        repo.setCheckinValue(h.id, epochDay, count); refreshHabitWidgets(); celebrateIfRewardReached(h); awardIfNewlyDone(h, epochDay, old)
+    }
+    /** V4/V12: when a build habit crosses into "done", earn a momentum point and show a random encouragement. */
+    private suspend fun awardIfNewlyDone(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, oldCount: Int) {
+        val hs = com.todocompanion.app.domain.habit.HabitStats
+        if (h.habitType == "break") return
+        val newCount = repo.getHabitCheckinsOnce().firstOrNull { it.habitId == h.id && it.epochDay == epochDay }?.count ?: 0
+        if (hs.meetsGoal(h, newCount) && !hs.meetsGoal(h, oldCount)) {
+            repo.awardPoints(1)
+            h.encouragementList().takeIf { it.isNotEmpty() }?.let { toast(it.random()) }
+        }
     }
     fun skipHabitDay(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, reason: String = "") = viewModelScope.launch {
         repo.skipDay(h.id, epochDay, reason); refreshHabitWidgets()

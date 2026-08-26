@@ -134,6 +134,46 @@ object HabitStats {
         }
     }
 
+    // ---- Tier V1: time-since / between-events ----
+    /** Whole days since the habit was last done (0 = today). -1 if never done. */
+    fun daysSinceLastDone(doneDays: Set<Long>, today: Long): Int {
+        val last = doneDays.filter { it <= today }.maxOrNull() ?: return -1
+        return (today - last).toInt().coerceAtLeast(0)
+    }
+
+    /** Average gap in days between consecutive done days over [window]. Null with fewer than two. */
+    fun averageGapDays(doneDays: Set<Long>, today: Long, window: Int = 90): Double? {
+        val days = doneDays.filter { it in (today - window + 1)..today }.sorted()
+        if (days.size < 2) return null
+        return days.zipWithNext { a, b -> (b - a).toDouble() }.average()
+    }
+
+    /** Longest gap in days between done days over [window]. 0 if fewer than two done days. */
+    fun longestGapDays(doneDays: Set<Long>, today: Long, window: Int = 90): Int {
+        val days = doneDays.filter { it in (today - window + 1)..today }.sorted()
+        if (days.size < 2) return 0
+        return days.zipWithNext { a, b -> (b - a).toInt() }.maxOrNull() ?: 0
+    }
+
+    // ---- Tier V2: gradated day grade (partial-credit + over-achievement) ----
+    enum class DayGrade { NONE, PARTIAL, MET, EXTRA }
+
+    /** Grade one day's count against the habit's target and optional stretch (extraTarget). For "atmost"
+     *  (reduce/quit) habits, staying at/under target is MET; exceeding it is NONE. */
+    fun grade(habit: HabitEntity, count: Int): DayGrade {
+        val t = habit.targetPerDay.coerceAtLeast(1)
+        if (habit.targetComparison == "atmost" || habit.habitType == "break") {
+            return if (count <= t) DayGrade.MET else DayGrade.NONE
+        }
+        val extra = habit.extraTarget
+        return when {
+            count <= 0 -> DayGrade.NONE
+            extra != null && extra > t && count >= extra -> DayGrade.EXTRA
+            count >= t -> DayGrade.MET
+            else -> DayGrade.PARTIAL
+        }
+    }
+
     /** The streak to display: forgiving (U8) when the user opts in, else the strict current streak. */
     fun displayStreak(habit: HabitEntity, doneDays: Set<Long>, skipDays: Set<Long>, relapseDays: Set<Long>, today: Long, forgiving: Boolean): Int =
         if (forgiving) forgivingStreak(habit, doneDays, skipDays, relapseDays, today)

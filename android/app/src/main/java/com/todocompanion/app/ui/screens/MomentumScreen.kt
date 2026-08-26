@@ -313,6 +313,53 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                 }) { Icon(Icons.Filled.Save, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Back up now") }
             }
 
+            // V6 — cross-type tag report: hours + tasks + habit-days grouped by one tag. The zero-permission
+            // answer to WHPH's app-usage dashboard, made possible by unified tags across all three modules.
+            val tagReport = remember(timeEntries, tasks, habits, checkins) { vm.crossTypeTagReport(7) }
+            if (tagReport.isNotEmpty()) AppCard {
+                Text("Where your week went — by tag", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text("Last 7 days across time, tasks and habits.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(6.dp))
+                tagReport.take(6).forEach { t ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("#${t.tag}", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val parts = buildList {
+                            if (t.minutes > 0) add("${t.minutes / 60}h ${t.minutes % 60}m")
+                            if (t.tasksDone > 0) add("${t.tasksDone} task${if (t.tasksDone == 1) "" else "s"}")
+                            if (t.habitDays > 0) add("${t.habitDays} habit day${if (t.habitDays == 1) "" else "s"}")
+                        }
+                        Text(parts.joinToString(" · "), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+
+            // V7 — Reality Replay: a shareable recap across all three modules, rendered on-device.
+            AppCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Your week in review", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text("A shareable recap — tracked time, tasks, habits, momentum.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    FilledTonalButton(onClick = { vm.shareRecap { } }) { Icon(Icons.Filled.Share, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Share") }
+                }
+            }
+
+            // V12 — the rewards wallet: points earned by doing the work, spent on self-chosen treats.
+            val rewardsList = com.todocompanion.app.domain.Rewards.parse(settings.rewardsJson)
+            if (rewardsList.isNotEmpty()) AppCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Rewards", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text("⭐ ${settings.pointsBalance} pts", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                }
+                Spacer(Modifier.height(6.dp))
+                rewardsList.forEach { r ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("${r.emoji} ${r.name}", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        TextButton(enabled = settings.pointsBalance >= r.cost, onClick = { vm.redeemReward(r) }) { Text("Redeem · ${r.cost}") }
+                    }
+                }
+            }
+
             // R5 — the "how it all fits" guide, in one plain paragraph, so the numbers above are legible.
             AppCard {
                 Text("How this fits together", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
