@@ -19,21 +19,33 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.todocompanion.app.domain.WeeklyDigest
+import com.todocompanion.app.domain.nlp.SmartCapture
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -61,10 +73,23 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now().toEpochDay()
 
+    val shareCtx = androidx.compose.ui.platform.LocalContext.current
+    var showCapture by remember { mutableStateOf(false) }
+    if (showCapture) SmartCaptureDialog(vm) { showCapture = false }
     Scaffold(topBar = {
         TopAppBar(
             title = { Text("Momentum") },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+            actions = {
+                // R3: one capture box that sorts itself into a habit or a task.
+                IconButton(onClick = { showCapture = true }) {
+                    Icon(Icons.Filled.Add, "Capture a habit or task")
+                }
+                // R1: share the unified momentum snapshot as an on-device PNG. Offline by construction.
+                IconButton(onClick = { vm.shareMomentum { loc -> if (loc != null) android.widget.Toast.makeText(shareCtx, "Saved a copy to $loc", android.widget.Toast.LENGTH_SHORT).show() } }) {
+                    Icon(Icons.Filled.Share, "Share momentum")
+                }
+            },
         )
     }) { padding ->
         // Habit strength (avg over active build habits).
@@ -118,7 +143,8 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
             // The momentum ring.
             AppCard {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Box(Modifier.size(88.dp), contentAlignment = Alignment.Center) {
+                    // R4: announce the score to screen readers (the ring itself is a bare Canvas).
+                    Box(Modifier.size(88.dp).semantics { contentDescription = "Momentum $momentum out of 100" }, contentAlignment = Alignment.Center) {
                         androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
                             val stroke = 11.dp.toPx()
                             drawArc(Color(0x33888888), -90f, 360f, false, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round))
@@ -153,6 +179,37 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                 MTile("Done (7d)", "$tasksDoneWeek", Modifier.weight(1f))
             }
 
+            // R2 — the weekly "state of you" digest: this week vs last, across all three signals.
+            val digest = remember(habits, checkins, tasks, focus, momentum) {
+                WeeklyDigest.compute(habits, checkins, tasks, focus, momentum, today, zone)
+            }
+            AppCard {
+                Text("Your week", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text(digest.headline, style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    digest.metrics.forEach { m ->
+                        Column(Modifier.weight(1f)) {
+                            Text(m.value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Text(m.label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                            val arrow = when { m.delta > 0 -> "▲ ${m.delta}${m.deltaUnit}"; m.delta < 0 -> "▼ ${-m.delta}${m.deltaUnit}"; else -> "— same" }
+                            Text(arrow + if (m.delta != 0) " vs last wk" else "",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = when { m.delta > 0 -> MaterialTheme.colorScheme.primary; m.delta < 0 -> MaterialTheme.colorScheme.error; else -> MaterialTheme.colorScheme.onSurfaceVariant },
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+                if (digest.bestHabit != null || digest.slippingHabit != null) {
+                    Spacer(Modifier.height(10.dp))
+                    digest.bestHabit?.let { Text("🏆 Strongest: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    digest.slippingHabit?.let { Text("🌱 Room to grow: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(digest.takeaway, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary)
+            }
+
             // Q6 — the cross-module correlations, the one thing only a unified store computes.
             AppCard {
                 Text("What moves what", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
@@ -166,6 +223,18 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                     }
                 }
             }
+
+            // R5 — the "how it all fits" guide, in one plain paragraph, so the numbers above are legible.
+            AppCard {
+                Text("How this fits together", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Habits build strength, recurring tasks build reliability, and Focus sessions track deep work. " +
+                        "Momentum blends all three into one score. “Your week” compares your last 7 days to the 7 before. " +
+                        "The ＋ Capture box files whatever you type as a habit or a task automatically — tap the chip to override.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Spacer(Modifier.height(30.dp))
         }
     }
@@ -177,4 +246,56 @@ private fun MTile(label: String, value: String, modifier: Modifier = Modifier) {
         Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, maxLines = 1)
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
+}
+
+/**
+ * R3 — the unified capture box. One line in; a live guess ("→ Habit"/"→ Task") the user can flip with a
+ * tap; then it's parsed by the matching quick-add parser and created. Fully offline.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SmartCaptureDialog(vm: AppViewModel, onDismiss: () -> Unit) {
+    var text by remember { mutableStateOf("") }
+    var override by remember { mutableStateOf<SmartCapture.Kind?>(null) }
+    val guess = remember(text) { SmartCapture.classify(text) }
+    val kind = override ?: guess.kind
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Capture anything") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = text, onValueChange = { text = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("“read 20 pages every night” or “email Sam tomorrow 9am”") },
+                    singleLine = false, minLines = 2,
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    FilterChip(selected = kind == SmartCapture.Kind.TASK, onClick = { override = SmartCapture.Kind.TASK }, label = { Text("✓ Task") })
+                    FilterChip(selected = kind == SmartCapture.Kind.HABIT, onClick = { override = SmartCapture.Kind.HABIT }, label = { Text("↻ Habit") })
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    if (text.isBlank()) "I'll sort it into the right place — tap a chip to override."
+                    else if (override == null) "Auto: ${guess.reason}" else "You chose ${if (kind == SmartCapture.Kind.HABIT) "Habit" else "Task"}",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = text.isNotBlank(),
+                onClick = {
+                    vm.smartCapture(text, override) { k ->
+                        val what = if (k == SmartCapture.Kind.HABIT) "habit" else "task"
+                        android.widget.Toast.makeText(ctx, "Added as a $what", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                    onDismiss()
+                },
+            ) { Text("Add") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }

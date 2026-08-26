@@ -187,6 +187,7 @@ fun AppRoot(
         var showStats by remember { mutableStateOf(false) }
         var showReview by remember { mutableStateOf(false) }
         var showMomentum by remember { mutableStateOf(false) }   // Q1
+        var showTimeTracking by remember { mutableStateOf(false) }   // Tier S
         // E9: a backup file handed in by the file manager ("Open with"), awaiting a restore confirm.
         var pendingImport by remember { mutableStateOf<android.net.Uri?>(null) }
         var importResult by remember { mutableStateOf<String?>(null) }
@@ -279,6 +280,8 @@ fun AppRoot(
                 a == "open_donext" -> { vm.select(ViewRef.Smart(SmartKind.DO_NEXT)); tab = Tab.TASKS; launchAction.value = null }
                 a == "open_next7" -> { vm.select(ViewRef.Smart(SmartKind.NEXT7)); tab = Tab.TASKS; launchAction.value = null }
                 a == "open_plan" -> { showPlan = true; launchAction.value = null }
+                a == "open_momentum" -> { showMomentum = true; launchAction.value = null }
+                a == "open_time" -> { showTimeTracking = true; launchAction.value = null }
                 a != null && a.startsWith("open_context:") -> { vm.select(ViewRef.ContextView(a.removePrefix("open_context:"))); tab = Tab.TASKS; launchAction.value = null }
             }
         }
@@ -364,6 +367,7 @@ fun AppRoot(
                     onOpenAttachments = { showAttachments = true; scope.launch { drawerState.close() } },
                     onOpenCountdowns = { showCountdowns = true; scope.launch { drawerState.close() } },
                     onOpenMomentum = { showMomentum = true; scope.launch { drawerState.close() } },
+                    onOpenTime = { showTimeTracking = true; scope.launch { drawerState.close() } },
                 )
             },
         ) {
@@ -621,6 +625,7 @@ fun AppRoot(
         if (showPlan) com.todocompanion.app.ui.screens.PlanYourDayScreen(vm, onOpenTask = { showPlan = false; openTask(it) }, onBack = { showPlan = false })
         if (showReview) com.todocompanion.app.ui.screens.ReviewScreen(vm, onOpenTask = { showReview = false; openTask(it) }, onBack = { showReview = false })
         if (showMomentum) com.todocompanion.app.ui.screens.MomentumScreen(vm, onBack = { showMomentum = false })
+        if (showTimeTracking) com.todocompanion.app.ui.screens.TimeTrackingScreen(vm, onBack = { showTimeTracking = false })
         if (saveTab) {
             var tabName by remember { mutableStateOf(vm.currentTitle()) }
             AlertDialog(

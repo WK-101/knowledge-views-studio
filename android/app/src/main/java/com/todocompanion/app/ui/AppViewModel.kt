@@ -118,6 +118,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val habits = combine(repo.allHabits, activeWs) { h, ws -> h.filter { it.workspaceId == ws && !it.archived } }.state(emptyList())
     val habitCheckins = repo.allCheckins.state(emptyList())
     val focusSessions = repo.allFocusSessions.state(emptyList())
+    // Tier S: time tracking.
+    val timeActivities = repo.allTimeActivities.state(emptyList())
+    val timeEntries = repo.allTimeEntries.state(emptyList())
     val taskTags = repo.taskTagRefs.state(emptyList())
     val taskContexts = repo.taskContextRefs.state(emptyList())
     val checklist = repo.allChecklist.state(emptyList())
@@ -1009,6 +1012,93 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         res.shareUri?.let { com.todocompanion.app.util.ProgressCard.share(appCtx, it) }
         onDone(res.savedLocation)
     }
+    /** R1: render a shareable "momentum" card — the unified habit+task+focus snapshot — on-device. */
+    fun shareMomentum(onDone: (String?) -> Unit) = viewModelScope.launch {
+        val m = momentumSnapshot()
+        val stats = listOf(
+            "momentum" to "${m.momentum}",
+            "habits" to (m.habitStrength?.let { "$it" } ?: "—"),
+            "reliability" to (m.taskReliability?.let { "$it%" } ?: "—"),
+            "focus (7d)" to "${m.focusWeek}m",
+        )
+        val sub = java.time.LocalDate.now(zone).format(java.time.format.DateTimeFormatter.ofPattern("MMM d"))
+        val res = withContext(Dispatchers.IO) {
+            val bmp = com.todocompanion.app.util.ProgressCard.renderStatsCard("Today's momentum", sub, stats)
+            com.todocompanion.app.util.ProgressCard.saveAndShareUri(appCtx, bmp, "todo-companion-momentum.png")
+        }
+        res.shareUri?.let { com.todocompanion.app.util.ProgressCard.share(appCtx, it) }
+        onDone(res.savedLocation)
+    }
+
+    /** R1/R2: the unified momentum snapshot — one place both the dashboard, widget and digest read. */
+    data class Momentum(val momentum: Int, val habitStrength: Int?, val taskReliability: Int?, val focusWeek: Int)
+    fun momentumSnapshot(): Momentum {
+        val hs = com.todocompanion.app.domain.habit.HabitStats
+        val today = java.time.LocalDate.now(zone).toEpochDay()
+        val cks = habitCheckins.value
+        val strengths = habits.value.filter { !it.archived }.map { h ->
+            val d = cks.filter { it.habitId == h.id && it.status == "done" && hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
+            val s = cks.filter { it.habitId == h.id && it.status == "skip" }.map { it.epochDay }.toSet()
+            val r = cks.filter { it.habitId == h.id && hs.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
+            hs.strength(h, d, s, r, today)
+        }
+        val habitStrength = if (strengths.isEmpty()) null else strengths.average().toInt()
+        val relVals = taskReliability.value.values.map { it.score }
+        val taskRel = if (relVals.isEmpty()) null else relVals.average().toInt()
+        val weekDays = (0 until 7).map { today - it }.toSet()
+        val focusWeek = focusSessions.value.filter { it.epochDay in weekDays }.sumOf { it.minutes }
+        val parts = buildList {
+            habitStrength?.let { add(it.toDouble() to 0.5) }
+            taskRel?.let { add(it.toDouble() to 0.35) }
+            add((focusWeek.coerceAtMost(300) / 300.0 * 100) to 0.15)
+        }
+        val wsum = parts.sumOf { it.second }
+        val momentum = if (wsum == 0.0) 0 else (parts.sumOf { it.first * it.second } / wsum).toInt()
+        return Momentum(momentum, habitStrength, taskRel, focusWeek)
+    }
+
+    /** R2: the weekly "state of you" digest — this week vs last, across habits, tasks and focus. */
+    fun weeklyDigest(): com.todocompanion.app.domain.WeeklyDigest.Digest {
+        val today = java.time.LocalDate.now(zone).toEpochDay()
+        return com.todocompanion.app.domain.WeeklyDigest.compute(
+            habits.value, habitCheckins.value, tasks.value, focusSessions.value,
+            momentumSnapshot().momentum, today, zone,
+        )
+    }
+
+    /**
+     * R3: unified capture — one line becomes a habit or a task. [forceKind] lets the UI honour a manual
+     * flip of the auto-classification; null means "use the classifier's guess".
+     */
+    fun smartCapture(text: String, forceKind: com.todocompanion.app.domain.nlp.SmartCapture.Kind? = null, onDone: (com.todocompanion.app.domain.nlp.SmartCapture.Kind) -> Unit = {}) {
+        val trimmed = text.trim()
+        if (trimmed.isBlank()) return
+        val kind = forceKind ?: com.todocompanion.app.domain.nlp.SmartCapture.classify(trimmed).kind
+        if (kind == com.todocompanion.app.domain.nlp.SmartCapture.Kind.HABIT) {
+            addHabit(com.todocompanion.app.domain.habit.HabitQuickParser.parse(trimmed))
+        } else {
+            submitQuickAdd(trimmed, QuickAddOptions())
+        }
+        onDone(kind)
+    }
+
+    // ---------- Tier S: time tracking ----------
+    fun createTimeActivity(name: String, emoji: String?, colorArgb: Long?) = viewModelScope.launch {
+        repo.createTimeActivity(name, emoji, colorArgb)
+    }
+    fun updateTimeActivity(a: com.todocompanion.app.data.entity.TimeActivityEntity) = viewModelScope.launch { repo.upsertTimeActivity(a) }
+    fun deleteTimeActivity(id: String) = viewModelScope.launch { repo.deleteTimeActivity(id) }
+    /** Start (or switch) tracking. Passing the already-running activity is a no-op toggle handled by caller. */
+    fun startTimeTracking(activityId: String, taskId: String? = null, habitId: String? = null) = viewModelScope.launch {
+        repo.startTimeTracking(activityId, taskId, habitId)
+    }
+    fun stopTimeTracking() = viewModelScope.launch { repo.stopTimeTracking() }
+    fun addManualTimeEntry(activityId: String, startMillis: Long, endMillis: Long, note: String = "") = viewModelScope.launch {
+        if (endMillis > startMillis) repo.addManualTimeEntry(activityId, startMillis, endMillis, note)
+    }
+    fun updateTimeEntry(e: com.todocompanion.app.data.entity.TimeEntryEntity) = viewModelScope.launch { repo.upsertTimeEntry(e) }
+    fun deleteTimeEntry(id: String) = viewModelScope.launch { repo.deleteTimeEntry(id) }
+
     /** M2: create a whole themed routine at once (one reschedule/refresh for the batch). */
     fun addHabits(habits: List<com.todocompanion.app.data.entity.HabitEntity>) = viewModelScope.launch {
         val ws = settings.value.activeWorkspaceId

@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,10 +37,9 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.zIndex
@@ -424,7 +422,11 @@ private fun InsightsCard(insights: List<com.todocompanion.app.domain.habit.Insig
     }
 }
 
-/** A column of habits reorderable by dragging a leading handle (persists a manual order). */
+/**
+ * A column of habits reorderable by *holding* a habit and dragging it (persists a manual order).
+ * G1: no dedicated drag handle — the whole habit is the grab target via long-press, so the row keeps
+ * its full width for content. A short lift while dragging signals the grab.
+ */
 @Composable
 private fun HabitDraggableColumn(habits: List<HabitEntity>, onReorder: (List<String>) -> Unit, row: @Composable (HabitEntity) -> Unit) {
     var order by remember(habits) { mutableStateOf(habits) }
@@ -434,13 +436,16 @@ private fun HabitDraggableColumn(habits: List<HabitEntity>, onReorder: (List<Str
     Column {
         order.forEach { h ->
             val dragging = h.id == draggingId
-            Row(
-                Modifier.zIndex(if (dragging) 1f else 0f).graphicsLayer { translationY = if (dragging) dragY else 0f },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Filled.DragHandle, "Reorder", tint = MaterialTheme.colorScheme.outline.copy(alpha = if (dragging) 1f else .5f),
-                    modifier = Modifier.padding(start = 4.dp).size(22.dp).pointerInput(h.id) {
-                        detectDragGestures(
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .zIndex(if (dragging) 1f else 0f)
+                    .graphicsLayer {
+                        translationY = if (dragging) dragY else 0f
+                        if (dragging) { scaleX = 1.02f; scaleY = 1.02f }
+                    }
+                    .pointerInput(h.id) {
+                        detectDragGesturesAfterLongPress(
                             onDragStart = { draggingId = h.id; dragY = 0f },
                             onDrag = { ch, off ->
                                 ch.consume(); dragY += off.y
@@ -453,9 +458,8 @@ private fun HabitDraggableColumn(habits: List<HabitEntity>, onReorder: (List<Str
                             onDragEnd = { draggingId = null; dragY = 0f; onReorder(order.map { it.id }) },
                             onDragCancel = { draggingId = null; dragY = 0f },
                         )
-                    })
-                Box(Modifier.weight(1f)) { row(h) }
-            }
+                    },
+            ) { row(h) }
         }
     }
 }
@@ -489,8 +493,10 @@ private fun HabitRow(
         shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
     ) {
       Column(
+          // G1: tap opens analytics; long-press is reserved for hold-and-drag reorder (parent column),
+          // so the row menu now lives on an explicit ⋮ button below.
           Modifier.fillMaxWidth()
-              .combinedClickable(onClick = onOpen, onLongClick = { rowMenu = true })
+              .clickable(onClick = onOpen)
               .padding(12.dp),
       ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -546,6 +552,10 @@ private fun HabitRow(
                 }
             } else if (streak > 0) Text((if (isBreak) "✨ " else "🔥 ") + streak, style = MaterialTheme.typography.labelLarge, color = color)
             Box {
+                // R4: full 48dp touch target for accessibility; the icon stays visually compact.
+                IconButton(onClick = { rowMenu = true }) {
+                    Icon(Icons.Filled.MoreVert, "More options for ${h.name}", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 DropdownMenu(expanded = rowMenu, onDismissRequest = { rowMenu = false }) {
                     DropdownMenuItem(text = { Text("Open analytics") }, onClick = { rowMenu = false; onOpen() })
                     DropdownMenuItem(text = { Text("Focus on this") }, onClick = { rowMenu = false; onFocus() })

@@ -42,6 +42,9 @@ data class BackupFile(
     val templates: List<com.todocompanion.app.data.entity.TemplateEntity> = emptyList(),
     val countdowns: List<com.todocompanion.app.data.entity.CountdownEntity> = emptyList(),
     val activities: List<com.todocompanion.app.data.entity.ActivityEntity> = emptyList(),
+    // Tier S — time tracking. Additive; old backups simply carry empty lists.
+    val timeActivities: List<com.todocompanion.app.data.entity.TimeActivityEntity> = emptyList(),
+    val timeEntries: List<com.todocompanion.app.data.entity.TimeEntryEntity> = emptyList(),
 ) {
     companion object {
         const val FORMAT = "todo-companion"

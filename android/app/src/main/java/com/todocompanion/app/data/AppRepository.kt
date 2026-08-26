@@ -45,6 +45,7 @@ class AppRepository(private val db: AppDatabase) {
     private val countdowns = db.countdownDao()
     private val activity = db.activityDao()
     private val revisions = db.revisionDao()
+    private val timeTrack = db.timeTrackingDao()
     private val templateJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     // ----- task time-travel: sparse revision history (H5) -----
@@ -103,6 +104,7 @@ class AppRepository(private val db: AppDatabase) {
     fun taskActivity(taskId: String): Flow<List<com.todocompanion.app.data.entity.ActivityEntity>> = activity.observeForTask(taskId)
     val allActivity: Flow<List<com.todocompanion.app.data.entity.ActivityEntity>> = activity.observeAll()
     suspend fun getActivitiesOnce(): List<com.todocompanion.app.data.entity.ActivityEntity> = activity.getAll()
+    suspend fun getFocusSessionsOnce(): List<com.todocompanion.app.data.entity.FocusSessionEntity> = focus.getAll()
     private suspend fun logActivity(taskId: String, type: String, detail: String? = null) {
         activity.insert(com.todocompanion.app.data.entity.ActivityEntity(uid(), taskId, type, now(), detail))
     }
@@ -227,6 +229,39 @@ class AppRepository(private val db: AppDatabase) {
     val allFocusSessions: Flow<List<FocusSessionEntity>> = focus.observeAll()
     suspend fun addFocusSession(epochDay: Long, startMillis: Long, minutes: Int, kind: String, taskId: String? = null) =
         focus.upsert(FocusSessionEntity(uid(), epochDay, startMillis, minutes, kind, taskId))
+
+    // ----- Tier S: time tracking -----
+    val allTimeActivities: Flow<List<com.todocompanion.app.data.entity.TimeActivityEntity>> = timeTrack.observeActivities()
+    val allTimeEntries: Flow<List<com.todocompanion.app.data.entity.TimeEntryEntity>> = timeTrack.observeEntries()
+
+    suspend fun createTimeActivity(name: String, emoji: String?, colorArgb: Long?): String {
+        val id = uid()
+        val order = (timeTrack.getActivities().maxOfOrNull { it.sortOrder } ?: 0.0) + 1.0
+        timeTrack.upsertActivity(com.todocompanion.app.data.entity.TimeActivityEntity(id, name.trim().ifBlank { "Activity" }, emoji, colorArgb, false, order, now()))
+        return id
+    }
+    suspend fun upsertTimeActivity(a: com.todocompanion.app.data.entity.TimeActivityEntity) = timeTrack.upsertActivity(a)
+    suspend fun deleteTimeActivity(id: String) = timeTrack.deleteActivity(id)
+
+    /** Start tracking an activity. Single-timer discipline: any running entry is stopped first. */
+    suspend fun startTimeTracking(activityId: String, taskId: String? = null, habitId: String? = null): String {
+        stopTimeTracking()
+        val id = uid()
+        timeTrack.upsertEntry(com.todocompanion.app.data.entity.TimeEntryEntity(id, activityId, now(), null, "", taskId, habitId, now()))
+        return id
+    }
+    /** Stop the running entry (if any); discards zero-length blips. */
+    suspend fun stopTimeTracking() {
+        val running = timeTrack.runningEntry() ?: return
+        val end = now()
+        if (end - running.startMillis < 1_000L) timeTrack.deleteEntry(running.id)
+        else timeTrack.upsertEntry(running.copy(endMillis = end))
+    }
+    suspend fun addManualTimeEntry(activityId: String, startMillis: Long, endMillis: Long, note: String = "", taskId: String? = null, habitId: String? = null) =
+        timeTrack.upsertEntry(com.todocompanion.app.data.entity.TimeEntryEntity(uid(), activityId, startMillis, endMillis, note, taskId, habitId, now()))
+    suspend fun upsertTimeEntry(e: com.todocompanion.app.data.entity.TimeEntryEntity) = timeTrack.upsertEntry(e)
+    suspend fun deleteTimeEntry(id: String) = timeTrack.deleteEntry(id)
+    suspend fun runningTimeEntry(): com.todocompanion.app.data.entity.TimeEntryEntity? = timeTrack.runningEntry()
 
     private val filters = db.filterDao()
     val allFilters: Flow<List<FilterEntity>> = filters.observeAll()
@@ -782,6 +817,8 @@ class AppRepository(private val db: AppDatabase) {
             templates = templates.getAll(),
             countdowns = countdowns.getAll(),
             activities = activity.getAll(),
+            timeActivities = timeTrack.getActivities(),
+            timeEntries = timeTrack.getEntries(),
         )
     )
 
@@ -832,6 +869,7 @@ class AppRepository(private val db: AppDatabase) {
         tags.clear(); tags.clearCrossRefs(); contexts.clear(); contexts.clearCrossRefs()
         reminders.clear(); deps.clear(); settings.clear(); workspaces.clear(); filters.clear()
         habits.clear(); habits.clearCheckins(); focus.clear(); attachments.clear(); flags.clear(); templates.clear(); countdowns.clear(); activity.clear(); revisions.clear()
+        timeTrack.clearEntries(); timeTrack.clearActivities()
         folders.upsertAll(b.folders)
         lists.upsertAll(b.lists)
         tasks.upsertAll(b.tasks)
@@ -850,6 +888,7 @@ class AppRepository(private val db: AppDatabase) {
         templates.upsertAll(b.templates)
         countdowns.upsertAll(b.countdowns)
         activity.insertAll(b.activities)
+        timeTrack.upsertActivities(b.timeActivities); timeTrack.upsertEntries(b.timeEntries)
         ensureDefaultWorkspace()
         ensureInbox()
         ensureDefaultFlags()

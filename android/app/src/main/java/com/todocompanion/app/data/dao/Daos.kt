@@ -529,3 +529,26 @@ interface AttachmentDao {
     @Query("DELETE FROM attachments")
     suspend fun clear()
 }
+
+// Tier S — time tracking: named activities + recorded intervals. One running entry at a time.
+@Dao
+interface TimeTrackingDao {
+    @Query("SELECT * FROM time_activities ORDER BY sortOrder ASC, createdAt ASC")
+    fun observeActivities(): Flow<List<com.todocompanion.app.data.entity.TimeActivityEntity>>
+    @Query("SELECT * FROM time_activities") suspend fun getActivities(): List<com.todocompanion.app.data.entity.TimeActivityEntity>
+    @Upsert suspend fun upsertActivity(a: com.todocompanion.app.data.entity.TimeActivityEntity)
+    @Upsert suspend fun upsertActivities(a: List<com.todocompanion.app.data.entity.TimeActivityEntity>)
+    @Query("DELETE FROM time_activities WHERE id = :id") suspend fun deleteActivity(id: String)
+    @Query("DELETE FROM time_activities") suspend fun clearActivities()
+
+    @Query("SELECT * FROM time_entries ORDER BY startMillis DESC")
+    fun observeEntries(): Flow<List<com.todocompanion.app.data.entity.TimeEntryEntity>>
+    @Query("SELECT * FROM time_entries WHERE endMillis IS NULL LIMIT 1")
+    suspend fun runningEntry(): com.todocompanion.app.data.entity.TimeEntryEntity?
+    @Query("SELECT * FROM time_entries") suspend fun getEntries(): List<com.todocompanion.app.data.entity.TimeEntryEntity>
+    @Upsert suspend fun upsertEntry(e: com.todocompanion.app.data.entity.TimeEntryEntity)
+    @Upsert suspend fun upsertEntries(e: List<com.todocompanion.app.data.entity.TimeEntryEntity>)
+    @Query("DELETE FROM time_entries WHERE id = :id") suspend fun deleteEntry(id: String)
+    @Query("DELETE FROM time_entries WHERE endMillis IS NULL") suspend fun clearRunning()
+    @Query("DELETE FROM time_entries") suspend fun clearEntries()
+}

@@ -155,8 +155,11 @@ fun CalendarScreen(
         val ed = d.toEpochDay()
         habits.filter { !it.archived && !it.paused && it.habitType != "break" }.flatMap { h ->
             val scheduled = hs.isExpectedDay(h, ed) || h.freqType == hs.FREQ_TIMES_WEEK || h.freqType == hs.FREQ_TIMES_MONTH
-            val times = h.reminderTimes.split(",").mapNotNull { it.trim().toIntOrNull() }.filter { it in 0..1439 }
-            if (!scheduled || times.isEmpty()) emptyList()
+            // G2: an untimed-but-scheduled habit still gets a block — anchored at 09:00 — so turning the
+            // toggle on actually shows something. Previously habits with no reminder time were silently dropped.
+            val rawTimes = h.reminderTimes.split(",").mapNotNull { it.trim().toIntOrNull() }.filter { it in 0..1439 }
+            val times = rawTimes.ifEmpty { listOf(9 * 60) }
+            if (!scheduled) emptyList()
             else {
                 val done = habitCheckins.any { it.habitId == h.id && it.epochDay == ed && it.status == "done" && hs.meetsGoal(h, it.count) }
                 val dur = if (h.unit == "min") h.targetPerDay.coerceIn(10, 180) else 30
@@ -193,6 +196,7 @@ fun CalendarScreen(
     Column(modifier.fillMaxSize()) {
         when (mode) {
             "month" -> MonthView(anchor, selected, dueByDate, firstDow, onSelect = { onSelected(it) }, onPrev = prev, onNext = next, onOpenTask = onOpenTask, swipe = swipe, onAdd = { onAddOnDate(selected) },
+                habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit,
                 onMoveToDay = { d, id ->
                     // Preserve the task's time-of-day when dropping it on another day; default 9am.
                     val min = tasks.firstOrNull { it.id == id }?.dueDate?.let { Instant.ofEpochMilli(it).atZone(zone).let { z -> z.hour * 60 + z.minute } } ?: 540
@@ -417,7 +421,7 @@ private fun MonthYearPicker(current: YearMonth, onDismiss: () -> Unit, onPick: (
 }
 
 @Composable
-private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, swipe: CalSwipe, onAdd: () -> Unit, onMoveToDay: (LocalDate, String) -> Unit) {
+private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, swipe: CalSwipe, onAdd: () -> Unit, habitBlocksFor: (LocalDate) -> List<HabitBlock>, onOpenHabit: (String) -> Unit, onMoveToDay: (LocalDate, String) -> Unit) {
     val ym = YearMonth.from(anchor)
     val labels = (0..6).map { firstDow.plus(it.toLong()) }
     val first = ym.atDay(1)
@@ -475,8 +479,14 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
                                     },
                                 )
                                 Spacer(Modifier.size(2.dp))
-                                if (dueByDate.containsKey(date)) Box(Modifier.size(5.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.onPrimary else primary))
-                                else Spacer(Modifier.size(5.dp))
+                                // G2: a day can carry a task dot (primary) and/or a habit dot (tertiary),
+                                // so scheduled habits are visible right in the month grid when the toggle is on.
+                                val hasTask = dueByDate.containsKey(date)
+                                val hasHabit = habitBlocksFor(date).isNotEmpty()
+                                if (hasTask || hasHabit) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    if (hasTask) Box(Modifier.size(5.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.onPrimary else primary))
+                                    if (hasHabit) Box(Modifier.size(5.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.tertiary))
+                                } else Spacer(Modifier.size(5.dp))
                             }
                         }
                     }
@@ -490,6 +500,30 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
                 Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             TextButton(onClick = onAdd) { Text("＋ Add") }
+        }
+        // G2: habits scheduled for the selected day, shown right under the date so month-view users
+        // (the default view) see and can open their habits without switching to a timeline view.
+        val dayHabits = habitBlocksFor(selected).distinctBy { it.id }
+        if (dayHabits.isNotEmpty()) {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                dayHabits.forEach { hb ->
+                    val c = hb.color ?: MaterialTheme.colorScheme.tertiary
+                    Row(
+                        Modifier.clip(RoundedCornerShape(20.dp))
+                            .background(if (hb.done) c.copy(alpha = .18f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f))
+                            .clickable { onOpenHabit(hb.id) }
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(Modifier.size(7.dp).clip(CircleShape).background(c))
+                        Spacer(Modifier.size(6.dp))
+                        Text((if (hb.done) "✓ " else "") + hb.label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                    }
+                }
+            }
         }
         val agenda = dueByDate[selected].orEmpty()
         if (agenda.isEmpty()) Text("Nothing due — enjoy the day", Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
