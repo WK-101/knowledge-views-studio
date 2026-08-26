@@ -272,7 +272,7 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
                     item(key = "seccol-$title") {
                         HabitDraggableColumn(secHabits, onReorder = { persistSection(secHabits, it) }) { h ->
                             HabitRow(
-                                h, checkins, today, allHabits = habits, forgiving = appSettings.forgivingStreaks,
+                                h, checkins, today, allHabits = habits, forgiving = appSettings.forgivingStreaks, graded = appSettings.gradedStrength,
                                 onCycle = {
                                     val cur = daysFor(h, checkins).counts[today] ?: 0
                                     if (h.habitType == "break") {
@@ -469,7 +469,7 @@ private fun HabitDraggableColumn(habits: List<HabitEntity>, onReorder: (List<Str
 @Composable
 private fun HabitRow(
     h: HabitEntity, checkins: List<com.todocompanion.app.data.entity.HabitCheckinEntity>, today: Long,
-    allHabits: List<HabitEntity> = emptyList(), forgiving: Boolean = false,
+    allHabits: List<HabitEntity> = emptyList(), forgiving: Boolean = false, graded: Boolean = false,
     onCycle: () -> Unit, onOpen: () -> Unit, onSkip: () -> Unit, onClear: () -> Unit,
     onSetValue: () -> Unit, onPause: () -> Unit, onEdit: () -> Unit, onFocus: () -> Unit,
     onAddValue: (Int) -> Unit = {},
@@ -479,7 +479,13 @@ private fun HabitRow(
     val d = remember(checkins, h) { daysFor(h, checkins) }
     val todayCount = d.counts[today] ?: 0
     val isBreak = h.habitType == "break"
-    val strength = HabitStats.strength(h, d.done, d.skip, d.relapse, today)
+    // Z8 correction: honour the graded-strength opt-in here too, so the list badge matches the detail.
+    val gradedCredit = if (graded && !isBreak) remember(checkins, h) {
+        val target = h.targetPerDay.coerceAtLeast(1)
+        checkins.filter { it.habitId == h.id && it.status == "done" && !HabitStats.meetsGoal(h, it.count) && it.count > 0 }
+            .associate { it.epochDay to (it.count.toDouble() / target).coerceIn(0.0, 0.99) }
+    } else emptyMap()
+    val strength = HabitStats.strength(h, d.done, d.skip, d.relapse, today, gradedCredit = gradedCredit)
     val streak = HabitStats.displayStreak(h, d.done, d.skip, d.relapse, today, forgiving)
     val done = if (isBreak) !HabitStats.isRelapse(h, todayCount) else HabitStats.meetsGoal(h, todayCount)
     val skippedToday = today in d.skip

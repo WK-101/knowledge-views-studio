@@ -133,7 +133,8 @@ fun HabitDetailScreen(
     }
 
     val color = h.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
-    val strength = HabitStats.strength(h, doneDays, skipDays, relapseDays, today)
+    // Z8 correction: the headline strength honours the graded-strength opt-in, matching Momentum & goals.
+    val strength = vm.strengthOf(h)
     val forgivingStreaks = vm.settings.collectAsState().value.forgivingStreaks
     val current = HabitStats.displayStreak(h, doneDays, skipDays, relapseDays, today, forgivingStreaks)
     val best = HabitStats.bestStreak(h, doneDays, skipDays, relapseDays, today)
