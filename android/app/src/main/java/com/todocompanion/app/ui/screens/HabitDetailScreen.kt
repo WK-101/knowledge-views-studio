@@ -207,6 +207,21 @@ fun HabitDetailScreen(
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
+            // X6 — rhythm-matched schedule: this "daily" habit clearly clusters on a few weekdays; offer
+            //      to reshape the plan to reality so it stops marking honest rest days as misses.
+            val rhythm = remember(h, hc) { vm.rhythmSuggestion(h.id) }
+            if (rhythm != null) {
+                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .7f)) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Match the schedule to your rhythm?", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        Spacer(Modifier.height(4.dp))
+                        Text("You keep this mostly on ${rhythm.weekdayLabel()}${rhythm.minute?.let { ", around ${HabitStats.minuteLabel(it)}" } ?: ""}. Set those days so honest rest days don't count as misses.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        TextButton(onClick = { vm.applyRhythmSuggestion(rhythm) }, modifier = Modifier.padding(top = 6.dp)) { Text("Use ${rhythm.weekdayLabel()}") }
+                    }
+                }
+            }
+
             // 1a. L4 — recovery mode: when strength has crashed but there's real history, replace the
             //     broken-streak sting with a kind restart. Resetting the start date gives a clean slate.
             if (!isBreak && strength < 25 && (best >= 7 || hc.size >= 14)) {

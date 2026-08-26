@@ -435,6 +435,19 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                     }
                 }
             }
+            // X3 — honest capacity: use your real tracked focus-hours as the planning figure.
+            Toggle("Plan against my tracked focus-hours", s.honestCapacity) { on ->
+                vm.saveSettings(s.copy(honestCapacity = on))
+            }
+            if (s.honestCapacity) {
+                val trackedH = vm.trackedCapacityHours()
+                Text(
+                    if (trackedH != null) "Your recent median is about ${trackedH}h of tracked focus a day — the forecast now plans against that instead of the figure above."
+                    else "Not enough tracked time yet — the forecast still uses the figure above until there's a week or so of tracking.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp),
+                )
+            }
+
             Spacer(Modifier.height(10.dp)); Sub("Working hours (auto-schedule)")
             Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Start", Modifier.weight(1f))

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -248,6 +249,98 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                 MTile("Done (7d)", "$tasksDoneWeek", Modifier.weight(1f))
             }
 
+            // ── Tier X · the reasoning layer ─────────────────────────────────────────────────────────
+
+            // X1 — Unified Goals: one objective across a task list + a habit + a time budget, one health bar.
+            val goals = remember(settings) { vm.goals() }
+            var showGoals by remember { mutableStateOf(false) }
+            AppCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Goals", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text("One objective across tasks, a habit and a time budget.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    TextButton(onClick = { showGoals = true }) { Text(if (goals.isEmpty()) "Add" else "Manage") }
+                }
+                goals.forEach { g ->
+                    val gh = remember(g, tasks, habits, checkins, timeEntries) { vm.goalHealth(g) }
+                    Column(Modifier.fillMaxWidth().padding(top = 10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("${g.emoji} ${g.name}", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("${(gh.overall * 100).toInt()}%", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                            Box(Modifier.fillMaxWidth(gh.overall.toFloat().coerceIn(0f, 1f)).fillMaxHeight().background(MaterialTheme.colorScheme.primary))
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        val bits = buildList {
+                            if (g.hasTasks) add("✓ ${gh.taskDone}/${gh.taskTotal}")
+                            if (g.hasHabit) add("↻ ${gh.habitStrength}% · ${gh.habitStreak}d")
+                            if (g.hasBudget) add("⏱ ${fmtMin(gh.minutesTracked)}/${fmtMin(gh.budgetMin)}")
+                            gh.daysLeft?.let { add(if (it >= 0) "⌛ ${it}d left" else "⌛ overdue") }
+                        }
+                        if (bits.isNotEmpty()) Text(bits.joinToString("    "), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+            if (showGoals) GoalsEditorDialog(vm) { showGoals = false }
+
+            // X5 — end-of-day forecast: at your real pace, how many of today's tasks actually land.
+            if (tasksOn) {
+                val fc = remember(tasks, timeEntries, settings) { vm.dayForecast() }
+                if (fc != null) AppCard {
+                    Text("Will today's tasks land?", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        if (fc.willSlip == 0) "At your real pace, all ${fc.willFinish} remaining task${if (fc.willFinish == 1) "" else "s"} fit the time left today."
+                        else "At your real pace, ${fc.willFinish} of ${fc.total} remaining tasks fit — ${fc.willSlip} likely slip${if (fc.willSlip == 1) "s" else ""}.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text("Needs ~${fmtMin(fc.neededMin)}${if (fc.calibrated) " at your real pace" else ""}, ${fmtMin(fc.availMin)} left in your day.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (fc.slipTitles.isNotEmpty()) {
+                        Spacer(Modifier.height(6.dp))
+                        fc.slipTitles.take(3).forEach { Text("• $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    }
+                    if (settings.honestCapacity) vm.trackedCapacityHours()?.let { h ->
+                        Spacer(Modifier.height(6.dp))
+                        Text("Capacity from your tracked focus: ~${h}h/day.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+
+            // X8 — day replay: planned blocks with no tracked time, one tap to backfill from the plan.
+            if (timeOn && tasksOn) {
+                val replay = remember(tasks, timeEntries) { vm.dayReplay() }
+                if (replay.isNotEmpty()) AppCard {
+                    Text("Account for today", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text("Planned blocks with no tracked time yet — log them in one tap.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(6.dp))
+                    replay.take(4).forEach { b ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(b.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("${HabitStats.minuteLabel(b.startMin)} · ${fmtMin(b.durMin)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            TextButton(onClick = { vm.backfillBlock(b) }) { Text("Log") }
+                        }
+                    }
+                }
+            }
+
+            // X7 — insights feed: the strongest cross-type pattern your data shows this week.
+            val insights = remember(tasks, habits, checkins, timeEntries) { vm.insightsFeed() }
+            if (insights.isNotEmpty()) AppCard {
+                Text("What your data noticed", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(2.dp))
+                insights.forEach { s ->
+                    Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.Top) {
+                        Text("✨"); Spacer(Modifier.width(8.dp)); Text(s, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+
             // R2 / T6 — the weekly "state of you" digest: this week vs last, across every live signal.
             val lastWeekStart = LocalDate.now(zone).minusDays(13).atStartOfDay(zone).toInstant().toEpochMilli()
             val timeWk = if (timeOn) com.todocompanion.app.domain.TimeTracking.totalMinutes(timeEntries, weekStartMs, dayEnd, nowMs) else 0
@@ -467,6 +560,80 @@ private fun MTile(label: String, value: String, modifier: Modifier = Modifier) {
         Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, maxLines = 1)
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
+}
+
+/**
+ * X1 — the Unified Goals editor: build a goal from any mix of a task list, a supporting habit, and a
+ * time budget against an activity. Only this app can bind all three into one objective. Fully offline.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun GoalsEditorDialog(vm: AppViewModel, onDismiss: () -> Unit) {
+    val goals = remember { mutableStateOf(vm.goals()) }
+    val lists by vm.lists.collectAsState()
+    val habits by vm.habits.collectAsState()
+    val activities by vm.timeActivities.collectAsState()
+    var name by remember { mutableStateOf("") }
+    var emoji by remember { mutableStateOf("🎯") }
+    var listId by remember { mutableStateOf("") }
+    var habitId by remember { mutableStateOf("") }
+    var activityId by remember { mutableStateOf("") }
+    var budgetH by remember { mutableStateOf("") }
+    fun persist(newList: List<com.todocompanion.app.domain.Goal>) { goals.value = newList; vm.saveGoals(newList) }
+    val faint = MaterialTheme.colorScheme.onSurfaceVariant
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+        title = { Text("Goals") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                goals.value.forEach { g ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("${g.emoji} ${g.name}", Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        TextButton(onClick = { persist(goals.value.filterNot { it.id == g.id }) }) { Text("Remove") }
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                Text("New goal", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = emoji, onValueChange = { emoji = it.take(2) }, modifier = Modifier.width(76.dp), label = { Text("Icon") }, singleLine = true)
+                    OutlinedTextField(value = name, onValueChange = { name = it }, modifier = Modifier.weight(1f), label = { Text("Name") }, singleLine = true)
+                }
+                Spacer(Modifier.height(8.dp)); Text("Task list", style = MaterialTheme.typography.labelSmall, color = faint)
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(selected = listId == "", onClick = { listId = "" }, label = { Text("None") })
+                    lists.forEach { l -> FilterChip(selected = listId == l.id, onClick = { listId = l.id }, label = { Text(l.name) }) }
+                }
+                Spacer(Modifier.height(8.dp)); Text("Supporting habit", style = MaterialTheme.typography.labelSmall, color = faint)
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(selected = habitId == "", onClick = { habitId = "" }, label = { Text("None") })
+                    habits.filter { !it.archived }.forEach { h -> FilterChip(selected = habitId == h.id, onClick = { habitId = h.id }, label = { Text((h.emoji?.plus(" ") ?: "") + h.name) }) }
+                }
+                Spacer(Modifier.height(8.dp)); Text("Time budget", style = MaterialTheme.typography.labelSmall, color = faint)
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(selected = activityId == "", onClick = { activityId = "" }, label = { Text("None") })
+                    activities.filter { !it.archived }.forEach { a -> FilterChip(selected = activityId == a.id, onClick = { activityId = a.id }, label = { Text((a.emoji?.plus(" ") ?: "") + a.name) }) }
+                }
+                if (activityId != "") {
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedTextField(value = budgetH, onValueChange = { v -> budgetH = v.filter { it.isDigit() }.take(4) }, label = { Text("Budget (hours)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                }
+                Spacer(Modifier.height(10.dp))
+                FilledTonalButton(
+                    enabled = name.isNotBlank() && (listId != "" || habitId != "" || (activityId != "" && (budgetH.toIntOrNull() ?: 0) > 0)),
+                    onClick = {
+                        val g = com.todocompanion.app.domain.Goal(
+                            id = java.util.UUID.randomUUID().toString(), name = name.trim(), emoji = emoji.ifBlank { "🎯" },
+                            listId = listId, habitId = habitId, activityId = activityId, budgetMinutes = (budgetH.toIntOrNull() ?: 0) * 60,
+                        )
+                        persist(goals.value + g)
+                        name = ""; emoji = "🎯"; listId = ""; habitId = ""; activityId = ""; budgetH = ""
+                    },
+                ) { Text("Add goal") }
+            }
+        },
+    )
 }
 
 /**

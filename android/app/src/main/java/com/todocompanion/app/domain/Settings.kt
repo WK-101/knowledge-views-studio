@@ -157,6 +157,10 @@ data class AppSettings(
     // W5/W8: reminders suppressed for these habit ids / list ids (per-item mute; also feeds adaptive skip).
     val mutedHabits: Set<String> = emptySet(),
     val mutedLists: Set<String> = emptySet(),
+    // X1: Unified Goals — objectives spanning a task list + a habit + a time budget, one health bar each.
+    val goalsJson: String = "",
+    // X3: plan against real tracked focus-hours (median) instead of the assumed dailyCapacityHours.
+    val honestCapacity: Boolean = false,
 ) {
     /** Effective tier for an optional editor field: user override, else its built-in default. */
     fun editorTier(f: EditorField): Int = editorFieldTiers[f.id] ?: f.defaultTier
@@ -263,6 +267,8 @@ data class AppSettings(
         Keys.ROUTINES to routinesJson,
         Keys.MUTED_HABITS to mutedHabits.joinToString(","),
         Keys.MUTED_LISTS to mutedLists.joinToString(","),
+        Keys.GOALS to goalsJson,
+        Keys.HONEST_CAPACITY to honestCapacity.toString(),
     )
 
     object Keys {
@@ -354,6 +360,8 @@ data class AppSettings(
         const val ROUTINES = "routines"
         const val MUTED_HABITS = "muted_habits"
         const val MUTED_LISTS = "muted_lists"
+        const val GOALS = "goals"
+        const val HONEST_CAPACITY = "honest_capacity"
     }
 
     companion object {
@@ -436,6 +444,8 @@ data class AppSettings(
             routinesJson = m[Keys.ROUTINES] ?: "",
             mutedHabits = (m[Keys.MUTED_HABITS] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             mutedLists = (m[Keys.MUTED_LISTS] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
+            goalsJson = m[Keys.GOALS] ?: "",
+            honestCapacity = m[Keys.HONEST_CAPACITY]?.toBoolean() ?: false,
             dailySummaryEnabled = m[Keys.SUMMARY_ON]?.toBooleanStrictOrNull() ?: false,
             appBackground = m[Keys.APP_BG] ?: "none",
             dailyCapacityHours = m[Keys.CAPACITY]?.toIntOrNull()?.coerceIn(1, 16) ?: 8,

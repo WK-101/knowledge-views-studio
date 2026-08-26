@@ -445,8 +445,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         // Free time = the window's capacity minus other planned (dated, non-deadline) work in it.
         val otherPlannedMin = open.filter { !deadlineIn(it) && it.dueDate != null && it.dueDate!! in (now + 1)..end }.sumOf { est(it) }
         // Sum each upcoming day's capacity (honours per-weekday overrides when set).
+        // X3: if "honest capacity" is on and there's enough tracked signal, use your real median
+        // focus-hours/day instead of the assumed figure — planning against reality, not optimism.
         val today = java.time.LocalDate.now(zone)
-        val capacityMin = (0 until days).sumOf { settings.value.capacityHoursFor(today.plusDays(it.toLong()).dayOfWeek) * 60 }
+        val trackedCapH = if (settings.value.honestCapacity) trackedCapacityHours() else null
+        val capacityMin = if (trackedCapH != null) trackedCapH * 60 * days
+            else (0 until days).sumOf { settings.value.capacityHoursFor(today.plusDays(it.toLong()).dayOfWeek) * 60 }
         val freeMin = (capacityMin - otherPlannedMin).coerceAtLeast(0)
         return DeadlineRisk(neededMin / 60.0, freeMin / 60.0, atRisk.size, days)
     }
@@ -1452,6 +1456,221 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleMutedList(id: String) = viewModelScope.launch {
         val cur = settings.value.mutedLists
         repo.saveSettings(settings.value.copy(mutedLists = if (id in cur) cur - id else cur + id))
+    }
+
+    // ══ Tier X · the reasoning layer ═════════════════════════════════════════════════════════════
+
+    private fun fmt1(x: Double): String = String.format(java.util.Locale.US, "%.1f", x)
+    private fun hourLabel(h24: Int): String {
+        val h = ((h24 % 24) + 24) % 24
+        val ampm = if (h < 12) "am" else "pm"; val h12 = ((h + 11) % 12) + 1
+        return "$h12$ampm"
+    }
+    /** Tasks completed per epoch-day within [sinceDay]..[untilDay] inclusive. */
+    private fun tasksCompletedByDay(sinceDay: Long, untilDay: Long): Map<Long, Int> {
+        val m = HashMap<Long, Int>()
+        tasks.value.forEach { t ->
+            val ca = t.completedAt ?: return@forEach
+            val d = java.time.Instant.ofEpochMilli(ca).atZone(zone).toLocalDate().toEpochDay()
+            if (d in sinceDay..untilDay) m[d] = (m[d] ?: 0) + 1
+        }
+        return m
+    }
+
+    // ── X1 · Unified Goals ────────────────────────────────────────────────────────────────────────
+    fun goals(): List<com.todocompanion.app.domain.Goal> = com.todocompanion.app.domain.Goals.parse(settings.value.goalsJson)
+    fun saveGoals(list: List<com.todocompanion.app.domain.Goal>) = viewModelScope.launch {
+        repo.saveSettings(settings.value.copy(goalsJson = com.todocompanion.app.domain.Goals.encode(list)))
+    }
+    data class GoalHealth(
+        val goal: com.todocompanion.app.domain.Goal,
+        val taskDone: Int, val taskTotal: Int,
+        val habitStreak: Int, val habitStrength: Int,
+        val minutesTracked: Int, val budgetMin: Int,
+        val overall: Double, val daysLeft: Int?,
+    )
+    fun goalHealth(g: com.todocompanion.app.domain.Goal): GoalHealth {
+        val hs = com.todocompanion.app.domain.habit.HabitStats
+        val now = System.currentTimeMillis()
+        var tDone = 0; var tTotal = 0
+        if (g.hasTasks) {
+            val inList = tasks.value.filter { it.listId == g.listId && !it.trashed && !it.isNote && !it.abandoned }
+            tTotal = inList.size; tDone = inList.count { it.completed }
+        }
+        var streak = 0; var strength = 0
+        if (g.hasHabit) habits.value.firstOrNull { it.id == g.habitId }?.let { h ->
+            val hc = habitCheckins.value.filter { it.habitId == h.id }
+            val done = hc.filter { it.status == "done" && hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
+            val skip = hc.filter { it.status == "skip" }.map { it.epochDay }.toSet()
+            val relapse = hc.filter { hs.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
+            val today = java.time.LocalDate.now(zone).toEpochDay()
+            streak = hs.displayStreak(h, done, skip, relapse, today, settings.value.forgivingStreaks)
+            strength = hs.strength(h, done, skip, relapse, today)
+        }
+        var mins = 0
+        if (g.hasBudget) mins = timeEntries.value.filter { it.activityId == g.activityId }.sumOf { it.minutes(now) }
+        val fracs = ArrayList<Double>()
+        if (g.hasTasks && tTotal > 0) fracs += tDone.toDouble() / tTotal
+        if (g.hasHabit) fracs += strength / 100.0
+        if (g.hasBudget && g.budgetMinutes > 0) fracs += (mins.toDouble() / g.budgetMinutes).coerceAtMost(1.0)
+        val overall = if (fracs.isEmpty()) 0.0 else fracs.average()
+        val daysLeft = if (g.targetEpochDay > 0) (g.targetEpochDay - java.time.LocalDate.now(zone).toEpochDay()).toInt() else null
+        return GoalHealth(g, tDone, tTotal, streak, strength, mins, g.budgetMinutes, overall, daysLeft)
+    }
+
+    // ── X2 · keystone insight — the habit that lifts your output ─────────────────────────────────
+    fun keystoneInsight(windowDays: Int = 60): String? {
+        val hs = com.todocompanion.app.domain.habit.HabitStats
+        val today = java.time.LocalDate.now(zone).toEpochDay()
+        val universe = (0 until windowDays).map { today - it }
+        val uniSet = universe.toSet()
+        val metric = tasksCompletedByDay(today - windowDays + 1, today)
+        var best: Pair<Double, String>? = null
+        habits.value.filter { !it.paused && !it.archived && it.habitType != "break" }.forEach { h ->
+            val done = habitCheckins.value.filter { it.habitId == h.id && it.status == "done" && hs.meetsGoal(h, it.count) }
+                .map { it.epochDay }.filter { it in uniSet }.toSet()
+            if (done.size < 5) return@forEach
+            val k = com.todocompanion.app.domain.Reasoning.keystone(universe, metric, done)
+            if (k.withN >= 5 && k.withoutN >= 5 && k.avgWith > k.avgWithout && k.lift >= 0.15) {
+                val pct = Math.round(k.lift * 100).toInt()
+                val s = "On days you keep ‘${h.name}’, you finish ${pct}% more tasks (${fmt1(k.avgWith)} vs ${fmt1(k.avgWithout)} a day)."
+                if (best == null || k.lift > best!!.first) best = k.lift to s
+            }
+        }
+        return best?.second
+    }
+
+    // ── X3 · honest capacity — plan against real tracked focus-hours ─────────────────────────────
+    fun trackedFocusMinutesByDay(days: Int = 21): Map<Long, Int> {
+        val now = System.currentTimeMillis()
+        val today = java.time.LocalDate.now(zone)
+        val m = HashMap<Long, Int>()
+        for (i in 0 until days) {
+            val d = today.minusDays(i.toLong())
+            val ds = d.atStartOfDay(zone).toInstant().toEpochMilli()
+            val de = d.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+            val mins = com.todocompanion.app.domain.TimeTracking.totalMinutes(timeEntries.value, ds, minOf(de, now + 1), now)
+            if (mins > 0) m[d.toEpochDay()] = mins
+        }
+        return m
+    }
+    /** Median daily tracked minutes over the recent window, or null if too little signal. */
+    fun trackedFocusMedianMinutes(): Int? =
+        com.todocompanion.app.domain.Reasoning.medianDailyFocusMinutes(trackedFocusMinutesByDay())
+    fun trackedCapacityHours(): Int? = trackedFocusMedianMinutes()?.let { Math.round(it / 60.0).toInt().coerceAtLeast(1) }
+
+    // ── X4 · peak focus window ────────────────────────────────────────────────────────────────────
+    fun focusByHour(days: Int = 30): IntArray {
+        val agg = IntArray(24); val now = System.currentTimeMillis(); val today = java.time.LocalDate.now(zone)
+        for (i in 0 until days) {
+            val d = today.minusDays(i.toLong())
+            val ds = d.atStartOfDay(zone).toInstant().toEpochMilli()
+            val de = d.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+            val bh = com.todocompanion.app.domain.TimeInsights.minutesByHour(timeEntries.value, ds, de, now)
+            for (h in 0..23) agg[h] += bh[h]
+        }
+        return agg
+    }
+    fun focusPeakWindow(len: Int = 2): com.todocompanion.app.domain.Reasoning.PeakWindow? =
+        com.todocompanion.app.domain.Reasoning.peakWindow(focusByHour(), len)
+    fun focusPeakLabel(): String? = focusPeakWindow()?.let { "${hourLabel(it.startHour)}–${hourLabel(it.endHour)}" }
+
+    // ── X5 · end-of-day forecast ──────────────────────────────────────────────────────────────────
+    data class DayForecast(val willFinish: Int, val willSlip: Int, val neededMin: Int, val availMin: Int,
+                           val calibrated: Boolean, val slipTitles: List<String>) {
+        val total get() = willFinish + willSlip
+    }
+    fun dayForecast(): DayForecast? {
+        val now = System.currentTimeMillis()
+        val today = java.time.LocalDate.now(zone)
+        val endOfWorkMillis = today.atStartOfDay(zone).plusHours(settings.value.workEndHour.coerceIn(1, 24).toLong()).toInstant().toEpochMilli()
+        val availMin = (((endOfWorkMillis - now) / 60_000L).toInt()).coerceAtLeast(0)
+        val endToday = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val remaining = doNextRanked().filter { t -> t.dueDate != null && t.dueDate!! < endToday }
+        if (remaining.isEmpty()) return null
+        fun est(t: TaskEntity) = (t.estimateMin ?: t.estimateMax ?: t.durationMin ?: 30)
+        val cal = planVsActualWeek().calibration
+        val f = com.todocompanion.app.domain.Reasoning.forecast(remaining.map { est(it) }, cal, availMin)
+        val slipTitles = if (f.willSlip > 0) remaining.takeLast(f.willSlip).map { it.title } else emptyList()
+        return DayForecast(f.willFinish, f.willSlip, f.neededMin, availMin, f.calibrated, slipTitles)
+    }
+
+    // ── X6 · rhythm-matched schedule ──────────────────────────────────────────────────────────────
+    data class RhythmSuggestion(val habitId: String, val weekdays: Set<Int>, val minute: Int?) {
+        fun weekdayLabel(): String {
+            val names = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+            return weekdays.sorted().joinToString(", ") { names[it - 1] }
+        }
+    }
+    fun rhythmSuggestion(habitId: String, windowDays: Int = 120): RhythmSuggestion? {
+        val h = habits.value.firstOrNull { it.id == habitId } ?: return null
+        if (!(h.freqType == "weekly" && h.scheduleDays.isBlank())) return null   // only for "every day" weekly habits
+        val hs = com.todocompanion.app.domain.habit.HabitStats
+        val today = java.time.LocalDate.now(zone).toEpochDay()
+        val counts = IntArray(7)
+        val hc = habitCheckins.value.filter { it.habitId == h.id && it.status == "done" }
+        hc.forEach { ci ->
+            if (today - ci.epochDay in 0 until windowDays && hs.meetsGoal(h, ci.count)) {
+                val dow = java.time.LocalDate.ofEpochDay(ci.epochDay).dayOfWeek.value
+                counts[dow - 1]++
+            }
+        }
+        val wd = com.todocompanion.app.domain.Reasoning.rhythmWeekdays(counts) ?: return null
+        return RhythmSuggestion(habitId, wd, hs.typicalDoneMinute(hc))
+    }
+    fun applyRhythmSuggestion(s: RhythmSuggestion) {
+        val h = habits.value.firstOrNull { it.id == s.habitId } ?: return
+        val days = s.weekdays.sorted().joinToString(",")
+        saveHabit(h.copy(freqType = "weekly", scheduleDays = days))
+        toast("Schedule matched to your rhythm")
+    }
+
+    // ── X7 · insights feed — what your data noticed this week ─────────────────────────────────────
+    fun insightsFeed(): List<String> {
+        val out = ArrayList<String>()
+        keystoneInsight()?.let { out += it }
+        val cal = planVsActualWeek().calibration
+        if (cal != null && kotlin.math.abs(cal - 1.0) >= 0.2) {
+            val pct = Math.round((cal - 1.0) * 100).toInt()
+            out += if (cal > 1) "Your tasks take about ${pct}% longer than you estimate — the forecast corrects for it."
+                   else "You beat your estimates by about ${-pct}% — you could plan a little more into a day."
+        }
+        focusPeakLabel()?.let { out += "You focus most between $it — a good window to protect for your hardest work." }
+        crossTypeTagReport(7).firstOrNull()?.let { line ->
+            if (line.tag.isNotBlank())
+                out += "‘${line.tag}’ took the most of your week: ${line.minutes / 60}h ${line.minutes % 60}m, ${line.tasksDone} task${if (line.tasksDone == 1) "" else "s"}, ${line.habitDays} habit-day${if (line.habitDays == 1) "" else "s"}."
+        }
+        momentumLinks(60).firstOrNull()?.let { out += it }
+        return out.distinct().take(4)
+    }
+
+    // ── X8 · day replay & one-tap backfill ────────────────────────────────────────────────────────
+    data class ReplayBlock(val taskId: String, val title: String, val startMin: Int, val durMin: Int)
+    fun dayReplay(): List<ReplayBlock> {
+        val now = System.currentTimeMillis()
+        val today = java.time.LocalDate.now(zone)
+        val dayStart = today.atStartOfDay(zone).toInstant().toEpochMilli()
+        val blocks = tasks.value.mapNotNull { t ->
+            val due = t.dueDate ?: return@mapNotNull null
+            if (t.isAllDay || t.trashed || t.isNote) return@mapNotNull null
+            val d = java.time.Instant.ofEpochMilli(due).atZone(zone).toLocalDate()
+            if (d != today) return@mapNotNull null
+            val startMin = ((due - dayStart) / 60_000L).toInt().coerceIn(0, 1439)
+            val dur = (t.durationMin ?: t.estimateMin ?: t.estimateMax ?: 30).coerceIn(5, 600)
+            com.todocompanion.app.domain.TimeInsights.PlannedBlock(t.id, t.title, startMin, dur)
+        }
+        val passed = blocks.filter { dayStart + (it.startMin + it.durMin) * 60_000L <= now }
+        return com.todocompanion.app.domain.TimeInsights.untrackedBlocks(passed, timeEntries.value, dayStart, now)
+            .map { ReplayBlock(it.taskId, it.label, it.startMin, it.durMin) }
+    }
+    fun backfillBlock(b: ReplayBlock, activityId: String? = null) = viewModelScope.launch {
+        val dayStart = java.time.LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
+        val start = dayStart + b.startMin * 60_000L
+        val end = start + b.durMin * 60_000L
+        val act = activityId ?: repo.ensureTaskActivity()
+        repo.addManualTimeEntry(act, start, end, note = "", taskId = b.taskId)
+        refreshTimeWidget()
+        toast("Logged ${b.durMin}m to ‘${b.title}’")
     }
 
     fun addManualTimeEntry(activityId: String, startMillis: Long, endMillis: Long, note: String = "") = viewModelScope.launch {
