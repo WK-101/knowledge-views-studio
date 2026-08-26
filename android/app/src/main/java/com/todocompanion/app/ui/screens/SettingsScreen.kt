@@ -56,6 +56,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.RocketLaunch
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.ViewSidebar
 import androidx.compose.material3.AlertDialog
@@ -457,6 +458,32 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Toggle("Show habits on the calendar", s.habitCalendarBlocks) { on -> vm.saveSettings(s.copy(habitCalendarBlocks = on)) }
             Text("Draw timed habits as blocks in the day and week calendar, next to your task time-blocks. Off by default.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
+        if (Modules.isEnabled(s, Modules.TIME)) {
+            SettingsGroup(Icons.Filled.Schedule, "Time tracking", open["timetrack"] == true, { open["timetrack"] = open["timetrack"] != true }) {
+                Toggle("Prompt to track time-blocks", s.autoTrackPrompt) { on ->
+                    vm.saveSettings(s.copy(autoTrackPrompt = on)); vm.rescheduleTrackPrompts()
+                }
+                Text("When a time-blocked task's start time arrives, offer a one-tap “Start tracking”. (U2)",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Toggle("Account for my whole day", s.timelineFill) { on -> vm.saveSettings(s.copy(timelineFill = on)) }
+                Text("Timeline-fill mode: gaps between tracked blocks become tappable “what were you doing?” chips on the Time screen, so every part of the day is accounted for. (U5)",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Toggle("Allow overlapping timers", s.multiTimer) { on -> vm.saveSettings(s.copy(multiTimer = on)) }
+                Text("Multi-timer: run more than one activity at once instead of switching. Off keeps the simple single-timer. (U15)",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Toggle("Reveal untracked time on the calendar", s.untrackedReveal) { on -> vm.saveSettings(s.copy(untrackedReveal = on)) }
+                Text("Shade the day-column gaps between tracked intervals so uncounted time is visible. (U14)",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        if (Modules.isEnabled(s, Modules.HABITS)) {
+            SettingsGroup(Icons.Filled.Whatshot, "Streaks", open["streaks"] == true, { open["streaks"] = open["streaks"] != true }) {
+                Toggle("Forgiving streaks", s.forgivingStreaks) { on -> vm.saveSettings(s.copy(forgivingStreaks = on)) }
+                Text("Tolerate the odd missed day (about one a week) instead of resetting to zero — consistency over brittle chains, so one slip never wipes weeks of momentum. (U8)",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
 
         SettingsGroup(Icons.Filled.EditNote, "Task editor", open["editor"] == true, { open["editor"] = open["editor"] != true }) {

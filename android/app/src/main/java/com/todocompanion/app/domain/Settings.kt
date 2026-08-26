@@ -134,6 +134,20 @@ data class AppSettings(
     val editorFieldTiers: Map<String, Int> = emptyMap(),
     // User's arrangement of the optional editor fields (EditorField ids). Empty = canonical order.
     val editorFieldOrder: List<String> = emptyList(),
+    // ── Tier U · time-tracking behaviour (all opt-in; the simple defaults are unchanged) ──
+    // U5: "account for my whole day" — starting an activity closes any gap since the last one ended,
+    // and the day view surfaces untracked gaps as tappable chips. Off = sparse tracking (gaps are fine).
+    val timelineFill: Boolean = false,
+    // U15: allow more than one timer to run at once (overlapping activities). Off = single-timer.
+    val multiTimer: Boolean = false,
+    // U2: when a time-blocked task's start time arrives, post a notification to start tracking it.
+    val autoTrackPrompt: Boolean = false,
+    // U8: forgiving streaks — count a rolling completion rate with grace days instead of brittle chains.
+    val forgivingStreaks: Boolean = false,
+    // U14: shade the calendar day-column gaps between tracked intervals so uncounted time is visible.
+    val untrackedReveal: Boolean = false,
+    // U12: lightweight on-device automation rules, JSON-encoded (see domain/AutomationRules.kt).
+    val automationRulesJson: String = "",
 ) {
     /** Effective tier for an optional editor field: user override, else its built-in default. */
     fun editorTier(f: EditorField): Int = editorFieldTiers[f.id] ?: f.defaultTier
@@ -229,6 +243,12 @@ data class AppSettings(
         Keys.BOARD_LISTS to boardLists.joinToString(","),
         Keys.EDITOR_TIERS to editorFieldTiers.entries.joinToString(",") { "${it.key}:${it.value}" },
         Keys.EDITOR_ORDER to editorFieldOrder.joinToString(","),
+        Keys.TIMELINE_FILL to timelineFill.toString(),
+        Keys.MULTI_TIMER to multiTimer.toString(),
+        Keys.AUTO_TRACK_PROMPT to autoTrackPrompt.toString(),
+        Keys.FORGIVING_STREAKS to forgivingStreaks.toString(),
+        Keys.UNTRACKED_REVEAL to untrackedReveal.toString(),
+        Keys.AUTOMATION_RULES to automationRulesJson,
     )
 
     object Keys {
@@ -309,6 +329,12 @@ data class AppSettings(
         const val BOARD_LISTS = "board_lists"
         const val EDITOR_TIERS = "editor_tiers"
         const val EDITOR_ORDER = "editor_order"
+        const val TIMELINE_FILL = "timeline_fill"
+        const val MULTI_TIMER = "multi_timer"
+        const val AUTO_TRACK_PROMPT = "auto_track_prompt"
+        const val FORGIVING_STREAKS = "forgiving_streaks"
+        const val UNTRACKED_REVEAL = "untracked_reveal"
+        const val AUTOMATION_RULES = "automation_rules"
     }
 
     companion object {
@@ -380,6 +406,12 @@ data class AppSettings(
                 if (p[0].isNotBlank() && t in 0..2) p[0] to t else null
             }.toMap(),
             editorFieldOrder = (m[Keys.EDITOR_ORDER] ?: "").split(",").filter { it.isNotBlank() },
+            timelineFill = m[Keys.TIMELINE_FILL]?.toBooleanStrictOrNull() ?: false,
+            multiTimer = m[Keys.MULTI_TIMER]?.toBooleanStrictOrNull() ?: false,
+            autoTrackPrompt = m[Keys.AUTO_TRACK_PROMPT]?.toBooleanStrictOrNull() ?: false,
+            forgivingStreaks = m[Keys.FORGIVING_STREAKS]?.toBooleanStrictOrNull() ?: false,
+            untrackedReveal = m[Keys.UNTRACKED_REVEAL]?.toBooleanStrictOrNull() ?: false,
+            automationRulesJson = m[Keys.AUTOMATION_RULES] ?: "",
             dailySummaryEnabled = m[Keys.SUMMARY_ON]?.toBooleanStrictOrNull() ?: false,
             appBackground = m[Keys.APP_BG] ?: "none",
             dailyCapacityHours = m[Keys.CAPACITY]?.toIntOrNull()?.coerceIn(1, 16) ?: 8,

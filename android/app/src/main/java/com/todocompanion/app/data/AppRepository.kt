@@ -250,16 +250,26 @@ class AppRepository(private val db: AppDatabase) {
         } else timeTrack.deleteActivity(id)
     }
 
-    /** Start tracking an activity. Single-timer discipline: any running entry is stopped first. */
-    suspend fun startTimeTracking(activityId: String, taskId: String? = null, habitId: String? = null): String {
-        stopTimeTracking()
+    /**
+     * Start tracking an activity. [stopFirst] keeps the single-timer discipline (default): any running
+     * entry is stopped first. Pass false (U15 multi-timer) to let activities overlap. Passing [startMillis]
+     * (U5 timeline-fill) back-dates the start so the new block closes a gap since the last one ended.
+     */
+    suspend fun startTimeTracking(activityId: String, taskId: String? = null, habitId: String? = null, stopFirst: Boolean = true, startMillis: Long? = null): String {
+        if (stopFirst) stopTimeTracking()
         val id = uid()
-        timeTrack.upsertEntry(com.todocompanion.app.data.entity.TimeEntryEntity(id, activityId, now(), null, "", taskId, habitId, now()))
+        val start = startMillis ?: now()
+        timeTrack.upsertEntry(com.todocompanion.app.data.entity.TimeEntryEntity(id, activityId, start, null, "", taskId, habitId, now()))
         return id
     }
-    /** Stop the running entry (if any); discards zero-length blips. */
-    suspend fun stopTimeTracking() {
-        val running = timeTrack.runningEntry() ?: return
+    /** All currently-running entries (multi-timer aware). */
+    suspend fun runningTimeEntries(): List<com.todocompanion.app.data.entity.TimeEntryEntity> = timeTrack.getEntries().filter { it.running }
+    /** Stop the (first) running entry, if any. With multi-timer on this stops one; callers can loop. */
+    suspend fun stopTimeTracking() { timeTrack.runningEntry()?.let { finalizeEntry(it) } }
+    /** Stop a specific running entry by id (U15). */
+    suspend fun stopTimeEntry(id: String) { timeTrack.getEntries().firstOrNull { it.id == id && it.running }?.let { finalizeEntry(it) } }
+    /** Close one running interval, discarding zero-length blips and crediting any linked habit once. */
+    private suspend fun finalizeEntry(running: com.todocompanion.app.data.entity.TimeEntryEntity) {
         val end = now()
         if (end - running.startMillis < 1_000L) { timeTrack.deleteEntry(running.id); return }
         timeTrack.upsertEntry(running.copy(endMillis = end))
@@ -277,10 +287,21 @@ class AppRepository(private val db: AppDatabase) {
             }
         }
     }
+    /** Read the current settings snapshot (for automation/behaviour toggles outside the VM). */
+    suspend fun automationRulesOnce(): List<com.todocompanion.app.domain.AutomationRule> =
+        com.todocompanion.app.domain.AutomationRules.parse(settingsSnapshot().automationRulesJson)
     suspend fun addManualTimeEntry(activityId: String, startMillis: Long, endMillis: Long, note: String = "", taskId: String? = null, habitId: String? = null) =
         timeTrack.upsertEntry(com.todocompanion.app.data.entity.TimeEntryEntity(uid(), activityId, startMillis, endMillis, note, taskId, habitId, now()))
     suspend fun upsertTimeEntry(e: com.todocompanion.app.data.entity.TimeEntryEntity) = timeTrack.upsertEntry(e)
     suspend fun deleteTimeEntry(id: String) = timeTrack.deleteEntry(id)
+    /** U4: split a completed interval in two at [atMillis], keeping both halves' links and tags. */
+    suspend fun splitTimeEntry(id: String, atMillis: Long) {
+        val e = timeTrack.getEntries().firstOrNull { it.id == id } ?: return
+        val end = e.endMillis ?: return
+        if (atMillis <= e.startMillis || atMillis >= end) return
+        timeTrack.upsertEntry(e.copy(endMillis = atMillis))
+        timeTrack.upsertEntry(e.copy(id = uid(), startMillis = atMillis, endMillis = end, createdAt = now()))
+    }
     suspend fun runningTimeEntry(): com.todocompanion.app.data.entity.TimeEntryEntity? = timeTrack.runningEntry()
     suspend fun getTimeActivitiesOnce(): List<com.todocompanion.app.data.entity.TimeActivityEntity> = timeTrack.getActivities()
 

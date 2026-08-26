@@ -154,6 +154,42 @@ object Notifications {
         runCatching { NotificationManagerCompat.from(context).notify(SUMMARY_ID, b.build()) }
     }
 
+    /** U12: a plain automation notification ("phone on silent?") fired when a rule matches. */
+    fun simple(context: Context, tag: String, title: String, text: String) {
+        ensureChannel(context)
+        val n = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_menu_recent_history)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(openApp(context))
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(tag.hashCode(), n) }
+    }
+
+    /** U2: a time-blocked task's start time arrived — offer to begin tracking it in one tap. The Start
+     *  action broadcasts to the time-tracking receiver with the task's activity already resolved. */
+    fun showTrackPrompt(context: Context, taskId: String, title: String, activityId: String) {
+        ensureChannel(context)
+        val start = Intent(context, com.todocompanion.app.widget.TimeTrackReceiver::class.java)
+            .setAction(com.todocompanion.app.widget.ACTION_START)
+            .putExtra(com.todocompanion.app.widget.TimeTrackReceiver.EXTRA_ACTIVITY_ID, activityId)
+            .putExtra(com.todocompanion.app.widget.TimeTrackReceiver.EXTRA_TASK_ID, taskId)
+        val pi = PendingIntent.getBroadcast(context, ("track:$taskId").hashCode(), start, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val n = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_menu_recent_history)
+            .setContentTitle("Starting: $title")
+            .setContentText("Track time on this block?")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(openApp(context))
+            .addAction(0, "▶ Start tracking", pi)
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(("trackprompt:$taskId").hashCode(), n) }
+    }
+
     /** N2: celebrate a habit reaching its self-chosen reward streak. */
     fun showReward(context: Context, name: String, reward: String, streak: Int) {
         ensureChannel(context)

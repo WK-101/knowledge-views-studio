@@ -134,6 +134,40 @@ object HabitStats {
         }
     }
 
+    /** The streak to display: forgiving (U8) when the user opts in, else the strict current streak. */
+    fun displayStreak(habit: HabitEntity, doneDays: Set<Long>, skipDays: Set<Long>, relapseDays: Set<Long>, today: Long, forgiving: Boolean): Int =
+        if (forgiving) forgivingStreak(habit, doneDays, skipDays, relapseDays, today)
+        else currentStreak(habit, doneDays, skipDays, relapseDays, today)
+
+    /**
+     * Tier U8 — a *forgiving* streak. Like [currentStreak] for weekday/interval habits, but a bounded
+     * number of misses is tolerated ([missesPerWeek] per rolling seven expected days) before the streak
+     * breaks, so one off day never wipes weeks of momentum. Returns the count of expected days actually
+     * done within the still-alive run. Rolling-quota (times_week/month) and break habits already model
+     * their own grace, so they defer to [currentStreak] unchanged.
+     */
+    fun forgivingStreak(habit: HabitEntity, doneDays: Set<Long>, skipDays: Set<Long>, relapseDays: Set<Long>, today: Long, missesPerWeek: Int = 1): Int {
+        if (habit.habitType == "break" || habit.freqType == FREQ_TIMES_WEEK || habit.freqType == FREQ_TIMES_MONTH) {
+            return currentStreak(habit, doneDays, skipDays, relapseDays, today)
+        }
+        val start = habit.startEpochDay()
+        var d = today
+        if (isExpectedDay(habit, d) && d !in doneDays && d !in skipDays) d--   // in-progress day is grace
+        var doneCount = 0; var expectedSeen = 0; var misses = 0; var guard = 0
+        while (guard++ < 20000 && d >= start) {
+            if (!isExpectedDay(habit, d) || d in skipDays) { d--; continue }
+            expectedSeen++
+            if (d in doneDays) doneCount++
+            else {
+                misses++
+                val allowed = (expectedSeen * missesPerWeek.coerceAtLeast(0)) / 7
+                if (misses > allowed) break
+            }
+            d--
+        }
+        return doneCount
+    }
+
     private fun rollingStreak(doneDays: Set<Long>, today: Long, window: Int, target: Int): Int {
         var d = today
         if (!rollingSatisfied(doneDays, d, window, target)) d--   // grace for an in-progress day

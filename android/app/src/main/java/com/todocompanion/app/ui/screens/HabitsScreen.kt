@@ -175,6 +175,7 @@ private val HABIT_PRESETS = listOf(
 fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: (String) -> Unit = {}) {
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
+    val appSettings by vm.settings.collectAsState()
     val today = LocalDate.now().toEpochDay()
     // View-state now lives in the ViewModel so the app's single top bar drives it (see HabitsHeader);
     // the detail screen and the editor are full-screen overlays rendered by AppRoot.
@@ -271,7 +272,7 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
                     item(key = "seccol-$title") {
                         HabitDraggableColumn(secHabits, onReorder = { persistSection(secHabits, it) }) { h ->
                             HabitRow(
-                                h, checkins, today, allHabits = habits,
+                                h, checkins, today, allHabits = habits, forgiving = appSettings.forgivingStreaks,
                                 onCycle = {
                                     val cur = daysFor(h, checkins).counts[today] ?: 0
                                     if (h.habitType == "break") {
@@ -468,7 +469,7 @@ private fun HabitDraggableColumn(habits: List<HabitEntity>, onReorder: (List<Str
 @Composable
 private fun HabitRow(
     h: HabitEntity, checkins: List<com.todocompanion.app.data.entity.HabitCheckinEntity>, today: Long,
-    allHabits: List<HabitEntity> = emptyList(),
+    allHabits: List<HabitEntity> = emptyList(), forgiving: Boolean = false,
     onCycle: () -> Unit, onOpen: () -> Unit, onSkip: () -> Unit, onClear: () -> Unit,
     onSetValue: () -> Unit, onPause: () -> Unit, onEdit: () -> Unit, onFocus: () -> Unit,
     onAddValue: (Int) -> Unit = {},
@@ -479,7 +480,7 @@ private fun HabitRow(
     val todayCount = d.counts[today] ?: 0
     val isBreak = h.habitType == "break"
     val strength = HabitStats.strength(h, d.done, d.skip, d.relapse, today)
-    val streak = HabitStats.currentStreak(h, d.done, d.skip, d.relapse, today)
+    val streak = HabitStats.displayStreak(h, d.done, d.skip, d.relapse, today, forgiving)
     val done = if (isBreak) !HabitStats.isRelapse(h, todayCount) else HabitStats.meetsGoal(h, todayCount)
     val skippedToday = today in d.skip
     val scheduledToday = HabitStats.isExpectedDay(h, today) || h.freqType == HabitStats.FREQ_TIMES_WEEK || h.freqType == HabitStats.FREQ_TIMES_MONTH

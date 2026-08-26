@@ -130,6 +130,28 @@ class ReminderReceiver : BroadcastReceiver() {
                 }
             }
 
+            AlarmScheduler.ACTION_TRACK_PROMPT -> {
+                if (app == null || taskId == null) return
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val s = app.repository.settingsSnapshot()
+                        if (!s.autoTrackPrompt) return@launch
+                        val task = app.repository.getTask(taskId)
+                        if (task != null && !task.completed && !task.trashed && !task.abandoned) {
+                            // Skip if something is already being tracked against this task.
+                            val already = app.repository.runningTimeEntries().any { it.taskId == taskId }
+                            if (!already) {
+                                val acts = app.repository.getTimeActivitiesOnce()
+                                val actId = task.defaultActivityId?.takeIf { id -> acts.any { it.id == id && !it.archived } }
+                                    ?: app.repository.ensureTaskActivity()
+                                Notifications.showTrackPrompt(context, taskId, task.title, actId)
+                            }
+                        }
+                    } finally { pending.finish() }
+                }
+            }
+
             AlarmScheduler.ACTION_FOCUS_DONE -> Notifications.showFocusDone(context)
 
             AlarmScheduler.ACTION_HABIT -> {
@@ -202,6 +224,7 @@ class BootReceiver : BroadcastReceiver() {
                 if (s.dailySummaryEnabled) AlarmScheduler.scheduleDailySummary(context, s.dailySummaryHour, s.dailySummaryMinute)
                 if (s.eveningReviewEnabled) AlarmScheduler.scheduleEveningReview(context, s.eveningReviewHour)
                 if (s.autoBackupEnabled && s.autoBackupFolder.isNotBlank()) AlarmScheduler.scheduleAutoBackup(context, s.autoBackupHour)
+                if (s.autoTrackPrompt) AlarmScheduler.scheduleTrackPrompts(context, app.repository)
             } finally { pending.finish() }
         }
     }

@@ -20,7 +20,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -243,18 +245,72 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                 Text(digest.takeaway, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary)
             }
 
-            // Q6 — the cross-module correlations, the one thing only a unified store computes.
+            // Q6 / U7 — the cross-module correlations, the one thing only a unified store computes.
+            val timeLinks = remember(habits, checkins, timeEntries) { if (timeOn && habitsOn) vm.momentumLinks() else emptyList() }
             AppCard {
                 Text("What moves what", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
-                if (correlations.isEmpty()) Text("Keep logging habits and completing tasks — the links between them appear here as the data builds.",
+                if (correlations.isEmpty() && timeLinks.isEmpty()) Text("Keep logging habits, completing tasks and tracking time — the links between them appear here as the data builds.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                else correlations.forEach { ins ->
-                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.Top) {
-                        Text(ins.emoji); Spacer(Modifier.width(8.dp))
-                        Text(ins.text, style = MaterialTheme.typography.bodyMedium)
+                else {
+                    correlations.forEach { ins ->
+                        Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.Top) {
+                            Text(ins.emoji); Spacer(Modifier.width(8.dp))
+                            Text(ins.text, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                    timeLinks.forEach { t ->
+                        Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.Top) {
+                            Text("⏱"); Spacer(Modifier.width(8.dp))
+                            Text(t, style = MaterialTheme.typography.bodyMedium)
+                        }
                     }
                 }
+            }
+
+            // U6 — plan vs actual (this week) + the estimate-calibration factor. The moat as a number.
+            if (timeOn && tasksOn) {
+                val pa = remember(tasks, timeEntries) { vm.planVsActualWeek() }
+                if (pa.items.isNotEmpty()) AppCard {
+                    Text("Planned vs actual", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(4.dp))
+                    Text("This week you planned ${fmtMin(pa.plannedMin)} and tracked ${fmtMin(pa.actualMin)} across ${pa.items.size} task${if (pa.items.size == 1) "" else "s"}.",
+                        style = MaterialTheme.typography.bodyMedium)
+                    pa.calibration?.let { cal ->
+                        Spacer(Modifier.height(6.dp))
+                        val pct = ((cal - 1.0) * 100).toInt()
+                        val phrase = when { pct > 10 -> "You run about $pct% over your estimates — the app will pad future ones."; pct < -10 -> "You finish about ${-pct}% under your estimates."; else -> "Your estimates are well-calibrated." }
+                        Text("⚖️ $phrase", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    pa.items.sortedByDescending { it.actualMin }.take(4).forEach { it2 ->
+                        val over = it2.actualMin > it2.plannedMin
+                        Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                            Text(it2.label.take(24), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("${fmtMin(it2.actualMin)} / ${fmtMin(it2.plannedMin)}", style = MaterialTheme.typography.labelMedium,
+                                color = if (over) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+
+            // U10 — your data is safe: last-backup age + one-tap export, so the local-only trade never bites.
+            AppCard {
+                Text("Your data is safe", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                val lastBk = settings.lastSyncAt
+                val ageTxt = if (lastBk <= 0L) "No backup yet." else {
+                    val days = ((nowMs - lastBk) / 86_400_000L).toInt()
+                    when { days <= 0 -> "Last backup today."; days == 1 -> "Last backup yesterday."; else -> "Last backup $days days ago." }
+                }
+                val stale = lastBk <= 0L || (nowMs - lastBk) > 7L * 86_400_000L
+                Text(ageTxt + if (stale) "  Everything lives only on this device — export a copy." else "  You're covered.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (stale) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(8.dp))
+                FilledTonalButton(onClick = {
+                    vm.exportToDownloads("json") { loc -> android.widget.Toast.makeText(shareCtx, if (loc != null) "Backup saved to $loc" else "Couldn't save backup", android.widget.Toast.LENGTH_SHORT).show() }
+                }) { Icon(Icons.Filled.Save, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Back up now") }
             }
 
             // R5 — the "how it all fits" guide, in one plain paragraph, so the numbers above are legible.

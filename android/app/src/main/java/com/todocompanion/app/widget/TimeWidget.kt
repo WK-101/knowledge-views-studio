@@ -106,7 +106,12 @@ class TimeTrackReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 when (intent.action) {
-                    ACTION_START -> intent.getStringExtra(EXTRA_ACTIVITY_ID)?.let { app.repository.startTimeTracking(it) }
+                    ACTION_START -> intent.getStringExtra(EXTRA_ACTIVITY_ID)?.let { actId ->
+                        val taskId = intent.getStringExtra(EXTRA_TASK_ID)
+                        val multi = app.repository.settingsSnapshot().multiTimer
+                        app.repository.startTimeTracking(actId, taskId = taskId, stopFirst = !multi)
+                        com.todocompanion.app.reminders.AutomationRunner.onStart(context, app.repository, actId)
+                    }
                     ACTION_STOP -> app.repository.stopTimeTracking()
                 }
                 TimeWidget.refresh(context)
@@ -116,6 +121,7 @@ class TimeTrackReceiver : BroadcastReceiver() {
 
     companion object {
         const val EXTRA_ACTIVITY_ID = "activityId"
+        const val EXTRA_TASK_ID = "taskId"
     }
 }
 

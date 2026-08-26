@@ -1104,20 +1104,146 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- Tier S: time tracking ----------
     private fun refreshTimeWidget() = com.todocompanion.app.widget.TimeWidget.refresh(appCtx)
     fun createTimeActivity(name: String, emoji: String?, colorArgb: Long?, goalMinutesPerDay: Int = 0) = viewModelScope.launch {
-        repo.createTimeActivity(name, emoji, colorArgb, goalMinutesPerDay); refreshTimeWidget()
+        repo.createTimeActivity(name, emoji, colorArgb, goalMinutesPerDay); refreshTimeWidget(); refreshTrackShortcuts()
     }
-    fun updateTimeActivity(a: com.todocompanion.app.data.entity.TimeActivityEntity) = viewModelScope.launch { repo.upsertTimeActivity(a) }
-    fun deleteTimeActivity(id: String) = viewModelScope.launch { repo.deleteTimeActivity(id) }
-    /** Start (or switch) tracking. Passing the already-running activity is a no-op toggle handled by caller. */
+    /** U13: start tracking by activity name (from an NFC/QR deep link), creating it if unknown. */
+    fun startTimeTrackingByName(name: String) = viewModelScope.launch {
+        val existing = timeActivities.value.firstOrNull { it.name.equals(name.trim(), true) && !it.archived }
+        val id = existing?.id ?: repo.createTimeActivity(name.trim().ifBlank { "Activity" }, null, null)
+        repo.startTimeTracking(id, stopFirst = !settings.value.multiTimer)
+        com.todocompanion.app.reminders.AutomationRunner.onStart(appCtx, repo, id); refreshTimeWidget()
+    }
+    /** U13: publish a launcher shortcut per activity ("Track: Deep work") that fires the track deep link. */
+    fun refreshTrackShortcuts() = viewModelScope.launch {
+        com.todocompanion.app.util.TrackShortcuts.refresh(appCtx, timeActivities.value.filter { !it.archived })
+    }
+    fun updateTimeActivity(a: com.todocompanion.app.data.entity.TimeActivityEntity) = viewModelScope.launch { repo.upsertTimeActivity(a); refreshTimeWidget(); refreshTrackShortcuts() }
+    fun deleteTimeActivity(id: String) = viewModelScope.launch { repo.deleteTimeActivity(id); refreshTimeWidget(); refreshTrackShortcuts() }
+    /** Start (or switch) tracking. Passing the already-running activity is a no-op toggle handled by caller.
+     *  U15: with multi-timer on, the running timer isn't stopped first. U12: on-start rules run after. */
     fun startTimeTracking(activityId: String, taskId: String? = null, habitId: String? = null) = viewModelScope.launch {
-        repo.startTimeTracking(activityId, taskId, habitId); refreshTimeWidget()
+        repo.startTimeTracking(activityId, taskId, habitId, stopFirst = !settings.value.multiTimer)
+        com.todocompanion.app.reminders.AutomationRunner.onStart(appCtx, repo, activityId)
+        refreshTimeWidget()
     }
     fun stopTimeTracking() = viewModelScope.launch { repo.stopTimeTracking(); refreshHabitWidgets(); refreshTimeWidget() }
+    /** U15: stop one specific running timer (when several overlap). */
+    fun stopTimeEntry(id: String) = viewModelScope.launch { repo.stopTimeEntry(id); refreshHabitWidgets(); refreshTimeWidget() }
+
+    // ── U3 · pause / resume ─────────────────────────────────────────────────────────────────────
+    // Pause finalizes the running interval (crediting any linked habit) and remembers what it was, so
+    // Resume can start it again; the break in between is a real, honest untracked gap.
+    private val _pausedTrack = MutableStateFlow<Triple<String, String?, String?>?>(null)
+    val pausedTrack: StateFlow<Triple<String, String?, String?>?> = _pausedTrack
+    fun pauseTracking() = viewModelScope.launch {
+        val running = repo.runningTimeEntry() ?: return@launch
+        _pausedTrack.value = Triple(running.activityId, running.taskId, running.habitId)
+        repo.stopTimeTracking(); refreshHabitWidgets(); refreshTimeWidget()
+    }
+    fun resumeTracking() = viewModelScope.launch {
+        val p = _pausedTrack.value ?: return@launch
+        _pausedTrack.value = null
+        repo.startTimeTracking(p.first, p.second, p.third, stopFirst = !settings.value.multiTimer); refreshTimeWidget()
+    }
+    fun clearPaused() { _pausedTrack.value = null }
+
+    // ── U12 · automation rules ──────────────────────────────────────────────────────────────────
+    fun automationRules(): List<com.todocompanion.app.domain.AutomationRule> =
+        com.todocompanion.app.domain.AutomationRules.parse(settings.value.automationRulesJson)
+    fun saveAutomationRules(rules: List<com.todocompanion.app.domain.AutomationRule>) = viewModelScope.launch {
+        repo.saveSettings(settings.value.copy(automationRulesJson = com.todocompanion.app.domain.AutomationRules.encode(rules)))
+    }
+
+    // ── U2 · (re)schedule today's timebox → track prompts ───────────────────────────────────────
+    fun rescheduleTrackPrompts() = viewModelScope.launch {
+        if (settings.value.autoTrackPrompt) com.todocompanion.app.reminders.AlarmScheduler.scheduleTrackPrompts(appCtx, repo)
+    }
+
+    // ── U1 · untracked planned blocks + one-tap fill ────────────────────────────────────────────
+    fun untrackedTodayBlocks(): List<com.todocompanion.app.domain.TimeInsights.PlannedBlock> {
+        val zone = java.time.ZoneId.systemDefault()
+        val today = java.time.LocalDate.now(zone)
+        val dayStart = today.atStartOfDay(zone).toInstant().toEpochMilli()
+        val now = System.currentTimeMillis()
+        val blocks = tasks.value.mapNotNull { t ->
+            val due = t.dueDate ?: return@mapNotNull null
+            if (t.completed || t.trashed || t.abandoned || t.isAllDay || t.isNote) return@mapNotNull null
+            if (java.time.Instant.ofEpochMilli(due).atZone(zone).toLocalDate() != today) return@mapNotNull null
+            val startMin = ((due - dayStart) / 60_000L).toInt().coerceIn(0, 1439)
+            if (dayStart + startMin * 60_000L > now) return@mapNotNull null   // block hasn't started yet
+            val dur = (t.durationMin ?: t.estimateMin ?: 30).coerceAtLeast(5)
+            com.todocompanion.app.domain.TimeInsights.PlannedBlock(t.id, t.title, startMin, dur)
+        }
+        return com.todocompanion.app.domain.TimeInsights.untrackedBlocks(blocks, timeEntries.value, dayStart, now)
+    }
+    /** U1: backfill a planned block's time interval against its task, in one tap. */
+    fun fillTrackedBlock(block: com.todocompanion.app.domain.TimeInsights.PlannedBlock) = viewModelScope.launch {
+        val zone = java.time.ZoneId.systemDefault()
+        val dayStart = java.time.LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
+        val start = dayStart + block.startMin * 60_000L
+        val end = (start + block.durMin * 60_000L).coerceAtMost(System.currentTimeMillis())
+        if (end <= start) return@launch
+        val task = repo.getTask(block.taskId)
+        val actId = task?.defaultActivityId?.takeIf { id -> timeActivities.value.any { it.id == id && !it.archived } }
+            ?: repo.ensureTaskActivity()
+        repo.addManualTimeEntry(actId, start, end, note = "", taskId = block.taskId)
+        refreshTimeWidget()
+    }
+
+    // ── U6 · plan vs actual (this week) + calibration ───────────────────────────────────────────
+    fun planVsActualWeek(): com.todocompanion.app.domain.TimeInsights.PlanActual {
+        val zone = java.time.ZoneId.systemDefault()
+        val now = System.currentTimeMillis()
+        val weekStart = java.time.LocalDate.now(zone).minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli()
+        val weekEndWindow = java.time.LocalDate.now(zone).plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val trackedByTask = timeEntries.value.filter { it.taskId != null }.groupBy { it.taskId!! }
+            .mapValues { (_, es) -> es.sumOf { com.todocompanion.app.domain.TimeTracking.minutesInWindow(it.startMillis, it.endMillis, weekStart, now + 1, now) } }
+        val items = tasks.value.mapNotNull { t ->
+            val planned = (t.estimateMin ?: t.durationMin ?: 0)
+            if (planned <= 0) return@mapNotNull null
+            val actual = trackedByTask[t.id] ?: 0
+            val dueThisWeek = t.dueDate?.let { it in weekStart until weekEndWindow } ?: false
+            if (actual <= 0 && !dueThisWeek) return@mapNotNull null
+            com.todocompanion.app.domain.TimeInsights.PlanActualItem(t.id, t.title, planned, actual)
+        }
+        return com.todocompanion.app.domain.TimeInsights.planVsActual(items)
+    }
+
+    // ── U7 · cross-type correlation ("what moves your momentum") ────────────────────────────────
+    fun momentumLinks(windowDays: Int = 60): List<String> {
+        val hs = com.todocompanion.app.domain.habit.HabitStats
+        val zone = java.time.ZoneId.systemDefault()
+        val today = java.time.LocalDate.now(zone).toEpochDay()
+        val universe = (0 until windowDays).map { today - it }
+        val entriesByDay = HashMap<Long, MutableSet<String>>()
+        timeEntries.value.forEach { e ->
+            val d = java.time.Instant.ofEpochMilli(e.startMillis).atZone(zone).toLocalDate().toEpochDay()
+            entriesByDay.getOrPut(d) { mutableSetOf() }.add(e.activityId)
+        }
+        val actName = timeActivities.value.associate { it.id to ((it.emoji?.plus(" ") ?: "") + it.name) }
+        val out = mutableListOf<Pair<Double, String>>()
+        habits.value.filter { !it.paused && it.habitType != "break" }.forEach { h ->
+            val hc = habitCheckins.value.filter { it.habitId == h.id }
+            val doneDays = hc.filter { it.status == "done" && hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
+            val expected = universe.filter { hs.isExpectedDay(h, it) }
+            if (expected.size < 12) return@forEach
+            timeActivities.value.filter { !it.archived }.forEach { a ->
+                val cond = expected.filter { entriesByDay[it]?.contains(a.id) == true }.toSet()
+                if (cond.size < 4 || expected.size - cond.size < 4) return@forEach
+                val c = com.todocompanion.app.domain.TimeInsights.conditionalRate(expected, doneDays, cond)
+                if (c.lift >= 0.20) out += c.lift to
+                    "Your ‘${h.name}’ habit lands ${(c.rateWith * 100).toInt()}% on days you track ${actName[a.id]}, vs ${(c.rateWithout * 100).toInt()}% otherwise."
+            }
+        }
+        return out.sortedByDescending { it.first }.take(3).map { it.second }
+    }
     fun addManualTimeEntry(activityId: String, startMillis: Long, endMillis: Long, note: String = "") = viewModelScope.launch {
         if (endMillis > startMillis) repo.addManualTimeEntry(activityId, startMillis, endMillis, note)
     }
-    fun updateTimeEntry(e: com.todocompanion.app.data.entity.TimeEntryEntity) = viewModelScope.launch { repo.upsertTimeEntry(e) }
-    fun deleteTimeEntry(id: String) = viewModelScope.launch { repo.deleteTimeEntry(id) }
+    fun updateTimeEntry(e: com.todocompanion.app.data.entity.TimeEntryEntity) = viewModelScope.launch { repo.upsertTimeEntry(e); refreshTimeWidget() }
+    fun deleteTimeEntry(id: String) = viewModelScope.launch { repo.deleteTimeEntry(id); refreshTimeWidget() }
+    /** U4: split a logged interval in two at [atMillis]. */
+    fun splitTimeEntry(id: String, atMillis: Long) = viewModelScope.launch { repo.splitTimeEntry(id, atMillis); refreshTimeWidget() }
 
     // T2: start tracking time against a task (its default activity, else the generic "Tasks" bucket).
     fun startTimeTrackingForTask(task: TaskEntity) = viewModelScope.launch {
@@ -1690,6 +1816,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
             com.todocompanion.app.util.FileExport.saveToDownloads(appCtx, name, mime, content.toByteArray())
         }.getOrNull()
+        // U10: a successful full backup stamps the "last backup" time the Momentum data-safety card reads.
+        if (kind == "json" && loc != null) repo.saveSettings(settings.value.copy(lastSyncAt = System.currentTimeMillis()))
         onDone(loc)
     }
     fun importHabitsCsv(uri: Uri, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {

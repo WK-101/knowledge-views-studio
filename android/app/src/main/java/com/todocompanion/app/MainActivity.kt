@@ -42,6 +42,8 @@ class MainActivity : FragmentActivity() {
      */
     private fun resolveImport(intent: Intent?): Uri? {
         if (intent == null) return null
+        // U13: our own track deep link is not a file to import — it's handled in resolveAction.
+        if (intent.action == Intent.ACTION_VIEW && intent.data?.scheme == "todocompanion") return null
         return when (intent.action) {
             Intent.ACTION_VIEW -> intent.data
             Intent.ACTION_SEND -> if (intent.type != "text/plain")
@@ -58,6 +60,14 @@ class MainActivity : FragmentActivity() {
      */
     private fun resolveAction(intent: Intent?): String? {
         if (intent == null) return null
+        // U13: an NFC tag or QR encoding todocompanion://track?activity=<id> (or ?name=<name>) starts a timer.
+        if (intent.action == Intent.ACTION_VIEW) {
+            val d = intent.data
+            if (d?.scheme == "todocompanion" && d.host == "track") {
+                d.getQueryParameter("activity")?.let { return ACTION_TRACK_ACTIVITY + it }
+                d.getQueryParameter("name")?.let { return ACTION_TRACK_NAME + it }
+            }
+        }
         val shared = when (intent.action) {
             Intent.ACTION_SEND -> if (intent.type == "text/plain") {
                 val subject = intent.getStringExtra(Intent.EXTRA_SUBJECT)
@@ -78,5 +88,8 @@ class MainActivity : FragmentActivity() {
         const val ACTION_QUICK_ADD = "quick_add"
         // Prefix carrying shared/selected text into quick-add: "quick_add_text:<text>".
         const val ACTION_QUICK_ADD_TEXT = "quick_add_text:"
+        // U13: NFC/QR/shortcut "start tracking" — by activity id or by activity name.
+        const val ACTION_TRACK_ACTIVITY = "track_activity:"
+        const val ACTION_TRACK_NAME = "track_name:"
     }
 }

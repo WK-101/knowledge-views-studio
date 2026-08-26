@@ -260,6 +260,10 @@ fun AppRoot(
             if (settings.autoBackupEnabled && settings.autoBackupFolder.isNotBlank()) AlarmScheduler.scheduleAutoBackup(context, settings.autoBackupHour)
             else AlarmScheduler.cancelAutoBackup(context)
         }
+        // U2: (re)schedule today's timebox → track prompts whenever the toggle is on.
+        LaunchedEffect(settings.autoTrackPrompt) { vm.rescheduleTrackPrompts() }
+        // U13: keep the per-activity launcher shortcuts fresh.
+        LaunchedEffect(Unit) { vm.refreshTrackShortcuts() }
         // Account-free folder sync: reconcile once on launch when a sync folder is configured.
         LaunchedEffect(settings.syncEnabled, settings.syncFolder) {
             if (settings.syncEnabled && settings.syncFolder.isNotBlank()) vm.runSyncNow { _, _ -> }
@@ -299,6 +303,14 @@ fun AppRoot(
                 a == "open_plan" -> { showPlan = true; launchAction.value = null }
                 a == "open_momentum" -> { showMomentum = true; launchAction.value = null }
                 a == "open_time" -> { showTimeTracking = true; launchAction.value = null }
+                a != null && a.startsWith(com.todocompanion.app.MainActivity.ACTION_TRACK_ACTIVITY) -> {
+                    val id = a.removePrefix(com.todocompanion.app.MainActivity.ACTION_TRACK_ACTIVITY)
+                    vm.startTimeTracking(id); showTimeTracking = true; launchAction.value = null
+                }
+                a != null && a.startsWith(com.todocompanion.app.MainActivity.ACTION_TRACK_NAME) -> {
+                    val nm = a.removePrefix(com.todocompanion.app.MainActivity.ACTION_TRACK_NAME)
+                    vm.startTimeTrackingByName(nm); showTimeTracking = true; launchAction.value = null
+                }
                 a != null && a.startsWith("open_context:") -> { vm.select(ViewRef.ContextView(a.removePrefix("open_context:"))); tab = Tab.TASKS; launchAction.value = null }
             }
         }

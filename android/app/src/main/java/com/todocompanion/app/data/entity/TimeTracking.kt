@@ -46,8 +46,13 @@ data class TimeEntryEntity(
     // Tier T1 (invariant I1): where this interval originated. "manual" (the tracker) or "focus" (mirrored
     // from a Focus/Pomodoro session so the tracker timeline is the single source of truth for "time").
     val kind: String = "manual",
+    // Tier U11: free-form tags on the interval (comma-separated labels), for per-tag reporting.
+    // Kept as a simple string so it round-trips through the lossless JSON backup with no extra table.
+    val tags: String = "",
 ) {
     val running: Boolean get() = endMillis == null
     /** Elapsed minutes, clamped to a floor of 0. For a running entry, pass [nowMillis]. */
     fun minutes(nowMillis: Long): Int = (((endMillis ?: nowMillis) - startMillis) / 60_000L).toInt().coerceAtLeast(0)
+    /** Parsed, trimmed, de-duplicated tag labels. */
+    fun tagList(): List<String> = tags.split(",").map { it.trim() }.filter { it.isNotEmpty() }.distinct()
 }

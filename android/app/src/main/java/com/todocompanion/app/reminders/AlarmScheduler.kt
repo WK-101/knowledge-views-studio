@@ -8,6 +8,7 @@ import android.os.Build
 import com.todocompanion.app.data.AppRepository
 import com.todocompanion.app.data.entity.ReminderEntity
 import com.todocompanion.app.data.entity.TaskEntity
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -22,6 +23,7 @@ object AlarmScheduler {
     const val ACTION_EVENING = "com.todocompanion.app.action.EVENING"
     const val ACTION_AUTO_BACKUP = "com.todocompanion.app.action.AUTO_BACKUP"
     const val ACTION_FOCUS_DONE = "com.todocompanion.app.action.FOCUS_DONE"
+    const val ACTION_TRACK_PROMPT = "com.todocompanion.app.action.TRACK_PROMPT"
     const val ACTION_HABIT = "com.todocompanion.app.action.HABIT"
     const val ACTION_HABIT_DONE = "com.todocompanion.app.action.HABIT_DONE"
     const val ACTION_HABIT_SNOOZE = "com.todocompanion.app.action.HABIT_SNOOZE"
@@ -154,6 +156,24 @@ object AlarmScheduler {
     fun cancelFocusDone(context: Context) {
         val am = context.getSystemService(AlarmManager::class.java) ?: return
         am.cancel(broadcast(context, ACTION_FOCUS_DONE, FOCUS_REQ, emptyMap()))
+    }
+
+    // ---------- U2: timebox → track prompt ----------
+    private fun trackReq(taskId: String): Int = (("tp:$taskId").hashCode() and 0x3FFFFFFF) + 2_000_000
+
+    /** Schedule a "start tracking?" prompt at the start of each of today's timed (non-all-day) task
+     *  blocks still in the future. Idempotent — reschedule at startup and after any task change. */
+    suspend fun scheduleTrackPrompts(context: Context, repo: AppRepository, zone: ZoneId = ZoneId.systemDefault()) {
+        val now = System.currentTimeMillis()
+        val today = LocalDate.now(zone)
+        repo.allTasksOnce().forEach { t ->
+            if (t.completed || t.trashed || t.abandoned || t.isNote || t.isAllDay) return@forEach
+            val due = t.dueDate ?: return@forEach
+            if (due <= now) return@forEach
+            if (Instant.ofEpochMilli(due).atZone(zone).toLocalDate() != today) return@forEach
+            setAlarm(context, due, broadcast(context, ACTION_TRACK_PROMPT, trackReq(t.id),
+                mapOf(EXTRA_TASK_ID to t.id, EXTRA_TITLE to t.title)))
+        }
     }
 
     // ---------- habit reminders ----------

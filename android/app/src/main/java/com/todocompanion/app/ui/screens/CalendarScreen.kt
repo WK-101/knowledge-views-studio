@@ -190,6 +190,8 @@ fun CalendarScreen(
             TrackedBlock(startMin, durMin, col)
         }
     }
+    // U14: shade the rail's untracked gaps when the setting is on and Time is enabled.
+    val revealUntrackedFlag = s.untrackedReveal && com.todocompanion.app.domain.Modules.isEnabled(s, com.todocompanion.app.domain.Modules.TIME)
     val onOpenHabit: (String) -> Unit = { id -> vm.habitDetailId.value = id }
 
     val onResize: (String, Int) -> Unit = { id, dur -> vm.setDuration(id, dur) }
@@ -226,11 +228,11 @@ fun CalendarScreen(
                 })
             "week" -> {
                 val start = startOfWeek(anchor, firstDow)
-                TimelineView((0..6).map { start.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor)
+                TimelineView((0..6).map { start.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag)
             }
             "weekly" -> WeeklyView(startOfWeek(anchor, firstDow), dueByDate, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate)
-            "3day" -> TimelineView((0..2).map { anchor.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor)
-            "day" -> TimelineView(listOf(anchor), dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor)
+            "3day" -> TimelineView((0..2).map { anchor.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag)
+            "day" -> TimelineView(listOf(anchor), dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag)
             "year" -> YearView(anchor, dueByDate, onPrev = prev, onNext = next, onMonth = { m -> onAnchor(m.atDay(1)); onModeChange("month") }, onDay = { d -> onAnchor(d); onModeChange("day") })
             else -> AgendaView(dueByDate, onOpenTask, swipe)
         }
@@ -661,6 +663,7 @@ private fun TimelineView(
     onAddAt: (LocalDate, Int) -> Unit, onResize: (String, Int) -> Unit, onMoveAt: (LocalDate, String, Int) -> Unit,
     habitBlocksFor: (LocalDate) -> List<HabitBlock> = { emptyList() }, onOpenHabit: (String) -> Unit = {},
     trackedBlocksFor: (LocalDate) -> List<TrackedBlock> = { emptyList() },
+    revealUntracked: Boolean = false,
 ) {
     val allDayByDay = days.associateWith { d -> dueByDate[d].orEmpty().filter { it.isAllDay || !hasTime(it.dueDate!!, zone) } }
     val hasAllDay = allDayByDay.values.any { it.isNotEmpty() }
@@ -710,7 +713,7 @@ private fun TimelineView(
             days.forEach { d ->
                 val timed = dueByDate[d].orEmpty().filter { !it.isAllDay && hasTime(it.dueDate!!, zone) }
                 DayColumn(d, timed, zone, onOpenTask, onAddAt, onResize, onMoveAt = { id, min -> onMoveAt(d, id, min) },
-                    habitBlocks = habitBlocksFor(d), onOpenHabit = onOpenHabit, trackedBlocks = trackedBlocksFor(d), modifier = Modifier.weight(1f))
+                    habitBlocks = habitBlocksFor(d), onOpenHabit = onOpenHabit, trackedBlocks = trackedBlocksFor(d), revealUntracked = revealUntracked, modifier = Modifier.weight(1f))
             }
         }
     }
@@ -718,7 +721,7 @@ private fun TimelineView(
 
 @Composable
 private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onOpenTask: (String) -> Unit, onAddAt: (LocalDate, Int) -> Unit, onResize: (String, Int) -> Unit, onMoveAt: (String, Int) -> Unit,
-    habitBlocks: List<HabitBlock> = emptyList(), onOpenHabit: (String) -> Unit = {}, trackedBlocks: List<TrackedBlock> = emptyList(), modifier: Modifier) {
+    habitBlocks: List<HabitBlock> = emptyList(), onOpenHabit: (String) -> Unit = {}, trackedBlocks: List<TrackedBlock> = emptyList(), revealUntracked: Boolean = false, modifier: Modifier) {
     val placed = remember(timed, zone) { layoutEvents(timed, zone) }
     val dens = LocalDensity.current
     val isToday = day == LocalDate.now()
@@ -735,7 +738,7 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onO
         val colW = maxWidth
         // Round 14 — the "actual" spine: a thin read-only rail on the far left showing tracked time.
         // When present it steals a few dp from the left so planned blocks sit just beside their actuals.
-        val railW = if (trackedBlocks.isEmpty()) 0.dp else 7.dp
+        val railW = if (trackedBlocks.isEmpty() && !revealUntracked) 0.dp else 7.dp
         val contentW = colW - railW
         // M1: when habit blocks share the column, tasks take the left ~60% and habits the right ~40%
         // so the two never collide and the task drag/resize math is otherwise unchanged.
@@ -818,6 +821,12 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onO
         // Round 14 — the "actual" spine: each tracked interval as a thin colored segment on the far
         // left rail. Read-only, no gestures — it sits beside the planned blocks so the eye can compare
         // plan (task/habit blocks) against reality (what was actually tracked) at a glance.
+        // U14: when revealing untracked time, paint the whole rail a faint tint first; tracked segments
+        // then overlay it, so the eye reads solid = tracked, faint = uncounted.
+        if (revealUntracked && railW > 0.dp) {
+            Box(Modifier.offset(x = 1.dp).width(railW - 2.dp).fillMaxHeight()
+                .clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = .30f)))
+        }
         if (trackedBlocks.isNotEmpty()) {
             val railColor = MaterialTheme.colorScheme.secondary
             trackedBlocks.forEach { tb ->

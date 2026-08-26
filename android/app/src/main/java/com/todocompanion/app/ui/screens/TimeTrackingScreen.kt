@@ -27,6 +27,16 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.AssistChip
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.fillMaxHeight
+import com.todocompanion.app.domain.TimeInsights
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -88,11 +98,14 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
     val zone = ZoneId.systemDefault()
     val timeFmt = remember { DateTimeFormatter.ofPattern("HH:mm") }
 
+    val settings by vm.settings.collectAsState()
+    val paused by vm.pausedTrack.collectAsState()
     // A one-second tick so the running timer counts up live.
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
-    val running = entries.firstOrNull { it.running }
-    LaunchedEffect(running?.id) {
-        while (running != null) { now = System.currentTimeMillis(); delay(1000) }
+    val runningList = entries.filter { it.running }
+    val running = runningList.firstOrNull()
+    LaunchedEffect(runningList.size) {
+        while (runningList.isNotEmpty()) { now = System.currentTimeMillis(); delay(1000) }
     }
 
     var day by remember { mutableStateOf(LocalDate.now(zone)) }
@@ -132,8 +145,9 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
         vm.addManualTimeEntry(actId, start, end); showManual = false
     }
     editEntry?.let { e ->
-        EditEntryDialog(e, actById[e.activityId], zone, onDismiss = { editEntry = null },
+        EditEntryDialog(e, activities.filter { !it.archived }, zone, onDismiss = { editEntry = null },
             onDelete = { vm.deleteTimeEntry(e.id); editEntry = null },
+            onSplit = { at -> vm.splitTimeEntry(e.id, at); editEntry = null },
             onSave = { updated -> vm.updateTimeEntry(updated); editEntry = null })
     }
 
@@ -148,27 +162,65 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Spacer(Modifier.height(2.dp))
-            // Running banner.
-            val runAct = running?.let { actById[it.activityId] }
-            Surface(
-                Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
-                color = if (running != null) (runAct?.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary).copy(alpha = .14f)
-                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .4f),
-            ) {
-                Row(Modifier.padding(16.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    if (running != null && runAct != null) {
-                        Box(Modifier.size(12.dp).clip(CircleShape).background(runAct.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary))
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text((runAct.emoji?.plus(" ") ?: "") + runAct.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            val elapsed = ((now - running.startMillis) / 1000).coerceAtLeast(0)
-                            Text("%d:%02d:%02d".format(elapsed / 3600, (elapsed % 3600) / 60, elapsed % 60), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            // Running banner(s) — U15 multi-timer aware, U3 pause/resume.
+            if (runningList.isEmpty()) {
+                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .4f)) {
+                    Row(Modifier.padding(16.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        val p = paused
+                        if (p != null) {
+                            val pAct = actById[p.first]
+                            Column(Modifier.weight(1f)) {
+                                Text("Paused", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text((pAct?.emoji?.plus(" ") ?: "") + (pAct?.name ?: "activity"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            TextButton(onClick = { vm.clearPaused() }) { Text("Dismiss") }
+                            Spacer(Modifier.width(4.dp))
+                            FilledTonalButton(onClick = { vm.resumeTracking() }) {
+                                Icon(Icons.Filled.PlayArrow, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Resume")
+                            }
+                        } else {
+                            Text("Not tracking — tap an activity to start.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        FilledTonalButton(onClick = { vm.stopTimeTracking() }) {
-                            Icon(Icons.Filled.Stop, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Stop")
+                    }
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    runningList.forEach { r ->
+                        val rAct = actById[r.activityId]
+                        val rc = rAct?.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
+                        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = rc.copy(alpha = .14f)) {
+                            Row(Modifier.padding(16.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.size(12.dp).clip(CircleShape).background(rc)); Spacer(Modifier.width(12.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text((rAct?.emoji?.plus(" ") ?: "") + (rAct?.name ?: "—"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    val elapsed = ((now - r.startMillis) / 1000).coerceAtLeast(0)
+                                    Text("%d:%02d:%02d".format(elapsed / 3600, (elapsed % 3600) / 60, elapsed % 60), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                }
+                                if (runningList.size == 1) {
+                                    IconButton(onClick = { vm.pauseTracking() }) { Icon(Icons.Filled.Pause, "Pause") }
+                                }
+                                FilledTonalButton(onClick = { vm.stopTimeEntry(r.id) }) {
+                                    Icon(Icons.Filled.Stop, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Stop")
+                                }
+                            }
                         }
-                    } else {
-                        Text("Not tracking — tap an activity to start.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+
+            // U1 · "forgot to track?" — planned time-blocks today with little/no tracked time.
+            if (day == LocalDate.now(zone)) {
+                val untracked = remember(entries, now) { vm.untrackedTodayBlocks() }
+                if (untracked.isNotEmpty()) AppCard {
+                    Text("Forgot to track?", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text("These planned blocks have no time logged. Tap to fill.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(6.dp))
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        untracked.take(6).forEach { b ->
+                            AssistChip(onClick = { vm.fillTrackedBlock(b) },
+                                label = { Text(b.label.take(18) + " · " + fmtDur(b.durMin), maxLines = 1) },
+                                leadingIcon = { Icon(Icons.Filled.Add, null, Modifier.size(16.dp)) })
+                        }
                     }
                 }
             }
@@ -177,10 +229,10 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
             Text("Activities", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 activities.filter { !it.archived }.forEach { a ->
-                    val isRun = running?.activityId == a.id
+                    val isRun = runningList.any { it.activityId == a.id }
                     val c = a.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
                     Surface(
-                        onClick = { if (isRun) vm.stopTimeTracking() else vm.startTimeTracking(a.id) },
+                        onClick = { if (isRun) runningList.filter { it.activityId == a.id }.forEach { vm.stopTimeEntry(it.id) } else vm.startTimeTracking(a.id) },
                         shape = RoundedCornerShape(14.dp),
                         color = if (isRun) c.copy(alpha = .22f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f),
                         border = if (isRun) androidx.compose.foundation.BorderStroke(1.5.dp, c) else null,
@@ -233,6 +285,80 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                             color = if (goalMet) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurface,
                         )
                     }
+                }
+            }
+
+            // U9 · insights — when you worked (by hour), how sessions distribute, and per-tag totals.
+            if (dayEntries.isNotEmpty()) {
+                var showInsights by rememberSaveable { mutableStateOf(false) }
+                Row(Modifier.fillMaxWidth().clickable { showInsights = !showInsights }, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Insights", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(if (showInsights) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null)
+                }
+                if (showInsights) AppCard {
+                    val byHour = remember(entries, day, now) { TimeInsights.minutesByHour(entries, winStart, winEnd, now) }
+                    val hourMax = (byHour.maxOrNull() ?: 0).coerceAtLeast(1)
+                    Text("When you worked", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(Modifier.fillMaxWidth().height(56.dp).padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(1.dp), verticalAlignment = Alignment.Bottom) {
+                        for (h in 0..23) {
+                            val frac = byHour[h] / hourMax.toFloat()
+                            Box(Modifier.weight(1f).fillMaxHeight(frac.coerceAtLeast(0.02f)).clip(RoundedCornerShape(2.dp))
+                                .background(if (byHour[h] > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant))
+                        }
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        listOf("0", "6", "12", "18", "23").forEach { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Text("Session lengths", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    val dist = remember(entries, day) { TimeInsights.durationDistribution(entries, winStart, winEnd) }
+                    val distMax = dist.maxOfOrNull { it.count }?.coerceAtLeast(1) ?: 1
+                    dist.filter { it.count > 0 }.forEach { b ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(b.label, Modifier.width(64.dp), style = MaterialTheme.typography.labelSmall)
+                            Box(Modifier.weight(1f).height(12.dp).clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                                Box(Modifier.fillMaxWidth(b.count / distMax.toFloat()).height(12.dp).clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.tertiary))
+                            }
+                            Spacer(Modifier.width(8.dp)); Text("${b.count}", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                    val tagTotals = remember(entries, day, now) { TimeInsights.totalsByTag(entries, winStart, winEnd, now) }
+                    if (tagTotals.isNotEmpty()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text("By tag", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            tagTotals.forEach { tt -> AssistChip(onClick = {}, label = { Text("#${tt.tag} · ${fmtDur(tt.minutes)}") }) }
+                        }
+                    }
+                }
+            }
+
+            // U12 · automations — "when I start X, do Y". Fully on-device.
+            if (activities.isNotEmpty()) {
+                var showAuto by rememberSaveable { mutableStateOf(false) }
+                var addRule by remember { mutableStateOf(false) }
+                val rules = com.todocompanion.app.domain.AutomationRules.parse(settings.automationRulesJson)
+                Row(Modifier.fillMaxWidth().clickable { showAuto = !showAuto }, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Automations", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (rules.isNotEmpty()) Text("${rules.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(if (showAuto) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null)
+                }
+                if (showAuto) AppCard {
+                    if (rules.isEmpty()) Text("No automations yet. Fire a notification or start another activity when you begin tracking one.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    rules.forEach { r ->
+                        val whenA = actById[r.whenActivityId]?.name ?: "?"
+                        val doTxt = if (r.actionType == com.todocompanion.app.domain.AutomationRule.ACTION_START)
+                            "start ${actById[r.startActivityId]?.name ?: "?"}" else "notify “${r.notifyText}”"
+                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("When $whenA starts → $doTxt", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                            IconButton(onClick = { vm.saveAutomationRules(rules.filter { it.id != r.id }) }) { Icon(Icons.Filled.Close, "Delete", Modifier.size(18.dp)) }
+                        }
+                    }
+                    TextButton(onClick = { addRule = true }) { Text("＋ Add automation") }
+                }
+                if (addRule) AutomationRuleDialog(activities.filter { !it.archived }, onDismiss = { addRule = false }) { rule ->
+                    vm.saveAutomationRules(rules + rule); addRule = false
                 }
             }
 
@@ -369,14 +495,66 @@ private fun ManualEntryDialog(activities: List<TimeActivityEntity>, day: LocalDa
     )
 }
 
-/** Edit a logged entry: adjust its times, note, or delete it. */
+/** U12: create an on-start automation — pick the trigger activity and either a notification or a chained start. */
 @Composable
-private fun EditEntryDialog(entry: TimeEntryEntity, activity: TimeActivityEntity?, zone: ZoneId, onDismiss: () -> Unit, onDelete: () -> Unit, onSave: (TimeEntryEntity) -> Unit) {
+private fun AutomationRuleDialog(activities: List<TimeActivityEntity>, onDismiss: () -> Unit, onSave: (com.todocompanion.app.domain.AutomationRule) -> Unit) {
+    var whenId by remember { mutableStateOf(activities.firstOrNull()?.id ?: "") }
+    var action by remember { mutableStateOf(com.todocompanion.app.domain.AutomationRule.ACTION_NOTIFY) }
+    var notifyText by remember { mutableStateOf("") }
+    var startId by remember { mutableStateOf(activities.getOrNull(1)?.id ?: activities.firstOrNull()?.id ?: "") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("New automation") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text("When I start", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    activities.forEach { a ->
+                        FilterChip(selected = a.id == whenId, onClick = { whenId = a.id }, label = { Text((a.emoji?.plus(" ") ?: "") + a.name) })
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Text("Then", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(selected = action == com.todocompanion.app.domain.AutomationRule.ACTION_NOTIFY, onClick = { action = com.todocompanion.app.domain.AutomationRule.ACTION_NOTIFY }, label = { Text("Notify me") })
+                    FilterChip(selected = action == com.todocompanion.app.domain.AutomationRule.ACTION_START, onClick = { action = com.todocompanion.app.domain.AutomationRule.ACTION_START }, label = { Text("Start another") })
+                }
+                Spacer(Modifier.height(8.dp))
+                if (action == com.todocompanion.app.domain.AutomationRule.ACTION_NOTIFY) {
+                    OutlinedTextField(notifyText, { notifyText = it }, label = { Text("Message (e.g. Phone on silent?)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                } else {
+                    Text("Requires “Allow overlapping timers” on.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        activities.filter { it.id != whenId }.forEach { a ->
+                            FilterChip(selected = a.id == startId, onClick = { startId = a.id }, label = { Text((a.emoji?.plus(" ") ?: "") + a.name) })
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            val valid = whenId.isNotBlank() && (action == com.todocompanion.app.domain.AutomationRule.ACTION_NOTIFY && notifyText.isNotBlank() || action == com.todocompanion.app.domain.AutomationRule.ACTION_START && startId.isNotBlank())
+            TextButton(enabled = valid, onClick = {
+                onSave(com.todocompanion.app.domain.AutomationRule(
+                    id = java.util.UUID.randomUUID().toString(), whenActivityId = whenId,
+                    actionType = action, notifyText = notifyText.trim(), startActivityId = startId))
+            }) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+/** Edit a logged entry: adjust its times, reassign the activity, tag it, split it, or delete it. */
+@Composable
+private fun EditEntryDialog(entry: TimeEntryEntity, activities: List<TimeActivityEntity>, zone: ZoneId, onDismiss: () -> Unit, onDelete: () -> Unit, onSplit: (Long) -> Unit, onSave: (TimeEntryEntity) -> Unit) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     var note by remember { mutableStateOf(entry.note) }
+    var tags by remember { mutableStateOf(entry.tags) }
+    var activityId by remember { mutableStateOf(entry.activityId) }
     var start by remember { mutableStateOf(entry.startMillis) }
     var end by remember { mutableStateOf(entry.endMillis) }
     val fmt = remember { DateTimeFormatter.ofPattern("HH:mm") }
+    val activity = activities.firstOrNull { it.id == activityId }
     fun pick(initial: Long, onPicked: (Long) -> Unit) {
         val z = Instant.ofEpochMilli(initial).atZone(zone)
         android.app.TimePickerDialog(ctx, { _, h, m ->
@@ -387,7 +565,7 @@ private fun EditEntryDialog(entry: TimeEntryEntity, activity: TimeActivityEntity
         onDismissRequest = onDismiss,
         title = { Text((activity?.emoji?.plus(" ") ?: "") + (activity?.name ?: "Entry")) },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     FilledTonalButton(onClick = { pick(start) { start = it } }) { Text("Start ${Instant.ofEpochMilli(start).atZone(zone).format(fmt)}") }
                     if (end != null) FilledTonalButton(onClick = { pick(end!!) { end = it } }) { Text("End ${Instant.ofEpochMilli(end!!).atZone(zone).format(fmt)}") }
@@ -395,11 +573,33 @@ private fun EditEntryDialog(entry: TimeEntryEntity, activity: TimeActivityEntity
                 }
                 if (end != null && end!! <= start) Text("End must be after start.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                 Spacer(Modifier.height(10.dp))
+                // U4: reassign to another activity.
+                Text("Activity", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    activities.forEach { a ->
+                        val sel = a.id == activityId
+                        val c = a.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
+                        Surface(onClick = { activityId = a.id }, shape = RoundedCornerShape(12.dp), color = if (sel) c.copy(alpha = .2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)) {
+                            Text((a.emoji?.plus(" ") ?: "") + a.name, Modifier.padding(horizontal = 12.dp, vertical = 8.dp), style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
                 OutlinedTextField(note, { note = it }, label = { Text("Note (optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                // U11: comma-separated tags.
+                OutlinedTextField(tags, { tags = it }, label = { Text("Tags (comma-separated)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                // U4: split this interval at its midpoint.
+                if (end != null && end!! - start > 120_000L) {
+                    Spacer(Modifier.height(6.dp))
+                    TextButton(onClick = { onSplit((start + end!!) / 2) }) { Text("Split in two at midpoint") }
+                }
             }
         },
         confirmButton = {
-            TextButton(enabled = end == null || end!! > start, onClick = { onSave(entry.copy(startMillis = start, endMillis = end, note = note.trim())) }) { Text("Save") }
+            TextButton(enabled = end == null || end!! > start, onClick = {
+                onSave(entry.copy(activityId = activityId, startMillis = start, endMillis = end, note = note.trim(), tags = tags.trim()))
+            }) { Text("Save") }
         },
         dismissButton = {
             Row {

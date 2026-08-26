@@ -101,6 +101,13 @@
                 <data android:mimeType="application/zip" />
                 <data android:mimeType="application/*" />
             </intent-filter>
+            <!-- U13: an NFC tag or QR encoding todocompanion://track?activity=<id> starts a timer. Offline; no permission. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="todocompanion" android:host="track" />
+            </intent-filter>
         </activity>
 
         <!-- Shares a decoded attachment with a local viewer app. Grants are per-URI + temporary. -->

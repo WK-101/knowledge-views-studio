@@ -132,7 +132,8 @@ fun HabitDetailScreen(
 
     val color = h.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
     val strength = HabitStats.strength(h, doneDays, skipDays, relapseDays, today)
-    val current = HabitStats.currentStreak(h, doneDays, skipDays, relapseDays, today)
+    val forgivingStreaks = vm.settings.collectAsState().value.forgivingStreaks
+    val current = HabitStats.displayStreak(h, doneDays, skipDays, relapseDays, today, forgivingStreaks)
     val best = HabitStats.bestStreak(h, doneDays, skipDays, relapseDays, today)
     val rate = HabitStats.rate(h, doneDays, skipDays, today, 30)
     val weekday = HabitStats.weekdayRates(doneDays, skipDays, today, 180)
