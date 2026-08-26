@@ -414,6 +414,33 @@ class AppRepository(private val db: AppDatabase) {
         return id
     }
 
+    /**
+     * One-shot quick capture for the home-screen popup widget and app shortcuts: parse natural-language
+     * text (date/time, p1-p4, #estimate, *, ~list) and create the task in the Inbox (or a named ~list),
+     * entirely off the UI thread. Returns the new id, or null if the text has no title. Fully offline.
+     */
+    suspend fun quickCaptureTask(text: String): String? {
+        val tok = com.todocompanion.app.domain.nlp.QuickTokens.parse(text, handleActivity = false)
+        val parsed = com.todocompanion.app.domain.nlp.QuickAddParser.parse(tok.text)
+        val title = parsed.title.trim()
+        if (title.isBlank()) return null
+        val zone = java.time.ZoneId.systemDefault()
+        val due = parsed.dateTime?.atZone(zone)?.toInstant()?.toEpochMilli()
+        val imp = parsed.priority?.importance ?: 2
+        val urg = parsed.priority?.urgency ?: 2
+        // Make sure the Inbox exists (first-run seeding may not have happened if a widget fires first).
+        if (lists.getById(ListEntity.INBOX_ID) == null) lists.upsert(ListEntity(id = ListEntity.INBOX_ID, name = "Inbox", sortOrder = 0.0))
+        val listId = parsed.list?.let { name -> lists.getAll().firstOrNull { !it.archived && it.name.equals(name, ignoreCase = true) }?.id }
+            ?: ListEntity.INBOX_ID
+        val id = createTask(listId, title, importance = imp, urgency = urg, dueDate = due)
+        if (parsed.rrule != null || tok.estimateMin != null || tok.star) getTask(id)?.let {
+            saveTask(it.copy(rrule = parsed.rrule ?: it.rrule, estimateMin = tok.estimateMin ?: it.estimateMin, star = it.star || tok.star))
+        }
+        if (parsed.hasTime && due != null)
+            upsertReminder(com.todocompanion.app.data.entity.ReminderEntity(uid(), taskId = id, type = "absolute", atTime = due))
+        return id
+    }
+
     suspend fun saveTask(task: TaskEntity) {
         // Capture user-visible reschedules for the activity log (title/note edits don't log).
         val old = tasks.getById(task.id)

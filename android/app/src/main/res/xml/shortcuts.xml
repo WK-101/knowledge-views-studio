@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="quick_add"
+        android:enabled="true"
+        android:icon="@drawable/sc_add"
+        android:shortcutShortLabel="@string/sc_quick_add_short"
+        android:shortcutLongLabel="@string/sc_quick_add_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.todocompanion.app"
+            android:targetClass="com.todocompanion.app.widget.QuickCaptureActivity"
+            android:data="todocompanion://add" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="open_today"
+        android:enabled="true"
+        android:icon="@drawable/sc_today"
+        android:shortcutShortLabel="@string/sc_today_short"
+        android:shortcutLongLabel="@string/sc_today_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.todocompanion.app"
+            android:targetClass="com.todocompanion.app.MainActivity"
+            android:data="todocompanion://today" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="open_donext"
+        android:enabled="true"
+        android:icon="@drawable/sc_donext"
+        android:shortcutShortLabel="@string/sc_donext_short"
+        android:shortcutLongLabel="@string/sc_donext_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.todocompanion.app"
+            android:targetClass="com.todocompanion.app.MainActivity"
+            android:data="todocompanion://donext" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="open_focus"
+        android:enabled="true"
+        android:icon="@drawable/sc_focus"
+        android:shortcutShortLabel="@string/sc_focus_short"
+        android:shortcutLongLabel="@string/sc_focus_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.todocompanion.app"
+            android:targetClass="com.todocompanion.app.MainActivity"
+            android:data="todocompanion://focus" />
+    </shortcut>
+</shortcuts>

@@ -345,6 +345,7 @@ fun AppRoot(
                 a == "open_habits" -> { tab = Tab.HABITS; launchAction.value = null }
                 a == "open_countdowns" -> { showCountdowns = true; launchAction.value = null }
                 a == "open_matrix" -> { tab = Tab.MATRIX; launchAction.value = null }
+                a == "open_today" -> { vm.select(ViewRef.Smart(SmartKind.TODAY)); tab = Tab.TASKS; launchAction.value = null }
                 a == "open_donext" -> { vm.select(ViewRef.Smart(SmartKind.DO_NEXT)); tab = Tab.TASKS; launchAction.value = null }
                 a == "open_next7" -> { vm.select(ViewRef.Smart(SmartKind.NEXT7)); tab = Tab.TASKS; launchAction.value = null }
                 a == "open_plan" -> { showPlan = true; launchAction.value = null }

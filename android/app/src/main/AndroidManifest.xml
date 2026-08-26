@@ -45,6 +45,19 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- R17: static launcher long-press shortcuts (Quick add, Today, Do-Next, Focus). -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+            <!-- R17: deep links for the static shortcuts that open the app (Today/Do-Next/Focus). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="todocompanion" android:host="today" />
+                <data android:scheme="todocompanion" android:host="donext" />
+                <data android:scheme="todocompanion" android:host="focus" />
+            </intent-filter>
             <!-- H1: capture from the system share sheet — any app can share text into a new task. -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
@@ -157,6 +170,24 @@
             android:theme="@style/Theme.ToDoCompanion">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
+        <!-- R17: translucent quick-capture popup — add a task straight from the widget/shortcut without
+             opening the whole app. Floats in its own task so the main UI never comes forward. Offline. -->
+        <activity
+            android:name=".widget.QuickCaptureActivity"
+            android:exported="true"
+            android:theme="@style/Theme.ToDoCompanion.QuickCapture"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="stateAlwaysVisible|adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="todocompanion" android:host="add" />
             </intent-filter>
         </activity>
 

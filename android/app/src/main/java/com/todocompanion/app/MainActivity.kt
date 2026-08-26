@@ -71,6 +71,12 @@ class MainActivity : FragmentActivity() {
             if (d?.scheme == "todocompanion" && d.host == "routine") {
                 d.getQueryParameter("name")?.let { return ACTION_RUN_ROUTINE + it }
             }
+            // R17: static launcher shortcuts route through deep links so they carry reliably.
+            if (d?.scheme == "todocompanion") when (d.host) {
+                "today" -> return "open_today"
+                "donext" -> return "open_donext"
+                "focus" -> return "open_focus"
+            }
         }
         val shared = when (intent.action) {
             Intent.ACTION_SEND -> if (intent.type == "text/plain") {
