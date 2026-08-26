@@ -14,4 +14,6 @@
     <string name="tile_capture_label">Add task</string>
     <string name="widget_habitstats_desc">Habits done today and your best current streak</string>
     <string name="widget_momentum_desc">Your unified momentum — habits, task reliability and focus in one score</string>
+    <string name="widget_time_desc">Start, switch and stop time tracking from the home screen — a live timer for the running activity</string>
+    <string name="tile_track_label">Track time</string>
 </resources>

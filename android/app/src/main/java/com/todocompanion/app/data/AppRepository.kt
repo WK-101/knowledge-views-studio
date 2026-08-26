@@ -282,6 +282,7 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun upsertTimeEntry(e: com.todocompanion.app.data.entity.TimeEntryEntity) = timeTrack.upsertEntry(e)
     suspend fun deleteTimeEntry(id: String) = timeTrack.deleteEntry(id)
     suspend fun runningTimeEntry(): com.todocompanion.app.data.entity.TimeEntryEntity? = timeTrack.runningEntry()
+    suspend fun getTimeActivitiesOnce(): List<com.todocompanion.app.data.entity.TimeActivityEntity> = timeTrack.getActivities()
 
     /** T1 (I1): a stable "Focus" activity used to mirror Focus/Pomodoro sessions onto the one timeline. */
     suspend fun ensureFocusActivity(): String {

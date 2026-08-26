@@ -1102,16 +1102,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---------- Tier S: time tracking ----------
+    private fun refreshTimeWidget() = com.todocompanion.app.widget.TimeWidget.refresh(appCtx)
     fun createTimeActivity(name: String, emoji: String?, colorArgb: Long?, goalMinutesPerDay: Int = 0) = viewModelScope.launch {
-        repo.createTimeActivity(name, emoji, colorArgb, goalMinutesPerDay)
+        repo.createTimeActivity(name, emoji, colorArgb, goalMinutesPerDay); refreshTimeWidget()
     }
     fun updateTimeActivity(a: com.todocompanion.app.data.entity.TimeActivityEntity) = viewModelScope.launch { repo.upsertTimeActivity(a) }
     fun deleteTimeActivity(id: String) = viewModelScope.launch { repo.deleteTimeActivity(id) }
     /** Start (or switch) tracking. Passing the already-running activity is a no-op toggle handled by caller. */
     fun startTimeTracking(activityId: String, taskId: String? = null, habitId: String? = null) = viewModelScope.launch {
-        repo.startTimeTracking(activityId, taskId, habitId)
+        repo.startTimeTracking(activityId, taskId, habitId); refreshTimeWidget()
     }
-    fun stopTimeTracking() = viewModelScope.launch { repo.stopTimeTracking(); refreshHabitWidgets() }
+    fun stopTimeTracking() = viewModelScope.launch { repo.stopTimeTracking(); refreshHabitWidgets(); refreshTimeWidget() }
     fun addManualTimeEntry(activityId: String, startMillis: Long, endMillis: Long, note: String = "") = viewModelScope.launch {
         if (endMillis > startMillis) repo.addManualTimeEntry(activityId, startMillis, endMillis, note)
     }
@@ -1122,7 +1123,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun startTimeTrackingForTask(task: TaskEntity) = viewModelScope.launch {
         val actId = task.defaultActivityId?.takeIf { id -> timeActivities.value.any { it.id == id && !it.archived } }
             ?: repo.ensureTaskActivity()
-        repo.startTimeTracking(actId, taskId = task.id)
+        repo.startTimeTracking(actId, taskId = task.id); refreshTimeWidget()
     }
     fun setTaskDefaultActivity(taskId: String, activityId: String?) = viewModelScope.launch {
         repo.getTask(taskId)?.let { repo.saveTask(it.copy(defaultActivityId = activityId)) }
@@ -1131,7 +1132,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun startTimeTrackingForHabit(habit: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch {
         val actId = habit.timeActivityId?.takeIf { id -> timeActivities.value.any { it.id == id && !it.archived } }
             ?: repo.ensureFocusActivity()
-        repo.startTimeTracking(actId, habitId = habit.id)
+        repo.startTimeTracking(actId, habitId = habit.id); refreshTimeWidget()
     }
     fun setHabitTimeActivity(habitId: String, activityId: String?) = viewModelScope.launch {
         habits.value.firstOrNull { it.id == habitId }?.let { repo.upsertHabit(it.copy(timeActivityId = activityId)) }
