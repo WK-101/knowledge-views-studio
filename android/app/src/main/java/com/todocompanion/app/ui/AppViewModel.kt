@@ -1445,9 +1445,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      *  timebox→track prompt so each block asks to be tracked — closing plan → do → measure. */
     fun planMyDay(onDone: (Int) -> Unit = {}) = viewModelScope.launch {
         val plan = computeAutoSchedule()
+        if (plan.proposals.isEmpty()) { onDone(0); return@launch }
+        val dues = plan.proposals.joinToString(",") { "\"${it.task.id}\":\"${it.task.dueDate ?: 0L}\"" }   // Z6: old due dates for undo
         plan.proposals.forEach { p -> repo.saveTask(p.task.copy(dueDate = p.newDueMillis, isAllDay = false)) }
         if (!settings.value.autoTrackPrompt) repo.saveSettings(settings.value.copy(autoTrackPrompt = true))
         rescheduleTrackPrompts()
+        appendAction("plan", "Scheduled ${plan.proposals.size} task${if (plan.proposals.size == 1) "" else "s"} for today", "{\"dues\":{$dues}}")
         onDone(plan.proposals.size)
     }
 
@@ -1512,7 +1515,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val relapse = hc.filter { hs.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
             val today = java.time.LocalDate.now(zone).toEpochDay()
             streak = hs.displayStreak(h, done, skip, relapse, today, settings.value.forgivingStreaks)
-            strength = hs.strength(h, done, skip, relapse, today)
+            strength = strengthOf(h)   // Z8: honours the graded-strength opt-in
         }
         var mins = 0
         if (g.hasBudget) mins = timeEntries.value.filter { it.activityId == g.activityId }.sumOf { it.minutes(now) }
@@ -1635,45 +1638,72 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val wd = com.todocompanion.app.domain.Reasoning.rhythmWeekdays(counts) ?: return null
         return RhythmSuggestion(habitId, wd, hs.typicalDoneMinute(hc))
     }
-    fun applyRhythmSuggestion(s: RhythmSuggestion) {
-        val h = habits.value.firstOrNull { it.id == s.habitId } ?: return
+    fun applyRhythmSuggestion(s: RhythmSuggestion) = viewModelScope.launch {
+        val h = habits.value.firstOrNull { it.id == s.habitId } ?: return@launch
         val days = s.weekdays.sorted().joinToString(",")
-        saveHabit(h.copy(freqType = "weekly", scheduleDays = days))
+        repo.upsertHabit(h.copy(freqType = "weekly", scheduleDays = days))
+        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
+        com.todocompanion.app.widget.HabitsWidget.refresh(appCtx)
+        appendAction("rhythm", "Matched ‘${h.name}’ to ${s.weekdayLabel()}", "{\"habit\":\"${h.id}\",\"freq\":\"${h.freqType}\",\"days\":\"${h.scheduleDays}\"}")   // Z6: undoable
         toast("Schedule matched to your rhythm")
     }
 
-    // ── X7 · insights feed — what your data noticed this week ─────────────────────────────────────
-    fun insightsFeed(): List<String> {
-        val out = ArrayList<String>()
-        keystoneInsight()?.let { out += it }
-        val cal = planVsActualWeek().calibration
-        if (cal != null && kotlin.math.abs(cal - 1.0) >= 0.2) {
-            val pct = Math.round((cal - 1.0) * 100).toInt()
-            out += if (cal > 1) "Your tasks take about ${pct}% longer than you estimate — the forecast corrects for it."
-                   else "You beat your estimates by about ${-pct}% — you could plan a little more into a day."
+    // ── X7 · insights feed — what your data noticed (Z1 why · Z2 dismiss · Z3 confidence) ──────────
+    /** [key] is stable so Z2 can dismiss/snooze it; [why] shows Z1's working; [confidence] gates Z3. */
+    data class Insight(val key: String, val text: String, val why: String? = null, val confidence: String? = null)
+    fun insightsFeed(): List<Insight> {
+        val today = java.time.LocalDate.now(zone).toEpochDay()
+        val prefs = insightPrefs()
+        val out = ArrayList<Insight>()
+        fun add(i: Insight) { if (!prefs.suppressed(i.key, today)) out += i }
+
+        bestKeystone()?.let { (h, k) ->
+            val pct = Math.round(k.lift * 100).toInt()
+            val conf = if (k.withN >= 8 && k.withoutN >= 8) "High confidence" else "Early signal"
+            add(Insight("keystone", "On days you keep ‘${h.name}’, you finish ${pct}% more tasks.",
+                "Compared ${k.withN} days you kept it (avg ${fmt1(k.avgWith)} tasks) with ${k.withoutN} days you didn't (avg ${fmt1(k.avgWithout)}), over the last 60 days. This is a correlation, not proof that the habit causes the difference.", conf))
         }
-        focusPeakLabel()?.let { out += "You focus most between $it — a good window to protect for your hardest work." }
-        // Y7: the activity your estimates are most off on, from per-activity calibration.
+        val pa = planVsActualWeek()
+        pa.calibration?.let { cal -> if (kotlin.math.abs(cal - 1.0) >= 0.2) {
+            val pct = Math.round((cal - 1.0) * 100).toInt()
+            add(Insight("calibration",
+                if (cal > 1) "Your tasks take about ${pct}% longer than you estimate — the forecast corrects for it."
+                else "You beat your estimates by about ${-pct}% — you could plan a little more into a day.",
+                "The median actual-over-estimate ratio across ${pa.items.size} tasks this week that had both an estimate and tracked time.",
+                if (pa.items.size >= 6) "High confidence" else "Medium confidence"))
+        } }
+        focusPeakWindow()?.let { w -> add(Insight("peak",
+            "You focus most between ${hourLabel(w.startHour)}–${hourLabel(w.endHour)} — a good window to protect for your hardest work.",
+            "Summed your tracked minutes by hour over the last 30 days; that two-hour window held ${w.minutes} minutes, the most of any.", null)) }
         val actCal = calibrationByActivity()
-        if (actCal.size >= 2) {
-            val worst = actCal.maxByOrNull { kotlin.math.abs(it.value - 1.0) }
-            worst?.let { (actId, ratio) ->
-                val name = timeActivities.value.firstOrNull { it.id == actId }?.name
-                if (name != null && kotlin.math.abs(ratio - 1.0) >= 0.2) {
-                    val pct = Math.round((ratio - 1.0) * 100).toInt()
-                    out += if (pct > 0) "‘$name’ runs about ${pct}% over your estimate — the forecast now corrects it on its own."
-                           else "‘$name’ comes in about ${-pct}% under your estimate — the forecast now accounts for it."
-                }
+        if (actCal.size >= 2) actCal.maxByOrNull { kotlin.math.abs(it.value - 1.0) }?.let { (actId, ratio) ->
+            val name = timeActivities.value.firstOrNull { it.id == actId }?.name
+            if (name != null && kotlin.math.abs(ratio - 1.0) >= 0.2) {
+                val pct = Math.round((ratio - 1.0) * 100).toInt()
+                add(Insight("actcal",
+                    if (pct > 0) "‘$name’ runs about ${pct}% over your estimate — the forecast corrects it on its own."
+                    else "‘$name’ comes in about ${-pct}% under your estimate — the forecast accounts for it.",
+                    "From at least 3 ‘$name’ tasks with an estimate and tracked time in the last 4 weeks.", null))
             }
         }
-        crossTypeTagReport(7).firstOrNull()?.let { line ->
-            if (line.tag.isNotBlank())
-                out += "‘${line.tag}’ took the most of your week: ${line.minutes / 60}h ${line.minutes % 60}m, ${line.tasksDone} task${if (line.tasksDone == 1) "" else "s"}, ${line.habitDays} habit-day${if (line.habitDays == 1) "" else "s"}."
+        crossTypeTagReport(7).firstOrNull()?.let { line -> if (line.tag.isNotBlank())
+            add(Insight("area", "‘${line.tag}’ took the most of your week: ${line.minutes / 60}h ${line.minutes % 60}m, ${line.tasksDone} task${if (line.tasksDone == 1) "" else "s"}, ${line.habitDays} habit-day${if (line.habitDays == 1) "" else "s"}.",
+                "Tagged tracked time, completed tasks and kept habits over the last 7 days, grouped by tag.", null))
         }
-        seasonality()?.let { out += it }   // Y8
-        momentumLinks(60).firstOrNull()?.let { out += it }
-        return out.distinct().take(5)
+        seasonality()?.let { add(Insight("seasonality", it, "From tracked minutes per weekday over the last 8 weeks.", null)) }
+        momentumLinks(60).firstOrNull()?.let { add(Insight("link", it, "A conditional-rate correlation over the last 60 days. Not proof of cause.", null)) }
+        return out.distinctBy { it.key }.take(5)
     }
+
+    // ── Z2 · nudge control — dismiss / snooze / restore any insight ───────────────────────────────
+    fun insightPrefs(): com.todocompanion.app.domain.InsightPrefs = com.todocompanion.app.domain.InsightPrefsCodec.parse(settings.value.insightPrefsJson)
+    private fun saveInsightPrefs(p: com.todocompanion.app.domain.InsightPrefs) = viewModelScope.launch {
+        repo.saveSettings(settings.value.copy(insightPrefsJson = com.todocompanion.app.domain.InsightPrefsCodec.encode(p)))
+    }
+    fun dismissInsight(key: String) = saveInsightPrefs(insightPrefs().dismiss(key))
+    fun snoozeInsight(key: String, days: Int = 7) = saveInsightPrefs(insightPrefs().snooze(key, java.time.LocalDate.now(zone).toEpochDay() + days))
+    fun restoreInsight(key: String) = saveInsightPrefs(insightPrefs().restore(key))
+    fun isInsightSuppressed(key: String): Boolean = insightPrefs().suppressed(key, java.time.LocalDate.now(zone).toEpochDay())
 
     // ── X8 · day replay & one-tap backfill ────────────────────────────────────────────────────────
     data class ReplayBlock(val taskId: String, val title: String, val startMin: Int, val durMin: Int)
@@ -1699,8 +1729,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val start = dayStart + b.startMin * 60_000L
         val end = start + b.durMin * 60_000L
         val act = activityId ?: repo.ensureTaskActivity()
-        repo.addManualTimeEntry(act, start, end, note = "", taskId = b.taskId)
+        val id = java.util.UUID.randomUUID().toString()
+        repo.upsertTimeEntry(com.todocompanion.app.data.entity.TimeEntryEntity(id, act, start, end, "", b.taskId, null, System.currentTimeMillis()))
         refreshTimeWidget()
+        appendAction("backfill", "Logged ${b.durMin}m to ‘${b.title}’", "{\"entry\":\"$id\"}")   // Z6: undoable
         toast("Logged ${b.durMin}m to ‘${b.title}’")
     }
 
@@ -1847,6 +1879,117 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val names = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
         return "${names[hl.first - 1]}s are your heaviest tracked day; ${names[hl.second - 1]}s your lightest — plan the demanding work accordingly."
     }
+
+    // ══ Tier Z · the trustworthy assistant ═══════════════════════════════════════════════════════
+
+    // ── Z4 · morning brief ────────────────────────────────────────────────────────────────────────
+    fun setMorningBrief(enabled: Boolean, hour: Int) = viewModelScope.launch {
+        repo.saveSettings(settings.value.copy(morningBriefEnabled = enabled, morningBriefHour = hour.coerceIn(0, 23)))
+        if (enabled) com.todocompanion.app.reminders.AlarmScheduler.scheduleMorningBrief(appCtx, hour.coerceIn(0, 23))
+        else com.todocompanion.app.reminders.AlarmScheduler.cancelMorningBrief(appCtx)
+    }
+    /** The full in-app brief — richer than the notification: next action + forecast + one insight. */
+    fun morningBriefLines(): List<String> {
+        val out = ArrayList<String>()
+        rightNow()?.let { out += "▸ ${it.title} — ${it.subtitle}" }
+        dayForecast()?.let { f ->
+            out += if (f.willSlip == 0) "▸ All ${f.willFinish} remaining task${if (f.willFinish == 1) "" else "s"} fit today."
+            else "▸ ${f.willFinish} of ${f.total} tasks fit today — ${f.willSlip} may slip."
+        }
+        insightsFeed().firstOrNull()?.let { out += "▸ ${it.text}" }
+        return out
+    }
+
+    // ── Z6 · assistant action log & undo ──────────────────────────────────────────────────────────
+    fun assistantLog(): List<com.todocompanion.app.domain.AssistantAction> = com.todocompanion.app.domain.AssistantLog.parse(settings.value.assistantLogJson)
+    private suspend fun appendAction(kind: String, description: String, undo: String = "") {
+        val a = com.todocompanion.app.domain.AssistantAction(java.util.UUID.randomUUID().toString(), System.currentTimeMillis(), kind, description, undo)
+        val next = com.todocompanion.app.domain.AssistantLog.push(assistantLog(), a)
+        repo.saveSettings(settings.value.copy(assistantLogJson = com.todocompanion.app.domain.AssistantLog.encode(next)))
+    }
+    fun undoAction(a: com.todocompanion.app.domain.AssistantAction) = viewModelScope.launch {
+        if (!a.reversible) return@launch
+        val el = runCatching { kotlinx.serialization.json.Json.parseToJsonElement(a.undo) }.getOrNull()
+        val obj = el as? kotlinx.serialization.json.JsonObject
+        fun str(key: String): String? = (obj?.get(key) as? kotlinx.serialization.json.JsonPrimitive)?.content
+        when (a.kind) {
+            "backfill" -> str("entry")?.let { repo.deleteTimeEntry(it); refreshTimeWidget() }
+            "rhythm" -> {
+                val hid = str("habit"); val freq = str("freq") ?: "weekly"; val days = str("days") ?: ""
+                habits.value.firstOrNull { it.id == hid }?.let { repo.upsertHabit(it.copy(freqType = freq, scheduleDays = days)) }
+                com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
+            }
+            "plan" -> {
+                val dues = obj?.get("dues") as? kotlinx.serialization.json.JsonObject
+                dues?.forEach { (taskId, v) ->
+                    val old = (v as? kotlinx.serialization.json.JsonPrimitive)?.content?.toLongOrNull()
+                    repo.getTask(taskId)?.let { repo.saveTask(it.copy(dueDate = if (old == null || old == 0L) null else old)) }
+                }
+            }
+        }
+        val next = com.todocompanion.app.domain.AssistantLog.markUndone(assistantLog(), a.id)
+        repo.saveSettings(settings.value.copy(assistantLogJson = com.todocompanion.app.domain.AssistantLog.encode(next)))
+        toast("Undone")
+    }
+
+    // ── Z5 · you over time — monthly meta-metric snapshots ────────────────────────────────────────
+    fun metricSnapshots(): List<com.todocompanion.app.domain.MetricSnapshot> = com.todocompanion.app.domain.MetricSnapshots.parse(settings.value.metricSnapshotsJson)
+    fun recordMonthlySnapshotIfNeeded() = viewModelScope.launch {
+        val ym = java.time.YearMonth.now(zone).toString()
+        val list = metricSnapshots()
+        if (list.any { it.yearMonth == ym }) return@launch
+        val cal = planVsActualWeek().calibration?.let { Math.round((it - 1.0) * 100).toInt() }
+        val capH = trackedCapacityHours()
+        val ks = bestKeystone()?.let { Math.round(it.second.lift * 100).toInt() }
+        val bal = balanceBreakdown(30).firstOrNull()
+        val snap = com.todocompanion.app.domain.MetricSnapshot(ym, cal, capH, ks, bal?.area ?: "", bal?.let { (it.share * 100).toInt() })
+        // Only bother storing a month that actually has some signal.
+        if (cal == null && capH == null && ks == null && bal == null) return@launch
+        repo.saveSettings(settings.value.copy(metricSnapshotsJson = com.todocompanion.app.domain.MetricSnapshots.encode(com.todocompanion.app.domain.MetricSnapshots.upsert(list, snap))))
+    }
+
+    // ── Z7 · trust dashboard — the data that exists, all on this device ───────────────────────────
+    data class DataCounts(val tasks: Int, val habits: Int, val checkins: Int, val timeEntries: Int, val activities: Int, val focus: Int)
+    fun dataCounts() = DataCounts(tasks.value.size, habits.value.size, habitCheckins.value.size, timeEntries.value.size, timeActivities.value.size, focusSessions.value.size)
+
+    // ── Z8 · graded strength — an opt-in that gives partial days partial credit ───────────────────
+    /** Per-day fractional credit for build-habit days that were attempted but fell short of the goal. */
+    private fun gradedCreditFor(h: com.todocompanion.app.data.entity.HabitEntity, hc: List<com.todocompanion.app.data.entity.HabitCheckinEntity>): Map<Long, Double> {
+        if (h.habitType == "break") return emptyMap()
+        val target = h.targetPerDay.coerceAtLeast(1)
+        val hs = com.todocompanion.app.domain.habit.HabitStats
+        return hc.filter { it.status == "done" && !hs.meetsGoal(h, it.count) && it.count > 0 }
+            .associate { it.epochDay to (it.count.toDouble() / target).coerceIn(0.0, 0.99) }
+    }
+    /** The strength score honouring the graded-credit opt-in (Z8) when it's on. */
+    fun strengthOf(h: com.todocompanion.app.data.entity.HabitEntity): Int {
+        val hs = com.todocompanion.app.domain.habit.HabitStats
+        val hc = habitCheckins.value.filter { it.habitId == h.id }
+        val done = hc.filter { it.status == "done" && hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
+        val skip = hc.filter { it.status == "skip" }.map { it.epochDay }.toSet()
+        val relapse = hc.filter { hs.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
+        val today = java.time.LocalDate.now(zone).toEpochDay()
+        val graded = if (settings.value.gradedStrength) gradedCreditFor(h, hc) else emptyMap()
+        return hs.strength(h, done, skip, relapse, today, gradedCredit = graded)
+    }
+    /** Z8 preview — average strength across active build habits, binary vs graded, for the opt-in. */
+    fun gradedStrengthPreview(): Pair<Int, Int>? {
+        val hs = com.todocompanion.app.domain.habit.HabitStats
+        val today = java.time.LocalDate.now(zone).toEpochDay()
+        val active = habits.value.filter { !it.archived && !it.paused && it.habitType != "break" }
+        if (active.isEmpty()) return null
+        val binary = ArrayList<Int>(); val graded = ArrayList<Int>()
+        active.forEach { h ->
+            val hc = habitCheckins.value.filter { it.habitId == h.id }
+            val done = hc.filter { it.status == "done" && hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
+            val skip = hc.filter { it.status == "skip" }.map { it.epochDay }.toSet()
+            val relapse = hc.filter { hs.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
+            binary += hs.strength(h, done, skip, relapse, today)
+            graded += hs.strength(h, done, skip, relapse, today, gradedCredit = gradedCreditFor(h, hc))
+        }
+        return binary.average().toInt() to graded.average().toInt()
+    }
+    fun setGradedStrength(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(gradedStrength = on)) }
 
     fun addManualTimeEntry(activityId: String, startMillis: Long, endMillis: Long, note: String = "") = viewModelScope.launch {
         if (endMillis > startMillis) repo.addManualTimeEntry(activityId, startMillis, endMillis, note)

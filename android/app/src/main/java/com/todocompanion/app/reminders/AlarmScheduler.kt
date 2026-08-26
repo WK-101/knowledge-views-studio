@@ -27,6 +27,7 @@ object AlarmScheduler {
     const val ACTION_HABIT = "com.todocompanion.app.action.HABIT"
     const val ACTION_HABIT_DONE = "com.todocompanion.app.action.HABIT_DONE"
     const val ACTION_HABIT_SNOOZE = "com.todocompanion.app.action.HABIT_SNOOZE"
+    const val ACTION_MORNING = "com.todocompanion.app.action.MORNING"
 
     const val EXTRA_TASK_ID = "taskId"
     const val EXTRA_TITLE = "title"
@@ -41,6 +42,7 @@ object AlarmScheduler {
     private const val SUMMARY_REQ = 918_273
     private const val EVENING_REQ = 918_275
     private const val AUTOBACKUP_REQ = 918_277
+    private const val MORNING_REQ = 918_278
 
     fun triggerTimeFor(reminder: ReminderEntity, task: TaskEntity): Long? {
         val offset = (reminder.offsetMin ?: 0) * 60_000L
@@ -131,6 +133,18 @@ object AlarmScheduler {
     fun cancelEveningReview(context: Context) {
         val am = context.getSystemService(AlarmManager::class.java) ?: return
         am.cancel(broadcast(context, ACTION_EVENING, EVENING_REQ, emptyMap()))
+    }
+
+    // ---------- Z4 · morning brief ----------
+    fun scheduleMorningBrief(context: Context, hour: Int, zone: ZoneId = ZoneId.systemDefault()) {
+        val now = System.currentTimeMillis()
+        var next = LocalDate.now(zone).atTime(LocalTime.of(hour.coerceIn(0, 23), 0)).atZone(zone).toInstant().toEpochMilli()
+        if (next <= now) next += 86_400_000L
+        setAlarm(context, next, broadcast(context, ACTION_MORNING, MORNING_REQ, emptyMap()))
+    }
+    fun cancelMorningBrief(context: Context) {
+        val am = context.getSystemService(AlarmManager::class.java) ?: return
+        am.cancel(broadcast(context, ACTION_MORNING, MORNING_REQ, emptyMap()))
     }
 
     // ---------- automatic backup ----------

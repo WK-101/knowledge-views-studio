@@ -2,6 +2,7 @@ package com.todocompanion.app.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -105,14 +106,8 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
         // Habit strength (avg over active build habits). I5: gated to null when the Habits module is off,
         // so a disabled module never feeds the blend or shows a tile.
         val activeHabits = habits.filter { !it.archived }
-        val habitStrengthRaw = remember(habits, checkins, today) {
-            val vals = activeHabits.map { h ->
-                val hc = checkins.filter { it.habitId == h.id }
-                val done = hc.filter { it.status == "done" && HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
-                val skip = hc.filter { it.status == "skip" }.map { it.epochDay }.toSet()
-                val rel = hc.filter { HabitStats.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
-                HabitStats.strength(h, done, skip, rel, today)
-            }
+        val habitStrengthRaw = remember(habits, checkins, today, settings) {
+            val vals = activeHabits.map { h -> vm.strengthOf(h) }   // Z8: honours the graded-strength opt-in
             if (vals.isEmpty()) null else vals.average().toInt()
         }
         val habitStrength = if (habitsOn) habitStrengthRaw else null
@@ -167,6 +162,9 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
             Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
+            // Z5 — capture this month's meta-metric snapshot the first time the dashboard opens each month.
+            androidx.compose.runtime.LaunchedEffect(Unit) { vm.recordMonthlySnapshotIfNeeded() }
+
             // W2 — Right Now: the single next best action, with one tap to act.
             val rn = remember(tasks, habits, checkins, timeEntries) { vm.rightNow() }
             if (rn != null) Surface(
@@ -297,13 +295,17 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
             }
             if (showGoals) GoalsEditorDialog(vm) { showGoals = false }
 
-            // Y6 — anti-burnout radar: hours climbing while habit adherence falls. A caring, early signal.
-            val burnout = remember(timeEntries, habits, checkins) { vm.burnoutSignal() }
+            // Y6 — anti-burnout radar (Z2: dismissible). A caring, early signal you can silence.
+            val burnout = remember(timeEntries, habits, checkins, settings) { if (vm.isInsightSuppressed("burnout")) null else vm.burnoutSignal() }
             if (burnout != null) Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.errorContainer.copy(alpha = .55f)) {
                 Column(Modifier.padding(16.dp)) {
                     Text("A gentle heads-up", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
                     Spacer(Modifier.height(4.dp))
                     Text(burnout, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                    Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Snooze a week", Modifier.clickable { vm.snoozeInsight("burnout") }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                        Text("Dismiss", Modifier.clickable { vm.dismissInsight("burnout") }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                    }
                 }
             }
 
@@ -397,14 +399,32 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                 }
             }
 
-            // X7 — insights feed: the strongest cross-type pattern your data shows this week.
-            val insights = remember(tasks, habits, checkins, timeEntries) { vm.insightsFeed() }
+            // X7 — insights feed, now Tier-Z trustworthy: Z1 "why?", Z2 dismiss/snooze, Z3 confidence.
+            val insights = remember(tasks, habits, checkins, timeEntries, settings) { vm.insightsFeed() }
             if (insights.isNotEmpty()) AppCard {
                 Text("What your data noticed", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(2.dp))
-                insights.forEach { s ->
-                    Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.Top) {
-                        Text("✨"); Spacer(Modifier.width(8.dp)); Text(s, style = MaterialTheme.typography.bodyMedium)
+                insights.forEach { ins ->
+                    var showWhy by remember(ins.key) { mutableStateOf(false) }
+                    Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                        Row(verticalAlignment = Alignment.Top) {
+                            Text("✨"); Spacer(Modifier.width(8.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(ins.text, style = MaterialTheme.typography.bodyMedium)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    ins.confidence?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = if (it.startsWith("High")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) }
+                                    if (ins.why != null) {
+                                        if (ins.confidence != null) Text(" · ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(if (showWhy) "hide" else "why?", Modifier.clickable { showWhy = !showWhy }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                    Text(" · ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("snooze", Modifier.clickable { vm.snoozeInsight(ins.key) }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(" · ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("never", Modifier.clickable { vm.dismissInsight(ins.key) }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                if (showWhy && ins.why != null) Text(ins.why!!, Modifier.padding(top = 2.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
                     }
                 }
             }
@@ -600,6 +620,43 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                         cm?.setPrimaryClip(android.content.ClipData.newPlainText("Weekly review", txt))
                         android.widget.Toast.makeText(shareCtx, "Copied", android.widget.Toast.LENGTH_SHORT).show()
                     }) { Text("Copy") }
+                }
+            }
+
+            // Z5 — you over time: the trend of the cross-type meta-metrics across months.
+            val snaps = remember(settings) { vm.metricSnapshots() }
+            if (snaps.size >= 2) AppCard {
+                Text("You over time", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text("A monthly snapshot of the numbers only this app computes.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(8.dp))
+                @Composable fun trendRow(label: String, pick: (com.todocompanion.app.domain.MetricSnapshot) -> Int?, fmt: (Int) -> String) {
+                    val pts = snaps.mapNotNull { s -> pick(s)?.let { s.yearMonth to it } }
+                    if (pts.size < 2) return
+                    val first = pts.first().second; val last = pts.last().second
+                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                        Text("${fmt(first)} → ${fmt(last)}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                trendRow("Estimate calibration", { it.calibrationPct }, { "${if (it > 0) "+" else ""}$it%" })
+                trendRow("Real capacity", { it.capacityH }, { "${it}h/day" })
+                trendRow("Keystone lift", { it.keystoneLiftPct }, { "+$it%" })
+            }
+
+            // Z6 — what the assistant did: a plain, reversible log of actions taken on your behalf.
+            val log = remember(settings) { vm.assistantLog() }
+            if (log.isNotEmpty()) AppCard {
+                Text("What the assistant did", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text("Everything it does for you — visible, and reversible.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(6.dp))
+                log.take(5).forEach { a ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(if (a.undone) "↩ ${a.description}" else a.description, Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (a.undone) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        if (a.reversible) TextButton(onClick = { vm.undoAction(a) }) { Text("Undo") }
+                    }
                 }
             }
 

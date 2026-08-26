@@ -116,6 +116,32 @@ class ReminderReceiver : BroadcastReceiver() {
                 }
             }
 
+            AlarmScheduler.ACTION_MORNING -> {
+                if (app == null) return
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val zone = ZoneId.systemDefault()
+                        val today = Instant.now().atZone(zone).toLocalDate()
+                        val endToday = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+                        val open = app.repository.allTasksOnce().filter { !it.completed && !it.trashed && !it.abandoned && !it.isNote }
+                        val dueToday = open.filter { it.dueDate != null && it.dueDate!! < endToday }
+                        // The single most pressing task: highest importance+urgency, then earliest due.
+                        val top = dueToday.minWithOrNull(
+                            compareByDescending<com.todocompanion.app.data.entity.TaskEntity> { it.importance + it.urgency }.thenBy { it.dueDate ?: Long.MAX_VALUE }
+                        )
+                        val line = when {
+                            dueToday.isEmpty() -> "Nothing due today — a clear run. Open the app for your next best move."
+                            top != null -> "${dueToday.size} due today. Start with: ${top.title}."
+                            else -> "${dueToday.size} due today."
+                        }
+                        Notifications.showMorningBrief(context, line)
+                        val s = app.repository.settingsSnapshot()
+                        if (s.morningBriefEnabled) AlarmScheduler.scheduleMorningBrief(context, s.morningBriefHour)
+                    } finally { pending.finish() }
+                }
+            }
+
             AlarmScheduler.ACTION_AUTO_BACKUP -> {
                 if (app == null) return
                 val pending = goAsync()
@@ -226,6 +252,7 @@ class BootReceiver : BroadcastReceiver() {
                 val s = app.repository.settingsSnapshot()
                 if (s.dailySummaryEnabled) AlarmScheduler.scheduleDailySummary(context, s.dailySummaryHour, s.dailySummaryMinute)
                 if (s.eveningReviewEnabled) AlarmScheduler.scheduleEveningReview(context, s.eveningReviewHour)
+                if (s.morningBriefEnabled) AlarmScheduler.scheduleMorningBrief(context, s.morningBriefHour)
                 if (s.autoBackupEnabled && s.autoBackupFolder.isNotBlank()) AlarmScheduler.scheduleAutoBackup(context, s.autoBackupHour)
                 if (s.autoTrackPrompt) AlarmScheduler.scheduleTrackPrompts(context, app.repository)
             } finally { pending.finish() }

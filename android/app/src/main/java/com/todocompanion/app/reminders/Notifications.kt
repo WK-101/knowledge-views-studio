@@ -46,6 +46,22 @@ object Notifications {
     }
 
     const val EVENING_ID = 424244
+    const val MORNING_ID = 424245
+
+    /** Z4: the single daily "morning brief" — one calm note that opens the app for the full picture. */
+    fun showMorningBrief(context: Context, line: String) {
+        ensureChannel(context)
+        val n = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_menu_agenda)
+            .setContentTitle("Your morning brief")
+            .setContentText(line)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(line))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(openApp(context))
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(MORNING_ID, n) }
+    }
 
     fun showEvening(context: Context, leftover: Int) {
         ensureChannel(context)

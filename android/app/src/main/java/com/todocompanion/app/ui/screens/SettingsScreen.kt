@@ -499,6 +499,14 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 Toggle("Forgiving streaks", s.forgivingStreaks) { on -> vm.saveSettings(s.copy(forgivingStreaks = on)) }
                 Text("Tolerate the odd missed day (about one a week) instead of resetting to zero — consistency over brittle chains, so one slip never wipes weeks of momentum. (U8)",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                // Z8 — explain-and-opt-in migration: preview the before/after before changing scores.
+                Toggle("Count partial days toward strength", s.gradedStrength) { on -> vm.setGradedStrength(on) }
+                val preview = remember(s.gradedStrength) { vm.gradedStrengthPreview() }
+                Text(
+                    if (preview == null) "When on, a day you attempted but fell short of the goal earns partial credit toward the strength score, instead of counting as a miss."
+                    else "When on, a partially-met day earns partial credit instead of a miss. On your data, average strength would move ${preview.first}% → ${preview.second}%. Your call — it only changes once you turn it on.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -627,6 +635,19 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+            // Z4 — the morning brief: one calm daily note instead of scattered pings.
+            Toggle("Morning brief", s.morningBriefEnabled) { vm.setMorningBrief(it, s.morningBriefHour) }
+            if (s.morningBriefEnabled) {
+                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Brief time", Modifier.weight(1f))
+                    TextButton(onClick = { vm.setMorningBrief(true, (s.morningBriefHour - 1).coerceAtLeast(0)) }) { Text("−") }
+                    Text("%02d:00".format(s.morningBriefHour), Modifier.widthIn(min = 52.dp), textAlign = TextAlign.Center)
+                    TextButton(onClick = { vm.setMorningBrief(true, (s.morningBriefHour + 1).coerceAtMost(23)) }) { Text("+") }
+                }
+                Text("One note each morning: your next action, today's honest forecast, and one insight.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             Text("Reminder reliability", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 4.dp, bottom = 2.dp))
             Text("Android may delay or drop alarms to save battery. Grant these once so reminders fire on time.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
@@ -638,6 +659,24 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Toggle("Require unlock to open", s.appLockEnabled) { vm.saveSettings(s.copy(appLockEnabled = it)) }
             Text("Ask for your fingerprint, face or device PIN each time the app opens. All checks happen on-device.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+            // Z7 — the trust dashboard: make the zero-permission promise something you can see.
+            Text("Trust & your data", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(bottom = 2.dp))
+            listOf(
+                "0 network permission — the app cannot reach the internet.",
+                "0 location permission — it never asks where you are.",
+                "Everything lives only on this device.",
+            ).forEach { Text("✓ $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
+            val dc = remember(s) { vm.dataCounts() }
+            Spacer(Modifier.height(6.dp))
+            Text("On this device: ${dc.tasks} tasks · ${dc.habits} habits · ${dc.checkins} check-ins · ${dc.timeEntries} time entries · ${dc.activities} activities · ${dc.focus} focus sessions.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(8.dp))
+            Action("Export a full copy (JSON)") {
+                vm.exportToDownloads("json") { loc -> Toast.makeText(context, if (loc != null) "Saved to $loc" else "Couldn't save", Toast.LENGTH_SHORT).show() }
+            }
+            Text("To erase everything, export a copy first, then clear the app's storage in Android Settings or uninstall — because nothing is on a server, that removes every trace.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
         }
 
         SettingsGroup(Icons.Filled.Flag, "Flags", open["flags"] == true, { open["flags"] = open["flags"] != true }) {

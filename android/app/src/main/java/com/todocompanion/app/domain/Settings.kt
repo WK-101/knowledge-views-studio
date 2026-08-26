@@ -161,6 +161,17 @@ data class AppSettings(
     val goalsJson: String = "",
     // X3: plan against real tracked focus-hours (median) instead of the assumed dailyCapacityHours.
     val honestCapacity: Boolean = false,
+    // Z2: dismissed / snoozed assistant insights (per-key user control over nudges).
+    val insightPrefsJson: String = "",
+    // Z6: a bounded, undoable log of actions the assistant took on the user's behalf.
+    val assistantLogJson: String = "",
+    // Z5: monthly snapshots of the cross-type meta-metrics, for the "you over time" trend.
+    val metricSnapshotsJson: String = "",
+    // Z4: the single daily "morning brief" local notification.
+    val morningBriefEnabled: Boolean = false,
+    val morningBriefHour: Int = 8,
+    // Z8: opt-in — let a partially-met (graded) day earn partial credit toward the strength score.
+    val gradedStrength: Boolean = false,
 ) {
     /** Effective tier for an optional editor field: user override, else its built-in default. */
     fun editorTier(f: EditorField): Int = editorFieldTiers[f.id] ?: f.defaultTier
@@ -269,6 +280,12 @@ data class AppSettings(
         Keys.MUTED_LISTS to mutedLists.joinToString(","),
         Keys.GOALS to goalsJson,
         Keys.HONEST_CAPACITY to honestCapacity.toString(),
+        Keys.INSIGHT_PREFS to insightPrefsJson,
+        Keys.ASSISTANT_LOG to assistantLogJson,
+        Keys.METRIC_SNAPSHOTS to metricSnapshotsJson,
+        Keys.MORNING_BRIEF to morningBriefEnabled.toString(),
+        Keys.MORNING_BRIEF_HOUR to morningBriefHour.toString(),
+        Keys.GRADED_STRENGTH to gradedStrength.toString(),
     )
 
     object Keys {
@@ -362,6 +379,12 @@ data class AppSettings(
         const val MUTED_LISTS = "muted_lists"
         const val GOALS = "goals"
         const val HONEST_CAPACITY = "honest_capacity"
+        const val INSIGHT_PREFS = "insight_prefs"
+        const val ASSISTANT_LOG = "assistant_log"
+        const val METRIC_SNAPSHOTS = "metric_snapshots"
+        const val MORNING_BRIEF = "morning_brief"
+        const val MORNING_BRIEF_HOUR = "morning_brief_hour"
+        const val GRADED_STRENGTH = "graded_strength"
     }
 
     companion object {
@@ -446,6 +469,12 @@ data class AppSettings(
             mutedLists = (m[Keys.MUTED_LISTS] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             goalsJson = m[Keys.GOALS] ?: "",
             honestCapacity = m[Keys.HONEST_CAPACITY]?.toBoolean() ?: false,
+            insightPrefsJson = m[Keys.INSIGHT_PREFS] ?: "",
+            assistantLogJson = m[Keys.ASSISTANT_LOG] ?: "",
+            metricSnapshotsJson = m[Keys.METRIC_SNAPSHOTS] ?: "",
+            morningBriefEnabled = m[Keys.MORNING_BRIEF]?.toBoolean() ?: false,
+            morningBriefHour = m[Keys.MORNING_BRIEF_HOUR]?.toIntOrNull()?.coerceIn(0, 23) ?: 8,
+            gradedStrength = m[Keys.GRADED_STRENGTH]?.toBoolean() ?: false,
             dailySummaryEnabled = m[Keys.SUMMARY_ON]?.toBooleanStrictOrNull() ?: false,
             appBackground = m[Keys.APP_BG] ?: "none",
             dailyCapacityHours = m[Keys.CAPACITY]?.toIntOrNull()?.coerceIn(1, 16) ?: 8,

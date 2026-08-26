@@ -254,7 +254,10 @@ object HabitStats {
      * it recovers when you resume and decays when you lapse — the metric every specialist app leads
      * with, and one raw streaks can't express. Frequency-agnostic.
      */
-    fun strength(habit: HabitEntity, doneDays: Set<Long>, skipDays: Set<Long>, relapseDays: Set<Long>, today: Long, halfLifeDays: Double = 15.0): Int {
+    fun strength(
+        habit: HabitEntity, doneDays: Set<Long>, skipDays: Set<Long>, relapseDays: Set<Long>, today: Long,
+        halfLifeDays: Double = 15.0, gradedCredit: Map<Long, Double> = emptyMap(),
+    ): Int {
         val start = habit.startEpochDay()
         if (today < start) return 0
         val span = (today - start).coerceAtMost(730)      // cap at 2 years; older barely affects the EMA
@@ -262,7 +265,7 @@ object HabitStats {
         var expEma = 0.0; var actEma = 0.0
         var d = today - span
         while (d <= today) {
-            val (e, a) = sample(habit, d, doneDays, skipDays, relapseDays)
+            val (e, a) = sample(habit, d, doneDays, skipDays, relapseDays, gradedCredit)
             if (d in skipDays) { /* neutral: don't move either EMA */ } else {
                 expEma += alpha * (e - expEma)
                 actEma += alpha * (a - actEma)
@@ -273,16 +276,25 @@ object HabitStats {
         return ((actEma / expEma).coerceIn(0.0, 1.0) * 100).toInt()
     }
 
-    /** One day's (expected, actual) contribution for the strength EMA. */
-    private fun sample(habit: HabitEntity, day: Long, doneDays: Set<Long>, skipDays: Set<Long>, relapseDays: Set<Long>): Pair<Double, Double> {
+    /**
+     * One day's (expected, actual) contribution for the strength EMA. Z8: [gradedCredit] optionally
+     * gives a build-habit day that was attempted but fell short a fractional actual (0..1) instead of a
+     * flat 0 — but only when the day isn't already a full "done". Empty map = the original binary scoring,
+     * so every existing caller is unchanged.
+     */
+    private fun sample(
+        habit: HabitEntity, day: Long, doneDays: Set<Long>, skipDays: Set<Long>, relapseDays: Set<Long>,
+        gradedCredit: Map<Long, Double> = emptyMap(),
+    ): Pair<Double, Double> {
         if (habit.habitType == "break") {
             // Daily abstinence: expect 1 "clean" per day; a relapse scores 0.
             return 1.0 to (if (day in relapseDays) 0.0 else 1.0)
         }
+        fun actual(): Double = if (day in doneDays) 1.0 else gradedCredit[day]?.coerceIn(0.0, 1.0) ?: 0.0
         return when (habit.freqType) {
-            FREQ_TIMES_WEEK -> (habit.freqParam.coerceAtLeast(1) / 7.0) to (if (day in doneDays) 1.0 else 0.0)
-            FREQ_TIMES_MONTH -> (habit.freqParam.coerceAtLeast(1) / 30.0) to (if (day in doneDays) 1.0 else 0.0)
-            else -> if (isExpectedDay(habit, day)) 1.0 to (if (day in doneDays) 1.0 else 0.0) else 0.0 to 0.0
+            FREQ_TIMES_WEEK -> (habit.freqParam.coerceAtLeast(1) / 7.0) to actual()
+            FREQ_TIMES_MONTH -> (habit.freqParam.coerceAtLeast(1) / 30.0) to actual()
+            else -> if (isExpectedDay(habit, day)) 1.0 to actual() else 0.0 to 0.0
         }
     }
 
