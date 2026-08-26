@@ -101,6 +101,7 @@ class AppRepository(private val db: AppDatabase) {
 
     // ----- activity log (private, on-device audit trail) -----
     fun taskActivity(taskId: String): Flow<List<com.todocompanion.app.data.entity.ActivityEntity>> = activity.observeForTask(taskId)
+    val allActivity: Flow<List<com.todocompanion.app.data.entity.ActivityEntity>> = activity.observeAll()
     suspend fun getActivitiesOnce(): List<com.todocompanion.app.data.entity.ActivityEntity> = activity.getAll()
     private suspend fun logActivity(taskId: String, type: String, detail: String? = null) {
         activity.insert(com.todocompanion.app.data.entity.ActivityEntity(uid(), taskId, type, now(), detail))
@@ -298,6 +299,13 @@ class AppRepository(private val db: AppDatabase) {
         tasks.upsert(task.copy(completed = completed, completedAt = if (completed) now() else null, abandoned = false, updatedAt = now()))
         logActivity(task.id, if (completed) "completed" else "reopened")
     }
+
+    /**
+     * P1: a recurring task advances in place on completion (it never sits "completed"), so it would
+     * otherwise leave no completion record. Log one explicitly — the timestamped "completed" rows are
+     * what the reliability score and time-of-day rhythm read.
+     */
+    suspend fun logRecurringCompletion(taskId: String) = logActivity(taskId, "completed")
 
     suspend fun setAbandoned(task: TaskEntity, abandoned: Boolean) {
         tasks.upsert(task.copy(abandoned = abandoned, completed = false, updatedAt = now()))

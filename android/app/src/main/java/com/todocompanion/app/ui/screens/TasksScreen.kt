@@ -66,6 +66,7 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -74,6 +75,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
@@ -182,6 +184,17 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
         else -> null
     }?.takeIf { it.isNotBlank() }
 
+    // P5: celebrate finishing a goal or project — a milestone, like a habit reward unlocking.
+    val celebCtx = LocalContext.current
+    LaunchedEffect(Unit) {
+        vm.goalCelebration.collect { title ->
+            if (title != null) {
+                android.widget.Toast.makeText(celebCtx, "🎉 Milestone reached — “$title” done!", android.widget.Toast.LENGTH_LONG).show()
+                vm.goalCelebration.value = null
+            }
+        }
+    }
+
     Box(modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 6.dp, bottom = if (selectionMode) 120.dp else 100.dp)) {
             viewDescription?.let { desc -> item(key = "viewdesc") {
@@ -194,7 +207,10 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
             if ((view as? ViewRef.Smart)?.kind == SmartKind.NEXT7) item(key = "workload") { WorkloadStrip(vm) }
             // Fusion F1: today's still-due habits sit alongside tasks in Today / Do-Next.
             (view as? ViewRef.Smart)?.kind?.let { k ->
-                if (k == SmartKind.TODAY || k == SmartKind.DO_NEXT) item(key = "habitsdue") { HabitsDueStrip(vm) }
+                if (k == SmartKind.TODAY || k == SmartKind.DO_NEXT) {
+                    item(key = "recovery") { RecoveryStrip(vm) }   // P2: kind triage when overdue piles up
+                    item(key = "habitsdue") { HabitsDueStrip(vm) }
+                }
             }
             items(groups, key = { it.key }) { group ->
                 val open = collapsed[group.key] != true
@@ -470,6 +486,35 @@ private fun Modifier.androidx_pointerReorder(
 /** Compact 7-day workload forecast: each upcoming day's committed estimate against the daily
  *  capacity (Settings → Planning). Over-committed days show a red bar. Planning intelligence
  *  neither MLO nor TickTick offers — and it reuses the estimate every task already carries. */
+/**
+ * P2 — recovery mode for tasks: when overdue items pile into a wall of red, offer a kind two-tap way
+ * out instead of a guilt trip. Borrowed from the habit recovery card. Shows only past a small threshold.
+ */
+@Composable
+private fun RecoveryStrip(vm: AppViewModel) {
+    val tasks by vm.tasks.collectAsState()
+    val overdue = remember(tasks) { vm.overdueOpenTasks() }
+    if (overdue.size < 4) return
+    val ctx = LocalContext.current
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .7f)) {
+        Column(Modifier.padding(14.dp)) {
+            Text("${overdue.size} tasks are overdue — let's reset.", style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onTertiaryContainer)
+            Text("A pile-up isn't a verdict. Pull them to today, push to tomorrow, or open them one at a time.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer, modifier = Modifier.padding(top = 2.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 8.dp)) {
+                androidx.compose.material3.FilledTonalButton(onClick = {
+                    vm.rescheduleOverdue(toTomorrow = false) { n -> android.widget.Toast.makeText(ctx, "Moved $n to today", android.widget.Toast.LENGTH_SHORT).show() }
+                }) { Text("Bring to today") }
+                androidx.compose.material3.TextButton(onClick = {
+                    vm.rescheduleOverdue(toTomorrow = true) { n -> android.widget.Toast.makeText(ctx, "Pushed $n to tomorrow", android.widget.Toast.LENGTH_SHORT).show() }
+                }) { Text("Push to tomorrow") }
+            }
+        }
+    }
+}
+
 /** Fusion F1: the habits still due today, shown at the top of Today / Do-Next so they compete for
  *  attention with tasks. Tap a chip to complete it — the answer to "what now?" includes habits. */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)

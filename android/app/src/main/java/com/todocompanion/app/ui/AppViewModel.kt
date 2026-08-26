@@ -159,6 +159,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
         }.state(emptyMap())
 
+    // P1: reliability (0–100) for every recurring task, from the completion activity trail.
+    val taskReliability: StateFlow<Map<String, com.todocompanion.app.domain.task.TaskReliability.Reliability>> =
+        combine(wsTasks, repo.allActivity) { t, acts ->
+            val now = System.currentTimeMillis()
+            t.filter { !it.rrule.isNullOrBlank() && !it.trashed }
+                .mapNotNull { task -> com.todocompanion.app.domain.task.TaskReliability.score(task, acts, now, zone)?.let { task.id to it } }
+                .toMap()
+        }.state(emptyMap())
+
     private data class Cfg(val view: ViewRef, val group: GroupMode, val sort: SortMode, val prio: PriorityEngine.Config, val flags: List<FlagEntity>, val timeAvail: Int? = null, val energyAvail: Int? = null)
 
     /** "I have N minutes" planner: when set, Do-Next hides tasks whose estimate exceeds N. null = off. */
@@ -491,6 +500,27 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         onDone(accepted.size)
     }
 
+    /** P2: open tasks whose due date has already passed — the recovery-mode signal. */
+    fun overdueOpenTasks(): List<TaskEntity> {
+        val startToday = java.time.LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
+        return tasks.value.filter { !it.completed && !it.trashed && !it.abandoned && it.dueDate != null && it.dueDate!! < startToday }
+    }
+
+    /**
+     * P2 — recovery mode: bulk-move every overdue task to today or tomorrow, keeping its time of day.
+     * The kind way out of a wall-of-red pileup, borrowed from the habit recovery mode.
+     */
+    fun rescheduleOverdue(toTomorrow: Boolean, onDone: (Int) -> Unit = {}) = viewModelScope.launch {
+        val target = java.time.LocalDate.now(zone).plusDays(if (toTomorrow) 1 else 0)
+        val overdue = overdueOpenTasks()
+        overdue.forEach { t ->
+            val oldTime = java.time.Instant.ofEpochMilli(t.dueDate!!).atZone(zone).toLocalTime()
+            val newDue = target.atTime(oldTime).atZone(zone).toInstant().toEpochMilli()
+            repo.saveTask(t.copy(dueDate = newDue))
+        }
+        onDone(overdue.size)
+    }
+
     fun observeTask(id: String): Flow<TaskEntity?> = repo.observeTask(id)
 
     /** The private, on-device activity trail for one task (created / completed / rescheduled …). */
@@ -631,6 +661,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (nextDue != null) {
             val delta = nextDue - t.dueDate!!
             repo.saveTask(t.copy(dueDate = nextDue, startDate = t.startDate?.plus(delta), rrule = newRule, completed = false, completedAt = null))
+            repo.logRecurringCompletion(t.id)   // P1: record this occurrence so reliability can be scored
+            if (settings.value.completionSound) playCompletionChime()
             // Reset the subtasks of a recurring task per its chosen mode (all / only-if-all-done / keep).
             val kids = tasks.value.filter { it.parentId == t.id && !it.trashed }
             val doneKids = kids.filter { it.completed }
@@ -650,9 +682,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             if (!t.completed) {
                 undoEvents.tryEmit(UndoEvent(UndoKind.COMPLETED, t.id, "Completed “${t.title.take(30)}”"))
                 if (settings.value.completionSound) playCompletionChime()
+                // P5: finishing a goal or project is a milestone — mark it with a celebration, like a habit reward.
+                if (t.isGoal || t.isProject) goalCelebration.value = t.title.take(40)
             }
         }
     }
+
+    /** P5: a completed goal/project title, surfaced to the tasks screen for a confetti + toast moment. */
+    val goalCelebration = MutableStateFlow<String?>(null)
 
     /** A short, pleasant two-note chime on completing a task. Built-in tones — no bundled audio. */
     private fun playCompletionChime() = runCatching {

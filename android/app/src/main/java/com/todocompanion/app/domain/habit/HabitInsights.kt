@@ -216,6 +216,14 @@ object HabitInsights {
                 moves += BriefMove("🔥", "‘${h.name}’ is on a $s-day streak and still due today — lock it in first.", InsightAction.Open(h.id)) }
         // A stacking cue if one is strong.
         insights.firstOrNull { it.action is InsightAction.Stack }?.let { if (moves.none { m -> m.text == it.text }) moves += BriefMove(it.emoji, it.text, it.action) }
+        // P6: the coach reasons over the whole day — surface the task side too, not only habits.
+        run {
+            val startToday = java.time.LocalDate.ofEpochDay(today).atStartOfDay(zone).toInstant().toEpochMilli()
+            val open = tasks.filter { !it.completed && !it.trashed && !it.abandoned && it.dueDate != null }
+            val overdue = open.count { it.dueDate!! < startToday }
+            if (overdue >= 4 && moves.size < maxMoves)
+                moves += BriefMove("🌅", "$overdue tasks are overdue — Today has a two-tap reset waiting.")
+        }
         // Fill the rest from the ranked insights.
         for (i in insights) { if (moves.size >= maxMoves) break; if (moves.none { it.text == i.text }) moves += BriefMove(i.emoji, i.text, i.action) }
 

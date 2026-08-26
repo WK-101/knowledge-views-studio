@@ -174,6 +174,10 @@ interface ActivityDao {
     @Query("SELECT * FROM task_activity")
     suspend fun getAll(): List<com.todocompanion.app.data.entity.ActivityEntity>
 
+    // P1: observe the whole activity trail so a reliability score can react to new completions.
+    @Query("SELECT * FROM task_activity")
+    fun observeAll(): Flow<List<com.todocompanion.app.data.entity.ActivityEntity>>
+
     @Insert
     suspend fun insert(a: com.todocompanion.app.data.entity.ActivityEntity)
 

@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Segment
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.ui.platform.LocalContext
@@ -395,8 +396,21 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                                 }
                             }
                         }
-                    com.todocompanion.app.domain.EditorField.REPEAT ->
+                    com.todocompanion.app.domain.EditorField.REPEAT -> {
                         RepeatRow(task.rrule, hasChildren) { rule -> update { it.copy(rrule = rule) } }
+                        // P1: reliability — how consistently you actually keep this recurring commitment.
+                        val reliability by vm.taskReliability.collectAsState()
+                        reliability[task.id]?.let { rel ->
+                            Row(Modifier.fillMaxWidth().padding(start = 6.dp, end = 4.dp, top = 4.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Filled.TrendingUp, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(14.dp))
+                                Text("Reliability", style = MaterialTheme.typography.bodyMedium)
+                                Spacer(Modifier.weight(1f))
+                                val relColor = when { rel.score >= 80 -> MaterialTheme.colorScheme.primary; rel.score >= 50 -> MaterialTheme.colorScheme.tertiary; else -> MaterialTheme.colorScheme.error }
+                                Text("${rel.score}% · ${rel.kept}/${rel.expected} kept", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = relColor)
+                            }
+                        }
+                    }
 
                     com.todocompanion.app.domain.EditorField.REMINDERS ->
                      DetailSection("Reminders", if (myReminders.isEmpty()) null else "${myReminders.size}", myReminders.isNotEmpty()) {
