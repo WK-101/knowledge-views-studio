@@ -168,6 +168,28 @@ fun CalendarScreen(
             }
         }
     }
+
+    // Round 14: the "actual" spine — tracked time intervals drawn as a thin read-only rail beside the
+    // planned task/habit blocks (planned vs actual), gated by the Time module being on.
+    val timeEntries by vm.timeEntries.collectAsState()
+    val timeActivities by vm.timeActivities.collectAsState()
+    val timeActColor = timeActivities.associate { it.id to it.colorArgb }
+    val trackedBlocksFor: (LocalDate) -> List<TrackedBlock> = block@{ d ->
+        if (!com.todocompanion.app.domain.Modules.isEnabled(s, com.todocompanion.app.domain.Modules.TIME)) return@block emptyList()
+        val dayStart = d.atStartOfDay(zone).toInstant().toEpochMilli()
+        val dayEnd = d.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val now = System.currentTimeMillis()
+        timeEntries.mapNotNull { e ->
+            val end = e.endMillis ?: now
+            val lo = maxOf(e.startMillis, dayStart)
+            val hi = minOf(end, dayEnd)
+            if (hi <= lo) return@mapNotNull null
+            val startMin = ((lo - dayStart) / 60000L).toInt().coerceIn(0, 1439)
+            val durMin = ((hi - lo) / 60000L).toInt().coerceAtLeast(1)
+            val col = timeActColor[e.activityId]?.let { androidx.compose.ui.graphics.Color(it) }
+            TrackedBlock(startMin, durMin, col)
+        }
+    }
     val onOpenHabit: (String) -> Unit = { id -> vm.habitDetailId.value = id }
 
     val onResize: (String, Int) -> Unit = { id, dur -> vm.setDuration(id, dur) }
@@ -204,11 +226,11 @@ fun CalendarScreen(
                 })
             "week" -> {
                 val start = startOfWeek(anchor, firstDow)
-                TimelineView((0..6).map { start.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit)
+                TimelineView((0..6).map { start.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor)
             }
             "weekly" -> WeeklyView(startOfWeek(anchor, firstDow), dueByDate, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate)
-            "3day" -> TimelineView((0..2).map { anchor.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit)
-            "day" -> TimelineView(listOf(anchor), dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit)
+            "3day" -> TimelineView((0..2).map { anchor.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor)
+            "day" -> TimelineView(listOf(anchor), dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor)
             "year" -> YearView(anchor, dueByDate, onPrev = prev, onNext = next, onMonth = { m -> onAnchor(m.atDay(1)); onModeChange("month") }, onDay = { d -> onAnchor(d); onModeChange("day") })
             else -> AgendaView(dueByDate, onOpenTask, swipe)
         }
@@ -638,6 +660,7 @@ private fun TimelineView(
     onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, onAddOnDate: (LocalDate) -> Unit,
     onAddAt: (LocalDate, Int) -> Unit, onResize: (String, Int) -> Unit, onMoveAt: (LocalDate, String, Int) -> Unit,
     habitBlocksFor: (LocalDate) -> List<HabitBlock> = { emptyList() }, onOpenHabit: (String) -> Unit = {},
+    trackedBlocksFor: (LocalDate) -> List<TrackedBlock> = { emptyList() },
 ) {
     val allDayByDay = days.associateWith { d -> dueByDate[d].orEmpty().filter { it.isAllDay || !hasTime(it.dueDate!!, zone) } }
     val hasAllDay = allDayByDay.values.any { it.isNotEmpty() }
@@ -687,7 +710,7 @@ private fun TimelineView(
             days.forEach { d ->
                 val timed = dueByDate[d].orEmpty().filter { !it.isAllDay && hasTime(it.dueDate!!, zone) }
                 DayColumn(d, timed, zone, onOpenTask, onAddAt, onResize, onMoveAt = { id, min -> onMoveAt(d, id, min) },
-                    habitBlocks = habitBlocksFor(d), onOpenHabit = onOpenHabit, modifier = Modifier.weight(1f))
+                    habitBlocks = habitBlocksFor(d), onOpenHabit = onOpenHabit, trackedBlocks = trackedBlocksFor(d), modifier = Modifier.weight(1f))
             }
         }
     }
@@ -695,7 +718,7 @@ private fun TimelineView(
 
 @Composable
 private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onOpenTask: (String) -> Unit, onAddAt: (LocalDate, Int) -> Unit, onResize: (String, Int) -> Unit, onMoveAt: (String, Int) -> Unit,
-    habitBlocks: List<HabitBlock> = emptyList(), onOpenHabit: (String) -> Unit = {}, modifier: Modifier) {
+    habitBlocks: List<HabitBlock> = emptyList(), onOpenHabit: (String) -> Unit = {}, trackedBlocks: List<TrackedBlock> = emptyList(), modifier: Modifier) {
     val placed = remember(timed, zone) { layoutEvents(timed, zone) }
     val dens = LocalDensity.current
     val isToday = day == LocalDate.now()
@@ -710,9 +733,13 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onO
         },
     ) {
         val colW = maxWidth
+        // Round 14 — the "actual" spine: a thin read-only rail on the far left showing tracked time.
+        // When present it steals a few dp from the left so planned blocks sit just beside their actuals.
+        val railW = if (trackedBlocks.isEmpty()) 0.dp else 7.dp
+        val contentW = colW - railW
         // M1: when habit blocks share the column, tasks take the left ~60% and habits the right ~40%
         // so the two never collide and the task drag/resize math is otherwise unchanged.
-        val taskAreaW = if (habitBlocks.isEmpty()) colW else colW * 0.6f
+        val taskAreaW = if (habitBlocks.isEmpty()) contentW else contentW * 0.6f
         val habitColor = MaterialTheme.colorScheme.tertiary
         // Hour gridlines
         (0..24).forEach { h ->
@@ -734,7 +761,7 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onO
             val top = (HOUR_DP * liveStart / 60f).dp
             val h = ((HOUR_DP * liveDur / 60f).dp).coerceAtLeast(24.dp)
             Row(
-                Modifier.offset(x = laneW * p.lane + 1.dp, y = top).width(laneW - 1.dp).height(h - 2.dp)
+                Modifier.offset(x = railW + laneW * p.lane + 1.dp, y = top).width(laneW - 1.dp).height(h - 2.dp)
                     .clip(RoundedCornerShape(6.dp)).background(c.copy(alpha = if (dragging) 0.30f else 0.16f))
                     // Long-press then drag to move the block to another time; tap opens the task.
                     .pointerInput(p.task.id) {
@@ -755,7 +782,7 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onO
             }
             // Bottom resize grip: a comfortable full-width target; drag to change duration (snapped 15 min).
             Box(
-                Modifier.offset(x = laneW * p.lane + 1.dp, y = top + h - 16.dp).width(laneW - 1.dp).height(18.dp)
+                Modifier.offset(x = railW + laneW * p.lane + 1.dp, y = top + h - 16.dp).width(laneW - 1.dp).height(18.dp)
                     .pointerInput(p.task.id) {
                         detectVerticalDragGestures(
                             onDragStart = { dragging = true },
@@ -769,8 +796,8 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onO
         }
         // M1: habit blocks in the right lane — read-only, tap opens the habit. Distinct dotted-ish look.
         if (habitBlocks.isNotEmpty()) {
-            val habitAreaX = taskAreaW + 1.dp
-            val habitAreaW = colW - taskAreaW - 2.dp
+            val habitAreaX = railW + taskAreaW + 1.dp
+            val habitAreaW = contentW - taskAreaW - 2.dp
             habitBlocks.sortedBy { it.startMin }.forEach { hb ->
                 val col = hb.color ?: habitColor
                 val top = (HOUR_DP * hb.startMin / 60f).dp
@@ -788,6 +815,21 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onO
                 }
             }
         }
+        // Round 14 — the "actual" spine: each tracked interval as a thin colored segment on the far
+        // left rail. Read-only, no gestures — it sits beside the planned blocks so the eye can compare
+        // plan (task/habit blocks) against reality (what was actually tracked) at a glance.
+        if (trackedBlocks.isNotEmpty()) {
+            val railColor = MaterialTheme.colorScheme.secondary
+            trackedBlocks.forEach { tb ->
+                val col = tb.color ?: railColor
+                val top = (HOUR_DP * tb.startMin / 60f).dp
+                val hh = ((HOUR_DP * tb.durMin / 60f).dp).coerceAtLeast(2.dp)
+                Box(
+                    Modifier.offset(x = 1.dp, y = top).width(railW - 2.dp).height(hh)
+                        .clip(RoundedCornerShape(3.dp)).background(col.copy(alpha = 0.55f)),
+                )
+            }
+        }
         // Current-time line
         if (nowMin >= 0) {
             val y = (HOUR_DP * nowMin / 60f).dp
@@ -801,6 +843,11 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onO
 private data class HabitBlock(
     val id: String, val label: String, val color: androidx.compose.ui.graphics.Color?,
     val startMin: Int, val durMin: Int, val done: Boolean,
+)
+
+/** Round 14: one segment of the "actual" spine — a tracked time interval clamped to the day. */
+private data class TrackedBlock(
+    val startMin: Int, val durMin: Int, val color: androidx.compose.ui.graphics.Color?,
 )
 
 @Composable
