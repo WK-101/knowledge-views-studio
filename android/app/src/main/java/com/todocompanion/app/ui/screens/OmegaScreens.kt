@@ -1,5 +1,6 @@
 package com.todocompanion.app.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -142,6 +143,7 @@ private fun FlowRowCompat(content: @Composable () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecapScreen(vm: AppViewModel, initialStartDay: Long, initialEndDay: Long, initialTitle: String, onBack: () -> Unit) {
+    BackHandler(onBack = onBack)
     data class Preset(val title: String, val start: Long, val end: Long)
     val today = remember { LocalDate.now() }
     val td = today.toEpochDay()

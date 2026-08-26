@@ -54,6 +54,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Timer
 import com.todocompanion.app.domain.Modules
 import androidx.compose.material.icons.filled.BatteryChargingFull
@@ -155,6 +156,28 @@ private fun CompactBottomBar(tabs: List<Tab>, current: Tab, onSelect: (Tab) -> U
                     Icon(t.icon, t.label, tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(25.dp))
                 }
             }
+        }
+    }
+}
+
+/** A slim, persistent bar shown above the bottom nav on every tab while a timer runs — the running
+ *  activity, a live-ticking clock, tap to open Time, and a one-tap Stop. */
+@Composable
+private fun RunningTimerBar(vm: AppViewModel, onOpen: () -> Unit) {
+    val entries by vm.timeEntries.collectAsState()
+    val activities by vm.timeActivities.collectAsState()
+    val running = entries.firstOrNull { it.running } ?: return
+    val act = activities.firstOrNull { it.id == running.activityId }
+    val c = act?.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
+    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(running.id) { while (true) { now = System.currentTimeMillis(); kotlinx.coroutines.delay(1000) } }
+    val secs = ((now - running.startMillis) / 1000).coerceAtLeast(0)
+    androidx.compose.material3.Surface(color = c.copy(alpha = .16f), onClick = onOpen, modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(8.dp).clip(CircleShape).background(c)); Spacer(Modifier.width(10.dp))
+            Text((act?.emoji?.plus(" ") ?: "") + (act?.name ?: "Tracking"), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1)
+            Text("%d:%02d:%02d".format(secs / 3600, (secs % 3600) / 60, secs % 60), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = c)
+            IconButton(onClick = { vm.stopTimeTracking() }) { Icon(Icons.Filled.Stop, "Stop timer", tint = c) }
         }
     }
 }
@@ -577,7 +600,11 @@ fun AppRoot(
                         val moduleOk = m == null || Modules.isEnabled(settings, m)
                         moduleOk && (t == primaryHomeTab || t.name !in settings.bottomTabsHidden)
                     }
-                    CompactBottomBar(visibleTabs, tab) { tab = it }
+                    Column {
+                        // Persistent running-timer bar — visible on every tab while a timer runs.
+                        if (Modules.isEnabled(settings, Modules.TIME)) RunningTimerBar(vm, onOpen = { tab = Tab.TIME })
+                        CompactBottomBar(visibleTabs, tab) { tab = it }
+                    }
                 },
                 snackbarHost = {
                     androidx.compose.material3.SnackbarHost(snackbar) { data ->

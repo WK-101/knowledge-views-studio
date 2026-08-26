@@ -1175,6 +1175,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.startTimeTracking(id, stopFirst = !settings.value.multiTimer)
         com.todocompanion.app.reminders.AutomationRunner.onStart(appCtx, repo, id); refreshTimeWidget()
     }
+    /** Pin/unpin a time activity so it floats to the front of the one-tap tile grid. */
+    fun toggleActivityPin(id: String) = viewModelScope.launch {
+        val s = settings.value
+        val next = if (id in s.pinnedActivities) s.pinnedActivities - id else s.pinnedActivities + id
+        repo.saveSettings(s.copy(pinnedActivities = next))
+    }
+    /** Reassign the running (or any) time entry to a different activity — "start first, pick later". */
+    fun reassignTimeEntry(entryId: String, activityId: String) = viewModelScope.launch {
+        timeEntries.value.firstOrNull { it.id == entryId }?.let { repo.upsertTimeEntry(it.copy(activityId = activityId)); refreshTimeWidget() }
+    }
     /** U13: publish a launcher shortcut per activity ("Track: Deep work") that fires the track deep link. */
     fun refreshTrackShortcuts() = viewModelScope.launch {
         com.todocompanion.app.util.TrackShortcuts.refresh(appCtx, timeActivities.value.filter { !it.archived })

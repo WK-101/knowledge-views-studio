@@ -1,5 +1,6 @@
 package com.todocompanion.app.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -72,6 +73,7 @@ private fun sfmt(min: Int): String = when {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TimeStatsScreen(vm: AppViewModel, onBack: () -> Unit) {
+    BackHandler(onBack = onBack)   // system-back returns to the Time view, not out of the app
     val entries by vm.timeEntries.collectAsState()
     val activities by vm.timeActivities.collectAsState()
     val zone = remember { ZoneId.systemDefault() }

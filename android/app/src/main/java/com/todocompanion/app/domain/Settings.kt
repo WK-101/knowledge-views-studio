@@ -178,6 +178,8 @@ data class AppSettings(
     val firstWinCelebrated: Boolean = false,
     // PC4: discoverability tips the user has dismissed (per-key, so a hint never nags twice).
     val dismissedTips: Set<String> = emptySet(),
+    // Time tab: activity ids the user pinned — they float to the front of the one-tap tile grid.
+    val pinnedActivities: Set<String> = emptySet(),
 ) {
     /** Effective tier for an optional editor field: user override, else its built-in default. */
     fun editorTier(f: EditorField): Int = editorFieldTiers[f.id] ?: f.defaultTier
@@ -295,6 +297,7 @@ data class AppSettings(
         Keys.REDUCE_MOTION to reduceMotion.toString(),
         Keys.FIRST_WIN to firstWinCelebrated.toString(),
         Keys.DISMISSED_TIPS to dismissedTips.joinToString(","),
+        Keys.PINNED_ACTIVITIES to pinnedActivities.joinToString(","),
     )
 
     object Keys {
@@ -397,6 +400,7 @@ data class AppSettings(
         const val REDUCE_MOTION = "reduce_motion"
         const val FIRST_WIN = "first_win_celebrated"
         const val DISMISSED_TIPS = "dismissed_tips"
+        const val PINNED_ACTIVITIES = "pinned_activities"
     }
 
     companion object {
@@ -490,6 +494,7 @@ data class AppSettings(
             reduceMotion = m[Keys.REDUCE_MOTION]?.toBoolean() ?: false,
             firstWinCelebrated = m[Keys.FIRST_WIN]?.toBoolean() ?: false,
             dismissedTips = (m[Keys.DISMISSED_TIPS] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
+            pinnedActivities = (m[Keys.PINNED_ACTIVITIES] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             dailySummaryEnabled = m[Keys.SUMMARY_ON]?.toBooleanStrictOrNull() ?: false,
             appBackground = m[Keys.APP_BG] ?: "none",
             dailyCapacityHours = m[Keys.CAPACITY]?.toIntOrNull()?.coerceIn(1, 16) ?: 8,

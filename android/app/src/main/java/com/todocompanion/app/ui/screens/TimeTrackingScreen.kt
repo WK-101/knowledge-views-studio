@@ -2,7 +2,9 @@ package com.todocompanion.app.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +41,8 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import com.todocompanion.app.domain.TimeInsights
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
@@ -88,7 +92,7 @@ private fun fmtDur(min: Int): String = when {
  * tap again to stop. A day's entries render as a timeline with per-activity totals, and past intervals
  * can be added or removed by hand. Entirely offline; every entry lands in the lossless backup.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean = false) {
     // T0: as a bottom-nav tab (embedded), there is no back — the tab bar handles navigation.
@@ -125,6 +129,8 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
     var editActivity by remember { mutableStateOf<TimeActivityEntity?>(null) }
     var showManual by remember { mutableStateOf(false) }
     var editEntry by remember { mutableStateOf<TimeEntryEntity?>(null) }
+    var tileMenu by remember { mutableStateOf<String?>(null) }        // activity id whose long-press menu is open
+    var reassignFor by remember { mutableStateOf<String?>(null) }     // running entry id being reassigned
 
     if (showNewActivity) ActivityDialog(null, onDismiss = { showNewActivity = false }) { name, emoji, color, goal ->
         vm.createTimeActivity(name, emoji, color, goal); showNewActivity = false
@@ -161,30 +167,28 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
     LaunchedEffect(addReq) { if (addReq != lastAddReq) { lastAddReq = addReq; onAddEntry() } }
 
     val body: @Composable (Modifier) -> Unit = { bodyModifier ->
-        Column(bodyModifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(bodyModifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Spacer(Modifier.height(if (embedded) 8.dp else 2.dp))
-            // Running banner(s) — U15 multi-timer aware, U3 pause/resume.
-            if (runningList.isEmpty()) {
-                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .4f)) {
+            // Running / paused card — only shown while a timer is active or paused. When idle we show
+            // nothing here (the activity tiles below are the start affordance), so the screen stays lean.
+            val paused0 = paused
+            if (runningList.isEmpty() && paused0 != null) {
+                val pAct = actById[paused0.first]
+                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)) {
                     Row(Modifier.padding(16.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        val p = paused
-                        if (p != null) {
-                            val pAct = actById[p.first]
-                            Column(Modifier.weight(1f)) {
-                                Text("Paused", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text((pAct?.emoji?.plus(" ") ?: "") + (pAct?.name ?: "activity"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                            TextButton(onClick = { vm.clearPaused() }) { Text("Dismiss") }
-                            Spacer(Modifier.width(4.dp))
-                            FilledTonalButton(onClick = { vm.resumeTracking() }) {
-                                Icon(Icons.Filled.PlayArrow, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Resume")
-                            }
-                        } else {
-                            Text("Not tracking — tap an activity to start.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Column(Modifier.weight(1f)) {
+                            Text("Paused", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text((pAct?.emoji?.plus(" ") ?: "") + (pAct?.name ?: "activity"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        TextButton(onClick = { vm.clearPaused() }) { Text("Dismiss") }
+                        Spacer(Modifier.width(4.dp))
+                        FilledTonalButton(onClick = { vm.resumeTracking() }) {
+                            Icon(Icons.Filled.PlayArrow, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Resume")
                         }
                     }
                 }
-            } else {
+            }
+            if (runningList.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     runningList.forEach { r ->
                         val rAct = actById[r.activityId]
@@ -192,10 +196,18 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                         Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = rc.copy(alpha = .14f)) {
                             Row(Modifier.padding(16.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                 Box(Modifier.size(12.dp).clip(CircleShape).background(rc)); Spacer(Modifier.width(12.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text((rAct?.emoji?.plus(" ") ?: "") + (rAct?.name ?: "—"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    val elapsed = ((now - r.startMillis) / 1000).coerceAtLeast(0)
-                                    Text("%d:%02d:%02d".format(elapsed / 3600, (elapsed % 3600) / 60, elapsed % 60), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                Box(Modifier.weight(1f)) {
+                                    // Tap the activity name to reassign — "start first, pick the activity later".
+                                    Column(Modifier.clickable { reassignFor = r.id }) {
+                                        Text((rAct?.emoji?.plus(" ") ?: "") + (rAct?.name ?: "Tap to pick activity") + "  ▾", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        val elapsed = ((now - r.startMillis) / 1000).coerceAtLeast(0)
+                                        Text("%d:%02d:%02d".format(elapsed / 3600, (elapsed % 3600) / 60, elapsed % 60), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                    DropdownMenu(expanded = reassignFor == r.id, onDismissRequest = { reassignFor = null }) {
+                                        activities.filter { !it.archived }.forEach { a ->
+                                            DropdownMenuItem(text = { Text((a.emoji?.plus(" ") ?: "") + a.name) }, onClick = { reassignFor = null; vm.reassignTimeEntry(r.id, a.id) })
+                                        }
+                                    }
                                 }
                                 if (runningList.size == 1) {
                                     IconButton(onClick = { vm.pauseTracking() }) { Icon(Icons.Filled.Pause, "Pause") }
@@ -226,35 +238,75 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                 }
             }
 
-            // Activity tiles — one tap to start / stop.
-            Text("Activities", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                activities.filter { !it.archived }.forEach { a ->
-                    val isRun = runningList.any { it.activityId == a.id }
-                    val c = a.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
-                    Surface(
-                        onClick = { if (isRun) runningList.filter { it.activityId == a.id }.forEach { vm.stopTimeEntry(it.id) } else vm.startTimeTracking(a.id) },
-                        shape = RoundedCornerShape(14.dp),
-                        color = if (isRun) c.copy(alpha = .22f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f),
-                        border = if (isRun) androidx.compose.foundation.BorderStroke(1.5.dp, c) else null,
-                    ) {
-                        Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(10.dp).clip(CircleShape).background(c)); Spacer(Modifier.width(8.dp))
-                            Text((a.emoji?.plus(" ") ?: "") + a.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1)
-                        }
-                    }
+            // Activity tiles — a one-tap grid (tap starts/stops instantly, no dialog; long-press a tile
+            // to pin, edit or delete). Pinned activities float to the front so the ones you use most are
+            // always first — the low-decision-fatigue core, à la Simple Time Tracker.
+            val liveActs = activities.filter { !it.archived }
+            if (liveActs.isEmpty()) {
+                com.todocompanion.app.ui.components.EmptyState(
+                    emoji = "⧗", title = "Track where time goes",
+                    body = "Add a few activities like Deep work, Reading or Exercise, then tap one to start the timer.",
+                    actionLabel = "＋ New activity", onAction = { showNewActivity = true },
+                )
+            } else {
+                Text("Activities", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val ordered = remember(liveActs, settings.pinnedActivities) {
+                    liveActs.sortedByDescending { it.id in settings.pinnedActivities }
                 }
-                Surface(onClick = { showNewActivity = true }, shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .3f)) {
-                    Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.Add, "New activity", modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("New")
+                // A plain 2-column grid (not lazy — we're inside a vertical scroll). `null` = the New tile.
+                (ordered + listOf<TimeActivityEntity?>(null)).chunked(2).forEach { pairRow ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        pairRow.forEach { a ->
+                            if (a == null) {
+                                Surface(onClick = { showNewActivity = true }, Modifier.weight(1f).height(60.dp),
+                                    shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .35f)) {
+                                    Row(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Spacer(Modifier.width(8.dp)); Text("New activity", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            } else {
+                                val isRun = runningList.any { it.activityId == a.id }
+                                val c = a.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
+                                val todayMin = totals.firstOrNull { it.activityId == a.id }?.minutes ?: 0
+                                val pinned = a.id in settings.pinnedActivities
+                                Box(Modifier.weight(1f)) {
+                                    Box(
+                                        Modifier.fillMaxWidth().height(60.dp).clip(RoundedCornerShape(16.dp))
+                                            .background(if (isRun) c.copy(alpha = .22f) else c.copy(alpha = .12f))
+                                            .then(if (isRun) Modifier.border(1.5.dp, c, RoundedCornerShape(16.dp)) else Modifier)
+                                            .combinedClickable(
+                                                onClick = { if (isRun) runningList.filter { it.activityId == a.id }.forEach { vm.stopTimeEntry(it.id) } else vm.startTimeTracking(a.id) },
+                                                onLongClick = { tileMenu = a.id },
+                                            ).padding(horizontal = 12.dp),
+                                        contentAlignment = Alignment.CenterStart,
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            if (a.emoji != null) Text(a.emoji!!, style = MaterialTheme.typography.titleMedium)
+                                            else Box(Modifier.size(12.dp).clip(CircleShape).background(c))
+                                            Spacer(Modifier.width(10.dp))
+                                            Column(Modifier.weight(1f)) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text(a.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                                                    if (pinned) { Spacer(Modifier.width(4.dp)); Text("★", style = MaterialTheme.typography.labelSmall, color = c) }
+                                                }
+                                                Text(if (isRun) "● running" else if (todayMin > 0) fmtDur(todayMin) + " today" else "tap to start",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = if (isRun) c else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                                            }
+                                        }
+                                    }
+                                    DropdownMenu(expanded = tileMenu == a.id, onDismissRequest = { tileMenu = null }) {
+                                        DropdownMenuItem(text = { Text(if (pinned) "Unpin" else "Pin to front") }, onClick = { tileMenu = null; vm.toggleActivityPin(a.id) })
+                                        DropdownMenuItem(text = { Text("Edit") }, onClick = { tileMenu = null; editActivity = a })
+                                    }
+                                }
+                            }
+                        }
+                        if (pairRow.size == 1) Spacer(Modifier.weight(1f))
                     }
                 }
             }
-            if (activities.isEmpty()) com.todocompanion.app.ui.components.EmptyState(
-                emoji = "⧗", title = "Track where time goes",
-                body = "Add a few activities like Deep work, Reading or Exercise, then tap one to start the timer.",
-                actionLabel = "＋ New activity", onAction = { showNewActivity = true },
-            )
 
             // Day navigator.
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -373,7 +425,30 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                 }
             }
 
-            // U12 · automations — "when I start X, do Y". Fully on-device.
+            // Timeline of the day's entries. Adding an entry is the ＋ floating button (shared FAB).
+            Text("Timeline", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (dayEntries.isEmpty()) {
+                Text("No time logged this day yet. Tap ＋ to add one.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                dayEntries.forEach { e ->
+                    val a = actById[e.activityId]
+                    val c = a?.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
+                    Surface(onClick = { editEntry = e }, shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+                        Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(10.dp).clip(CircleShape).background(c)); Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text((a?.emoji?.plus(" ") ?: "") + (a?.name ?: "—") + if (e.running) "  · running" else "", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                val startTxt = Instant.ofEpochMilli(e.startMillis).atZone(zone).format(timeFmt)
+                                val endTxt = e.endMillis?.let { Instant.ofEpochMilli(it).atZone(zone).format(timeFmt) } ?: "now"
+                                Text("$startTxt – $endTxt" + (e.note.takeIf { it.isNotBlank() }?.let { "  ·  $it" } ?: ""), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            Text(fmtDur(e.minutes(now)), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = c)
+                        }
+                    }
+                }
+            }
+
+            // Automations live at the bottom now (were floating mid-screen) — "when I start X, do Y".
             if (activities.isNotEmpty()) {
                 var showAuto by rememberSaveable { mutableStateOf(false) }
                 var addRule by remember { mutableStateOf(false) }
@@ -401,30 +476,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                     vm.saveAutomationRules(rules + rule); addRule = false
                 }
             }
-
-            // Timeline of the day's entries. Adding an entry is the ＋ floating button (shared FAB).
-            Text("Timeline", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (dayEntries.isEmpty()) {
-                Text("No time logged this day yet. Tap ＋ to add one.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 88.dp)) {
-                items(dayEntries, key = { it.id }) { e ->
-                    val a = actById[e.activityId]
-                    val c = a?.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
-                    Surface(onClick = { editEntry = e }, shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
-                        Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(10.dp).clip(CircleShape).background(c)); Spacer(Modifier.width(12.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text((a?.emoji?.plus(" ") ?: "") + (a?.name ?: "—") + if (e.running) "  · running" else "", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                val startTxt = Instant.ofEpochMilli(e.startMillis).atZone(zone).format(timeFmt)
-                                val endTxt = e.endMillis?.let { Instant.ofEpochMilli(it).atZone(zone).format(timeFmt) } ?: "now"
-                                Text("$startTxt – $endTxt" + (e.note.takeIf { it.isNotBlank() }?.let { "  ·  $it" } ?: ""), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                            Text(fmtDur(e.minutes(now)), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = c)
-                        }
-                    }
-                }
-            }
+            Spacer(Modifier.height(96.dp))   // FAB clearance
         }
     }
 
