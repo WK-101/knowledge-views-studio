@@ -1,8 +1,6 @@
 package com.todocompanion.app.ui.screens
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -38,7 +36,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -49,88 +46,92 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.todocompanion.app.ui.AppViewModel
-import com.todocompanion.app.reminders.AlarmScheduler
-import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.delay
 import java.time.LocalDate
 
+/**
+ * Focus is a MODE of time tracking, not a separate stopwatch. Pressing Start creates a *running*
+ * kind="focus" interval on the one timeline through [AppViewModel.startFocusSession], so a focus block is
+ * tracked time the instant it begins — it shows in the running-timer bar and the calendar, and every focus
+ * statistic is derived from those same intervals. The ring below is just a live lens over that running
+ * interval; Pause banks the elapsed segment and finalizes it, Resume opens a fresh one, and Finish closes
+ * the current one (crediting any linked habit through the normal finalize path). No second data store.
+ */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifier = Modifier) {
-    val sessions by vm.focusSessions.collectAsState()
     val tasks by vm.tasks.collectAsState()
-    val today = LocalDate.now().toEpochDay()
-    val todayMinutes = sessions.filter { it.epochDay == today }.sumOf { it.minutes }
-    val todayCount = sessions.count { it.epochDay == today }
-    val context = LocalContext.current
-
     val habits by vm.habits.collectAsState()
+    val timeEntries by vm.timeEntries.collectAsState()
+    val runningEntry by vm.runningFocus.collectAsState()
+    val today = LocalDate.now().toEpochDay()
+
+    // A running focus interval is the single source of truth for "am I focusing right now".
+    val running = runningEntry != null
+    val segmentStartMs = runningEntry?.startMillis ?: 0L
+
+    // The one-timeline view of focus, so "today" here matches the Time reports exactly.
+    val focusList = remember(timeEntries) { vm.focusViews() }
+    val todayMinutes = focusList.filter { it.epochDay == today }.sumOf { it.minutes }
+    val todayCount = focusList.count { it.epochDay == today }
+
     var pomo by remember { mutableStateOf(true) }
-    var pomoMin by remember { mutableIntStateOf(25) }          // configurable Pomodoro length
-    var focusTaskId by remember { mutableStateOf<String?>(null) } // the task this session is spent on
-    var focusHabitId by remember { mutableStateOf<String?>(null) } // Fusion F2: a habit this session credits
-    var running by remember { mutableStateOf(false) }
-    // Wall-clock model so the timer stays accurate across backgrounding / process death:
-    // baseElapsed = seconds banked before the current run segment; segmentStart = its wall-clock start.
-    var baseElapsed by remember { mutableIntStateOf(0) }
-    var segmentStart by remember { mutableLongStateOf(0L) }
-    var startMillis by remember { mutableLongStateOf(0L) }
+    var pomoMin by remember { mutableIntStateOf(25) }              // configurable Pomodoro length
+    var focusTaskId by remember { mutableStateOf<String?>(null) }  // the task this session is spent on
+    var focusHabitId by remember { mutableStateOf<String?>(null) } // a habit this session credits
+    // Seconds banked from earlier (paused) segments of THIS session; the live segment adds on top.
+    var bankedSec by remember { mutableIntStateOf(0) }
     var tick by remember { mutableIntStateOf(0) }
     val pomoSeconds = pomoMin * 60
 
-    fun elapsedNow(): Int = baseElapsed + if (running) ((System.currentTimeMillis() - segmentStart) / 1000L).toInt() else 0
+    fun elapsedNow(): Int = bankedSec + if (running && segmentStartMs > 0) ((System.currentTimeMillis() - segmentStartMs) / 1000L).toInt() else 0
 
-    // "Just start" hand-off: a task pre-selected from the detail screen lands here and auto-starts.
+    // Returning to the screen with a session already live (config change / re-nav): adopt its task/habit so
+    // the ring shows what's actually running rather than a blank picker.
+    LaunchedEffect(runningEntry?.id) {
+        val r = runningEntry
+        if (r != null && focusTaskId == null && focusHabitId == null) { focusTaskId = r.taskId; focusHabitId = r.habitId }
+    }
+
+    fun start(fresh: Boolean) {
+        if (fresh) bankedSec = 0
+        val target = if (pomo) pomoMin else 0
+        val remaining = if (pomo) (pomoSeconds - bankedSec).coerceAtLeast(1) else 0
+        vm.startFocusSession(activityId = null, targetMin = target, remainingSec = remaining, taskId = focusTaskId, habitId = focusHabitId)
+    }
+    fun pause() { bankedSec = elapsedNow(); vm.stopFocus() }
+    fun finish() { if (running) vm.stopFocus(); bankedSec = 0 }
+
+    // "Just start" hand-off: a task pre-selected from its detail screen lands here and auto-starts a session.
     val pendingFocus by vm.pendingFocusTaskId.collectAsState()
     LaunchedEffect(pendingFocus) {
         pendingFocus?.let { id ->
             focusTaskId = id; focusHabitId = null
             vm.pendingFocusTaskId.value = null
-            if (!running) {
-                running = true; baseElapsed = 0; segmentStart = System.currentTimeMillis(); startMillis = segmentStart
-                if (pomo) AlarmScheduler.scheduleFocusDone(context, System.currentTimeMillis() + pomoSeconds * 1000L)
-            }
+            if (!running) { bankedSec = 0; start(true) }
         }
     }
-    // Fusion F2: a habit pre-selected to Focus on — auto-starts, and its minutes auto-log on finish.
+    // A habit pre-selected to Focus on — auto-starts, its minutes auto-log on finish via the linked activity.
     val pendingHabit by vm.pendingFocusHabitId.collectAsState()
     LaunchedEffect(pendingHabit) {
         pendingHabit?.let { id ->
             focusHabitId = id; focusTaskId = null
             vm.pendingFocusHabitId.value = null
-            // A time habit ("meditate 10 min") seeds the Pomodoro length from its target.
             habits.firstOrNull { it.id == id }?.let { h -> if (h.unit?.startsWith("min") == true) pomoMin = h.targetPerDay.coerceIn(5, 90) }
-            if (!running) {
-                running = true; baseElapsed = 0; segmentStart = System.currentTimeMillis(); startMillis = segmentStart
-                if (pomo) AlarmScheduler.scheduleFocusDone(context, System.currentTimeMillis() + pomoMin * 60 * 1000L)
-            }
+            if (!running) { bankedSec = 0; start(true) }
         }
     }
 
-    fun finish() {
-        val e = elapsedNow()
-        val mins = if (pomo) (minOf(e, pomoSeconds) / 60) else (e / 60)
-        if (mins >= 1) {
-            // T1: pass the habit too so a Focus session is mirrored onto the one timeline (when Time is on).
-            vm.recordFocus(startMillis, mins, if (pomo) "pomo" else "stopwatch", focusTaskId, focusHabitId)
-            focusHabitId?.let { vm.logHabitFocus(it, mins) }   // credit the linked habit's check-in
-
-        }
-        running = false; baseElapsed = 0
-        AlarmScheduler.cancelFocusDone(context)
+    // Deep-work coach: one-tap start of a Pomodoro of [min] minutes on a chosen task.
+    fun startCoach(taskId: String?, min: Int) {
+        focusTaskId = taskId; focusHabitId = null
+        pomo = true; pomoMin = min.coerceIn(10, 90); bankedSec = 0
+        start(true)
     }
 
-    // Deep-work coach: start a Pomodoro of [min] minutes on a chosen task in one tap.
-    fun startFocus(taskId: String?, min: Int) {
-        focusTaskId = taskId
-        pomo = true; pomoMin = min.coerceIn(10, 90)
-        baseElapsed = 0; startMillis = System.currentTimeMillis(); segmentStart = startMillis; running = true
-        AlarmScheduler.scheduleFocusDone(context, startMillis + pomoMin * 60 * 1000L)
-    }
-
-    // Tick once a second to recompute from the wall clock; on returning from the background this
-    // re-syncs immediately, and a Pomodoro that elapsed while away auto-completes.
-    LaunchedEffect(running) {
+    // Tick each second to recompute the display from the wall clock; a Pomodoro that elapsed while away
+    // auto-completes (and the background alarm chimes independently).
+    LaunchedEffect(running, bankedSec) {
         while (running) {
             delay(1000)
             tick++
@@ -146,7 +147,7 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
     val focusTitle = focusTaskId?.let { id -> tasks.firstOrNull { it.id == id }?.title }
     var taskMenu by remember { mutableStateOf(false) }
 
-    val track = MaterialTheme.colorScheme.outlineVariant
+    val trackColor = MaterialTheme.colorScheme.outlineVariant
     val progress = if (pomo) (elapsed.toFloat() / pomoSeconds).coerceIn(0f, 1f) else ((elapsed % 60) / 60f)
 
     Column(modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -155,16 +156,16 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
             Spacer(Modifier.width(48.dp))
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 SingleChoiceSegmentedButtonRow {
-                    SegmentedButton(selected = pomo, onClick = { if (!running) { pomo = true; baseElapsed = 0 } }, shape = SegmentedButtonDefaults.itemShape(0, 2)) { Text("Pomodoro") }
-                    SegmentedButton(selected = !pomo, onClick = { if (!running) { pomo = false; baseElapsed = 0 } }, shape = SegmentedButtonDefaults.itemShape(1, 2)) { Text("Stopwatch") }
+                    SegmentedButton(selected = pomo, onClick = { if (!running && bankedSec == 0) { pomo = true } }, shape = SegmentedButtonDefaults.itemShape(0, 2)) { Text("Pomodoro") }
+                    SegmentedButton(selected = !pomo, onClick = { if (!running && bankedSec == 0) { pomo = false } }, shape = SegmentedButtonDefaults.itemShape(1, 2)) { Text("Stopwatch") }
                 }
             }
             androidx.compose.material3.IconButton(onClick = onOpenStats) { androidx.compose.material3.Icon(Icons.Filled.BarChart, "Statistics") }
         }
-        // ---- Deep-work coach (H4): today's focused minutes vs goal, streak, and a one-tap next block ----
+        // ---- Deep-work coach: today's focused minutes vs goal, streak, and a one-tap next block ----
         val dwSettings by vm.settings.collectAsState()
-        val coach = remember(sessions, dwSettings, tasks) { vm.deepWorkStatus() }
-        if (!running) {
+        val coach = remember(timeEntries, dwSettings, tasks) { vm.deepWorkStatus() }
+        if (!running && bankedSec == 0) {
             Spacer(Modifier.size(10.dp))
             androidx.compose.material3.Surface(
                 Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
@@ -194,7 +195,7 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
                                 Text("Next block", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Text(best.title.ifBlank { "Untitled" }, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                             }
-                            androidx.compose.material3.Button(onClick = { startFocus(best.id, coach.bestBlockMin) }) {
+                            androidx.compose.material3.Button(onClick = { startCoach(best.id, coach.bestBlockMin) }) {
                                 androidx.compose.material3.Icon(Icons.Filled.PlayArrow, null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(4.dp))
                                 Text("${coach.bestBlockMin}m")
@@ -204,7 +205,7 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
                 }
             }
         }
-        if (pomo && !running && elapsed == 0) {
+        if (pomo && !running && bankedSec == 0) {
             Spacer(Modifier.size(10.dp))
             androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf(15, 25, 45, 60).forEach { m ->
@@ -235,11 +236,11 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
                 }
             }
         }
-        // Estimate vs. actual for the linked task: how much has been focused against its estimate.
+        // Estimate vs. actual for the linked task: focused minutes (from the one timeline) against its estimate.
         focusTaskId?.let { id ->
             val t = tasks.firstOrNull { it.id == id }
             val estimate = t?.estimateMin
-            val logged = sessions.filter { it.taskId == id }.sumOf { it.minutes } + (if (running || elapsed > 0) elapsed / 60 else 0)
+            val logged = focusList.filter { it.taskId == id }.sumOf { it.minutes }
             if (estimate != null && estimate > 0) {
                 Spacer(Modifier.size(6.dp))
                 Column(Modifier.fillMaxWidth(0.8f)) {
@@ -267,7 +268,7 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
                     val inset = sw / 2
                     val arc = Size(size.width - sw, size.height - sw)
                     val off = Offset(inset, inset)
-                    drawArc(color = track, startAngle = -90f, sweepAngle = 360f, useCenter = false, topLeft = off, size = arc, style = Stroke(sw, cap = StrokeCap.Round))
+                    drawArc(color = trackColor, startAngle = -90f, sweepAngle = 360f, useCenter = false, topLeft = off, size = arc, style = Stroke(sw, cap = StrokeCap.Round))
                     drawArc(color = accent, startAngle = -90f, sweepAngle = 360f * progress, useCenter = false, topLeft = off, size = arc, style = Stroke(sw, cap = StrokeCap.Round))
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -282,23 +283,15 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Button(onClick = {
-                if (running) {
-                    baseElapsed = elapsedNow(); running = false; AlarmScheduler.cancelFocusDone(context)
-                } else {
-                    if (baseElapsed == 0) startMillis = System.currentTimeMillis()
-                    segmentStart = System.currentTimeMillis(); running = true
-                    if (pomo) AlarmScheduler.scheduleFocusDone(context, System.currentTimeMillis() + (pomoSeconds - baseElapsed) * 1000L)
-                }
-            }) {
-                Text(if (running) "Pause" else if (elapsed == 0) "Start" else "Resume")
+            Button(onClick = { if (running) pause() else start(bankedSec == 0) }) {
+                Text(if (running) "Pause" else if (bankedSec == 0) "Start" else "Resume")
             }
             if (elapsed > 0) OutlinedButton(onClick = { finish() }) { Text("Finish") }
-            if (elapsed > 0 && !running) OutlinedButton(onClick = { baseElapsed = 0 }) { Text("Reset") }
+            if (elapsed > 0 && !running) OutlinedButton(onClick = { bankedSec = 0 }) { Text("Reset") }
         }
         Spacer(Modifier.size(18.dp))
         Text("Today: ${todayMinutes} min · ${todayCount} session${if (todayCount == 1) "" else "s"}",
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("Keeps time in the background; you'll get a notification when a Pomodoro ends.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(top = 4.dp, bottom = 6.dp))
+        Text("Focus is tracked time — it shows on your timeline and counts once. Keeps running in the background; you'll get a notification when a Pomodoro ends.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(top = 4.dp, bottom = 6.dp))
     }
 }

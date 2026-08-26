@@ -488,7 +488,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 Toggle("Prompt to track time-blocks", s.autoTrackPrompt) { on ->
                     vm.saveSettings(s.copy(autoTrackPrompt = on)); vm.rescheduleTrackPrompts()
                 }
-                Text("When a time-blocked task's start time arrives, offer a one-tap “Start tracking”. (U2)",
+                Text("When a task with a start time (not an all-day task) reaches that time later today, a notification offers a one-tap “Start tracking”. Give a task a due date with a time to see it. Needs notifications + exact-alarm permission. (U2)",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Toggle("Account for my whole day", s.timelineFill) { on -> vm.saveSettings(s.copy(timelineFill = on)) }
                 Text("Timeline-fill mode: gaps between tracked blocks become tappable “what were you doing?” chips on the Time screen, so every part of the day is accounted for. (U5)",

@@ -278,11 +278,11 @@ class AppRepository(private val db: AppDatabase) {
      * entry is stopped first. Pass false (U15 multi-timer) to let activities overlap. Passing [startMillis]
      * (U5 timeline-fill) back-dates the start so the new block closes a gap since the last one ended.
      */
-    suspend fun startTimeTracking(activityId: String, taskId: String? = null, habitId: String? = null, stopFirst: Boolean = true, startMillis: Long? = null): String {
+    suspend fun startTimeTracking(activityId: String, taskId: String? = null, habitId: String? = null, stopFirst: Boolean = true, startMillis: Long? = null, kind: String = "manual"): String {
         if (stopFirst) stopTimeTracking()
         val id = uid()
         val start = startMillis ?: now()
-        timeTrack.upsertEntry(com.todocompanion.app.data.entity.TimeEntryEntity(id, activityId, start, null, "", taskId, habitId, now()))
+        timeTrack.upsertEntry(com.todocompanion.app.data.entity.TimeEntryEntity(id, activityId, start, null, "", taskId, habitId, now(), kind = kind))
         return id
     }
     /** All currently-running entries (multi-timer aware). */

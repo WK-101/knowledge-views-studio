@@ -42,9 +42,13 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import com.todocompanion.app.domain.TimeInsights
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SelectableDates
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
@@ -106,15 +110,18 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
 
     val settings by vm.settings.collectAsState()
     val paused by vm.pausedTrack.collectAsState()
-    // A one-second tick so the running timer counts up live.
+    // A live clock so the running timer counts up AND the untracked-time / "since your last entry" gaps
+    // keep advancing even when nothing is running (previously `now` froze whenever no timer was live, so
+    // untracked time looked "stuck"). Ticks every second while tracking, every 20s when idle.
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     val runningList = entries.filter { it.running }
     val running = runningList.firstOrNull()
-    LaunchedEffect(runningList.size) {
-        while (runningList.isNotEmpty()) { now = System.currentTimeMillis(); delay(1000) }
+    LaunchedEffect(runningList.isNotEmpty()) {
+        while (true) { now = System.currentTimeMillis(); delay(if (runningList.isNotEmpty()) 1000 else 20_000) }
     }
 
     var day by remember { mutableStateOf(LocalDate.now(zone)) }
+    var showDatePicker by remember { mutableStateOf(false) }
     // The Time view can summarise a Day, a Week or a Month — the totals, tiles and insights all follow
     // this window (not just day-by-day). 0 = day · 1 = week (Mon-anchored) · 2 = month.
     var rangeUnit by rememberSaveable { mutableStateOf(0) }
@@ -142,6 +149,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
     var editEntry by remember { mutableStateOf<TimeEntryEntity?>(null) }
     var tileMenu by remember { mutableStateOf<String?>(null) }        // activity id whose long-press menu is open
     var reassignFor by remember { mutableStateOf<String?>(null) }     // running entry id being reassigned
+    var nestFor by remember { mutableStateOf<String?>(null) }         // activity id being (re)nested from the grid
     var gapInit by remember { mutableStateOf<Pair<Int, Int>?>(null) } // start/end minutes to prefill the manual dialog with
 
     if (showNewActivity) ActivityDialog(null, onDismiss = { showNewActivity = false }) { name, emoji, color, goal ->
@@ -166,10 +174,40 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
             vm.updateTimeActivity(a.copy(name = name, emoji = emoji, colorArgb = color, goalMinutesPerDay = goal)); editActivity = null
         }
     }
+    nestFor?.let { cid ->
+        val child = activities.firstOrNull { it.id == cid }
+        val candidates = activities.filter { !it.archived && it.id != cid && settings.timeActivityParents[it.id] != cid }
+        val cur = settings.timeActivityParents[cid]
+        AlertDialog(
+            onDismissRequest = { nestFor = null },
+            title = { Text("Nest “${child?.name ?: "activity"}” under") },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    Surface(onClick = { vm.setActivityParent(cid, null); nestFor = null }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp),
+                        color = if (cur == null) MaterialTheme.colorScheme.primary.copy(alpha = .14f) else Color.Transparent) {
+                        Text("↥ Top level", Modifier.padding(horizontal = 12.dp, vertical = 12.dp))
+                    }
+                    candidates.forEach { p ->
+                        Surface(onClick = { vm.setActivityParent(cid, p.id); nestFor = null }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp),
+                            color = if (cur == p.id) MaterialTheme.colorScheme.primary.copy(alpha = .14f) else Color.Transparent) {
+                            Text((p.emoji?.plus(" ") ?: "") + p.name, Modifier.padding(horizontal = 12.dp, vertical = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { nestFor = null }) { Text("Close") } },
+        )
+    }
     if (showManual) ManualEntryDialog(activities, day, zone,
         initialStartMin = gapInit?.first ?: 9 * 60, initialEndMin = gapInit?.second ?: 10 * 60,
         onDismiss = { showManual = false; gapInit = null }) { actId, start, end ->
         vm.addManualTimeEntry(actId, start, end); showManual = false; gapInit = null
+    }
+    // Themed Compose date picker (replaces the OS DatePickerDialog, which ignored the app's theme/language).
+    if (showDatePicker) ThemedDatePicker(initial = day, zone = zone, onDismiss = { showDatePicker = false }) { picked ->
+        val t = LocalDate.now(zone)
+        day = if (picked.isAfter(t)) t else picked
+        showDatePicker = false
     }
     editEntry?.let { e ->
         EditEntryDialog(e, activities.filter { !it.archived }, zone, onDismiss = { editEntry = null },
@@ -368,6 +406,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                                     }
                                     DropdownMenu(expanded = tileMenu == a.id, onDismissRequest = { tileMenu = null }) {
                                         DropdownMenuItem(text = { Text(if (pinned) "Unpin" else "Pin to front") }, onClick = { tileMenu = null; vm.toggleActivityPin(a.id) })
+                                        if (liveActs.size > 1) DropdownMenuItem(text = { Text("Nest under…") }, onClick = { tileMenu = null; nestFor = a.id })
                                         DropdownMenuItem(text = { Text("Edit") }, onClick = { tileMenu = null; editActivity = a })
                                     }
                                 }
@@ -390,7 +429,6 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                 }
             }
             // Period navigator — tap the label to jump to any date; ‹ › shift by the chosen unit.
-            val navCtx = androidx.compose.ui.platform.LocalContext.current
             val today0 = LocalDate.now(zone)
             val canNext = winEndDate <= today0
             val periodLabel = when (rangeUnit) {
@@ -402,14 +440,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                 IconButton(onClick = { day = when (rangeUnit) { 1 -> day.minusWeeks(1); 2 -> day.minusMonths(1); else -> day.minusDays(1) } }) { Icon(Icons.Filled.ChevronLeft, "Previous") }
                 Text(
                     "$periodLabel · ${fmtDur(dayTotalMin)}" + (if (rangeUnit == 0) "  ▾" else ""),
-                    Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable {
-                        android.app.DatePickerDialog(navCtx, { _, y, m, dom ->
-                            val picked = LocalDate.of(y, m + 1, dom)
-                            day = if (picked.isAfter(today0)) today0 else picked
-                        }, day.year, day.monthValue - 1, day.dayOfMonth).apply {
-                            datePicker.maxDate = System.currentTimeMillis()
-                        }.show()
-                    }.padding(vertical = 6.dp),
+                    Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable { showDatePicker = true }.padding(vertical = 6.dp),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
                 )
@@ -530,7 +561,9 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
             // U5 · "account for my whole day" — when Timeline-fill is on, the holes between what you did
             // log surface as tappable chips so no stretch goes unexplained. Off by default (a Settings toggle).
             if (settings.timelineFill && !multiDay) {
-                val gaps = remember(entries, day, rangeUnit, now) { TimeInsights.untrackedGaps(entries, winStart, winEnd, now) }
+                // For today, surface the live trailing gap ("nothing tracked since …") up to now, too.
+                val trailingTo = if (day == LocalDate.now(zone)) now else null
+                val gaps = remember(entries, day, rangeUnit, now) { TimeInsights.untrackedGaps(entries, winStart, winEnd, now, trailingTo = trailingTo) }
                 if (gaps.isNotEmpty()) {
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         gaps.forEach { g ->
@@ -641,8 +674,11 @@ private fun ActivityDialog(
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 com.todocompanion.app.ui.components.AppTextField(name, { name = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(8.dp))
-                com.todocompanion.app.ui.components.AppTextField(emoji, { emoji = it.take(2) }, label = { Text("Emoji (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(10.dp))
+                // Full emoji picker (same one habits use), so activities get proper icon selection everywhere.
+                Text("Icon", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(4.dp))
+                com.todocompanion.app.ui.components.EmojiGridPicker(current = emoji.ifBlank { null }, onPick = { emoji = it ?: "" })
                 Spacer(Modifier.height(8.dp))
                 // T4: an optional daily time goal (minutes). Progress is computed from tracked intervals.
                 com.todocompanion.app.ui.components.AppTextField(goal, { v -> goal = v.filter { it.isDigit() }.take(4) }, label = { Text("Daily goal (minutes, optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -866,4 +902,36 @@ internal fun EditEntryDialog(entry: TimeEntryEntity, activities: List<TimeActivi
             }
         },
     )
+}
+
+/**
+ * A Material 3, fully theme-aware date picker for the Time view's day/week/month navigator — it inherits
+ * the app's colours, shape and locale, unlike the OS DatePickerDialog it replaces (which the user rightly
+ * flagged as looking "completely different"). Future days are non-selectable since you can't have tracked
+ * time in the future. Dates are handled in UTC millis (the DatePicker contract) and converted back to a
+ * LocalDate on confirm.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ThemedDatePicker(initial: LocalDate, zone: ZoneId, onDismiss: () -> Unit, onPick: (LocalDate) -> Unit) {
+    val today = LocalDate.now(zone)
+    val endExclusive = today.plusDays(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+    val state = rememberDatePickerState(
+        initialSelectedDateMillis = initial.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli(),
+        selectableDates = object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long): Boolean = utcTimeMillis < endExclusive
+            override fun isSelectableYear(year: Int): Boolean = year <= today.year
+        },
+    )
+    androidx.compose.material3.DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = {
+                state.selectedDateMillis?.let { onPick(java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneOffset.UTC).toLocalDate()) } ?: onDismiss()
+            }) { Text("Select") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    ) {
+        DatePicker(state = state, showModeToggle = true, colors = DatePickerDefaults.colors())
+    }
 }

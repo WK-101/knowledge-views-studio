@@ -28,6 +28,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,7 +46,10 @@ import java.time.ZoneId
 fun StatisticsScreen(vm: AppViewModel, onBack: () -> Unit) {
     BackHandler { onBack() }
     val tasks by vm.tasks.collectAsState()
-    val focus by vm.focusSessions.collectAsState()
+    val timeEntries by vm.timeEntries.collectAsState()
+    val legacyFocus by vm.focusSessions.collectAsState()
+    // Focus stats derive from the one timeline (kind="focus" intervals), matching the Time reports.
+    val focus = remember(timeEntries, legacyFocus) { vm.focusViews() }
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
     val zone = ZoneId.systemDefault()

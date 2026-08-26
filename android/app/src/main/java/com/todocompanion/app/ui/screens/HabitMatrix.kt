@@ -212,14 +212,14 @@ private fun DayCell(
     val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
     val outline = MaterialTheme.colorScheme.outlineVariant
     val future = day > today
-    // Days before the habit began are not part of its history — draw them blank and make them untappable,
-    // so the grid never invites you to log time that predates the habit.
+    // Days before the habit began / in the future are not loggable, but they still draw a FAINT box so
+    // the grid always reads as a grid (blank-transparent cells made a fresh habit's whole row vanish).
     val preStart = day < h.startEpochDay()
     val cnt = checkin?.count ?: 0
     val skip = checkin?.status == "skip"
     val done = checkin?.status == "done" && HabitStats.meetsGoal(h, cnt)
     val bg = when {
-        future || preStart -> Color.Transparent
+        future || preStart -> surfaceVariant.copy(alpha = .12f)
         skip -> Color.Transparent
         done -> color
         cnt > 0 -> color.copy(alpha = .4f)

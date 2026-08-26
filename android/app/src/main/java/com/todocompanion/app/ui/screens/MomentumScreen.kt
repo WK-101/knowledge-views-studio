@@ -78,10 +78,13 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
     val tasks by vm.tasks.collectAsState()
-    val focus by vm.focusSessions.collectAsState()
     val reliability by vm.taskReliability.collectAsState()
     val settings by vm.settings.collectAsState()
     val timeEntries by vm.timeEntries.collectAsState()
+    val legacyFocus by vm.focusSessions.collectAsState()
+    // Focus is derived from the one timeline (kind="focus" intervals), so momentum reads the same source
+    // as the time reports — never a divergent second statistic.
+    val focus = remember(timeEntries, legacyFocus) { vm.focusViews() }
     val habitsOn = com.todocompanion.app.domain.Modules.isEnabled(settings, com.todocompanion.app.domain.Modules.HABITS)
     val tasksOn = com.todocompanion.app.domain.Modules.isEnabled(settings, com.todocompanion.app.domain.Modules.TASKS)
     val timeOn = com.todocompanion.app.domain.Modules.isEnabled(settings, com.todocompanion.app.domain.Modules.TIME)

@@ -147,19 +147,21 @@ object TimeInsights {
     data class Gap(val startMillis: Long, val endMillis: Long) { val minutes: Int get() = ((endMillis - startMillis) / 60_000L).toInt() }
 
     /**
-     * "Account for my whole day" (U5): the untracked gaps *between* the day's tracked intervals, so every
-     * part of the day can be filled in. We merge overlapping/adjacent tracked intervals (clamped to the
-     * window and to [now]) and return the holes between consecutive ones. Leading time before the first
-     * entry and trailing time after the last are deliberately excluded — those are usually sleep/off-hours,
-     * not forgotten tracking. Gaps shorter than [minGapMin] are ignored as noise.
+     * "Account for my whole day" (U5): the untracked gaps in the day so every part of it can be filled in.
+     * We merge overlapping/adjacent tracked intervals (clamped to the window and to [now]) and return the
+     * holes between consecutive ones. When [trailingTo] is given (today's `now`), the stretch from the last
+     * tracked interval up to that point is also returned — that's the live "you haven't tracked anything
+     * since 3pm" gap the previous version dropped, which made untracked time look like it wasn't updating.
+     * With trailing on, a single tracked interval is enough to surface a gap (the old code needed two).
+     * Leading time before the first entry is still excluded (usually sleep). Gaps under [minGapMin] are noise.
      */
-    fun untrackedGaps(entries: List<TimeEntryEntity>, winStart: Long, winEnd: Long, now: Long, minGapMin: Int = 10): List<Gap> {
+    fun untrackedGaps(entries: List<TimeEntryEntity>, winStart: Long, winEnd: Long, now: Long, minGapMin: Int = 10, trailingTo: Long? = null): List<Gap> {
         val ivals = entries.mapNotNull { e ->
             val s = maxOf(e.startMillis, winStart)
             val en = minOf(e.endMillis ?: now, winEnd)
             if (en > s) s to en else null
         }.sortedBy { it.first }
-        if (ivals.size < 2) return emptyList()
+        if (ivals.isEmpty()) return emptyList()
         // Merge, then read off the holes.
         val merged = ArrayList<Pair<Long, Long>>()
         var curS = ivals[0].first; var curE = ivals[0].second
@@ -171,6 +173,13 @@ object TimeInsights {
         val gaps = ArrayList<Gap>()
         for (i in 1 until merged.size) {
             val gs = merged[i - 1].second; val ge = merged[i].first
+            if (ge - gs >= minGapMin * 60_000L) gaps.add(Gap(gs, ge))
+        }
+        // Live trailing gap: from the last tracked interval up to `trailingTo` (clamped to the window).
+        if (trailingTo != null) {
+            val gs = merged.last().second
+            val ge = minOf(trailingTo, winEnd)
+            // A currently-running interval already reaches `now`, so this only fires when nothing is live.
             if (ge - gs >= minGapMin * 60_000L) gaps.add(Gap(gs, ge))
         }
         return gaps

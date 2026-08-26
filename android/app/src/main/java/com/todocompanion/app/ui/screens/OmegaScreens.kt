@@ -95,7 +95,7 @@ private val COMMAND_CATALOG: List<Pair<String, List<Pair<String, String>>>> = li
 fun CommandPaletteDialog(vm: AppViewModel, onDismiss: () -> Unit, onRun: (OmegaCommand.Command) -> Unit) {
     var text by remember { mutableStateOf("") }
     var answer by remember { mutableStateOf<String?>(null) }
-    var showAll by remember { mutableStateOf(true) }   // catalogue open by default — it replaced the starter chips
+    var showAll by remember { mutableStateOf(false) }   // catalogue folded by default; tap "All commands" to expand
     val focus = remember { FocusRequester() }
     val parsed = remember(text) { OmegaCommand.parse(text) }
 

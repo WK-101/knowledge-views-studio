@@ -77,6 +77,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -503,6 +504,7 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
     // Long-press a task in the agenda to drag it onto a day cell and reschedule. All coordinates in
     // window space so the finger, the cell bounds and the floating chip line up.
     var dragTask by remember { mutableStateOf<TaskEntity?>(null) }
+    var monthCollapsed by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     var pointer by remember { mutableStateOf(Offset.Zero) }
     var boxOrigin by remember { mutableStateOf(Offset.Zero) }
     val cellBounds = remember { mutableStateMapOf<LocalDate, Rect>() }
@@ -513,8 +515,16 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
             labels.forEach { d -> Text(d.getDisplayName(TextStyle.NARROW, Locale.getDefault()), Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
+        // Collapsible month (R17): drag the handle below up to shrink the month to just the week holding
+        // the selected day (giving the agenda more room), drag down to bring the whole month back — the
+        // Google-Calendar gesture. When collapsed we render only the selected day's week row.
+        val weeks = cells.chunked(7)
+        val selWeek = weeks.indexOfFirst { wk -> wk.any { it == selected } }
+            .let { if (it >= 0) it else weeks.indexOfFirst { wk -> wk.any { it == today } }.coerceAtLeast(0) }
+            .coerceIn(0, weeks.lastIndex)
+        val shownWeeks = if (monthCollapsed) listOf(weeks[selWeek]) else weeks
         Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp).swipeNav(onPrev, onNext)) {
-            cells.chunked(7).forEach { week ->
+            shownWeeks.forEach { week ->
                 Row(Modifier.fillMaxWidth()) {
                     week.forEach { date ->
                         val isToday = date == today
@@ -570,8 +580,19 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
                 }
             }
         }
-        Spacer(Modifier.size(6.dp))
-        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        // Drag handle: pull up to collapse the month to the selected week, pull down to expand. Tap toggles.
+        Box(
+            Modifier.fillMaxWidth()
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures { _, dy -> if (dy < -3f) monthCollapsed = true else if (dy > 3f) monthCollapsed = false }
+                }
+                .clickable { monthCollapsed = !monthCollapsed }
+                .padding(vertical = 5.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(Modifier.width(34.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.outlineVariant))
+        }
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 if (selected == today) "TODAY" else "${selected.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()).uppercase()} ${selected.dayOfMonth} ${selected.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()).uppercase()}",
                 Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -756,8 +777,18 @@ private fun TimelineView(
     // canPan=false lets one-finger vertical scrolling keep working underneath the pinch.
     var hourZoom by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(1f) }
     val hourDp = HOUR_DP * hourZoom
+    // Track the viewport height so a pinch zooms *around the middle of what you're looking at* rather than
+    // pivoting at midnight (the top) — the polish that makes the zoom feel anchored and smooth (R17).
+    var viewportPx by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(0) }
     val zoomState = androidx.compose.foundation.gestures.rememberTransformableState { zoomChange, _, _ ->
-        hourZoom = (hourZoom * zoomChange).coerceIn(0.5f, 2.8f)
+        val old = hourZoom
+        val next = (old * zoomChange).coerceIn(0.5f, 3.0f)
+        hourZoom = next
+        // Keep the hour under the viewport centre fixed: shift scroll by how much that point moved.
+        if (viewportPx > 0 && next != old) {
+            val centre = scroll.value + viewportPx / 2f
+            scroll.dispatchRawDelta(centre * (next / old - 1f))
+        }
     }
     androidx.compose.runtime.LaunchedEffect(days.firstOrNull()) {
         scroll.scrollTo(with(density) { (7 * hourDp).dp.toPx() }.toInt())
@@ -790,7 +821,9 @@ private fun TimelineView(
             androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
         }
         // Scrollable hour grid — pinch anywhere on it to zoom the hour height.
-        Row(Modifier.fillMaxWidth().weight(1f).verticalScroll(scroll)
+        Row(Modifier.fillMaxWidth().weight(1f)
+            .onSizeChanged { viewportPx = it.height }
+            .verticalScroll(scroll)
             .transformable(state = zoomState, canPan = { false })) {
             // Hour gutter
             Box(Modifier.width(GUTTER_DP.dp).height((hourDp * 24).dp)) {
@@ -827,7 +860,10 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hou
         val colW = maxWidth
         // Round 14 — the "actual" spine: a thin read-only rail on the far left showing tracked time.
         // When present it steals a few dp from the left so planned blocks sit just beside their actuals.
-        val railW = if (trackedBlocks.isEmpty() && !revealUntracked) 0.dp else 7.dp
+        // R17: the rail scales with the pinch zoom too, so zooming in fattens the tracked stripe alongside
+        // the hour grid instead of leaving a hairline that's hard to read at big zoom.
+        val railScale = (hourDp / HOUR_DP).coerceIn(0.85f, 2.8f)
+        val railW = if (trackedBlocks.isEmpty() && !revealUntracked) 0.dp else (7.dp * railScale)
         val contentW = colW - railW
         // M1: when habit blocks share the column, tasks take the left ~60% and habits the right ~40%
         // so the two never collide and the task drag/resize math is otherwise unchanged.

@@ -1037,7 +1037,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             hs.currentStreak(h, d, s, r, today)
         } ?: 0
         val tasksDone = tasks.value.count { t -> t.completedAt?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate().toEpochDay() in weekDays } == true }
-        val focusMin = focusSessions.value.filter { it.epochDay in weekDays }.sumOf { it.minutes }
+        val focusMin = focusViews().filter { it.epochDay in weekDays }.sumOf { it.minutes }
         val stats = listOf(
             "check-ins" to checkinsThisWeek.toString(),
             "tasks done" to tasksDone.toString(),
@@ -1111,7 +1111,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val relVals = taskReliability.value.values.map { it.score }
         val taskRel = if (relVals.isEmpty()) null else relVals.average().toInt()
         val weekDays = (0 until 7).map { today - it }.toSet()
-        val focusWeek = focusSessions.value.filter { it.epochDay in weekDays }.sumOf { it.minutes }
+        val focusWeek = focusViews().filter { it.epochDay in weekDays }.sumOf { it.minutes }
         val parts = buildList {
             habitStrength?.let { add(it.toDouble() to 0.5) }
             taskRel?.let { add(it.toDouble() to 0.35) }
@@ -2022,7 +2022,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ── Z7 · trust dashboard — the data that exists, all on this device ───────────────────────────
     data class DataCounts(val tasks: Int, val habits: Int, val checkins: Int, val timeEntries: Int, val activities: Int, val focus: Int)
-    fun dataCounts() = DataCounts(tasks.value.size, habits.value.size, habitCheckins.value.size, timeEntries.value.size, timeActivities.value.size, focusSessions.value.size)
+    fun dataCounts() = DataCounts(tasks.value.size, habits.value.size, habitCheckins.value.size, timeEntries.value.size, timeActivities.value.size, focusSessions.value.size + timeEntries.value.count { it.kind == "focus" })
 
     // ── Z8 · graded strength — an opt-in that gives partial days partial credit ───────────────────
     /** Per-day fractional credit for build-habit days that were attempted but fell short of the goal. */
@@ -2233,7 +2233,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun deepWorkStatus(): DeepWorkStatus {
         val goal = settings.value.deepWorkGoalMin.coerceAtLeast(1)
         val today = java.time.LocalDate.now(zone).toEpochDay()
-        val byDay = focusSessions.value.groupBy { it.epochDay }.mapValues { e -> e.value.sumOf { it.minutes } }
+        val byDay = focusMinutesByDay()
         val todayMin = byDay[today] ?: 0
         // Count consecutive goal-met days back from today; today counting only once it's already met,
         // so a day still in progress never breaks the streak.
@@ -2245,21 +2245,68 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         return DeepWorkStatus(todayMin, goal, streak, best, blockMin)
     }
 
-    // ---------- focus ----------
-    fun recordFocus(startMillis: Long, minutes: Int, kind: String, taskId: String? = null, habitId: String? = null) = viewModelScope.launch {
-        if (minutes <= 0) return@launch
-        val day = java.time.Instant.ofEpochMilli(startMillis).atZone(zone).toLocalDate().toEpochDay()
-        repo.addFocusSession(day, startMillis, minutes, kind, taskId)
-        // T1 (I1): when the Time module is on, mirror this session onto the one tracker timeline so that
-        // "time" is counted once, from a single source. The activity is the task's / habit's linked one,
-        // else a generic "Focus" activity.
-        val M = com.todocompanion.app.domain.Modules
-        if (M.isEnabled(settings.value, M.TIME)) {
-            val actId = taskId?.let { tid -> tasks.value.firstOrNull { it.id == tid }?.defaultActivityId }
-                ?: habitId?.let { hid -> habits.value.firstOrNull { it.id == hid }?.timeActivityId }
-                ?: repo.ensureFocusActivity()
-            repo.mirrorFocusInterval(startMillis, startMillis + minutes * 60_000L, actId, taskId, habitId)
-        }
+    // ---------- focus  (a MODE of time tracking, never a second system) ----------
+    // Robust integration (Round 17): pressing Start in Focus does NOT open a separate stopwatch — it starts
+    // a running interval on the ONE timeline tagged kind="focus". So a focus block is *tracked time* the
+    // instant it begins (it shows in the running-timer bar and the calendar), Stop finalizes it (crediting
+    // any linked habit through the same finalizeEntry path a manual timer uses), and EVERY focus statistic
+    // below is derived from those kind="focus" intervals. There is no FocusSession double-write any more,
+    // so "time tracked" and "time focused" can never diverge into two contradictory totals.
+    val focusTargetMin = MutableStateFlow(25)   // countdown length in minutes; 0 = open-ended stopwatch
+
+    /** The single running focus interval, if a focus session is live right now (drives the ring). */
+    val runningFocus: StateFlow<com.todocompanion.app.data.entity.TimeEntryEntity?> =
+        timeEntries.map { list -> list.firstOrNull { it.running && it.kind == "focus" } }.state(null)
+
+    /** Focus intervals as synthetic FocusSessionEntity rows (day, minutes, taskId) computed from the one
+     *  timeline, so the stats / momentum / digest screens read the SAME source as the Time reports — never
+     *  a second table. Legacy persisted FocusSessions (written before this unification, when Time was off)
+     *  are unioned in so old history isn't lost. A running interval is clamped to now. */
+    fun focusViews(): List<com.todocompanion.app.data.entity.FocusSessionEntity> {
+        val now = System.currentTimeMillis()
+        val fromTimeline = timeEntries.value.asSequence().filter { it.kind == "focus" }.map {
+            com.todocompanion.app.data.entity.FocusSessionEntity(
+                id = it.id,
+                epochDay = java.time.Instant.ofEpochMilli(it.startMillis).atZone(zone).toLocalDate().toEpochDay(),
+                startMillis = it.startMillis,
+                minutes = (((it.endMillis ?: now) - it.startMillis) / 60_000L).toInt().coerceAtLeast(0),
+                kind = "focus",
+                taskId = it.taskId,
+            )
+        }.toList()
+        // Days that already have a timeline focus interval are fully represented there; only fold in legacy
+        // sessions from days with NO timeline focus, so a mirrored old session is never double-counted.
+        val timelineDays = fromTimeline.mapTo(HashSet()) { it.epochDay }
+        val legacy = focusSessions.value.filter { it.epochDay !in timelineDays }
+        return fromTimeline + legacy
+    }
+    /** Focused minutes per calendar day, from kind="focus" intervals (a running one clamped to now). */
+    fun focusMinutesByDay(): Map<Long, Int> =
+        focusViews().groupBy { it.epochDay }.mapValues { e -> e.value.sumOf { it.minutes } }
+
+    /** Start a focus session against [activityId] (or the task's / habit's linked activity, else a generic
+     *  "Focus" activity). [remainingSec] lets Resume schedule the chime for exactly the time still left. */
+    fun startFocusSession(
+        activityId: String?, targetMin: Int, remainingSec: Int = targetMin * 60,
+        taskId: String? = null, habitId: String? = null,
+    ) = viewModelScope.launch {
+        focusTargetMin.value = targetMin.coerceAtLeast(0)
+        val actId = activityId
+            ?: taskId?.let { tid -> tasks.value.firstOrNull { it.id == tid }?.defaultActivityId }
+            ?: habitId?.let { hid -> habits.value.firstOrNull { it.id == hid }?.timeActivityId }
+            ?: repo.ensureFocusActivity()
+        repo.startTimeTracking(actId, taskId, habitId, stopFirst = !settings.value.multiTimer, kind = "focus")
+        com.todocompanion.app.reminders.AutomationRunner.onStart(appCtx, repo, actId)
+        if (targetMin > 0 && remainingSec > 0)
+            com.todocompanion.app.reminders.AlarmScheduler.scheduleFocusDone(appCtx, System.currentTimeMillis() + remainingSec * 1000L)
+        refreshTimeWidget()
+    }
+    /** Stop the running focus interval (finalize + credit any linked habit) and cancel its chime. Only ever
+     *  stops a kind="focus" entry, so a paused-focus Finish can never accidentally stop a manual timer. */
+    fun stopFocus() = viewModelScope.launch {
+        val id = timeEntries.value.firstOrNull { it.running && it.kind == "focus" }?.id
+        if (id != null) { repo.stopTimeEntry(id); refreshHabitWidgets(); refreshTimeWidget() }
+        com.todocompanion.app.reminders.AlarmScheduler.cancelFocusDone(appCtx)
     }
 
     // ---------- saved filters ----------
