@@ -184,7 +184,8 @@ object AlarmScheduler {
      *  simply stop. Call after any habit change, at startup, and on boot. */
     suspend fun scheduleHabitReminders(context: Context, repo: AppRepository, zone: ZoneId = ZoneId.systemDefault()) {
         val now = System.currentTimeMillis()
-        repo.getHabitsOnce().filter { !it.archived && it.reminderTimes.isNotBlank() }.forEach { h ->
+        val muted = repo.settingsSnapshot().mutedHabits   // W8
+        repo.getHabitsOnce().filter { !it.archived && it.reminderTimes.isNotBlank() && it.id !in muted }.forEach { h ->
             h.reminderTimes.split(",").mapNotNull { it.trim().toIntOrNull() }.filter { it in 0..1439 }.forEach { min ->
                 var next = LocalDate.now(zone).atTime(LocalTime.of(min / 60, min % 60)).atZone(zone).toInstant().toEpochMilli()
                 if (next <= now) next += 86_400_000L

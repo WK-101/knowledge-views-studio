@@ -28,7 +28,9 @@ class ReminderReceiver : BroadcastReceiver() {
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
                         val task = app.repository.getTask(taskId)
-                        if (task != null && !task.completed && !task.trashed && !task.abandoned) {
+                        // W8: suppress reminders for a task whose list the user has muted.
+                        val listMuted = task?.listId != null && app.repository.settingsSnapshot().mutedLists.contains(task.listId)
+                        if (task != null && !task.completed && !task.trashed && !task.abandoned && !listMuted) {
                             Notifications.show(context, taskId, title, reminderId, annoying || escalate, escalate, step)
                             when {
                                 // Escalation ramps up: re-fire faster each round (5,5,4,3,2 min floor),
@@ -166,7 +168,8 @@ class ReminderReceiver : BroadcastReceiver() {
                         val todayEpoch = java.time.LocalDate.now(zone).toEpochDay()
                         val h = app.repository.getHabitsOnce().firstOrNull { it.id == habitId }
                         // Self-heal: only fire + reschedule while the time is still configured.
-                        val stillWanted = h != null && !h.archived &&
+                        val muted = app.repository.settingsSnapshot().mutedHabits.contains(habitId)   // W8
+                        val stillWanted = h != null && !h.archived && !muted &&
                             h.reminderTimes.split(",").mapNotNull { it.trim().toIntOrNull() }.contains(min)
                         if (stillWanted && !h!!.paused) {
                             val stats = com.todocompanion.app.domain.habit.HabitStats

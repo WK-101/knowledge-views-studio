@@ -33,6 +33,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.filled.EmojiEvents
@@ -181,6 +183,11 @@ fun HabitDetailScreen(
                         if (loc != null) android.widget.Toast.makeText(shareCtx, "Saved a copy to $loc", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }) { Icon(Icons.Filled.Share, "Share progress") }
+                // W8: mute/unmute this habit's reminders.
+                val muted = h.id in vm.settings.collectAsState().value.mutedHabits
+                IconButton(onClick = { vm.toggleMutedHabit(h.id) }) {
+                    Icon(if (muted) Icons.Filled.NotificationsOff else Icons.Filled.Notifications, if (muted) "Unmute reminders" else "Mute reminders")
+                }
                 IconButton(onClick = { onEdit(h) }) { Icon(Icons.Filled.Edit, "Edit") }
             },
         )

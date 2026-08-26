@@ -152,6 +152,11 @@ data class AppSettings(
     // is the momentum-points wallet (earned by keeping habits / finishing tasks, spent on rewards).
     val rewardsJson: String = "",
     val pointsBalance: Int = 0,
+    // W6: routine tags — named bundles (activity + habit group) launched by one NFC/QR tap or shortcut.
+    val routinesJson: String = "",
+    // W5/W8: reminders suppressed for these habit ids / list ids (per-item mute; also feeds adaptive skip).
+    val mutedHabits: Set<String> = emptySet(),
+    val mutedLists: Set<String> = emptySet(),
 ) {
     /** Effective tier for an optional editor field: user override, else its built-in default. */
     fun editorTier(f: EditorField): Int = editorFieldTiers[f.id] ?: f.defaultTier
@@ -255,6 +260,9 @@ data class AppSettings(
         Keys.AUTOMATION_RULES to automationRulesJson,
         Keys.REWARDS to rewardsJson,
         Keys.POINTS to pointsBalance.toString(),
+        Keys.ROUTINES to routinesJson,
+        Keys.MUTED_HABITS to mutedHabits.joinToString(","),
+        Keys.MUTED_LISTS to mutedLists.joinToString(","),
     )
 
     object Keys {
@@ -343,6 +351,9 @@ data class AppSettings(
         const val AUTOMATION_RULES = "automation_rules"
         const val REWARDS = "rewards"
         const val POINTS = "points_balance"
+        const val ROUTINES = "routines"
+        const val MUTED_HABITS = "muted_habits"
+        const val MUTED_LISTS = "muted_lists"
     }
 
     companion object {
@@ -422,6 +433,9 @@ data class AppSettings(
             automationRulesJson = m[Keys.AUTOMATION_RULES] ?: "",
             rewardsJson = m[Keys.REWARDS] ?: "",
             pointsBalance = m[Keys.POINTS]?.toIntOrNull() ?: 0,
+            routinesJson = m[Keys.ROUTINES] ?: "",
+            mutedHabits = (m[Keys.MUTED_HABITS] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
+            mutedLists = (m[Keys.MUTED_LISTS] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             dailySummaryEnabled = m[Keys.SUMMARY_ON]?.toBooleanStrictOrNull() ?: false,
             appBackground = m[Keys.APP_BG] ?: "none",
             dailyCapacityHours = m[Keys.CAPACITY]?.toIntOrNull()?.coerceIn(1, 16) ?: 8,

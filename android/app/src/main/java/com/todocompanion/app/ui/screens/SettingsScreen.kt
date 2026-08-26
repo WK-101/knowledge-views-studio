@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.ColumnScope
@@ -52,6 +53,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.RocketLaunch
@@ -511,6 +513,35 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }) { Text("＋ Add reward") }
         }
 
+        // W6: routine tags — a named bundle launched by one NFC/QR tap or shortcut.
+        if (Modules.isEnabled(s, Modules.TIME)) {
+            val activities by vm.timeActivities.collectAsState()
+            SettingsGroup(Icons.Filled.Bolt, "Routines", open["routines"] == true, { open["routines"] = open["routines"] != true }) {
+                Text("A routine starts an activity's timer and surfaces its habit group in one tap. Fire it from a home-screen tap, or write its link — todocompanion://routine?name=NAME — to an NFC tag or QR.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
+                val routines = com.todocompanion.app.domain.Routines.parse(s.routinesJson)
+                routines.forEach { r ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("${r.emoji} ${r.name}", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        TextButton(onClick = { vm.runRoutine(r) }) { Text("Run") }
+                        IconButton(onClick = { vm.saveRoutines(routines.filter { it.id != r.id }) }) { Icon(Icons.Filled.Delete, "Remove", modifier = Modifier.size(18.dp)) }
+                    }
+                }
+                var routName by remember { mutableStateOf("") }
+                var routAct by remember { mutableStateOf<String?>(null) }
+                OutlinedTextField(routName, { routName = it }, label = { Text("New routine name") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    activities.filter { !it.archived }.forEach { a ->
+                        FilterChip(selected = routAct == a.id, onClick = { routAct = if (routAct == a.id) null else a.id }, label = { Text((a.emoji?.plus(" ") ?: "") + a.name) })
+                    }
+                }
+                TextButton(enabled = routName.isNotBlank(), onClick = {
+                    vm.saveRoutines(routines + com.todocompanion.app.domain.Routine(id = java.util.UUID.randomUUID().toString(), name = routName.trim(), activityId = routAct ?: ""))
+                    routName = ""; routAct = null
+                }) { Text("＋ Add routine") }
+            }
+        }
+
         SettingsGroup(Icons.Filled.EditNote, "Task editor", open["editor"] == true, { open["editor"] = open["editor"] != true }) {
             Text("The editor shows a lean set of fields first and reveals the rest under “More fields.” Choose when each appears, or drag the order to match how you work. A field you’ve already filled always shows, whatever you pick here.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
@@ -555,6 +586,17 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
 
         SettingsGroup(Icons.Filled.Notifications, "Reminders", open["reminders"] == true, { open["reminders"] = open["reminders"] != true }) {
             Toggle("Daily summary notification", s.dailySummaryEnabled) { vm.saveSettings(s.copy(dailySummaryEnabled = it)) }
+            // W8: per-list mute — silence reminders for chosen lists.
+            val lists by vm.lists.collectAsState()
+            if (lists.any { !it.archived }) {
+                HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                Text("Mute reminders from these lists", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    lists.filter { !it.archived }.forEach { l ->
+                        FilterChip(selected = l.id in s.mutedLists, onClick = { vm.toggleMutedList(l.id) }, label = { Text(l.name.take(16)) })
+                    }
+                }
+            }
             if (s.dailySummaryEnabled) {
                 Row(Modifier.fillMaxWidth().clickable { showTime = true }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Summary time", Modifier.weight(1f))

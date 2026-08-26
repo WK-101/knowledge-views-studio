@@ -311,6 +311,10 @@ fun AppRoot(
                     val nm = a.removePrefix(com.todocompanion.app.MainActivity.ACTION_TRACK_NAME)
                     vm.startTimeTrackingByName(nm); showTimeTracking = true; launchAction.value = null
                 }
+                a != null && a.startsWith(com.todocompanion.app.MainActivity.ACTION_RUN_ROUTINE) -> {
+                    val nm = a.removePrefix(com.todocompanion.app.MainActivity.ACTION_RUN_ROUTINE)
+                    vm.runRoutineByName(nm); showTimeTracking = true; launchAction.value = null
+                }
                 a != null && a.startsWith("open_context:") -> { vm.select(ViewRef.ContextView(a.removePrefix("open_context:"))); tab = Tab.TASKS; launchAction.value = null }
             }
         }

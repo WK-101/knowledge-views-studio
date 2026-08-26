@@ -67,6 +67,10 @@ class MainActivity : FragmentActivity() {
                 d.getQueryParameter("activity")?.let { return ACTION_TRACK_ACTIVITY + it }
                 d.getQueryParameter("name")?.let { return ACTION_TRACK_NAME + it }
             }
+            // W6: a routine tag launches a whole ritual.
+            if (d?.scheme == "todocompanion" && d.host == "routine") {
+                d.getQueryParameter("name")?.let { return ACTION_RUN_ROUTINE + it }
+            }
         }
         val shared = when (intent.action) {
             Intent.ACTION_SEND -> if (intent.type == "text/plain") {
@@ -91,5 +95,7 @@ class MainActivity : FragmentActivity() {
         // U13: NFC/QR/shortcut "start tracking" — by activity id or by activity name.
         const val ACTION_TRACK_ACTIVITY = "track_activity:"
         const val ACTION_TRACK_NAME = "track_name:"
+        // W6: run a routine bundle by name.
+        const val ACTION_RUN_ROUTINE = "run_routine:"
     }
 }

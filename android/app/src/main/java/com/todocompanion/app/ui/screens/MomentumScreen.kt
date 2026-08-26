@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -164,6 +166,41 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
             Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
+            // W2 — Right Now: the single next best action, with one tap to act.
+            val rn = remember(tasks, habits, checkins, timeEntries) { vm.rightNow() }
+            if (rn != null) Surface(
+                Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .55f),
+            ) {
+                Row(Modifier.padding(18.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Right now", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(rn.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(rn.subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    FilledTonalButton(onClick = {
+                        when (rn.kind) {
+                            "task" -> rn.taskId?.let { id -> tasks.firstOrNull { it.id == id }?.let { vm.startTimeTrackingForTask(it) } }
+                            "habit" -> rn.habitId?.let { id -> habits.firstOrNull { it.id == id }?.let { h -> vm.cycleHabit(h, java.time.LocalDate.now(java.time.ZoneId.systemDefault()).toEpochDay(), 0) } }
+                        }
+                    }) { Text(rn.actionLabel) }
+                }
+            }
+
+            // W3 — Plan my day: auto-block estimated tasks + turn on track prompts (plan → do → measure).
+            if (tasksOn && timeOn) AppCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Plan my day", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text("Time-block today's tasks by your rhythm, and I'll ask to track each block.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    FilledTonalButton(onClick = {
+                        vm.planMyDay { n -> android.widget.Toast.makeText(shareCtx, if (n > 0) "Blocked $n task${if (n == 1) "" else "s"} — track prompts on" else "Nothing to schedule", android.widget.Toast.LENGTH_SHORT).show() }
+                    }) { Text("Plan") }
+                }
+            }
+
             // The momentum ring.
             AppCard {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -360,6 +397,51 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                 }
             }
 
+            // W4 — Balance: where the week actually went, by life area (cross-type tags). A wellbeing lens.
+            val balance = remember(timeEntries, tasks, habits, checkins) { vm.balanceBreakdown(7) }
+            if (balance.size >= 2) AppCard {
+                Text("Your balance this week", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text("Across tracked time, tasks and habits — by tag.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(8.dp))
+                // A single proportional bar split by area.
+                Row(Modifier.fillMaxWidth().height(16.dp).clip(RoundedCornerShape(8.dp))) {
+                    balance.take(6).forEachIndexed { i, sl ->
+                        val hue = listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.secondary,
+                            MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.surfaceVariant)[i % 6]
+                        Box(Modifier.weight(sl.share.toFloat().coerceAtLeast(0.02f)).fillMaxHeight().background(hue))
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                balance.take(5).forEach { sl ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                        Text("#${sl.area}", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("${(sl.share * 100).toInt()}%", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+
+            // W7 — the self-writing weekly review, drafted from unified data; share or copy it.
+            var reviewText by remember { mutableStateOf<String?>(null) }
+            AppCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Weekly review", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text("Drafted from your week across all three modules.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    TextButton(onClick = { reviewText = if (reviewText == null) vm.weeklyReviewText() else null }) { Text(if (reviewText == null) "Write it" else "Hide") }
+                }
+                reviewText?.let { txt ->
+                    Spacer(Modifier.height(8.dp))
+                    Text(txt, style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(6.dp))
+                    TextButton(onClick = {
+                        val cm = shareCtx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                        cm?.setPrimaryClip(android.content.ClipData.newPlainText("Weekly review", txt))
+                        android.widget.Toast.makeText(shareCtx, "Copied", android.widget.Toast.LENGTH_SHORT).show()
+                    }) { Text("Copy") }
+                }
+            }
+
             // R5 — the "how it all fits" guide, in one plain paragraph, so the numbers above are legible.
             AppCard {
                 Text("How this fits together", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
@@ -407,7 +489,7 @@ private fun SmartCaptureDialog(vm: AppViewModel, onDismiss: () -> Unit) {
                 OutlinedTextField(
                     value = text, onValueChange = { text = it },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("“read 20 pages every night” or “email Sam tomorrow 9am”") },
+                    placeholder = { Text("“read 20 pages every night”, “email Sam tomorrow 9am #t20 !!”, or “track deep work”") },
                     singleLine = false, minLines = 2,
                 )
                 Spacer(Modifier.height(10.dp))
@@ -427,7 +509,13 @@ private fun SmartCaptureDialog(vm: AppViewModel, onDismiss: () -> Unit) {
             TextButton(
                 enabled = text.isNotBlank(),
                 onClick = {
-                    vm.smartCapture(text, override) { k ->
+                    // W1 omnibox: with no override, route to timer/habit/task; a chip forces task/habit.
+                    if (override == null) {
+                        vm.omniCapture(text) { what ->
+                            val msg = when (what) { "timer" -> "Started tracking"; "habit" -> "Added as a habit"; else -> "Added as a task" }
+                            android.widget.Toast.makeText(ctx, msg, android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    } else vm.smartCapture(text, override) { k ->
                         val what = if (k == SmartCapture.Kind.HABIT) "habit" else "task"
                         android.widget.Toast.makeText(ctx, "Added as a $what", android.widget.Toast.LENGTH_SHORT).show()
                     }

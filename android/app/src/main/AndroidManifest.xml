@@ -107,6 +107,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="todocompanion" android:host="track" />
+                <data android:scheme="todocompanion" android:host="routine" />
             </intent-filter>
         </activity>
 

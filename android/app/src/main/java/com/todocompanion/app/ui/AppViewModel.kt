@@ -1331,6 +1331,129 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         } else toast("${r.cost - s.pointsBalance} more point${if (r.cost - s.pointsBalance == 1) "" else "s"} to go")
     }
 
+    // ══ Tier W ══════════════════════════════════════════════════════════════════════════════════
+
+    // ── W1 · Omnibox — one field routes to timer / habit / task ─────────────────────────────────
+    /** Detect a "track now" intent (a leading track verb, or a bare @activity) → start a timer; else
+     *  fall through to smart capture (habit vs task). onDone reports "timer" | "habit" | "task". */
+    fun omniCapture(text: String, onDone: (String) -> Unit = {}) {
+        val raw = text.trim()
+        if (raw.isBlank()) return
+        val verb = Regex("^(?:track|start|timer)\\s+(.+)$", RegexOption.IGNORE_CASE).find(raw)
+        val tok = com.todocompanion.app.domain.nlp.QuickTokens.parse(raw)
+        val bareActivity = tok.activity != null && tok.text.isBlank()
+        if ((verb != null || bareActivity) && com.todocompanion.app.domain.Modules.isEnabled(settings.value, com.todocompanion.app.domain.Modules.TIME)) {
+            val actName = (tok.activity ?: verb!!.groupValues[1]).trim().removePrefix("@")
+            if (actName.isNotBlank()) { startTimeTrackingByName(actName); onDone("timer"); return }
+        }
+        smartCapture(raw) { k -> onDone(if (k == com.todocompanion.app.domain.nlp.SmartCapture.Kind.HABIT) "habit" else "task") }
+    }
+
+    // ── W2 · Right Now — the single next best action across modules ──────────────────────────────
+    data class RightNow(val kind: String, val title: String, val subtitle: String, val actionLabel: String,
+                        val taskId: String? = null, val habitId: String? = null)
+    fun rightNow(): RightNow? {
+        val hs = com.todocompanion.app.domain.habit.HabitStats
+        val zone = java.time.ZoneId.systemDefault()
+        val nowMin = java.time.LocalTime.now(zone).let { it.hour * 60 + it.minute }
+        val today = java.time.LocalDate.now(zone).toEpochDay()
+        val dueHabits = habits.value.filter { !it.paused && !it.archived }.filter { h ->
+            val hc = habitCheckins.value.filter { it.habitId == h.id }
+            val done = hc.filter { it.status == "done" && hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
+            hs.dueToday(h, today, done, hc.firstOrNull { it.epochDay == today }?.count ?: 0)
+        }
+        // 1) A due habit whose typical done-time is near now (rhythm) — the strongest "do this now" signal.
+        val rhythm = dueHabits.mapNotNull { h ->
+            val mins = habitCheckins.value.filter { it.habitId == h.id }.mapNotNull { it.doneAtMinute }
+            if (mins.size < 3) null else {
+                val typical = mins.sorted()[mins.size / 2]
+                val delta = kotlin.math.abs(typical - nowMin)
+                if (delta <= 90) h to delta else null
+            }
+        }.minByOrNull { it.second }?.first
+        if (rhythm != null) return RightNow("habit", (rhythm.emoji?.plus(" ") ?: "") + rhythm.name, "You usually do this around now", "Check off", habitId = rhythm.id)
+        // 2) The top do-next task.
+        topDoNext()?.let { t -> return RightNow("task", t.title, if (t.dueDate != null) "Your top task, due soon" else "Your top task", "Start", taskId = t.id) }
+        // 3) Any due habit.
+        dueHabits.firstOrNull()?.let { return RightNow("habit", (it.emoji?.plus(" ") ?: "") + it.name, "Due today", "Check off", habitId = it.id) }
+        return null
+    }
+
+    // ── W4 · Balance — where the week actually went, by life area (cross-type tags) ───────────────
+    data class BalanceSlice(val area: String, val weight: Int, val share: Double)
+    fun balanceBreakdown(windowDays: Int = 7): List<BalanceSlice> {
+        val weighted = crossTypeTagReport(windowDays).map { it.tag to (it.minutes + it.tasksDone * 30 + it.habitDays * 30) }.filter { it.second > 0 }
+        val total = weighted.sumOf { it.second }
+        if (total == 0) return emptyList()
+        return weighted.map { BalanceSlice(it.first, it.second, it.second.toDouble() / total) }.sortedByDescending { it.weight }
+    }
+
+    // ── W7 · Self-writing weekly review ─────────────────────────────────────────────────────────
+    fun weeklyReviewText(): String {
+        val zone = java.time.ZoneId.systemDefault()
+        val now = System.currentTimeMillis()
+        val today = java.time.LocalDate.now(zone)
+        val weekStart = today.minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli()
+        val startDay = today.minusDays(6).toEpochDay(); val endDay = today.toEpochDay()
+        val tracked = com.todocompanion.app.domain.TimeTracking.totalMinutes(timeEntries.value, weekStart, now + 1, now)
+        val tasksDone = tasks.value.count { t -> t.completedAt?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate().toEpochDay() in startDay..endDay } == true }
+        val habitDays = habitCheckins.value.count { it.status == "done" && it.epochDay in startDay..endDay }
+        val digest = weeklyDigest()
+        val pa = planVsActualWeek()
+        val leftover = tasks.value.count { t -> !t.completed && !t.trashed && !t.abandoned && t.dueDate?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate().toEpochDay() <= endDay } == true }
+        return buildString {
+            appendLine("Your week — ${today.minusDays(6).format(java.time.format.DateTimeFormatter.ofPattern("MMM d"))} to ${today.format(java.time.format.DateTimeFormatter.ofPattern("MMM d"))}")
+            appendLine()
+            appendLine("• ${tasksDone} task${if (tasksDone == 1) "" else "s"} finished, ${tracked / 60}h ${tracked % 60}m tracked, ${habitDays} habit check-in${if (habitDays == 1) "" else "s"}.")
+            if (pa.items.isNotEmpty()) appendLine("• Planned ${pa.plannedMin / 60}h ${pa.plannedMin % 60}m vs tracked ${pa.actualMin / 60}h ${pa.actualMin % 60}m.")
+            digest.bestHabit?.let { appendLine("• Strongest habit: $it.") }
+            digest.slippingHabit?.let { appendLine("• Room to grow: $it.") }
+            if (leftover > 0) appendLine("• ${leftover} open task${if (leftover == 1) "" else "s"} carry into next week.")
+            appendLine()
+            appendLine(digest.takeaway)
+        }.trim()
+    }
+
+    // ── W6 · Routine tags ───────────────────────────────────────────────────────────────────────
+    fun routines(): List<com.todocompanion.app.domain.Routine> = com.todocompanion.app.domain.Routines.parse(settings.value.routinesJson)
+    fun saveRoutines(list: List<com.todocompanion.app.domain.Routine>) = viewModelScope.launch {
+        repo.saveSettings(settings.value.copy(routinesJson = com.todocompanion.app.domain.Routines.encode(list)))
+    }
+    fun runRoutine(r: com.todocompanion.app.domain.Routine) = viewModelScope.launch {
+        if (r.activityId.isNotBlank() && timeActivities.value.any { it.id == r.activityId && !it.archived }) {
+            repo.startTimeTracking(r.activityId, stopFirst = !settings.value.multiTimer)
+            com.todocompanion.app.reminders.AutomationRunner.onStart(appCtx, repo, r.activityId)
+            com.todocompanion.app.reminders.TimeIntentApi.broadcastStarted(appCtx, timeActivities.value.firstOrNull { it.id == r.activityId }?.name ?: "")
+            refreshTimeWidget()
+        }
+        toast("Routine “${r.name}” started")
+    }
+    fun runRoutineByName(name: String) = viewModelScope.launch {
+        com.todocompanion.app.domain.Routines.byName(routines(), name)?.let { runRoutine(it) }
+    }
+
+    // ── W3 · Plan my day — auto-block, then measure the loop ────────────────────────────────────
+    /** Lay today's estimated do-next tasks into time-blocks (rhythm-aware), and turn on the
+     *  timebox→track prompt so each block asks to be tracked — closing plan → do → measure. */
+    fun planMyDay(onDone: (Int) -> Unit = {}) = viewModelScope.launch {
+        val plan = computeAutoSchedule()
+        plan.proposals.forEach { p -> repo.saveTask(p.task.copy(dueDate = p.newDueMillis, isAllDay = false)) }
+        if (!settings.value.autoTrackPrompt) repo.saveSettings(settings.value.copy(autoTrackPrompt = true))
+        rescheduleTrackPrompts()
+        onDone(plan.proposals.size)
+    }
+
+    // ── W8 · per-item reminder mute ─────────────────────────────────────────────────────────────
+    fun toggleMutedHabit(id: String) = viewModelScope.launch {
+        val cur = settings.value.mutedHabits
+        repo.saveSettings(settings.value.copy(mutedHabits = if (id in cur) cur - id else cur + id))
+        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
+    }
+    fun toggleMutedList(id: String) = viewModelScope.launch {
+        val cur = settings.value.mutedLists
+        repo.saveSettings(settings.value.copy(mutedLists = if (id in cur) cur - id else cur + id))
+    }
+
     fun addManualTimeEntry(activityId: String, startMillis: Long, endMillis: Long, note: String = "") = viewModelScope.launch {
         if (endMillis > startMillis) repo.addManualTimeEntry(activityId, startMillis, endMillis, note)
     }

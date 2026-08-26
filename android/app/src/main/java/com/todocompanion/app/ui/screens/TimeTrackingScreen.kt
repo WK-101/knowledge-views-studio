@@ -347,6 +347,24 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                             color = when { delta > 0 -> MaterialTheme.colorScheme.primary; delta < 0 -> MaterialTheme.colorScheme.error; else -> MaterialTheme.colorScheme.onSurfaceVariant },
                         )
                     }
+                    // W8 — activity-vs-activity: the week's activities compared side by side.
+                    val wkByAct = remember(entries, day, now) { TimeTracking.totalsByActivity(entries, wkStart, winEnd, now) }
+                    if (wkByAct.size >= 2) {
+                        Spacer(Modifier.height(10.dp))
+                        Text("Activities this week", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        val wkMax = wkByAct.maxOf { it.minutes }.coerceAtLeast(1)
+                        wkByAct.take(6).forEach { at ->
+                            val a = actById[at.activityId]
+                            val c = a?.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
+                            Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text((a?.emoji?.plus(" ") ?: "") + (a?.name ?: "—"), Modifier.width(96.dp), style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Box(Modifier.weight(1f).height(10.dp).clip(RoundedCornerShape(5.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                                    Box(Modifier.fillMaxWidth(at.minutes / wkMax.toFloat()).height(10.dp).clip(RoundedCornerShape(5.dp)).background(c))
+                                }
+                                Spacer(Modifier.width(8.dp)); Text(fmtDur(at.minutes), style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
                 }
             }
 
