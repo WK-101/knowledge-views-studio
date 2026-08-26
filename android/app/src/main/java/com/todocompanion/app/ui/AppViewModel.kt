@@ -603,10 +603,23 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- quick add ----------
     fun submitQuickAdd(text: String, opts: QuickAddOptions) = viewModelScope.launch {
-        val parsed = QuickAddParser.parse(text)
+        // Single capture funnel: inline tokens (#t25 estimate, * star, !/!!/!!! priority) are applied
+        // HERE so every entry point — the quick-add sheet and the omnibox alike — supports them
+        // identically. `@` is deliberately left in the text (handleActivity = false) so QuickAddParser
+        // reads it as a context. Explicit opts chosen via the sheet's icons win over inline tokens.
+        val tok = com.todocompanion.app.domain.nlp.QuickTokens.parse(text, handleActivity = false)
+        val parsed = QuickAddParser.parse(tok.text)
         if (parsed.title.isBlank() && parsed.tags.isEmpty()) return@launch
+        val estimateMin = opts.estimateMin ?: tok.estimateMin
+        val star = opts.star || tok.star
+        val tokPriority = when (tok.priorityLevel) {
+            3 -> com.todocompanion.app.domain.priority.PriorityLevel.HIGH
+            2 -> com.todocompanion.app.domain.priority.PriorityLevel.MEDIUM
+            1 -> com.todocompanion.app.domain.priority.PriorityLevel.LOW
+            else -> null
+        }
         val due = opts.dueMillis ?: parsed.dateTime?.atZone(zone)?.toInstant()?.toEpochMilli()
-        val level = opts.priority ?: parsed.priority
+        val level = opts.priority ?: tokPriority ?: parsed.priority
         // No priority chosen ⇒ "None" (importance/urgency 2), not Low.
         val imp = level?.importance ?: com.todocompanion.app.domain.priority.PriorityLevel.NONE.importance
         val urg = level?.urgency ?: com.todocompanion.app.domain.priority.PriorityLevel.NONE.urgency
@@ -636,13 +649,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
 
         // Natural-language recurrence ("every Tuesday", "monthly", "every 2 weeks") + optional note.
-        // V9: also apply inline-token estimate and star.
-        if (parsed.rrule != null || opts.note.isNotBlank() || opts.estimateMin != null || opts.star) repo.getTask(id)?.let {
+        // V9: also apply inline-token estimate and star (merged above from opts + inline tokens).
+        if (parsed.rrule != null || opts.note.isNotBlank() || estimateMin != null || star) repo.getTask(id)?.let {
             repo.saveTask(it.copy(
                 rrule = parsed.rrule ?: it.rrule,
                 note = opts.note.ifBlank { it.note },
-                estimateMin = opts.estimateMin ?: it.estimateMin,
-                star = it.star || opts.star,
+                estimateMin = estimateMin ?: it.estimateMin,
+                star = it.star || star,
             ))
         }
 
@@ -1122,9 +1135,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * flip of the auto-classification; null means "use the classifier's guess".
      */
     fun smartCapture(text: String, forceKind: com.todocompanion.app.domain.nlp.SmartCapture.Kind? = null, onDone: (com.todocompanion.app.domain.nlp.SmartCapture.Kind) -> Unit = {}) {
-        // V9: strip inline tokens (#t25, *, !) first and carry them into the created task.
-        val tok = com.todocompanion.app.domain.nlp.QuickTokens.parse(text)
-        val trimmed = tok.text.trim()
+        // Classify task-vs-habit on the token-free text; the actual task creation passes the RAW text
+        // to submitQuickAdd, which is the single funnel for inline tokens (#t25, *, !) AND @contexts.
+        val trimmed = com.todocompanion.app.domain.nlp.QuickTokens.parse(text).text.trim()
         if (trimmed.isBlank()) return
         val hbt = com.todocompanion.app.domain.nlp.SmartCapture.Kind.HABIT
         val tsk = com.todocompanion.app.domain.nlp.SmartCapture.Kind.TASK
@@ -1141,7 +1154,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (kind == com.todocompanion.app.domain.nlp.SmartCapture.Kind.HABIT) {
             addHabit(com.todocompanion.app.domain.habit.HabitQuickParser.parse(trimmed))
         } else {
-            submitQuickAdd(trimmed, QuickAddOptions(estimateMin = tok.estimateMin, star = tok.star))
+            submitQuickAdd(text, QuickAddOptions())
         }
         onDone(kind)
     }

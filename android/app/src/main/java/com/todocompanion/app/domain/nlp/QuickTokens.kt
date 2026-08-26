@@ -25,11 +25,16 @@ object QuickTokens {
     private val PRIO = Regex("(?<=^|\\s)(!{1,3})(?=\\s|$)")
     private val STAR = Regex("(?<=^|\\s)\\*(?=\\s|$)")
 
-    fun parse(raw: String): Parsed {
+    /**
+     * @param handleActivity when true (omnibox), an `@name` token is consumed as a time-tracking
+     *   activity. When false (the task funnel), `@name` is left in the text so the quick-add parser
+     *   can read it as a context — keeping `@` coherent between the omnibox and the quick-add sheet.
+     */
+    fun parse(raw: String, handleActivity: Boolean = true): Parsed {
         var s = raw
         var est: Int? = null; var act: String? = null; var prio: Int? = null; var star = false
         EST.find(s)?.let { m -> est = m.groupValues[1].toIntOrNull()?.takeIf { it in 1..1440 }; s = s.removeRange(m.range.first, m.range.last + 1) }
-        ACT.find(s)?.let { m -> act = m.groupValues[1]; s = s.removeRange(m.range.first, m.range.last + 1) }
+        if (handleActivity) ACT.find(s)?.let { m -> act = m.groupValues[1]; s = s.removeRange(m.range.first, m.range.last + 1) }
         PRIO.find(s)?.let { m -> prio = m.groupValues[1].length; s = s.removeRange(m.range.first, m.range.last + 1) }
         STAR.find(s)?.let { m -> star = true; s = s.removeRange(m.range.first, m.range.last + 1) }
         return Parsed(s.replace(Regex("\\s{2,}"), " ").trim(), est, prio, star, act)

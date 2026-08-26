@@ -24,6 +24,10 @@ private val TOKENS = listOf(
     Tok(Regex("(?<=\\s|^)~[\\p{L}0-9_-]+"), Color(0xFF0D9488)),
     // #tag
     Tok(Regex("(?<=\\s|^)#[\\p{L}0-9_-]+"), Color(0xFF7C3AED)),
+    // #t25 estimate — listed after #tag so it wins the overlap (an estimate, not a tag)
+    Tok(Regex("(?<=\\s|^)#t\\d{1,4}(?=\\s|$)"), Color(0xFF0891B2)),
+    // * star
+    Tok(Regex("(?<=\\s|^)\\*(?=\\s|$)"), Color(0xFFD97706)),
     // @context
     Tok(Regex("(?<=\\s|^)@[\\p{L}0-9_-]+"), Color(0xFFDB2777)),
     // dates & times
