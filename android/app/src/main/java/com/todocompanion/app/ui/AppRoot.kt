@@ -204,6 +204,12 @@ fun AppRoot(
         val scope = rememberCoroutineScope()
         val drawerState = rememberDrawerState(DrawerValue.Closed)
         var tab by remember { mutableStateOf(Tab.TASKS) }
+        // Focus is now a MODE of the Time hub, not a separate view — both are just "time". This flag
+        // flips the Time tab between Track (activity timers) and Focus (the Pomodoro ring).
+        var timeFocus by remember { mutableStateOf(false) }
+        // Any legacy "go to Focus" navigation (FAB, habit focus, just-start, deep links) lands on the
+        // Time hub in Focus mode, so there's one destination for time — never a stranded Focus tab.
+        LaunchedEffect(tab) { if (tab == Tab.FOCUS) { timeFocus = true; tab = Tab.TIME } }
         // T0: land on the primary module's home once settings load (unless a default view / resume is set),
         // and never leave the user stranded on a disabled module's tab.
         var landedInitial by remember { mutableStateOf(false) }
@@ -608,7 +614,8 @@ fun AppRoot(
                     val visibleTabs = Tab.entries.filter { t ->
                         val m = Modules.moduleOfTab(t.name)
                         val moduleOk = m == null || Modules.isEnabled(settings, m)
-                        moduleOk && (t == primaryHomeTab || t.name !in settings.bottomTabsHidden)
+                        // Focus folded into the Time hub — no longer its own bottom-bar destination.
+                        t != Tab.FOCUS && moduleOk && (t == primaryHomeTab || t.name !in settings.bottomTabsHidden)
                     }
                     Column {
                         // Persistent running-timer bar — visible on every tab while a timer runs.
@@ -664,8 +671,8 @@ fun AppRoot(
                                 DropdownMenuItem(text = { Text("Weekly review") }, leadingIcon = { Icon(Icons.Filled.EventRepeat, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; showReview = true })
                             }
                         }
-                    } else if (tab == Tab.TIME) {
-                        // The Time tab's add-entry button lives here so it matches the quick-add FAB;
+                    } else if (tab == Tab.TIME && !timeFocus) {
+                        // The Time hub's add-entry button (Track mode only) — matches the quick-add FAB;
                         // it pokes the embedded Time screen (which owns the add-entry dialog).
                         FloatingActionButton(onClick = { vm.addTimeEntryRequests.value++ }) {
                             Icon(Icons.Filled.Add, "Add time entry")
@@ -692,9 +699,22 @@ fun AppRoot(
                                 }, onAddAt = { d, minute -> blockAt = d to minute })
                             Tab.TIMELINE -> com.todocompanion.app.ui.screens.TimelineScreen(vm, ::openTask, selectedLists = timelineLists, showDone = timelineShowDone)
                             Tab.MATRIX -> MatrixScreen(vm, ::openTask, matrixSettings, { matrixSettings = false })
-                            Tab.HABITS -> com.todocompanion.app.ui.screens.HabitsScreen(vm, onFocusHabit = { hid -> vm.pendingFocusHabitId.value = hid; tab = Tab.FOCUS })
-                            Tab.TIME -> com.todocompanion.app.ui.screens.TimeTrackingScreen(vm, onBack = {}, embedded = true)
-                            Tab.FOCUS -> com.todocompanion.app.ui.screens.FocusScreen(vm, onOpenStats = { showStats = true })
+                            Tab.HABITS -> com.todocompanion.app.ui.screens.HabitsScreen(vm, onFocusHabit = { hid -> vm.pendingFocusHabitId.value = hid; timeFocus = true; tab = Tab.TIME })
+                            Tab.TIME, Tab.FOCUS -> Column(Modifier.fillMaxSize()) {
+                                // One Time hub, two modes — Track (activity timers) and Focus (the ring).
+                                Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp), horizontalArrangement = Arrangement.Center) {
+                                    listOf(false to "Track", true to "Focus").forEach { (isFocus, label) ->
+                                        val sel = timeFocus == isFocus
+                                        Box(
+                                            Modifier.clip(RoundedCornerShape(20.dp))
+                                                .background(if (sel) MaterialTheme.colorScheme.primary.copy(alpha = .16f) else Color.Transparent)
+                                                .clickable { timeFocus = isFocus }.padding(horizontal = 20.dp, vertical = 7.dp),
+                                        ) { Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal, color = if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) }
+                                    }
+                                }
+                                if (timeFocus) com.todocompanion.app.ui.screens.FocusScreen(vm, onOpenStats = { showTimeStats = true })
+                                else com.todocompanion.app.ui.screens.TimeTrackingScreen(vm, onBack = {}, embedded = true)
+                            }
                         }
                     }
                 }

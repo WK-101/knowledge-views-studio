@@ -36,6 +36,7 @@ data class AppSettings(
     val habitDensity: Int = 1,                // habits matrix cell size: 0 compact · 1 medium · 2 large (persisted)
     val habitMatrixMode: Boolean = false,     // habits tab: list (false) vs all-habits matrix (true), persisted
     val timeGridColumns: Int = 2,             // activity tiles per row in the Time view (2–5)
+    val timeActivityParents: Map<String, String> = emptyMap(),  // childId → parentId, for nested activities (KV, no migration)
     val weekStart: Int = 0,
     val timeFormat: TimeFormat = TimeFormat.SYSTEM,
     val timeZone: String = "",
@@ -218,6 +219,7 @@ data class AppSettings(
         Keys.HABIT_DENSITY to habitDensity.toString(),
         Keys.HABIT_MATRIX_MODE to habitMatrixMode.toString(),
         Keys.TIME_GRID_COLUMNS to timeGridColumns.toString(),
+        Keys.TIME_ACTIVITY_PARENTS to timeActivityParents.entries.joinToString(";") { "${it.key}=${it.value}" },
         Keys.WEEK_START to weekStart.toString(),
         Keys.TIME_FORMAT to timeFormat.name,
         Keys.TIME_ZONE to timeZone,
@@ -316,6 +318,7 @@ data class AppSettings(
         const val HABIT_DENSITY = "habit_density"
         const val HABIT_MATRIX_MODE = "habit_matrix_mode"
         const val TIME_GRID_COLUMNS = "time_grid_columns"
+        const val TIME_ACTIVITY_PARENTS = "time_activity_parents"
         const val WEEK_START = "week_start"
         const val TIME_FORMAT = "time_format"
         const val TIME_ZONE = "time_zone"
@@ -438,6 +441,9 @@ data class AppSettings(
             habitDensity = m[Keys.HABIT_DENSITY]?.toIntOrNull()?.coerceIn(0, 2) ?: 1,
             habitMatrixMode = m[Keys.HABIT_MATRIX_MODE]?.toBooleanStrictOrNull() ?: false,
             timeGridColumns = m[Keys.TIME_GRID_COLUMNS]?.toIntOrNull()?.coerceIn(2, 5) ?: 2,
+            timeActivityParents = (m[Keys.TIME_ACTIVITY_PARENTS] ?: "").split(";").mapNotNull { p ->
+                val kv = p.split("="); if (kv.size == 2 && kv[0].isNotBlank() && kv[1].isNotBlank()) kv[0] to kv[1] else null
+            }.toMap(),
             weekStart = m[Keys.WEEK_START]?.toIntOrNull() ?: 0,
             timeFormat = parse(m[Keys.TIME_FORMAT], TimeFormat.SYSTEM),
             timeZone = m[Keys.TIME_ZONE] ?: "",

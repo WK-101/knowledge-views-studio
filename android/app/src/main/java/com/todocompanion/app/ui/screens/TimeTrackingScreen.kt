@@ -115,15 +115,25 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
     }
 
     var day by remember { mutableStateOf(LocalDate.now(zone)) }
-    val winStart = day.atStartOfDay(zone).toInstant().toEpochMilli()
-    val winEnd = day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+    // The Time view can summarise a Day, a Week or a Month — the totals, tiles and insights all follow
+    // this window (not just day-by-day). 0 = day · 1 = week (Mon-anchored) · 2 = month.
+    var rangeUnit by rememberSaveable { mutableStateOf(0) }
+    val winStartDate = when (rangeUnit) {
+        1 -> day.minusDays((day.dayOfWeek.value - 1).toLong())
+        2 -> day.withDayOfMonth(1)
+        else -> day
+    }
+    val winEndDate = when (rangeUnit) { 1 -> winStartDate.plusDays(7); 2 -> winStartDate.plusMonths(1); else -> day.plusDays(1) }
+    val winStart = winStartDate.atStartOfDay(zone).toInstant().toEpochMilli()
+    val winEnd = winEndDate.atStartOfDay(zone).toInstant().toEpochMilli()
+    val multiDay = rangeUnit != 0
     val actById = activities.associateBy { it.id }
 
-    val dayEntries = remember(entries, day, now) {
+    val dayEntries = remember(entries, day, rangeUnit, now) {
         entries.filter { TimeTracking.minutesInWindow(it.startMillis, it.endMillis, winStart, winEnd, now) > 0 }
             .sortedByDescending { it.startMillis }
     }
-    val totals = remember(entries, day, now) { TimeTracking.totalsByActivity(entries, winStart, winEnd, now) }
+    val totals = remember(entries, day, rangeUnit, now) { TimeTracking.totalsByActivity(entries, winStart, winEnd, now) }
     val dayTotalMin = totals.sumOf { it.minutes }
 
     var showNewActivity by remember { mutableStateOf(false) }
@@ -139,13 +149,19 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
     }
     editActivity?.let { a ->
         ActivityDialog(
-            a, onDismiss = { editActivity = null }, onDelete = { vm.deleteTimeActivity(a.id); editActivity = null },
+            a, onDismiss = { editActivity = null },
+            onDelete = { vm.deleteTimeActivity(a.id); editActivity = null },
+            onArchive = { vm.archiveTimeActivity(a.id); editActivity = null },
             habitLinks = habits.filter { !it.archived }.map { it.id to it.name },
             linkedHabitId = habits.firstOrNull { it.timeActivityId == a.id }?.id,
             onLinkHabit = { hid ->
                 habits.filter { it.timeActivityId == a.id }.forEach { vm.setHabitTimeActivity(it.id, null) }
                 hid?.let { vm.setHabitTimeActivity(it, a.id) }
             },
+            // A parent can be any other non-archived activity that isn't already a child of this one.
+            parentCandidates = activities.filter { !it.archived && it.id != a.id && settings.timeActivityParents[it.id] != a.id }.map { it.id to it.name },
+            parentId = settings.timeActivityParents[a.id],
+            onSetParent = { pid -> vm.setActivityParent(a.id, pid) },
         ) { name, emoji, color, goal ->
             vm.updateTimeActivity(a.copy(name = name, emoji = emoji, colorArgb = color, goalMinutesPerDay = goal)); editActivity = null
         }
@@ -286,9 +302,26 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                         ) { Text("$n", style = MaterialTheme.typography.labelMedium, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal, color = if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) }
                     }
                 }
-                val ordered = remember(liveActs, settings.pinnedActivities) {
-                    liveActs.sortedByDescending { it.id in settings.pinnedActivities }
+                // Nested order: each top-level activity, immediately followed by its children (pinned
+                // float to the front within each level). Children render with a subtle "└" so the tree reads.
+                val parents = settings.timeActivityParents
+                val ordered = remember(liveActs, settings.pinnedActivities, parents) {
+                    val byPin = compareByDescending<TimeActivityEntity> { it.id in settings.pinnedActivities }.thenBy { it.name.lowercase() }
+                    val topLevel = liveActs.filter { parents[it.id]?.let { p -> liveActs.any { a -> a.id == p } } != true }.sortedWith(byPin)
+                    // Fallback: if a bad parent map left nothing at top level, show everything flat so the
+                    // grid never comes up empty.
+                    if (topLevel.isEmpty()) liveActs.sortedWith(byPin)
+                    else buildList {
+                        val seen = HashSet<String>()
+                        topLevel.forEach { p ->
+                            if (seen.add(p.id)) add(p)
+                            liveActs.filter { parents[it.id] == p.id }.sortedWith(byPin).forEach { if (seen.add(it.id)) add(it) }
+                        }
+                        // Any activity not reached (e.g. orphaned by a stale parent) is appended so none vanish.
+                        liveActs.sortedWith(byPin).forEach { if (seen.add(it.id)) add(it) }
+                    }
                 }
+                val childIds = remember(ordered, parents) { ordered.filter { parents[it.id]?.let { p -> ordered.any { a -> a.id == p } } == true }.map { it.id }.toSet() }
                 // A plain N-column grid (not lazy — we're inside a vertical scroll). `null` = the New tile.
                 // Tiles are square-ish and centred so they read cleanly from 2 up to 5 per row.
                 val tileHeight = if (cols >= 4) 84.dp else 72.dp
@@ -325,7 +358,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                                             if (pinned) { Spacer(Modifier.width(4.dp)); Text("★", style = MaterialTheme.typography.labelSmall, color = c) }
                                         }
                                         Spacer(Modifier.height(3.dp))
-                                        Text(a.name, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                        Text((if (a.id in childIds) "↳ " else "") + a.name, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                                         Text(if (isRun) "● running" else if (todayMin > 0) fmtDur(todayMin) else "start",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = if (isRun) c else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
@@ -342,16 +375,34 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                 }
             }
 
-            // Day navigator — tap the date to jump to any day via the calendar picker.
+            // Range selector — summarise a Day, Week or Month.
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                listOf("Day", "Week", "Month").forEachIndexed { i, label ->
+                    val sel = rangeUnit == i
+                    Box(
+                        Modifier.clip(RoundedCornerShape(20.dp))
+                            .background(if (sel) MaterialTheme.colorScheme.primary.copy(alpha = .16f) else Color.Transparent)
+                            .clickable { rangeUnit = i }.padding(horizontal = 14.dp, vertical = 6.dp),
+                    ) { Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal, color = if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
+            }
+            // Period navigator — tap the label to jump to any date; ‹ › shift by the chosen unit.
             val navCtx = androidx.compose.ui.platform.LocalContext.current
+            val today0 = LocalDate.now(zone)
+            val canNext = winEndDate <= today0
+            val periodLabel = when (rangeUnit) {
+                1 -> "${winStartDate.format(DateTimeFormatter.ofPattern("MMM d"))} – ${winStartDate.plusDays(6).format(DateTimeFormatter.ofPattern("MMM d"))}"
+                2 -> winStartDate.format(DateTimeFormatter.ofPattern("MMMM yyyy"))
+                else -> if (day == today0) "Today" else day.format(DateTimeFormatter.ofPattern("EEE, MMM d"))
+            }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { day = day.minusDays(1) }) { Icon(Icons.Filled.ChevronLeft, "Previous day") }
+                IconButton(onClick = { day = when (rangeUnit) { 1 -> day.minusWeeks(1); 2 -> day.minusMonths(1); else -> day.minusDays(1) } }) { Icon(Icons.Filled.ChevronLeft, "Previous") }
                 Text(
-                    (if (day == LocalDate.now(zone)) "Today · ${fmtDur(dayTotalMin)}" else "${day.format(DateTimeFormatter.ofPattern("EEE, MMM d"))} · ${fmtDur(dayTotalMin)}") + "  ▾",
+                    "$periodLabel · ${fmtDur(dayTotalMin)}" + (if (rangeUnit == 0) "  ▾" else ""),
                     Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable {
                         android.app.DatePickerDialog(navCtx, { _, y, m, dom ->
                             val picked = LocalDate.of(y, m + 1, dom)
-                            day = if (picked.isAfter(LocalDate.now(zone))) LocalDate.now(zone) else picked
+                            day = if (picked.isAfter(today0)) today0 else picked
                         }, day.year, day.monthValue - 1, day.dayOfMonth).apply {
                             datePicker.maxDate = System.currentTimeMillis()
                         }.show()
@@ -359,7 +410,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
                 )
-                IconButton(onClick = { if (day < LocalDate.now(zone)) day = day.plusDays(1) }, enabled = day < LocalDate.now(zone)) { Icon(Icons.Filled.ChevronRight, "Next day") }
+                IconButton(onClick = { if (canNext) day = when (rangeUnit) { 1 -> day.plusWeeks(1); 2 -> day.plusMonths(1); else -> day.plusDays(1) }.let { if (it.isAfter(today0)) today0 else it } }, enabled = canNext) { Icon(Icons.Filled.ChevronRight, "Next") }
             }
 
             // Per-activity totals (bars).
@@ -472,7 +523,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
             Text("Timeline", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
             // U5 · "account for my whole day" — when Timeline-fill is on, the holes between what you did
             // log surface as tappable chips so no stretch goes unexplained. Off by default (a Settings toggle).
-            if (settings.timelineFill) {
+            if (settings.timelineFill && !multiDay) {
                 val gaps = remember(entries, day, now) { TimeInsights.untrackedGaps(entries, winStart, winEnd, now) }
                 if (gaps.isNotEmpty()) {
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -500,7 +551,9 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                                 Text((a?.emoji?.plus(" ") ?: "") + (a?.name ?: "—") + if (e.running) "  · running" else "", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 val startTxt = Instant.ofEpochMilli(e.startMillis).atZone(zone).format(timeFmt)
                                 val endTxt = e.endMillis?.let { Instant.ofEpochMilli(it).atZone(zone).format(timeFmt) } ?: "now"
-                                Text("$startTxt – $endTxt" + (e.note.takeIf { it.isNotBlank() }?.let { "  ·  $it" } ?: ""), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                // When the window spans days, prefix the calendar date so rows are unambiguous.
+                                val datePrefix = if (multiDay) Instant.ofEpochMilli(e.startMillis).atZone(zone).format(DateTimeFormatter.ofPattern("MMM d")) + "  " else ""
+                                Text(datePrefix + "$startTxt – $endTxt" + (e.note.takeIf { it.isNotBlank() }?.let { "  ·  $it" } ?: ""), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                             Text(fmtDur(e.minutes(now)), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = c)
                         }
@@ -566,19 +619,21 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ActivityDialog(
-    existing: TimeActivityEntity?, onDismiss: () -> Unit, onDelete: (() -> Unit)? = null,
+    existing: TimeActivityEntity?, onDismiss: () -> Unit, onDelete: (() -> Unit)? = null, onArchive: (() -> Unit)? = null,
     habitLinks: List<Pair<String, String>> = emptyList(), linkedHabitId: String? = null, onLinkHabit: (String?) -> Unit = {},
+    parentCandidates: List<Pair<String, String>> = emptyList(), parentId: String? = null, onSetParent: (String?) -> Unit = {},
     onSave: (String, String?, Long?, Int) -> Unit,
 ) {
     var name by remember { mutableStateOf(existing?.name ?: "") }
     var emoji by remember { mutableStateOf(existing?.emoji ?: "") }
     var color by remember { mutableStateOf(existing?.colorArgb ?: PALETTE.first()) }
     var goal by remember { mutableStateOf(existing?.goalMinutesPerDay?.takeIf { it > 0 }?.toString() ?: "") }
+    var confirmDelete by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (existing == null) "New activity" else "Edit activity") },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 com.todocompanion.app.ui.components.AppTextField(name, { name = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
                 com.todocompanion.app.ui.components.AppTextField(emoji, { emoji = it.take(2) }, label = { Text("Emoji (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -594,6 +649,18 @@ private fun ActivityDialog(
                                 .then(if (color == swatch) Modifier.padding(2.dp) else Modifier),
                             contentAlignment = Alignment.Center,
                         ) { if (color == swatch) Text("✓", color = Color.White) }
+                    }
+                }
+                // Nested activities: put this activity under a parent (e.g. "Standup" under "Work").
+                if (existing != null && parentCandidates.isNotEmpty()) {
+                    Spacer(Modifier.height(14.dp))
+                    Text("Nest under", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(6.dp))
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = parentId == null, onClick = { onSetParent(null) }, label = { Text("Top level") })
+                        parentCandidates.forEach { (pid, pname) ->
+                            FilterChip(selected = parentId == pid, onClick = { onSetParent(pid) }, label = { Text(pname, maxLines = 1) })
+                        }
                     }
                 }
                 // T3 (I4): link this activity to a habit — tracking it then counts the habit, sharing one goal.
@@ -613,8 +680,21 @@ private fun ActivityDialog(
         confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { onSave(name.trim(), emoji.trim().ifBlank { null }, color, goal.toIntOrNull() ?: 0) }) { Text("Save") } },
         dismissButton = {
             Row {
-                if (onDelete != null) TextButton(onClick = onDelete) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+                if (onDelete != null) TextButton(onClick = { confirmDelete = true }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
                 TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        },
+    )
+    // Delete offers two honest choices: archive (keep the tracked time in stats) or remove everywhere.
+    if (confirmDelete) AlertDialog(
+        onDismissRequest = { confirmDelete = false },
+        title = { Text("Delete “${existing?.name ?: "activity"}”?") },
+        text = { Text("Archive keeps its tracked time in your statistics. Delete removes the activity and its time entries from everywhere — this can't be undone.") },
+        confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete?.invoke() }) { Text("Delete everywhere", color = MaterialTheme.colorScheme.error) } },
+        dismissButton = {
+            Row {
+                if (onArchive != null) TextButton(onClick = { confirmDelete = false; onArchive.invoke() }) { Text("Archive") }
+                TextButton(onClick = { confirmDelete = false }) { Text("Cancel") }
             }
         },
     )
@@ -715,9 +795,10 @@ private fun AutomationRuleDialog(activities: List<TimeActivityEntity>, onDismiss
     )
 }
 
-/** Edit a logged entry: adjust its times, reassign the activity, tag it, split it, or delete it. */
+/** Edit a logged entry: adjust its times, reassign the activity, tag it, split it, or delete it.
+ *  Non-private so the calendar can open the same editor when a tracked block is tapped. */
 @Composable
-private fun EditEntryDialog(entry: TimeEntryEntity, activities: List<TimeActivityEntity>, zone: ZoneId, onDismiss: () -> Unit, onDelete: () -> Unit, onSplit: (Long) -> Unit, onSave: (TimeEntryEntity) -> Unit) {
+internal fun EditEntryDialog(entry: TimeEntryEntity, activities: List<TimeActivityEntity>, zone: ZoneId, onDismiss: () -> Unit, onDelete: () -> Unit, onSplit: (Long) -> Unit, onSave: (TimeEntryEntity) -> Unit) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     var note by remember { mutableStateOf(entry.note) }
     var tags by remember { mutableStateOf(entry.tags) }

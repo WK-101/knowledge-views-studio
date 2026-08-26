@@ -549,6 +549,7 @@ interface TimeTrackingDao {
     @Upsert suspend fun upsertEntry(e: com.todocompanion.app.data.entity.TimeEntryEntity)
     @Upsert suspend fun upsertEntries(e: List<com.todocompanion.app.data.entity.TimeEntryEntity>)
     @Query("DELETE FROM time_entries WHERE id = :id") suspend fun deleteEntry(id: String)
+    @Query("DELETE FROM time_entries WHERE activityId = :activityId") suspend fun deleteEntriesForActivity(activityId: String)
     @Query("DELETE FROM time_entries WHERE endMillis IS NULL") suspend fun clearRunning()
     @Query("DELETE FROM time_entries") suspend fun clearEntries()
 }

@@ -29,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -94,7 +95,7 @@ private val COMMAND_CATALOG: List<Pair<String, List<Pair<String, String>>>> = li
 fun CommandPaletteDialog(vm: AppViewModel, onDismiss: () -> Unit, onRun: (OmegaCommand.Command) -> Unit) {
     var text by remember { mutableStateOf("") }
     var answer by remember { mutableStateOf<String?>(null) }
-    var showAll by remember { mutableStateOf(false) }
+    var showAll by remember { mutableStateOf(true) }   // catalogue open by default — it replaced the starter chips
     val focus = remember { FocusRequester() }
     val parsed = remember(text) { OmegaCommand.parse(text) }
 
@@ -123,7 +124,7 @@ fun CommandPaletteDialog(vm: AppViewModel, onDismiss: () -> Unit, onRun: (OmegaC
                 com.todocompanion.app.ui.components.AppTextField(
                     value = text, onValueChange = { text = it; answer = null },
                     modifier = Modifier.fillMaxWidth().focusRequester(focus),
-                    placeholder = { Text("track deep work · go to habits · hours on Reading this week") },
+                    placeholder = { Text("Type a command or question…", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                     keyboardActions = KeyboardActions(onGo = { run() }),
@@ -136,16 +137,8 @@ fun CommandPaletteDialog(vm: AppViewModel, onDismiss: () -> Unit, onRun: (OmegaC
                         Text(it, Modifier.padding(14.dp), style = MaterialTheme.typography.bodyMedium)
                     }
                 }
-                // Quick examples when empty.
-                if (text.isBlank() && !showAll) {
-                    Spacer(Modifier.height(10.dp))
-                    FlowRowCompat {
-                        listOf("track deep work", "go to habits", "plan my day", "best habit").forEach { ex ->
-                            AssistChip(onClick = { text = ex; answer = null }, label = { Text(ex, style = MaterialTheme.typography.labelSmall) })
-                        }
-                    }
-                }
                 // Every command, click-to-expand — so nothing the palette can do stays hidden.
+                // (The old starter chips were redundant now that the full catalogue sits right below.)
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth().clickable { showAll = !showAll }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("All commands", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)

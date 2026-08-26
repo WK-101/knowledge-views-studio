@@ -1196,6 +1196,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun updateTimeActivity(a: com.todocompanion.app.data.entity.TimeActivityEntity) = viewModelScope.launch { repo.upsertTimeActivity(a); refreshTimeWidget(); refreshTrackShortcuts() }
     fun deleteTimeActivity(id: String) = viewModelScope.launch { repo.deleteTimeActivity(id); refreshTimeWidget(); refreshTrackShortcuts() }
+    fun archiveTimeActivity(id: String) = viewModelScope.launch { repo.archiveTimeActivity(id); refreshTimeWidget(); refreshTrackShortcuts() }
+    /** Nested activities: set (or clear, with null) an activity's parent. Stored in settings (no migration).
+     *  Rejects a parent that would create a cycle (A→B→A), which would otherwise orphan the whole grid. */
+    fun setActivityParent(childId: String, parentId: String?) = viewModelScope.launch {
+        val s = settings.value
+        val map = s.timeActivityParents
+        val wouldCycle = parentId != null && run {
+            var cur: String? = parentId
+            var guard = 0
+            while (cur != null && guard < 64) { if (cur == childId) return@run true; cur = map[cur]; guard++ }
+            false
+        }
+        val next = if (parentId == null || parentId == childId || wouldCycle) map - childId
+        else map + (childId to parentId)
+        repo.saveSettings(s.copy(timeActivityParents = next))
+    }
     /** Start (or switch) tracking. Passing the already-running activity is a no-op toggle handled by caller.
      *  U15: with multi-timer on, the running timer isn't stopped first. U12: on-start rules run after. */
     fun startTimeTracking(activityId: String, taskId: String? = null, habitId: String? = null) = viewModelScope.launch {

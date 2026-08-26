@@ -241,13 +241,36 @@ class AppRepository(private val db: AppDatabase) {
         return id
     }
     suspend fun upsertTimeActivity(a: com.todocompanion.app.data.entity.TimeActivityEntity) = timeTrack.upsertActivity(a)
-    /** T7 (I2): deleting an activity that has intervals SOFT-ARCHIVES it (its time survives); only a truly
-     *  unused activity is removed. Any habit linked to it is unlinked. */
+    /** Soft-archive: keep the activity's tracked time but hide it from the picker (its stats survive). */
+    suspend fun archiveTimeActivity(id: String) {
+        timeTrack.getActivities().firstOrNull { it.id == id }?.let { timeTrack.upsertActivity(it.copy(archived = true)) }
+    }
+
+    /**
+     * Full delete — removes an activity from EVERY place it's referenced, so nothing stale lingers:
+     * its time entries, the tasks that defaulted to it, the habits linked to it, the pinned tiles, the
+     * automation rules that fire on it, and the nested-activity parent map (its children are re-parented
+     * to its own parent, or promoted to top level). Use archiveTimeActivity to keep the time instead.
+     */
     suspend fun deleteTimeActivity(id: String) {
+        timeTrack.deleteEntriesForActivity(id)
+        tasks.getAll().filter { it.defaultActivityId == id }.forEach { tasks.upsert(it.copy(defaultActivityId = null, updatedAt = now())) }
         habits.getAll().filter { it.timeActivityId == id }.forEach { habits.upsert(it.copy(timeActivityId = null)) }
-        if (timeTrack.getEntries().any { it.activityId == id }) {
-            timeTrack.getActivities().firstOrNull { it.id == id }?.let { timeTrack.upsertActivity(it.copy(archived = true)) }
-        } else timeTrack.deleteActivity(id)
+        val s = settingsSnapshot()
+        val parents = s.timeActivityParents
+        val grandparent = parents[id]
+        val newParents = parents
+            .filterKeys { it != id }                                   // drop it as a child
+            .mapValues { (_, p) -> if (p == id) (grandparent ?: "") else p }   // re-parent its children
+            .filterValues { it.isNotBlank() }
+        val rules = com.todocompanion.app.domain.AutomationRules.parse(s.automationRulesJson)
+            .filter { it.whenActivityId != id && it.startActivityId != id }
+        saveSettings(s.copy(
+            pinnedActivities = s.pinnedActivities - id,
+            timeActivityParents = newParents,
+            automationRulesJson = com.todocompanion.app.domain.AutomationRules.encode(rules),
+        ))
+        timeTrack.deleteActivity(id)
     }
 
     /**
