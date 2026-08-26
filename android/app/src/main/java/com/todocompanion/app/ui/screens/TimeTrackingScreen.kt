@@ -307,19 +307,22 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                 val parents = settings.timeActivityParents
                 val ordered = remember(liveActs, settings.pinnedActivities, parents) {
                     val byPin = compareByDescending<TimeActivityEntity> { it.id in settings.pinnedActivities }.thenBy { it.name.lowercase() }
-                    val topLevel = liveActs.filter { parents[it.id]?.let { p -> liveActs.any { a -> a.id == p } } != true }.sortedWith(byPin)
-                    // Fallback: if a bad parent map left nothing at top level, show everything flat so the
-                    // grid never comes up empty.
-                    if (topLevel.isEmpty()) liveActs.sortedWith(byPin)
-                    else buildList {
-                        val seen = HashSet<String>()
-                        topLevel.forEach { p ->
-                            if (seen.add(p.id)) add(p)
-                            liveActs.filter { parents[it.id] == p.id }.sortedWith(byPin).forEach { if (seen.add(it.id)) add(it) }
-                        }
-                        // Any activity not reached (e.g. orphaned by a stale parent) is appended so none vanish.
-                        liveActs.sortedWith(byPin).forEach { if (seen.add(it.id)) add(it) }
+                    val byParent = liveActs.groupBy { parents[it.id]?.takeIf { p -> liveActs.any { a -> a.id == p } } }
+                    val topLevel = (byParent[null] ?: emptyList()).sortedWith(byPin)
+                    val out = ArrayList<TimeActivityEntity>()
+                    val seen = HashSet<String>()
+                    // Depth-first descent so every level (children, grandchildren…) appears under its
+                    // parent; `seen` guards against cycles and diamonds so nothing loops or duplicates.
+                    fun descend(a: TimeActivityEntity) {
+                        if (!seen.add(a.id)) return
+                        out.add(a)
+                        (byParent[a.id] ?: emptyList()).sortedWith(byPin).forEach { descend(it) }
                     }
+                    topLevel.forEach { descend(it) }
+                    // Fallback: anything unreached (all-cyclic parents, orphans) is appended flat so the grid
+                    // never comes up empty and no activity vanishes.
+                    liveActs.sortedWith(byPin).forEach { if (seen.add(it.id)) out.add(it) }
+                    out
                 }
                 val childIds = remember(ordered, parents) { ordered.filter { parents[it.id]?.let { p -> ordered.any { a -> a.id == p } } == true }.map { it.id }.toSet() }
                 // A plain N-column grid (not lazy — we're inside a vertical scroll). `null` = the New tile.
@@ -447,7 +450,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                     Icon(if (showInsights) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null)
                 }
                 if (showInsights) AppCard {
-                    val byHour = remember(entries, day, now) { TimeInsights.minutesByHour(entries, winStart, winEnd, now) }
+                    val byHour = remember(entries, day, rangeUnit, now) { TimeInsights.minutesByHour(entries, winStart, winEnd, now) }
                     val hourMax = (byHour.maxOrNull() ?: 0).coerceAtLeast(1)
                     Text("When you worked", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(Modifier.fillMaxWidth().height(56.dp).padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(1.dp), verticalAlignment = Alignment.Bottom) {
@@ -462,7 +465,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                     }
                     Spacer(Modifier.height(10.dp))
                     Text("Session lengths", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    val dist = remember(entries, day) { TimeInsights.durationDistribution(entries, winStart, winEnd) }
+                    val dist = remember(entries, day, rangeUnit) { TimeInsights.durationDistribution(entries, winStart, winEnd) }
                     val distMax = dist.maxOfOrNull { it.count }?.coerceAtLeast(1) ?: 1
                     dist.filter { it.count > 0 }.forEach { b ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -473,7 +476,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                             Spacer(Modifier.width(8.dp)); Text("${b.count}", style = MaterialTheme.typography.labelSmall)
                         }
                     }
-                    val tagTotals = remember(entries, day, now) { TimeInsights.totalsByTag(entries, winStart, winEnd, now) }
+                    val tagTotals = remember(entries, day, rangeUnit, now) { TimeInsights.totalsByTag(entries, winStart, winEnd, now) }
                     if (tagTotals.isNotEmpty()) {
                         Spacer(Modifier.height(10.dp))
                         Text("By tag", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -484,9 +487,12 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                     // V10 — this week vs last: total tracked and its change.
                     Spacer(Modifier.height(10.dp))
                     Text("This week vs last", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    // Always the rolling 7 days ending on `day` — independent of the Day/Week/Month window,
+                    // so this comparison stays "this week vs last" and doesn't borrow winEnd (audit #3).
                     val wkStart = day.minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli()
+                    val wkEnd = day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
                     val prevStart = day.minusDays(13).atStartOfDay(zone).toInstant().toEpochMilli()
-                    val thisWk = TimeTracking.totalMinutes(entries, wkStart, winEnd, now)
+                    val thisWk = TimeTracking.totalMinutes(entries, wkStart, wkEnd, now)
                     val lastWk = TimeTracking.totalMinutes(entries, prevStart, wkStart, now)
                     val delta = thisWk - lastWk
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -499,7 +505,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                         )
                     }
                     // W8 — activity-vs-activity: the week's activities compared side by side.
-                    val wkByAct = remember(entries, day, now) { TimeTracking.totalsByActivity(entries, wkStart, winEnd, now) }
+                    val wkByAct = remember(entries, day, now) { TimeTracking.totalsByActivity(entries, wkStart, wkEnd, now) }
                     if (wkByAct.size >= 2) {
                         Spacer(Modifier.height(10.dp))
                         Text("Activities this week", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -524,7 +530,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
             // U5 · "account for my whole day" — when Timeline-fill is on, the holes between what you did
             // log surface as tappable chips so no stretch goes unexplained. Off by default (a Settings toggle).
             if (settings.timelineFill && !multiDay) {
-                val gaps = remember(entries, day, now) { TimeInsights.untrackedGaps(entries, winStart, winEnd, now) }
+                val gaps = remember(entries, day, rangeUnit, now) { TimeInsights.untrackedGaps(entries, winStart, winEnd, now) }
                 if (gaps.isNotEmpty()) {
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         gaps.forEach { g ->

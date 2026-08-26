@@ -1195,7 +1195,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         com.todocompanion.app.util.TrackShortcuts.refresh(appCtx, timeActivities.value.filter { !it.archived })
     }
     fun updateTimeActivity(a: com.todocompanion.app.data.entity.TimeActivityEntity) = viewModelScope.launch { repo.upsertTimeActivity(a); refreshTimeWidget(); refreshTrackShortcuts() }
-    fun deleteTimeActivity(id: String) = viewModelScope.launch { repo.deleteTimeActivity(id); refreshTimeWidget(); refreshTrackShortcuts() }
+    fun deleteTimeActivity(id: String) = viewModelScope.launch {
+        // Clear a paused timer on this activity too, or Resume would re-create an orphan entry (audit #7).
+        if (_pausedTrack.value?.first == id) _pausedTrack.value = null
+        repo.deleteTimeActivity(id); refreshTimeWidget(); refreshTrackShortcuts()
+    }
     fun archiveTimeActivity(id: String) = viewModelScope.launch { repo.archiveTimeActivity(id); refreshTimeWidget(); refreshTrackShortcuts() }
     /** Nested activities: set (or clear, with null) an activity's parent. Stored in settings (no migration).
      *  Rejects a parent that would create a cycle (A→B→A), which would otherwise orphan the whole grid. */

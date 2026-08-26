@@ -182,29 +182,41 @@ fun CalendarScreen(
     // planned task/habit blocks (planned vs actual), gated by the Time module being on.
     val timeEntries by vm.timeEntries.collectAsState()
     val timeActivities by vm.timeActivities.collectAsState()
-    val timeActColor = timeActivities.associate { it.id to it.colorArgb }
-    val trackedBlocksFor: (LocalDate) -> List<TrackedBlock> = block@{ d ->
-        if (!com.todocompanion.app.domain.Modules.isEnabled(s, com.todocompanion.app.domain.Modules.TIME)) return@block emptyList()
-        val dayStart = d.atStartOfDay(zone).toInstant().toEpochMilli()
-        val dayEnd = d.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-        val now = System.currentTimeMillis()
-        timeEntries.mapNotNull { e ->
-            val end = e.endMillis ?: now
-            val lo = maxOf(e.startMillis, dayStart)
-            val hi = minOf(end, dayEnd)
-            if (hi <= lo) return@mapNotNull null
-            val startMin = ((lo - dayStart) / 60000L).toInt().coerceIn(0, 1439)
-            val durMin = ((hi - lo) / 60000L).toInt().coerceAtLeast(1)
-            val col = timeActColor[e.activityId]?.let { androidx.compose.ui.graphics.Color(it) }
-            TrackedBlock(startMin, durMin, col, e.id)
+    val timeOn = com.todocompanion.app.domain.Modules.isEnabled(s, com.todocompanion.app.domain.Modules.TIME)
+    // Precompute per-day tracked blocks ONCE (epochDay → blocks) instead of scanning every entry per
+    // calendar cell / day column — the month grid and pinch-zoom were O(cells × entries) before (audit #4/#5).
+    val trackedByDay: Map<Long, List<TrackedBlock>> = remember(timeEntries, timeActivities, timeOn) {
+        if (!timeOn) emptyMap() else {
+            val now = System.currentTimeMillis()
+            val colorOf = timeActivities.associate { it.id to it.colorArgb }
+            val map = HashMap<Long, MutableList<TrackedBlock>>()
+            timeEntries.forEach { e ->
+                val end = e.endMillis ?: now
+                if (end <= e.startMillis) return@forEach
+                val col = colorOf[e.activityId]?.let { androidx.compose.ui.graphics.Color(it) }
+                var d = Instant.ofEpochMilli(e.startMillis).atZone(zone).toLocalDate()
+                val lastD = Instant.ofEpochMilli(end - 1).atZone(zone).toLocalDate()
+                var guard = 0
+                while (!d.isAfter(lastD) && guard < 400) {
+                    guard++
+                    val dayStart = d.atStartOfDay(zone).toInstant().toEpochMilli()
+                    val dayEnd = d.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+                    val lo = maxOf(e.startMillis, dayStart); val hi = minOf(end, dayEnd)
+                    if (hi > lo) {
+                        val startMin = ((lo - dayStart) / 60000L).toInt().coerceIn(0, 1439)
+                        val durMin = ((hi - lo) / 60000L).toInt().coerceAtLeast(1)
+                        map.getOrPut(d.toEpochDay()) { ArrayList() }.add(TrackedBlock(startMin, durMin, col, e.id))
+                    }
+                    d = d.plusDays(1)
+                }
+            }
+            map
         }
     }
-    // Month view: how much was tracked on a day, and the day's dominant activity colour — drawn as a
-    // thin intensity bar under the date so a glance shows which days you tracked most (and in what).
-    val timeOn = com.todocompanion.app.domain.Modules.isEnabled(s, com.todocompanion.app.domain.Modules.TIME)
+    val trackedBlocksFor: (LocalDate) -> List<TrackedBlock> = { d -> trackedByDay[d.toEpochDay()] ?: emptyList() }
+    // Month view: how much was tracked on a day + the day's dominant activity colour, as a thin bar.
     val trackedDayInfo: (LocalDate) -> Pair<Int, androidx.compose.ui.graphics.Color?> = info@{ d ->
-        if (!timeOn) return@info 0 to null
-        val blocks = trackedBlocksFor(d)
+        val blocks = trackedByDay[d.toEpochDay()] ?: return@info 0 to null
         val total = blocks.sumOf { it.durMin }
         val dom = blocks.groupBy { it.color }.maxByOrNull { grp -> grp.value.sumOf { it.durMin } }?.key
         total to dom
