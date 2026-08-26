@@ -44,6 +44,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -88,6 +90,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -147,6 +150,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     val allDeps by vm.dependencies.collectAsState()
     val allTasks by vm.tasks.collectAsState()
     val timeEntries by vm.timeEntries.collectAsState()   // T2
+    val timeActivities by vm.timeActivities.collectAsState()
 
     var showDue by remember { mutableStateOf(false) }
     var showStart by remember { mutableStateOf(false) }
@@ -318,28 +322,63 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     onClear = if (task.durationMin != null) ({ update { it.copy(durationMin = null) } }) else null) { showDuration = true }
             }
 
-            // T2: track time against this task (Time module only). Planned (duration/estimate) vs actual.
+            // T2: track time against this task (Time module only). Planned (duration/estimate) vs actual,
+            // with a live-ticking clock while running and a picker for which activity the time counts under.
             if (com.todocompanion.app.domain.Modules.isEnabled(settings, com.todocompanion.app.domain.Modules.TIME)) {
-                val nowMs = System.currentTimeMillis()
                 val mine = timeEntries.filter { it.taskId == task.id }
+                val running = mine.firstOrNull { it.running }
+                // A one-second tick so the running total counts up live (was static before).
+                var nowMs by remember { mutableStateOf(System.currentTimeMillis()) }
+                LaunchedEffect(running?.id) {
+                    while (running != null) { nowMs = System.currentTimeMillis(); delay(1000) }
+                }
                 val trackedMin = mine.sumOf { it.minutes(nowMs) }
-                val isRunning = mine.any { it.running }
                 val planned = task.durationMin ?: task.estimateMin
-                Row(Modifier.fillMaxWidth().padding(start = 34.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Schedule, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                val linkedAct = timeActivities.firstOrNull { it.id == task.defaultActivityId && !it.archived }
+                var actMenu by remember { mutableStateOf(false) }
+                Row(Modifier.fillMaxWidth().padding(start = 34.dp, end = 4.dp, top = 4.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Schedule, null, tint = if (running != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
                         Text("Time tracked", style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            (if (trackedMin > 0) fmtDuration(trackedMin) else "None yet") +
-                                (planned?.let { " · ${fmtDuration(it)} planned" } ?: "") +
-                                (if (planned != null && trackedMin > planned) "  ⚠ over" else ""),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (planned != null && trackedMin > planned) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        if (running != null) {
+                            val secs = ((nowMs - running.startMillis) / 1000).coerceAtLeast(0)
+                            Text("● %d:%02d:%02d".format(secs / 3600, (secs % 3600) / 60, secs % 60) + "  · running",
+                                style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        } else {
+                            Text(
+                                (if (trackedMin > 0) fmtDuration(trackedMin) else "None yet") +
+                                    (planned?.let { " · ${fmtDuration(it)} planned" } ?: "") +
+                                    (if (planned != null && trackedMin > planned) "  ⚠ over" else ""),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (planned != null && trackedMin > planned) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
-                    androidx.compose.material3.TextButton(onClick = { if (isRunning) vm.stopTimeTracking() else vm.startTimeTrackingForTask(task) }) {
-                        Text(if (isRunning) "Stop" else "Start timer")
+                    androidx.compose.material3.FilledTonalButton(onClick = { if (running != null) vm.stopTimeTracking() else vm.startTimeTrackingForTask(task) }) {
+                        Icon(if (running != null) Icons.Filled.Stop else Icons.Filled.PlayArrow, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(if (running != null) "Stop" else "Start")
+                    }
+                }
+                // "Counts under" — pick which time activity this task's tracked time belongs to. Falls back
+                // to a shared "Tasks" bucket when unset. (Fixes: no way to link an activity to a task.)
+                Box(Modifier.padding(start = 62.dp, bottom = 4.dp)) {
+                    Row(Modifier.clip(RoundedCornerShape(8.dp)).clickable { actMenu = true }.padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Counts under: ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text((linkedAct?.emoji?.plus(" ") ?: "") + (linkedAct?.name ?: "Tasks (default)"),
+                            style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Filled.ExpandMore, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                    }
+                    DropdownMenu(expanded = actMenu, onDismissRequest = { actMenu = false }) {
+                        DropdownMenuItem(text = { Text("Tasks (default bucket)") },
+                            leadingIcon = { if (task.defaultActivityId == null) Icon(Icons.Filled.Check, null, Modifier.size(18.dp)) else Spacer(Modifier.width(18.dp)) },
+                            onClick = { vm.setTaskDefaultActivity(task.id, null); actMenu = false })
+                        timeActivities.filter { !it.archived }.forEach { a ->
+                            DropdownMenuItem(text = { Text((a.emoji?.plus(" ") ?: "") + a.name) },
+                                leadingIcon = { if (task.defaultActivityId == a.id) Icon(Icons.Filled.Check, null, Modifier.size(18.dp)) else Spacer(Modifier.width(18.dp)) },
+                                onClick = { vm.setTaskDefaultActivity(task.id, a.id); actMenu = false })
+                        }
                     }
                 }
             }

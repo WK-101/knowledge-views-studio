@@ -535,16 +535,21 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
             ) {
                 dayHabits.forEach { hb ->
                     val c = hb.color ?: MaterialTheme.colorScheme.tertiary
+                    // Done reads as a solid, saturated pill (filled = done); pending is a soft outline.
+                    // No checkmark — the fill itself is the signal.
                     Row(
                         Modifier.clip(RoundedCornerShape(20.dp))
-                            .background(if (hb.done) c.copy(alpha = .18f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f))
+                            .background(if (hb.done) c else c.copy(alpha = .12f))
+                            .then(if (hb.done) Modifier else Modifier.border(1.dp, c.copy(alpha = .45f), RoundedCornerShape(20.dp)))
                             .clickable { onOpenHabit(hb.id) }
-                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                            .padding(horizontal = 11.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Box(Modifier.size(7.dp).clip(CircleShape).background(c))
-                        Spacer(Modifier.size(6.dp))
-                        Text((if (hb.done) "✓ " else "") + hb.label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                        Box(Modifier.size(7.dp).clip(CircleShape).background(if (hb.done) Color.White else c))
+                        Spacer(Modifier.size(7.dp))
+                        Text(hb.label, style = MaterialTheme.typography.labelMedium, maxLines = 1,
+                            fontWeight = if (hb.done) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (hb.done) Color.White else MaterialTheme.colorScheme.onSurface)
                     }
                 }
             }
@@ -805,16 +810,20 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onO
                 val col = hb.color ?: habitColor
                 val top = (HOUR_DP * hb.startMin / 60f).dp
                 val hh = ((HOUR_DP * hb.durMin / 60f).dp).coerceAtLeast(22.dp)
+                // Done = saturated fill + solid accent bar + bolder text; pending = faint + soft outline.
+                // The fill is the "done" signal, so no checkmark clutters the small block.
                 Row(
                     Modifier.offset(x = habitAreaX, y = top).width(habitAreaW).height(hh - 2.dp)
                         .clip(RoundedCornerShape(6.dp))
-                        .background(col.copy(alpha = if (hb.done) 0.30f else 0.12f))
+                        .background(col.copy(alpha = if (hb.done) 0.26f else 0.09f))
+                        .then(if (hb.done) Modifier else Modifier.border(1.dp, col.copy(alpha = .35f), RoundedCornerShape(6.dp)))
                         .clickable { onOpenHabit(hb.id) },
                 ) {
-                    Box(Modifier.width(3.dp).fillMaxHeight().background(col))
-                    Text((if (hb.done) "✓ " else "") + hb.label, Modifier.padding(horizontal = 5.dp, vertical = 3.dp),
+                    Box(Modifier.width(3.dp).fillMaxHeight().background(if (hb.done) col else col.copy(alpha = .45f)))
+                    Text(hb.label, Modifier.padding(horizontal = 5.dp, vertical = 3.dp),
                         style = MaterialTheme.typography.labelSmall, maxLines = if (hh > 46.dp) 2 else 1, overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurface)
+                        fontWeight = if (hb.done) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (hb.done) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }

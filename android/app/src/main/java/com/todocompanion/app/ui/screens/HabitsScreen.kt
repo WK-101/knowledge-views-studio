@@ -26,11 +26,16 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandLess
@@ -39,6 +44,13 @@ import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.graphicsLayer
@@ -294,12 +306,8 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
                         }
                     }
                 }
-                item {
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextButton(onClick = { vm.habitPresetOpen.value = true }) { Text("✨ Starter habits") }
-                        TextButton(onClick = { vm.habitEditor.value = com.todocompanion.app.ui.HabitEditRequest() }) { Text("＋ New habit") }
-                    }
-                }
+                // New-habit and starter actions live in the top app-bar (＋ and ✨), so no redundant
+                // buttons under the list.
             }
         }
       }
@@ -362,6 +370,7 @@ fun HabitsHeader(vm: AppViewModel, onOpenDrawer: () -> Unit) {
                         }
                     }
                 }
+                IconButton(onClick = { vm.habitPresetOpen.value = true }) { Icon(Icons.Filled.AutoAwesome, "Starter habits") }
                 IconButton(onClick = { vm.habitQuickAddOpen.value = true }) { Icon(Icons.Filled.Add, "New habit") }
                 var menu by remember { mutableStateOf(false) }
                 Box {
@@ -371,10 +380,10 @@ fun HabitsHeader(vm: AppViewModel, onOpenDrawer: () -> Unit) {
                         DropdownMenuItem(text = { Text("Batch check-in") }, onClick = { menu = false; vm.habitBatchOpen.value = true })
                         val anyActive = habits.any { !it.paused }
                         DropdownMenuItem(text = { Text(if (anyActive) "Pause all habits" else "Resume all habits") }, onClick = { vm.pauseAllHabits(anyActive); menu = false })
-                        DropdownMenuItem(text = { Text("Starter gallery") }, onClick = { menu = false; vm.habitPresetOpen.value = true })
                     }
                 }
             } else {
+                IconButton(onClick = { vm.habitPresetOpen.value = true }) { Icon(Icons.Filled.AutoAwesome, "Starter habits") }
                 IconButton(onClick = { vm.habitQuickAddOpen.value = true }) { Icon(Icons.Filled.Add, "New habit") }
             }
         },
@@ -716,6 +725,9 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
     var category by remember { mutableStateOf(existing?.category ?: "") }
     var startDate by remember { mutableStateOf(existing?.startDate) }
     var showStartPicker by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    // T3: which time-tracking activity this habit is linked to (tracking it credits the habit).
+    var timeActivityId by remember { mutableStateOf(existing?.timeActivityId) }
     // E6: keep the default editor as light as quick-add — advanced sections fold away, auto-opening
     // only when editing a habit that already uses one of them.
     var advancedOpen by remember { mutableStateOf(
@@ -726,6 +738,9 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
     val ctx = LocalContext.current
     val isBreak = habitType == "break"
     val allHabits by vm.habits.collectAsState()
+    val timeActivities by vm.timeActivities.collectAsState()
+    val editorSettings by vm.settings.collectAsState()
+    val timeOn = com.todocompanion.app.domain.Modules.isEnabled(editorSettings, com.todocompanion.app.domain.Modules.TIME)
 
     fun buildHabit(): HabitEntity {
         val base = existing ?: HabitEntity(id = "", name = "", createdAt = 0L)
@@ -743,6 +758,7 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
             rewardText = rewardText.trim(), rewardAtStreak = rewardAt,
             category = category.trim(), startDate = startDate,
             encouragements = encouragements.trim(), linkMode = linkMode,
+            timeActivityId = timeActivityId,
         )
     }
     fun save() {
@@ -761,7 +777,7 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
             title = { Text(if (existing == null) "New habit" else "Edit habit", maxLines = 1) },
             navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
             actions = {
-                if (existing != null) IconButton(onClick = { vm.deleteHabit(existing.id); onClose() }) {
+                if (existing != null) IconButton(onClick = { confirmDelete = true }) {
                     Icon(Icons.Filled.Delete, "Delete", tint = MaterialTheme.colorScheme.error)
                 }
                 TextButton(onClick = { save() }, enabled = name.isNotBlank()) { Text("Save", fontWeight = FontWeight.SemiBold) }
@@ -909,11 +925,37 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
                 OutlinedTextField(description, { description = it }, label = { Text("Why — your motivation (shown when you're about to slip)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
                 // V4: user-written encouragements, one shown at random on each check-off.
                 OutlinedTextField(encouragements, { encouragements = it }, label = { Text("Encouragements (one per line, shown on check-off)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                // T3/V3: link this habit to a time-tracking activity — tracking that activity then credits
+                // the habit. (Fixes: no way to link an activity to a habit from the habit side.)
+                if (timeOn) {
+                    Text("Track with activity", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp))
+                    Text("Tracking this activity's time counts toward the habit.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                    var actMenu by remember { mutableStateOf(false) }
+                    val linkedName = timeActivities.firstOrNull { it.id == timeActivityId }?.let { (it.emoji?.plus(" ") ?: "") + it.name }
+                    Box(Modifier.padding(top = 6.dp)) {
+                        Surface(Modifier.fillMaxWidth().clickable { actMenu = true }, shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)) {
+                            Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(linkedName ?: "Not linked", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
+                                    color = if (linkedName != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (timeActivityId != null) TextButton(onClick = { timeActivityId = null }) { Text("Clear") }
+                                Icon(Icons.Filled.ExpandMore, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        DropdownMenu(expanded = actMenu, onDismissRequest = { actMenu = false }) {
+                            if (timeActivities.none { !it.archived }) DropdownMenuItem(text = { Text("No activities yet — add one in Time") }, onClick = { actMenu = false })
+                            timeActivities.filter { !it.archived }.forEach { a ->
+                                DropdownMenuItem(text = { Text((a.emoji?.plus(" ") ?: "") + a.name) }, onClick = { timeActivityId = a.id; actMenu = false })
+                            }
+                        }
+                    }
+                }
                 // V3: how tracked time on a linked activity credits this habit.
-                Text("When timed, count", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("minutes" to "Minutes", "sessions" to "Sessions", "off" to "Off").forEach { (v, lbl) ->
-                        FilterChip(selected = linkMode == v, onClick = { linkMode = v }, label = { Text(lbl) })
+                if (timeOn && timeActivityId != null) {
+                    Text("When timed, count", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("minutes" to "Minutes", "sessions" to "Sessions", "off" to "Off").forEach { (v, lbl) ->
+                            FilterChip(selected = linkMode == v, onClick = { linkMode = v }, label = { Text(lbl) })
+                        }
                     }
                 }
             }
@@ -969,6 +1011,14 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
             Spacer(Modifier.height(40.dp))
         }
     }
+    if (confirmDelete && existing != null) AlertDialog(
+        onDismissRequest = { confirmDelete = false },
+        icon = { Icon(Icons.Filled.Delete, null, tint = MaterialTheme.colorScheme.error) },
+        title = { Text("Delete habit?") },
+        text = { Text("“${existing.name}” and all its check-in history will be permanently deleted. This can't be undone.") },
+        confirmButton = { TextButton(onClick = { confirmDelete = false; vm.deleteHabit(existing.id); onClose() }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
+        dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+    )
     if (showStartPicker) {
         val initial = startDate ?: existing?.createdAt ?: System.currentTimeMillis()
         val pickerState = androidx.compose.material3.rememberDatePickerState(initialSelectedDateMillis = initial)
@@ -999,38 +1049,61 @@ private fun StepperRow(label: String, value: String, onMinus: () -> Unit, onPlus
     }
 }
 
-/** L6: type a habit in plain language ("meditate 10 min every morning") — parsed into a draft. */
+/**
+ * L6: type a habit in plain language ("meditate 10 min every morning") — parsed live into a draft.
+ * Presented as a bottom sheet with a borderless title field and a send button, so new-habit capture
+ * feels identical to the task quick-add sheet (one consistent capture language across the app).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HabitQuickAddDialog(onDismiss: () -> Unit, onAdd: (HabitEntity) -> Unit, onAdvanced: (HabitEntity) -> Unit) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var text by remember { mutableStateOf("") }
     val draft = remember(text) { com.todocompanion.app.domain.habit.HabitQuickParser.parse(text) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("New habit") },
-        text = {
-            Column {
-                OutlinedTextField(text, { text = it }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("e.g. meditate 10 min every morning") })
-                if (text.isNotBlank()) {
-                    Spacer(Modifier.size(8.dp))
-                    Text("→ ${draft.name.ifBlank { "?" }} · ${HabitStats.frequencyLabel(draft)}" +
-                        (draft.unit?.let { " · ${draft.targetPerDay} $it" } ?: "") +
-                        (draft.reminderTimes.split(",").firstOrNull { it.isNotBlank() }?.toIntOrNull()?.let { " · 🔔 %02d:%02d".format(it / 60, it % 60) } ?: ""),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Spacer(Modifier.size(4.dp))
+    val focus = remember { FocusRequester() }
+    fun submit() { if (draft.name.isNotBlank()) onAdd(draft) }
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 20.dp)) {
+            Text("New habit", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+            Box(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp)) {
+                if (text.isEmpty()) Text("meditate 10 min every morning",
+                    color = MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.titleLarge, maxLines = 2)
+                BasicTextField(
+                    value = text, onValueChange = { text = it },
+                    modifier = Modifier.fillMaxWidth().focusRequester(focus),
+                    textStyle = MaterialTheme.typography.titleLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { submit() }),
+                )
+            }
+            if (text.isNotBlank()) {
+                Text("→ ${draft.name.ifBlank { "?" }} · ${HabitStats.frequencyLabel(draft)}" +
+                    (draft.unit?.let { " · ${draft.targetPerDay} $it" } ?: "") +
+                    (draft.reminderTimes.split(",").firstOrNull { it.isNotBlank() }?.toIntOrNull()?.let { " · 🔔 %02d:%02d".format(it / 60, it % 60) } ?: ""),
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))
+            } else {
                 Text("Try “gym 3x a week”, “read 20 pages daily”, “journal every evening at 9pm”.",
-                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
             }
-        },
-        confirmButton = { TextButton(enabled = draft.name.isNotBlank(), onClick = { onAdd(draft) }) { Text("Add") } },
-        dismissButton = {
-            Row {
+            Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = { onAdvanced(draft) }) { Text("Advanced…") }
-                TextButton(onClick = onDismiss) { Text("Cancel") }
+                Spacer(Modifier.weight(1f))
+                Box(
+                    Modifier.size(44.dp).clip(CircleShape)
+                        .background(if (draft.name.isBlank()) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primary)
+                        .clickable { submit() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Filled.Send, "Add habit",
+                        tint = if (draft.name.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(20.dp))
+                }
             }
-        },
-    )
+        }
+    }
+    LaunchedEffect(Unit) { focus.requestFocus() }
 }
 
 @Composable
