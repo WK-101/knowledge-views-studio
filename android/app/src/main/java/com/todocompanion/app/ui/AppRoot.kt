@@ -37,6 +37,7 @@ import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CalendarViewMonth
 import androidx.compose.material.icons.filled.Check
@@ -221,6 +222,7 @@ fun AppRoot(
         var showPalette by remember { mutableStateOf(false) }
         var recapRange by remember { mutableStateOf<Triple<Long, Long, String>?>(null) }
         var showAnnual by remember { mutableStateOf(false) }
+        var showTimeStats by remember { mutableStateOf(false) }   // Time tab → Statistics overlay
         // G4 interactive time-blocking: which (day, minute) slot the user tapped on the calendar.
         var blockAt by remember { mutableStateOf<Pair<java.time.LocalDate, Int>?>(null) }
         var menu by remember { mutableStateOf(false) }
@@ -556,6 +558,7 @@ fun AppRoot(
                                     }
                                 }
                                 Tab.MATRIX -> IconButton(onClick = { matrixSettings = true }) { Icon(Icons.Filled.Tune, "Matrix settings") }
+                                Tab.TIME -> IconButton(onClick = { showTimeStats = true }) { Icon(Icons.Filled.BarChart, "Statistics") }
                                 Tab.SEARCH -> if (searchQuery.isNotEmpty()) IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Filled.Close, "Clear") }
                                 else -> {}
                             }
@@ -686,6 +689,7 @@ fun AppRoot(
         if (showReview) com.todocompanion.app.ui.screens.ReviewScreen(vm, onOpenTask = { showReview = false; openTask(it) }, onBack = { showReview = false })
         if (showMomentum) com.todocompanion.app.ui.screens.MomentumScreen(vm, onBack = { showMomentum = false })
         if (showTimeTracking) com.todocompanion.app.ui.screens.TimeTrackingScreen(vm, onBack = { showTimeTracking = false })
+        if (showTimeStats) com.todocompanion.app.ui.screens.TimeStatsScreen(vm, onBack = { showTimeStats = false })
 
         // ── Tier Ω · command palette, recap overlay, annual-report picker ──────────────────────────
         if (showPalette) CommandPaletteDialog(vm, onDismiss = { showPalette = false }) { cmd ->
