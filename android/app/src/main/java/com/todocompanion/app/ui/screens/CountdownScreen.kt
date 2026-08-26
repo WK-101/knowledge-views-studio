@@ -136,8 +136,8 @@ private fun CountdownDialog(existing: CountdownEntity?, onDismiss: () -> Unit, o
         text = {
             Column {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(emoji, { emoji = it.take(2) }, singleLine = true, label = { Text("Emoji") }, modifier = Modifier.width(96.dp))
-                    OutlinedTextField(title, { title = it }, singleLine = true, label = { Text("Title") }, modifier = Modifier.weight(1f))
+                    com.todocompanion.app.ui.components.AppTextField(emoji, { emoji = it.take(2) }, singleLine = true, label = { Text("Emoji") }, modifier = Modifier.width(96.dp))
+                    com.todocompanion.app.ui.components.AppTextField(title, { title = it }, singleLine = true, label = { Text("Title") }, modifier = Modifier.weight(1f))
                 }
                 Spacer(Modifier.size(10.dp))
                 TextButton(onClick = { showDate = true }) { Text("Date: ${d.dayOfMonth} ${d.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${d.year}") }

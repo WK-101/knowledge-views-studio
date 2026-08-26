@@ -765,8 +765,8 @@ private fun GoalsEditorDialog(vm: AppViewModel, onDismiss: () -> Unit) {
                 }
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = emoji, onValueChange = { emoji = it.take(2) }, modifier = Modifier.width(76.dp), label = { Text("Icon") }, singleLine = true)
-                    OutlinedTextField(value = name, onValueChange = { name = it }, modifier = Modifier.weight(1f), label = { Text("Name") }, singleLine = true)
+                    com.todocompanion.app.ui.components.AppTextField(value = emoji, onValueChange = { emoji = it.take(2) }, modifier = Modifier.width(76.dp), label = { Text("Icon") }, singleLine = true)
+                    com.todocompanion.app.ui.components.AppTextField(value = name, onValueChange = { name = it }, modifier = Modifier.weight(1f), label = { Text("Name") }, singleLine = true)
                 }
                 Spacer(Modifier.height(8.dp)); Text("Task list", style = MaterialTheme.typography.labelSmall, color = faint)
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -785,7 +785,7 @@ private fun GoalsEditorDialog(vm: AppViewModel, onDismiss: () -> Unit) {
                 }
                 if (activityId != "") {
                     Spacer(Modifier.height(6.dp))
-                    OutlinedTextField(value = budgetH, onValueChange = { v -> budgetH = v.filter { it.isDigit() }.take(4) }, label = { Text("Budget (hours)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    com.todocompanion.app.ui.components.AppTextField(value = budgetH, onValueChange = { v -> budgetH = v.filter { it.isDigit() }.take(4) }, label = { Text("Budget (hours)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 }
                 Spacer(Modifier.height(10.dp))
                 FilledTonalButton(
@@ -821,7 +821,7 @@ private fun SmartCaptureDialog(vm: AppViewModel, onDismiss: () -> Unit) {
         title = { Text("Capture anything") },
         text = {
             Column {
-                OutlinedTextField(
+                com.todocompanion.app.ui.components.AppTextField(
                     value = text, onValueChange = { text = it },
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text("“read 20 pages every night”, “email Sam tomorrow 9am #t20 !!”, or “track deep work”") },

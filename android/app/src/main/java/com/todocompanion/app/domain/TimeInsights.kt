@@ -141,4 +141,38 @@ object TimeInsights {
             covered < b.durMin * coverFraction
         }
     }
+
+    // ── U5 · timeline-fill: the untracked gaps between what you did log ──────────────────────────
+    /** A stretch of the day with no tracked interval over it: [startMillis, endMillis). */
+    data class Gap(val startMillis: Long, val endMillis: Long) { val minutes: Int get() = ((endMillis - startMillis) / 60_000L).toInt() }
+
+    /**
+     * "Account for my whole day" (U5): the untracked gaps *between* the day's tracked intervals, so every
+     * part of the day can be filled in. We merge overlapping/adjacent tracked intervals (clamped to the
+     * window and to [now]) and return the holes between consecutive ones. Leading time before the first
+     * entry and trailing time after the last are deliberately excluded — those are usually sleep/off-hours,
+     * not forgotten tracking. Gaps shorter than [minGapMin] are ignored as noise.
+     */
+    fun untrackedGaps(entries: List<TimeEntryEntity>, winStart: Long, winEnd: Long, now: Long, minGapMin: Int = 10): List<Gap> {
+        val ivals = entries.mapNotNull { e ->
+            val s = maxOf(e.startMillis, winStart)
+            val en = minOf(e.endMillis ?: now, winEnd)
+            if (en > s) s to en else null
+        }.sortedBy { it.first }
+        if (ivals.size < 2) return emptyList()
+        // Merge, then read off the holes.
+        val merged = ArrayList<Pair<Long, Long>>()
+        var curS = ivals[0].first; var curE = ivals[0].second
+        for (i in 1 until ivals.size) {
+            val (s, e) = ivals[i]
+            if (s <= curE) curE = maxOf(curE, e) else { merged.add(curS to curE); curS = s; curE = e }
+        }
+        merged.add(curS to curE)
+        val gaps = ArrayList<Gap>()
+        for (i in 1 until merged.size) {
+            val gs = merged[i - 1].second; val ge = merged[i].first
+            if (ge - gs >= minGapMin * 60_000L) gaps.add(Gap(gs, ge))
+        }
+        return gaps
+    }
 }

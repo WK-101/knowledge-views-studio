@@ -434,6 +434,8 @@ fun AppRoot(
                     onOpenCountdowns = { showCountdowns = true; scope.launch { drawerState.close() } },
                     onOpenMomentum = { showMomentum = true; scope.launch { drawerState.close() } },
                     onOpenTime = { showTimeTracking = true; scope.launch { drawerState.close() } },
+                    onOpenRecap = { val td = java.time.LocalDate.now().toEpochDay(); recapRange = Triple(td - 6, td, "This week"); scope.launch { drawerState.close() } },
+                    onOpenAnnual = { showAnnual = true; scope.launch { drawerState.close() } },
                 )
             },
         ) {
@@ -792,7 +794,7 @@ fun AppRoot(
                 confirmButton = { TextButton(onClick = { vm.saveCurrentAsTab(tabName); saveTab = false }) { Text("Save") } },
                 dismissButton = { TextButton(onClick = { saveTab = false }) { Text("Cancel") } },
                 title = { Text("Save view as tab") },
-                text = { OutlinedTextField(tabName, { tabName = it }, singleLine = true, label = { Text("Tab name") }, modifier = Modifier.fillMaxWidth()) },
+                text = { com.todocompanion.app.ui.components.AppTextField(tabName, { tabName = it }, singleLine = true, label = { Text("Tab name") }, modifier = Modifier.fillMaxWidth()) },
             )
         }
         if (templatePicker) {
@@ -833,7 +835,7 @@ fun AppRoot(
                     confirmButton = { TextButton(onClick = { vm.renameTemplate(t.id, nm.trim()); renaming = null }) { Text("Save") } },
                     dismissButton = { TextButton(onClick = { renaming = null }) { Text("Cancel") } },
                     title = { Text("Rename template") },
-                    text = { OutlinedTextField(nm, { nm = it }, singleLine = true, modifier = Modifier.fillMaxWidth()) },
+                    text = { com.todocompanion.app.ui.components.AppTextField(nm, { nm = it }, singleLine = true, modifier = Modifier.fillMaxWidth()) },
                 )
             }
         }
@@ -1007,7 +1009,7 @@ private fun FilterBuilderDialog(
         text = {
             androidx.compose.foundation.rememberScrollState().let { sc ->
             Column(Modifier.heightIn(max = 460.dp).verticalScroll(sc)) {
-                OutlinedTextField(name, { name = it }, singleLine = true, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
+                com.todocompanion.app.ui.components.AppTextField(name, { name = it }, singleLine = true, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.size(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Match", Modifier.padding(end = 8.dp))
@@ -1139,7 +1141,7 @@ private fun ViewTabStrip(vm: AppViewModel) {
             confirmButton = { TextButton(onClick = { vm.renameTab(t.id, nm); renaming = null }) { Text("Save") } },
             dismissButton = { TextButton(onClick = { renaming = null }) { Text("Cancel") } },
             title = { Text("Rename tab") },
-            text = { OutlinedTextField(nm, { nm = it }, singleLine = true, modifier = Modifier.fillMaxWidth()) },
+            text = { com.todocompanion.app.ui.components.AppTextField(nm, { nm = it }, singleLine = true, modifier = Modifier.fillMaxWidth()) },
         )
     }
 }
@@ -1195,7 +1197,7 @@ private fun ManageWorkspaceDialog(w: com.todocompanion.app.data.entity.Workspace
         title = { Text("Workspace") },
         text = {
             Column {
-                OutlinedTextField(name, { name = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                com.todocompanion.app.ui.components.AppTextField(name, { name = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 if (!isDefault) Text("Deleting moves its lists & folders back to the default workspace.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
             }
         },
@@ -1253,7 +1255,7 @@ private fun NewContainerDialog(req: NewReq, folders: List<FolderEntity>, onDismi
                     SegmentedButton(selected = isFolder, onClick = { isFolder = true }, shape = SegmentedButtonDefaults.itemShape(1, 2)) { Text("Folder") }
                 }
                 Spacer(Modifier.size(10.dp))
-                OutlinedTextField(name, { name = it }, placeholder = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                com.todocompanion.app.ui.components.AppTextField(name, { name = it }, placeholder = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.size(6.dp))
                 Box {
                     TextButton(onClick = { pick = true }) { Text("Parent: " + (folders.firstOrNull { it.id == parentId }?.name ?: "Top level")) }
@@ -1291,9 +1293,9 @@ private fun ManageListDialog(
         title = { Text("Edit list") },
         text = {
             Column {
-                OutlinedTextField(name, { name = it }, singleLine = true, modifier = Modifier.fillMaxWidth(), label = { Text("Name") })
+                com.todocompanion.app.ui.components.AppTextField(name, { name = it }, singleLine = true, modifier = Modifier.fillMaxWidth(), label = { Text("Name") })
                 Spacer(Modifier.size(8.dp))
-                OutlinedTextField(description, { description = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Description (optional)") }, minLines = 2)
+                com.todocompanion.app.ui.components.AppTextField(description, { description = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Description (optional)") }, minLines = 2)
                 Spacer(Modifier.size(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     SWATCHES.forEach { c -> Box(Modifier.size(26.dp).clip(CircleShape).background(Color(c)).clickable { onColor(c) }) }
@@ -1346,9 +1348,9 @@ private fun ManageFolderDialog(folder: FolderEntity, onDismiss: () -> Unit, onSa
         title = { Text("Edit folder") },
         text = {
             Column {
-                OutlinedTextField(name, { name = it }, singleLine = true, modifier = Modifier.fillMaxWidth(), label = { Text("Name") })
+                com.todocompanion.app.ui.components.AppTextField(name, { name = it }, singleLine = true, modifier = Modifier.fillMaxWidth(), label = { Text("Name") })
                 Spacer(Modifier.size(8.dp))
-                OutlinedTextField(description, { description = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Description (optional)") }, minLines = 2)
+                com.todocompanion.app.ui.components.AppTextField(description, { description = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Description (optional)") }, minLines = 2)
                 Spacer(Modifier.size(12.dp))
                 Text("Icon", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.size(6.dp))
@@ -1383,7 +1385,7 @@ private fun TextEntryDialog(title: String, placeholder: String, onDismiss: () ->
         confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onConfirm(name.trim()) }) { Text("Create") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
         title = { Text(title) },
-        text = { OutlinedTextField(name, { name = it }, placeholder = { Text(placeholder) }, singleLine = true, modifier = Modifier.fillMaxWidth()) },
+        text = { com.todocompanion.app.ui.components.AppTextField(name, { name = it }, placeholder = { Text(placeholder) }, singleLine = true, modifier = Modifier.fillMaxWidth()) },
     )
 }
 
@@ -1397,7 +1399,7 @@ private fun ManageTagDialog(tag: com.todocompanion.app.data.entity.TagEntity, on
         title = { Text("Tag") },
         text = {
             Column {
-                OutlinedTextField(name, { name = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                com.todocompanion.app.ui.components.AppTextField(name, { name = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.size(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Box(Modifier.size(26.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant).clickable { onColor(null) }, contentAlignment = Alignment.Center) {
@@ -1450,7 +1452,7 @@ private fun ManageContextDialog(
         title = { Text("Context") },
         text = {
             Column {
-                OutlinedTextField(name, { name = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                com.todocompanion.app.ui.components.AppTextField(name, { name = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.size(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Box(Modifier.size(26.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant).clickable { onColor(null) }, contentAlignment = Alignment.Center) {

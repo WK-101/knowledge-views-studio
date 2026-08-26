@@ -74,6 +74,23 @@ class TierUTests {
         assertTrue(covered.isEmpty())
     }
 
+    @Test fun untrackedGapsAreHolesBetweenTrackedIntervals() {
+        val end = dayStart + 24 * H
+        // Two tracked blocks: 09:00–10:00 and 12:00–13:00 → one 2h gap between them.
+        val gaps = TimeInsights.untrackedGaps(listOf(entry(540, 60), entry(720, 60)), dayStart, end, end)
+        assertEquals(1, gaps.size)
+        assertEquals(120, gaps[0].minutes)
+        // Leading time before the first block and trailing after the last are not gaps.
+        assertEquals(dayStart + 600 * 60_000L, gaps[0].startMillis)
+    }
+
+    @Test fun untrackedGapsIgnoreTinyHolesAndMergeOverlaps() {
+        val end = dayStart + 24 * H
+        // 09:00–10:00, then 10:05–11:00 (5-min hole < 10-min floor → ignored), then 11:00–11:30 (adjacent, merges).
+        val gaps = TimeInsights.untrackedGaps(listOf(entry(540, 60), entry(605, 55), entry(660, 30)), dayStart, end, end)
+        assertTrue(gaps.isEmpty())
+    }
+
     @Test fun automationRulesRoundTripAndMatch() {
         val rules = listOf(
             AutomationRule(id = "1", whenActivityId = "deep", actionType = AutomationRule.ACTION_NOTIFY, notifyText = "silent?"),

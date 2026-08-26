@@ -60,6 +60,7 @@ import androidx.compose.material.icons.filled.RocketLaunch
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Whatshot
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.ViewSidebar
 import androidx.compose.material3.AlertDialog
@@ -530,9 +531,9 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             var rName by remember { mutableStateOf("") }
             var rCost by remember { mutableStateOf("10") }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(rName, { rName = it }, label = { Text("New reward") }, singleLine = true, modifier = Modifier.weight(1f))
+                com.todocompanion.app.ui.components.AppTextField(rName, { rName = it }, label = { Text("New reward") }, singleLine = true, modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(8.dp))
-                OutlinedTextField(rCost, { v -> rCost = v.filter { it.isDigit() }.take(4) }, label = { Text("Cost") }, singleLine = true, modifier = Modifier.width(90.dp))
+                com.todocompanion.app.ui.components.AppTextField(rCost, { v -> rCost = v.filter { it.isDigit() }.take(4) }, label = { Text("Cost") }, singleLine = true, modifier = Modifier.width(90.dp))
             }
             TextButton(enabled = rName.isNotBlank(), onClick = {
                 vm.saveRewards(rewards + com.todocompanion.app.domain.Reward(id = java.util.UUID.randomUUID().toString(), name = rName.trim(), cost = rCost.toIntOrNull()?.coerceAtLeast(1) ?: 10))
@@ -556,7 +557,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 }
                 var routName by remember { mutableStateOf("") }
                 var routAct by remember { mutableStateOf<String?>(null) }
-                OutlinedTextField(routName, { routName = it }, label = { Text("New routine name") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+                com.todocompanion.app.ui.components.AppTextField(routName, { routName = it }, label = { Text("New routine name") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     activities.filter { !it.archived }.forEach { a ->
                         FilterChip(selected = routAct == a.id, onClick = { routAct = if (routAct == a.id) null else a.id }, label = { Text((a.emoji?.plus(" ") ?: "") + a.name) })
@@ -777,7 +778,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Text("Encrypt folder files", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 2.dp))
             Text("Set a passphrase and every backup/sync file is AES-encrypted — unreadable to the drive it lands on, and to us. Keep it safe: lose it and those files can't be recovered.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
-            OutlinedTextField(
+            com.todocompanion.app.ui.components.AppTextField(
                 value = pass, onValueChange = { pass = it },
                 label = { Text("Passphrase (blank = off)") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                 visualTransformation = if (showPass) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
@@ -789,6 +790,15 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                     Toast.makeText(context, if (pass.isBlank()) "Encryption off" else "Encryption on — new files will be encrypted", Toast.LENGTH_SHORT).show()
                 }) { Text("Save passphrase") }
             }
+        }
+
+        SettingsGroup(Icons.Filled.School, "Help & tips", open["help"] == true, { open["help"] = open["help"] != true }) {
+            Text("New here, or want a refresher? Replay the guided welcome tour any time.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
+            Action("Replay the welcome tour") { vm.replayOnboarding(); Toast.makeText(context, "Tour will start", Toast.LENGTH_SHORT).show() }
+            HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+            Text("Tip: press ✦ in the top bar to open the command palette — type or tap “All commands” to see everything the app can do (capture, track time, jump anywhere, ask your data).",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         Spacer(Modifier.height(20.dp))
@@ -888,7 +898,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 Column {
                     Text("Paste a backup you copied from another device (a JSON export restores everything; a Todoist/TickTick CSV or MLO OPML imports its tasks). Nothing leaves the device.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
-                    OutlinedTextField(pasteText, { pasteText = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 260.dp),
+                    com.todocompanion.app.ui.components.AppTextField(pasteText, { pasteText = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 260.dp),
                         label = { Text("Backup text") })
                 }
             },
@@ -926,7 +936,7 @@ private fun FileBrowser(vm: AppViewModel, onDismiss: () -> Unit, onPicked: (java
                     Text("Choose a backup file", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                     Spacer(Modifier.width(56.dp))
                 }
-                OutlinedTextField(query, { query = it }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                com.todocompanion.app.ui.components.AppTextField(query, { query = it }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
                     label = { Text("Search filenames…") })
                 if (!searching) {
                     androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1012,7 +1022,7 @@ private fun ZonePickerDialog(current: String, onDismiss: () -> Unit, onPick: (St
         title = { Text("Time zone") },
         text = {
             Column {
-                OutlinedTextField(query, { query = it }, placeholder = { Text("Search zones…") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                com.todocompanion.app.ui.components.AppTextField(query, { query = it }, placeholder = { Text("Search zones…") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
                 LazyColumn(Modifier.heightIn(max = 320.dp)) {
                     items(filtered, key = { it }) { z ->
@@ -1039,7 +1049,7 @@ private fun FlagEditDialog(initial: FlagEntity?, onDismiss: () -> Unit, onSave: 
         title = { Text(if (initial == null) "New flag" else "Edit flag") },
         text = {
             Column {
-                OutlinedTextField(name, { name = it }, singleLine = true, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
+                com.todocompanion.app.ui.components.AppTextField(name, { name = it }, singleLine = true, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(12.dp)); Sub("Colour")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     FLAG_COLORS.forEach { c ->

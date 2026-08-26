@@ -293,7 +293,7 @@ fun HabitDetailScreen(
                             Column {
                                 Text("It's okay — awareness is progress. What triggered it? (optional)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Spacer(Modifier.height(8.dp))
-                                OutlinedTextField(trig, { trig = it.take(30) }, singleLine = true, label = { Text("Trigger (e.g. stress, boredom)") }, modifier = Modifier.fillMaxWidth())
+                                com.todocompanion.app.ui.components.AppTextField(trig, { trig = it.take(30) }, singleLine = true, label = { Text("Trigger (e.g. stress, boredom)") }, modifier = Modifier.fillMaxWidth())
                             }
                         },
                     )
@@ -521,7 +521,7 @@ private fun DayEditorDialog(
                 }
                 // Direct entry — typing beats tapping +/- 10000 times for large numeric goals (steps, etc.).
                 if ((habit.targetPerDay > 1 || unit != null || step > 1) && !skip) {
-                    OutlinedTextField(
+                    com.todocompanion.app.ui.components.AppTextField(
                         value = if (count == 0) "" else count.toString(),
                         onValueChange = { v -> count = v.filter { it.isDigit() }.take(7).toIntOrNull() ?: 0 },
                         label = { Text("Type an exact value" + (unit?.let { " ($it)" } ?: "")) },
@@ -539,7 +539,7 @@ private fun DayEditorDialog(
                 if (canFreeze) {
                     TextButton(onClick = onFreeze) { Text("❄️ Protect with a streak freeze") }
                 }
-                OutlinedTextField(
+                com.todocompanion.app.ui.components.AppTextField(
                     value = note, onValueChange = { note = it },
                     label = { Text("Note for this day (optional)") },
                     minLines = 2, modifier = Modifier.fillMaxWidth(),

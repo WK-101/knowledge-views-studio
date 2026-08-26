@@ -131,6 +131,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
     var editEntry by remember { mutableStateOf<TimeEntryEntity?>(null) }
     var tileMenu by remember { mutableStateOf<String?>(null) }        // activity id whose long-press menu is open
     var reassignFor by remember { mutableStateOf<String?>(null) }     // running entry id being reassigned
+    var gapInit by remember { mutableStateOf<Pair<Int, Int>?>(null) } // start/end minutes to prefill the manual dialog with
 
     if (showNewActivity) ActivityDialog(null, onDismiss = { showNewActivity = false }) { name, emoji, color, goal ->
         vm.createTimeActivity(name, emoji, color, goal); showNewActivity = false
@@ -148,8 +149,10 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
             vm.updateTimeActivity(a.copy(name = name, emoji = emoji, colorArgb = color, goalMinutesPerDay = goal)); editActivity = null
         }
     }
-    if (showManual) ManualEntryDialog(activities, day, zone, onDismiss = { showManual = false }) { actId, start, end ->
-        vm.addManualTimeEntry(actId, start, end); showManual = false
+    if (showManual) ManualEntryDialog(activities, day, zone,
+        initialStartMin = gapInit?.first ?: 9 * 60, initialEndMin = gapInit?.second ?: 10 * 60,
+        onDismiss = { showManual = false; gapInit = null }) { actId, start, end ->
+        vm.addManualTimeEntry(actId, start, end); showManual = false; gapInit = null
     }
     editEntry?.let { e ->
         EditEntryDialog(e, activities.filter { !it.archived }, zone, onDismiss = { editEntry = null },
@@ -184,6 +187,23 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                         Spacer(Modifier.width(4.dp))
                         FilledTonalButton(onClick = { vm.resumeTracking() }) {
                             Icon(Icons.Filled.PlayArrow, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Resume")
+                        }
+                    }
+                }
+            }
+            // Idle: a single one-tap "Start now" — begins the clock against your last/most-used activity
+            // without making you scan the grid first, then you can reassign it from the running card
+            // (Simple-Time-Tracker's decision-fatigue fix). Tapping a specific tile below still works too.
+            if (runningList.isEmpty() && paused0 == null && activities.any { !it.archived }) {
+                Surface(onClick = { if (!vm.startTimeTrackingSmart()) showNewActivity = true }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = .10f)) {
+                    Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(38.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Filled.PlayArrow, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(22.dp))
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Start timer", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                            Text("Start now, choose the activity while it runs.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
@@ -427,6 +447,23 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
 
             // Timeline of the day's entries. Adding an entry is the ＋ floating button (shared FAB).
             Text("Timeline", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // U5 · "account for my whole day" — when Timeline-fill is on, the holes between what you did
+            // log surface as tappable chips so no stretch goes unexplained. Off by default (a Settings toggle).
+            if (settings.timelineFill) {
+                val gaps = remember(entries, day, now) { TimeInsights.untrackedGaps(entries, winStart, winEnd, now) }
+                if (gaps.isNotEmpty()) {
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        gaps.forEach { g ->
+                            val sMin = ((g.startMillis - winStart) / 60_000L).toInt().coerceIn(0, 1439)
+                            val eMin = ((g.endMillis - winStart) / 60_000L).toInt().coerceIn(0, 1440)
+                            val sTxt = Instant.ofEpochMilli(g.startMillis).atZone(zone).format(timeFmt)
+                            AssistChip(onClick = { gapInit = sMin to eMin; showManual = true },
+                                label = { Text("$sTxt · ${fmtDur(g.minutes)} untracked", maxLines = 1) },
+                                leadingIcon = { Icon(Icons.Filled.Add, null, Modifier.size(16.dp)) })
+                        }
+                    }
+                }
+            }
             if (dayEntries.isEmpty()) {
                 Text("No time logged this day yet. Tap ＋ to add one.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -519,12 +556,12 @@ private fun ActivityDialog(
         title = { Text(if (existing == null) "New activity" else "Edit activity") },
         text = {
             Column {
-                OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                com.todocompanion.app.ui.components.AppTextField(name, { name = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(emoji, { emoji = it.take(2) }, label = { Text("Emoji (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                com.todocompanion.app.ui.components.AppTextField(emoji, { emoji = it.take(2) }, label = { Text("Emoji (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
                 // T4: an optional daily time goal (minutes). Progress is computed from tracked intervals.
-                OutlinedTextField(goal, { v -> goal = v.filter { it.isDigit() }.take(4) }, label = { Text("Daily goal (minutes, optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                com.todocompanion.app.ui.components.AppTextField(goal, { v -> goal = v.filter { it.isDigit() }.take(4) }, label = { Text("Daily goal (minutes, optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     PALETTE.forEach { swatch ->
@@ -562,11 +599,11 @@ private fun ActivityDialog(
 
 /** Add a past interval: pick an activity, then a start and end time on the selected day (native pickers). */
 @Composable
-private fun ManualEntryDialog(activities: List<TimeActivityEntity>, day: LocalDate, zone: ZoneId, onDismiss: () -> Unit, onAdd: (String, Long, Long) -> Unit) {
+private fun ManualEntryDialog(activities: List<TimeActivityEntity>, day: LocalDate, zone: ZoneId, initialStartMin: Int = 9 * 60, initialEndMin: Int = 10 * 60, onDismiss: () -> Unit, onAdd: (String, Long, Long) -> Unit) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     var activityId by remember { mutableStateOf(activities.firstOrNull { !it.archived }?.id) }
-    var startMin by remember { mutableStateOf(9 * 60) }   // minutes from midnight
-    var endMin by remember { mutableStateOf(10 * 60) }
+    var startMin by remember { mutableStateOf(initialStartMin) }   // minutes from midnight
+    var endMin by remember { mutableStateOf(initialEndMin) }
     fun pick(initial: Int, onPicked: (Int) -> Unit) {
         android.app.TimePickerDialog(ctx, { _, h, m -> onPicked(h * 60 + m) }, initial / 60, initial % 60, true).show()
     }
@@ -632,7 +669,7 @@ private fun AutomationRuleDialog(activities: List<TimeActivityEntity>, onDismiss
                 }
                 Spacer(Modifier.height(8.dp))
                 if (action == com.todocompanion.app.domain.AutomationRule.ACTION_NOTIFY) {
-                    OutlinedTextField(notifyText, { notifyText = it }, label = { Text("Message (e.g. Phone on silent?)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    com.todocompanion.app.ui.components.AppTextField(notifyText, { notifyText = it }, label = { Text("Message (e.g. Phone on silent?)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 } else {
                     Text("Requires “Allow overlapping timers” on.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -696,10 +733,10 @@ private fun EditEntryDialog(entry: TimeEntryEntity, activities: List<TimeActivit
                     }
                 }
                 Spacer(Modifier.height(10.dp))
-                OutlinedTextField(note, { note = it }, label = { Text("Note (optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                com.todocompanion.app.ui.components.AppTextField(note, { note = it }, label = { Text("Note (optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 Spacer(Modifier.height(8.dp))
                 // U11: comma-separated tags.
-                OutlinedTextField(tags, { tags = it }, label = { Text("Tags (comma-separated)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                com.todocompanion.app.ui.components.AppTextField(tags, { tags = it }, label = { Text("Tags (comma-separated)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 // U4: split this interval at its midpoint.
                 if (end != null && end!! - start > 120_000L) {
                     Spacer(Modifier.height(6.dp))

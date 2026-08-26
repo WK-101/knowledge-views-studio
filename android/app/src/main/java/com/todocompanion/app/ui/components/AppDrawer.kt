@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.NotificationImportant
 import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.GridView
@@ -146,6 +147,8 @@ fun AppDrawer(
     onOpenCountdowns: () -> Unit = {},
     onOpenMomentum: () -> Unit = {},
     onOpenTime: () -> Unit = {},
+    onOpenRecap: () -> Unit = {},
+    onOpenAnnual: () -> Unit = {},
 ) {
     val folders by vm.folders.collectAsState()
     val lists by vm.lists.collectAsState()
@@ -218,6 +221,8 @@ fun AppDrawer(
                         ref == "more:attachments" -> onOpenAttachments()
                         ref == "more:statistics" -> onOpenStats()
                         ref == "more:review" -> onOpenReview()
+                        ref == "more:recap" -> onOpenRecap()
+                        ref == "more:annual" -> onOpenAnnual()
                     }
                 },
                 open = open("fav"), onToggle = { toggle("fav") })
@@ -340,6 +345,8 @@ fun AppDrawer(
                 if ("attachments" !in hidden) DrawerRow(Icons.Filled.AttachFile, "Attachments", pinned = vm.isPinned("more:attachments"), onLongClick = { vm.togglePinnedRef("more:attachments") }, onClick = onOpenAttachments)
                 if ("statistics" !in hidden) DrawerRow(Icons.Filled.BarChart, "Statistics", pinned = vm.isPinned("more:statistics"), onLongClick = { vm.togglePinnedRef("more:statistics") }, onClick = onOpenStats)
                 if ("review" !in hidden) DrawerRow(Icons.Filled.ChecklistRtl, "Weekly review", pinned = vm.isPinned("more:review"), onLongClick = { vm.togglePinnedRef("more:review") }, onClick = onOpenReview)
+                if ("recap" !in hidden) DrawerRow(Icons.Filled.AutoAwesome, "Recap", pinned = vm.isPinned("more:recap"), onLongClick = { vm.togglePinnedRef("more:recap") }, onClick = onOpenRecap)
+                if ("annual" !in hidden) DrawerRow(Icons.Filled.EmojiEvents, "Year in review", pinned = vm.isPinned("more:annual"), onLongClick = { vm.togglePinnedRef("more:annual") }, onClick = onOpenAnnual)
             }
             }
         }
@@ -559,7 +566,8 @@ private fun PinnedFavourites(
         "time" -> Icons.Filled.Timer to "Time"
         "templates" -> Icons.Filled.ContentCopy to "Templates"; "countdowns" -> Icons.Filled.Timelapse to "Countdowns"
         "attachments" -> Icons.Filled.AttachFile to "Attachments"; "statistics" -> Icons.Filled.BarChart to "Statistics"
-        "review" -> Icons.Filled.ChecklistRtl to "Weekly review"; else -> null
+        "review" -> Icons.Filled.ChecklistRtl to "Weekly review"
+        "recap" -> Icons.Filled.AutoAwesome to "Recap"; "annual" -> Icons.Filled.EmojiEvents to "Year in review"; else -> null
     }
     val resolved = refs.mapNotNull { ref ->
         val id = ref.substringAfter(':')

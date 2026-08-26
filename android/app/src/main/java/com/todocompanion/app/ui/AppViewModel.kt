@@ -1204,6 +1204,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.stopTimeTracking(); refreshHabitWidgets(); refreshTimeWidget()
         nm?.let { com.todocompanion.app.reminders.TimeIntentApi.broadcastStopped(appCtx, it) }
     }
+    /**
+     * One-tap "start now, decide later" — starts the clock against the most sensible activity without
+     * making the user scan the grid first (Simple-Time-Tracker's decision-fatigue fix): last-used, else a
+     * pinned one, else the first activity. Returns false only when there is no activity to start at all,
+     * so the caller can open the new-activity dialog. The running card lets you reassign afterward.
+     */
+    fun startTimeTrackingSmart(): Boolean {
+        val acts = timeActivities.value.filter { !it.archived }
+        if (acts.isEmpty()) return false
+        val lastUsed = timeEntries.value.maxByOrNull { it.startMillis }?.activityId?.let { id -> acts.firstOrNull { it.id == id } }
+        val pinned = acts.firstOrNull { it.id in settings.value.pinnedActivities }
+        val pick = lastUsed ?: pinned ?: acts.first()
+        startTimeTracking(pick.id)
+        return true
+    }
     /** U15: stop one specific running timer (when several overlap). */
     fun stopTimeEntry(id: String) = viewModelScope.launch {
         val nm = timeEntries.value.firstOrNull { it.id == id }?.let { r -> timeActivities.value.firstOrNull { it.id == r.activityId }?.name }
@@ -2759,6 +2774,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setAutoBackupEnabled(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(autoBackupEnabled = on)) }
     fun setSyncEnabled(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(syncEnabled = on)) }
     fun markOnboarded() = viewModelScope.launch { repo.saveSettings(settings.value.copy(onboarded = true)) }
+    fun replayOnboarding() = viewModelScope.launch { repo.saveSettings(settings.value.copy(onboarded = false)) }
 
     fun setSyncPassphrase(pass: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(syncPassphrase = pass)) }
 

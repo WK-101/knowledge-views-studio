@@ -80,6 +80,7 @@ fun TimeStatsScreen(vm: AppViewModel, onBack: () -> Unit) {
     var range by rememberSaveable { mutableStateOf(TimeStats.Range.WEEK) }
     var anchor by remember { mutableStateOf(LocalDate.now(zone)) }
     var detailId by remember { mutableStateOf<String?>(null) }
+    var showTrends by rememberSaveable { mutableStateOf(false) }   // Breakdown ↔ Trends & correlations
 
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     val anyRunning = entries.any { it.running }
@@ -110,7 +111,18 @@ fun TimeStatsScreen(vm: AppViewModel, onBack: () -> Unit) {
                 IconButton(onClick = { if (canNext) anchor = TimeStats.shift(range, anchor, 1) }, enabled = canNext) { Icon(Icons.Filled.ChevronRight, "Next") }
             }
 
+            // Breakdown ↔ Trends. Breakdown is the distribution (donut + ranked); Trends is the longer-arc
+            // view — weekday rhythm, day-by-day trajectory, peak hours and cross-activity correlations.
             if (detailId == null) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = !showTrends, onClick = { showTrends = false }, label = { Text("Breakdown") })
+                    FilterChip(selected = showTrends, onClick = { showTrends = true }, label = { Text("Trends") })
+                }
+            }
+
+            if (detailId == null && showTrends) {
+                TrendsSection(vm, range, anchor, zone, now)
+            } else if (detailId == null) {
                 if (overview.totalMin == 0) {
                     com.todocompanion.app.ui.components.EmptyState(emoji = "◔", title = "No time tracked",
                         body = "Track some activities in this ${range.label.lowercase()} and the breakdown shows up here.")
@@ -229,4 +241,122 @@ fun TimeStatsScreen(vm: AppViewModel, onBack: () -> Unit) {
             Spacer(Modifier.height(20.dp))
         }
     }
+}
+
+/**
+ * The Trends tab of the Statistics screen — weekday rhythm, a day-by-day trajectory, peak hours and
+ * the cross-activity correlations that a unified store makes possible (the tracker's answer to the
+ * habits screen's rich trends). Correlations use a fixed recent window, independent of the range pager.
+ */
+@Composable
+private fun TrendsSection(vm: AppViewModel, range: TimeStats.Range, anchor: LocalDate, zone: ZoneId, now: Long) {
+    val entries by vm.timeEntries.collectAsState()
+    val activities by vm.timeActivities.collectAsState()
+    val t = remember(entries, range, anchor, now) { TimeStats.trends(entries, range, anchor, zone, now) }
+    val corr = remember(entries, activities, now) { TimeStats.correlations(entries, activities, zone, now) }
+
+    if (t.totalMin == 0) {
+        com.todocompanion.app.ui.components.EmptyState(emoji = "◔", title = "No trends yet",
+            body = "Track across a few days and your weekday rhythm, trajectory and correlations appear here.")
+        return
+    }
+
+    // Momentum vs previous period.
+    AppCard {
+        val delta = t.totalMin - t.prevTotalMin
+        Text("Momentum", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(sfmt(t.totalMin), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(10.dp))
+            Text(when { delta > 0 -> "▲ ${sfmt(delta)} vs previous ${range.label.lowercase()}"; delta < 0 -> "▼ ${sfmt(-delta)} vs previous ${range.label.lowercase()}"; else -> "— same as previous ${range.label.lowercase()}" },
+                style = MaterialTheme.typography.labelMedium,
+                color = when { delta > 0 -> MaterialTheme.colorScheme.primary; delta < 0 -> MaterialTheme.colorScheme.error; else -> MaterialTheme.colorScheme.onSurfaceVariant })
+        }
+        val avg = if (t.activeDays > 0) t.totalMin / t.activeDays else 0
+        Spacer(Modifier.height(4.dp))
+        Text("Tracked on ${t.activeDays} of ${t.windowDays} day${if (t.windowDays == 1) "" else "s"}" + (if (t.activeDays > 0) " · avg ${sfmt(avg)}/active day" else ""),
+            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+
+    // Day-by-day trajectory (only when the window is a handful of days to a couple of months).
+    if (t.windowDays in 2..62) AppCard {
+        Text("Day by day", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        val dmax = (t.dailyTotals.maxOfOrNull { it.second } ?: 1).coerceAtLeast(1)
+        Row(Modifier.fillMaxWidth().height(72.dp).padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.Bottom) {
+            t.dailyTotals.forEach { (_, m) ->
+                val frac = m / dmax.toFloat()
+                Box(Modifier.weight(1f).fillMaxHeight(frac.coerceAtLeast(0.02f)).clip(RoundedCornerShape(2.dp))
+                    .background(if (m > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant))
+            }
+        }
+        val first = t.dailyTotals.firstOrNull()?.first?.let { LocalDate.ofEpochDay(it) }
+        val last = t.dailyTotals.lastOrNull()?.first?.let { LocalDate.ofEpochDay(it) }
+        if (first != null && last != null) Row(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(first.format(java.time.format.DateTimeFormatter.ofPattern("MMM d")), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(last.format(java.time.format.DateTimeFormatter.ofPattern("MMM d")), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+
+    // Weekday rhythm — average minutes per day of week.
+    AppCard {
+        Text("Weekday rhythm", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        val avgByWd = (0..6).map { i -> if (t.byWeekdayDays[i] > 0) t.byWeekdayMin[i] / t.byWeekdayDays[i] else 0 }
+        val wmax = (avgByWd.maxOrNull() ?: 1).coerceAtLeast(1)
+        val busiest = avgByWd.indexOf(avgByWd.maxOrNull() ?: 0)
+        Row(Modifier.fillMaxWidth().height(88.dp).padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
+            avgByWd.forEachIndexed { i, m ->
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
+                    Box(Modifier.fillMaxWidth().fillMaxHeight((m / wmax.toFloat()).coerceAtLeast(0.03f)).clip(RoundedCornerShape(4.dp))
+                        .background(if (i == busiest) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = .35f)))
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf("M", "T", "W", "T", "F", "S", "S").forEach { d -> Text(d, Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+        if ((avgByWd.maxOrNull() ?: 0) > 0) {
+            val names = listOf("Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays", "Sundays")
+            Spacer(Modifier.height(6.dp))
+            Text("You track most on ${names[busiest]} (avg ${sfmt(avgByWd[busiest])}).", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+
+    // Peak hours across the window.
+    if (t.peakByHour.any { it > 0 }) AppCard {
+        Text("Peak hours", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        val hmax = (t.peakByHour.maxOrNull() ?: 1).coerceAtLeast(1)
+        Row(Modifier.fillMaxWidth().height(64.dp).padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(1.dp), verticalAlignment = Alignment.Bottom) {
+            for (h in 0..23) {
+                val frac = t.peakByHour[h] / hmax.toFloat()
+                Box(Modifier.weight(1f).fillMaxHeight(frac.coerceAtLeast(0.02f)).clip(RoundedCornerShape(2.dp))
+                    .background(if (t.peakByHour[h] > 0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.surfaceVariant))
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            listOf("0", "6", "12", "18", "23").forEach { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+        val peakH = t.peakByHour.indexOf(t.peakByHour.maxOrNull() ?: 0)
+        Spacer(Modifier.height(4.dp))
+        Text("Most active around ${"%02d:00".format(peakH)}.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+
+    // Correlations — "on days you track A, you also track B".
+    AppCard {
+        Text("Correlations", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("What travels together, over the last 60 days.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+        if (corr.isEmpty()) {
+            Text("Not enough overlapping days yet — keep tracking a few activities and pairings show up here.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else corr.forEach { c ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("${c.aEmoji?.plus(" ") ?: ""}${c.aName} → ${c.bEmoji?.plus(" ") ?: ""}${c.bName}", style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("On ${c.pct}% of the ${c.aDays} days you tracked ${c.aName}, you also tracked ${c.bName}.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Spacer(Modifier.width(8.dp))
+                Text("${c.pct}%", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            }
+        }
+    }
+    Spacer(Modifier.height(4.dp))
 }

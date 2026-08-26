@@ -310,7 +310,7 @@ private fun NameRow(color: Color, value: String, onChange: (String) -> Unit) {
     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(9.dp).clip(CircleShape).background(color))
         Spacer(Modifier.width(8.dp))
-        androidx.compose.material3.OutlinedTextField(
+        com.todocompanion.app.ui.components.AppTextField(
             value = value, onValueChange = onChange, singleLine = true,
             modifier = Modifier.weight(1f), textStyle = MaterialTheme.typography.bodyMedium,
         )

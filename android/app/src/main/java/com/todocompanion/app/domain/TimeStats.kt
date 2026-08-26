@@ -111,6 +111,84 @@ object TimeStats {
         return Detail(total, prevTotal, sessions, activeDays, avgActive, longest, shortest, typical, byHour.toList(), best?.key, best?.value ?: 0)
     }
 
+    // ── Trends — the longer-arc patterns (weekday rhythm, day-by-day trajectory, peak hours) ────────
+    data class Trends(
+        val byWeekdayMin: List<Int>,     // Mon..Sun total minutes across the window (index 0 = Monday)
+        val byWeekdayDays: List<Int>,    // how many of each weekday fell in the window (for averaging)
+        val dailyTotals: List<Pair<Long, Int>>,  // (epochDay, minutes) for every day in the window, chronological
+        val peakByHour: List<Int>,       // 24 hour-of-day buckets, aggregated over the whole window
+        val totalMin: Int, val prevTotalMin: Int, val windowDays: Int, val activeDays: Int,
+    )
+
+    fun trends(entries: List<TimeEntryEntity>, range: Range, anchor: LocalDate, zone: ZoneId, now: Long): Trends {
+        val (s, e) = window(range, anchor)
+        val (winStart, winEnd) = millis(s, e, zone)
+        val dailyTotals = (s.toEpochDay()..e.toEpochDay()).map { d ->
+            val (ds, de) = millis(LocalDate.ofEpochDay(d), LocalDate.ofEpochDay(d), zone)
+            d to TimeTracking.totalMinutes(entries, ds, de, now)
+        }
+        val wdMin = IntArray(7); val wdDays = IntArray(7)
+        dailyTotals.forEach { (d, m) ->
+            val wd = LocalDate.ofEpochDay(d).dayOfWeek.value - 1   // Monday = 0
+            wdMin[wd] += m; wdDays[wd] += 1
+        }
+        val byHour = IntArray(24)
+        entries.forEach { en -> addHours(byHour, en, winStart, winEnd, now, zone) }
+        val total = dailyTotals.sumOf { it.second }
+        val activeDays = dailyTotals.count { it.second > 0 }
+        val prevAnchor = shift(range, anchor, -1)
+        val (ps, pe) = window(range, prevAnchor)
+        val (pws, pwe) = millis(ps, pe, zone)
+        val prevTotal = TimeTracking.totalMinutes(entries, pws, pwe, now)
+        return Trends(wdMin.toList(), wdDays.toList(), dailyTotals, byHour.toList(), total, prevTotal, dailyTotals.size, activeDays)
+    }
+
+    // ── Correlations — "on days you track A, you also track B" (the cross-activity co-occurrence) ────
+    data class CoOccur(
+        val aId: String, val aName: String, val aEmoji: String?,
+        val bId: String, val bName: String, val bEmoji: String?,
+        val aDays: Int, val together: Int, val pct: Int,
+    )
+
+    /**
+     * The strongest co-occurrence per activity over the last [lookbackDays]: of the days you tracked A at
+     * all, what share also had B. This is the tracker's answer to the habits screen's correlations — the
+     * "these two travel together" insight a unified store makes possible. Only reasonably-supported pairs
+     * are returned (A tracked ≥ 3 days, ≥ 2 shared days, ≥ 40% co-occurrence), strongest first.
+     */
+    fun correlations(entries: List<TimeEntryEntity>, activities: List<TimeActivityEntity>, zone: ZoneId, now: Long, lookbackDays: Int = 60, maxOut: Int = 5): List<CoOccur> {
+        val today = LocalDate.now(zone)
+        val start = today.minusDays((lookbackDays - 1).toLong())
+        val byId = activities.associateBy { it.id }
+        val daysActive = HashMap<String, MutableSet<Long>>()
+        for (d in start.toEpochDay()..today.toEpochDay()) {
+            val (ds, de) = millis(LocalDate.ofEpochDay(d), LocalDate.ofEpochDay(d), zone)
+            entries.forEach { en ->
+                if (TimeTracking.minutesInWindow(en.startMillis, en.endMillis, ds, de, now) > 0)
+                    daysActive.getOrPut(en.activityId) { HashSet() }.add(d)
+            }
+        }
+        val ids = daysActive.keys.toList()
+        val out = ArrayList<CoOccur>()
+        for (a in ids) {
+            val aSet = daysActive[a] ?: continue
+            if (aSet.size < 3) continue
+            var bestB: String? = null; var bestTogether = 0
+            for (b in ids) {
+                if (b == a) continue
+                val together = (daysActive[b] ?: continue).count { it in aSet }
+                if (together > bestTogether) { bestTogether = together; bestB = b }
+            }
+            val bId = bestB ?: continue
+            if (bestTogether < 2) continue
+            val pct = bestTogether * 100 / aSet.size
+            if (pct < 40) continue
+            val aA = byId[a]; val bA = byId[bId]
+            out.add(CoOccur(a, aA?.name ?: "—", aA?.emoji, bId, bA?.name ?: "—", bA?.emoji, aSet.size, bestTogether, pct))
+        }
+        return out.sortedByDescending { it.pct * it.aDays }.take(maxOut)
+    }
+
     /** Distribute one interval's minutes into the hour-of-day buckets it spans (clamped to the window). */
     private fun addHours(byHour: IntArray, en: TimeEntryEntity, winStart: Long, winEnd: Long, now: Long, zone: ZoneId) {
         val start = maxOf(en.startMillis, winStart)

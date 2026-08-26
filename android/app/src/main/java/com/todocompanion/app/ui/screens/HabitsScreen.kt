@@ -660,7 +660,7 @@ private fun NumericEntryDialog(h: HabitEntity, current: Int, onDismiss: () -> Un
                 Text(if (h.habitType == "break") "How many ${h.unit ?: "times"} today? (0 = stayed clean)" else "Value for today" + (h.unit?.let { " ($it)" } ?: ""),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.size(8.dp))
-                OutlinedTextField(text, { text = it.filter { c -> c.isDigit() }.take(7) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                com.todocompanion.app.ui.components.AppTextField(text, { text = it.filter { c -> c.isDigit() }.take(7) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
             }
         },
@@ -790,16 +790,16 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
         ) {
             // 1. Identity
             EditorCard {
-                OutlinedTextField(name, { name = it }, singleLine = true, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
+                com.todocompanion.app.ui.components.AppTextField(name, { name = it }, singleLine = true, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.size(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(emoji, { emoji = it.take(2) }, singleLine = true, label = { Text("Emoji") }, modifier = Modifier.weight(1f))
-                    OutlinedTextField(unit, { unit = it.take(12) }, singleLine = true, label = { Text("Unit") }, modifier = Modifier.weight(1.4f))
+                    com.todocompanion.app.ui.components.AppTextField(emoji, { emoji = it.take(2) }, singleLine = true, label = { Text("Emoji") }, modifier = Modifier.weight(1f))
+                    com.todocompanion.app.ui.components.AppTextField(unit, { unit = it.take(12) }, singleLine = true, label = { Text("Unit") }, modifier = Modifier.weight(1.4f))
                 }
                 Spacer(Modifier.size(10.dp))
                 // F2: group habits into named sections (e.g. "Morning", "Fitness"). Front-and-centre now,
                 // not buried in Advanced, with quick suggestions so a stack is one tap to create.
-                OutlinedTextField(category, { category = it.take(30) }, singleLine = true,
+                com.todocompanion.app.ui.components.AppTextField(category, { category = it.take(30) }, singleLine = true,
                     label = { Text("Group (e.g. Morning, Fitness) — optional") }, modifier = Modifier.fillMaxWidth())
                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
                     val existingGroups = allHabits.mapNotNull { it.category.trim().ifBlank { null } }.distinct().take(6)
@@ -824,7 +824,7 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
             // 2. Target — typed, so a 10000-step goal doesn't take 10000 taps to set. +/- kept as nudges.
             EditorCard {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedTextField(
+                    com.todocompanion.app.ui.components.AppTextField(
                         value = target.toString(),
                         onValueChange = { v -> target = (v.filter { it.isDigit() }.take(7).toIntOrNull() ?: 0).coerceIn(if (isBreak) 0 else 1, 9_999_999) },
                         singleLine = true,
@@ -906,12 +906,12 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
                 if (isBreak) {
                     Text("Success = staying at or under the daily limit. Streak = days since your last slip.",
                         style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(top = 6.dp))
-                    OutlinedTextField(money, { money = it.filter { c -> c.isDigit() || c == '.' }.take(8) }, singleLine = true,
+                    com.todocompanion.app.ui.components.AppTextField(money, { money = it.filter { c -> c.isDigit() || c == '.' }.take(8) }, singleLine = true,
                         label = { Text("Money saved per ${unit.ifBlank { "unit" }} (optional)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
                 }
                 // "Each tap adds" as a typed field, not a +/- stepper — so +250 steps / +1000 doesn't need
                 // 250 taps to configure. Available for build AND break habits (a slip counter can step too).
-                OutlinedTextField(
+                com.todocompanion.app.ui.components.AppTextField(
                     value = if (increment <= 0) "" else increment.toString(),
                     onValueChange = { v -> increment = (v.filter { it.isDigit() }.take(6).toIntOrNull() ?: 1).coerceAtLeast(1) },
                     singleLine = true,
@@ -922,9 +922,9 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
                 if (!isBreak) {
                     StepperRow("Stretch goal", extra?.toString() ?: "—", onMinus = { extra = ((extra ?: target) - 1).takeIf { it > target } }, onPlus = { extra = (extra ?: target) + 1 })
                 }
-                OutlinedTextField(description, { description = it }, label = { Text("Why — your motivation (shown when you're about to slip)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                com.todocompanion.app.ui.components.AppTextField(description, { description = it }, label = { Text("Why — your motivation (shown when you're about to slip)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
                 // V4: user-written encouragements, one shown at random on each check-off.
-                OutlinedTextField(encouragements, { encouragements = it }, label = { Text("Encouragements (one per line, shown on check-off)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                com.todocompanion.app.ui.components.AppTextField(encouragements, { encouragements = it }, label = { Text("Encouragements (one per line, shown on check-off)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
                 // T3/V3: link this habit to a time-tracking activity — tracking that activity then credits
                 // the habit. (Fixes: no way to link an activity to a habit from the habit side.)
                 if (timeOn) {
@@ -963,7 +963,7 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
             // 6. Motivation & extras (Tier K)
             EditorCard {
                 Text("Identity & stacking", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                OutlinedTextField(identity, { identity = it.take(60) }, singleLine = true,
+                com.todocompanion.app.ui.components.AppTextField(identity, { identity = it.take(60) }, singleLine = true,
                     label = { Text("I'm becoming… (e.g. “a writer”)") }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
                 // Anchor picker (K4).
                 var anchorMenu by remember { mutableStateOf(false) }
@@ -988,7 +988,7 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
 
                 // Self-reward (K5, light).
                 Text("Reward", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 14.dp))
-                OutlinedTextField(rewardText, { rewardText = it.take(80) }, singleLine = true,
+                com.todocompanion.app.ui.components.AppTextField(rewardText, { rewardText = it.take(80) }, singleLine = true,
                     label = { Text("Treat yourself when you hit a streak (optional)") }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
                 if (rewardText.isNotBlank()) StepperRow("…at a streak of", if (rewardAt <= 0) "30" else rewardAt.toString(),
                     onMinus = { rewardAt = ((if (rewardAt <= 0) 30 else rewardAt) - 5).coerceAtLeast(5) },

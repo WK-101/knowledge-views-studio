@@ -571,7 +571,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                             Column {
                                 Text("One step per line.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Spacer(Modifier.height(8.dp))
-                                OutlinedTextField(bulk, { bulk = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp), placeholder = { Text("Draft outline\nGather sources\nWrite first pass\nEdit") })
+                                com.todocompanion.app.ui.components.AppTextField(bulk, { bulk = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp), placeholder = { Text("Draft outline\nGather sources\nWrite first pass\nEdit") })
                             }
                         },
                     )
@@ -685,9 +685,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 SwitchRow("Mark as project", task.isProject) { v -> update { it.copy(isProject = v) } }
                 // Q2: goals & projects get the habit "why" + reward vocabulary.
                 if (task.isGoal || task.isProject) {
-                    OutlinedTextField(task.whyText, { v -> update { it.copy(whyText = v.take(140)) } }, singleLine = false,
+                    com.todocompanion.app.ui.components.AppTextField(task.whyText, { v -> update { it.copy(whyText = v.take(140)) } }, singleLine = false,
                         label = { Text("Why this matters (shown when you open it)") }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
-                    OutlinedTextField(task.rewardText, { v -> update { it.copy(rewardText = v.take(80)) } }, singleLine = true,
+                    com.todocompanion.app.ui.components.AppTextField(task.rewardText, { v -> update { it.copy(rewardText = v.take(80)) } }, singleLine = true,
                         label = { Text("Reward yourself when it's done (optional)") }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
                 }
                 if (hasChildren) SwitchRow("Complete subtasks in order", task.completeInOrder) { v -> update { it.copy(completeInOrder = v) } }
@@ -787,7 +787,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     Text("Saves this task and its subtree — note, priority, flag, checklist, tags, contexts, recurrence and relative dates — for reuse.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(10.dp))
-                    OutlinedTextField(tplName, { tplName = it }, singleLine = true, label = { Text("Template name") }, modifier = Modifier.fillMaxWidth())
+                    com.todocompanion.app.ui.components.AppTextField(tplName, { tplName = it }, singleLine = true, label = { Text("Template name") }, modifier = Modifier.fillMaxWidth())
                 }
             },
         )

@@ -81,7 +81,7 @@ fun EmojiGridPicker(current: String?, onPick: (String?) -> Unit) {
             }
         }
         Spacer(Modifier.height(6.dp))
-        OutlinedTextField(
+        com.todocompanion.app.ui.components.AppTextField(
             value = typed,
             onValueChange = { v -> typed = v; onPick(v.trim().ifBlank { null }) },
             singleLine = true,
