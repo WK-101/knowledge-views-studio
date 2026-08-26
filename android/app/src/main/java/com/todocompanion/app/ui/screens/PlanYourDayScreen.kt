@@ -83,7 +83,7 @@ fun PlanYourDayScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: ()
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            TopAppBar(expandedHeight = 52.dp, 
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                 title = { Text("Plan your day") },
             )

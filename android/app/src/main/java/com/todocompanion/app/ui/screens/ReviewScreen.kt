@@ -79,7 +79,7 @@ fun ReviewScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> U
     val openCount = active.count { !it.isNote }
 
     Scaffold(topBar = {
-        TopAppBar(
+        TopAppBar(expandedHeight = 52.dp, 
             title = { Text("Weekly review") },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
         )

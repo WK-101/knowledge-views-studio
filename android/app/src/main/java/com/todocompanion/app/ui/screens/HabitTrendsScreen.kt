@@ -62,7 +62,7 @@ fun HabitTrendsScreen(vm: AppViewModel, onBack: () -> Unit) {
     val active = habits.filter { !it.archived }
 
     Scaffold(topBar = {
-        TopAppBar(
+        TopAppBar(expandedHeight = 52.dp, 
             title = { Text("Trends & correlations") },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
         )

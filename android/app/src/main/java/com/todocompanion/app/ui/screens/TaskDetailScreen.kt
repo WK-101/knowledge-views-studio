@@ -185,7 +185,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
 
     val task = draft
     Scaffold(topBar = {
-        TopAppBar(
+        TopAppBar(expandedHeight = 52.dp, 
             title = { Text("Task") },
             navigationIcon = { IconButton(onClick = { attemptBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
             actions = {

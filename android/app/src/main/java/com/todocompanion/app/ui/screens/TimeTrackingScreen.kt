@@ -436,7 +436,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
         // Standalone (opened from the drawer or a widget): our own single header + matching FAB.
         Scaffold(
             topBar = {
-                TopAppBar(
+                TopAppBar(expandedHeight = 52.dp, 
                     title = { Text("Time") },
                     navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                 )

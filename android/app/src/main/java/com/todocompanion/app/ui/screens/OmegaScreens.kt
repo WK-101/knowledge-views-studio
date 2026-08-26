@@ -80,7 +80,7 @@ fun CommandPaletteDialog(vm: AppViewModel, onDismiss: () -> Unit, onRun: (OmegaC
     }
 
     Dialog(onDismissRequest = onDismiss) {
-        Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 4.dp) {
+        Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
             Column(Modifier.fillMaxWidth().padding(18.dp)) {
                 Text("Command", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(6.dp))
@@ -162,7 +162,7 @@ fun RecapScreen(vm: AppViewModel, initialStartDay: Long, initialEndDay: Long, in
     val recap = remember(start, end) { vm.periodRecap(start, end, title) }
 
     Scaffold(topBar = {
-        TopAppBar(title = { Text("Recap") },
+        TopAppBar(expandedHeight = 52.dp, title = { Text("Recap") },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } })
     }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp),

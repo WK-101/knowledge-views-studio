@@ -83,7 +83,7 @@ fun StatisticsScreen(vm: AppViewModel, onBack: () -> Unit) {
     }
 
     Scaffold(topBar = {
-        TopAppBar(title = { Text("Statistics") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } })
+        TopAppBar(expandedHeight = 52.dp, title = { Text("Statistics") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } })
     }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
             AchievementsCard(score, level, levelTitle, intoLevel, streak, totalDone, totalFocusMin)

@@ -217,7 +217,7 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
                 Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
                     if (group.title.isNotBlank()) GroupHeader(group.title, group.tasks.size, open) { collapsed[group.key] = open }
                     AnimatedVisibility(visible = open) {
-                        Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+                        Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
                             Column {
                                 group.tasks.forEachIndexed { i, task ->
                                   androidx.compose.runtime.key(task.id) {
@@ -537,7 +537,7 @@ private fun HabitsDueStrip(vm: AppViewModel) {
                 due.forEach { h ->
                     val color = h.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
                     Row(
-                        Modifier.clip(RoundedCornerShape(20.dp)).background(color.copy(alpha = .12f))
+                        Modifier.clip(RoundedCornerShape(16.dp)).background(color.copy(alpha = .12f))
                             .clickable { vm.setHabitValue(h, today, h.targetPerDay.coerceAtLeast(1)) }
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -663,7 +663,7 @@ private fun HierarchyList(vm: AppViewModel, density: Density, onOpenTask: (Strin
         }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(12.dp)) {
             item {
-                Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+                Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
                     Column {
                         rows.forEachIndexed { i, row ->
                             if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
@@ -702,7 +702,7 @@ private fun OutlineList(vm: AppViewModel, density: Density, onOpenTask: (String)
         } else {
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(12.dp)) {
                 item {
-                    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+                    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
                         Column {
                             rows.forEachIndexed { i, row ->
                                 if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))

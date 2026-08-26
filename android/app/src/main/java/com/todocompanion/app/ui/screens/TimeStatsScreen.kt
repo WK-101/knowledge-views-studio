@@ -89,7 +89,7 @@ fun TimeStatsScreen(vm: AppViewModel, onBack: () -> Unit) {
     val canNext = TimeStats.window(range, anchor).second.isBefore(today)
 
     Scaffold(topBar = {
-        TopAppBar(title = { Text("Statistics") },
+        TopAppBar(expandedHeight = 52.dp, title = { Text("Statistics") },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } })
     }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp),
@@ -180,7 +180,7 @@ fun TimeStatsScreen(vm: AppViewModel, onBack: () -> Unit) {
                     tiles.chunked(2).forEach { rowTiles ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             rowTiles.forEach { (k, v) ->
-                                Surface(Modifier.weight(1f), shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+                                Surface(Modifier.weight(1f), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
                                     Column(Modifier.padding(14.dp)) {
                                         Text(v, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                                         Text(k, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

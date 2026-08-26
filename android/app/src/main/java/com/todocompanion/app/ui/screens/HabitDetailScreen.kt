@@ -100,7 +100,7 @@ fun HabitDetailScreen(
 
     if (h == null) {
         Scaffold(topBar = {
-            TopAppBar(
+            TopAppBar(expandedHeight = 52.dp, 
                 title = { Text("Habit") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
             )
@@ -174,7 +174,7 @@ fun HabitDetailScreen(
 
     val shareCtx = LocalContext.current
     Scaffold(topBar = {
-        TopAppBar(
+        TopAppBar(expandedHeight = 52.dp, 
             title = { Text(h.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
             actions = {
@@ -210,7 +210,7 @@ fun HabitDetailScreen(
 
             // Y2 — keystone badge: the app names (and quietly guards) your highest-leverage habit.
             val isKeystone = remember(habits, checkins) { vm.keystoneHabitId() == h.id }
-            if (isKeystone) Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.primaryContainer) {
+            if (isKeystone) Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primaryContainer) {
                 Text("🗝️ Keystone habit — days you keep this, you get more done",
                     Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                     style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
@@ -220,7 +220,7 @@ fun HabitDetailScreen(
             //      to reshape the plan to reality so it stops marking honest rest days as misses.
             val rhythm = remember(h, hc) { vm.rhythmSuggestion(h.id) }
             if (rhythm != null) {
-                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .7f)) {
+                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .7f)) {
                     Column(Modifier.padding(16.dp)) {
                         Text("Match the schedule to your rhythm?", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
                         Spacer(Modifier.height(4.dp))
@@ -234,7 +234,7 @@ fun HabitDetailScreen(
             // 1a. L4 — recovery mode: when strength has crashed but there's real history, replace the
             //     broken-streak sting with a kind restart. Resetting the start date gives a clean slate.
             if (!isBreak && strength < 25 && (best >= 7 || hc.size >= 14)) {
-                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .7f)) {
+                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .7f)) {
                     Column(Modifier.padding(16.dp)) {
                         Text("Rough patch — that's OK.", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onTertiaryContainer)
                         Spacer(Modifier.height(4.dp))
@@ -262,7 +262,7 @@ fun HabitDetailScreen(
                         .filter { it.isNotBlank() && !it.equals("slip", true) }
                         .groupingBy { it.lowercase() }.eachCount().entries.sortedByDescending { it.value }.take(4)
                 }
-                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
                     Column(Modifier.padding(16.dp)) {
                         Text("Cravings & slips", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                         Text("You're on a $current-day clean streak. Log a slip if it happens — noting the trigger builds awareness.",
@@ -597,7 +597,7 @@ private fun Header(h: com.todocompanion.app.data.entity.HabitEntity, color: Colo
 
 @Composable
 private fun SectionCard(title: String? = null, content: @Composable ColumnScope.() -> Unit) {
-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
             if (title != null) {
                 Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)

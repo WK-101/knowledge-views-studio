@@ -92,7 +92,7 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
     var showCapture by remember { mutableStateOf(false) }
     if (showCapture) SmartCaptureDialog(vm) { showCapture = false }
     Scaffold(topBar = {
-        TopAppBar(
+        TopAppBar(expandedHeight = 52.dp, 
             title = { Text("Momentum") },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
             actions = {
@@ -194,7 +194,7 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
             // W2 — Right Now: the single next best action, with one tap to act.
             val rn = remember(tasks, habits, checkins, timeEntries) { vm.rightNow() }
             if (rn != null) Surface(
-                Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
+                Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .55f),
             ) {
                 Row(Modifier.padding(18.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -333,7 +333,7 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
 
             // Y6 — anti-burnout radar (Z2: dismissible). A caring, early signal you can silence.
             val burnout = remember(timeEntries, habits, checkins, settings) { if (vm.isInsightSuppressed("burnout")) null else vm.burnoutSignal() }
-            if (burnout != null) Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.errorContainer.copy(alpha = .55f)) {
+            if (burnout != null) Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.errorContainer.copy(alpha = .55f)) {
                 Column(Modifier.padding(16.dp)) {
                     Text("A gentle heads-up", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
                     Spacer(Modifier.height(4.dp))

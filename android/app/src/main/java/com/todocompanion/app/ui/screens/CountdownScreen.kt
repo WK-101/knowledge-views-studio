@@ -69,7 +69,7 @@ fun CountdownScreen(vm: AppViewModel, onBack: () -> Unit) {
     val today = LocalDate.now()
 
     Scaffold(topBar = {
-        TopAppBar(
+        TopAppBar(expandedHeight = 52.dp, 
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
             title = { Text("Countdowns") },
             actions = { IconButton(onClick = { addOpen = true }) { Icon(Icons.Filled.Add, "Add countdown") } },
