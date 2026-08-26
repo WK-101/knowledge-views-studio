@@ -211,6 +211,11 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
                     item(key = "recovery") { RecoveryStrip(vm) }   // P2: kind triage when overdue piles up
                     item(key = "habitsdue") { HabitsDueStrip(vm) }
                 }
+                // Countdowns whose target falls in this list's window show up here too, so a countdown you
+                // set surfaces in Today / Next-7-days / Scheduled — not only on the dedicated Countdowns hub.
+                if (k == SmartKind.TODAY || k == SmartKind.DO_NEXT || k == SmartKind.NEXT7 || k == SmartKind.SCHEDULED) {
+                    item(key = "countdowns") { CountdownDueStrip(vm, k) }
+                }
             }
             items(groups, key = { it.key }) { group ->
                 val open = collapsed[group.key] != true
@@ -546,6 +551,48 @@ private fun HabitsDueStrip(vm: AppViewModel) {
                         Spacer(Modifier.width(6.dp))
                         Icon(Icons.Filled.Check, "Complete", tint = color, modifier = Modifier.size(16.dp))
                     }
+                }
+            }
+        }
+    }
+}
+
+/** Countdowns whose target falls in the current smart-list's window, so a countdown surfaces in
+ *  Today / Next-7-days / Scheduled, not only on the dedicated Countdowns hub. */
+@Composable
+private fun CountdownDueStrip(vm: AppViewModel, kind: SmartKind) {
+    val countdowns by vm.countdowns.collectAsState()
+    val zone = java.time.ZoneId.systemDefault()
+    val today = java.time.LocalDate.now(zone)
+    val relevant = remember(countdowns, kind, today) {
+        countdowns.mapNotNull { cd ->
+            val d = java.time.Instant.ofEpochMilli(cd.targetMillis).atZone(zone).toLocalDate()
+            val days = java.time.temporal.ChronoUnit.DAYS.between(today, d)
+            val inWindow = when (kind) {
+                SmartKind.TODAY, SmartKind.DO_NEXT -> d == today
+                SmartKind.NEXT7 -> days in 0..6
+                SmartKind.SCHEDULED -> days >= 0
+                else -> false
+            }
+            if (inWindow) cd to days else null
+        }.sortedBy { it.second }
+    }
+    if (relevant.isEmpty()) return
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Column(Modifier.padding(12.dp)) {
+            Text("Countdowns", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.size(8.dp))
+            relevant.forEachIndexed { i, (cd, days) ->
+                if (i > 0) HorizontalDivider(Modifier.padding(vertical = 2.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                val color = cd.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.secondary
+                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(cd.emoji ?: "🎯", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.width(10.dp))
+                    Text(cd.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        when { days == 0L -> "Today"; days == 1L -> "Tomorrow"; days > 1 -> "in $days days"; else -> "${-days}d ago" },
+                        style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = color,
+                    )
                 }
             }
         }

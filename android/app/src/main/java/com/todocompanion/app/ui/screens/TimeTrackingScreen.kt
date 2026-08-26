@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AssistChip
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -269,20 +270,37 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                     actionLabel = "＋ New activity", onAction = { showNewActivity = true },
                 )
             } else {
-                Text("Activities", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // Header row: title + a column-count control (2–5 per row, like Simple Time Tracker).
+                val cols = settings.timeGridColumns.coerceIn(2, 5)
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Activities", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(Icons.Filled.GridView, null, Modifier.size(15.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(6.dp))
+                    listOf(2, 3, 4, 5).forEach { n ->
+                        val sel = n == cols
+                        Box(
+                            Modifier.size(26.dp).clip(RoundedCornerShape(8.dp))
+                                .background(if (sel) MaterialTheme.colorScheme.primary.copy(alpha = .16f) else Color.Transparent)
+                                .clickable { vm.setTimeGridColumns(n) },
+                            contentAlignment = Alignment.Center,
+                        ) { Text("$n", style = MaterialTheme.typography.labelMedium, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal, color = if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) }
+                    }
+                }
                 val ordered = remember(liveActs, settings.pinnedActivities) {
                     liveActs.sortedByDescending { it.id in settings.pinnedActivities }
                 }
-                // A plain 2-column grid (not lazy — we're inside a vertical scroll). `null` = the New tile.
-                (ordered + listOf<TimeActivityEntity?>(null)).chunked(2).forEach { pairRow ->
+                // A plain N-column grid (not lazy — we're inside a vertical scroll). `null` = the New tile.
+                // Tiles are square-ish and centred so they read cleanly from 2 up to 5 per row.
+                val tileHeight = if (cols >= 4) 84.dp else 72.dp
+                (ordered + listOf<TimeActivityEntity?>(null)).chunked(cols).forEach { rowItems ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        pairRow.forEach { a ->
+                        rowItems.forEach { a ->
                             if (a == null) {
-                                Surface(onClick = { showNewActivity = true }, Modifier.weight(1f).height(60.dp),
+                                Surface(onClick = { showNewActivity = true }, Modifier.weight(1f).height(tileHeight),
                                     shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .35f)) {
-                                    Row(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        Spacer(Modifier.width(8.dp)); Text("New activity", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Column(Modifier.fillMaxSize().padding(6.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                        Icon(Icons.Filled.Add, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Spacer(Modifier.height(4.dp)); Text("New", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
                             } else {
@@ -291,30 +309,26 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                                 val todayMin = totals.firstOrNull { it.activityId == a.id }?.minutes ?: 0
                                 val pinned = a.id in settings.pinnedActivities
                                 Box(Modifier.weight(1f)) {
-                                    Box(
-                                        Modifier.fillMaxWidth().height(60.dp).clip(RoundedCornerShape(16.dp))
+                                    Column(
+                                        Modifier.fillMaxWidth().height(tileHeight).clip(RoundedCornerShape(16.dp))
                                             .background(if (isRun) c.copy(alpha = .22f) else c.copy(alpha = .12f))
                                             .then(if (isRun) Modifier.border(1.5.dp, c, RoundedCornerShape(16.dp)) else Modifier)
                                             .combinedClickable(
                                                 onClick = { if (isRun) runningList.filter { it.activityId == a.id }.forEach { vm.stopTimeEntry(it.id) } else vm.startTimeTracking(a.id) },
                                                 onLongClick = { tileMenu = a.id },
-                                            ).padding(horizontal = 12.dp),
-                                        contentAlignment = Alignment.CenterStart,
+                                            ).padding(horizontal = 6.dp, vertical = 6.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
                                     ) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             if (a.emoji != null) Text(a.emoji!!, style = MaterialTheme.typography.titleMedium)
                                             else Box(Modifier.size(12.dp).clip(CircleShape).background(c))
-                                            Spacer(Modifier.width(10.dp))
-                                            Column(Modifier.weight(1f)) {
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Text(a.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                                                    if (pinned) { Spacer(Modifier.width(4.dp)); Text("★", style = MaterialTheme.typography.labelSmall, color = c) }
-                                                }
-                                                Text(if (isRun) "● running" else if (todayMin > 0) fmtDur(todayMin) + " today" else "tap to start",
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = if (isRun) c else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                                            }
+                                            if (pinned) { Spacer(Modifier.width(4.dp)); Text("★", style = MaterialTheme.typography.labelSmall, color = c) }
                                         }
+                                        Spacer(Modifier.height(3.dp))
+                                        Text(a.name, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                        Text(if (isRun) "● running" else if (todayMin > 0) fmtDur(todayMin) else "start",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = if (isRun) c else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                                     }
                                     DropdownMenu(expanded = tileMenu == a.id, onDismissRequest = { tileMenu = null }) {
                                         DropdownMenuItem(text = { Text(if (pinned) "Unpin" else "Pin to front") }, onClick = { tileMenu = null; vm.toggleActivityPin(a.id) })
@@ -323,17 +337,26 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                                 }
                             }
                         }
-                        if (pairRow.size == 1) Spacer(Modifier.weight(1f))
+                        repeat(cols - rowItems.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
             }
 
-            // Day navigator.
+            // Day navigator — tap the date to jump to any day via the calendar picker.
+            val navCtx = androidx.compose.ui.platform.LocalContext.current
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { day = day.minusDays(1) }) { Icon(Icons.Filled.ChevronLeft, "Previous day") }
                 Text(
-                    if (day == LocalDate.now(zone)) "Today · ${fmtDur(dayTotalMin)}" else "${day.format(DateTimeFormatter.ofPattern("EEE, MMM d"))} · ${fmtDur(dayTotalMin)}",
-                    Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    (if (day == LocalDate.now(zone)) "Today · ${fmtDur(dayTotalMin)}" else "${day.format(DateTimeFormatter.ofPattern("EEE, MMM d"))} · ${fmtDur(dayTotalMin)}") + "  ▾",
+                    Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable {
+                        android.app.DatePickerDialog(navCtx, { _, y, m, dom ->
+                            val picked = LocalDate.of(y, m + 1, dom)
+                            day = if (picked.isAfter(LocalDate.now(zone))) LocalDate.now(zone) else picked
+                        }, day.year, day.monthValue - 1, day.dayOfMonth).apply {
+                            datePicker.maxDate = System.currentTimeMillis()
+                        }.show()
+                    }.padding(vertical = 6.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
                 )
                 IconButton(onClick = { if (day < LocalDate.now(zone)) day = day.plusDays(1) }, enabled = day < LocalDate.now(zone)) { Icon(Icons.Filled.ChevronRight, "Next day") }

@@ -166,18 +166,26 @@ private fun CompactBottomBar(tabs: List<Tab>, current: Tab, onSelect: (Tab) -> U
 private fun RunningTimerBar(vm: AppViewModel, onOpen: () -> Unit) {
     val entries by vm.timeEntries.collectAsState()
     val activities by vm.timeActivities.collectAsState()
-    val running = entries.firstOrNull { it.running } ?: return
-    val act = activities.firstOrNull { it.id == running.activityId }
-    val c = act?.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
+    // Show EVERY running timer, not just the first — when overlapping timers are enabled each gets its
+    // own row with its own live clock and stop button, so several parallel activities are all visible.
+    val running = entries.filter { it.running }
+    if (running.isEmpty()) return
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(running.id) { while (true) { now = System.currentTimeMillis(); kotlinx.coroutines.delay(1000) } }
-    val secs = ((now - running.startMillis) / 1000).coerceAtLeast(0)
-    androidx.compose.material3.Surface(color = c.copy(alpha = .16f), onClick = onOpen, modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(8.dp).clip(CircleShape).background(c)); Spacer(Modifier.width(10.dp))
-            Text((act?.emoji?.plus(" ") ?: "") + (act?.name ?: "Tracking"), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1)
-            Text("%d:%02d:%02d".format(secs / 3600, (secs % 3600) / 60, secs % 60), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = c)
-            IconButton(onClick = { vm.stopTimeTracking() }) { Icon(Icons.Filled.Stop, "Stop timer", tint = c) }
+    LaunchedEffect(running.size) { while (true) { now = System.currentTimeMillis(); kotlinx.coroutines.delay(1000) } }
+    Column(Modifier.fillMaxWidth()) {
+        running.forEachIndexed { i, r ->
+            val act = activities.firstOrNull { it.id == r.activityId }
+            val c = act?.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
+            val secs = ((now - r.startMillis) / 1000).coerceAtLeast(0)
+            androidx.compose.material3.Surface(color = c.copy(alpha = .16f), onClick = onOpen, modifier = Modifier.fillMaxWidth()) {
+                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 6.dp, top = 5.dp, bottom = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(8.dp).clip(CircleShape).background(c)); Spacer(Modifier.width(10.dp))
+                    Text((act?.emoji?.plus(" ") ?: "") + (act?.name ?: "Tracking"), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1)
+                    Text("%d:%02d:%02d".format(secs / 3600, (secs % 3600) / 60, secs % 60), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = c)
+                    IconButton(onClick = { vm.stopTimeEntry(r.id) }) { Icon(Icons.Filled.Stop, "Stop ${act?.name ?: "timer"}", tint = c) }
+                }
+            }
+            if (i < running.lastIndex) androidx.compose.material3.HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
         }
     }
 }

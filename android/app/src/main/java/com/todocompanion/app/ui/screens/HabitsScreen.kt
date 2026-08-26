@@ -100,7 +100,12 @@ import com.todocompanion.app.domain.habit.HabitStats
 import com.todocompanion.app.ui.AppViewModel
 import java.time.LocalDate
 
-private val HABIT_COLORS = listOf(0xFF12A594, 0xFF3E7BFA, 0xFF8B5CF6, 0xFFE5484D, 0xFFF59E0B, 0xFFEC4899, 0xFF0EA371)
+private val HABIT_COLORS = listOf(
+    0xFF12A594, 0xFF0EA371, 0xFF65A30D, 0xFFCA8A04, 0xFFF59E0B, 0xFFEA580C,
+    0xFFE5484D, 0xFFEC4899, 0xFFDB2777, 0xFF8B5CF6, 0xFF7C3AED, 0xFF6366F1,
+    0xFF3E7BFA, 0xFF0EA5E9, 0xFF06B6D4, 0xFF0D9488, 0xFF14B8A6, 0xFF64748B,
+    0xFF78716C, 0xFF9333EA, 0xFFB91C1C, 0xFF15803D,
+)
 private val MILESTONES = setOf(7, 14, 30, 50, 100, 200, 365, 500, 1000)
 
 private val HABIT_SECTIONS = listOf("Morning", "Afternoon", "Evening", "Anytime")
@@ -350,7 +355,7 @@ fun HabitsHeader(vm: AppViewModel, onOpenDrawer: () -> Unit) {
         navigationIcon = { IconButton(onClick = onOpenDrawer) { Icon(Icons.Filled.Menu, "Menu") } },
         actions = {
             if (habits.isNotEmpty()) {
-                IconButton(onClick = { vm.habitMatrixMode.value = !matrixMode }) {
+                IconButton(onClick = { vm.setHabitMatrixMode(!matrixMode) }) {
                     Icon(if (matrixMode) Icons.AutoMirrored.Filled.List else Icons.Filled.GridView,
                         if (matrixMode) "List view" else "Matrix view",
                         tint = if (matrixMode) MaterialTheme.colorScheme.primary else androidx.compose.material3.LocalContentColor.current)
@@ -364,7 +369,7 @@ fun HabitsHeader(vm: AppViewModel, onOpenDrawer: () -> Unit) {
                                 DropdownMenuItem(
                                     text = { Text(label) },
                                     leadingIcon = { if (density == i) Icon(Icons.Filled.Check, null, Modifier.size(18.dp)) else Spacer(Modifier.width(18.dp)) },
-                                    onClick = { vm.habitDensity.value = i; dMenu = false },
+                                    onClick = { vm.setHabitDensity(i); dMenu = false },
                                 )
                             }
                         }
@@ -792,9 +797,23 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
             EditorCard {
                 com.todocompanion.app.ui.components.AppTextField(name, { name = it }, singleLine = true, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.size(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    com.todocompanion.app.ui.components.AppTextField(emoji, { emoji = it.take(2) }, singleLine = true, label = { Text("Emoji") }, modifier = Modifier.weight(1f))
+                var emojiOpen by remember { mutableStateOf(false) }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    // Emoji chooser — tap the swatch to open the full category grid (no typing needed).
+                    Box(
+                        Modifier.weight(1f).height(56.dp).clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .4f))
+                            .clickable { emojiOpen = !emojiOpen },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (emoji.isBlank()) Text("＋ Emoji", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        else Text(emoji, style = MaterialTheme.typography.headlineSmall)
+                    }
                     com.todocompanion.app.ui.components.AppTextField(unit, { unit = it.take(12) }, singleLine = true, label = { Text("Unit") }, modifier = Modifier.weight(1.4f))
+                }
+                if (emojiOpen) {
+                    Spacer(Modifier.size(8.dp))
+                    com.todocompanion.app.ui.components.EmojiGridPicker(current = emoji.ifBlank { null }, onPick = { emoji = it ?: "" })
                 }
                 Spacer(Modifier.size(10.dp))
                 // F2: group habits into named sections (e.g. "Morning", "Fitness"). Front-and-centre now,

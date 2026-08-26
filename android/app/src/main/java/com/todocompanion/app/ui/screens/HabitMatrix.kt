@@ -65,7 +65,6 @@ private val DENSITIES = listOf(
 )
 private val DENSITY_LABELS = listOf("Compact", "Medium", "Large")
 
-private val LABEL_WIDTH = 108.dp
 private val HEADER_HEIGHT = 26.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -89,6 +88,8 @@ fun HabitMatrix(vm: AppViewModel, density: Int, onOpenHabit: (HabitEntity) -> Un
     val preset = DENSITIES[density.coerceIn(0, DENSITIES.lastIndex)]
     val cell = preset.cell
     val rowHeight = cell + 6.dp
+    // The frozen name column widens with density so the larger name type has room.
+    val labelWidth = when (density.coerceIn(0, 2)) { 0 -> 100.dp; 2 -> 132.dp; else -> 114.dp }
     // Oldest → newest, so the newest day lands on the right edge of the grid.
     val days = remember(today, preset.days) { ((today - preset.days + 1)..today).toList() }
     // Index check-ins by (habit, day) once so each cell is an O(1) lookup.
@@ -97,11 +98,13 @@ fun HabitMatrix(vm: AppViewModel, density: Int, onOpenHabit: (HabitEntity) -> Un
     Column(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
             Row(Modifier.fillMaxWidth()) {
-                // Frozen left column: header spacer + one label per habit.
-                Column(Modifier.width(LABEL_WIDTH)) {
+                // Frozen left column: header spacer + one label per habit. The label width and its type
+                // scale with the chosen density, so picking Large grows the habit *name* too — not just
+                // the day cells (which was the mismatch users noticed).
+                Column(Modifier.width(labelWidth)) {
                     Box(Modifier.height(HEADER_HEIGHT))
                     habits.forEach { h ->
-                        HabitLabel(h, rowHeight, onOpenHabit)
+                        HabitLabel(h, rowHeight, labelWidth, preset.fontSp, onOpenHabit)
                     }
                 }
                 // Horizontally-scrollable day grid: header row of day numbers + a row per habit.
@@ -133,24 +136,27 @@ fun HabitMatrix(vm: AppViewModel, density: Int, onOpenHabit: (HabitEntity) -> Un
     }
 }
 
-/** Frozen left-column label: emoji (or a colour dot) + truncated name, tap to open the habit. */
+/** Frozen left-column label: emoji (or a colour dot) + truncated name, tap to open the habit.
+ *  The name font tracks the density preset so a bigger grid means bigger habit names, not just cells. */
 @Composable
-private fun HabitLabel(h: HabitEntity, rowHeight: Dp, onOpenHabit: (HabitEntity) -> Unit) {
+private fun HabitLabel(h: HabitEntity, rowHeight: Dp, labelWidth: Dp, fontSp: Int, onOpenHabit: (HabitEntity) -> Unit) {
     val color = h.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
     Row(
-        Modifier.width(LABEL_WIDTH).height(rowHeight).clickable { onOpenHabit(h) }.padding(horizontal = 8.dp),
+        Modifier.width(labelWidth).height(rowHeight).clickable { onOpenHabit(h) }.padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (h.emoji != null) {
-            Text(h.emoji, style = MaterialTheme.typography.bodyMedium)
+            Text(h.emoji, fontSize = (fontSp + 3).sp)
         } else {
-            Box(Modifier.size(10.dp).clip(CircleShape).background(color))
+            Box(Modifier.size((fontSp - 2).dp).clip(CircleShape).background(color))
         }
         Spacer(Modifier.width(6.dp))
         Text(
             h.name,
             style = MaterialTheme.typography.labelMedium,
-            maxLines = 1,
+            fontSize = (fontSp + 1).sp,
+            lineHeight = (fontSp + 5).sp,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
     }
@@ -206,11 +212,14 @@ private fun DayCell(
     val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
     val outline = MaterialTheme.colorScheme.outlineVariant
     val future = day > today
+    // Days before the habit began are not part of its history — draw them blank and make them untappable,
+    // so the grid never invites you to log time that predates the habit.
+    val preStart = day < h.startEpochDay()
     val cnt = checkin?.count ?: 0
     val skip = checkin?.status == "skip"
     val done = checkin?.status == "done" && HabitStats.meetsGoal(h, cnt)
     val bg = when {
-        future -> Color.Transparent
+        future || preStart -> Color.Transparent
         skip -> Color.Transparent
         done -> color
         cnt > 0 -> color.copy(alpha = .4f)
@@ -219,6 +228,6 @@ private fun DayCell(
     }
     var m = Modifier.size(cell).clip(RoundedCornerShape(4.dp)).background(bg)
     if (skip) m = m.border(1.5.dp, outline, RoundedCornerShape(4.dp))
-    if (!future) m = m.clickable { onToggle() }
+    if (!future && !preStart) m = m.clickable { onToggle() }
     Box(m)
 }

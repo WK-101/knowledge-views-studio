@@ -11,6 +11,8 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
@@ -146,6 +148,13 @@ fun CalendarScreen(
             .groupBy { Instant.ofEpochMilli(it.dueDate!!).atZone(zone).toLocalDate() }
     }
 
+    // Countdowns land on the calendar at their target date — a dot in the month grid and a chip under
+    // the selected day, so a countdown you set is visible where you'd look for a dated event.
+    val countdowns by vm.countdowns.collectAsState()
+    val countdownsFor: (LocalDate) -> List<com.todocompanion.app.data.entity.CountdownEntity> = { d ->
+        countdowns.filter { Instant.ofEpochMilli(it.targetMillis).atZone(zone).toLocalDate() == d }
+    }
+
     // M1: optionally draw timed habits as read-only blocks in the day/week grid. Opt-in (default off).
     val habits by vm.habits.collectAsState()
     val habitCheckins by vm.habitCheckins.collectAsState()
@@ -220,7 +229,7 @@ fun CalendarScreen(
     Column(modifier.fillMaxSize()) {
         when (mode) {
             "month" -> MonthView(anchor, selected, dueByDate, firstDow, onSelect = { onSelected(it) }, onPrev = prev, onNext = next, onOpenTask = onOpenTask, swipe = swipe, onAdd = { onAddOnDate(selected) },
-                habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit,
+                habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, countdownsFor = countdownsFor,
                 onMoveToDay = { d, id ->
                     // Preserve the task's time-of-day when dropping it on another day; default 9am.
                     val min = tasks.firstOrNull { it.id == id }?.dueDate?.let { Instant.ofEpochMilli(it).atZone(zone).let { z -> z.hour * 60 + z.minute } } ?: 540
@@ -445,7 +454,7 @@ private fun MonthYearPicker(current: YearMonth, onDismiss: () -> Unit, onPick: (
 }
 
 @Composable
-private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, swipe: CalSwipe, onAdd: () -> Unit, habitBlocksFor: (LocalDate) -> List<HabitBlock>, onOpenHabit: (String) -> Unit, onMoveToDay: (LocalDate, String) -> Unit) {
+private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, swipe: CalSwipe, onAdd: () -> Unit, habitBlocksFor: (LocalDate) -> List<HabitBlock>, onOpenHabit: (String) -> Unit, countdownsFor: (LocalDate) -> List<com.todocompanion.app.data.entity.CountdownEntity>, onMoveToDay: (LocalDate, String) -> Unit) {
     val ym = YearMonth.from(anchor)
     val labels = (0..6).map { firstDow.plus(it.toLong()) }
     val first = ym.atDay(1)
@@ -507,9 +516,11 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
                                 // so scheduled habits are visible right in the month grid when the toggle is on.
                                 val hasTask = dueByDate.containsKey(date)
                                 val hasHabit = habitBlocksFor(date).isNotEmpty()
-                                if (hasTask || hasHabit) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                val hasCountdown = countdownsFor(date).isNotEmpty()
+                                if (hasTask || hasHabit || hasCountdown) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                                     if (hasTask) Box(Modifier.size(5.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.onPrimary else primary))
                                     if (hasHabit) Box(Modifier.size(5.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.tertiary))
+                                    if (hasCountdown) Box(Modifier.size(5.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.secondary))
                                 } else Spacer(Modifier.size(5.dp))
                             }
                         }
@@ -554,8 +565,29 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
                 }
             }
         }
+        // Countdowns whose target lands on the selected day — a soft pill each, coloured like the countdown.
+        val dayCountdowns = countdownsFor(selected)
+        if (dayCountdowns.isNotEmpty()) {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                dayCountdowns.forEach { cd ->
+                    val c = cd.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.secondary
+                    Row(
+                        Modifier.clip(RoundedCornerShape(20.dp)).background(c.copy(alpha = .14f))
+                            .border(1.dp, c.copy(alpha = .45f), RoundedCornerShape(20.dp))
+                            .padding(horizontal = 11.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text((cd.emoji?.plus(" ") ?: "🎯 ") + cd.title, style = MaterialTheme.typography.labelMedium, maxLines = 1, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+            }
+        }
         val agenda = dueByDate[selected].orEmpty()
-        if (agenda.isEmpty()) Text("Nothing due — enjoy the day", Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (agenda.isEmpty() && dayCountdowns.isEmpty()) Text("Nothing due — enjoy the day", Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        else if (agenda.isEmpty()) Spacer(Modifier.height(4.dp))
         else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 2.dp, bottom = 100.dp)) {
             items(agenda, key = { it.id }) { task ->
                 MonthAgendaRow(
@@ -661,6 +693,7 @@ private fun layoutEvents(tasks: List<TaskEntity>, zone: ZoneId): List<Placed> {
     return out
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun TimelineView(
     days: List<LocalDate>, dueByDate: Map<LocalDate, List<TaskEntity>>, zone: ZoneId,
@@ -676,8 +709,16 @@ private fun TimelineView(
 
     val scroll = rememberScrollState()
     val density = androidx.compose.ui.platform.LocalDensity.current
+    // Pinch-to-zoom the day: two fingers scale the hour height, so the day can be stretched tall for a
+    // detailed look or squeezed short for the whole-day overview — the smooth zoom Simple Time Tracker has.
+    // canPan=false lets one-finger vertical scrolling keep working underneath the pinch.
+    var hourZoom by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(1f) }
+    val hourDp = HOUR_DP * hourZoom
+    val zoomState = androidx.compose.foundation.gestures.rememberTransformableState { zoomChange, _, _ ->
+        hourZoom = (hourZoom * zoomChange).coerceIn(0.5f, 2.8f)
+    }
     androidx.compose.runtime.LaunchedEffect(days.firstOrNull()) {
-        scroll.scrollTo(with(density) { (7 * HOUR_DP).dp.toPx() }.toInt())
+        scroll.scrollTo(with(density) { (7 * hourDp).dp.toPx() }.toInt())
     }
 
     Column(Modifier.fillMaxSize().swipeNav(onPrev, onNext)) {
@@ -706,18 +747,19 @@ private fun TimelineView(
             }
             androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
         }
-        // Scrollable hour grid
-        Row(Modifier.fillMaxWidth().weight(1f).verticalScroll(scroll)) {
+        // Scrollable hour grid — pinch anywhere on it to zoom the hour height.
+        Row(Modifier.fillMaxWidth().weight(1f).verticalScroll(scroll)
+            .transformable(state = zoomState, canPan = { false })) {
             // Hour gutter
-            Box(Modifier.width(GUTTER_DP.dp).height((HOUR_DP * 24).dp)) {
+            Box(Modifier.width(GUTTER_DP.dp).height((hourDp * 24).dp)) {
                 (1..23).forEach { h ->
-                    Text("%02d:00".format(h), Modifier.offset(y = (HOUR_DP * h - 7).dp).fillMaxWidth().padding(end = 6.dp),
+                    Text("%02d:00".format(h), Modifier.offset(y = (hourDp * h - 7).dp).fillMaxWidth().padding(end = 6.dp),
                         style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, textAlign = TextAlign.End)
                 }
             }
             days.forEach { d ->
                 val timed = dueByDate[d].orEmpty().filter { !it.isAllDay && hasTime(it.dueDate!!, zone) }
-                DayColumn(d, timed, zone, onOpenTask, onAddAt, onResize, onMoveAt = { id, min -> onMoveAt(d, id, min) },
+                DayColumn(d, timed, zone, hourDp, onOpenTask, onAddAt, onResize, onMoveAt = { id, min -> onMoveAt(d, id, min) },
                     habitBlocks = habitBlocksFor(d), onOpenHabit = onOpenHabit, trackedBlocks = trackedBlocksFor(d), revealUntracked = revealUntracked, modifier = Modifier.weight(1f))
             }
         }
@@ -725,14 +767,14 @@ private fun TimelineView(
 }
 
 @Composable
-private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onOpenTask: (String) -> Unit, onAddAt: (LocalDate, Int) -> Unit, onResize: (String, Int) -> Unit, onMoveAt: (String, Int) -> Unit,
+private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hourDp: Float, onOpenTask: (String) -> Unit, onAddAt: (LocalDate, Int) -> Unit, onResize: (String, Int) -> Unit, onMoveAt: (String, Int) -> Unit,
     habitBlocks: List<HabitBlock> = emptyList(), onOpenHabit: (String) -> Unit = {}, trackedBlocks: List<TrackedBlock> = emptyList(), revealUntracked: Boolean = false, modifier: Modifier) {
     val placed = remember(timed, zone) { layoutEvents(timed, zone) }
     val dens = LocalDensity.current
     val isToday = day == LocalDate.now()
     val nowMin = if (isToday) java.time.LocalTime.now().let { it.hour * 60 + it.minute } else -1
     androidx.compose.foundation.layout.BoxWithConstraints(
-        modifier.height((HOUR_DP * 24).dp).pointerInput(day) {
+        modifier.height((hourDp * 24).dp).pointerInput(day) {
             // Tap an empty slot to time-block a task at that half-hour.
             detectTapGestures { offset ->
                 val minute = ((offset.y / size.height.toFloat()) * 1440f).toInt().coerceIn(0, 1439)
@@ -751,12 +793,12 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onO
         val habitColor = MaterialTheme.colorScheme.tertiary
         // Hour gridlines
         (0..24).forEach { h ->
-            Box(Modifier.fillMaxWidth().height(1.dp).offset(y = (HOUR_DP * h).dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = .35f)))
+            Box(Modifier.fillMaxWidth().height(1.dp).offset(y = (hourDp * h).dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = .35f)))
         }
         // Right divider between day columns
         Box(Modifier.fillMaxHeight().width(1.dp).offset(x = colW - 1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = .35f)))
         // Events
-        val hourPx = with(dens) { HOUR_DP.dp.toPx() }
+        val hourPx = with(dens) { hourDp.dp.toPx() }
         placed.forEach { p ->
             val level = PriorityLevel.from(p.task.importance, p.task.urgency)
             val c = if (level == PriorityLevel.NONE) MaterialTheme.colorScheme.primary else priorityColor(level)
@@ -766,13 +808,13 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onO
             var liveDur by remember(p.task.id, p.endMin - p.startMin) { mutableStateOf(p.endMin - p.startMin) }
             var dragging by remember(p.task.id) { mutableStateOf(false) }
             fun snap(v: Int) = ((v / 15f).roundToInt() * 15)
-            val top = (HOUR_DP * liveStart / 60f).dp
-            val h = ((HOUR_DP * liveDur / 60f).dp).coerceAtLeast(24.dp)
+            val top = (hourDp * liveStart / 60f).dp
+            val h = ((hourDp * liveDur / 60f).dp).coerceAtLeast(24.dp)
             Row(
                 Modifier.offset(x = railW + laneW * p.lane + 1.dp, y = top).width(laneW - 1.dp).height(h - 2.dp)
                     .clip(RoundedCornerShape(6.dp)).background(c.copy(alpha = if (dragging) 0.30f else 0.16f))
                     // Long-press then drag to move the block to another time; tap opens the task.
-                    .pointerInput(p.task.id) {
+                    .pointerInput(p.task.id, hourDp) {
                         detectDragGesturesAfterLongPress(
                             onDragStart = { dragging = true },
                             onDrag = { _, off -> liveStart = snap((liveStart + (off.y / hourPx * 60f).toInt())).coerceIn(0, 1440 - liveDur) },
@@ -791,7 +833,7 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onO
             // Bottom resize grip: a comfortable full-width target; drag to change duration (snapped 15 min).
             Box(
                 Modifier.offset(x = railW + laneW * p.lane + 1.dp, y = top + h - 16.dp).width(laneW - 1.dp).height(18.dp)
-                    .pointerInput(p.task.id) {
+                    .pointerInput(p.task.id, hourDp) {
                         detectVerticalDragGestures(
                             onDragStart = { dragging = true },
                             onVerticalDrag = { _, dy -> liveDur = snap((liveDur + (dy / hourPx * 60f)).toInt()).coerceIn(15, 24 * 60 - liveStart) },
@@ -808,8 +850,8 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onO
             val habitAreaW = contentW - taskAreaW - 2.dp
             habitBlocks.sortedBy { it.startMin }.forEach { hb ->
                 val col = hb.color ?: habitColor
-                val top = (HOUR_DP * hb.startMin / 60f).dp
-                val hh = ((HOUR_DP * hb.durMin / 60f).dp).coerceAtLeast(22.dp)
+                val top = (hourDp * hb.startMin / 60f).dp
+                val hh = ((hourDp * hb.durMin / 60f).dp).coerceAtLeast(22.dp)
                 // Done = saturated fill + solid accent bar + bolder text; pending = faint + soft outline.
                 // The fill is the "done" signal, so no checkmark clutters the small block.
                 Row(
@@ -840,8 +882,8 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onO
             val railColor = MaterialTheme.colorScheme.secondary
             trackedBlocks.forEach { tb ->
                 val col = tb.color ?: railColor
-                val top = (HOUR_DP * tb.startMin / 60f).dp
-                val hh = ((HOUR_DP * tb.durMin / 60f).dp).coerceAtLeast(2.dp)
+                val top = (hourDp * tb.startMin / 60f).dp
+                val hh = ((hourDp * tb.durMin / 60f).dp).coerceAtLeast(2.dp)
                 Box(
                     Modifier.offset(x = 1.dp, y = top).width(railW - 2.dp).height(hh)
                         .clip(RoundedCornerShape(3.dp)).background(col.copy(alpha = 0.55f)),
@@ -850,7 +892,7 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, onO
         }
         // Current-time line
         if (nowMin >= 0) {
-            val y = (HOUR_DP * nowMin / 60f).dp
+            val y = (hourDp * nowMin / 60f).dp
             Box(Modifier.fillMaxWidth().offset(y = y).height(2.dp).background(MaterialTheme.colorScheme.error))
             Box(Modifier.size(7.dp).offset(y = y - 3.dp).clip(CircleShape).background(MaterialTheme.colorScheme.error))
         }

@@ -33,6 +33,9 @@ data class AppSettings(
     val priorityOverdueBoost: Boolean = true,
     val priorityComputed: Boolean = true,     // false = ignore the computed score, order by importance then manual
     val density: Density = Density.DEFAULT,
+    val habitDensity: Int = 1,                // habits matrix cell size: 0 compact · 1 medium · 2 large (persisted)
+    val habitMatrixMode: Boolean = false,     // habits tab: list (false) vs all-habits matrix (true), persisted
+    val timeGridColumns: Int = 2,             // activity tiles per row in the Time view (2–5)
     val weekStart: Int = 0,
     val timeFormat: TimeFormat = TimeFormat.SYSTEM,
     val timeZone: String = "",
@@ -212,6 +215,9 @@ data class AppSettings(
         Keys.PRIO_OVERDUE to priorityOverdueBoost.toString(),
         Keys.PRIO_COMPUTED to priorityComputed.toString(),
         Keys.DENSITY to density.name,
+        Keys.HABIT_DENSITY to habitDensity.toString(),
+        Keys.HABIT_MATRIX_MODE to habitMatrixMode.toString(),
+        Keys.TIME_GRID_COLUMNS to timeGridColumns.toString(),
         Keys.WEEK_START to weekStart.toString(),
         Keys.TIME_FORMAT to timeFormat.name,
         Keys.TIME_ZONE to timeZone,
@@ -307,6 +313,9 @@ data class AppSettings(
         const val ACCENT = "accent"
         const val ADVANCED_PRIORITY = "advanced_priority"
         const val DENSITY = "density"
+        const val HABIT_DENSITY = "habit_density"
+        const val HABIT_MATRIX_MODE = "habit_matrix_mode"
+        const val TIME_GRID_COLUMNS = "time_grid_columns"
         const val WEEK_START = "week_start"
         const val TIME_FORMAT = "time_format"
         const val TIME_ZONE = "time_zone"
@@ -426,6 +435,9 @@ data class AppSettings(
             priorityOverdueBoost = m[Keys.PRIO_OVERDUE]?.toBooleanStrictOrNull() ?: true,
             priorityComputed = m[Keys.PRIO_COMPUTED]?.toBooleanStrictOrNull() ?: true,
             density = parse(m[Keys.DENSITY], Density.DEFAULT),
+            habitDensity = m[Keys.HABIT_DENSITY]?.toIntOrNull()?.coerceIn(0, 2) ?: 1,
+            habitMatrixMode = m[Keys.HABIT_MATRIX_MODE]?.toBooleanStrictOrNull() ?: false,
+            timeGridColumns = m[Keys.TIME_GRID_COLUMNS]?.toIntOrNull()?.coerceIn(2, 5) ?: 2,
             weekStart = m[Keys.WEEK_START]?.toIntOrNull() ?: 0,
             timeFormat = parse(m[Keys.TIME_FORMAT], TimeFormat.SYSTEM),
             timeZone = m[Keys.TIME_ZONE] ?: "",

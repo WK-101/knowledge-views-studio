@@ -276,6 +276,21 @@ private fun TrendsSection(vm: AppViewModel, range: TimeStats.Range, anchor: Loca
         Spacer(Modifier.height(4.dp))
         Text("Tracked on ${t.activeDays} of ${t.windowDays} day${if (t.windowDays == 1) "" else "s"}" + (if (t.activeDays > 0) " · avg ${sfmt(avg)}/active day" else ""),
             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // Regularity: coefficient of variation of active-day totals (Track-&-Graph's variance idea) plus a
+        // first-half vs second-half trend — is your time steady or erratic, rising or easing?
+        val active = t.dailyTotals.map { it.second }.filter { it > 0 }
+        if (active.size >= 3) {
+            val mean = active.average()
+            val sd = kotlin.math.sqrt(active.sumOf { (it - mean) * (it - mean) } / active.size)
+            val cv = if (mean > 0) sd / mean else 0.0
+            val rhythm = when { cv < 0.35 -> "steady"; cv < 0.7 -> "variable"; else -> "erratic" }
+            val half = t.dailyTotals.size / 2
+            val firstAvg = t.dailyTotals.take(half).map { it.second }.average()
+            val secondAvg = t.dailyTotals.drop(t.dailyTotals.size - half).map { it.second }.average()
+            val trend = when { secondAvg > firstAvg * 1.15 -> "rising"; secondAvg < firstAvg * 0.85 -> "easing off"; else -> "level" }
+            Spacer(Modifier.height(2.dp))
+            Text("Rhythm: $rhythm · trend $trend", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 
     // Day-by-day trajectory (only when the window is a handful of days to a couple of months).

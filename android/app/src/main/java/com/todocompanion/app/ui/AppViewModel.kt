@@ -846,8 +846,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val pendingFocusHabitId = MutableStateFlow<String?>(null)
 
     // ---- Habits tab view-state, hoisted so the app's single top bar can drive it (one header) ----
-    val habitMatrixMode = MutableStateFlow(false)          // list (false) vs all-habits matrix (true)
-    val habitDensity = MutableStateFlow(1)                 // matrix density: 0 compact · 1 medium · 2 large
+    // Matrix mode and density are now persisted in settings, so the choice survives an app restart
+    // (they used to reset to list/medium every launch).
+    val habitMatrixMode: StateFlow<Boolean> = settings.map { it.habitMatrixMode }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val habitDensity: StateFlow<Int> = settings.map { it.habitDensity }.stateIn(viewModelScope, SharingStarted.Eagerly, 1)
+    fun setHabitMatrixMode(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(habitMatrixMode = on)) }
+    fun setHabitDensity(level: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(habitDensity = level.coerceIn(0, 2))) }
+    fun setTimeGridColumns(cols: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(timeGridColumns = cols.coerceIn(2, 5))) }
     val habitDetailId = MutableStateFlow<String?>(null)    // non-null → the analytics screen overlays the tab
     val habitBatchOpen = MutableStateFlow(false)
     val habitPresetOpen = MutableStateFlow(false)
@@ -2116,12 +2121,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
     }
+    /** A day cannot be logged before the habit began — no "history" earlier than the habit itself. */
+    private fun beforeStart(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long): Boolean {
+        if (epochDay >= h.startEpochDay(zone)) return false
+        toast("You can only log from the day “${h.name}” started.")
+        return true
+    }
     fun cycleHabit(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, current: Int) = viewModelScope.launch {
+        if (beforeStart(h, epochDay)) return@launch
         repo.cycleCheckin(h.id, epochDay, h.targetPerDay, current, h.clickIncrement, h.extraTarget)
         refreshHabitWidgets(); celebrateIfRewardReached(h); awardIfNewlyDone(h, epochDay, current)
     }
     /** Numeric / exact value entry for a day (also used to record a break-habit relapse amount). */
     fun setHabitValue(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, count: Int) = viewModelScope.launch {
+        if (beforeStart(h, epochDay)) return@launch
         val old = repo.getHabitCheckinsOnce().firstOrNull { it.habitId == h.id && it.epochDay == epochDay }?.count ?: 0
         repo.setCheckinValue(h.id, epochDay, count); refreshHabitWidgets(); celebrateIfRewardReached(h); awardIfNewlyDone(h, epochDay, old)
     }
@@ -2136,6 +2149,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
     fun skipHabitDay(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, reason: String = "") = viewModelScope.launch {
+        if (beforeStart(h, epochDay)) return@launch
         repo.skipDay(h.id, epochDay, reason); refreshHabitWidgets()
     }
     /** N6: log a break-habit slip with an optional trigger (kept in the day's note for a trigger breakdown). */
@@ -2152,6 +2166,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
     /** Write a whole day from the per-day editor: value, done/skip, and a free-text note. */
     fun setHabitDay(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, count: Int, status: String, note: String) = viewModelScope.launch {
+        if (beforeStart(h, epochDay)) return@launch
         repo.setDay(h.id, epochDay, count, status, note); refreshHabitWidgets()
     }
     // ---- Tier K ----
