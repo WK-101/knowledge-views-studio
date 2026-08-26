@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CalendarViewMonth
 import androidx.compose.material.icons.filled.Check
@@ -110,9 +111,12 @@ import com.todocompanion.app.domain.view.SortMode
 import com.todocompanion.app.domain.view.ViewRef
 import com.todocompanion.app.reminders.AlarmScheduler
 import com.todocompanion.app.ui.components.AppDrawer
+import com.todocompanion.app.domain.OmegaCommand
 import com.todocompanion.app.ui.screens.CalendarScreen
+import com.todocompanion.app.ui.screens.CommandPaletteDialog
 import com.todocompanion.app.ui.screens.MatrixScreen
 import com.todocompanion.app.ui.screens.QuickAddSheet
+import com.todocompanion.app.ui.screens.RecapScreen
 import com.todocompanion.app.ui.screens.SearchScreen
 import com.todocompanion.app.ui.screens.SettingsScreen
 import com.todocompanion.app.ui.screens.TaskDetailScreen
@@ -213,6 +217,10 @@ fun AppRoot(
         var showAttachments by remember { mutableStateOf(false) }
         var showCountdowns by remember { mutableStateOf(false) }
         var showPlan by remember { mutableStateOf(false) }
+        // Tier Ω: the command palette, the any-period recap overlay, and the annual-report picker.
+        var showPalette by remember { mutableStateOf(false) }
+        var recapRange by remember { mutableStateOf<Triple<Long, Long, String>?>(null) }
+        var showAnnual by remember { mutableStateOf(false) }
         // G4 interactive time-blocking: which (day, minute) slot the user tapped on the calendar.
         var blockAt by remember { mutableStateOf<Pair<java.time.LocalDate, Int>?>(null) }
         var menu by remember { mutableStateOf(false) }
@@ -451,6 +459,8 @@ fun AppRoot(
                         },
                         navigationIcon = { IconButton(onClick = { scope.launch { drawerState.open() } }) { Icon(Icons.Filled.Menu, "Menu") } },
                         actions = {
+                            // Ω1 — the command palette: one line to capture, navigate, act or ask. Always here.
+                            IconButton(onClick = { showPalette = true }) { Icon(Icons.Filled.AutoAwesome, "Command palette") }
                             if (tab == Tab.TASKS) IconButton(onClick = { showPlan = true }) { Icon(Icons.Filled.Bolt, "Plan your day") }
                             if (tab == Tab.TASKS) IconButton(onClick = {
                                 // On a real list, remember the choice for that list; elsewhere flip the transient toggle.
@@ -614,6 +624,12 @@ fun AppRoot(
                                 DropdownMenuItem(text = { Text("Weekly review") }, leadingIcon = { Icon(Icons.Filled.EventRepeat, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; showReview = true })
                             }
                         }
+                    } else if (tab == Tab.TIME) {
+                        // The Time tab's add-entry button lives here so it matches the quick-add FAB;
+                        // it pokes the embedded Time screen (which owns the add-entry dialog).
+                        FloatingActionButton(onClick = { vm.addTimeEntryRequests.value++ }) {
+                            Icon(Icons.Filled.Add, "Add time entry")
+                        }
                     }
                 },
             ) { padding ->
@@ -670,6 +686,68 @@ fun AppRoot(
         if (showReview) com.todocompanion.app.ui.screens.ReviewScreen(vm, onOpenTask = { showReview = false; openTask(it) }, onBack = { showReview = false })
         if (showMomentum) com.todocompanion.app.ui.screens.MomentumScreen(vm, onBack = { showMomentum = false })
         if (showTimeTracking) com.todocompanion.app.ui.screens.TimeTrackingScreen(vm, onBack = { showTimeTracking = false })
+
+        // ── Tier Ω · command palette, recap overlay, annual-report picker ──────────────────────────
+        if (showPalette) CommandPaletteDialog(vm, onDismiss = { showPalette = false }) { cmd ->
+            val now = java.time.LocalDate.now()
+            val td = now.toEpochDay()
+            when (cmd) {
+                is OmegaCommand.Command.Track -> {
+                    vm.startTimeTrackingByName(cmd.activity)
+                    if (Modules.isEnabled(settings, Modules.TIME)) tab = Tab.TIME
+                    android.widget.Toast.makeText(context, "Tracking ${cmd.activity}", android.widget.Toast.LENGTH_SHORT).show()
+                }
+                is OmegaCommand.Command.Act -> when (cmd.action) {
+                    OmegaCommand.Action.PLAN -> showPlan = true
+                    OmegaCommand.Action.WEEKLY_REVIEW -> showReview = true
+                    OmegaCommand.Action.MOMENTUM -> showMomentum = true
+                    OmegaCommand.Action.STATS -> showStats = true
+                    OmegaCommand.Action.ANNUAL_REPORT -> showAnnual = true
+                    OmegaCommand.Action.RECAP_WEEK -> recapRange = Triple(td - 6, td, "This week")
+                    OmegaCommand.Action.RECAP_LAST_WEEK -> recapRange = Triple(td - 13, td - 7, "Last week")
+                    OmegaCommand.Action.RECAP_MONTH -> recapRange = Triple(now.withDayOfMonth(1).toEpochDay(), td, "This month")
+                }
+                is OmegaCommand.Command.Goto -> {
+                    val t = cmd.target.trim()
+                    val q = t.lowercase()
+                    val tabByName = mapOf(
+                        "tasks" to Tab.TASKS, "today" to Tab.TASKS, "calendar" to Tab.CALENDAR, "matrix" to Tab.MATRIX,
+                        "timeline" to Tab.TIMELINE, "habits" to Tab.HABITS, "time" to Tab.TIME, "focus" to Tab.FOCUS,
+                        "search" to Tab.SEARCH, "settings" to Tab.SETTINGS,
+                    )
+                    val smartByName = mapOf(
+                        "do next" to SmartKind.DO_NEXT, "donext" to SmartKind.DO_NEXT, "next 7" to SmartKind.NEXT7,
+                        "next7" to SmartKind.NEXT7, "next 7 days" to SmartKind.NEXT7, "today list" to SmartKind.TODAY,
+                    )
+                    val listMatch = lists.firstOrNull { !it.archived && it.name.equals(t, true) }
+                    val tagMatch = tags.firstOrNull { it.name.equals(t, true) }
+                    val ctxMatch = contexts.firstOrNull { it.name.equals(t, true) }
+                    when {
+                        tabByName.containsKey(q) -> { tab = tabByName.getValue(q); if (q == "today") vm.select(ViewRef.Smart(SmartKind.TODAY)) }
+                        smartByName.containsKey(q) -> { vm.select(ViewRef.Smart(smartByName.getValue(q))); tab = Tab.TASKS }
+                        listMatch != null -> { vm.select(ViewRef.ListView(listMatch.id)); tab = Tab.TASKS }
+                        tagMatch != null -> { vm.select(ViewRef.TagView(tagMatch.id)); tab = Tab.TASKS }
+                        ctxMatch != null -> { vm.select(ViewRef.ContextView(ctxMatch.id)); tab = Tab.TASKS }
+                        else -> android.widget.Toast.makeText(context, "Couldn't find “$t”", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+                is OmegaCommand.Command.Capture -> if (cmd.text.isNotBlank()) {
+                    vm.smartCapture(cmd.text) { android.widget.Toast.makeText(context, "Added", android.widget.Toast.LENGTH_SHORT).show() }
+                }
+                is OmegaCommand.Command.Ask -> {}   // answered inline in the palette
+            }
+        }
+        recapRange?.let { (s, e, t) -> RecapScreen(vm, s, e, t, onBack = { recapRange = null }) }
+        if (showAnnual) {
+            val yr = java.time.LocalDate.now().year
+            AlertDialog(
+                onDismissRequest = { showAnnual = false },
+                title = { Text("Your year in review") },
+                text = { Text("Build a private, on-device recap across tasks, habits and time — a self-contained page you can keep or share. Nothing leaves your phone.") },
+                confirmButton = { TextButton(onClick = { showAnnual = false; vm.shareAnnualReport(yr) }) { Text("This year ($yr)") } },
+                dismissButton = { TextButton(onClick = { showAnnual = false; vm.shareAnnualReport(yr - 1) }) { Text("Last year (${yr - 1})") } },
+            )
+        }
         // T0: one-time "what's your main use?" picker sets the primary module. All modules stay on.
         if (!settings.onboardedModules) com.todocompanion.app.ui.screens.ModulePickerDialog(
             // CU2: start with only the chosen modules — the rest stay off until the user wants them.

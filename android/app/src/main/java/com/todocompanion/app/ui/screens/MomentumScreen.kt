@@ -180,6 +180,16 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                 text = "Tip: in ＋ Capture, type “track deep work” to start a timer, or “read every night” to make a habit.",
                 onDismiss = { vm.dismissTip("tip_capture") },
             )
+            // Ω3 — adaptive module hints: notice when a disabled module would help, and offer it once.
+            val moduleHints = remember(settings, tasks, habits) { vm.moduleHints() }
+            moduleHints.forEach { h ->
+                if (!vm.isTipDismissed(h.key)) TipBanner(
+                    text = h.text,
+                    onDismiss = { vm.dismissTip(h.key) },
+                    actionLabel = h.actionLabel,
+                    onAction = { vm.setModuleEnabled(h.enableModule, true); vm.dismissTip(h.key) },
+                )
+            }
 
             // W2 — Right Now: the single next best action, with one tap to act.
             val rn = remember(tasks, habits, checkins, timeEntries) { vm.rightNow() }

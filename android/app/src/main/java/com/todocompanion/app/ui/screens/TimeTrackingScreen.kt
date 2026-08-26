@@ -42,6 +42,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -151,17 +152,17 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
             onSave = { updated -> vm.updateTimeEntry(updated); editEntry = null })
     }
 
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text("Time") },
-            navigationIcon = { if (!embedded) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-        )
-    }) { padding ->
-        Column(
-            Modifier.padding(padding).fillMaxSize().padding(horizontal = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Spacer(Modifier.height(2.dp))
+    // One "add a time entry" action, surfaced as a floating button that matches the app's quick-add
+    // FAB. As the Time tab (embedded) the FAB lives in the shared scaffold and pokes us through the
+    // view-model, so the tab shows a single top header like every other tab; standalone we host both.
+    val addReq by vm.addTimeEntryRequests.collectAsState()
+    var lastAddReq by remember { mutableStateOf(addReq) }
+    fun onAddEntry() { if (activities.none { !it.archived }) showNewActivity = true else showManual = true }
+    LaunchedEffect(addReq) { if (addReq != lastAddReq) { lastAddReq = addReq; onAddEntry() } }
+
+    val body: @Composable (Modifier) -> Unit = { bodyModifier ->
+        Column(bodyModifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Spacer(Modifier.height(if (embedded) 8.dp else 2.dp))
             // Running banner(s) — U15 multi-timer aware, U3 pause/resume.
             if (runningList.isEmpty()) {
                 Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .4f)) {
@@ -401,14 +402,12 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                 }
             }
 
-            // Timeline of the day's entries.
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("Timeline", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = { showManual = true }, enabled = activities.isNotEmpty()) { Text("＋ Add past entry") }
-            }
+            // Timeline of the day's entries. Adding an entry is the ＋ floating button (shared FAB).
+            Text("Timeline", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (dayEntries.isEmpty()) {
-                Text("No time logged this day yet.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("No time logged this day yet. Tap ＋ to add one.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 88.dp)) {
                 items(dayEntries, key = { it.id }) { e ->
                     val a = actById[e.activityId]
                     val c = a?.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
@@ -426,6 +425,27 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                     }
                 }
             }
+        }
+    }
+
+    if (embedded) {
+        // The Time tab: no header here — the shared scaffold already shows the "Time" app bar and
+        // hosts the ＋ FAB (which pokes onAddEntry via the view-model). One header, matching layout.
+        body(Modifier.fillMaxSize().padding(horizontal = 14.dp))
+    } else {
+        // Standalone (opened from the drawer or a widget): our own single header + matching FAB.
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Time") },
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                )
+            },
+            floatingActionButton = {
+                FloatingActionButton(onClick = { onAddEntry() }) { Icon(Icons.Filled.Add, "Add time entry") }
+            },
+        ) { padding ->
+            body(Modifier.padding(padding).fillMaxSize().padding(horizontal = 14.dp))
         }
     }
 }

@@ -179,6 +179,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** "I have N minutes" planner: when set, Do-Next hides tasks whose estimate exceeds N. null = off. */
     val timeAvailableMin = MutableStateFlow<Int?>(null)
 
+    /** A counter the shared scaffold's FAB bumps to ask the Time tab to add a new entry — so the Time
+     *  screen keeps its own dialog logic while its add button lives with every other tab's FAB. */
+    val addTimeEntryRequests = MutableStateFlow(0)
+
     /** "Right now I have X energy" planner: when set (1/2/3), Do-Next keeps tasks needing at most that
      *  much energy (plus untagged). null = off. */
     val energyAvailable = MutableStateFlow<Int?>(null)
@@ -2496,6 +2500,47 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.saveSettings(settings.value.copy(primaryModule = primary, disabledModules = disabled, onboardedModules = true))
     }
     fun markModulesOnboarded() = viewModelScope.launch { repo.saveSettings(settings.value.copy(onboardedModules = true)) }
+
+    // ── Tier Ω · the only-we frontier — command palette, local Q&A, recap & annual report ─────────
+    /** One immutable snapshot of the whole store for the Ω domain functions (all pure over it). */
+    private fun omegaCtx(): com.todocompanion.app.domain.OmegaContext = com.todocompanion.app.domain.OmegaContext(
+        tasks = tasks.value, habits = habits.value, checkins = habitCheckins.value,
+        focus = focusSessions.value, timeEntries = timeEntries.value, activities = timeActivities.value,
+        zone = zone, today = java.time.LocalDate.now(zone).toEpochDay(), now = System.currentTimeMillis(),
+    )
+
+    /** Ω2 — answer a data question across all three modules, entirely on-device. */
+    fun answerQuery(question: String): com.todocompanion.app.domain.OmegaQuery.Answer =
+        com.todocompanion.app.domain.OmegaQuery.answer(question, omegaCtx())
+
+    /** Ω5 — the cross-module recap for any date range (inclusive epoch-days). */
+    fun periodRecap(startDay: Long, endDay: Long, title: String): com.todocompanion.app.domain.PeriodRecap.Recap =
+        com.todocompanion.app.domain.PeriodRecap.compute(startDay, endDay, title, omegaCtx())
+
+    /** Ω3 — adaptive hints suggesting a module the user would benefit from turning on. */
+    fun moduleHints(): List<com.todocompanion.app.domain.ModuleHints.Hint> =
+        com.todocompanion.app.domain.ModuleHints.compute(settings.value, tasks.value, habits.value)
+
+    /** Ω4 — render the annual life report to a self-contained HTML file and hand it to the share sheet. */
+    fun shareAnnualReport(year: Int, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+        val ctx = omegaCtx()
+        val uri = withContext(Dispatchers.IO) {
+            runCatching {
+                val html = com.todocompanion.app.domain.LifeReport.buildHtml(year, ctx)
+                val dir = java.io.File(appCtx.cacheDir, "shared").apply { mkdirs() }
+                val f = java.io.File(dir, "modular-year-$year.html").apply { writeText(html) }
+                androidx.core.content.FileProvider.getUriForFile(appCtx, "${appCtx.packageName}.fileprovider", f)
+            }.getOrNull()
+        }
+        if (uri == null) { toast("Couldn't build the report"); onDone(false); return@launch }
+        val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "text/html"; putExtra(android.content.Intent.EXTRA_STREAM, uri)
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val chooser = android.content.Intent.createChooser(send, "Your year in review").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { appCtx.startActivity(chooser) }.onFailure { toast("No app to open it with") }
+        onDone(true)
+    }
     // Drag-reorder persistence for the drawer sections.
     fun setTagOrder(ids: List<String>) = viewModelScope.launch { repo.setTagOrder(ids) }
     fun setHabitOrder(ids: List<String>) = viewModelScope.launch { repo.setHabitOrder(ids); refreshHabitWidgets() }
