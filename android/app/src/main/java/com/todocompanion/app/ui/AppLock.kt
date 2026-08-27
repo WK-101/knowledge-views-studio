@@ -39,8 +39,18 @@ import androidx.lifecycle.LifecycleEventObserver
  * Wraps the app in a biometric / device-credential gate when app-lock is enabled. Fully local —
  * uses the platform BiometricManager; no network, no account. Re-locks whenever the app is stopped.
  */
-private const val AUTHENTICATORS =
-    BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+/** Pick the strongest authenticator class the device can actually satisfy: Class-3 (STRONG) biometric or
+ *  device credential first, then Class-2 (WEAK), then credential alone. Returns null only when the device
+ *  has NO lock at all — the one case we can't enforce. (Upgrades the old WEAK-only default per the audit.) */
+private fun pickAuthenticators(context: android.content.Context): Int? {
+    val bm = BiometricManager.from(context)
+    val options = listOf(
+        BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL,
+        BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL,
+        BiometricManager.Authenticators.DEVICE_CREDENTIAL,
+    )
+    return options.firstOrNull { bm.canAuthenticate(it) == BiometricManager.BIOMETRIC_SUCCESS }
+}
 
 @Composable
 fun AppLockGate(enabled: Boolean, content: @Composable () -> Unit) {
@@ -48,13 +58,14 @@ fun AppLockGate(enabled: Boolean, content: @Composable () -> Unit) {
 
     val context = LocalContext.current
     val activity = context as? FragmentActivity
-    // If we can't host a prompt (shouldn't happen), fail open rather than trapping the user out.
+    // If we can't host a prompt (shouldn't happen — MainActivity is a FragmentActivity), fail open rather
+    // than trapping the user out of their own data.
     if (activity == null) { content(); return }
 
-    val canAuth = remember {
-        BiometricManager.from(context).canAuthenticate(AUTHENTICATORS) == BiometricManager.BIOMETRIC_SUCCESS
-    }
-    if (!canAuth) { content(); return }
+    val authenticators = remember { pickAuthenticators(context) }
+    // No device lock at all → nothing to authenticate against. We can't enforce a gate, but rather than
+    // silently passing we show the lock screen with guidance so the user knows their opt-in isn't active.
+    if (authenticators == null) { NoCredentialLockScreen(onOpen = { }, content = content); return }
 
     var unlocked by remember { mutableStateOf(false) }
     var attempting by remember { mutableStateOf(false) }
@@ -74,7 +85,7 @@ fun AppLockGate(enabled: Boolean, content: @Composable () -> Unit) {
         val info = BiometricPrompt.PromptInfo.Builder()
             .setTitle("Unlock ToDo Companion")
             .setSubtitle("Verify it's you to continue")
-            .setAllowedAuthenticators(AUTHENTICATORS)
+            .setAllowedAuthenticators(authenticators)
             .build()
         runCatching { bp.authenticate(info) }.onFailure { attempting = false }
     }
@@ -113,6 +124,30 @@ private fun LockScreen(onUnlock: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
             Spacer(Modifier.height(24.dp))
             Button(onClick = onUnlock, contentPadding = PaddingValues(horizontal = 28.dp, vertical = 12.dp)) { Text("Unlock") }
+        }
+    }
+}
+
+/** Shown when app-lock is on but the device has no screen lock to authenticate against. Rather than
+ *  silently passing (the old fail-open), it tells the user their opt-in can't be enforced yet. */
+@Composable
+private fun NoCredentialLockScreen(onOpen: () -> Unit, content: @Composable () -> Unit) {
+    var opened by remember { mutableStateOf(false) }
+    if (opened) { content(); return }
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        Column(
+            Modifier.fillMaxSize().padding(32.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Icon(Icons.Filled.Lock, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(56.dp))
+            Spacer(Modifier.height(16.dp))
+            Text("App lock needs a screen lock", style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(6.dp))
+            Text("Set a device PIN, pattern, password, or biometric in system Settings for this lock to take effect. Until then the app can't be secured.",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(24.dp))
+            Button(onClick = { onOpen(); opened = true }, contentPadding = PaddingValues(horizontal = 28.dp, vertical = 12.dp)) { Text("Open anyway") }
         }
     }
 }

@@ -91,6 +91,10 @@ data class AppSettings(
     val completionSound: Boolean = false,
     // Require biometric / device credential to open the app.
     val appLockEnabled: Boolean = false,
+    // Security hardening (R18): block screenshots / screen recording / recents-thumbnail capture, and
+    // hide task text on the lock screen. Both default off so nothing changes unless the user opts in.
+    val secureScreen: Boolean = false,
+    val lockscreenPrivacy: Boolean = false,
     // Add-button (FAB) horizontal placement: end | center | start.
     val fabPosition: String = "end",
     // Data resilience & account-free sync (Tier D). Folder URIs are SAF tree URIs (persisted grants).
@@ -260,6 +264,8 @@ data class AppSettings(
         Keys.RELIABILITY to reliabilityOnboarded.toString(),
         Keys.COMPLETION_SOUND to completionSound.toString(),
         Keys.APP_LOCK to appLockEnabled.toString(),
+        Keys.SECURE_SCREEN to secureScreen.toString(),
+        Keys.LOCKSCREEN_PRIVACY to lockscreenPrivacy.toString(),
         Keys.FAB_POS to fabPosition,
         Keys.AUTOBK_ON to autoBackupEnabled.toString(),
         Keys.AUTOBK_DIR to autoBackupFolder,
@@ -367,6 +373,8 @@ data class AppSettings(
         const val RELIABILITY = "reliability_onboarded"
         const val COMPLETION_SOUND = "completion_sound"
         const val APP_LOCK = "app_lock"
+        const val SECURE_SCREEN = "secure_screen"
+        const val LOCKSCREEN_PRIVACY = "lockscreen_privacy"
         const val FAB_POS = "fab_pos"
         const val AUTOBK_ON = "autobackup_on"
         const val AUTOBK_DIR = "autobackup_dir"
@@ -529,6 +537,8 @@ data class AppSettings(
             reliabilityOnboarded = m[Keys.RELIABILITY]?.toBooleanStrictOrNull() ?: false,
             completionSound = m[Keys.COMPLETION_SOUND]?.toBooleanStrictOrNull() ?: false,
             appLockEnabled = m[Keys.APP_LOCK]?.toBooleanStrictOrNull() ?: false,
+            secureScreen = m[Keys.SECURE_SCREEN]?.toBooleanStrictOrNull() ?: false,
+            lockscreenPrivacy = m[Keys.LOCKSCREEN_PRIVACY]?.toBooleanStrictOrNull() ?: false,
             fabPosition = m[Keys.FAB_POS] ?: "end",
             autoBackupEnabled = m[Keys.AUTOBK_ON]?.toBooleanStrictOrNull() ?: false,
             autoBackupFolder = m[Keys.AUTOBK_DIR] ?: "",

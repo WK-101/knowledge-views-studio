@@ -3,11 +3,14 @@ package com.todocompanion.app
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.mutableStateOf
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.lifecycleScope
 import com.todocompanion.app.ui.AppRoot
+import kotlinx.coroutines.launch
 
 // FragmentActivity (a ComponentActivity subclass) so androidx.biometric's BiometricPrompt can attach.
 class MainActivity : FragmentActivity() {
@@ -24,6 +27,16 @@ class MainActivity : FragmentActivity() {
         launchAction.value = resolveAction(intent)
         importUri.value = resolveImport(intent)
         enableEdgeToEdge()
+        // Security: apply the "secure screen" flag reactively — when on, it blocks screenshots, screen
+        // recording, and the recents-thumbnail from capturing task content. Off by default; fully local.
+        lifecycleScope.launch {
+            (application as App).repository.allSettings.collect { rows ->
+                fun flag(key: String) = rows.firstOrNull { it.key == key }?.value?.toBooleanStrictOrNull() ?: false
+                if (flag(com.todocompanion.app.domain.AppSettings.Keys.SECURE_SCREEN)) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                com.todocompanion.app.reminders.Notifications.lockscreenPrivate = flag(com.todocompanion.app.domain.AppSettings.Keys.LOCKSCREEN_PRIVACY)
+            }
+        }
         setContent { AppRoot(launchAction = launchAction, importUri = importUri) }
     }
 

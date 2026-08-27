@@ -25,7 +25,9 @@ class App : Application() {
         // Warm the DB + settings on a background thread at process start so the first UI frame's
         // queries are already cached (opening happens off the main thread, before Compose asks).
         appScope.launch {
-            repository.settingsSnapshot(); repository.ensureSeed()
+            val s0 = repository.settingsSnapshot(); repository.ensureSeed()
+            // Seed the lock-screen-privacy flag so background notifications honour it even before any UI.
+            Notifications.lockscreenPrivate = s0.lockscreenPrivacy
             // (Re)arm per-habit reminder alarms for this device's current day. Cheap; self-healing.
             runCatching { com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(this@App, repository) }
         }

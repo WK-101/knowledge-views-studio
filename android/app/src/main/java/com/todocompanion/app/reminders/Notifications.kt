@@ -14,6 +14,21 @@ object Notifications {
     const val CHANNEL_ID = "reminders"
     const val SUMMARY_ID = 424242
 
+    // Security (R18): when the user turns on "hide notification content on the lock screen", every
+    // notification is built VISIBILITY_SECRET so task titles never surface on a locked device. Kept as a
+    // volatile flag updated from the settings flow (notifications fire from background receivers). Off = the
+    // platform default. Fully local.
+    @Volatile var lockscreenPrivate: Boolean = false
+
+    /** Builder that applies the lock-screen-privacy setting centrally (the `id` local keeps this one call
+     *  from being caught by the project-wide swap onto this helper). */
+    private fun builder(context: Context): NotificationCompat.Builder {
+        val id = CHANNEL_ID
+        return NotificationCompat.Builder(context, id).apply {
+            if (lockscreenPrivate) setVisibility(NotificationCompat.VISIBILITY_SECRET)
+        }
+    }
+
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val mgr = context.getSystemService(NotificationManager::class.java)
@@ -51,7 +66,7 @@ object Notifications {
     /** Z4: the single daily "morning brief" — one calm note that opens the app for the full picture. */
     fun showMorningBrief(context: Context, line: String) {
         ensureChannel(context)
-        val n = NotificationCompat.Builder(context, CHANNEL_ID)
+        val n = builder(context)
             .setSmallIcon(android.R.drawable.ic_menu_agenda)
             .setContentTitle("Your morning brief")
             .setContentText(line)
@@ -67,7 +82,7 @@ object Notifications {
         ensureChannel(context)
         val text = if (leftover == 0) "Everything's done. Take 2 minutes to line up tomorrow." else
             "$leftover task${if (leftover == 1) "" else "s"} still open today. Plan tomorrow before you clock off."
-        val n = NotificationCompat.Builder(context, CHANNEL_ID)
+        val n = builder(context)
             .setSmallIcon(android.R.drawable.ic_menu_my_calendar)
             .setContentTitle("Evening review")
             .setContentText(text)
@@ -89,7 +104,7 @@ object Notifications {
         // Escalation makes each successive alert harder to ignore: the text nags louder and, once it's
         // been ignored a few rounds, it takes over the screen (full-screen intent) and vibrates.
         val text = if (escalate && step > 0) "Still not done — reminder ×${step + 1}" else "Reminder"
-        val b = NotificationCompat.Builder(context, CHANNEL_ID)
+        val b = builder(context)
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
             .setContentTitle(title)
             .setContentText(text)
@@ -114,7 +129,7 @@ object Notifications {
 
     fun showFocusDone(context: Context) {
         ensureChannel(context)
-        val n = NotificationCompat.Builder(context, CHANNEL_ID)
+        val n = builder(context)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle("Focus session complete")
             .setContentText("Nice work — time for a break.")
@@ -136,7 +151,7 @@ object Notifications {
         val line = why.takeIf { it.isNotBlank() } ?: HABIT_LINES[(habitId.hashCode() + (System.currentTimeMillis() / 86_400_000L).toInt()).let { ((it % HABIT_LINES.size) + HABIT_LINES.size) % HABIT_LINES.size }]
         val reqBase = ("habit:$habitId").hashCode()
         val doneExtras = mapOf(AlarmScheduler.EXTRA_HABIT_ID to habitId, AlarmScheduler.EXTRA_HABIT_NAME to name, AlarmScheduler.EXTRA_HABIT_MIN to minute.toString())
-        val b = NotificationCompat.Builder(context, CHANNEL_ID)
+        val b = builder(context)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle("Time for $name")
             .setContentText(line)
@@ -154,7 +169,7 @@ object Notifications {
         val tasksLine = if (dueToday == 0) "No tasks due today — enjoy!" else "You have $dueToday task${if (dueToday == 1) "" else "s"} due today."
         // N1: lead with the habit coach brief when there is one, then the task line.
         val body = if (!brief.isNullOrBlank()) "$brief\n$tasksLine" else tasksLine
-        val b = NotificationCompat.Builder(context, CHANNEL_ID)
+        val b = builder(context)
             .setSmallIcon(android.R.drawable.ic_menu_agenda)
             .setContentTitle(if (!brief.isNullOrBlank()) "Your day" else "Today")
             .setContentText(if (!brief.isNullOrBlank()) brief else tasksLine)
@@ -173,7 +188,7 @@ object Notifications {
     /** U12: a plain automation notification ("phone on silent?") fired when a rule matches. */
     fun simple(context: Context, tag: String, title: String, text: String) {
         ensureChannel(context)
-        val n = NotificationCompat.Builder(context, CHANNEL_ID)
+        val n = builder(context)
             .setSmallIcon(android.R.drawable.ic_menu_recent_history)
             .setContentTitle(title)
             .setContentText(text)
@@ -194,7 +209,7 @@ object Notifications {
             .putExtra(com.todocompanion.app.widget.TimeTrackReceiver.EXTRA_ACTIVITY_ID, activityId)
             .putExtra(com.todocompanion.app.widget.TimeTrackReceiver.EXTRA_TASK_ID, taskId)
         val pi = PendingIntent.getBroadcast(context, ("track:$taskId").hashCode(), start, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val n = NotificationCompat.Builder(context, CHANNEL_ID)
+        val n = builder(context)
             .setSmallIcon(android.R.drawable.ic_menu_recent_history)
             .setContentTitle("Starting: $title")
             .setContentText("Track time on this block?")
@@ -210,7 +225,7 @@ object Notifications {
     fun showReward(context: Context, name: String, reward: String, streak: Int) {
         ensureChannel(context)
         val text = "You hit a $streak-day streak on ‘$name’. You earned it: $reward 🎉"
-        val n = NotificationCompat.Builder(context, CHANNEL_ID)
+        val n = builder(context)
             .setSmallIcon(android.R.drawable.btn_star_big_on)
             .setContentTitle("Reward unlocked! 🎁")
             .setContentText(text)
