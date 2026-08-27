@@ -762,9 +762,25 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     if (showDuration) DurationPickerDialog(task?.durationMin ?: 30, onDismiss = { showDuration = false }) { mins ->
         update { it.copy(durationMin = mins.takeIf { m -> m > 0 }) }; showDuration = false
     }
-    if (showDue) DateTimePickerDialog(task?.dueDate, { showDue = false },
-        initialDurationMin = task?.durationMin,
-        onDuration = { d -> update { it.copy(durationMin = d) } }) { m -> update { it.copy(dueDate = m) }; showDue = false }
+    if (showDue) {
+        val t0 = task
+        val timed0 = t0?.dueDate != null && !t0.isAllDay && java.time.Instant.ofEpochMilli(t0.dueDate!!).atZone(java.time.ZoneId.systemDefault()).let { it.hour != 0 || it.minute != 0 }
+        com.todocompanion.app.ui.components.DateReminderSheet(
+            initialDue = t0?.dueDate,
+            initialHasTime = timed0,
+            initialAllDay = t0?.isAllDay ?: false,
+            initialDurationMin = t0?.durationMin,
+            initialRrule = t0?.rrule,
+            initialReminderOffsetMin = null,
+            onDismiss = { showDue = false },
+            onConfirm = { c ->
+                // The sheet carries the full intended schedule state, so apply it directly (rrule too).
+                update { it.copy(dueDate = c.dueMillis, isAllDay = c.allDay, durationMin = c.durationMin, rrule = c.rrule) }
+                if (c.reminderOffsetMin != null && t0 != null) vm.addRelativeReminder(t0, "relativeToDue", c.reminderOffsetMin)
+                showDue = false
+            },
+        )
+    }
     if (showStart) DateTimePickerDialog(task?.startDate, { showStart = false }) { m -> update { it.copy(startDate = m) }; showStart = false }
     if (showDeadline) DateTimePickerDialog(task?.deadlineDate, { showDeadline = false }) { m -> update { it.copy(deadlineDate = m) }; showDeadline = false }
     if (showReminder) DateTimePickerDialog(task?.dueDate ?: System.currentTimeMillis(), { showReminder = false }) { m -> task?.let { vm.addAbsoluteReminder(it, m) }; showReminder = false }
