@@ -659,10 +659,13 @@ fun AppRoot(
                     val selecting by vm.selectionActive.collectAsState()
                     if ((tab == Tab.TASKS || tab == Tab.CALENDAR || tab == Tab.MATRIX) && !(tab == Tab.TASKS && selecting)) {
                         var fabMenu by remember { mutableStateOf(false) }
+                        // On the calendar, a quick-add inherits the day you have selected (so a task added
+                        // while looking at, say, the 14th is due the 14th, not undated).
+                        val fabDue = { if (tab == Tab.CALENDAR) calSelected.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli() else null }
                         Box {
                             // Tap adds; long-press opens quick actions (C1).
-                            FloatingActionButton(onClick = { openQuickAdd(null) }, modifier = Modifier.combinedClickable(
-                                onClick = { openQuickAdd(null) }, onLongClick = { fabMenu = true })) {
+                            FloatingActionButton(onClick = { openQuickAdd(fabDue()) }, modifier = Modifier.combinedClickable(
+                                onClick = { openQuickAdd(fabDue()) }, onLongClick = { fabMenu = true })) {
                                 Icon(Icons.Filled.Add, "Add task")
                             }
                             DropdownMenu(expanded = fabMenu, onDismissRequest = { fabMenu = false }) {

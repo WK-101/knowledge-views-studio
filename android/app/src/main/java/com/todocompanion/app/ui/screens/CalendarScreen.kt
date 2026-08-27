@@ -60,6 +60,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Today
@@ -494,11 +496,11 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
     val labels = (0..6).map { firstDow.plus(it.toLong()) }
     val first = ym.atDay(1)
     val leading = (first.dayOfWeek.value - firstDow.value + 7) % 7
-    val cells = buildList<LocalDate?> {
-        repeat(leading) { add(null) }
-        for (day in 1..ym.lengthOfMonth()) add(ym.atDay(day))
-        while (size % 7 != 0) add(null)
-    }
+    // A full grid of real dates: the leading/trailing cells are the adjacent months' days, drawn faded
+    // (rather than blank), so a month that starts mid-week reads as a proper calendar (TickTick/Google style).
+    val firstCell = first.minusDays(leading.toLong())
+    val rowCount = (leading + ym.lengthOfMonth() + 6) / 7
+    val cells: List<LocalDate> = remember(anchor, firstDow) { (0 until rowCount * 7).map { firstCell.plusDays(it.toLong()) } }
     val today = LocalDate.now()
     val primary = MaterialTheme.colorScheme.primary
 
@@ -516,63 +518,69 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
             labels.forEach { d -> Text(d.getDisplayName(TextStyle.NARROW, Locale.getDefault()), Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
-        // Collapsible month (R17): drag the handle below up to shrink the month to just the week holding
-        // the selected day (giving the agenda more room), drag down to bring the whole month back — the
-        // Google-Calendar gesture. When collapsed we render only the selected day's week row.
+        // Collapsible month (R18): the whole grid is vertically draggable — pull up to shrink to just the
+        // week holding the selected day (more room for the agenda), pull down to bring the month back. The
+        // non-selected weeks animate open/closed so the transition is smooth, not an abrupt jump; there's
+        // also a small chevron in the date row below. No separate handle strip stealing vertical space.
         val weeks = cells.chunked(7)
         val selWeek = weeks.indexOfFirst { wk -> wk.any { it == selected } }
             .let { if (it >= 0) it else weeks.indexOfFirst { wk -> wk.any { it == today } }.coerceAtLeast(0) }
             .coerceIn(0, weeks.lastIndex)
-        val shownWeeks = if (monthCollapsed) listOf(weeks[selWeek]) else weeks
-        Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp).swipeNav(onPrev, onNext)) {
-            shownWeeks.forEach { week ->
-                Row(Modifier.fillMaxWidth()) {
-                    week.forEach { date ->
-                        val isToday = date == today
-                        val isSelected = date == selected
-                        val isTarget = date != null && date == targetDay
-                        // TickTick grammar: today is a solid filled circle; a selected non-today day gets a ring.
-                        val ringMod = when {
-                            isTarget -> Modifier.background(primary.copy(alpha = .28f), CircleShape).border(2.dp, primary, CircleShape)
-                            isToday -> Modifier.background(primary, CircleShape)
-                            isSelected -> Modifier.border(1.5.dp, primary, CircleShape)
-                            else -> Modifier
-                        }
-                        Box(
-                            Modifier.weight(1f).aspectRatio(1f).padding(3.dp)
-                                .then(if (date != null) Modifier.onGloballyPositioned { cellBounds[date] = it.boundsInWindow() } else Modifier)
-                                .clip(CircleShape).clickable(enabled = date != null) { date?.let(onSelect) }
-                                .then(ringMod),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            if (date != null) Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    date.dayOfMonth.toString(),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = when {
-                                        isToday -> MaterialTheme.colorScheme.onPrimary
-                                        date.month != anchor.month -> MaterialTheme.colorScheme.outline
-                                        else -> MaterialTheme.colorScheme.onSurface
-                                    },
-                                )
-                                Spacer(Modifier.size(2.dp))
-                                // G2: a day can carry a task dot (primary) and/or a habit dot (tertiary),
-                                // so scheduled habits are visible right in the month grid when the toggle is on.
-                                val hasTask = dueByDate.containsKey(date)
-                                val hasHabit = habitBlocksFor(date).isNotEmpty()
-                                val hasCountdown = countdownsFor(date).isNotEmpty()
-                                if (hasTask || hasHabit || hasCountdown) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                    if (hasTask) Box(Modifier.size(5.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.onPrimary else primary))
-                                    if (hasHabit) Box(Modifier.size(5.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.tertiary))
-                                    if (hasCountdown) Box(Modifier.size(5.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.secondary))
-                                } else Spacer(Modifier.size(5.dp))
-                                // Tracked-time intensity bar: width ∝ minutes (capped at ~8h), tinted the
-                                // day's dominant activity — a compact read of "how much / of what" per day.
-                                val (trkMin, trkColor) = trackedDayInfo(date)
-                                if (trkMin > 0) {
-                                    val frac = (trkMin / 480f).coerceIn(0.12f, 1f)
-                                    Box(Modifier.padding(top = 2.dp).fillMaxWidth(0.62f).height(3.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
-                                        Box(Modifier.fillMaxWidth(frac).height(3.dp).clip(RoundedCornerShape(2.dp)).background(if (isToday) MaterialTheme.colorScheme.onPrimary else (trkColor ?: MaterialTheme.colorScheme.tertiary)))
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp).swipeNav(onPrev, onNext)
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures { _, dy -> if (dy < -2.5f) monthCollapsed = true else if (dy > 2.5f) monthCollapsed = false }
+                },
+        ) {
+            weeks.forEachIndexed { wi, week ->
+                androidx.compose.animation.AnimatedVisibility(visible = wi == selWeek || !monthCollapsed) {
+                    Row(Modifier.fillMaxWidth()) {
+                        week.forEach { date ->
+                            val isToday = date == today
+                            val isSelected = date == selected
+                            val isTarget = date == targetDay
+                            val inMonth = date.month == anchor.month
+                            // TickTick grammar: today is a solid filled circle; a selected non-today day gets a ring.
+                            val ringMod = when {
+                                isTarget -> Modifier.background(primary.copy(alpha = .28f), CircleShape).border(2.dp, primary, CircleShape)
+                                isToday -> Modifier.background(primary, CircleShape)
+                                isSelected -> Modifier.border(1.5.dp, primary, CircleShape)
+                                else -> Modifier
+                            }
+                            Box(
+                                Modifier.weight(1f).aspectRatio(1f).padding(3.dp)
+                                    .onGloballyPositioned { cellBounds[date] = it.boundsInWindow() }
+                                    .clip(CircleShape).clickable { onSelect(date) }
+                                    .then(ringMod),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        date.dayOfMonth.toString(),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = when {
+                                            isToday -> MaterialTheme.colorScheme.onPrimary
+                                            !inMonth -> MaterialTheme.colorScheme.outline.copy(alpha = .55f)
+                                            else -> MaterialTheme.colorScheme.onSurface
+                                        },
+                                    )
+                                    Spacer(Modifier.size(2.dp))
+                                    // A day can carry a task dot (primary) and/or a habit dot (tertiary). Adjacent-month
+                                    // days stay clean (no dots) so the current month clearly stands out.
+                                    val hasTask = inMonth && dueByDate.containsKey(date)
+                                    val hasHabit = inMonth && habitBlocksFor(date).isNotEmpty()
+                                    val hasCountdown = inMonth && countdownsFor(date).isNotEmpty()
+                                    if (hasTask || hasHabit || hasCountdown) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        if (hasTask) Box(Modifier.size(5.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.onPrimary else primary))
+                                        if (hasHabit) Box(Modifier.size(5.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.tertiary))
+                                        if (hasCountdown) Box(Modifier.size(5.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.secondary))
+                                    } else Spacer(Modifier.size(5.dp))
+                                    val (trkMin, trkColor) = if (inMonth) trackedDayInfo(date) else (0 to null)
+                                    if (trkMin > 0) {
+                                        val frac = (trkMin / 480f).coerceIn(0.12f, 1f)
+                                        Box(Modifier.padding(top = 2.dp).fillMaxWidth(0.62f).height(3.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                                            Box(Modifier.fillMaxWidth(frac).height(3.dp).clip(RoundedCornerShape(2.dp)).background(if (isToday) MaterialTheme.colorScheme.onPrimary else (trkColor ?: MaterialTheme.colorScheme.tertiary)))
+                                        }
                                     }
                                 }
                             }
@@ -581,23 +589,20 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
                 }
             }
         }
-        // Drag handle: pull up to collapse the month to the selected week, pull down to expand. Tap toggles.
-        Box(
-            Modifier.fillMaxWidth()
-                .pointerInput(Unit) {
-                    detectVerticalDragGestures { _, dy -> if (dy < -3f) monthCollapsed = true else if (dy > 3f) monthCollapsed = false }
-                }
-                .clickable { monthCollapsed = !monthCollapsed }
-                .padding(vertical = 5.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Box(Modifier.width(34.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.outlineVariant))
-        }
-        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        // The date row doubles as the collapse affordance — a small chevron toggles month↔week, so no
+        // separate handle strip is needed (the grid itself is also drag-collapsible).
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 2.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 if (selected == today) "TODAY" else "${selected.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()).uppercase()} ${selected.dayOfMonth} ${selected.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()).uppercase()}",
                 Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            androidx.compose.material3.IconButton(onClick = { monthCollapsed = !monthCollapsed }, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    if (monthCollapsed) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowUp,
+                    if (monthCollapsed) "Expand month" else "Collapse to week",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp),
+                )
+            }
             TextButton(onClick = onAdd) { Text("＋ Add") }
         }
         // G2: habits scheduled for the selected day, shown right under the date so month-view users
