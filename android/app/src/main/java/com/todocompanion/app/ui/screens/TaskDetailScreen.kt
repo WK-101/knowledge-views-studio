@@ -157,6 +157,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     var showDeadline by remember { mutableStateOf(false) }
     var showDuration by remember { mutableStateOf(false) }
     var showReminder by remember { mutableStateOf(false) }
+    var editActivity by remember { mutableStateOf<com.todocompanion.app.data.entity.TimeActivityEntity?>(null) }
     var newTag by remember { mutableStateOf("") }
     var newContext by remember { mutableStateOf("") }
     var newCheck by remember { mutableStateOf("") }
@@ -192,6 +193,10 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 IconButton(onClick = { update { it.copy(star = !it.star) } }) {
                     Icon(if (task?.star == true) Icons.Filled.Star else Icons.Filled.StarBorder, "Star")
                 }
+                // "Just start — focus now" (C2), iconized and moved into the header (R19 #10).
+                if (onJustStart != null && task != null && !task.completed && !task.abandoned) {
+                    IconButton(onClick = { onJustStart(task.id) }) { Icon(Icons.Filled.PlayArrow, "Just start — focus now", tint = MaterialTheme.colorScheme.primary) }
+                }
                 var menu by remember { mutableStateOf(false) }
                 IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "More") }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
@@ -206,7 +211,10 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     DropdownMenuItem(text = { Text("Delete", color = MaterialTheme.colorScheme.error) }, onClick = { task?.let { vm.trash(it) }; menu = false; onBack() })
                 }
                 // Edits are staged; Save persists them (Back offers to discard unsaved changes).
-                TextButton(onClick = { commit() }, enabled = dirty) { Text("Save", fontWeight = FontWeight.SemiBold) }
+                // Iconized (R19 #10) — a check, tinted when there are unsaved edits.
+                IconButton(onClick = { commit() }, enabled = dirty) {
+                    Icon(Icons.Filled.Check, "Save", tint = if (dirty) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             },
         )
     }) { padding ->
@@ -289,16 +297,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             }
 
-            // "Just start" (C2): lower the barrier — jump straight into a focus session on this task.
-            if (onJustStart != null && !task.completed && !task.abandoned) {
-                FilledTonalButton(
-                    onClick = { onJustStart(task.id) },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 2.dp),
-                ) {
-                    Icon(Icons.Filled.PlayArrow, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Just start — focus now")
-                }
-                Spacer(Modifier.height(4.dp))
-            }
+            // ("Just start — focus now" is now an icon in the top bar — R19 #10.)
 
             // ---------- Compact property rows ----------
             val level = PriorityLevel.from(task.importance, task.urgency)
@@ -311,15 +310,10 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             if (task.dueDate != null || task.startDate != null) {
                 PropRow(Icons.Filled.PlayArrow, "Starts", task.startDate?.let { formatDue(it) } ?: "Not set", indent = true,
                     onClear = if (task.startDate != null) ({ update { it.copy(startDate = null) } }) else null) { showStart = true }
-                Row(Modifier.fillMaxWidth().padding(start = 34.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("All day", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                    androidx.compose.material3.Switch(checked = task.isAllDay, onCheckedChange = { on -> update { it.copy(isAllDay = on) } })
-                }
                 MenuRow("Show early", task.leadTimeMin?.let { "${it / 1440}d early" } ?: "Default",
                     listOf<Pair<Int?, String>>(null to "Default (7 days)", 1 to "1 day early", 3 to "3 days early", 7 to "1 week early", 14 to "2 weeks early")) { d -> update { it.copy(leadTimeMin = d?.let { n -> n * 1440 }) } }
-                val timed = task.dueDate != null && !task.isAllDay && java.time.Instant.ofEpochMilli(task.dueDate!!).atZone(zone).let { it.hour != 0 || it.minute != 0 }
-                if (timed) PropRow(Icons.Filled.Schedule, "Duration", task.durationMin?.let { fmtDuration(it) } ?: "Not set", indent = true,
-                    onClear = if (task.durationMin != null) ({ update { it.copy(durationMin = null) } }) else null) { showDuration = true }
+                // All-day, duration, repeat and reminders now all live inside the unified Date sheet
+                // (tap "Date" above) — no duplicated controls out here (R19 #9).
             }
 
             // T2: track time against this task (Time module only). Planned (duration/estimate) vs actual,
@@ -363,22 +357,28 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 }
                 // "Counts under" — pick which time activity this task's tracked time belongs to. Falls back
                 // to a shared "Tasks" bucket when unset. (Fixes: no way to link an activity to a task.)
-                Box(Modifier.padding(start = 62.dp, bottom = 4.dp)) {
-                    Row(Modifier.clip(RoundedCornerShape(8.dp)).clickable { actMenu = true }.padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Counts under: ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text((linkedAct?.emoji?.plus(" ") ?: "") + (linkedAct?.name ?: "Tasks (default)"),
-                            style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-                        Icon(Icons.Filled.ExpandMore, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-                    }
-                    DropdownMenu(expanded = actMenu, onDismissRequest = { actMenu = false }) {
-                        DropdownMenuItem(text = { Text("Tasks (default bucket)") },
-                            leadingIcon = { if (task.defaultActivityId == null) Icon(Icons.Filled.Check, null, Modifier.size(18.dp)) else Spacer(Modifier.width(18.dp)) },
-                            onClick = { vm.setTaskDefaultActivity(task.id, null); actMenu = false })
-                        timeActivities.filter { !it.archived }.forEach { a ->
-                            DropdownMenuItem(text = { Text((a.emoji?.plus(" ") ?: "") + a.name) },
-                                leadingIcon = { if (task.defaultActivityId == a.id) Icon(Icons.Filled.Check, null, Modifier.size(18.dp)) else Spacer(Modifier.width(18.dp)) },
-                                onClick = { vm.setTaskDefaultActivity(task.id, a.id); actMenu = false })
+                Row(Modifier.padding(start = 62.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box {
+                        Row(Modifier.clip(RoundedCornerShape(8.dp)).clickable { actMenu = true }.padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("Counts under: ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text((linkedAct?.emoji?.plus(" ") ?: "") + (linkedAct?.name ?: "Tasks (default)"),
+                                style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                            Icon(Icons.Filled.ExpandMore, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                         }
+                        DropdownMenu(expanded = actMenu, onDismissRequest = { actMenu = false }) {
+                            DropdownMenuItem(text = { Text("Tasks (default bucket)") },
+                                leadingIcon = { if (task.defaultActivityId == null) Icon(Icons.Filled.Check, null, Modifier.size(18.dp)) else Spacer(Modifier.width(18.dp)) },
+                                onClick = { vm.setTaskDefaultActivity(task.id, null); actMenu = false })
+                            timeActivities.filter { !it.archived }.forEach { a ->
+                                DropdownMenuItem(text = { Text((a.emoji?.plus(" ") ?: "") + a.name) },
+                                    leadingIcon = { if (task.defaultActivityId == a.id) Icon(Icons.Filled.Check, null, Modifier.size(18.dp)) else Spacer(Modifier.width(18.dp)) },
+                                    onClick = { vm.setTaskDefaultActivity(task.id, a.id); actMenu = false })
+                            }
+                        }
+                    }
+                    // Edit / delete the linked activity right here (R19 #10).
+                    if (linkedAct != null) IconButton(onClick = { editActivity = linkedAct }, modifier = Modifier.size(30.dp)) {
+                        Icon(Icons.Outlined.Edit, "Edit activity", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -403,16 +403,12 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     Text("Why this priority?", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                 }
             }
-            Box {
+            run {
                 // Folder-direct tasks (empty listId) show the folder they live in until moved to a list.
+                // Tapping opens the SAME unified folders+lists selector used everywhere else (R19 #10).
                 val where = task.folderId?.let { fid -> folders.firstOrNull { it.id == fid }?.name?.let { "📁 $it" } }
                     ?: lists.firstOrNull { it.id == task.listId }?.name ?: "Inbox"
                 PropRow(Icons.AutoMirrored.Filled.FormatListBulleted, "List", where) { listMenu = true }
-                DropdownMenu(expanded = listMenu, onDismissRequest = { listMenu = false }) {
-                    lists.filter { !it.archived }.forEach { l ->
-                        DropdownMenuItem(text = { Text(l.name) }, onClick = { update { it.copy(listId = l.id, folderId = null) }; listMenu = false })
-                    }
-                }
             }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
@@ -472,7 +468,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                             }
                         }
                     com.todocompanion.app.domain.EditorField.REPEAT -> {
-                        RepeatRow(task.rrule, hasChildren) { rule -> update { it.copy(rrule = rule) } }
+                        // Repeat is set inside the unified Date sheet now (R19 #9); this section keeps only
+                        // the recurrence insight (reliability) for tasks that already repeat.
                         // P1/Q3/Q4: reliability — score, forgiving streak, trend and time-of-day rhythm.
                         val reliability by vm.taskReliability.collectAsState()
                         reliability[task.id]?.let { rel ->
@@ -513,37 +510,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                         }
                     }
 
-                    com.todocompanion.app.domain.EditorField.REMINDERS ->
-                     DetailSection("Reminders", if (myReminders.isEmpty()) null else "${myReminders.size}", myReminders.isNotEmpty()) {
-                myReminders.forEach { r ->
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(reminderLabel(r), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                        IconButton(onClick = { vm.setReminderAnnoying(r, task, !r.annoying) }) {
-                            Icon(if (r.annoying) Icons.Filled.NotificationsActive else Icons.Filled.NotificationsNone, "Persistent alarm", tint = if (r.annoying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        IconButton(onClick = { vm.deleteReminder(r, task) }) { Icon(Icons.Filled.Close, "Remove") }
-                    }
-                }
-                Box {
-                    var addMenu by remember { mutableStateOf(false) }
-                    TextButton(onClick = { addMenu = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Icon(Icons.Filled.Add, null); Spacer(Modifier.width(4.dp)); Text("Add reminder") }
-                    DropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
-                        DropdownMenuItem(text = { Text("Pick a time…") }, onClick = { addMenu = false; showReminder = true })
-                        if (task.dueDate != null) {
-                            HorizontalDivider()
-                            listOf(0 to "When due", 10 to "10 min before", 30 to "30 min before", 60 to "1 hour before", 1440 to "1 day before").forEach { (off, label) ->
-                                DropdownMenuItem(text = { Text(label) }, onClick = { vm.addRelativeReminder(task, "relativeToDue", off); addMenu = false })
-                            }
-                        }
-                        if (task.startDate != null) {
-                            HorizontalDivider()
-                            listOf(0 to "When it starts", 60 to "1 hour before start", 1440 to "1 day before start").forEach { (off, label) ->
-                                DropdownMenuItem(text = { Text(label) }, onClick = { vm.addRelativeReminder(task, "relativeToStart", off); addMenu = false })
-                            }
-                        }
-                    }
-                }
-            }
+                    // Reminders are managed inside the unified Date sheet now (tap "Date"), so nothing
+                    // renders here — no duplicated Reminders section in the editor body (R19 #9).
+                    com.todocompanion.app.domain.EditorField.REMINDERS -> Unit
 
                     com.todocompanion.app.domain.EditorField.CHECKLIST ->
                      DetailSection("Checklist", if (myCheck.isEmpty()) null else "${myCheck.count { it.checked }}/${myCheck.size}", myCheck.isNotEmpty()) {
@@ -776,10 +745,23 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             onConfirm = { c ->
                 // The sheet carries the full intended schedule state, so apply it directly (rrule too).
                 update { it.copy(dueDate = c.dueMillis, isAllDay = c.allDay, durationMin = c.durationMin, rrule = c.rrule) }
-                if (c.reminderOffsetMin != null && t0 != null) vm.addRelativeReminder(t0, "relativeToDue", c.reminderOffsetMin)
                 showDue = false
             },
+            // The full reminders manager lives inside the sheet (no separate section outside).
+            reminderSlot = t0?.let { tt -> { TaskReminderManager(vm, tt, reminders.filter { it.taskId == tt.id }, onPickTime = { showReminder = true }) } },
         )
+    }
+    if (listMenu && task != null) MoveTargetDialog(
+        folders = folders, lists = lists.filter { !it.archived },
+        pinnedRefs = settings.pinnedRefs, onPinToggle = { vm.togglePinnedRef(it) },
+        onPickList = { lid -> update { it.copy(listId = lid, folderId = null) }; listMenu = false },
+        onPickFolder = { fid -> update { it.copy(listId = "", folderId = fid) }; listMenu = false },
+        onDismiss = { listMenu = false },
+    )
+    editActivity?.let { act ->
+        ActivityEditDialog(act, onDismiss = { editActivity = null },
+            onSave = { updated -> vm.updateTimeActivity(updated); editActivity = null },
+            onDelete = { vm.deleteTimeActivity(act.id); editActivity = null })
     }
     if (showStart) DateTimePickerDialog(task?.startDate, { showStart = false }) { m -> update { it.copy(startDate = m) }; showStart = false }
     if (showDeadline) DateTimePickerDialog(task?.deadlineDate, { showDeadline = false }) { m -> update { it.copy(deadlineDate = m) }; showDeadline = false }
@@ -1029,6 +1011,90 @@ private fun offsetLabel(min: Int?): String {
         m % 1440 == 0 && m != 0 -> "${m / 1440} day${if (m / 1440 == 1) "" else "s"}"
         m % 60 == 0 && m != 0 -> "${m / 60} hour${if (m / 60 == 1) "" else "s"}"
         else -> "$m min"
+    }
+}
+
+/** Edit or delete a time activity (name · colour · emoji) straight from the task editor (R19 #10). */
+@Composable
+private fun ActivityEditDialog(
+    activity: com.todocompanion.app.data.entity.TimeActivityEntity,
+    onDismiss: () -> Unit,
+    onSave: (com.todocompanion.app.data.entity.TimeActivityEntity) -> Unit,
+    onDelete: () -> Unit,
+) {
+    var name by remember { mutableStateOf(activity.name) }
+    var emoji by remember { mutableStateOf(activity.emoji) }
+    var color by remember { mutableStateOf(activity.colorArgb) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    val palette = listOf(0xFF3E7BFAL, 0xFFE5484DL, 0xFFF59E0BL, 0xFF16A34AL, 0xFF8B5CF6L, 0xFF0EA5E9L, 0xFFEC4899L, 0xFF64748BL)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onSave(activity.copy(name = name.trim(), emoji = emoji, colorArgb = color)) }, enabled = name.isNotBlank()) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Edit activity") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                com.todocompanion.app.ui.components.AppTextField(name, { name = it }, singleLine = true, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(10.dp))
+                Text("Colour", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(Modifier.padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    palette.forEach { c ->
+                        Box(Modifier.size(28.dp).clip(CircleShape).background(Color(c)).border(if (color == c) 3.dp else 0.dp, MaterialTheme.colorScheme.onSurface, CircleShape).clickable { color = c })
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text("Icon", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                com.todocompanion.app.ui.components.EmojiGridPicker(emoji) { emoji = it }
+                Spacer(Modifier.height(8.dp))
+                TextButton(onClick = { confirmDelete = true }) {
+                    Icon(Icons.Filled.Delete, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error); Spacer(Modifier.width(6.dp)); Text("Delete activity", color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+    )
+    if (confirmDelete) AlertDialog(
+        onDismissRequest = { confirmDelete = false },
+        confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
+        dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+        title = { Text("Delete activity?") },
+        text = { Text("Removes \"${activity.name}\" and unlinks it from tasks. Time already tracked under it is kept.") },
+    )
+}
+
+/** The full reminders manager (list + add presets + remove / persistent-alarm toggle), rendered inside
+ *  the unified Date sheet so all scheduling lives in one place (R19 #9). [onPickTime] opens the specific
+ *  time picker (the sheet renders above it). */
+@Composable
+private fun TaskReminderManager(vm: AppViewModel, task: TaskEntity, myReminders: List<ReminderEntity>, onPickTime: () -> Unit) {
+    Column {
+        myReminders.forEach { r ->
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(reminderLabel(r), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                IconButton(onClick = { vm.setReminderAnnoying(r, task, !r.annoying) }) {
+                    Icon(if (r.annoying) Icons.Filled.NotificationsActive else Icons.Filled.NotificationsNone, "Persistent alarm", tint = if (r.annoying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                IconButton(onClick = { vm.deleteReminder(r, task) }) { Icon(Icons.Filled.Close, "Remove") }
+            }
+        }
+        Box {
+            var addMenu by remember { mutableStateOf(false) }
+            TextButton(onClick = { addMenu = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Icon(Icons.Filled.Add, null); Spacer(Modifier.width(4.dp)); Text("Add reminder") }
+            DropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
+                DropdownMenuItem(text = { Text("Pick a time…") }, onClick = { addMenu = false; onPickTime() })
+                if (task.dueDate != null) {
+                    HorizontalDivider()
+                    listOf(0 to "When due", 10 to "10 min before", 30 to "30 min before", 60 to "1 hour before", 1440 to "1 day before").forEach { (off, label) ->
+                        DropdownMenuItem(text = { Text(label) }, onClick = { vm.addRelativeReminder(task, "relativeToDue", off); addMenu = false })
+                    }
+                }
+                if (task.startDate != null) {
+                    HorizontalDivider()
+                    listOf(0 to "When it starts", 60 to "1 hour before start", 1440 to "1 day before start").forEach { (off, label) ->
+                        DropdownMenuItem(text = { Text(label) }, onClick = { vm.addRelativeReminder(task, "relativeToStart", off); addMenu = false })
+                    }
+                }
+            }
+        }
     }
 }
 

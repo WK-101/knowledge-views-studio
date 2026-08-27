@@ -277,9 +277,11 @@ fun AppDrawer(
             val filters by vm.filters.collectAsState()
             if ("filters" !in hidden && (filters.isNotEmpty() || open("filters"))) {
                 SectionHeader("Filters", open = open("filters"), onToggle = { toggle("filters") }, onAdd = { onEditFilter(null) })
+                val filterCounts by vm.entryCounts.collectAsState()
                 if (open("filters")) DragReorderColumn(filters.sortedBy { it.sortOrder }, id = { it.id }, onReorder = { vm.setFilterOrder(it) }) { f ->
                     var menu by remember(f.id) { mutableStateOf(false) }
                     val selected = (current as? ViewRef.FilterView)?.filterId == f.id
+                    val fCount = filterCounts.filters[f.id]?.takeIf { it > 0 }
                     Row(
                         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
                             .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
@@ -290,6 +292,7 @@ fun AppDrawer(
                         Spacer(Modifier.width(11.dp))
                         Text(f.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
                             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+                        if (fCount != null) Text(fCount.toString(), Modifier.padding(end = 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Box {
                             Icon(Icons.Filled.MoreVert, "Filter menu", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp).clickable { menu = true })
                             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
@@ -363,6 +366,8 @@ private fun FolderNode(
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val selected = (current as? ViewRef.FolderView)?.folderId == folder.id
     val pinRef = "folder:${folder.id}"
+    val entryCounts by vm.entryCounts.collectAsState()
+    val entryCount = entryCounts.folders[folder.id]?.takeIf { it > 0 }
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
             .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
@@ -379,6 +384,7 @@ private fun FolderNode(
         Text(folder.name, Modifier.weight(1f).clip(RoundedCornerShape(6.dp)).clickable { onSelect(ViewRef.FolderView(folder.id)) },
             maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+        if (entryCount != null) Text(entryCount.toString(), Modifier.padding(end = 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Box {
             Icon(Icons.Filled.MoreVert, "Folder menu", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp).clickable { menu = true })
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
@@ -464,6 +470,8 @@ private fun ListRow(
 ) {
     var menu by remember { mutableStateOf(false) }
     val selected = (current as? ViewRef.ListView)?.listId == list.id
+    val entryCounts by vm.entryCounts.collectAsState()
+    val entryCount = entryCounts.lists[list.id]?.takeIf { it > 0 }
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
             .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
@@ -486,6 +494,7 @@ private fun ListRow(
         Spacer(Modifier.width(11.dp))
         Text(list.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+        if (entryCount != null) Text(entryCount.toString(), Modifier.padding(end = 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Box {
             Icon(Icons.Filled.MoreVert, "List menu", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp).clickable { menu = true })
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
@@ -512,6 +521,8 @@ private fun TagNode(
     var menu by remember { mutableStateOf(false) }
     val selected = (current as? ViewRef.TagView)?.tagId == tag.id
     val children = allTags.filter { it.parentId == tag.id }.sortedWith(compareBy({ it.sortOrder }, { it.name }))
+    val entryCounts by vm.entryCounts.collectAsState()
+    val entryCount = entryCounts.tags[tag.id]?.takeIf { it > 0 }
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
             .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
@@ -523,6 +534,7 @@ private fun TagNode(
         Spacer(Modifier.width(11.dp))
         Text("#" + tag.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+        if (entryCount != null) Text(entryCount.toString(), Modifier.padding(end = 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Box {
             Icon(Icons.Filled.MoreVert, "Tag menu", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp).clickable { menu = true })
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
@@ -707,6 +719,8 @@ private fun ContextNode(
     var menu by remember { mutableStateOf(false) }
     val selected = (current as? ViewRef.ContextView)?.contextId == ctx.id
     val children = all.filter { it.parentId == ctx.id }.sortedWith(compareBy({ it.name }))
+    val entryCounts by vm.entryCounts.collectAsState()
+    val entryCount = entryCounts.contexts[ctx.id]?.takeIf { it > 0 }
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
             .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
@@ -718,6 +732,7 @@ private fun ContextNode(
         Spacer(Modifier.width(11.dp))
         Text("@" + ctx.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+        if (entryCount != null) Text(entryCount.toString(), Modifier.padding(end = 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Box {
             Icon(Icons.Filled.MoreVert, "Context menu", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp).clickable { menu = true })
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {

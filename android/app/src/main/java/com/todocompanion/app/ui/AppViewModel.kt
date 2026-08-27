@@ -165,6 +165,49 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
         }.state(emptyMap())
 
+    /** Optional live entry counts for the drawer's lists / folders / tags / contexts / filters (R19 #13). */
+    data class EntryCounts(
+        val lists: Map<String, Int> = emptyMap(),
+        val folders: Map<String, Int> = emptyMap(),
+        val tags: Map<String, Int> = emptyMap(),
+        val contexts: Map<String, Int> = emptyMap(),
+        val filters: Map<String, Int> = emptyMap(),
+    )
+
+    /** Live entry counts for the drawer, mirroring each view's own filter (active = not trashed /
+     *  completed / abandoned; filters honour their own query). Only computed when the user turns
+     *  "Show entry counts" on, so the default drawer stays cheap. */
+    val entryCounts: StateFlow<EntryCounts> =
+        combine(
+            wsTasks,
+            combine(repo.taskTagRefs, repo.taskContextRefs) { tt, tc -> tt to tc },
+            combine(repo.allLists, repo.allFolders) { l, f -> l to f },
+            combine(repo.allTags, repo.allContexts, repo.allFilters) { t, c, fi -> Triple(t, c, fi) },
+            settings,
+        ) { all, refs, lf, tcf, set ->
+            if (!set.showEntryCounts) return@combine EntryCounts()
+            val now = System.currentTimeMillis()
+            val (ttRefs, tcRefs) = refs
+            val (lists, folders) = lf
+            val (_, _, filtersL) = tcf
+            val active = all.filter { !it.trashed && !it.completed && !it.abandoned }
+            val activeIds = active.mapTo(HashSet()) { it.id }
+            val listCounts = active.groupingBy { it.listId }.eachCount()
+            val folderCounts = folders.associate { fo ->
+                val ids = folderListIds(fo.id, lists, folders)
+                fo.id to active.count { it.listId in ids || it.folderId == fo.id }
+            }
+            val tagCounts = ttRefs.filter { it.taskId in activeIds }.groupingBy { it.tagId }.eachCount()
+            val ctxCounts = tcRefs.filter { it.taskId in activeIds }.groupingBy { it.contextId }.eachCount()
+            val tagsByTask = ttRefs.groupBy { it.taskId }.mapValues { e -> e.value.map { it.tagId }.toSet() }
+            val ctxByTask = tcRefs.groupBy { it.taskId }.mapValues { e -> e.value.map { it.contextId }.toSet() }
+            val filterCounts = filtersL.associate { fl ->
+                val q = com.todocompanion.app.domain.view.Filters.parse(fl.queryJson)
+                fl.id to all.count { !it.trashed && com.todocompanion.app.domain.view.Filters.matches(q, it, tagsByTask[it.id].orEmpty(), ctxByTask[it.id].orEmpty(), now, zone) }
+            }
+            EntryCounts(listCounts, folderCounts, tagCounts, ctxCounts, filterCounts)
+        }.state(EntryCounts())
+
     // P1: reliability (0–100) for every recurring task, from the completion activity trail.
     val taskReliability: StateFlow<Map<String, com.todocompanion.app.domain.task.TaskReliability.Reliability>> =
         combine(wsTasks, repo.allActivity) { t, acts ->
@@ -2985,18 +3028,25 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val name = displayNameOf(uri) ?: ""
         val text = readImportText(uri = uri)
         if (text.isNullOrBlank()) { onDone(false, "Couldn't read that file. Try 'Share → ToDo Companion' from your file manager."); return@launch }
-        val external = name.endsWith(".csv", true) || name.endsWith(".opml", true) ||
-            name.endsWith(".md", true) || name.endsWith(".txt", true) || name.endsWith(".ics", true)
-        val looksJson = !external && (name.endsWith(".json", true) ||
-            text.trimStart().firstOrNull()?.let { it == '{' || it == '[' } == true)
-        if (looksJson) {
+        // Decide by CONTENT, not just filename/first-char: a shared MLO `.mlobak` unzips to a mix of
+        // entries and can lead with a non-XML block that starts with '{', which used to be misread as a
+        // JSON backup and rejected. The external parser reliably recognizes MLO/CSV/OPML, so let it win;
+        // only fall back to a JSON restore when the file genuinely isn't a known external export.
+        val external = com.todocompanion.app.data.sync.Importers.parse(text)
+        val looksJson = name.endsWith(".json", true) ||
+            text.trimStart().firstOrNull()?.let { it == '{' || it == '[' } == true
+        if (external != null && !name.endsWith(".json", true)) {
+            importExternalText(text, onDone)
+        } else if (looksJson) {
             val ok = runCatching {
                 val plain = com.todocompanion.app.data.sync.Crypto.decrypt(text, settings.value.syncPassphrase) ?: text
                 if (merge) repo.importJsonMerge(plain) else repo.importJsonReplace(plain)
                 AlarmScheduler.rescheduleAll(appCtx, repo); true
             }.getOrDefault(false)
             val verb = if (merge) "Merged" else "Restored"
-            onDone(ok, if (ok) "$verb ${name.ifBlank { "your backup" }}" else "That file isn't a valid ToDo Companion backup")
+            if (ok) onDone(true, "$verb ${name.ifBlank { "your backup" }}")
+            else if (external != null) importExternalText(text, onDone) // last resort: try as external export
+            else onDone(false, "That file isn't a valid ToDo Companion backup")
         } else importExternalText(text, onDone)
     }
 

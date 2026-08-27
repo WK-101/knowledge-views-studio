@@ -94,6 +94,14 @@ private fun fmtDur(min: Int): String = when {
     else -> "${min}m"
 }
 
+/** Duration of a single entry as text — shows seconds for a sub-minute entry so a real few-second
+ *  entry never reads as a blank "0m" (R19 #6). */
+private fun fmtEntryDur(startMillis: Long, endMillis: Long?, now: Long): String {
+    val ms = ((endMillis ?: now) - startMillis).coerceAtLeast(0L)
+    val min = (ms / 60_000L).toInt()
+    return if (min < 1) "${(ms / 1000L).toInt()}s" else fmtDur(min)
+}
+
 /**
  * Tier S — the time tracker. One tap on an activity starts a live timer (single-timer discipline);
  * tap again to stop. A day's entries render as a timeline with per-activity totals, and past intervals
@@ -111,7 +119,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
     val timeFmt = remember { DateTimeFormatter.ofPattern("HH:mm") }
 
     val settings by vm.settings.collectAsState()
-    val paused by vm.pausedTrack.collectAsState()
+    // (paused/running timer UI now lives in the persistent bar; see AppRoot.RunningTimerBar)
     // A live clock so the running timer counts up AND the untracked-time / "since your last entry" gaps
     // keep advancing even when nothing is running (previously `now` froze whenever no timer was live, so
     // untracked time looked "stuck"). Ticks every second while tracking, every 20s when idle.
@@ -139,8 +147,10 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
     val multiDay = rangeUnit != 0
     val actById = activities.associateBy { it.id }
 
+    // List EVERY entry that overlaps the window at all — even a few-second one that rounds to 0 minutes,
+    // and a just-started running timer — so nothing tracked is invisible (R19 #6).
     val dayEntries = remember(entries, day, rangeUnit, now) {
-        entries.filter { TimeTracking.minutesInWindow(it.startMillis, it.endMillis, winStart, winEnd, now) > 0 }
+        entries.filter { TimeTracking.overlapsWindow(it.startMillis, it.endMillis, winStart, winEnd, now) }
             .sortedByDescending { it.startMillis }
     }
     val totals = remember(entries, day, rangeUnit, now) { TimeTracking.totalsByActivity(entries, winStart, winEnd, now) }
@@ -151,7 +161,6 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
     var showManual by remember { mutableStateOf(false) }
     var editEntry by remember { mutableStateOf<TimeEntryEntity?>(null) }
     var tileMenu by remember { mutableStateOf<String?>(null) }        // activity id whose long-press menu is open
-    var reassignFor by remember { mutableStateOf<String?>(null) }     // running entry id being reassigned
     var nestFor by remember { mutableStateOf<String?>(null) }         // activity id being (re)nested from the grid
     var historyFor by remember { mutableStateOf<String?>(null) }      // activity id whose full history is shown
     var gapInit by remember { mutableStateOf<Pair<Int, Int>?>(null) } // start/end minutes to prefill the manual dialog with
@@ -228,7 +237,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                                     val en = e.endMillis?.let { Instant.ofEpochMilli(it).atZone(zone).format(timeFmt) } ?: "now"
                                     Text("$st – $en" + (e.note.takeIf { it.isNotBlank() }?.let { "  ·  $it" } ?: ""), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
-                                Text(fmtDur(e.minutes(now)), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                                Text(fmtEntryDur(e.startMillis, e.endMillis, now), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
                             }
                         }
                     }
@@ -260,74 +269,9 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
     val body: @Composable (Modifier) -> Unit = { bodyModifier ->
         Column(bodyModifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Spacer(Modifier.height(if (embedded) 8.dp else 2.dp))
-            // Running / paused card — only shown while a timer is active or paused. When idle we show
-            // nothing here (the activity tiles below are the start affordance), so the screen stays lean.
-            val paused0 = paused
-            if (runningList.isEmpty() && paused0 != null) {
-                val pAct = actById[paused0.first]
-                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)) {
-                    Row(Modifier.padding(16.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Paused", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text((pAct?.emoji?.plus(" ") ?: "") + (pAct?.name ?: "activity"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                        TextButton(onClick = { vm.clearPaused() }) { Text("Dismiss") }
-                        Spacer(Modifier.width(4.dp))
-                        FilledTonalButton(onClick = { vm.resumeTracking() }) {
-                            Icon(Icons.Filled.PlayArrow, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Resume")
-                        }
-                    }
-                }
-            }
-            // Idle: a single one-tap "Start now" — begins the clock against your last/most-used activity
-            // without making you scan the grid first, then you can reassign it from the running card
-            // (Simple-Time-Tracker's decision-fatigue fix). Tapping a specific tile below still works too.
-            if (runningList.isEmpty() && paused0 == null && activities.any { !it.archived }) {
-                Surface(onClick = { if (!vm.startTimeTrackingSmart()) showNewActivity = true }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = .10f)) {
-                    Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(38.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Filled.PlayArrow, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(22.dp))
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text("Start timer", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                            Text("Start now, choose the activity while it runs.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                    }
-                }
-            }
-            if (runningList.isNotEmpty()) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    runningList.forEach { r ->
-                        val rAct = actById[r.activityId]
-                        val rc = rAct?.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
-                        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = rc.copy(alpha = .14f)) {
-                            Row(Modifier.padding(16.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                Box(Modifier.size(12.dp).clip(CircleShape).background(rc)); Spacer(Modifier.width(12.dp))
-                                Box(Modifier.weight(1f)) {
-                                    // Tap the activity name to reassign — "start first, pick the activity later".
-                                    Column(Modifier.clickable { reassignFor = r.id }) {
-                                        Text((rAct?.emoji?.plus(" ") ?: "") + (rAct?.name ?: "Tap to pick activity") + "  ▾", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        val elapsed = ((now - r.startMillis) / 1000).coerceAtLeast(0)
-                                        Text("%d:%02d:%02d".format(elapsed / 3600, (elapsed % 3600) / 60, elapsed % 60), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                    }
-                                    DropdownMenu(expanded = reassignFor == r.id, onDismissRequest = { reassignFor = null }) {
-                                        activities.filter { !it.archived }.forEach { a ->
-                                            DropdownMenuItem(text = { Text((a.emoji?.plus(" ") ?: "") + a.name) }, onClick = { reassignFor = null; vm.reassignTimeEntry(r.id, a.id) })
-                                        }
-                                    }
-                                }
-                                if (runningList.size == 1) {
-                                    IconButton(onClick = { vm.pauseTracking() }) { Icon(Icons.Filled.Pause, "Pause") }
-                                }
-                                FilledTonalButton(onClick = { vm.stopTimeEntry(r.id) }) {
-                                    Icon(Icons.Filled.Stop, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Stop")
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            // The running / paused timer now lives ONLY in the persistent bar above the bottom nav
+            // (reassign / pause / stop there), so the Time screen no longer duplicates it with a top card.
+            // Idle start is the FAB (single tap) or tapping an activity tile below — the view stays lean.
 
             // U1 · "forgot to track?" — planned time-blocks today with little/no tracked time.
             if (day == LocalDate.now(zone)) {
@@ -638,7 +582,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                                 val datePrefix = if (multiDay) Instant.ofEpochMilli(e.startMillis).atZone(zone).format(DateTimeFormatter.ofPattern("MMM d")) + "  " else ""
                                 Text(datePrefix + "$startTxt – $endTxt" + (e.note.takeIf { it.isNotBlank() }?.let { "  ·  $it" } ?: ""), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
-                            Text(fmtDur(e.minutes(now)), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = c)
+                            Text(fmtEntryDur(e.startMillis, e.endMillis, now), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = c)
                         }
                     }
                 }

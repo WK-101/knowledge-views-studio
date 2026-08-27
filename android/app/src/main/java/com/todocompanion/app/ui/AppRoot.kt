@@ -51,6 +51,9 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -63,6 +66,8 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.ViewColumn
 import androidx.compose.material.icons.filled.ViewTimeline
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -82,6 +87,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -160,33 +166,89 @@ private fun CompactBottomBar(tabs: List<Tab>, current: Tab, onSelect: (Tab) -> U
     }
 }
 
-/** A slim, persistent bar shown above the bottom nav on every tab while a timer runs — the running
- *  activity, a live-ticking clock, tap to open Time, and a one-tap Stop. */
+/** A slim, persistent bar shown above the bottom nav on every tab while a timer runs (or is paused) —
+ *  the running activity, a live-ticking clock, tap to open Time, plus reassign / pause / stop. This is
+ *  the single global timer surface (the Time screen no longer duplicates it with an in-screen card). */
 @Composable
 private fun RunningTimerBar(vm: AppViewModel, onOpen: () -> Unit) {
     val entries by vm.timeEntries.collectAsState()
     val activities by vm.timeActivities.collectAsState()
+    val paused by vm.pausedTrack.collectAsState()
     // Show EVERY running timer, not just the first — when overlapping timers are enabled each gets its
     // own row with its own live clock and stop button, so several parallel activities are all visible.
     val running = entries.filter { it.running }
-    if (running.isEmpty()) return
+    val paused0 = paused
+    if (running.isEmpty() && paused0 == null) return
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(running.size) { while (true) { now = System.currentTimeMillis(); kotlinx.coroutines.delay(1000) } }
+    var reassignFor by remember { mutableStateOf<String?>(null) }
     Column(Modifier.fillMaxWidth()) {
         running.forEachIndexed { i, r ->
             val act = activities.firstOrNull { it.id == r.activityId }
             val c = act?.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
             val secs = ((now - r.startMillis) / 1000).coerceAtLeast(0)
             androidx.compose.material3.Surface(color = c.copy(alpha = .16f), onClick = onOpen, modifier = Modifier.fillMaxWidth()) {
-                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 6.dp, top = 5.dp, bottom = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(8.dp).clip(CircleShape).background(c)); Spacer(Modifier.width(10.dp))
-                    Text((act?.emoji?.plus(" ") ?: "") + (act?.name ?: "Tracking"), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1)
+                    // Tap the activity name to reassign — "start first, pick the activity later".
+                    Box(Modifier.weight(1f)) {
+                        Row(Modifier.clickable { reassignFor = r.id }, verticalAlignment = Alignment.CenterVertically) {
+                            Text((act?.emoji?.plus(" ") ?: "") + (act?.name ?: "Tap to pick activity"), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1)
+                            Icon(Icons.Filled.ArrowDropDown, "Reassign activity", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                        }
+                        DropdownMenu(expanded = reassignFor == r.id, onDismissRequest = { reassignFor = null }) {
+                            activities.filter { !it.archived }.forEach { a ->
+                                DropdownMenuItem(text = { Text((a.emoji?.plus(" ") ?: "") + a.name) }, onClick = { reassignFor = null; vm.reassignTimeEntry(r.id, a.id) })
+                            }
+                        }
+                    }
                     Text("%d:%02d:%02d".format(secs / 3600, (secs % 3600) / 60, secs % 60), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = c)
+                    // Pause is only unambiguous with a single running timer; with several overlapping,
+                    // just offer stop per row.
+                    if (running.size == 1) IconButton(onClick = { vm.pauseTracking() }) { Icon(Icons.Filled.Pause, "Pause", tint = c) }
                     IconButton(onClick = { vm.stopTimeEntry(r.id) }) { Icon(Icons.Filled.Stop, "Stop ${act?.name ?: "timer"}", tint = c) }
                 }
             }
             if (i < running.lastIndex) androidx.compose.material3.HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
         }
+        // Paused: no interval is running, but a resume is one tap away (the gap in between is a real,
+        // honest untracked gap).
+        if (running.isEmpty() && paused0 != null) {
+            val pAct = activities.firstOrNull { it.id == paused0.first }
+            val c = pAct?.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
+            androidx.compose.material3.Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .6f), onClick = onOpen, modifier = Modifier.fillMaxWidth()) {
+                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Pause, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(8.dp))
+                    Text("Paused · " + (pAct?.emoji?.plus(" ") ?: "") + (pAct?.name ?: "activity"), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1)
+                    IconButton(onClick = { vm.clearPaused() }) { Icon(Icons.Filled.Close, "Dismiss", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    IconButton(onClick = { vm.resumeTracking() }) { Icon(Icons.Filled.PlayArrow, "Resume", tint = c) }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * A FAB that reliably supports both a tap and a long-press. A real [FloatingActionButton] wires its
+ * own inner clickable Surface, which sits on top of any outer `combinedClickable` and swallows the
+ * gesture — so `onLongClick` never fires (this was the "hold to add a past entry doesn't work" bug).
+ * Here the FAB-styled Surface has NO onClick of its own; `combinedClickable` is the only gesture
+ * handler, so tap and hold are both delivered.
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun DualFab(icon: ImageVector, contentDescription: String, onClick: () -> Unit, onLongClick: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        shadowElevation = 6.dp,
+        tonalElevation = 6.dp,
+        modifier = Modifier
+            .size(56.dp)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+    ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(icon, contentDescription) }
     }
 }
 
@@ -226,6 +288,9 @@ fun AppRoot(
         }
         var editing by remember { mutableStateOf<String?>(null) }
         var showQuickAdd by remember { mutableStateOf(false) }
+        // Where to return when Back is pressed inside an archive view (Trash / Completed / Won't-do): the
+        // (tab, view) you opened it from — so Back goes back there instead of exiting the app (R19).
+        var navReturn by remember { mutableStateOf<Pair<Tab, ViewRef>?>(null) }
         var quickAddDue by remember { mutableStateOf<Long?>(null) }
         var quickAddWithTime by remember { mutableStateOf(false) }
         var quickAddText by remember { mutableStateOf("") }
@@ -403,6 +468,16 @@ fun AppRoot(
 
         // Back from a secondary tab returns to Tasks instead of exiting.
         BackHandler(enabled = tab != Tab.TASKS && editing == null && !showQuickAdd) { tab = Tab.TASKS }
+        // Back from an archive view (Trash / Completed / Won't-do) returns to where you opened it from
+        // (the last list / smart list / habits / time / search) instead of exiting. Composed after the
+        // handler above so it wins while an archive view is showing.
+        val inArchiveView = currentView.let { it is ViewRef.Smart && (it.kind == SmartKind.TRASH || it.kind == SmartKind.COMPLETED || it.kind == SmartKind.WONT_DO) }
+        BackHandler(enabled = tab == Tab.TASKS && navReturn != null && inArchiveView && editing == null && !showQuickAdd) {
+            val (t, v) = navReturn!!
+            navReturn = null
+            vm.select(v)
+            tab = t
+        }
 
         val title = when (tab) {
             Tab.TASKS -> when (val v = currentView) {
@@ -422,7 +497,14 @@ fun AppRoot(
             drawerContent = {
                 AppDrawer(
                     vm = vm,
-                    onSelect = { v -> vm.select(v); goTasks(); scope.launch { drawerState.close() } },
+                    onSelect = { v ->
+                        // Opening an archive view (Trash / Completed / Won't-do)? Remember where we came
+                        // from so Back returns there rather than dropping out of the app.
+                        val archive = v is ViewRef.Smart && (v.kind == SmartKind.TRASH || v.kind == SmartKind.COMPLETED || v.kind == SmartKind.WONT_DO)
+                        val alreadyThere = currentView.let { it is ViewRef.Smart && v is ViewRef.Smart && it.kind == v.kind }
+                        navReturn = if (archive && !alreadyThere) (tab to currentView) else null
+                        vm.select(v); goTasks(); scope.launch { drawerState.close() }
+                    },
                     onSearch = { tab = Tab.SEARCH; scope.launch { drawerState.close() } },
                     onNewList = { parent -> newReq = NewReq(false, parent) },
                     onNewFolder = { parent -> newReq = NewReq(true, parent) },
@@ -663,11 +745,13 @@ fun AppRoot(
                         // while looking at, say, the 14th is due the 14th, not undated).
                         val fabDue = { if (tab == Tab.CALENDAR) calSelected.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli() else null }
                         Box {
-                            // Tap adds; long-press opens quick actions (C1).
-                            FloatingActionButton(onClick = { openQuickAdd(fabDue()) }, modifier = Modifier.combinedClickable(
-                                onClick = { openQuickAdd(fabDue()) }, onLongClick = { fabMenu = true })) {
-                                Icon(Icons.Filled.Add, "Add task")
-                            }
+                            // Tap adds; long-press opens quick actions (C1). DualFab so the long-press fires.
+                            DualFab(
+                                icon = Icons.Filled.Add,
+                                contentDescription = "Add task",
+                                onClick = { openQuickAdd(fabDue()) },
+                                onLongClick = { fabMenu = true },
+                            )
                             DropdownMenu(expanded = fabMenu, onDismissRequest = { fabMenu = false }) {
                                 DropdownMenuItem(text = { Text("New task") }, leadingIcon = { Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; openQuickAdd(null) })
                                 DropdownMenuItem(text = { Text("Plan my day") }, leadingIcon = { Icon(Icons.Filled.Bolt, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; showPlan = true })
@@ -682,18 +766,16 @@ fun AppRoot(
                             Icon(Icons.Filled.Add, "New habit")
                         }
                     } else if (tab == Tab.TIME && !timeFocus) {
-                        // Double-action FAB (R18): a single tap starts a new timer straight away (smart pick);
-                        // press-and-hold opens the "add a past entry" dialog. So the common action (start
-                        // tracking now) is one tap, and back-dating is the deliberate long-press.
-                        FloatingActionButton(
+                        // Double-action FAB (R18/R19): a single tap starts a new timer straight away (smart
+                        // pick); press-and-hold opens the "add a past entry" dialog. The common action
+                        // (start now) is one tap, and back-dating is the deliberate long-press. Uses
+                        // [DualFab] so the long-press actually fires (a real FAB's inner click swallowed it).
+                        DualFab(
+                            icon = Icons.Filled.Add,
+                            contentDescription = "Start timer (hold to add a past entry)",
                             onClick = { if (!vm.startTimeTrackingSmart()) vm.addTimeEntryRequests.value++ },
-                            modifier = Modifier.combinedClickable(
-                                onClick = { if (!vm.startTimeTrackingSmart()) vm.addTimeEntryRequests.value++ },
-                                onLongClick = { vm.addTimeEntryRequests.value++ },
-                            ),
-                        ) {
-                            Icon(Icons.Filled.Add, "Start timer (hold to add a past entry)")
-                        }
+                            onLongClick = { vm.addTimeEntryRequests.value++ },
+                        )
                     }
                 },
             ) { padding ->
@@ -990,6 +1072,25 @@ fun AppRoot(
                     androidx.compose.foundation.layout.Column {
                         androidx.compose.material3.TextButton(onClick = { blockAt = null; openQuickAdd(atMillis, withTime = true) }) {
                             Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("New task here")
+                        }
+                        // Time-block a tracking activity right here (R19 #1): logs a 30-min entry at this
+                        // slot for the chosen activity (drag/edit it afterwards). Time module only.
+                        val timeActs by vm.timeActivities.collectAsState()
+                        val blockActs = if (Modules.isEnabled(settings, Modules.TIME)) timeActs.filter { !it.archived } else emptyList()
+                        if (blockActs.isNotEmpty()) {
+                            androidx.compose.material3.HorizontalDivider()
+                            Text("Or track an activity here:", style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 6.dp))
+                            androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                blockActs.forEach { a ->
+                                    val ac = a.colorArgb?.let { androidx.compose.ui.graphics.Color(it) } ?: MaterialTheme.colorScheme.primary
+                                    androidx.compose.material3.AssistChip(
+                                        onClick = { vm.addManualTimeEntry(a.id, atMillis, atMillis + 30 * 60_000L); blockAt = null },
+                                        label = { Text((a.emoji?.plus(" ") ?: "") + a.name, maxLines = 1) },
+                                        leadingIcon = { Box(Modifier.size(10.dp).clip(CircleShape).background(ac)) },
+                                    )
+                                }
+                            }
                         }
                         if (candidates.isNotEmpty()) {
                             androidx.compose.material3.HorizontalDivider()

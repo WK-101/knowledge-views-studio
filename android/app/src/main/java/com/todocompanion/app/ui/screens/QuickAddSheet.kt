@@ -150,28 +150,23 @@ fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Bo
                     lists.firstOrNull { it.id == (destView as com.todocompanion.app.domain.view.ViewRef.ListView).listId }?.name ?: "List"
                 else -> "Inbox"
             }
-            Text("Adding to $destText", style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp, start = 2.dp))
-
-            // The single TickTick-style icon row. Chosen list/tags/reminder read from each icon's
-            // active tint — no extra chip row, so the sheet stays as compact as TickTick's.
-            Row(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                // Date: an inline coloured chip when set, otherwise a plain calendar glyph.
+            // Destination + (when set) the chosen date, as one calm, light line — no bulky value pill.
+            Row(Modifier.fillMaxWidth().padding(top = 2.dp, start = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Adding to $destText", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (due != null) {
-                    Row(
-                        Modifier.clip(RoundedCornerShape(8.dp)).clickable { showDue = true }.padding(horizontal = 6.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(Icons.Filled.CalendarMonth, "Date", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(5.dp))
-                        Text(formatDue(due!!), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
-                        Spacer(Modifier.width(3.dp))
-                        Icon(Icons.Filled.Close, "Clear date", tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(15.dp).clip(CircleShape).clickable { due = null; hasTime = false })
-                    }
-                } else {
-                    IconTool(Icons.Filled.CalendarMonth, "Date", false) { showDue = true }
+                    Text("  ·  ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(Icons.Filled.CalendarMonth, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(13.dp))
+                    Spacer(Modifier.width(3.dp))
+                    Text(formatDue(due!!), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Filled.Close, "Clear date", tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 3.dp).size(14.dp).clip(CircleShape).clickable { due = null; hasTime = false })
                 }
+            }
+
+            // The single TickTick-style icon row. Chosen date/list/tags/reminder read from each icon's
+            // active tint — no chip row, so the sheet stays as compact and calm as TickTick's.
+            Row(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconTool(Icons.Filled.CalendarMonth, "Date", due != null) { showDue = true }
                 // Tap to cycle priority (High → Medium → Low → None) — no popup, so nothing can
                 // land over the send button.
                 IconTool(Icons.Filled.Flag, "Priority", priority != null && priority != PriorityLevel.NONE,

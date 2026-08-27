@@ -337,7 +337,7 @@ private fun SelectionBar(
  * used list/folder never means scrolling a long list again. Reused for single-swipe and bulk moves.
  */
 @Composable
-private fun MoveTargetDialog(
+internal fun MoveTargetDialog(
     folders: List<com.todocompanion.app.data.entity.FolderEntity>,
     lists: List<com.todocompanion.app.data.entity.ListEntity>,
     pinnedRefs: List<String>,

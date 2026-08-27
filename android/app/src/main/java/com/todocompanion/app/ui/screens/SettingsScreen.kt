@@ -365,6 +365,9 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                     vm.saveSettings(s.copy(smartListVis = next))
                 }
             }
+            Spacer(Modifier.height(10.dp)); Sub("Entry counts")
+            Text("Show a live task count next to every list, folder, tag, context and filter (smart lists always show theirs).", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
+            Toggle("Show entry counts", s.showEntryCounts) { vm.saveSettings(s.copy(showEntryCounts = it)) }
             Spacer(Modifier.height(10.dp)); Sub("Bottom bar")
             Text("Tasks always shows. Hidden tabs stay reachable from the drawer menu.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
             listOf("CALENDAR" to "Calendar", "TIMELINE" to "Timeline", "MATRIX" to "Matrix", "HABITS" to "Habits", "FOCUS" to "Focus", "SEARCH" to "Search", "SETTINGS" to "Settings").forEach { (key, label) ->

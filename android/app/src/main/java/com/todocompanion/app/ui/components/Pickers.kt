@@ -59,9 +59,11 @@ data class DateChoice(
 )
 
 /**
- * TickTick-style unified Date & Reminder bottom sheet: a month calendar with Date / Duration tabs, and —
- * crucially — an OPTIONAL time (adding a date no longer forces a time). One place for date, time, all-day,
- * duration, reminder and repeat, replacing the scattered task-editor controls. Fully offline & theme-aware.
+ * TickTick-style unified Date & Reminder bottom sheet — the SINGLE place for a task's whole schedule:
+ * date, an OPTIONAL time (adding a date no longer forces a time), all-day, duration, reminder and repeat.
+ * Replaces the scattered task-editor controls entirely. When [reminderSlot] is supplied the full reminder
+ * manager renders inside the sheet (so reminders live here too, not in a separate section outside). Fully
+ * offline & theme-aware.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -74,6 +76,7 @@ fun DateReminderSheet(
     initialReminderOffsetMin: Int?,
     onDismiss: () -> Unit,
     onConfirm: (DateChoice) -> Unit,
+    reminderSlot: (@Composable () -> Unit)? = null,
 ) {
     val zone = ZoneId.systemDefault()
     val initialDt = initialDue?.let { Instant.ofEpochMilli(it).atZone(zone) }
@@ -84,43 +87,37 @@ fun DateReminderSheet(
     var durationMin by remember { mutableStateOf(initialDurationMin) }
     var rrule by remember { mutableStateOf(initialRrule) }
     var reminder by remember { mutableStateOf(initialReminderOffsetMin) }
-    var tab by remember { mutableStateOf(if (initialDurationMin != null) 1 else 0) }   // 0 Date · 1 Duration
     var showTimePicker by remember { mutableStateOf(false) }
     var showRepeat by remember { mutableStateOf(false) }
     var showReminder by remember { mutableStateOf(false) }
+    val hm = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
 
-    val fmtDate = java.time.format.DateTimeFormatter.ofPattern("EEE, MMM d")
-    fun rowLabel(v: String?, none: String = "None") = v ?: none
+    fun confirm() {
+        val effectiveAllDay = allDay || (hasDate && time == null)
+        val due = if (!hasDate) null else java.time.LocalDateTime.of(date, time ?: LocalTime.MIDNIGHT).atZone(zone).toInstant().toEpochMilli()
+        onConfirm(DateChoice(
+            dueMillis = due,
+            hasTime = hasDate && time != null && !effectiveAllDay,
+            allDay = effectiveAllDay,
+            durationMin = if (!effectiveAllDay) durationMin else null,
+            rrule = rrule,
+            reminderOffsetMin = if (reminderSlot != null) null else reminder,
+        ))
+    }
 
     val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
     androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         androidx.compose.foundation.layout.Column(
-            Modifier.padding(horizontal = 16.dp).padding(bottom = 24.dp)
+            Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp)
                 .verticalScroll(rememberScrollState()),
         ) {
-            // Header: cancel · Date/Duration tabs · confirm
+            // Header: cancel · title · confirm — one calm row.
             androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 androidx.compose.material3.IconButton(onClick = onDismiss) { androidx.compose.material3.Icon(Icons.Filled.Close, "Cancel") }
-                androidx.compose.foundation.layout.Box(Modifier.weight(1f), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                    SingleChoiceSegmentedButtonRow {
-                        SegmentedButton(selected = tab == 0, onClick = { tab = 0; if (durationMin != null) durationMin = null }, shape = SegmentedButtonDefaults.itemShape(0, 2)) { Text("Date") }
-                        SegmentedButton(selected = tab == 1, onClick = { tab = 1; if (time == null) time = LocalTime.of(9, 0); if (durationMin == null) durationMin = 60 }, shape = SegmentedButtonDefaults.itemShape(1, 2)) { Text("Duration") }
-                    }
+                Text("Schedule", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                androidx.compose.material3.FilledTonalButton(onClick = { confirm() }) {
+                    androidx.compose.material3.Icon(Icons.Filled.Check, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Done")
                 }
-                androidx.compose.material3.IconButton(onClick = {
-                    val due = if (!hasDate) null else {
-                        val t = time ?: LocalTime.MIDNIGHT
-                        java.time.LocalDateTime.of(date, t).atZone(zone).toInstant().toEpochMilli()
-                    }
-                    onConfirm(DateChoice(
-                        dueMillis = due,
-                        hasTime = hasDate && time != null && !allDay,
-                        allDay = allDay || (hasDate && time == null),
-                        durationMin = if (tab == 1) durationMin else null,
-                        rrule = rrule,
-                        reminderOffsetMin = reminder,
-                    ))
-                }) { androidx.compose.material3.Icon(Icons.Filled.Check, "Done", tint = MaterialTheme.colorScheme.primary) }
             }
             // Month calendar (themed M3 DatePicker, no separate time step).
             val dateState = rememberDatePickerState(initialSelectedDateMillis = initialDue ?: date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
@@ -130,31 +127,45 @@ fun DateReminderSheet(
                 dateState.selectedDateMillis?.let { date = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate(); hasDate = true }
             }
 
-            // Time row — OPTIONAL. Tap to add/change; clear with ✕. (This is the "don't force time" fix.)
-            SheetRow(icon = Icons.Filled.Schedule, label = "Time",
-                value = time?.let { if (tab == 1 && durationMin != null) "${it.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))} · ${fmtDuration(durationMin!!)}" else it.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")) } ?: "None",
-                onClear = if (time != null && tab == 0) ({ time = null }) else null,
-                onClick = { showTimePicker = true })
-            if (tab == 1) {
-                // Duration chips (start time is above; end = start + duration).
-                FlowRow(Modifier.padding(start = 4.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf(15 to "15m", 30 to "30m", 45 to "45m", 60 to "1h", 90 to "1½h", 120 to "2h", 240 to "4h").forEach { (m, l) ->
-                        FilterChip(selected = durationMin == m, onClick = { durationMin = m }, label = { Text(l) })
+            androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
+            // All-day is top-level (not tab-gated): turning it on clears the time and duration.
+            SheetToggleRow("All day", allDay) { allDay = it; if (it) { time = null; durationMin = null } }
+            if (!allDay) {
+                // Time — OPTIONAL. Tap to add/change; clear with ✕. (The "don't force a time" behaviour.)
+                SheetRow(icon = Icons.Filled.Schedule, label = "Time",
+                    value = time?.format(hm) ?: "None",
+                    onClear = if (time != null) ({ time = null; durationMin = null }) else null,
+                    onClick = { showTimePicker = true })
+                // Duration only means something once there's a start time (end = start + duration).
+                if (time != null) {
+                    Text("Duration", Modifier.padding(start = 34.dp, top = 2.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FlowRow(Modifier.padding(start = 34.dp, top = 4.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf<Pair<Int?, String>>(null to "None", 15 to "15m", 30 to "30m", 45 to "45m", 60 to "1h", 90 to "1½h", 120 to "2h", 240 to "4h").forEach { (m, l) ->
+                            FilterChip(selected = durationMin == m, onClick = { durationMin = m }, label = { Text(l) })
+                        }
                     }
                 }
-                SheetToggleRow("All day", allDay) { allDay = it; if (it) time = null }
             }
-            // Reminder row (optional).
-            SheetRow(icon = Icons.Filled.Notifications, label = "Reminder",
-                value = reminderLabelOffset(reminder),
-                onClear = if (reminder != null) ({ reminder = null }) else null,
-                onClick = { showReminder = true })
+            androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
+            // Reminders: the full manager renders here (via the slot) so reminders live inside the sheet.
+            if (reminderSlot != null) {
+                androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 2.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    androidx.compose.material3.Icon(Icons.Filled.Notifications, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(14.dp)); Text("Reminders", style = MaterialTheme.typography.bodyLarge)
+                }
+                Box(Modifier.padding(start = 34.dp, bottom = 4.dp)) { reminderSlot() }
+            } else {
+                SheetRow(icon = Icons.Filled.Notifications, label = "Reminder",
+                    value = reminderLabelOffset(reminder),
+                    onClear = if (reminder != null) ({ reminder = null }) else null,
+                    onClick = { showReminder = true })
+            }
             // Repeat row (optional).
             SheetRow(icon = Icons.Filled.Repeat, label = "Repeat",
                 value = repeatLabel(rrule),
                 onClear = if (rrule != null) ({ rrule = null }) else null,
                 onClick = { showRepeat = true })
-            if (hasDate) TextButton(onClick = { hasDate = false; time = null; onConfirm(DateChoice(null, false, false, null, rrule, null)) }) {
+            if (hasDate) TextButton(onClick = { hasDate = false; time = null; onConfirm(DateChoice(null, false, false, null, rrule, if (reminderSlot != null) null else reminder)) }) {
                 Text("Clear date", color = MaterialTheme.colorScheme.error)
             }
         }

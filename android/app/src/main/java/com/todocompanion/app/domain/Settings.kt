@@ -189,6 +189,9 @@ data class AppSettings(
     val dismissedTips: Set<String> = emptySet(),
     // Time tab: activity ids the user pinned — they float to the front of the one-tap tile grid.
     val pinnedActivities: Set<String> = emptySet(),
+    // Sidebar: show a live entry count on every list / folder / tag / context / filter (smart lists always
+    // show theirs). Off by default — a calmer drawer — and turned on from Settings (R19 #13).
+    val showEntryCounts: Boolean = false,
 ) {
     /** Effective tier for an optional editor field: user override, else its built-in default. */
     fun editorTier(f: EditorField): Int = editorFieldTiers[f.id] ?: f.defaultTier
@@ -313,6 +316,7 @@ data class AppSettings(
         Keys.FIRST_WIN to firstWinCelebrated.toString(),
         Keys.DISMISSED_TIPS to dismissedTips.joinToString(","),
         Keys.PINNED_ACTIVITIES to pinnedActivities.joinToString(","),
+        Keys.SHOW_ENTRY_COUNTS to showEntryCounts.toString(),
     )
 
     object Keys {
@@ -422,6 +426,7 @@ data class AppSettings(
         const val FIRST_WIN = "first_win_celebrated"
         const val DISMISSED_TIPS = "dismissed_tips"
         const val PINNED_ACTIVITIES = "pinned_activities"
+        const val SHOW_ENTRY_COUNTS = "show_entry_counts"
     }
 
     companion object {
@@ -522,6 +527,7 @@ data class AppSettings(
             firstWinCelebrated = m[Keys.FIRST_WIN]?.toBoolean() ?: false,
             dismissedTips = (m[Keys.DISMISSED_TIPS] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             pinnedActivities = (m[Keys.PINNED_ACTIVITIES] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
+            showEntryCounts = m[Keys.SHOW_ENTRY_COUNTS]?.toBooleanStrictOrNull() ?: false,
             dailySummaryEnabled = m[Keys.SUMMARY_ON]?.toBooleanStrictOrNull() ?: false,
             appBackground = m[Keys.APP_BG] ?: "none",
             dailyCapacityHours = m[Keys.CAPACITY]?.toIntOrNull()?.coerceIn(1, 16) ?: 8,

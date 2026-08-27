@@ -1,6 +1,14 @@
 package com.todocompanion.app.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -254,6 +262,21 @@ fun CalendarScreen(
     // the content and the buttons line up with every other screen.
     var editTrackedId by remember { mutableStateOf<String?>(null) }   // a tracked interval tapped in the calendar
     Column(modifier.fillMaxSize()) {
+        // Smooth transitions when moving between periods (swipe) and between modes (R19 #8): slide +
+        // fade in the swipe direction, matching the calm feel of the month collapse. Honours reduce-motion.
+        AnimatedContent(
+            targetState = mode to anchor,
+            transitionSpec = {
+                if (s.reduceMotion || initialState.first != targetState.first && initialState.second == targetState.second) {
+                    (fadeIn(tween(180)) togetherWith fadeOut(tween(150))) using SizeTransform(clip = false)
+                } else {
+                    val dir = if (targetState.second >= initialState.second) 1 else -1
+                    (slideInHorizontally(tween(260)) { w -> dir * w } + fadeIn(tween(220))) togetherWith
+                        (slideOutHorizontally(tween(260)) { w -> -dir * w } + fadeOut(tween(180))) using SizeTransform(clip = false)
+                }
+            },
+            label = "calNav",
+        ) { (mode, anchor) ->
         when (mode) {
             "month" -> MonthView(anchor, selected, dueByDate, firstDow, onSelect = { onSelected(it) }, onPrev = prev, onNext = next, onOpenTask = onOpenTask, swipe = swipe, onAdd = { onAddOnDate(selected) },
                 habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, countdownsFor = countdownsFor, trackedDayInfo = trackedDayInfo,
@@ -271,6 +294,7 @@ fun CalendarScreen(
             "day" -> TimelineView(listOf(anchor), dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it })
             "year" -> YearView(anchor, dueByDate, onPrev = prev, onNext = next, onMonth = { m -> onAnchor(m.atDay(1)); onModeChange("month") }, onDay = { d -> onAnchor(d); onModeChange("day") })
             else -> AgendaView(dueByDate, onOpenTask, swipe)
+        }
         }
     }
     // Tapping a tracked block opens the shared time-entry editor — adjust times, reassign, split, delete.
