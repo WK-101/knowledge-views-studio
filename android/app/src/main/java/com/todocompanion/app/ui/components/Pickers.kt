@@ -237,6 +237,25 @@ private fun <T> PickListDialog(title: String, options: List<Pair<T, String>>, on
     )
 }
 
+/** A themed Material 3 time picker in a dialog, returning the chosen minute-of-day. Used wherever the app
+ *  needs a time (past-entry start/end, edit entry) so one UI is used everywhere, not the OS dialog. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TimeFieldDialog(initialMinuteOfDay: Int, onDismiss: () -> Unit, onConfirm: (Int) -> Unit) {
+    val ts = rememberTimePickerState(initialHour = (initialMinuteOfDay / 60).coerceIn(0, 23), initialMinute = (initialMinuteOfDay % 60).coerceIn(0, 59), is24Hour = true)
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)) {
+            androidx.compose.foundation.layout.Column(Modifier.padding(16.dp)) {
+                TimePicker(state = ts)
+                androidx.compose.foundation.layout.Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss) { Text("Cancel") }
+                    TextButton(onClick = { onConfirm(ts.hour * 60 + ts.minute) }) { Text("OK") }
+                }
+            }
+        }
+    }
+}
+
 /**
  * Two-step date → time picker. Returns the chosen instant as epoch millis (local zone).
  * When [onDuration] is supplied, the time step also offers an optional block duration.

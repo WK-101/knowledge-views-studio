@@ -25,6 +25,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarViewMonth
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
@@ -122,6 +124,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
 
     var day by remember { mutableStateOf(LocalDate.now(zone)) }
     var showDatePicker by remember { mutableStateOf(false) }
+    var actsCollapsed by rememberSaveable { mutableStateOf(false) }   // fold the activity grid to save space
     // The Time view can summarise a Day, a Week or a Month — the totals, tiles and insights all follow
     // this window (not just day-by-day). 0 = day · 1 = week (Mon-anchored) · 2 = month.
     var rangeUnit by rememberSaveable { mutableStateOf(0) }
@@ -150,6 +153,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
     var tileMenu by remember { mutableStateOf<String?>(null) }        // activity id whose long-press menu is open
     var reassignFor by remember { mutableStateOf<String?>(null) }     // running entry id being reassigned
     var nestFor by remember { mutableStateOf<String?>(null) }         // activity id being (re)nested from the grid
+    var historyFor by remember { mutableStateOf<String?>(null) }      // activity id whose full history is shown
     var gapInit by remember { mutableStateOf<Pair<Int, Int>?>(null) } // start/end minutes to prefill the manual dialog with
 
     if (showNewActivity) ActivityDialog(null, onDismiss = { showNewActivity = false }) { name, emoji, color, goal ->
@@ -202,6 +206,35 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
         initialStartMin = gapInit?.first ?: 9 * 60, initialEndMin = gapInit?.second ?: 10 * 60,
         onDismiss = { showManual = false; gapInit = null }) { actId, start, end ->
         vm.addManualTimeEntry(actId, start, end); showManual = false; gapInit = null
+    }
+    // Per-activity history: every tracked interval for one activity, newest first — tap to edit (R18).
+    historyFor?.let { aid ->
+        val act = activities.firstOrNull { it.id == aid }
+        val hist = remember(entries, aid) { entries.filter { it.activityId == aid }.sortedByDescending { it.startMillis } }
+        val total = hist.sumOf { it.minutes(now) }
+        AlertDialog(
+            onDismissRequest = { historyFor = null },
+            confirmButton = { TextButton(onClick = { historyFor = null }) { Text("Close") } },
+            title = { Text((act?.emoji?.plus(" ") ?: "") + (act?.name ?: "History") + " · ${fmtDur(total)}") },
+            text = {
+                if (hist.isEmpty()) Text("No tracked time yet.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                else Column(Modifier.verticalScroll(rememberScrollState())) {
+                    hist.take(200).forEach { e ->
+                        Surface(onClick = { historyFor = null; editEntry = e }, shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+                            Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(Instant.ofEpochMilli(e.startMillis).atZone(zone).format(DateTimeFormatter.ofPattern("EEE, MMM d")), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                    val st = Instant.ofEpochMilli(e.startMillis).atZone(zone).format(timeFmt)
+                                    val en = e.endMillis?.let { Instant.ofEpochMilli(it).atZone(zone).format(timeFmt) } ?: "now"
+                                    Text("$st – $en" + (e.note.takeIf { it.isNotBlank() }?.let { "  ·  $it" } ?: ""), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                                Text(fmtDur(e.minutes(now)), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+                }
+            },
+        )
     }
     // Themed Compose date picker (replaces the OS DatePickerDialog, which ignored the app's theme/language).
     if (showDatePicker) ThemedDatePicker(initial = day, zone = zone, onDismiss = { showDatePicker = false }) { picked ->
@@ -327,17 +360,22 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                 // Header row: title + a column-count control (2–5 per row, like Simple Time Tracker).
                 val cols = settings.timeGridColumns.coerceIn(2, 5)
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Activities", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Icon(Icons.Filled.GridView, null, Modifier.size(15.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.width(6.dp))
-                    listOf(2, 3, 4, 5).forEach { n ->
-                        val sel = n == cols
-                        Box(
-                            Modifier.size(26.dp).clip(RoundedCornerShape(8.dp))
-                                .background(if (sel) MaterialTheme.colorScheme.primary.copy(alpha = .16f) else Color.Transparent)
-                                .clickable { vm.setTimeGridColumns(n) },
-                            contentAlignment = Alignment.Center,
-                        ) { Text("$n", style = MaterialTheme.typography.labelMedium, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal, color = if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) }
+                    Row(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable { actsCollapsed = !actsCollapsed }, verticalAlignment = Alignment.CenterVertically) {
+                        Icon(if (actsCollapsed) Icons.Filled.ChevronRight else Icons.Filled.ExpandMore, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Activities", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    if (!actsCollapsed) {
+                        Icon(Icons.Filled.GridView, null, Modifier.size(15.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.width(6.dp))
+                        listOf(2, 3, 4, 5).forEach { n ->
+                            val sel = n == cols
+                            Box(
+                                Modifier.size(26.dp).clip(RoundedCornerShape(8.dp))
+                                    .background(if (sel) MaterialTheme.colorScheme.primary.copy(alpha = .16f) else Color.Transparent)
+                                    .clickable { vm.setTimeGridColumns(n) },
+                                contentAlignment = Alignment.Center,
+                            ) { Text("$n", style = MaterialTheme.typography.labelMedium, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal, color = if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) }
+                        }
                     }
                 }
                 // Nested order: each top-level activity, immediately followed by its children (pinned
@@ -366,7 +404,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                 // A plain N-column grid (not lazy — we're inside a vertical scroll). `null` = the New tile.
                 // Tiles are square-ish and centred so they read cleanly from 2 up to 5 per row.
                 val tileHeight = if (cols >= 4) 84.dp else 72.dp
-                (ordered + listOf<TimeActivityEntity?>(null)).chunked(cols).forEach { rowItems ->
+                if (!actsCollapsed) (ordered + listOf<TimeActivityEntity?>(null)).chunked(cols).forEach { rowItems ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         rowItems.forEach { a ->
                             if (a == null) {
@@ -406,6 +444,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                                     }
                                     DropdownMenu(expanded = tileMenu == a.id, onDismissRequest = { tileMenu = null }) {
                                         DropdownMenuItem(text = { Text(if (pinned) "Unpin" else "Pin to front") }, onClick = { tileMenu = null; vm.toggleActivityPin(a.id) })
+                                        DropdownMenuItem(text = { Text("History") }, onClick = { tileMenu = null; historyFor = a.id })
                                         if (liveActs.size > 1) DropdownMenuItem(text = { Text("Nest under…") }, onClick = { tileMenu = null; nestFor = a.id })
                                         DropdownMenuItem(text = { Text("Edit") }, onClick = { tileMenu = null; editActivity = a })
                                     }
@@ -417,18 +456,8 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                 }
             }
 
-            // Range selector — summarise a Day, Week or Month.
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                listOf("Day", "Week", "Month").forEachIndexed { i, label ->
-                    val sel = rangeUnit == i
-                    Box(
-                        Modifier.clip(RoundedCornerShape(20.dp))
-                            .background(if (sel) MaterialTheme.colorScheme.primary.copy(alpha = .16f) else Color.Transparent)
-                            .clickable { rangeUnit = i }.padding(horizontal = 14.dp, vertical = 6.dp),
-                    ) { Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal, color = if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) }
-                }
-            }
-            // Period navigator — tap the label to jump to any date; ‹ › shift by the chosen unit.
+            // Period navigator — a compact Day/Week/Month icon-menu inline with the ‹ label › nav, so the
+            // range selector no longer takes a whole row (R18). Tap the label to jump to any date.
             val today0 = LocalDate.now(zone)
             val canNext = winEndDate <= today0
             val periodLabel = when (rangeUnit) {
@@ -437,6 +466,21 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                 else -> if (day == today0) "Today" else day.format(DateTimeFormatter.ofPattern("EEE, MMM d"))
             }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                var rangeMenu by remember { mutableStateOf(false) }
+                Box {
+                    androidx.compose.material3.FilledTonalButton(
+                        onClick = { rangeMenu = true },
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    ) {
+                        Icon(Icons.Filled.CalendarViewMonth, null, Modifier.size(16.dp)); Spacer(Modifier.width(4.dp))
+                        Text(when (rangeUnit) { 1 -> "Week"; 2 -> "Month"; else -> "Day" }, style = MaterialTheme.typography.labelMedium)
+                    }
+                    DropdownMenu(expanded = rangeMenu, onDismissRequest = { rangeMenu = false }) {
+                        listOf("Day", "Week", "Month").forEachIndexed { i, label ->
+                            DropdownMenuItem(text = { Text(label) }, trailingIcon = { if (rangeUnit == i) Icon(Icons.Filled.Check, null, Modifier.size(18.dp)) }, onClick = { rangeUnit = i; rangeMenu = false })
+                        }
+                    }
+                }
                 IconButton(onClick = { day = when (rangeUnit) { 1 -> day.minusWeeks(1); 2 -> day.minusMonths(1); else -> day.minusDays(1) } }) { Icon(Icons.Filled.ChevronLeft, "Previous") }
                 Text(
                     "$periodLabel · ${fmtDur(dayTotalMin)}" + (if (rangeUnit == 0) "  ▾" else ""),
@@ -745,12 +789,14 @@ private fun ActivityDialog(
 /** Add a past interval: pick an activity, then a start and end time on the selected day (native pickers). */
 @Composable
 private fun ManualEntryDialog(activities: List<TimeActivityEntity>, day: LocalDate, zone: ZoneId, initialStartMin: Int = 9 * 60, initialEndMin: Int = 10 * 60, onDismiss: () -> Unit, onAdd: (String, Long, Long) -> Unit) {
-    val ctx = androidx.compose.ui.platform.LocalContext.current
     var activityId by remember { mutableStateOf(activities.firstOrNull { !it.archived }?.id) }
     var startMin by remember { mutableStateOf(initialStartMin) }   // minutes from midnight
     var endMin by remember { mutableStateOf(initialEndMin) }
-    fun pick(initial: Int, onPicked: (Int) -> Unit) {
-        android.app.TimePickerDialog(ctx, { _, h, m -> onPicked(h * 60 + m) }, initial / 60, initial % 60, true).show()
+    // Themed time picker (one UI everywhere) instead of the OS TimePickerDialog.
+    var picking by remember { mutableStateOf<Pair<Int, (Int) -> Unit>?>(null) }
+    fun pick(initial: Int, onPicked: (Int) -> Unit) { picking = initial to onPicked }
+    picking?.let { (init, cb) ->
+        com.todocompanion.app.ui.components.TimeFieldDialog(init, onDismiss = { picking = null }) { m -> cb(m); picking = null }
     }
     fun label(min: Int) = "%02d:%02d".format(min / 60, min % 60)
     AlertDialog(
@@ -841,7 +887,6 @@ private fun AutomationRuleDialog(activities: List<TimeActivityEntity>, onDismiss
  *  Non-private so the calendar can open the same editor when a tracked block is tapped. */
 @Composable
 internal fun EditEntryDialog(entry: TimeEntryEntity, activities: List<TimeActivityEntity>, zone: ZoneId, onDismiss: () -> Unit, onDelete: () -> Unit, onSplit: (Long) -> Unit, onSave: (TimeEntryEntity) -> Unit) {
-    val ctx = androidx.compose.ui.platform.LocalContext.current
     var note by remember { mutableStateOf(entry.note) }
     var tags by remember { mutableStateOf(entry.tags) }
     var activityId by remember { mutableStateOf(entry.activityId) }
@@ -849,11 +894,14 @@ internal fun EditEntryDialog(entry: TimeEntryEntity, activities: List<TimeActivi
     var end by remember { mutableStateOf(entry.endMillis) }
     val fmt = remember { DateTimeFormatter.ofPattern("HH:mm") }
     val activity = activities.firstOrNull { it.id == activityId }
-    fun pick(initial: Long, onPicked: (Long) -> Unit) {
-        val z = Instant.ofEpochMilli(initial).atZone(zone)
-        android.app.TimePickerDialog(ctx, { _, h, m ->
-            onPicked(z.toLocalDate().atStartOfDay(zone).plusHours(h.toLong()).plusMinutes(m.toLong()).toInstant().toEpochMilli())
-        }, z.hour, z.minute, true).show()
+    // Themed time picker (matches the app), keeping the entry on its own day while changing the clock time.
+    var picking by remember { mutableStateOf<Pair<Long, (Long) -> Unit>?>(null) }
+    fun pick(initial: Long, onPicked: (Long) -> Unit) { picking = initial to onPicked }
+    picking?.let { (init, cb) ->
+        val z = Instant.ofEpochMilli(init).atZone(zone)
+        com.todocompanion.app.ui.components.TimeFieldDialog(z.hour * 60 + z.minute, onDismiss = { picking = null }) { min ->
+            cb(z.toLocalDate().atStartOfDay(zone).plusMinutes(min.toLong()).toInstant().toEpochMilli()); picking = null
+        }
     }
     AlertDialog(
         onDismissRequest = onDismiss,

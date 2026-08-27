@@ -682,10 +682,17 @@ fun AppRoot(
                             Icon(Icons.Filled.Add, "New habit")
                         }
                     } else if (tab == Tab.TIME && !timeFocus) {
-                        // The Time hub's add-entry button (Track mode only) — matches the quick-add FAB;
-                        // it pokes the embedded Time screen (which owns the add-entry dialog).
-                        FloatingActionButton(onClick = { vm.addTimeEntryRequests.value++ }) {
-                            Icon(Icons.Filled.Add, "Add time entry")
+                        // Double-action FAB (R18): a single tap starts a new timer straight away (smart pick);
+                        // press-and-hold opens the "add a past entry" dialog. So the common action (start
+                        // tracking now) is one tap, and back-dating is the deliberate long-press.
+                        FloatingActionButton(
+                            onClick = { if (!vm.startTimeTrackingSmart()) vm.addTimeEntryRequests.value++ },
+                            modifier = Modifier.combinedClickable(
+                                onClick = { if (!vm.startTimeTrackingSmart()) vm.addTimeEntryRequests.value++ },
+                                onLongClick = { vm.addTimeEntryRequests.value++ },
+                            ),
+                        ) {
+                            Icon(Icons.Filled.Add, "Start timer (hold to add a past entry)")
                         }
                     }
                 },
