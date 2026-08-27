@@ -376,7 +376,7 @@ fun HabitsHeader(vm: AppViewModel, onOpenDrawer: () -> Unit) {
                     }
                 }
                 IconButton(onClick = { vm.habitPresetOpen.value = true }) { Icon(Icons.Filled.AutoAwesome, "Starter habits") }
-                IconButton(onClick = { vm.habitQuickAddOpen.value = true }) { Icon(Icons.Filled.Add, "New habit") }
+                // New-habit add moved to the shared quick-add FAB (matches tasks/time), so it's dropped here.
                 var menu by remember { mutableStateOf(false) }
                 Box {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "More") }
@@ -389,7 +389,6 @@ fun HabitsHeader(vm: AppViewModel, onOpenDrawer: () -> Unit) {
                 }
             } else {
                 IconButton(onClick = { vm.habitPresetOpen.value = true }) { Icon(Icons.Filled.AutoAwesome, "Starter habits") }
-                IconButton(onClick = { vm.habitQuickAddOpen.value = true }) { Icon(Icons.Filled.Add, "New habit") }
             }
         },
     )

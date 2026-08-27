@@ -675,6 +675,12 @@ fun AppRoot(
                                 DropdownMenuItem(text = { Text("Weekly review") }, leadingIcon = { Icon(Icons.Filled.EventRepeat, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; showReview = true })
                             }
                         }
+                    } else if (tab == Tab.HABITS) {
+                        // Habits get the same quick-add FAB as tasks (the header add button is gone), so the
+                        // "add" affordance sits in the same place across the app.
+                        FloatingActionButton(onClick = { vm.habitQuickAddOpen.value = true }) {
+                            Icon(Icons.Filled.Add, "New habit")
+                        }
                     } else if (tab == Tab.TIME && !timeFocus) {
                         // The Time hub's add-entry button (Track mode only) — matches the quick-add FAB;
                         // it pokes the embedded Time screen (which owns the add-entry dialog).

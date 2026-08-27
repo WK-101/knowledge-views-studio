@@ -45,50 +45,73 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun EmojiGridPicker(current: String?, onPick: (String?) -> Unit) {
     var cat by remember { mutableIntStateOf(0) }
-    var typed by remember { mutableStateOf("") }
+    var query by remember { mutableStateOf("") }
+    val q = query.trim().lowercase()
+    // When searching by keyword ("dog", "money", "health"…) we show cross-category matches; an empty query
+    // shows the selected category. A typed emoji is accepted directly (search that IS an emoji picks it).
+    val searchResults = remember(q) { if (q.isBlank()) emptyList() else searchEmoji(q) }
+    val showing = if (q.isBlank()) EMOJI_CATEGORIES[cat].emojis else searchResults
     Column(Modifier.fillMaxWidth()) {
-        // Category tabs.
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            EMOJI_CATEGORIES.forEachIndexed { i, c ->
-                val sel = i == cat
-                Box(
-                    Modifier.clip(RoundedCornerShape(9.dp))
-                        .background(if (sel) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent)
-                        .clickable { cat = i }.padding(horizontal = 8.dp, vertical = 6.dp),
-                ) { Text(c.tab, style = MaterialTheme.typography.titleMedium) }
-            }
-        }
+        // Search across every category by keyword; also accepts a pasted/typed emoji as the pick.
+        com.todocompanion.app.ui.components.AppTextField(
+            value = query,
+            onValueChange = { v ->
+                query = v
+                // If what they typed is itself an emoji (not a keyword we index), take it as the choice.
+                val t = v.trim()
+                if (t.isNotEmpty() && searchEmoji(t.lowercase()).isEmpty() && t.none { it.isLetterOrDigit() }) onPick(t)
+            },
+            singleLine = true,
+            label = { Text("Search emoji (e.g. dog, money, health) or type one") },
+            modifier = Modifier.fillMaxWidth(),
+        )
         Spacer(Modifier.height(6.dp))
+        // Category tabs (hidden while searching).
+        if (q.isBlank()) {
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                EMOJI_CATEGORIES.forEachIndexed { i, c ->
+                    val sel = i == cat
+                    Box(
+                        Modifier.clip(RoundedCornerShape(9.dp))
+                            .background(if (sel) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent)
+                            .clickable { cat = i }.padding(horizontal = 8.dp, vertical = 6.dp),
+                    ) { Text(c.tab, style = MaterialTheme.typography.titleMedium) }
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+        }
         LazyVerticalGrid(
             columns = GridCells.Adaptive(40.dp),
-            modifier = Modifier.fillMaxWidth().heightIn(min = 150.dp, max = 220.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 150.dp, max = 240.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            item {
+            if (q.isBlank()) item {
                 Box(Modifier.size(40.dp).clip(RoundedCornerShape(9.dp))
                     .background(if (current == null) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f))
-                    .clickable { typed = ""; onPick(null) }, contentAlignment = Alignment.Center) {
+                    .clickable { query = ""; onPick(null) }, contentAlignment = Alignment.Center) {
                     Icon(Icons.Filled.Block, "No icon", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            items(EMOJI_CATEGORIES[cat].emojis) { e ->
+            items(showing) { e ->
                 Box(Modifier.size(40.dp).clip(RoundedCornerShape(9.dp))
                     .background(if (current == e) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent)
-                    .clickable { typed = e; onPick(e) }, contentAlignment = Alignment.Center) {
+                    .clickable { onPick(e) }, contentAlignment = Alignment.Center) {
                     Text(e, style = MaterialTheme.typography.titleLarge)
                 }
             }
+            if (showing.isEmpty()) item { Text("No match — type the emoji itself", Modifier.padding(8.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
-        Spacer(Modifier.height(6.dp))
-        com.todocompanion.app.ui.components.AppTextField(
-            value = typed,
-            onValueChange = { v -> typed = v; onPick(v.trim().ifBlank { null }) },
-            singleLine = true,
-            label = { Text("Or type any emoji") },
-            modifier = Modifier.fillMaxWidth(),
-        )
     }
+}
+
+/** Keyword → emoji search over a curated index (plus each emoji's category keywords), so typing a concept
+ *  finds a glyph even though emoji carry no searchable text of their own. Substring match on keywords. */
+private fun searchEmoji(q: String): List<String> {
+    if (q.isBlank()) return emptyList()
+    val out = LinkedHashSet<String>()
+    EMOJI_KEYWORDS.forEach { (kw, emojis) -> if (kw.contains(q)) out.addAll(emojis) }
+    return out.toList()
 }
 
 private class EmojiCategory(val tab: String, val emojis: List<String>)
@@ -104,4 +127,78 @@ private val EMOJI_CATEGORIES = listOf(
     EmojiCategory("✈️", listOf("🚗","🚕","🚙","🚌","🚎","🏎️","🚓","🚑","🚒","🚐","🚚","🚛","🚜","🛵","🏍️","🚲","🛴","✈️","🚀","🛸","🚁","⛵","🚤","🛳️","⚓","🚂","🚆","🚊","🗺️","🧭","🏝️","🏖️","⛰️","🏔️","🌋","🗽","🗼","🏰","⛩️","🎡")),
     EmojiCategory("🩺", listOf("🩺","💊","💉","🦷","🧬","🔬","🧪","🌡️","🩹","🧻","🚽","🚿","🛁","🧼","🧴","🛒","🧹","🧺","🔨","🪚","🔧","🪛","🔩","⚙️","🧰","🪝","🔗","⛓️","🔒","🔓","🔐","🗝️","🛠️","⚗️")),
     EmojiCategory("❤️", listOf("❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","❣️","💕","💞","💓","💗","💖","💘","💝","☮️","✝️","☪️","🕉️","☸️","✡️","🔯","🕎","☯️","♈","♉","♊","♋","♌","♍","♎","♏","♐","♑","♒","♓")),
+)
+
+/** Curated keyword → emoji index for search. Keys are lowercase concept words; a query substring-matches
+ *  a key. Kept broad but compact — covers the common searches across tasks, habits and time activities. */
+private val EMOJI_KEYWORDS: Map<String, List<String>> = mapOf(
+    "star favourite important" to listOf("⭐","🌟","✨","💫"),
+    "target goal aim focus" to listOf("🎯","🏹"),
+    "fire streak hot" to listOf("🔥"),
+    "check done complete tick" to listOf("✅","☑️","✔️"),
+    "idea light bulb" to listOf("💡"),
+    "pin marker" to listOf("📌","📍"),
+    "rocket launch start ship" to listOf("🚀"),
+    "trophy win award" to listOf("🏆","🥇","🎖️"),
+    "gift present reward" to listOf("🎁"),
+    "key" to listOf("🔑","🗝️"),
+    "money cash finance budget dollar bank pay" to listOf("💰","💵","💴","💶","💷","🪙","💳","🧾","🏦"),
+    "chart graph stats growth analytics" to listOf("📈","📉","📊","🗳️"),
+    "brain mind think" to listOf("🧠","🤔"),
+    "muscle strong gym workout exercise fitness" to listOf("💪","🏋️","🤸","🏃","🚴","🧗","🏊"),
+    "run running jog" to listOf("🏃","👟"),
+    "sleep bed rest night" to listOf("😴","😪","🛏️","🌙"),
+    "note write writing journal diary" to listOf("📝","🗒️","📒","📓","📔","🖊️","✏️"),
+    "book read reading study learn" to listOf("📚","📖","📕","📗","📘","📙"),
+    "bell reminder alarm alert" to listOf("🔔","⏰","🔕"),
+    "clock time timer" to listOf("⏰","🕐","⏱️","⌚","🕰️"),
+    "calendar date schedule plan" to listOf("📅","🗓️","📆"),
+    "folder file organize" to listOf("📁","📂","🗂️","🗃️","🗄️"),
+    "work office job business briefcase" to listOf("💼","🏢","🏭","👔"),
+    "home house" to listOf("🏠","🏡"),
+    "school study class education" to listOf("🏫","🎓","📚"),
+    "computer laptop code work pc" to listOf("💻","🖥️","⌨️","🖱️"),
+    "phone call mobile" to listOf("📱","☎️","📞"),
+    "email mail message" to listOf("📧","📨","✉️","📬"),
+    "happy smile joy face" to listOf("😀","😃","😄","😁","🙂","😊","🥳"),
+    "love heart" to listOf("❤️","🧡","💛","💚","💙","💜","🤍","💕","💖"),
+    "sad cry down" to listOf("😭","😢","😞","🥺"),
+    "angry mad" to listOf("😡","😤","😠"),
+    "cool sunglasses" to listOf("😎"),
+    "dog puppy pet" to listOf("🐶","🐕"),
+    "cat kitten" to listOf("🐱","🐈"),
+    "animal pet" to listOf("🐶","🐱","🐰","🦊","🐻","🐼"),
+    "bird" to listOf("🐦","🐧","🐤","🦆","🦉"),
+    "plant tree nature grow garden green" to listOf("🌱","🌳","🌲","🌵","🍀","🌿"),
+    "flower bloom" to listOf("🌸","🌻","🌹","🌷"),
+    "water drink hydrate" to listOf("💧","🚰","🥤","🧊"),
+    "coffee tea drink" to listOf("☕","🍵"),
+    "food eat meal" to listOf("🍔","🍕","🍜","🍱","🥪","🍣","🥗"),
+    "fruit apple healthy" to listOf("🍎","🍏","🍌","🍓","🍊","🥑","🥕","🥦"),
+    "cook cooking kitchen" to listOf("🍳","🔪","🍽️"),
+    "sport ball game play" to listOf("⚽","🏀","🏈","⚾","🎾","🏐"),
+    "music song play guitar" to listOf("🎵","🎶","🎸","🎹","🎧","🎤"),
+    "game gaming controller" to listOf("🎮","🎲","🕹️"),
+    "art paint draw creative" to listOf("🎨","🖌️","🖍️"),
+    "movie film video camera" to listOf("🎬","📹","📽️","🎥"),
+    "photo camera picture" to listOf("📷","📸"),
+    "travel trip vacation plane fly" to listOf("✈️","🧳","🗺️","🏝️","🏖️"),
+    "car drive commute" to listOf("🚗","🚙","🚕"),
+    "bike cycle" to listOf("🚲","🚴","🛴"),
+    "health medical doctor medicine pill" to listOf("🩺","💊","💉","🌡️","🩹"),
+    "tooth teeth dental brush" to listOf("🦷","🪥"),
+    "clean cleaning tidy chores" to listOf("🧹","🧺","🧼","🧽","🚿"),
+    "shop shopping buy cart grocery" to listOf("🛒","🛍️"),
+    "tool fix repair build diy" to listOf("🔨","🔧","🪛","🛠️","⚙️","🔩"),
+    "lock secure private security" to listOf("🔒","🔐","🔓"),
+    "meditate calm zen mindful yoga peace relax" to listOf("🧘","☮️","☯️","🕉️"),
+    "sun sunny weather morning" to listOf("☀️","🌤️","🌅"),
+    "moon night evening" to listOf("🌙","🌛","🌜"),
+    "party celebrate birthday" to listOf("🥳","🎉","🎊","🎂"),
+    "prayer religion faith" to listOf("🙏","✝️","☪️","🕉️","✡️","☸️"),
+    "flag priority mark" to listOf("🚩","🏳️","🏁"),
+    "warning caution alert" to listOf("⚠️","❗","🚨"),
+    "recycle eco green sustainable" to listOf("♻️","🌍","🌱"),
+    "sign language talk speak chat" to listOf("💬","🗨️","🗣️"),
+    "hand wave hi hello" to listOf("👋","🙌","👍"),
 )
