@@ -11,3 +11,6 @@ src/services/annotations/pdf.worker.txt
 # Companion extension build output
 extension/dist/
 extension/packages/
+
+# Delivered build artifacts (APKs are generated; never commit)
+*.apk
