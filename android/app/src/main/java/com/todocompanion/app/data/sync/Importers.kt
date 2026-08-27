@@ -28,7 +28,11 @@ object Importers {
     fun parse(text: String, zone: ZoneId = ZoneId.systemDefault()): Result? {
         val trimmed = text.trimStart()
         return when {
-            trimmed.startsWith("<") && trimmed.contains("<opml", ignoreCase = true) -> Result("MLO", parseOpml(text))
+            trimmed.contains("<opml", ignoreCase = true) -> Result("MLO", parseOpml(text))
+            // MLO's native document/backup XML (what a .mlobak/.ml unpacks to) — task titles live in
+            // Caption attributes/elements on <TaskNode>s, not OPML <outline>s.
+            trimmed.contains("MyLifeOrganized", ignoreCase = true) || trimmed.contains("<TaskNode", ignoreCase = true) ->
+                Result("MLO", parseMloXml(text))
             else -> {
                 val header = firstDataLine(text) ?: return null
                 when {
@@ -38,6 +42,63 @@ object Importers {
                 }
             }
         }
+    }
+
+    /**
+     * Turn the raw bytes of an export/backup into parseable text. MLO's `.mlobak` (and some `.ml`
+     * documents) are ZIP archives wrapping the XML document, or UTF-16 XML — reading them as UTF-8 text
+     * yields garbage, which is why "import → merge" failed. We unzip when we see a ZIP header, then fall
+     * back to UTF-16 if UTF-8 decoding produces replacement characters. Returns null only for bytes we
+     * genuinely can't turn into text (a truly binary, proprietary blob).
+     */
+    fun bytesToText(bytes: ByteArray): String? {
+        if (bytes.isEmpty()) return null
+        // ZIP? "PK\x03\x04" — pull the text of every entry that looks like XML/CSV and concatenate.
+        if (bytes.size >= 4 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()) {
+            return runCatching {
+                java.util.zip.ZipInputStream(java.io.ByteArrayInputStream(bytes)).use { zis ->
+                    val sb = StringBuilder()
+                    var e = zis.nextEntry
+                    while (e != null) {
+                        if (!e.isDirectory) {
+                            val content = decodeText(zis.readBytes())
+                            if (content.contains('<') || content.contains(',')) sb.append(content).append('\n')
+                        }
+                        e = zis.nextEntry
+                    }
+                    sb.toString().ifBlank { null }
+                }
+            }.getOrNull()
+        }
+        return decodeText(bytes)
+    }
+
+    /** Decode bytes as UTF-8, retrying as UTF-16 (BOM or many replacement chars) — MLO XML is often UTF-16. */
+    private fun decodeText(bytes: ByteArray): String {
+        if (bytes.size >= 2 && ((bytes[0] == 0xFF.toByte() && bytes[1] == 0xFE.toByte()) || (bytes[0] == 0xFE.toByte() && bytes[1] == 0xFF.toByte())))
+            return runCatching { String(bytes, Charsets.UTF_16) }.getOrDefault(String(bytes, Charsets.UTF_8))
+        val utf8 = String(bytes, Charsets.UTF_8)
+        if (utf8.count { it == '\uFFFD' } > utf8.length / 20 + 1)
+            return runCatching { String(bytes, Charsets.UTF_16) }.getOrDefault(utf8)
+        return utf8
+    }
+
+    private fun unescapeXml(s: String): String = s
+        .replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&#39;", "'").replace("&apos;", "'")
+
+    // ---------- MLO native XML (.mlobak / .ml document) ----------
+    private fun parseMloXml(text: String): List<Imported> {
+        val out = ArrayList<Imported>()
+        val seen = LinkedHashSet<String>()
+        // Titles live in Caption (native XML) or text/Title (mixed exports) — restrict to those keys so we
+        // don't scoop up every attribute. Also accept <Caption>…</Caption> element form.
+        val attrRe = Regex("\\b(?:Caption|Title|text)\\s*=\\s*\"([^\"]*)\"", RegexOption.IGNORE_CASE)
+        val elemRe = Regex("<Caption[^>]*>([^<]*)</Caption>", RegexOption.IGNORE_CASE)
+        (attrRe.findAll(text).map { it.groupValues[1] } + elemRe.findAll(text).map { it.groupValues[1] }).forEach { raw ->
+            val title = unescapeXml(raw.trim())
+            if (title.isNotBlank() && title.length in 1..500 && seen.add(title)) out.add(Imported(list = "MLO import", title = title))
+        }
+        return out
     }
 
     // ---------- CSV core ----------

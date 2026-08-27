@@ -784,6 +784,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         ids.mapNotNull { repo.getTask(it) }.forEach { repo.saveTask(it.copy(importance = level.importance, urgency = level.urgency)) }
     }
     fun moveMany(ids: Set<String>, listId: String) = viewModelScope.launch { ids.forEach { repo.moveToList(it, listId) } }
+    fun moveManyToFolder(ids: Set<String>, folderId: String) = viewModelScope.launch { ids.forEach { repo.moveToFolder(it, folderId) } }
+    fun moveTaskToFolder(t: TaskEntity, folderId: String) = viewModelScope.launch { repo.moveToFolder(t.id, folderId) }
     fun trash(t: TaskEntity) = viewModelScope.launch {
         repo.setTrashed(t.id, true)
         undoEvents.tryEmit(UndoEvent(UndoKind.TRASHED, t.id, "Moved to Trash"))
@@ -797,6 +799,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun restore(t: TaskEntity) = viewModelScope.launch { repo.setTrashed(t.id, false) }
     fun deleteForever(t: TaskEntity) = viewModelScope.launch { repo.deleteSubtree(t.id) }
+    /** Permanently erase several tasks (and their subtrees) — the Trash multi-select "Delete forever". */
+    fun deleteForeverMany(ids: Set<String>) = viewModelScope.launch { ids.forEach { repo.deleteSubtree(it) } }
     fun emptyTrash() = viewModelScope.launch { repo.emptyTrash() }
     fun indent(t: TaskEntity) = viewModelScope.launch { repo.indent(t) }
     fun outdent(t: TaskEntity) = viewModelScope.launch { repo.outdent(t) }
@@ -2484,6 +2488,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 save(t.copy(dueDate = ms))
             }
             com.todocompanion.app.domain.SwipeAction.EDIT -> return false
+            com.todocompanion.app.domain.SwipeAction.MOVE -> return false   // needs the move picker; caller handles
             com.todocompanion.app.domain.SwipeAction.NONE -> {}
         }
         return true
@@ -2879,10 +2884,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         onDone(com.todocompanion.app.data.sync.SyncEngine.backup(appCtx, repo, folder, "todo-backup-$stamp.json", settings.value.syncPassphrase))
     }
 
-    /** Import tasks from a Todoist/TickTick CSV or MLO OPML file. Returns (ok, message). */
+    /** Import tasks from a Todoist/TickTick CSV or MLO OPML/.mlobak file. Returns (ok, message). */
     fun importExternal(uri: Uri, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
-        val text = runCatching { appCtx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull()
+        val text = readImportText(uri = uri)
         importExternalText(text, onDone)
+    }
+    /** Read an import file as text, unzipping/decoding MLO `.mlobak` (ZIP / UTF-16 XML) so it isn't read
+     *  as garbage. Accepts either a content Uri or a File. */
+    private suspend fun readImportText(uri: Uri? = null, file: java.io.File? = null): String? = withContext(Dispatchers.IO) {
+        val bytes = runCatching {
+            when {
+                uri != null -> appCtx.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                file != null -> file.readBytes()
+                else -> null
+            }
+        }.getOrNull() ?: return@withContext null
+        com.todocompanion.app.data.sync.Importers.bytesToText(bytes)
     }
     /** Core of external (Todoist/TickTick CSV, MLO OPML) import — reused by the in-app restore browser. */
     private suspend fun importExternalText(text: String?, onDone: (Boolean, String) -> Unit) {
@@ -2948,9 +2965,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         } else importExternalText(t, onDone)
     }
     fun restoreSaved(s: com.todocompanion.app.util.FileExport.SavedFile, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
-        val text = withContext(Dispatchers.IO) {
-            runCatching { if (s.uri != null) appCtx.contentResolver.openInputStream(s.uri)?.bufferedReader()?.use { it.readText() } else s.file?.readText() }.getOrNull()
-        }
+        val text = readImportText(uri = s.uri, file = s.file)
         if (text == null) { onDone(false, "Couldn't read that file"); return@launch }
         if (s.name.endsWith(".json", ignoreCase = true)) {
             val ok = runCatching {
@@ -2968,9 +2983,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun importFromIntent(uri: Uri, merge: Boolean = false, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
         val name = displayNameOf(uri) ?: ""
-        val text = withContext(Dispatchers.IO) {
-            runCatching { appCtx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull()
-        }
+        val text = readImportText(uri = uri)
         if (text.isNullOrBlank()) { onDone(false, "Couldn't read that file. Try 'Share → ToDo Companion' from your file manager."); return@launch }
         val external = name.endsWith(".csv", true) || name.endsWith(".opml", true) ||
             name.endsWith(".md", true) || name.endsWith(".txt", true) || name.endsWith(".ics", true)

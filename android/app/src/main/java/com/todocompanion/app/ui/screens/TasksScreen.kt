@@ -33,6 +33,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.window.Dialog
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Flag
@@ -117,8 +124,12 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
     val groups by vm.groups.collectAsState()
     val isTrash = (view as? ViewRef.Smart)?.kind == SmartKind.TRASH
     val collapsed = remember { mutableStateMapOf<String, Boolean>() }
-    // Deleting from Trash is permanent — confirm first.
+    // Deleting from Trash is permanent — confirm first (single swipe, and multi-select).
     var pendingPermanentDelete by remember { mutableStateOf<TaskEntity?>(null) }
+    var pendingBulkDelete by remember { mutableStateOf<Set<String>?>(null) }
+    // The searchable move-to-list/folder picker: holds the task ids to move (single swipe or bulk).
+    var pendingMove by remember { mutableStateOf<Set<String>?>(null) }
+    val allVisibleIds = remember(groups) { groups.flatMap { g -> g.tasks.map { it.id } }.toSet() }
 
     // Per-task @context / #tag lookups, MLO-style detail on each row.
     val allTags by vm.tags.collectAsState()
@@ -236,7 +247,7 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
                                         leftFar = if (isTrash) SwipeAction.NONE else settings.swipeLeftFar, isTrash = isTrash,
                                         selected = task.id in selected, selectionMode = selectionMode, onLongPress = { toggleSel(task.id) },
                                         onOpen = { if (selectionMode) toggleSel(task.id) else onOpenTask(task.id) },
-                                        onAct = { a -> onSwipe(vm, a, task, isTrash, { pendingPermanentDelete = it }) { onOpenTask(task.id) } },
+                                        onAct = { a -> onSwipe(vm, a, task, isTrash, { pendingPermanentDelete = it }, { pendingMove = setOf(task.id) }) { onOpenTask(task.id) } },
                                         onCycleFlag = { vm.cycleFlag(task) }, onToggleStar = { vm.toggleStar(task) },
                                         onSetPriority = { vm.setPriority(task, it) })
                                   }
@@ -248,11 +259,14 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
             }
         }
         if (selectionMode) SelectionBar(
-            count = selected.size, lists = allLists.filter { !it.archived },
+            count = selected.size, allSelected = selected.size == allVisibleIds.size && allVisibleIds.isNotEmpty(),
             onComplete = { vm.completeMany(selected); selected = emptySet() },
-            onDelete = { vm.trashMany(selected); selected = emptySet() },
+            // In Trash, "Delete" is a permanent erase — confirm first (matches the single-swipe behaviour).
+            onDelete = { if (isTrash) pendingBulkDelete = selected else { vm.trashMany(selected); selected = emptySet() } },
+            dangerousDelete = isTrash,
             onPriority = { lvl -> vm.setPriorityMany(selected, lvl); selected = emptySet() },
-            onMove = { listId -> vm.moveMany(selected, listId); selected = emptySet() },
+            onMoveClick = { pendingMove = selected },
+            onSelectAll = { selected = if (selected.size == allVisibleIds.size) emptySet() else allVisibleIds },
             onClear = { selected = emptySet() },
             modifier = Modifier.align(Alignment.BottomCenter),
         )
@@ -265,19 +279,41 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
                 text = { Text("“${t.title.ifBlank { "Untitled" }}” and its subtasks will be erased for good. This can't be undone.") },
             )
         }
+        pendingBulkDelete?.let { ids ->
+            AlertDialog(
+                onDismissRequest = { pendingBulkDelete = null },
+                confirmButton = { androidx.compose.material3.TextButton(onClick = { vm.deleteForeverMany(ids); pendingBulkDelete = null; selected = emptySet() }) { Text("Delete forever", color = MaterialTheme.colorScheme.error) } },
+                dismissButton = { androidx.compose.material3.TextButton(onClick = { pendingBulkDelete = null }) { Text("Cancel") } },
+                title = { Text("Delete ${ids.size} permanently?") },
+                text = { Text("These ${ids.size} item${if (ids.size == 1) "" else "s"} and their subtasks will be erased for good. This can't be undone.") },
+            )
+        }
+        pendingMove?.let { ids ->
+            MoveTargetDialog(
+                folders = allFolders, lists = allLists.filter { !it.archived }, pinnedRefs = settings.pinnedRefs,
+                onPinToggle = { ref -> vm.togglePinnedRef(ref) },
+                onPickList = { listId -> vm.moveMany(ids, listId); pendingMove = null; selected = emptySet() },
+                onPickFolder = { folderId -> vm.moveManyToFolder(ids, folderId); pendingMove = null; selected = emptySet() },
+                onDismiss = { pendingMove = null },
+            )
+        }
     }
 }
 
 @Composable
 private fun SelectionBar(
-    count: Int, lists: List<com.todocompanion.app.data.entity.ListEntity>,
-    onComplete: () -> Unit, onDelete: () -> Unit, onPriority: (PriorityLevel) -> Unit, onMove: (String) -> Unit, onClear: () -> Unit,
+    count: Int, allSelected: Boolean,
+    onComplete: () -> Unit, onDelete: () -> Unit, onPriority: (PriorityLevel) -> Unit,
+    onMoveClick: () -> Unit, onSelectAll: () -> Unit, onClear: () -> Unit,
+    dangerousDelete: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     Surface(modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface, shadowElevation = 12.dp, tonalElevation = 3.dp) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             androidx.compose.material3.IconButton(onClick = onClear) { Icon(Icons.Filled.Close, "Clear selection") }
             Text("$count", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            // Select-all / none toggle.
+            androidx.compose.material3.TextButton(onClick = onSelectAll) { Text(if (allSelected) "None" else "All") }
             Spacer(Modifier.weight(1f))
             androidx.compose.material3.IconButton(onClick = onComplete) { Icon(Icons.Filled.Check, "Complete") }
             var prioMenu by remember { mutableStateOf(false) }
@@ -289,20 +325,113 @@ private fun SelectionBar(
                     }
                 }
             }
-            var moveMenu by remember { mutableStateOf(false) }
-            Box {
-                androidx.compose.material3.IconButton(onClick = { moveMenu = true }) { Icon(Icons.AutoMirrored.Filled.DriveFileMove, "Move") }
-                androidx.compose.material3.DropdownMenu(expanded = moveMenu, onDismissRequest = { moveMenu = false }) {
-                    lists.forEach { l -> androidx.compose.material3.DropdownMenuItem(text = { Text(l.name) }, onClick = { moveMenu = false; onMove(l.id) }) }
-                }
-            }
-            androidx.compose.material3.IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, "Delete", tint = MaterialTheme.colorScheme.error) }
+            androidx.compose.material3.IconButton(onClick = onMoveClick) { Icon(Icons.AutoMirrored.Filled.DriveFileMove, "Move to list or folder") }
+            androidx.compose.material3.IconButton(onClick = onDelete) { Icon(if (dangerousDelete) Icons.Filled.DeleteForever else Icons.Filled.Delete, if (dangerousDelete) "Delete forever" else "Delete", tint = MaterialTheme.colorScheme.error) }
         }
     }
 }
 
-private fun onSwipe(vm: AppViewModel, action: SwipeAction, task: TaskEntity, isTrash: Boolean, onConfirmDelete: (TaskEntity) -> Unit, onOpen: () -> Unit) {
+/**
+ * A searchable move-to picker over BOTH folders and lists (the old menu showed lists only). Pinned
+ * favourites float to the top and each row can be pinned/unpinned in place, so moving into a frequently
+ * used list/folder never means scrolling a long list again. Reused for single-swipe and bulk moves.
+ */
+@Composable
+private fun MoveTargetDialog(
+    folders: List<com.todocompanion.app.data.entity.FolderEntity>,
+    lists: List<com.todocompanion.app.data.entity.ListEntity>,
+    pinnedRefs: List<String>,
+    onPinToggle: (String) -> Unit,
+    onPickList: (String) -> Unit,
+    onPickFolder: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    data class Target(val ref: String, val name: String, val sub: String?, val isFolder: Boolean, val id: String)
+    val folderById = remember(folders) { folders.associateBy { it.id } }
+    val all = remember(folders, lists) {
+        folders.map { Target("folder:${it.id}", it.name, "Folder", true, it.id) } +
+            lists.map { Target("list:${it.id}", it.name, it.folderId?.let { fid -> folderById[fid]?.name }, false, it.id) }
+    }
+    var query by remember { mutableStateOf("") }
+    val filtered = all.filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) }
+    val pinnedSet = pinnedRefs.toSet()
+    val pinned = filtered.filter { it.ref in pinnedSet }
+    val rest = filtered.filter { it.ref !in pinnedSet }
+
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 4.dp) {
+            Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                Text("Move to", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(10.dp))
+                com.todocompanion.app.ui.components.AppTextField(
+                    query, { query = it }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    label = { Text("Search lists & folders") },
+                    leadingIcon = { Icon(Icons.Filled.Search, null) },
+                )
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
+                    if (pinned.isNotEmpty()) {
+                        item { MoveSectionLabel("Pinned") }
+                        items(pinned, key = { it.ref }) { t ->
+                            MoveTargetRow(t.name, t.sub, t.isFolder, pinned = true,
+                                onClick = { if (t.isFolder) onPickFolder(t.id) else onPickList(t.id) },
+                                onPin = { onPinToggle(t.ref) })
+                        }
+                    }
+                    if (rest.isNotEmpty()) {
+                        if (pinned.isNotEmpty()) item { MoveSectionLabel("All") }
+                        items(rest, key = { it.ref }) { t ->
+                            MoveTargetRow(t.name, t.sub, t.isFolder, pinned = false,
+                                onClick = { if (t.isFolder) onPickFolder(t.id) else onPickList(t.id) },
+                                onPin = { onPinToggle(t.ref) })
+                        }
+                    }
+                    if (filtered.isEmpty()) item {
+                        Text("No match", Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                androidx.compose.material3.TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text("Cancel") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MoveSectionLabel(text: String) {
+    Text(text, Modifier.padding(start = 4.dp, top = 10.dp, bottom = 4.dp),
+        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
+}
+
+@Composable
+private fun MoveTargetRow(name: String, sub: String?, isFolder: Boolean, pinned: Boolean, onClick: () -> Unit, onPin: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onClick() }.padding(horizontal = 6.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            if (isFolder) Icons.Filled.Folder else Icons.AutoMirrored.Filled.List,
+            null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp),
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            if (sub != null) Text(sub, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        androidx.compose.material3.IconButton(onClick = onPin) {
+            Icon(
+                if (pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
+                if (pinned) "Unpin" else "Pin",
+                tint = if (pinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+    }
+}
+
+private fun onSwipe(vm: AppViewModel, action: SwipeAction, task: TaskEntity, isTrash: Boolean, onConfirmDelete: (TaskEntity) -> Unit, onMove: (TaskEntity) -> Unit, onOpen: () -> Unit) {
     if (isTrash) { if (action == SwipeAction.COMPLETE) vm.restore(task) else onConfirmDelete(task); return }
+    if (action == SwipeAction.MOVE) { onMove(task); return }
     if (!vm.applyAction(action, task)) onOpen()
 }
 
@@ -404,7 +533,7 @@ private fun ManualReorderList(
                 SwipeActionBox(
                     taskId = task.id, rightNear = rightNear, rightFar = rightFar, leftNear = leftNear, leftFar = leftFar,
                     enabled = draggingId == null, isTrashRestore = false,
-                    onAct = { a -> onSwipe(vm, a, task, false, {}) { onOpenTask(task.id) } },
+                    onAct = { a -> onSwipe(vm, a, task, false, {}, { onOpenTask(task.id) }, { onOpenTask(task.id) }) },
                 ) {
                     ReorderRow(task, density, ctxByTask[task.id].orEmpty(), tagsByTask[task.id].orEmpty(), listNameOf(task.listId), labelNav,
                         onOpen = { onOpenTask(task.id) }, onToggle = { vm.toggleComplete(task) },
@@ -867,6 +996,7 @@ private fun swipeVisual(action: SwipeAction, isTrashRestore: Boolean): Pair<Colo
     action == SwipeAction.CYCLE_PRIORITY -> Color(0xFF3E7BFA) to Icons.Filled.Flag
     action == SwipeAction.SCHEDULE_TOMORROW -> Color(0xFF8B5CF6) to Icons.Filled.Event
     action == SwipeAction.EDIT -> Color(0xFF5B57D9) to Icons.Filled.Edit
+    action == SwipeAction.MOVE -> Color(0xFF0EA5A0) to Icons.AutoMirrored.Filled.DriveFileMove
     else -> Color.Transparent to Icons.Filled.Check
 }
 

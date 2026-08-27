@@ -241,6 +241,7 @@ fun CalendarScreen(
                 vm.save(t.copy(dueDate = ms))
             }
             SwipeAction.EDIT -> onOpenTask(t.id)
+            SwipeAction.MOVE -> onOpenTask(t.id)   // move picker lives in the task; open it here
             SwipeAction.NONE -> {}
         }
     }

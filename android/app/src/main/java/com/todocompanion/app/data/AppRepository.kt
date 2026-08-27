@@ -583,6 +583,18 @@ class AppRepository(private val db: AppDatabase) {
         logActivity(rootId, "moved", lists.getById(newListId)?.name)
     }
 
+    /** Move a task (and its subtree) directly into a folder, with no list — mirrors [moveToList]. */
+    suspend fun moveToFolder(rootId: String, folderId: String) {
+        val ids = subtreeIds(rootId)
+        val rootOrder = tasks.maxSortOrder("", null) + 1.0
+        for (id in ids) {
+            val t = tasks.getById(id) ?: continue
+            if (id == rootId) tasks.upsert(t.copy(listId = "", folderId = folderId, parentId = null, sortOrder = rootOrder, updatedAt = now()))
+            else tasks.upsert(t.copy(listId = "", folderId = folderId, updatedAt = now()))
+        }
+        logActivity(rootId, "moved", folders.getAll().firstOrNull { it.id == folderId }?.name)
+    }
+
     // ============ workspaces ============
     val allWorkspaces: Flow<List<WorkspaceEntity>> = db.workspaceDao().observeAll()
     private val workspaces = db.workspaceDao()
