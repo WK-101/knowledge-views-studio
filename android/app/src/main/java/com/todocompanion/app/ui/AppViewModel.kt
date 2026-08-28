@@ -56,6 +56,12 @@ data class QuickAddOptions(
     // V9: applied from inline capture tokens (#t25, *).
     val estimateMin: Int? = null,
     val star: Boolean = false,
+    // R21: the quick-add sheet now offers the same first-class options as the editor.
+    val contextIds: List<String> = emptyList(),
+    val folderId: String? = null,       // folder-direct capture (no list)
+    val rrule: String? = null,          // recurrence chosen in the date sheet
+    val durationMin: Int? = null,
+    val attachmentUris: List<android.net.Uri> = emptyList(),
 )
 
 enum class UndoKind { COMPLETED, ABANDONED, TRASHED }
@@ -201,9 +207,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val ctxCounts = tcRefs.filter { it.taskId in activeIds }.groupingBy { it.contextId }.eachCount()
             val tagsByTask = ttRefs.groupBy { it.taskId }.mapValues { e -> e.value.map { it.tagId }.toSet() }
             val ctxByTask = tcRefs.groupBy { it.taskId }.mapValues { e -> e.value.map { it.contextId }.toSet() }
+            val listFolderById = lists.associate { it.id to it.folderId }
+            fun folderOf(t: TaskEntity) = t.folderId ?: listFolderById[t.listId]
             val filterCounts = filtersL.associate { fl ->
                 val q = com.todocompanion.app.domain.view.Filters.parse(fl.queryJson)
-                fl.id to all.count { !it.trashed && com.todocompanion.app.domain.view.Filters.matches(q, it, tagsByTask[it.id].orEmpty(), ctxByTask[it.id].orEmpty(), now, zone) }
+                fl.id to all.count { !it.trashed && com.todocompanion.app.domain.view.Filters.matches(q, it, tagsByTask[it.id].orEmpty(), ctxByTask[it.id].orEmpty(), now, zone, folderOf(it)) }
             }
             EntryCounts(listCounts, folderCounts, tagCounts, ctxCounts, filterCounts)
         }.state(EntryCounts())
@@ -290,7 +298,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     val q = com.todocompanion.app.domain.view.Filters.parse(filterList.firstOrNull { it.id == v.filterId }?.queryJson)
                     val tagsByTask = ttRefs.groupBy { it.taskId }.mapValues { e -> e.value.map { it.tagId }.toSet() }
                     val ctxByTask = tcRefs.groupBy { it.taskId }.mapValues { e -> e.value.map { it.contextId }.toSet() }
-                    val hit = all.filter { com.todocompanion.app.domain.view.Filters.matches(q, it, tagsByTask[it.id].orEmpty(), ctxByTask[it.id].orEmpty(), now, zone) }
+                    val listFolderById = vc.lists.associate { it.id to it.folderId }
+                    val hit = all.filter { com.todocompanion.app.domain.view.Filters.matches(q, it, tagsByTask[it.id].orEmpty(), ctxByTask[it.id].orEmpty(), now, zone, it.folderId ?: listFolderById[it.listId]) }
                     if (q.includeChildren) {
                         val keep = expandWithDescendants(hit.map { it.id }.toSet(), all)
                         all.filter { it.id in keep && !it.trashed }
@@ -374,17 +383,25 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val hierarchyRows: StateFlow<List<OutlineRow>> =
         combine(
             wsTasks, currentView, filterHierarchy,
-            combine(repo.taskTagRefs, repo.taskContextRefs, repo.allFilters) { tt, tc, f -> Triple(tt, tc, f) },
+            combine(repo.taskTagRefs, repo.taskContextRefs, repo.allFilters, repo.allLists) { tt, tc, f, ls -> listOf(tt, tc, f, ls) },
         ) { all, v, on, refs ->
             if (!on) return@combine emptyList()
-            val (ttRefs, tcRefs, filters) = refs
+            @Suppress("UNCHECKED_CAST")
+            val ttRefs = refs[0] as List<com.todocompanion.app.data.entity.TaskTagCrossRef>
+            @Suppress("UNCHECKED_CAST")
+            val tcRefs = refs[1] as List<com.todocompanion.app.data.entity.TaskContextCrossRef>
+            @Suppress("UNCHECKED_CAST")
+            val filters = refs[2] as List<com.todocompanion.app.data.entity.FilterEntity>
+            @Suppress("UNCHECKED_CAST")
+            val hLists = refs[3] as List<ListEntity>
+            val listFolderById = hLists.associate { it.id to it.folderId }
             val now = System.currentTimeMillis()
             val matched: Set<String> = when (v) {
                 is ViewRef.FilterView -> {
                     val q = com.todocompanion.app.domain.view.Filters.parse(filters.firstOrNull { it.id == v.filterId }?.queryJson)
                     val tagsByTask = ttRefs.groupBy { it.taskId }.mapValues { e -> e.value.map { it.tagId }.toSet() }
                     val ctxByTask = tcRefs.groupBy { it.taskId }.mapValues { e -> e.value.map { it.contextId }.toSet() }
-                    val hit = all.filter { com.todocompanion.app.domain.view.Filters.matches(q, it, tagsByTask[it.id].orEmpty(), ctxByTask[it.id].orEmpty(), now, zone) }.map { it.id }.toSet()
+                    val hit = all.filter { com.todocompanion.app.domain.view.Filters.matches(q, it, tagsByTask[it.id].orEmpty(), ctxByTask[it.id].orEmpty(), now, zone, it.folderId ?: listFolderById[it.listId]) }.map { it.id }.toSet()
                     if (q.includeChildren) expandWithDescendants(hit, all) else hit
                 }
                 is ViewRef.TagView -> ttRefs.filter { it.tagId == v.tagId }.map { it.taskId }.toSet()
@@ -674,7 +691,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         // current view's target, which for a folder view is the folder itself (no list).
         val explicitList = opts.listId
             ?: parsed.list?.let { name -> lists.value.firstOrNull { !it.archived && it.name.equals(name, ignoreCase = true) }?.id }
-        val (listId, folderId) = if (explicitList != null) explicitList to null else resolveAddTarget()
+        val (listId, folderId) = when {
+            opts.folderId != null -> "" to opts.folderId       // explicit folder-direct capture (R21)
+            explicitList != null -> explicitList to null
+            else -> resolveAddTarget()
+        }
         val id = repo.createTask(listId, parsed.title.ifBlank { "Untitled" }, importance = imp, urgency = urg, dueDate = due, folderId = folderId)
 
         val tagIds = opts.tagIds.toMutableList()
@@ -686,25 +707,33 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         if (tagIds.isNotEmpty()) repo.setTaskTags(id, tagIds.distinct())
 
-        // @contexts resolve to existing contexts by name, creating any that are new.
-        if (parsed.contexts.isNotEmpty()) {
-            val existingCtx = repo.getContextsOnce().associateBy { it.name.lowercase() }
-            val ctxIds = parsed.contexts.map { name ->
-                existingCtx[name.lowercase()]?.id ?: UUID.randomUUID().toString().also { repo.upsertContext(ContextEntity(id = it, name = name)) }
+        // @contexts (parsed) + contexts chosen in the sheet (R21) resolve to existing contexts by name,
+        // creating any that are new.
+        run {
+            val ctxIds = ArrayList(opts.contextIds)
+            if (parsed.contexts.isNotEmpty()) {
+                val existingCtx = repo.getContextsOnce().associateBy { it.name.lowercase() }
+                parsed.contexts.forEach { name ->
+                    ctxIds += existingCtx[name.lowercase()]?.id ?: UUID.randomUUID().toString().also { repo.upsertContext(ContextEntity(id = it, name = name)) }
+                }
             }
-            repo.setTaskContexts(id, ctxIds.distinct())
+            if (ctxIds.isNotEmpty()) repo.setTaskContexts(id, ctxIds.distinct())
         }
 
-        // Natural-language recurrence ("every Tuesday", "monthly", "every 2 weeks") + optional note.
-        // V9: also apply inline-token estimate and star (merged above from opts + inline tokens).
-        if (parsed.rrule != null || opts.note.isNotBlank() || estimateMin != null || star) repo.getTask(id)?.let {
+        // Natural-language recurrence ("every Tuesday", "monthly", "every 2 weeks") or the date sheet's
+        // recurrence + optional note / duration (R21). V9: inline-token estimate and star too.
+        val rrule = opts.rrule ?: parsed.rrule
+        if (rrule != null || opts.note.isNotBlank() || estimateMin != null || star || opts.durationMin != null) repo.getTask(id)?.let {
             repo.saveTask(it.copy(
-                rrule = parsed.rrule ?: it.rrule,
+                rrule = rrule ?: it.rrule,
                 note = opts.note.ifBlank { it.note },
                 estimateMin = estimateMin ?: it.estimateMin,
+                durationMin = opts.durationMin ?: it.durationMin,
                 star = it.star || star,
             ))
         }
+        // Attachments picked in the sheet — applied after the task exists (each reads bytes off-thread).
+        opts.attachmentUris.forEach { addAttachment(id, it) }
 
         val reminderAt = opts.reminderMillis ?: (if (parsed.hasTime && due != null) due else null)
         if (reminderAt != null) {

@@ -156,6 +156,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     var showStart by remember { mutableStateOf(false) }
     var showDeadline by remember { mutableStateOf(false) }
     var showDuration by remember { mutableStateOf(false) }
+    var showEstimate by remember { mutableStateOf(false) }
     var showReminder by remember { mutableStateOf(false) }
     var editActivity by remember { mutableStateOf<com.todocompanion.app.data.entity.TimeActivityEntity?>(null) }
     var newTag by remember { mutableStateOf("") }
@@ -174,12 +175,29 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     var savedSnapshot by remember(taskId) { mutableStateOf<TaskEntity?>(null) }
     if (savedSnapshot == null && loaded != null) savedSnapshot = loaded
     var confirmDiscard by remember { mutableStateOf(false) }
-    val dirty = draft != null && savedSnapshot != null && draft != savedSnapshot
+
+    // Tags & contexts are staged like the rest of the editor (R21 #2): pending edits live in these drafts and
+    // only apply on Save, so the Save button lights up when you change them. While clean the drafts stay null
+    // and the UI reads straight from the live DB sets — which also sidesteps the flow's async-load race.
+    val liveTags = ttRefs.filter { it.taskId == taskId }.map { it.tagId }.toSet()
+    val liveCtx = tcRefs.filter { it.taskId == taskId }.map { it.contextId }.toSet()
+    var draftTags by remember(taskId) { mutableStateOf<Set<String>?>(null) }
+    var draftCtx by remember(taskId) { mutableStateOf<Set<String>?>(null) }
+    val effTags = draftTags ?: liveTags
+    val effCtx = draftCtx ?: liveCtx
+    val tagsDirty = draftTags != null && draftTags != liveTags
+    val ctxDirty = draftCtx != null && draftCtx != liveCtx
+    val dirty = (draft != null && savedSnapshot != null && draft != savedSnapshot) || tagsDirty || ctxDirty
 
     fun update(block: (TaskEntity) -> TaskEntity) {
         val d = draft ?: return; draft = block(d)
     }
-    fun commit() { draft?.let { vm.save(it) }; savedSnapshot = draft; onBack() }
+    fun commit() {
+        draft?.let { vm.save(it) }
+        if (draftTags != null) vm.setTags(taskId, (draftTags ?: emptySet()).toList())
+        if (draftCtx != null) vm.setContexts(taskId, (draftCtx ?: emptySet()).toList())
+        savedSnapshot = draft; draftTags = null; draftCtx = null; onBack()
+    }
     fun attemptBack() { if (dirty) confirmDiscard = true else onBack() }
 
     BackHandler { attemptBack() }
@@ -193,8 +211,11 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 IconButton(onClick = { update { it.copy(star = !it.star) } }) {
                     Icon(if (task?.star == true) Icons.Filled.Star else Icons.Filled.StarBorder, "Star")
                 }
-                // "Just start — focus now" (C2), iconized and moved into the header (R19 #10).
-                if (onJustStart != null && task != null && !task.completed && !task.abandoned) {
+                // "Just start — focus now" (C2). When the Time module is on, this lives inside the unified
+                // tracking control below (Start ▸ Focus session) so there aren't two tracking entry points
+                // (R21 #4); here in the header it only remains as the focus entry when Time is off.
+                if (onJustStart != null && task != null && !task.completed && !task.abandoned &&
+                    !com.todocompanion.app.domain.Modules.isEnabled(settings, com.todocompanion.app.domain.Modules.TIME)) {
                     IconButton(onClick = { onJustStart(task.id) }) { Icon(Icons.Filled.PlayArrow, "Just start — focus now", tint = MaterialTheme.colorScheme.primary) }
                 }
                 var menu by remember { mutableStateOf(false) }
@@ -234,6 +255,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     task.title, { v -> update { it.copy(title = v) } }, "Task title",
                     textStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface),
                     strikethrough = task.completed,
+                    // Long titles wrap onto multiple rows so the whole name stays readable & editable (R21 #8).
+                    singleLine = false,
                     modifier = Modifier.weight(1f).padding(top = 8.dp),
                 )
             }
@@ -245,29 +268,30 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
                 }
             }
-            Row(Modifier.fillMaxWidth().padding(start = 42.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Notes", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+            // No separate "Notes" heading (R21 #7) — the placeholder itself labels the field, reclaiming a row.
+            // The view/edit eye floats at the top-end of the notes area, only when there's a note to preview.
+            Box(Modifier.fillMaxWidth().padding(start = 42.dp, end = 4.dp)) {
+                if (task.note.isNotBlank() && notePreview) {
+                    // View-only: the note renders as formatted text and only the eye button switches to editing —
+                    // tapping the body no longer flips it into an editor.
+                    com.todocompanion.app.ui.components.MarkdownText(
+                        task.note,
+                        modifier = Modifier.fillMaxWidth().padding(end = 34.dp, bottom = 4.dp),
+                    )
+                } else {
+                    BorderlessField(
+                        task.note, { v -> update { it.copy(note = v) } }, "Notes — Markdown supported",
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                        singleLine = false,
+                        modifier = Modifier.fillMaxWidth().padding(end = 34.dp),
+                    )
+                }
                 if (task.note.isNotBlank()) {
-                    IconButton(onClick = { notePreview = !notePreview }, modifier = Modifier.size(32.dp)) {
+                    IconButton(onClick = { notePreview = !notePreview }, modifier = Modifier.align(Alignment.TopEnd).size(32.dp)) {
                         if (notePreview) Icon(Icons.Outlined.Edit, "Edit notes", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         else Icon(Icons.Outlined.Visibility, "Preview notes", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
                     }
                 }
-            }
-            if (task.note.isNotBlank() && notePreview) {
-                // View-only: the note renders as formatted text and only the Edit button (above)
-                // switches to editing — tapping the body no longer flips it into an editor.
-                com.todocompanion.app.ui.components.MarkdownText(
-                    task.note,
-                    modifier = Modifier.fillMaxWidth().padding(start = 42.dp, end = 4.dp, bottom = 4.dp),
-                )
-            } else {
-                BorderlessField(
-                    task.note, { v -> update { it.copy(note = v) } }, "Notes — Markdown supported",
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
-                    singleLine = false,
-                    modifier = Modifier.fillMaxWidth().padding(start = 42.dp),
-                )
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
 
@@ -308,12 +332,11 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 valueColor = if (dueOverdue) MaterialTheme.colorScheme.error else if (task.dueDate != null) MaterialTheme.colorScheme.primary else null,
                 onClear = if (task.dueDate != null) ({ update { it.copy(dueDate = null, durationMin = null) } }) else null) { showDue = true }
             if (task.dueDate != null || task.startDate != null) {
-                PropRow(Icons.Filled.PlayArrow, "Starts", task.startDate?.let { formatDue(it) } ?: "Not set", indent = true,
-                    onClear = if (task.startDate != null) ({ update { it.copy(startDate = null) } }) else null) { showStart = true }
+                // Start date, all-day, duration, repeat and reminders ALL live inside the unified Date
+                // sheet now (tap "Date" above) — no duplicated controls out here (R19 #9 / R21).
+                if (task.startDate != null) Text("Starts " + formatDue(task.startDate!!), Modifier.padding(start = 34.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 MenuRow("Show early", task.leadTimeMin?.let { "${it / 1440}d early" } ?: "Default",
                     listOf<Pair<Int?, String>>(null to "Default (7 days)", 1 to "1 day early", 3 to "3 days early", 7 to "1 week early", 14 to "2 weeks early")) { d -> update { it.copy(leadTimeMin = d?.let { n -> n * 1440 }) } }
-                // All-day, duration, repeat and reminders now all live inside the unified Date sheet
-                // (tap "Date" above) — no duplicated controls out here (R19 #9).
             }
 
             // T2: track time against this task (Time module only). Planned (duration/estimate) vs actual,
@@ -349,10 +372,31 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                             )
                         }
                     }
-                    androidx.compose.material3.FilledTonalButton(onClick = { if (running != null) vm.stopTimeTracking() else vm.startTimeTrackingForTask(task) }) {
-                        Icon(if (running != null) Icons.Filled.Stop else Icons.Filled.PlayArrow, null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(if (running != null) "Stop" else "Start")
+                    // One unified tracking control (R21 #4): Stop while running; otherwise a single Start that
+                    // offers both plain time tracking and a focus session — no separate focus button elsewhere.
+                    if (running != null) {
+                        androidx.compose.material3.FilledTonalButton(onClick = { vm.stopTimeTracking() }) {
+                            Icon(Icons.Filled.Stop, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Stop")
+                        }
+                    } else {
+                        Box {
+                            var startMenu by remember { mutableStateOf(false) }
+                            androidx.compose.material3.FilledTonalButton(onClick = { startMenu = true }) {
+                                Icon(Icons.Filled.PlayArrow, null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(6.dp)); Text("Start")
+                                Icon(Icons.Filled.ExpandMore, null, modifier = Modifier.size(18.dp))
+                            }
+                            DropdownMenu(expanded = startMenu, onDismissRequest = { startMenu = false }) {
+                                DropdownMenuItem(text = { Text("Track time") },
+                                    leadingIcon = { Icon(Icons.Filled.Schedule, null, Modifier.size(18.dp)) },
+                                    onClick = { vm.startTimeTrackingForTask(task); startMenu = false })
+                                if (onJustStart != null && !task.completed && !task.abandoned) {
+                                    DropdownMenuItem(text = { Text("Focus session") },
+                                        leadingIcon = { Icon(Icons.Filled.PlayArrow, null, Modifier.size(18.dp)) },
+                                        onClick = { startMenu = false; onJustStart(task.id) })
+                                }
+                            }
+                        }
                     }
                 }
                 // "Counts under" — pick which time activity this task's tracked time belongs to. Falls back
@@ -370,15 +414,18 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                                 leadingIcon = { if (task.defaultActivityId == null) Icon(Icons.Filled.Check, null, Modifier.size(18.dp)) else Spacer(Modifier.width(18.dp)) },
                                 onClick = { vm.setTaskDefaultActivity(task.id, null); actMenu = false })
                             timeActivities.filter { !it.archived }.forEach { a ->
+                                // Each activity is editable/removable in place (R21 #3) — the trailing pencil opens
+                                // the editor (which also deletes); tapping the row still just links it to the task.
                                 DropdownMenuItem(text = { Text((a.emoji?.plus(" ") ?: "") + a.name) },
                                     leadingIcon = { if (task.defaultActivityId == a.id) Icon(Icons.Filled.Check, null, Modifier.size(18.dp)) else Spacer(Modifier.width(18.dp)) },
+                                    trailingIcon = {
+                                        IconButton(onClick = { actMenu = false; editActivity = a }, modifier = Modifier.size(30.dp)) {
+                                            Icon(Icons.Outlined.Edit, "Edit activity", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    },
                                     onClick = { vm.setTaskDefaultActivity(task.id, a.id); actMenu = false })
                             }
                         }
-                    }
-                    // Edit / delete the linked activity right here (R19 #10).
-                    if (linkedAct != null) IconButton(onClick = { editActivity = linkedAct }, modifier = Modifier.size(30.dp)) {
-                        Icon(Icons.Outlined.Edit, "Edit activity", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -422,8 +469,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             val attFlow = remember(task.id) { vm.attachmentMeta(task.id) }
             val attachments by attFlow.collectAsState(initial = emptyList())
             val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> if (uri != null) vm.addAttachment(task.id, uri) }
-            val assignedTags = ttRefs.filter { it.taskId == task.id }.map { it.tagId }.toSet()
-            val assignedCtx = tcRefs.filter { it.taskId == task.id }.map { it.contextId }.toSet()
+            // Staged tag/context sets (R21 #2): pending edits if any, else the live DB sets.
+            val assignedTags = effTags
+            val assignedCtx = effCtx
             val myDeps = allDeps.filter { it.taskId == task.id }
             fun hasFieldValue(f: com.todocompanion.app.domain.EditorField): Boolean = when (f) {
                 com.todocompanion.app.domain.EditorField.REPEAT -> !task.rrule.isNullOrBlank()
@@ -572,9 +620,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                      DetailSection("Tags & contexts", (assignedTags.size + assignedCtx.size).takeIf { it > 0 }?.toString(), assignedTags.isNotEmpty() || assignedCtx.isNotEmpty()) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     allTags.forEach { tag ->
+                        // Toggling stages the change into draftTags — Save lights up and persists it (R21 #2).
                         FilterChip(selected = tag.id in assignedTags, onClick = {
-                            val next = if (tag.id in assignedTags) assignedTags - tag.id else assignedTags + tag.id
-                            vm.setTags(task.id, next.toList())
+                            draftTags = if (tag.id in assignedTags) assignedTags - tag.id else assignedTags + tag.id
                         }, label = { Text("#" + tag.name) })
                     }
                 }
@@ -583,8 +631,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     allContexts.forEach { c ->
                         FilterChip(selected = c.id in assignedCtx, onClick = {
-                            val next = if (c.id in assignedCtx) assignedCtx - c.id else assignedCtx + c.id
-                            vm.setContexts(task.id, next.toList())
+                            draftCtx = if (c.id in assignedCtx) assignedCtx - c.id else assignedCtx + c.id
                         }, label = { Text("@" + c.name) })
                     }
                 }
@@ -649,7 +696,16 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     Text("Manual progress", style = MaterialTheme.typography.bodyMedium)
                     androidx.compose.material3.Slider(value = p, onValueChange = { p = it }, onValueChangeFinished = { update { it.copy(progressPct = p.toInt().takeIf { v -> v > 0 }) } }, valueRange = 0f..100f, steps = 19)
                 }
-                Dial("Estimate (min)", (task.estimateMin ?: 0).coerceIn(0, 5)) { v -> update { it.copy(estimateMin = v * 15) } }
+                // Estimate: any amount of time via the flexible duration picker (R21 #9) — the old 0–75 min
+                // dial couldn't represent longer estimates.
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { showEstimate = true }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Estimate", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    Text(task.estimateMin?.let { fmtDuration(it) } ?: "Not set",
+                        style = MaterialTheme.typography.bodyMedium, color = if (task.estimateMin != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (task.estimateMin != null) IconButton(onClick = { update { it.copy(estimateMin = null) } }, modifier = Modifier.size(28.dp)) {
+                        Icon(Icons.Filled.Close, "Clear estimate", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
                 SwitchRow("Mark as goal", task.isGoal) { v -> update { it.copy(isGoal = v) } }
                 SwitchRow("Mark as project", task.isProject) { v -> update { it.copy(isProject = v) } }
                 // Q2: goals & projects get the habit "why" + reward vocabulary.
@@ -731,9 +787,13 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     if (showDuration) DurationPickerDialog(task?.durationMin ?: 30, onDismiss = { showDuration = false }) { mins ->
         update { it.copy(durationMin = mins.takeIf { m -> m > 0 }) }; showDuration = false
     }
+    if (showEstimate) DurationPickerDialog(task?.estimateMin ?: 30, onDismiss = { showEstimate = false }) { mins ->
+        update { it.copy(estimateMin = mins.takeIf { m -> m > 0 }) }; showEstimate = false
+    }
     if (showDue) {
         val t0 = task
         val timed0 = t0?.dueDate != null && !t0.isAllDay && java.time.Instant.ofEpochMilli(t0.dueDate!!).atZone(java.time.ZoneId.systemDefault()).let { it.hour != 0 || it.minute != 0 }
+        val startTimed0 = t0?.startDate?.let { java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).let { z -> z.hour != 0 || z.minute != 0 } } ?: false
         com.todocompanion.app.ui.components.DateReminderSheet(
             initialDue = t0?.dueDate,
             initialHasTime = timed0,
@@ -743,12 +803,17 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             initialReminderOffsetMin = null,
             onDismiss = { showDue = false },
             onConfirm = { c ->
-                // The sheet carries the full intended schedule state, so apply it directly (rrule too).
-                update { it.copy(dueDate = c.dueMillis, isAllDay = c.allDay, durationMin = c.durationMin, rrule = c.rrule) }
+                // The sheet carries the full intended schedule state — due, all-day, duration, repeat AND
+                // the optional start date (R21) — so apply it all directly.
+                update { it.copy(dueDate = c.dueMillis, isAllDay = c.allDay, durationMin = c.durationMin, rrule = c.rrule, startDate = c.startMillis) }
                 showDue = false
             },
             // The full reminders manager lives inside the sheet (no separate section outside).
             reminderSlot = t0?.let { tt -> { TaskReminderManager(vm, tt, reminders.filter { it.taskId == tt.id }, onPickTime = { showReminder = true }) } },
+            showStart = true,
+            initialStart = t0?.startDate,
+            initialStartHasTime = startTimed0,
+            repeatHasChildren = allTasks.any { it.parentId == t0?.id && !it.trashed },
         )
     }
     if (listMenu && task != null) MoveTargetDialog(
@@ -763,7 +828,6 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             onSave = { updated -> vm.updateTimeActivity(updated); editActivity = null },
             onDelete = { vm.deleteTimeActivity(act.id); editActivity = null })
     }
-    if (showStart) DateTimePickerDialog(task?.startDate, { showStart = false }) { m -> update { it.copy(startDate = m) }; showStart = false }
     if (showDeadline) DateTimePickerDialog(task?.deadlineDate, { showDeadline = false }) { m -> update { it.copy(deadlineDate = m) }; showDeadline = false }
     if (showReminder) DateTimePickerDialog(task?.dueDate ?: System.currentTimeMillis(), { showReminder = false }) { m -> task?.let { vm.addAbsoluteReminder(it, m) }; showReminder = false }
     if (showBlockPicker && task != null) {
@@ -870,7 +934,7 @@ private fun RepeatRow(rule: String?, hasChildren: Boolean, onChange: (String?) -
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun RepeatDialog(rule: String?, hasChildren: Boolean, onDismiss: () -> Unit, onSave: (String?) -> Unit) {
+internal fun RepeatDialog(rule: String?, hasChildren: Boolean, onDismiss: () -> Unit, onSave: (String?) -> Unit) {
     val r0 = com.todocompanion.app.domain.recurrence.Recurrence.parse(rule)
     var freq by remember { mutableStateOf(r0?.freq) }   // null = does not repeat
     var interval by remember { mutableStateOf(r0?.interval ?: 1) }
@@ -1319,7 +1383,7 @@ fun fmtDuration(min: Int): String {
 
 /** Flexible duration picker — any hours (0–23) and minutes (0–55, 5-min steps), not fixed presets. */
 @Composable
-private fun DurationPickerDialog(initialMin: Int, onDismiss: () -> Unit, onPick: (Int) -> Unit) {
+internal fun DurationPickerDialog(initialMin: Int, onDismiss: () -> Unit, onPick: (Int) -> Unit) {
     var hours by remember { mutableStateOf((initialMin / 60).coerceIn(0, 23)) }
     var mins by remember { mutableStateOf((initialMin % 60)) }
     androidx.compose.material3.AlertDialog(

@@ -1081,8 +1081,8 @@ private fun HabitQuickAddDialog(onDismiss: () -> Unit, onAdd: (HabitEntity) -> U
     val focus = remember { FocusRequester() }
     fun submit() { if (draft.name.isNotBlank()) onAdd(draft) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 20.dp)) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, dragHandle = null) {
+        Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 20.dp, vertical = 6.dp)) {
             Text("New habit", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
             Box(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp)) {
                 if (text.isEmpty()) Text("meditate 10 min every morning",

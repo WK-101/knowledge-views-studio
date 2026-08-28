@@ -275,9 +275,15 @@ fun AppDrawer(
             }
 
             val filters by vm.filters.collectAsState()
-            if ("filters" !in hidden && (filters.isNotEmpty() || open("filters"))) {
+            // Always render the header when the section isn't hidden — previously an empty AND collapsed
+            // Filters section vanished entirely, so it couldn't be re-opened or added to (R21 #228 bug).
+            if ("filters" !in hidden) {
                 SectionHeader("Filters", open = open("filters"), onToggle = { toggle("filters") }, onAdd = { onEditFilter(null) })
                 val filterCounts by vm.entryCounts.collectAsState()
+                if (open("filters") && filters.isEmpty()) {
+                    Text("No filters yet — tap + to build one.", Modifier.padding(start = 34.dp, end = 12.dp, top = 2.dp, bottom = 6.dp),
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 if (open("filters")) DragReorderColumn(filters.sortedBy { it.sortOrder }, id = { it.id }, onReorder = { vm.setFilterOrder(it) }) { f ->
                     var menu by remember(f.id) { mutableStateOf(false) }
                     val selected = (current as? ViewRef.FilterView)?.filterId == f.id
@@ -660,7 +666,10 @@ private fun <T> DragReorderColumn(items: List<T>, id: (T) -> String, onReorder: 
         order.forEach { item ->
             key(id(item)) {
                 val dragging = id(item) == dragId
-                Box(
+                // A Column (not a Box) so an item that renders a whole subtree — e.g. a parent tag/context and
+                // its nested children (TagNode/ContextNode recurse) — stacks its rows vertically instead of
+                // overlapping them on top of each other (R21 #228: parent hidden, sub-tags overlapping).
+                Column(
                     Modifier
                         .onSizeChanged { if (rowH == 0f && it.height > 0) rowH = it.height.toFloat() }
                         .zIndex(if (dragging) 1f else 0f)

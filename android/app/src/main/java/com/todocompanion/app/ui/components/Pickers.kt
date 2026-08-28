@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.DatePicker
@@ -56,6 +57,8 @@ data class DateChoice(
     val durationMin: Int?,
     val rrule: String?,
     val reminderOffsetMin: Int?,   // null = no reminder; 0 = on time; N = minutes before due
+    val startMillis: Long? = null,     // R21: optional start date, set inside the same sheet
+    val startHasTime: Boolean = false,
 )
 
 /**
@@ -77,6 +80,10 @@ fun DateReminderSheet(
     onDismiss: () -> Unit,
     onConfirm: (DateChoice) -> Unit,
     reminderSlot: (@Composable () -> Unit)? = null,
+    showStart: Boolean = false,
+    initialStart: Long? = null,
+    initialStartHasTime: Boolean = false,
+    repeatHasChildren: Boolean = false,
 ) {
     val zone = ZoneId.systemDefault()
     val initialDt = initialDue?.let { Instant.ofEpochMilli(it).atZone(zone) }
@@ -87,10 +94,15 @@ fun DateReminderSheet(
     var durationMin by remember { mutableStateOf(initialDurationMin) }
     var rrule by remember { mutableStateOf(initialRrule) }
     var reminder by remember { mutableStateOf(initialReminderOffsetMin) }
+    var startMillis by remember { mutableStateOf(initialStart) }
+    var startHasTime by remember { mutableStateOf(initialStartHasTime) }
     var showTimePicker by remember { mutableStateOf(false) }
+    var showDuration by remember { mutableStateOf(false) }
     var showRepeat by remember { mutableStateOf(false) }
     var showReminder by remember { mutableStateOf(false) }
+    var showStartPicker by remember { mutableStateOf(false) }
     val hm = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+    val startFmt = java.time.format.DateTimeFormatter.ofPattern("EEE, MMM d")
 
     fun confirm() {
         val effectiveAllDay = allDay || (hasDate && time == null)
@@ -102,6 +114,8 @@ fun DateReminderSheet(
             durationMin = if (!effectiveAllDay) durationMin else null,
             rrule = rrule,
             reminderOffsetMin = if (reminderSlot != null) null else reminder,
+            startMillis = startMillis,
+            startHasTime = startHasTime,
         ))
     }
 
@@ -131,20 +145,29 @@ fun DateReminderSheet(
             // All-day is top-level (not tab-gated): turning it on clears the time and duration.
             SheetToggleRow("All day", allDay) { allDay = it; if (it) { time = null; durationMin = null } }
             if (!allDay) {
+                Text("Time & duration", Modifier.padding(top = 4.dp, bottom = 2.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 // Time — OPTIONAL. Tap to add/change; clear with ✕. (The "don't force a time" behaviour.)
                 SheetRow(icon = Icons.Filled.Schedule, label = "Time",
                     value = time?.format(hm) ?: "None",
                     onClear = if (time != null) ({ time = null; durationMin = null }) else null,
                     onClick = { showTimePicker = true })
-                // Duration only means something once there's a start time (end = start + duration).
-                if (time != null) {
-                    Text("Duration", Modifier.padding(start = 34.dp, top = 2.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    FlowRow(Modifier.padding(start = 34.dp, top = 4.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf<Pair<Int?, String>>(null to "None", 15 to "15m", 30 to "30m", 45 to "45m", 60 to "1h", 90 to "1½h", 120 to "2h", 240 to "4h").forEach { (m, l) ->
-                            FilterChip(selected = durationMin == m, onClick = { durationMin = m }, label = { Text(l) })
-                        }
-                    }
-                }
+                // Duration is optional and only meaningful once there's a start time (end = start + it);
+                // it opens the flexible any-amount picker rather than fixed presets (R21).
+                if (time != null) SheetRow(icon = Icons.Filled.Schedule, label = "Duration",
+                    value = durationMin?.let { fmtDuration(it) } ?: "None",
+                    onClear = if (durationMin != null) ({ durationMin = null }) else null,
+                    onClick = { showDuration = true })
+            }
+            if (showStart) {
+                androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
+                // "Starts" is now part of this one sheet, with an OPTIONAL time (R21).
+                SheetRow(icon = Icons.Filled.PlayArrow, label = "Starts",
+                    value = startMillis?.let { s ->
+                        val dt = Instant.ofEpochMilli(s).atZone(zone)
+                        dt.format(startFmt) + (if (startHasTime) " " + LocalTime.of(dt.hour, dt.minute).format(hm) else "")
+                    } ?: "None",
+                    onClear = if (startMillis != null) ({ startMillis = null; startHasTime = false }) else null,
+                    onClick = { showStartPicker = true })
             }
             androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
             // Reminders: the full manager renders here (via the slot) so reminders live inside the sheet.
@@ -186,7 +209,61 @@ fun DateReminderSheet(
         }
     }
     if (showReminder) PickListDialog("Reminder", listOf<Pair<Int?, String>>(null to "None", 0 to "On time", 5 to "5 min before", 15 to "15 min before", 30 to "30 min before", 60 to "1 hour before", 1440 to "1 day before"), onDismiss = { showReminder = false }) { reminder = it; showReminder = false }
-    if (showRepeat) PickListDialog("Repeat", listOf<Pair<String?, String>>(null to "None", "FREQ=DAILY" to "Daily", "FREQ=WEEKLY" to "Weekly", "FREQ=MONTHLY" to "Monthly", "FREQ=YEARLY" to "Yearly", "FREQ=WEEKLY;INTERVAL=2" to "Every 2 weeks", "FREQ=DAILY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR" to "Weekdays"), onDismiss = { showRepeat = false }) { rrule = it; showRepeat = false }
+    // Expert recurrence — the full builder (interval, weekdays, monthly nth-weekday, from-completion,
+    // end after N / until a date), producing the app's own rich rrule the engine actually understands
+    // (the previous basic RRULE strings weren't parsed by the recurrence engine) — R21.
+    if (showRepeat) com.todocompanion.app.ui.screens.RepeatDialog(rrule, repeatHasChildren, onDismiss = { showRepeat = false }) { rrule = it; showRepeat = false }
+    if (showDuration) com.todocompanion.app.ui.screens.DurationPickerDialog(durationMin ?: 30, onDismiss = { showDuration = false }) { durationMin = it.takeIf { m -> m > 0 }; showDuration = false }
+    if (showStartPicker) DateTimeOptionalDialog(startMillis, startHasTime, onDismiss = { showStartPicker = false }) { m, ht -> startMillis = m; startHasTime = ht; showStartPicker = false }
+}
+
+/**
+ * A compact date + OPTIONAL time picker (R21): an M3 calendar plus a time row you can leave unset.
+ * Returns the chosen instant (date at the time, or midnight when no time) and whether a time was set.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DateTimeOptionalDialog(initial: Long?, initialHasTime: Boolean, onDismiss: () -> Unit, onConfirm: (Long, Boolean) -> Unit) {
+    val zone = ZoneId.systemDefault()
+    val initDt = initial?.let { Instant.ofEpochMilli(it).atZone(zone) }
+    var date by remember { mutableStateOf(initDt?.toLocalDate() ?: java.time.LocalDate.now(zone)) }
+    var time by remember { mutableStateOf(if (initialHasTime && initDt != null) LocalTime.of(initDt.hour, initDt.minute) else null) }
+    var showTime by remember { mutableStateOf(false) }
+    val hm = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = { onConfirm(java.time.LocalDateTime.of(date, time ?: LocalTime.MIDNIGHT).atZone(zone).toInstant().toEpochMilli(), time != null) }) { Text("Set") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        text = {
+            androidx.compose.foundation.layout.Column(Modifier.verticalScroll(rememberScrollState())) {
+                val dateState = rememberDatePickerState(initialSelectedDateMillis = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
+                DatePicker(state = dateState, showModeToggle = false, title = null, headline = null)
+                androidx.compose.runtime.LaunchedEffect(dateState.selectedDateMillis) {
+                    dateState.selectedDateMillis?.let { date = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
+                }
+                SheetRow(icon = Icons.Filled.Schedule, label = "Time",
+                    value = time?.format(hm) ?: "None",
+                    onClear = if (time != null) ({ time = null }) else null,
+                    onClick = { showTime = true })
+            }
+        },
+    )
+    if (showTime) {
+        val ts = rememberTimePickerState(initialHour = time?.hour ?: 9, initialMinute = time?.minute ?: 0)
+        Dialog(onDismissRequest = { showTime = false }) {
+            Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)) {
+                androidx.compose.foundation.layout.Column(Modifier.padding(16.dp)) {
+                    TimePicker(state = ts)
+                    androidx.compose.foundation.layout.Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = { showTime = false }) { Text("Cancel") }
+                        TextButton(onClick = { time = LocalTime.of(ts.hour, ts.minute); showTime = false }) { Text("OK") }
+                    }
+                }
+            }
+        }
+    }
 }
 
 private fun fmtDuration(min: Int): String = when {

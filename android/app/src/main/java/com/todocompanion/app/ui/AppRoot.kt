@@ -1053,7 +1053,7 @@ fun AppRoot(
                 onDelete = { vm.deleteWorkspace(w.id); manageWs = null })
         }
         filterEdit?.let { f ->
-            FilterBuilderDialog(f, lists.filter { !it.archived }, tags, contexts, flagsList,
+            FilterBuilderDialog(f, lists.filter { !it.archived }, folders, tags, contexts, flagsList,
                 onDismiss = { filterEdit = null },
                 onDelete = { vm.deleteFilter(f); filterEdit = null },
                 onSave = { updated -> vm.saveFilter(updated); vm.select(ViewRef.FilterView(updated.id)); tab = Tab.TASKS; filterEdit = null })
@@ -1121,7 +1121,7 @@ fun AppRoot(
 @Composable
 private fun FilterBuilderDialog(
     filter: com.todocompanion.app.data.entity.FilterEntity,
-    lists: List<ListEntity>, tags: List<com.todocompanion.app.data.entity.TagEntity>, contexts: List<com.todocompanion.app.data.entity.ContextEntity>,
+    lists: List<ListEntity>, folders: List<FolderEntity>, tags: List<com.todocompanion.app.data.entity.TagEntity>, contexts: List<com.todocompanion.app.data.entity.ContextEntity>,
     flags: List<com.todocompanion.app.data.entity.FlagEntity>,
     onDismiss: () -> Unit, onDelete: () -> Unit, onSave: (com.todocompanion.app.data.entity.FilterEntity) -> Unit,
 ) {
@@ -1129,6 +1129,7 @@ private fun FilterBuilderDialog(
     var name by remember { mutableStateOf(filter.name) }
     var matchAll by remember { mutableStateOf(q0.matchAll) }
     var listIds by remember { mutableStateOf(q0.listIds) }
+    var folderIds by remember { mutableStateOf(q0.folderIds) }
     var tagIds by remember { mutableStateOf(q0.tagIds) }
     var ctxIds by remember { mutableStateOf(q0.contextIds) }
     var levels by remember { mutableStateOf(q0.levels) }
@@ -1137,13 +1138,18 @@ private fun FilterBuilderDialog(
     var flagIds by remember { mutableStateOf(q0.flagIds) }
     var dueWithin by remember { mutableStateOf(q0.dueWithinDays) }
     var maxDur by remember { mutableStateOf(q0.maxDurationMin) }
+    var recurring by remember { mutableStateOf(q0.recurring) }        // null=any, true=recurring, false=one-off
+    var recurFreqs by remember { mutableStateOf(q0.recurFreqs) }
     var inclChildren by remember { mutableStateOf(q0.includeChildren) }
 
     fun save() {
         val q = com.todocompanion.app.domain.view.FilterQuery(
-            matchAll = matchAll, listIds = listIds, tagIds = tagIds, contextIds = ctxIds, levels = levels,
+            matchAll = matchAll, listIds = listIds, folderIds = folderIds, tagIds = tagIds, contextIds = ctxIds, levels = levels,
             flaggedOnly = flagged, starredOnly = starred, flagIds = flagIds,
-            dueWithinDays = dueWithin, maxDurationMin = maxDur, includeCompleted = false, includeChildren = inclChildren,
+            dueWithinDays = dueWithin, maxDurationMin = maxDur,
+            // A frequency choice implies "recurring"; keep them consistent so the two controls never fight.
+            recurring = if (recurFreqs.isNotEmpty()) true else recurring, recurFreqs = recurFreqs,
+            includeCompleted = false, includeChildren = inclChildren,
         )
         onSave(filter.copy(name = name.trim().ifBlank { "Filter" }, queryJson = com.todocompanion.app.domain.view.Filters.encode(q)))
     }
@@ -1162,6 +1168,12 @@ private fun FilterBuilderDialog(
                     SingleChoiceSegmentedButtonRow {
                         SegmentedButton(selected = matchAll, onClick = { matchAll = true }, shape = SegmentedButtonDefaults.itemShape(0, 2)) { Text("All") }
                         SegmentedButton(selected = !matchAll, onClick = { matchAll = false }, shape = SegmentedButtonDefaults.itemShape(1, 2)) { Text("Any") }
+                    }
+                }
+                if (folders.isNotEmpty()) FilterGroup("Folders") {
+                    folders.sortedBy { it.sortOrder }.forEach { fo ->
+                        FilterChip(selected = fo.id in folderIds, onClick = { folderIds = if (fo.id in folderIds) folderIds - fo.id else folderIds + fo.id },
+                            label = { Text((fo.icon?.plus(" ") ?: "") + fo.name) })
                     }
                 }
                 FilterGroup("Lists") {
@@ -1189,6 +1201,23 @@ private fun FilterBuilderDialog(
                 FilterGroup("Time available") {
                     listOf<Pair<Int?, String>>(null to "Any", 15 to "≤15 min", 30 to "≤30 min", 60 to "≤1 h").forEach { (m, l) ->
                         FilterChip(selected = maxDur == m, onClick = { maxDur = m }, label = { Text(l) })
+                    }
+                }
+                // Recurrence: first the is-recurring gate, then (when recurring) which frequencies to include.
+                FilterGroup("Repeat") {
+                    listOf<Pair<Boolean?, String>>(null to "Any", true to "Recurring", false to "One-off").forEach { (r, l) ->
+                        FilterChip(selected = recurring == r, onClick = {
+                            recurring = r
+                            if (r != true) recurFreqs = emptySet()   // frequencies only apply to recurring tasks
+                        }, label = { Text(l) })
+                    }
+                }
+                if (recurring != false) FilterGroup("Repeats every") {
+                    listOf("DAILY" to "Daily", "WEEKDAYS" to "Weekdays", "WEEKLY" to "Weekly", "MONTHLY" to "Monthly", "YEARLY" to "Yearly").forEach { (k, l) ->
+                        FilterChip(selected = k in recurFreqs, onClick = {
+                            recurFreqs = if (k in recurFreqs) recurFreqs - k else recurFreqs + k
+                            if (recurFreqs.isNotEmpty()) recurring = true
+                        }, label = { Text(l) })
                     }
                 }
                 Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
