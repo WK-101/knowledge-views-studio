@@ -103,6 +103,11 @@ dependencies {
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
 
+    // SQLCipher — transparent AES-256 encryption of the Room database at rest (fully local; the
+    // native library adds no network permission). Key is held in the Android KeyStore (see SecureDb).
+    implementation("net.zetetic:android-database-sqlcipher:4.5.4")
+    implementation("androidx.sqlite:sqlite:2.4.0")
+
     // JSON export/import
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 

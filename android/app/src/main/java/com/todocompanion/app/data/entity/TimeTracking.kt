@@ -1,6 +1,7 @@
 package com.todocompanion.app.data.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 
@@ -16,6 +17,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 @Entity(tableName = "time_activities")
+@androidx.compose.runtime.Immutable
 data class TimeActivityEntity(
     @PrimaryKey val id: String,
     val name: String,
@@ -32,7 +34,13 @@ data class TimeActivityEntity(
 )
 
 @Serializable
-@Entity(tableName = "time_entries")
+@Entity(
+    tableName = "time_entries",
+    // Hot-path indices for the day/week/month window scans and per-activity history — these matter
+    // more once the DB is encrypted, where a full scan pays page-level AES on every row (C / Plan A).
+    indices = [Index("startMillis"), Index("activityId"), Index("taskId")],
+)
+@androidx.compose.runtime.Immutable
 data class TimeEntryEntity(
     @PrimaryKey val id: String,
     val activityId: String,

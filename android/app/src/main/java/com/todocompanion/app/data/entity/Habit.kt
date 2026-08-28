@@ -13,6 +13,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 @Entity(tableName = "habits")
+@androidx.compose.runtime.Immutable
 data class HabitEntity(
     @PrimaryKey val id: String,
     val name: String,

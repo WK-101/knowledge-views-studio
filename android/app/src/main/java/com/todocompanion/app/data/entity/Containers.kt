@@ -21,6 +21,7 @@ data class WorkspaceEntity(
 /** A folder groups lists (and other folders) in the sidebar. Nestable via [parentId]. */
 @Serializable
 @Entity(tableName = "folders", indices = [Index("parentId")])
+@androidx.compose.runtime.Immutable
 data class FolderEntity(
     @PrimaryKey val id: String,
     val parentId: String? = null,
@@ -36,6 +37,7 @@ data class FolderEntity(
  *  Lists can be nested under other lists via [parentListId] (in addition to living in a folder). */
 @Serializable
 @Entity(tableName = "lists", indices = [Index("folderId"), Index("parentListId")])
+@androidx.compose.runtime.Immutable
 data class ListEntity(
     @PrimaryKey val id: String,
     val folderId: String? = null,

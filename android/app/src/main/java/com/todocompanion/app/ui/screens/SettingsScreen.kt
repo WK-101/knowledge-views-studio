@@ -680,6 +680,32 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Toggle("Hide notification content on lock screen", s.lockscreenPrivacy) { vm.saveSettings(s.copy(lockscreenPrivacy = it)) }
             Text("Reminder and summary notifications show only a generic title on a locked screen — task names stay hidden until you unlock.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+            // Plan A — at-rest database encryption (SQLCipher). Desired state is local to SecureDb and
+            // applies on the next launch, so this toggle is remembered locally + prompts a restart.
+            Text("Encryption at rest", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(bottom = 2.dp))
+            var wantEnc by remember { mutableStateOf(vm.dbEncryptionDesired()) }
+            val encActual = remember(wantEnc) { vm.dbEncryptionActual() }
+            val encPending = wantEnc != encActual
+            Toggle("Encrypt the database (SQLCipher / AES-256)", wantEnc) { on ->
+                wantEnc = on; vm.setDbEncryption(on)
+            }
+            Text("Encrypts your on-device database with a 256-bit key held in this device's hardware key store (StrongBox when available). Protects the data if the database file is ever copied off a lost or powered-off device.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (encPending) Text(
+                if (wantEnc) "⟳ Restart the app to finish encrypting your data (a one-time, verified migration — a backup is made first)."
+                else "⟳ Restart the app to finish removing encryption.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 2.dp))
+            else Text(if (encActual) "● Your database is encrypted." else "○ Your database is not encrypted.",
+                style = MaterialTheme.typography.bodySmall, color = if (encActual) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
+            vm.dbEncryptionError().takeIf { it.isNotBlank() }?.let {
+                Text("Last attempt didn't complete: $it — your data is safe and unchanged. Make a backup, then try again.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 2.dp))
+            }
+            Text("What it does NOT protect: a rooted device while the app is installed and unlocked. And note — uninstalling the app erases the encryption key, so keep a JSON backup as your recovery copy.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+
             HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             // Z7 — the trust dashboard: make the zero-permission promise something you can see.
             Text("Trust & your data", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(bottom = 2.dp))

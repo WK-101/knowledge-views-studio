@@ -2071,6 +2071,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     data class DataCounts(val tasks: Int, val habits: Int, val checkins: Int, val timeEntries: Int, val activities: Int, val focus: Int)
     fun dataCounts() = DataCounts(tasks.value.size, habits.value.size, habitCheckins.value.size, timeEntries.value.size, timeActivities.value.size, focusSessions.value.size + timeEntries.value.count { it.kind == "focus" })
 
+    // ── Plan A · at-rest database encryption (SQLCipher). State lives in SecureDb's own prefs (it must
+    // be readable before the DB opens), not in AppSettings — so these are simple synchronous getters. ──
+    fun dbEncryptionDesired(): Boolean = com.todocompanion.app.data.security.SecureDb.desiredEncrypted(appCtx)
+    fun dbEncryptionActual(): Boolean = com.todocompanion.app.data.security.SecureDb.fileEncrypted(appCtx)
+    fun dbEncryptionPending(): Boolean = com.todocompanion.app.data.security.SecureDb.migrationPending(appCtx)
+    fun dbEncryptionError(): String = com.todocompanion.app.data.security.SecureDb.lastError(appCtx)
+    /** Flip the desired at-rest encryption state. The actual migration runs on the next app start
+     *  (the UI prompts for a restart); returns nothing that changes until then. */
+    fun setDbEncryption(want: Boolean) = com.todocompanion.app.data.security.SecureDb.setDesiredEncrypted(appCtx, want)
+
     // ── Z8 · graded strength — an opt-in that gives partial days partial credit ───────────────────
     /** Per-day fractional credit for build-habit days that were attempted but fell short of the goal. */
     private fun gradedCreditFor(h: com.todocompanion.app.data.entity.HabitEntity, hc: List<com.todocompanion.app.data.entity.HabitCheckinEntity>): Map<Long, Double> {

@@ -16,6 +16,7 @@ import kotlinx.serialization.Serializable
     tableName = "tasks",
     indices = [Index("parentId"), Index("listId")],
 )
+@androidx.compose.runtime.Immutable
 data class TaskEntity(
     @PrimaryKey val id: String,
     val listId: String,

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Belt-and-suspenders on top of android:allowBackup="false": never let the (encrypted) database or
+  the KeyStore-wrapped database key ride a cloud backup or an Android 12+ device-to-device transfer.
+  The DB key is also protected by the hardware KeyStore, which cannot be transferred anyway — so a
+  copied blob would be useless — but we exclude both explicitly for defence in depth. Fully local.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="database" path="todocompanion.db" />
+        <exclude domain="sharedpref" path="secure_db_v1.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="database" path="todocompanion.db" />
+        <exclude domain="sharedpref" path="secure_db_v1.xml" />
+    </device-transfer>
+</data-extraction-rules>

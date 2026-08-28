@@ -40,6 +40,7 @@ enum class Bucket(val label: String) {
     WEEK("Next 7 days"), LATER("Later"), NODATE("No date")
 }
 
+@androidx.compose.runtime.Immutable
 data class TaskGroup(val key: String, val title: String, val tasks: List<TaskEntity>)
 
 object TaskViews {
