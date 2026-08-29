@@ -187,8 +187,15 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
     // Multi-select: long-press a row to enter selection mode; a bottom action bar batches edits.
     var selected by remember { mutableStateOf(setOf<String>()) }
     val selectionMode = selected.isNotEmpty()
-    fun toggleSel(id: String) { selected = if (id in selected) selected - id else selected + id }
-    // Tell the shell so it can hide the add FAB while the selection bar is up (no overlap).
+    fun toggleSel(id: String) {
+        val next = if (id in selected) selected - id else selected + id
+        selected = next
+        // R28 #8b — set this EAGERLY (not via LaunchedEffect, which lags a frame) so the nav bar drops and
+        // the selection bar appears in the SAME frame. Otherwise the bar rendered above the still-present
+        // nav bar for one frame, then jumped down over it — the "flash above then over the nav bar".
+        vm.selectionActive.value = next.isNotEmpty()
+    }
+    // Keeps the shell in sync for the exit/clear paths (bulk actions set `selected` directly).
     androidx.compose.runtime.LaunchedEffect(selectionMode) { vm.selectionActive.value = selectionMode }
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { vm.selectionActive.value = false } }
     // Back exits selection first (clears it and stays in the app) instead of leaving the screen.
@@ -547,9 +554,13 @@ private fun ManualReorderList(
 ) {
     // Local working order for the drag gesture.
     val listState = rememberLazyListState()
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
     var draggingId by remember { mutableStateOf<String?>(null) }
     var delta by remember { mutableFloatStateOf(0f) }
     var dx by remember { mutableFloatStateOf(0f) }
+    // R28 #8 — did the finger actually travel? Any real drag is a reorder/nest and must NEVER fall
+    // through to "select"; only a stationary long-press selects. Fixes selection firing after a small move.
+    var draggedFar by remember { mutableStateOf(false) }
     var items by remember { mutableStateOf(arrangeSubtaskOutline(tasks)) }
     // Resync with upstream whenever the tasks change (reorder, add/remove, nest, OR an edited
     // field like star/flag/title) — but never mid-drag, so the gesture isn't disrupted. Re-arranged
@@ -568,9 +579,15 @@ private fun ManualReorderList(
     // gesture only fires AFTER the long-press and then consumes every move, so a held-then-swipe nests
     // while a quick swipe (no hold) still reveals the swipe actions. Spec: tap = open · long-press = select
     // · long-press + vertical drag = reorder · long-press + drag right = nest / drag left = un-nest.
-    fun startRowDrag(id: String) { draggingId = id; delta = 0f; dx = 0f }
+    fun startRowDrag(id: String) {
+        draggingId = id; delta = 0f; dx = 0f; draggedFar = false
+        // Immediate acknowledgement that the long-press registered (the card also lifts via draggingId),
+        // so selection/drag never feels like it "did nothing" until release.
+        haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+    }
     fun onRowDrag(dy: Float, dxAmt: Float) {
         delta += dy; dx += dxAmt
+        if (kotlin.math.abs(delta) > moveSlop || kotlin.math.abs(dx) > moveSlop) draggedFar = true
         val id = draggingId ?: return
         val info = listState.layoutInfo.visibleItemsInfo
         val cur = info.firstOrNull { it.key == id } ?: return
@@ -590,10 +607,13 @@ private fun ManualReorderList(
     fun endRowDrag() {
         val id = draggingId; val finalDx = dx; val finalDy = delta
         val idx = items.indexOfFirst { it.id == id }
-        val moved = kotlin.math.abs(finalDy) > moveSlop || kotlin.math.abs(finalDx) > moveSlop
+        // "moved" is sticky: if the finger EVER crossed the slop it's a drag, even if it drifted back —
+        // so a reorder/nest can never accidentally register as a selection on release.
+        val moved = draggedFar
         when {
             id == null || idx < 0 -> {}
-            // Stationary long-press (or already selecting) toggles multi-select instead of moving.
+            // A stationary long-press selects (and adds/removes in an existing selection) — the moment the
+            // finger lifts from a hold, predictably, never after a drag.
             selectionMode || !moved -> { onToggleSel(id); items = arrangeSubtaskOutline(tasks) }
             // A dominant horizontal pull nests: right → subtask of the row above, left → back to top level.
             finalDx > nestThreshold && kotlin.math.abs(finalDx) >= kotlin.math.abs(finalDy) && idx > 0 -> vm.nestUnder(id, items[idx - 1].id)
@@ -602,7 +622,7 @@ private fun ManualReorderList(
             sortIsManual -> vm.setManualOrder(items.map { it.id })
             else -> items = arrangeSubtaskOutline(tasks)
         }
-        draggingId = null; delta = 0f; dx = 0f
+        draggingId = null; delta = 0f; dx = 0f; draggedFar = false
     }
 
     LazyColumn(
@@ -654,7 +674,7 @@ private fun ManualReorderList(
                                 onDragStart = { startRowDrag(task.id) },
                                 onDrag = { change, amt -> change.consume(); onRowDrag(amt.y, amt.x) },
                                 onDragEnd = { endRowDrag() },
-                                onDragCancel = { draggingId = null; delta = 0f; dx = 0f },
+                                onDragCancel = { draggingId = null; delta = 0f; dx = 0f; draggedFar = false },
                             )
                         }
                     ) {

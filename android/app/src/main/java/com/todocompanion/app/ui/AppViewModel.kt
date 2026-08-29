@@ -90,6 +90,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 AppSettings(themeMode = mode, dynamicColor = dyn, accentArgb = accent)
             })
 
+    // R28 #4 — the seeded [settings] above only carries theme fields, so every OTHER field reads its
+    // default on the first frame (e.g. onboardedModules=false), which briefly flashed the module picker on
+    // every launch. This flips true once the real settings load from the DB, so launch-time dialogs gated on
+    // a settings value wait for the real value instead of the default.
+    val settingsLoaded: StateFlow<Boolean> = repo.allSettings.map { true }.state(false)
+
+    // R28 #5/#7 — a query the command palette can push into the Settings search box ("setting dark mode").
+    val settingsSearchQuery = MutableStateFlow("")
+
     // ---------- workspaces ----------
     val workspaces = repo.allWorkspaces.state(emptyList())
     private val activeWs: Flow<String> = settings.map { it.activeWorkspaceId }
@@ -241,7 +250,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 .toMap()
         }.state(emptyMap())
 
-    private data class Cfg(val view: ViewRef, val group: GroupMode, val sort: SortMode, val prio: PriorityEngine.Config, val flags: List<FlagEntity>, val timeAvail: Int? = null, val energyAvail: Int? = null)
+    private data class Cfg(val view: ViewRef, val group: GroupMode, val sort: SortMode, val prio: PriorityEngine.Config, val flags: List<FlagEntity>, val timeAvail: Int? = null, val energyAvail: Int? = null, val ws: String = "default")
 
     /** "I have N minutes" planner: when set, Do-Next hides tasks whose estimate exceeds N. null = off. */
     val timeAvailableMin = MutableStateFlow<Int?>(null)
@@ -283,7 +292,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val groups: StateFlow<List<TaskGroup>> =
         combine(
             wsTasks,
-            combine(currentView, groupMode, sortMode, settings, combine(repo.allFlags, timeAvailableMin, energyAvailable) { fl, ta, ea -> Triple(fl, ta, ea) }) { v, g, s, set, fte -> Cfg(v, g, s, set.priorityConfig(), fte.first, fte.second, fte.third) },
+            combine(currentView, groupMode, sortMode, settings, combine(repo.allFlags, timeAvailableMin, energyAvailable) { fl, ta, ea -> Triple(fl, ta, ea) }) { v, g, s, set, fte -> Cfg(v, g, s, set.priorityConfig(), fte.first, fte.second, fte.third, set.activeWorkspaceId) },
             repo.taskTagRefs,
             combine(repo.taskContextRefs, repo.allContexts, repo.allFilters, repo.allLists, repo.allFolders) { r, c, f, l, fo -> ViewCtx(r, c, f, l, fo) },
             repo.allDependencies,
@@ -300,6 +309,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                             val blocked = PriorityEngine.computeBlocked(deps, byId, now)
                             all.filter { !it.trashed && !it.completed && !it.abandoned && it.id in blocked }
                         }
+                        // R28 #3: Trash is per-workspace — the shared Inbox otherwise leaked trashed tasks
+                        // into every workspace. A trashed task is stamped with the workspace it was deleted in.
+                        SmartKind.TRASH -> all.filter { it.trashed && it.workspaceId == cfg.ws }
                         else -> TaskViews.filterSmart(all, v.kind, now, zone, dayStartMin)
                     }
                 }
@@ -365,7 +377,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     val label = if (name.startsWith("￿")) "No context" else "@$name"
                     TaskGroup("ctx:$name", label, ts)
                 }
-            } else TaskViews.group(sorted, gm, now, zone, dayStartMin)
+            } else {
+                // R28 #2 — the Completed / Won't-Do views group by COMPLETION date, not the (always-past) due date.
+                val doneView = (cfg.view as? ViewRef.Smart)?.kind.let { it == SmartKind.COMPLETED || it == SmartKind.WONT_DO }
+                TaskViews.group(sorted, gm, now, zone, dayStartMin, byCompletion = doneView)
+            }
         }.state(emptyList())
 
     /** When set, the outline is zoomed into this task's subtree (MLO-style focus). */
@@ -648,6 +664,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun select(view: ViewRef) {
         currentView.value = view
         groupMode.value = if (view is ViewRef.ListView) GroupMode.NONE else GroupMode.DATE
+        // R28 #2 — the Completed / Won't-Do views open sorted by when things were finished (newest first).
+        val doneKind = (view as? ViewRef.Smart)?.kind.let { it == SmartKind.COMPLETED || it == SmartKind.WONT_DO }
+        if (doneKind) sortMode.value = SortMode.COMPLETED
+        else if (sortMode.value == SortMode.COMPLETED) sortMode.value = SortMode.MANUAL
         // Seed outline mode from the list's own persisted viewMode so a list remembers nested vs flat.
         outlineMode.value = (view as? ViewRef.ListView)?.let { lv -> lists.value.firstOrNull { it.id == lv.listId }?.viewMode == "outline" } ?: false
         // Remember the last place, when the user opted into resuming there.
@@ -904,7 +924,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- batch actions (multi-select) ----------
     fun completeMany(ids: Set<String>) = viewModelScope.launch { ids.mapNotNull { repo.getTask(it) }.filter { !it.completed }.forEach { repo.setCompleted(it, true) } }
-    fun trashMany(ids: Set<String>) = viewModelScope.launch { ids.forEach { repo.setTrashed(it, true) } }
+    fun trashMany(ids: Set<String>) = viewModelScope.launch { val ws = settings.value.activeWorkspaceId; ids.forEach { repo.setTrashed(it, true, ws) } }
     fun setPriorityMany(ids: Set<String>, level: PriorityLevel) = viewModelScope.launch {
         ids.mapNotNull { repo.getTask(it) }.forEach { repo.saveTask(it.copy(importance = level.importance, urgency = level.urgency)) }
     }
@@ -912,7 +932,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun moveManyToFolder(ids: Set<String>, folderId: String) = viewModelScope.launch { ids.forEach { repo.moveToFolder(it, folderId) } }
     fun moveTaskToFolder(t: TaskEntity, folderId: String) = viewModelScope.launch { repo.moveToFolder(t.id, folderId) }
     fun trash(t: TaskEntity) = viewModelScope.launch {
-        repo.setTrashed(t.id, true)
+        repo.setTrashed(t.id, true, settings.value.activeWorkspaceId)
         undoEvents.tryEmit(UndoEvent(UndoKind.TRASHED, t.id, "Moved to Trash"))
     }
     fun undo(e: UndoEvent) = viewModelScope.launch {

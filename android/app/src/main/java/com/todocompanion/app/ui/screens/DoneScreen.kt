@@ -77,18 +77,25 @@ fun DoneScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> Uni
 
     val listNameById = remember(lists) { lists.associate { it.id to it.name } }
     val feed = remember(tasks, habits, checkins, timeEntries) { DoneRecord.build(tasks, habits, checkins, timeEntries, zone) }
-    val stats = remember(feed) { DoneRecord.stats(feed) }
     val today = LocalDate.now()
+    // Memories look across the whole history regardless of the range picker.
     val onThisDay = remember(feed) { DoneRecord.onThisDay(feed, today) }
-    val wins = remember(feed) { feed.filter { it.isWin } }
+
+    // R28 #10 — the record is scoped to a chosen window (today … lifetime); everything below reads the
+    // ranged slice so the totals, trophy case and feed all reflect the same span.
+    var range by remember { mutableStateOf("all") }
+    val fromDay = rangeFromDay(range, today)
+    val rangedFeed = remember(feed, fromDay) { if (fromDay == Long.MIN_VALUE) feed else feed.filter { it.epochDay >= fromDay } }
+    val stats = remember(rangedFeed) { DoneRecord.stats(rangedFeed) }
+    val wins = remember(rangedFeed) { rangedFeed.filter { it.isWin } }
 
     var query by remember { mutableStateOf("") }
     var winsOnly by remember { mutableStateOf(false) }
     var showBrag by remember { mutableStateOf(false) }
 
-    val shown = remember(feed, query, winsOnly, listNameById) {
+    val shown = remember(rangedFeed, query, winsOnly, listNameById) {
         val q = query.trim().lowercase()
-        feed.filter { a ->
+        rangedFeed.filter { a ->
             (!winsOnly || a.isWin) &&
                 (q.isEmpty() || a.title.lowercase().contains(q) ||
                     (a.outcome?.lowercase()?.contains(q) == true) ||
@@ -122,8 +129,16 @@ fun DoneScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> Uni
             contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            // Lifetime totals + personal bests.
-            item(key = "stats") { LifetimeCard(stats) }
+            // Range selector — scope the whole record to a window.
+            item(key = "range") {
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    RANGES.forEach { (k, l) ->
+                        FilterChip(selected = range == k, onClick = { range = k }, label = { Text(l) })
+                    }
+                }
+            }
+            // Totals + personal bests, over the chosen range.
+            item(key = "stats") { LifetimeCard(stats, rangeLabel(range)) }
             // On this day.
             if (onThisDay.isNotEmpty()) item(key = "onthisday") { OnThisDayCard(onThisDay, listNameById) }
             // Trophy case — the wins, front and centre.
@@ -141,7 +156,7 @@ fun DoneScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> Uni
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(selected = winsOnly, onClick = { winsOnly = !winsOnly }, label = { Text("Wins only") },
                             leadingIcon = { Icon(if (winsOnly) Icons.Filled.Star else Icons.Filled.StarBorder, null, Modifier.size(16.dp)) })
-                        Text("${shown.size} of ${feed.size}", style = MaterialTheme.typography.labelMedium,
+                        Text("${shown.size} of ${rangedFeed.size}", style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.CenterVertically))
                     }
                 }
@@ -174,11 +189,28 @@ fun DoneScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> Uni
     )
 }
 
+/** R28 #10 — the windows the record can be scoped to. */
+private val RANGES = listOf(
+    "today" to "Today", "month" to "This month", "4mo" to "4 months", "6mo" to "6 months",
+    "year" to "This year", "5y" to "5 years", "10y" to "10 years", "all" to "Lifetime",
+)
+private fun rangeLabel(k: String): String = RANGES.firstOrNull { it.first == k }?.second ?: "Lifetime"
+private fun rangeFromDay(k: String, today: LocalDate): Long = when (k) {
+    "today" -> today.toEpochDay()
+    "month" -> today.withDayOfMonth(1).toEpochDay()
+    "4mo" -> today.minusMonths(4).toEpochDay()
+    "6mo" -> today.minusMonths(6).toEpochDay()
+    "year" -> today.withDayOfYear(1).toEpochDay()
+    "5y" -> today.minusYears(5).toEpochDay()
+    "10y" -> today.minusYears(10).toEpochDay()
+    else -> Long.MIN_VALUE
+}
+
 @Composable
-private fun LifetimeCard(s: com.todocompanion.app.domain.done.DoneStats) {
+private fun LifetimeCard(s: com.todocompanion.app.domain.done.DoneStats, rangeLabel: String) {
     Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .35f), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
-            Text("Lifetime record", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text(if (rangeLabel == "Lifetime") "Lifetime record" else "$rangeLabel · record", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.size(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Stat("${s.totalTasks}", "tasks done")

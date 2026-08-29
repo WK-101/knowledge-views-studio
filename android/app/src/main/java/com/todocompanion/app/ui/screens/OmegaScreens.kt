@@ -67,6 +67,13 @@ private val COMMAND_CATALOG: List<Pair<String, List<Pair<String, String>>>> = li
     "Navigate" to listOf(
         "Go to a tab, list or tag" to "go to habits",
         "Open Today" to "go to today",
+        "Open a smart list (Inbox, Scheduled, Trash…)" to "go to completed",
+        "Open a hub (The Record, Countdowns, Attachments…)" to "open the record",
+    ),
+    "Settings" to listOf(
+        "Jump to a setting" to "setting dark mode",
+        "Open backup & export" to "settings backup",
+        "Open privacy & app lock" to "settings privacy",
     ),
     "Do" to listOf(
         "Plan your day" to "plan my day",

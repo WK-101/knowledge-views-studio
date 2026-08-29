@@ -682,7 +682,18 @@ fun AppRoot(
                                             DropdownMenuItem(text = { Text(l) }, onClick = { vm.groupMode.value = m; menu = false })
                                         }
                                         Text("Sort by", Modifier.padding(12.dp, 8.dp, 12.dp, 2.dp), style = MaterialTheme.typography.labelSmall)
-                                        listOf("Manual" to SortMode.MANUAL, "Priority" to SortMode.PRIORITY, "Due" to SortMode.DUE, "Title" to SortMode.TITLE, "Flag" to SortMode.FLAG).forEach { (l, m) ->
+                                        // R28 #2 — "Completed date" is offered in the Completed / Won't-Do views (sort finished
+                                        // work by when it was actually done).
+                                        val curView by vm.currentView.collectAsState()
+                                        val doneView = (curView as? com.todocompanion.app.domain.view.ViewRef.Smart)?.kind.let {
+                                            it == com.todocompanion.app.domain.view.SmartKind.COMPLETED || it == com.todocompanion.app.domain.view.SmartKind.WONT_DO
+                                        }
+                                        val sortOptions = buildList {
+                                            add("Manual" to SortMode.MANUAL); add("Priority" to SortMode.PRIORITY)
+                                            add("Due" to SortMode.DUE); add("Title" to SortMode.TITLE); add("Flag" to SortMode.FLAG)
+                                            if (doneView) add("Completed date" to SortMode.COMPLETED)
+                                        }
+                                        sortOptions.forEach { (l, m) ->
                                             DropdownMenuItem(text = { Text(l) }, onClick = { vm.sortMode.value = m; menu = false })
                                         }
                                         androidx.compose.material3.HorizontalDivider()
@@ -892,6 +903,12 @@ fun AppRoot(
                 is OmegaCommand.Command.Goto -> {
                     val t = cmd.target.trim()
                     val q = t.lowercase()
+                    // R28 #5 — "setting <query>" jumps to Settings and pre-fills its search box.
+                    if (q == "settings" || q.startsWith("settings:")) {
+                        tab = Tab.SETTINGS
+                        vm.settingsSearchQuery.value = t.substringAfter(':', "").trim()
+                        return@CommandPaletteDialog
+                    }
                     val tabByName = mapOf(
                         "tasks" to Tab.TASKS, "today" to Tab.TASKS, "calendar" to Tab.CALENDAR, "matrix" to Tab.MATRIX,
                         "timeline" to Tab.TIMELINE, "habits" to Tab.HABITS, "time" to Tab.TIME, "focus" to Tab.FOCUS,
@@ -900,12 +917,26 @@ fun AppRoot(
                     val smartByName = mapOf(
                         "do next" to SmartKind.DO_NEXT, "donext" to SmartKind.DO_NEXT, "next 7" to SmartKind.NEXT7,
                         "next7" to SmartKind.NEXT7, "next 7 days" to SmartKind.NEXT7, "today list" to SmartKind.TODAY,
+                        "inbox" to SmartKind.INBOX, "scheduled" to SmartKind.SCHEDULED, "flagged" to SmartKind.FLAGGED,
+                        "completed" to SmartKind.COMPLETED, "done list" to SmartKind.COMPLETED, "trash" to SmartKind.TRASH,
+                        "goals" to SmartKind.GOALS, "waiting" to SmartKind.WAITING,
+                    )
+                    // R28 #5 — every hub/overlay screen is reachable from the palette, not just the bottom tabs.
+                    val overlayByName: Map<String, () -> Unit> = mapOf(
+                        "the record" to { showDone = true }, "record" to { showDone = true }, "done" to { showDone = true },
+                        "countdowns" to { showCountdowns = true }, "countdown" to { showCountdowns = true },
+                        "attachments" to { showAttachments = true }, "files" to { showAttachments = true },
+                        "momentum" to { showMomentum = true }, "statistics" to { showStats = true }, "stats" to { showStats = true },
+                        "weekly review" to { showReview = true }, "review" to { showReview = true },
+                        "plan" to { showPlan = true }, "plan my day" to { showPlan = true },
+                        "time stats" to { showTimeStats = true }, "time tracking" to { showTimeTracking = true },
                     )
                     val listMatch = lists.firstOrNull { !it.archived && it.name.equals(t, true) }
                     val tagMatch = tags.firstOrNull { it.name.equals(t, true) }
                     val ctxMatch = contexts.firstOrNull { it.name.equals(t, true) }
                     when {
                         tabByName.containsKey(q) -> { tab = tabByName.getValue(q); if (q == "today") vm.select(ViewRef.Smart(SmartKind.TODAY)) }
+                        overlayByName.containsKey(q) -> overlayByName.getValue(q).invoke()
                         smartByName.containsKey(q) -> { vm.select(ViewRef.Smart(smartByName.getValue(q))); tab = Tab.TASKS }
                         listMatch != null -> { vm.select(ViewRef.ListView(listMatch.id)); tab = Tab.TASKS }
                         tagMatch != null -> { vm.select(ViewRef.TagView(tagMatch.id)); tab = Tab.TASKS }
@@ -931,7 +962,9 @@ fun AppRoot(
             )
         }
         // T0: one-time "what's your main use?" picker sets the primary module. All modules stay on.
-        if (!settings.onboardedModules) com.todocompanion.app.ui.screens.ModulePickerDialog(
+        // R28 #4: wait for real settings to load first, else it flashes for a frame on every launch.
+        val settingsLoaded by vm.settingsLoaded.collectAsState()
+        if (settingsLoaded && !settings.onboardedModules) com.todocompanion.app.ui.screens.ModulePickerDialog(
             // CU2: start with only the chosen modules — the rest stay off until the user wants them.
             onPick = { primary, enabled -> vm.applyModulePreset(primary, enabled - primary) },
             onSkip = { vm.markModulesOnboarded() },

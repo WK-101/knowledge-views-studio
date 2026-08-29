@@ -799,7 +799,9 @@ private fun layoutEvents(tasks: List<TaskEntity>, zone: ZoneId): List<Placed> {
     val evs = tasks.map { t ->
         val dt = Instant.ofEpochMilli(t.dueDate!!).atZone(zone)
         val start = dt.hour * 60 + dt.minute
-        val dur = (t.durationMin ?: 30).coerceAtLeast(20)
+        // R28 #1 — the calendar block is the task's scheduled span (durationMin). When you haven't set one,
+        // fall back to your effort estimate so the two fields work together instead of both needing filling.
+        val dur = (t.durationMin ?: t.estimateMin ?: 30).coerceAtLeast(20)
         Triple(t, start, minOf(start + dur, 24 * 60))
     }.sortedBy { it.second }
     val out = ArrayList<Placed>(evs.size)

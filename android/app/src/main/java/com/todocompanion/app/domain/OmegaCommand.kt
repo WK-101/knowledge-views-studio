@@ -23,6 +23,8 @@ object OmegaCommand {
     enum class Action { PLAN, WEEKLY_REVIEW, MOMENTUM, STATS, ANNUAL_REPORT, RECAP_WEEK, RECAP_LAST_WEEK, RECAP_MONTH }
 
     private val TRACK = Regex("^(?:track|start|timer|time)\\s+(.+)$", RegexOption.IGNORE_CASE)
+    // "setting dark mode" / "settings backup" / "preferences" → jump to Settings, pre-filtered (R28 #5).
+    private val SETTINGS = Regex("^(?:settings?|preferences?|prefs?|config)\\b\\s*(.*)$", RegexOption.IGNORE_CASE)
     private val GOTO = Regex("^(?:go\\s*to|goto|open|show|jump\\s+to)\\s+(.+)$", RegexOption.IGNORE_CASE)
     private val ASK_PREFIX = Regex("^(?:ask|q:|query)\\s+(.+)$", RegexOption.IGNORE_CASE)
     // Question-shaped lines the local query engine can try to answer.
@@ -49,6 +51,7 @@ object OmegaCommand {
         for ((re, action) in ACTIONS) if (re.matches(s)) return Command.Act(action)
 
         ASK_PREFIX.find(s)?.let { return Command.Ask(it.groupValues[1].trim()) }
+        SETTINGS.find(s)?.let { return Command.Goto("settings:" + it.groupValues[1].trim()) }
         GOTO.find(s)?.let { return Command.Goto(it.groupValues[1].trim()) }
         if (QUESTION.matches(s)) return Command.Ask(s)
 

@@ -507,12 +507,17 @@ class AppRepository(private val db: AppDatabase) {
         return out
     }
 
-    /** Move a task (and subtree) to Trash, or restore it. */
-    suspend fun setTrashed(rootId: String, trashed: Boolean) {
+    /** Move a task (and subtree) to Trash, or restore it. When trashing, [workspaceId] stamps which
+     *  workspace owns the trash entry so a trashed task doesn't leak across workspaces via the shared Inbox. */
+    suspend fun setTrashed(rootId: String, trashed: Boolean, workspaceId: String? = null) {
         val ids = subtreeIds(rootId)
         for (id in ids) {
             val t = tasks.getById(id) ?: continue
-            tasks.upsert(t.copy(trashed = trashed, trashedAt = if (trashed) now() else null, updatedAt = now()))
+            tasks.upsert(t.copy(
+                trashed = trashed, trashedAt = if (trashed) now() else null,
+                workspaceId = if (trashed && workspaceId != null) workspaceId else t.workspaceId,
+                updatedAt = now(),
+            ))
         }
         logActivity(rootId, if (trashed) "trashed" else "restored")
     }

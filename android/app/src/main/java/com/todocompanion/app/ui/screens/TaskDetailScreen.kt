@@ -259,8 +259,10 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 Spacer(Modifier.width(2.dp))
                 BorderlessField(
                     task.title, { v -> update { it.copy(title = v) } }, "Task title",
-                    textStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface),
-                    strikethrough = task.completed,
+                    // Completed: mute the title (no strike-through — a line makes it hard to read/edit, R28).
+                    textStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold,
+                        color = if (task.completed) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .7f) else MaterialTheme.colorScheme.onSurface),
+                    strikethrough = false,
                     // Long titles wrap onto multiple rows so the whole name stays readable & editable (R21 #8).
                     singleLine = false,
                     modifier = Modifier.weight(1f).padding(top = 8.dp),

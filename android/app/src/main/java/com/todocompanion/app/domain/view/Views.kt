@@ -33,11 +33,18 @@ enum class SmartKind(val title: String) {
 }
 
 enum class GroupMode { NONE, DATE, PRIORITY, CONTEXT, FLAG }
-enum class SortMode { MANUAL, PRIORITY, DUE, TITLE, FLAG }
+enum class SortMode { MANUAL, PRIORITY, DUE, TITLE, FLAG, COMPLETED }
 
 enum class Bucket(val label: String) {
     OVERDUE("Overdue"), TODAY("Today"), TOMORROW("Tomorrow"),
     WEEK("Next 7 days"), LATER("Later"), NODATE("No date")
+}
+
+/** R28 #2 — date buckets for FINISHED work: a completed task belongs to when it was DONE, not when it was
+ *  due (which is always in the past, so date-grouping used to dump everything into "Overdue"). */
+enum class DoneBucket(val label: String) {
+    TODAY("Today"), YESTERDAY("Yesterday"), WEEK("Earlier this week"),
+    MONTH("Earlier this month"), EARLIER("Earlier")
 }
 
 @androidx.compose.runtime.Immutable
@@ -64,6 +71,20 @@ object TaskViews {
             d == today.plusDays(1) -> Bucket.TOMORROW
             d.isBefore(today.plusDays(8)) -> Bucket.WEEK
             else -> Bucket.LATER
+        }
+    }
+
+    /** Which completion bucket a finished task falls into, by its [TaskEntity.completedAt]. */
+    fun doneBucketOf(task: TaskEntity, now: Long, zone: ZoneId = ZoneId.systemDefault(), dayStartMin: Int = 0): DoneBucket {
+        val at = task.completedAt ?: return DoneBucket.EARLIER
+        val today = localDate(now, zone, dayStartMin)
+        val d = localDate(at, zone, dayStartMin)
+        return when {
+            d == today -> DoneBucket.TODAY
+            d == today.minusDays(1) -> DoneBucket.YESTERDAY
+            !d.isBefore(today.minusDays(6)) -> DoneBucket.WEEK
+            d.year == today.year && d.month == today.month -> DoneBucket.MONTH
+            else -> DoneBucket.EARLIER
         }
     }
 
@@ -101,10 +122,14 @@ object TaskViews {
         }
     }
 
-    fun group(tasks: List<TaskEntity>, mode: GroupMode, now: Long, zone: ZoneId = ZoneId.systemDefault(), dayStartMin: Int = 0): List<TaskGroup> {
+    fun group(tasks: List<TaskEntity>, mode: GroupMode, now: Long, zone: ZoneId = ZoneId.systemDefault(), dayStartMin: Int = 0, byCompletion: Boolean = false): List<TaskGroup> {
         return when (mode) {
             GroupMode.NONE -> listOf(TaskGroup("all", "", tasks))
-            GroupMode.DATE -> Bucket.entries.mapNotNull { b ->
+            // R28 #2 — in the Completed view, "group by date" means group by when each task was FINISHED.
+            GroupMode.DATE -> if (byCompletion) DoneBucket.entries.mapNotNull { b ->
+                val items = tasks.filter { doneBucketOf(it, now, zone, dayStartMin) == b }
+                if (items.isEmpty()) null else TaskGroup("done_${b.name}", b.label, items)
+            } else Bucket.entries.mapNotNull { b ->
                 val items = tasks.filter { bucketOf(it, now, zone, dayStartMin) == b }
                 if (items.isEmpty()) null else TaskGroup(b.name, b.label, items)
             }
@@ -139,6 +164,8 @@ object TaskViews {
             SortMode.TITLE -> compareBy<TaskEntity> { it.title.lowercase() }
             // Flagged tasks first in flag order; unflagged (rank = MAX) sink to the bottom.
             SortMode.FLAG -> compareBy<TaskEntity> { it.flagId?.let { id -> flagRank[id] } ?: Int.MAX_VALUE }
+            // R28 #2 — most-recently finished first (for the Completed list / the record).
+            SortMode.COMPLETED -> compareByDescending<TaskEntity> { it.completedAt ?: 0L }
         }
         // Pinned tasks always float to the top.
         val pin = compareByDescending<TaskEntity> { it.pinned }

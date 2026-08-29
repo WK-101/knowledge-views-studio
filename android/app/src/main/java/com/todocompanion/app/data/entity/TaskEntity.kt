@@ -95,6 +95,11 @@ data class TaskEntity(
 
     val collapsed: Boolean = false,
 
+    // R28 #3 — the workspace that owns this task's trash. Workspaces share only the Inbox; everything else
+    // (including the Trash) is independent, so a trashed task is scoped to the workspace it was deleted in
+    // rather than leaking across all of them via the shared Inbox. Backfilled from the task's list/folder.
+    val workspaceId: String = "default",
+
     val createdAt: Long,
     val updatedAt: Long,
 )

@@ -43,6 +43,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Sync
 import com.todocompanion.app.ui.components.formatDue
@@ -85,6 +88,7 @@ import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -104,6 +108,9 @@ import com.todocompanion.app.ui.components.AppCard
 import com.todocompanion.app.ui.components.FLAG_COLORS
 import com.todocompanion.app.ui.components.FlagIcons
 import java.time.ZoneId
+
+/** R28 #7 — the live settings-search query, read by every [SettingsGroup] so it can hide/expand itself. */
+private val LocalSettingsQuery = androidx.compose.runtime.compositionLocalOf { "" }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -192,6 +199,9 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     fun openRestore(broad: Boolean = false) { restoreBroad = broad; savedList = null; restoreOpen = true; vm.loadSavedBackups(broad) { savedList = it } }
     // Paste-a-backup dialog — the last-resort import that needs no file, picker or permission at all.
     var showPaste by remember { mutableStateOf(false) }
+    // R28 #11 — one "Export as…" and one "Import from another app…" chooser instead of a long flat list.
+    var showExportChooser by remember { mutableStateOf(false) }
+    var showImportChooser by remember { mutableStateOf(false) }
     // Full filesystem browser: navigate + search real folders and pick any backup, with no system picker.
     var browseOpen by remember { mutableStateOf(false) }
     val readPermLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -213,8 +223,21 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
 
     // Collapsible category groups (TickTick-style compact list). All start collapsed.
     val open = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
+    // R28 #7 — settings search. The query is provided to every group via a CompositionLocal; a match from
+    // the command palette (#5) pre-fills it through vm.settingsSearchQuery.
+    var settingsQuery by remember { mutableStateOf("") }
+    val seededQuery by vm.settingsSearchQuery.collectAsState()
+    LaunchedEffect(seededQuery) { if (seededQuery.isNotBlank()) { settingsQuery = seededQuery; vm.settingsSearchQuery.value = "" } }
 
+    androidx.compose.runtime.CompositionLocalProvider(LocalSettingsQuery provides settingsQuery.trim()) {
     Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 12.dp)) {
+        com.todocompanion.app.ui.components.AppTextField(
+            settingsQuery, { settingsQuery = it }, singleLine = true,
+            label = { Text("Search settings") },
+            leadingIcon = { Icon(Icons.Filled.Search, null) },
+            trailingIcon = { if (settingsQuery.isNotEmpty()) IconButton(onClick = { settingsQuery = "" }) { Icon(Icons.Filled.Close, "Clear") } },
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+        )
 
         // T0: modular module system — pick the primary, switch any module off. Off hides it everywhere
         // (nav, drawer, capture, widgets, Momentum, Today) but never deletes its data.
@@ -239,7 +262,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
-        SettingsGroup(Icons.Filled.Palette, "Appearance", open["appearance"] == true, { open["appearance"] = open["appearance"] != true }) {
+        SettingsGroup(Icons.Filled.Palette, "Appearance", open["appearance"] == true, { open["appearance"] = open["appearance"] != true }, keywords = "theme dark light mode dynamic color accent palette theme pack background tint density compact spacing fab position swipe actions gestures") {
             Sub("Theme")
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 ThemeMode.entries.forEachIndexed { i, m ->
@@ -314,7 +337,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Text("A short swipe runs the first action; a longer swipe runs the “full” action.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
-        SettingsGroup(Icons.Filled.Tune, "Do-Next priority", open["priority"] == true, { open["priority"] = open["priority"] != true }) {
+        SettingsGroup(Icons.Filled.Tune, "Do-Next priority", open["priority"] == true, { open["priority"] = open["priority"] != true }, keywords = "computed priority weights importance urgency due start goal overdue boost score") {
             Toggle("Use computed priority", s.priorityComputed) { vm.saveSettings(s.copy(priorityComputed = it)) }
             Text(if (s.priorityComputed) "MLO-style score ranks the Do-Next list — importance & urgency compound down the outline, plus a date term."
                  else "Computed score off. Do-Next orders by star, then importance/urgency, then your manual order.",
@@ -340,7 +363,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
 
-        SettingsGroup(Icons.Filled.RocketLaunch, "Startup", open["startup"] == true, { open["startup"] = open["startup"] != true }) {
+        SettingsGroup(Icons.Filled.RocketLaunch, "Startup", open["startup"] == true, { open["startup"] = open["startup"] != true }, keywords = "resume last place default view open launch") {
             Toggle("Resume where I left off", s.resumeLastView) { vm.saveSettings(s.copy(resumeLastView = it)) }
             Text("Reopen the last view you had open. Overrides the default view below.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -356,7 +379,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
 
-        SettingsGroup(Icons.Filled.ViewSidebar, "Sidebar & tabs", open["sidebar"] == true, { open["sidebar"] = open["sidebar"] != true }) {
+        SettingsGroup(Icons.Filled.ViewSidebar, "Sidebar & tabs", open["sidebar"] == true, { open["sidebar"] = open["sidebar"] != true }, keywords = "smart lists entry counts bottom bar tabs drawer sections show hide navigation") {
             Sub("Smart lists")
             Text("Choose which smart lists appear in the navigation drawer.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
             SmartKind.entries.forEach { k ->
@@ -388,7 +411,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
 
-        SettingsGroup(Icons.Filled.Schedule, "Date & time", open["datetime"] == true, { open["datetime"] = open["datetime"] != true }) {
+        SettingsGroup(Icons.Filled.Schedule, "Date & time", open["datetime"] == true, { open["datetime"] = open["datetime"] != true }, keywords = "week start clock 24 hour day start rollover timezone capacity working hours deep work goal") {
             Sub("Week starts on")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 val labels = listOf("System" to 0, "Mon" to 1, "Tue" to 2, "Wed" to 3, "Thu" to 4, "Fri" to 5, "Sat" to 6, "Sun" to 7)
@@ -573,7 +596,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
 
-        SettingsGroup(Icons.Filled.EditNote, "Task editor", open["editor"] == true, { open["editor"] = open["editor"] != true }) {
+        SettingsGroup(Icons.Filled.EditNote, "Task editor", open["editor"] == true, { open["editor"] = open["editor"] != true }, keywords = "fields tier always more hidden reorder reflection estimate energy flag attachments") {
             Text("The editor shows a lean set of fields first and reveals the rest under “More fields.” Choose when each appears, or drag the order to match how you work. A field you’ve already filled always shows, whatever you pick here.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
             val ordered = s.editorFieldsOrdered()
@@ -615,7 +638,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
 
-        SettingsGroup(Icons.Filled.Notifications, "Reminders", open["reminders"] == true, { open["reminders"] = open["reminders"] != true }) {
+        SettingsGroup(Icons.Filled.Notifications, "Reminders", open["reminders"] == true, { open["reminders"] = open["reminders"] != true }, keywords = "notification daily summary evening review morning brief exact alarm battery optimization") {
             Toggle("Daily summary notification", s.dailySummaryEnabled) { vm.saveSettings(s.copy(dailySummaryEnabled = it)) }
             // W8: per-list mute — silence reminders for chosen lists.
             val lists by vm.lists.collectAsState()
@@ -670,7 +693,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Action("Ignore battery optimisation") { openBatterySettings(context) }
         }
 
-        SettingsGroup(Icons.Filled.Lock, "Privacy", open["privacy"] == true, { open["privacy"] = open["privacy"] != true }) {
+        SettingsGroup(Icons.Filled.Lock, "Privacy", open["privacy"] == true, { open["privacy"] = open["privacy"] != true }, keywords = "app lock biometric fingerprint secure screen screenshot lockscreen encrypt database sqlcipher security trust") {
             Toggle("Require unlock to open", s.appLockEnabled) { vm.saveSettings(s.copy(appLockEnabled = it)) }
             Text("Ask for your fingerprint, face or device PIN each time the app opens (strong biometric preferred). All checks happen on-device.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -747,39 +770,25 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
 
-        SettingsGroup(Icons.Filled.CloudSync, "Backup", open["backup"] == true, { open["backup"] = open["backup"] != true }) {
-            Action("Export all data (JSON)") { safeExport("json") { exportLauncher.launch("todo-companion-backup.json") } }
-            Action("Import / restore (JSON)") { safeImport { importLauncher.launch("*/*") } }
-            Action("Browse device for a file…") { requestAndBrowse() }
-            Action("Restore from a saved backup…") { openRestore(broad = false) }
-            Action("Import from the app inbox…") { openRestore(broad = true) }
-            Action("Paste backup text…") { showPaste = true }
-            Text("Complete, lossless local backup. No account, no cloud, no network. No file picker needed: exports save straight to Downloads, and either browser reads a backup back with no picker at all. To import a file from another app, copy it into ${vm.importInboxHint()} — it appears under “Import a file on device”.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
-            HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-            Action("Export as Markdown (.md)") { safeExport("md") { exportMdLauncher.launch("todo-companion.md") } }
-            Action("Export as CSV (spreadsheet)") { safeExport("csv") { exportCsvLauncher.launch("todo-companion.csv") } }
-            Action("Export to calendar (.ics)") { safeExport("ics") { exportIcsLauncher.launch("todo-companion.ics") } }
-            Action("Import a calendar (.ics) → tasks") { safeImport { importIcsLauncher.launch("*/*") } }
-            Text("A two-way calendar bridge: export your dated tasks into any calendar, or import an .ics that a calendar exported back in as tasks. Fully on-device — no network.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
-            HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-            // CU4: one-tap handoff via the system share sheet — 0 permission, uses the OS's own Nearby Share/Bluetooth.
+        SettingsGroup(Icons.Filled.CloudSync, "Backup", open["backup"] == true, { open["backup"] = open["backup"] != true }, keywords = "export import restore backup json csv markdown ics calendar todoist ticktick mlo habits share copy data") {
+            // R28 #11 — one clear back-up-and-restore flow, then two choosers for everything else, instead of
+            // 15 flat rows. Restore opens the in-app browser first (no system picker needed).
+            Sub("Back up & restore")
+            Action("Back up everything") { safeExport("json") { exportLauncher.launch("todo-companion-backup.json") } }
+            Action("Restore a backup…") { requestAndBrowse() }
             Action("Send a copy to another device") { vm.shareBackupCopy() }
-            Text("Hands a full JSON copy to Android's share sheet — beam it with Nearby Share, Bluetooth or any app you already have. Frictionless device-to-device, and we still ask for no network permission.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+            Text("Your complete, lossless backup — no account, no cloud, no network. Back up saves a JSON file; Restore opens the in-app file browser (turn on “All files” to see everything). You can also drop a file into ${vm.importInboxHint()}.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp, bottom = 6.dp))
             HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-            Action("Import from Todoist / TickTick / MLO") { safeImport { importExternalLauncher.launch("*/*") } }
-            Text("Reads their CSV export (Todoist, TickTick) or OPML (MLO) on-device — no account, nothing uploaded.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
-            HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-            Action("Export habits (CSV)") { safeExport("habits") { exportHabitsLauncher.launch("todo-companion-habits.csv") } }
-            Action("Import habits (Loop / CSV)") { safeImport { importHabitsLauncher.launch("*/*") } }
-            Text("Move habit check-ins in and out — reads Loop Habit Tracker's Checkmarks export or our own habit CSV.",
+            Sub("More formats")
+            Action("Export as…") { showExportChooser = true }
+            Action("Import from another app…") { showImportChooser = true }
+            Action("Paste backup text…") { showPaste = true }
+            Text("Export a copy as Markdown, a spreadsheet (CSV), a calendar (.ics) or a habits CSV — or import from Todoist, TickTick, MLO, a calendar, or a habits CSV. Everything on-device.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
         }
 
-        SettingsGroup(Icons.Filled.Sync, "Backup & sync (folder)", open["sync"] == true, { open["sync"] = open["sync"] != true }) {
+        SettingsGroup(Icons.Filled.Sync, "Backup & sync (folder)", open["sync"] == true, { open["sync"] = open["sync"] != true }, keywords = "automatic backup folder sync across devices shared folder passphrase encryption schedule") {
             Text("Fully account-free: point the app at a folder (device, or a drive you already sync like Drive / Dropbox / Syncthing). Nothing goes to us.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
             Toggle("Automatic backup", s.autoBackupEnabled) { on -> if (on && s.autoBackupFolder.isBlank()) safePick { backupFolderLauncher.launch(null) } else vm.setAutoBackupEnabled(on) }
@@ -839,6 +848,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         Spacer(Modifier.height(20.dp))
         Text("ToDo Companion · Phase 1a · offline & private by construction (no network permission).",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
     }
 
     if (addingFlag) FlagEditDialog(null, onDismiss = { addingFlag = false }) { name, color, icon ->
@@ -943,6 +953,48 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         browseOpen = false
         vm.importBrowsedFile(file) { _, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() }
     })
+
+    // R28 #11 — the "Export as…" chooser (formats that used to be four separate rows).
+    if (showExportChooser) AlertDialog(
+        onDismissRequest = { showExportChooser = false },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = { showExportChooser = false }) { Text("Close") } },
+        title = { Text("Export a copy as…") },
+        text = {
+            Column {
+                ChooserRow("Markdown (.md)", "A readable outline of your lists and tasks") { showExportChooser = false; safeExport("md") { exportMdLauncher.launch("todo-companion.md") } }
+                ChooserRow("Spreadsheet (CSV)", "Open in any spreadsheet app") { showExportChooser = false; safeExport("csv") { exportCsvLauncher.launch("todo-companion.csv") } }
+                ChooserRow("Calendar (.ics)", "Your dated tasks, for any calendar app") { showExportChooser = false; safeExport("ics") { exportIcsLauncher.launch("todo-companion.ics") } }
+                ChooserRow("Habits (CSV)", "Habit check-ins as a spreadsheet") { showExportChooser = false; safeExport("habits") { exportHabitsLauncher.launch("todo-companion-habits.csv") } }
+            }
+        },
+    )
+    // The "Import from another app…" chooser.
+    if (showImportChooser) AlertDialog(
+        onDismissRequest = { showImportChooser = false },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = { showImportChooser = false }) { Text("Close") } },
+        title = { Text("Import from another app…") },
+        text = {
+            Column {
+                ChooserRow("Todoist / TickTick / MLO", "Their CSV export, or MLO's OPML") { showImportChooser = false; safeImport { importExternalLauncher.launch("*/*") } }
+                ChooserRow("Calendar (.ics) → tasks", "Turn a calendar export into tasks") { showImportChooser = false; safeImport { importIcsLauncher.launch("*/*") } }
+                ChooserRow("Habits (Loop / CSV)", "Loop Habit Tracker's Checkmarks, or our CSV") { showImportChooser = false; safeImport { importHabitsLauncher.launch("*/*") } }
+                ChooserRow("Browse for any file…", "Open the in-app file browser") { showImportChooser = false; requestAndBrowse() }
+            }
+        },
+    )
+}
+
+/** One tappable row inside an export/import chooser dialog. */
+@Composable
+private fun ChooserRow(title: String, subtitle: String, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 10.dp)) {
+        Column {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
 }
 
 /**
@@ -960,7 +1012,9 @@ internal fun FileBrowser(vm: AppViewModel, title: String = "Choose a backup file
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<java.io.File>>(emptyList()) }
     var confirming by remember { mutableStateOf<java.io.File?>(null) }
-    androidx.compose.runtime.LaunchedEffect(dir, allTypes) { vm.browseDir(dir, allTypes) { entries = it } }
+    // R28 #6 — let the user reveal EVERY file (not just importable types) so any format can be picked/attached.
+    var showAll by remember { mutableStateOf(allTypes) }
+    androidx.compose.runtime.LaunchedEffect(dir, showAll) { vm.browseDir(dir, showAll) { entries = it } }
     androidx.compose.runtime.LaunchedEffect(query) { if (query.trim().length >= 2) vm.searchFilesystem(query) { results = it } else results = emptyList() }
     val searching = query.trim().length >= 2
 
@@ -984,7 +1038,10 @@ internal fun FileBrowser(vm: AppViewModel, title: String = "Choose a backup file
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
                         val canUp = dir.parentFile != null && roots.none { it.absolutePath == dir.absolutePath }
                         TextButton(enabled = canUp, onClick = { dir.parentFile?.let { dir = it } }) { Text("↑ Up") }
-                        Text(dir.absolutePath, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(dir.absolutePath, Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        // Toggle between "importable types only" and every file on disk.
+                        FilterChip(selected = showAll, onClick = { showAll = !showAll }, label = { Text("All files") },
+                            leadingIcon = { if (showAll) Icon(Icons.Filled.Check, null, Modifier.size(16.dp)) })
                     }
                 }
                 val rows: List<Pair<java.io.File, Boolean>> = if (searching) results.map { it to false } else entries.map { it.file to it.isDir }
@@ -1116,7 +1173,12 @@ private fun FlagEditDialog(initial: FlagEntity?, onDismiss: () -> Unit, onSave: 
 /** A collapsible, iconized settings category (TickTick-style): a tidy header row that expands
  *  its controls inline, so the screen reads as a compact list instead of one long lump. */
 @Composable
-private fun SettingsGroup(icon: ImageVector, title: String, expanded: Boolean, onToggle: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+private fun SettingsGroup(icon: ImageVector, title: String, expanded: Boolean, onToggle: () -> Unit, keywords: String = "", content: @Composable ColumnScope.() -> Unit) {
+    // R28 #7 — settings search: when a query is active, hide non-matching groups and force-expand the rest,
+    // matching against the group title + its keyword hints. Filtering here keeps every group call unchanged.
+    val query = LocalSettingsQuery.current
+    if (query.isNotBlank() && !"$title $keywords".contains(query, ignoreCase = true)) return
+    val effExpanded = expanded || query.isNotBlank()
     Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
         modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
         Column {
@@ -1126,9 +1188,9 @@ private fun SettingsGroup(icon: ImageVector, title: String, expanded: Boolean, o
                 }
                 Spacer(Modifier.width(12.dp))
                 Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Icon(if (expanded) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(if (effExpanded) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            AnimatedVisibility(visible = expanded) {
+            AnimatedVisibility(visible = effExpanded) {
                 Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp)) { content() }
             }
         }
