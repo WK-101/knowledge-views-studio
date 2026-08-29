@@ -166,7 +166,9 @@ fun AppDrawer(
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
             var wsMenu by remember { mutableStateOf(false) }
             Box {
-                Row(Modifier.fillMaxWidth().padding(start = 14.dp, top = 18.dp, end = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                // The sheet already applies the status-bar inset; keep only a small top padding so this
+                // header row lines up with the app's top bar instead of floating below a big empty gap.
+                Row(Modifier.fillMaxWidth().padding(start = 14.dp, top = 6.dp, end = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     // Workspace switcher (tap the name area) …
                     Row(
                         Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).clickable { wsMenu = true }.padding(start = 6.dp, top = 6.dp, bottom = 6.dp, end = 4.dp),

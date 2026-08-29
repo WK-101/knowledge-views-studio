@@ -3,6 +3,7 @@ package com.todocompanion.app.ui.screens
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.filled.Add
@@ -10,6 +11,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.automirrored.filled.DriveFileMove
+import androidx.compose.material.icons.automirrored.filled.FormatIndentIncrease
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -129,6 +131,8 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
     var pendingBulkDelete by remember { mutableStateOf<Set<String>?>(null) }
     // The searchable move-to-list/folder picker: holds the task ids to move (single swipe or bulk).
     var pendingMove by remember { mutableStateOf<Set<String>?>(null) }
+    // "Make subtask of…": holds the selected ids awaiting a parent-task pick.
+    var pendingSubtaskOf by remember { mutableStateOf<Set<String>?>(null) }
     val allVisibleIds = remember(groups) { groups.flatMap { g -> g.tasks.map { it.id } }.toSet() }
 
     // Per-task @context / #tag lookups, MLO-style detail on each row.
@@ -167,15 +171,11 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
 
     if (groups.isEmpty() || groups.all { it.tasks.isEmpty() }) { EmptyState(view); return }
 
-    // Manual sort on a single ungrouped list → long-press drag to reorder.
     val sortMode by vm.sortMode.collectAsState()
-    if (sortMode == com.todocompanion.app.domain.view.SortMode.MANUAL && groups.size == 1 && groups.first().title.isBlank() && !isTrash) {
-        ManualReorderList(vm, groups.first().tasks, settings.density, ctxByTask, tagsByTask,
-            listNameOf = { listId -> listLabel(listId) }, labelNav = labelNav,
-            rightNear = settings.swipeRight, rightFar = settings.swipeRightFar, leftNear = settings.swipeLeft, leftFar = settings.swipeLeftFar,
-            onOpenTask = onOpenTask, modifier = modifier)
-        return
-    }
+    // A single ungrouped list gets the TickTick-style long-press drag: drag up/down reorders (persisted
+    // only under MANUAL sort), drag right nests as a subtask, drag left un-nests. A stationary long-press
+    // (no drag) still enters multi-select, so both gestures live on the same list.
+    val singleFlat = groups.size == 1 && groups.first().title.isBlank() && !isTrash
 
     // Multi-select: long-press a row to enter selection mode; a bottom action bar batches edits.
     var selected by remember { mutableStateOf(setOf<String>()) }
@@ -207,27 +207,19 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
     }
 
     Box(modifier.fillMaxSize()) {
+      if (singleFlat) {
+        // TickTick-style long-press drag (reorder + drag-to-nest) with multi-select on a stationary
+        // long-press. The same top strips (habits due, countdowns, workload, description) ride along.
+        ManualReorderList(vm, groups.first().tasks, settings.density, ctxByTask, tagsByTask,
+            listNameOf = { listId -> listLabel(listId) }, labelNav = labelNav,
+            rightNear = settings.swipeRight, rightFar = settings.swipeRightFar, leftNear = settings.swipeLeft, leftFar = settings.swipeLeftFar,
+            selected = selected, selectionMode = selectionMode, onToggleSel = { toggleSel(it) },
+            sortIsManual = sortMode == com.todocompanion.app.domain.view.SortMode.MANUAL,
+            onOpenTask = onOpenTask, modifier = Modifier.fillMaxSize(),
+            header = { taskListHeaders(vm, view, viewDescription) })
+      } else {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 6.dp, bottom = if (selectionMode) 120.dp else 100.dp)) {
-            viewDescription?.let { desc -> item(key = "viewdesc") {
-                Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)) {
-                    Text(desc, Modifier.padding(horizontal = 14.dp, vertical = 10.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            } }
-            // Workload forecast bar at the top of Next-7-Days: committed estimate vs daily capacity.
-            if ((view as? ViewRef.Smart)?.kind == SmartKind.NEXT7) item(key = "workload") { WorkloadStrip(vm) }
-            // Fusion F1: today's still-due habits sit alongside tasks in Today / Do-Next.
-            (view as? ViewRef.Smart)?.kind?.let { k ->
-                if (k == SmartKind.TODAY || k == SmartKind.DO_NEXT) {
-                    item(key = "recovery") { RecoveryStrip(vm) }   // P2: kind triage when overdue piles up
-                    item(key = "habitsdue") { HabitsDueStrip(vm) }
-                }
-                // Countdowns whose target falls in this list's window show up here too, so a countdown you
-                // set surfaces in Today / Next-7-days / Scheduled — not only on the dedicated Countdowns hub.
-                if (k == SmartKind.TODAY || k == SmartKind.DO_NEXT || k == SmartKind.NEXT7 || k == SmartKind.SCHEDULED) {
-                    item(key = "countdowns") { CountdownDueStrip(vm, k) }
-                }
-            }
+            taskListHeaders(vm, view, viewDescription)
             items(groups, key = { it.key }) { group ->
                 val open = collapsed[group.key] != true
                 Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
@@ -258,6 +250,7 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
                 }
             }
         }
+      }
         if (selectionMode) SelectionBar(
             count = selected.size, allSelected = selected.size == allVisibleIds.size && allVisibleIds.isNotEmpty(),
             onComplete = { vm.completeMany(selected); selected = emptySet() },
@@ -266,8 +259,10 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
             dangerousDelete = isTrash,
             onPriority = { lvl -> vm.setPriorityMany(selected, lvl); selected = emptySet() },
             onMoveClick = { pendingMove = selected },
+            onSubtask = { pendingSubtaskOf = selected },
             onSelectAll = { selected = if (selected.size == allVisibleIds.size) emptySet() else allVisibleIds },
             onClear = { selected = emptySet() },
+            canSubtask = !isTrash,
             modifier = Modifier.align(Alignment.BottomCenter),
         )
         pendingPermanentDelete?.let { t ->
@@ -297,17 +292,56 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
                 onDismiss = { pendingMove = null },
             )
         }
+        pendingSubtaskOf?.let { ids ->
+            // Candidate parents: every visible task except the ones being nested (nestManyUnder still guards
+            // against cycles, so this list is just to keep the picker tidy).
+            val candidates = groups.flatMap { it.tasks }.filter { it.id !in ids }
+            SubtaskParentDialog(
+                candidates = candidates,
+                onPick = { parentId -> vm.nestManyUnder(ids, parentId); pendingSubtaskOf = null; selected = emptySet() },
+                onDismiss = { pendingSubtaskOf = null },
+            )
+        }
     }
+}
+
+/** A slim picker over the current view's tasks: choose which one the multi-selected tasks become subtasks of. */
+@Composable
+private fun SubtaskParentDialog(candidates: List<TaskEntity>, onPick: (String) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {},
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Make subtask of…") },
+        text = {
+            if (candidates.isEmpty()) {
+                Text("No other task in this view to nest under.", style = MaterialTheme.typography.bodyMedium)
+            } else {
+                androidx.compose.foundation.lazy.LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp)) {
+                    items(candidates, key = { it.id }) { t ->
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onPick(t.id) }.padding(horizontal = 8.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(t.title.ifBlank { "Untitled" }, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            }
+        },
+    )
 }
 
 @Composable
 private fun SelectionBar(
     count: Int, allSelected: Boolean,
     onComplete: () -> Unit, onDelete: () -> Unit, onPriority: (PriorityLevel) -> Unit,
-    onMoveClick: () -> Unit, onSelectAll: () -> Unit, onClear: () -> Unit,
-    dangerousDelete: Boolean = false,
+    onMoveClick: () -> Unit, onSubtask: () -> Unit, onSelectAll: () -> Unit, onClear: () -> Unit,
+    dangerousDelete: Boolean = false, canSubtask: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
+    // Sits at the very bottom, covering where the nav bar was (the Scaffold already insets us above the
+    // system navigation bar, so no extra inset is needed here).
     Surface(modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface, shadowElevation = 12.dp, tonalElevation = 3.dp) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             androidx.compose.material3.IconButton(onClick = onClear) { Icon(Icons.Filled.Close, "Clear selection") }
@@ -325,6 +359,8 @@ private fun SelectionBar(
                     }
                 }
             }
+            // Nest the selection under a chosen parent task (multi-select "make subtask of…").
+            if (canSubtask) androidx.compose.material3.IconButton(onClick = onSubtask) { Icon(Icons.AutoMirrored.Filled.FormatIndentIncrease, "Make subtask of…") }
             androidx.compose.material3.IconButton(onClick = onMoveClick) { Icon(Icons.AutoMirrored.Filled.DriveFileMove, "Move to list or folder") }
             androidx.compose.material3.IconButton(onClick = onDelete) { Icon(if (dangerousDelete) Icons.Filled.DeleteForever else Icons.Filled.Delete, if (dangerousDelete) "Delete forever" else "Delete", tint = MaterialTheme.colorScheme.error) }
         }
@@ -467,13 +503,40 @@ private fun subtaskDepth(task: TaskEntity, byId: Map<String, TaskEntity>): Int {
 /** Tap-a-label navigation: jump to a task's list / context / tag view. */
 class TaskLabelNav(val onList: (String) -> Unit, val onContext: (String) -> Unit, val onTag: (String) -> Unit)
 
+/** The top strips (list description + smart-view helpers) shared by both list layouts. */
+private fun androidx.compose.foundation.lazy.LazyListScope.taskListHeaders(vm: AppViewModel, view: ViewRef, viewDescription: String?) {
+    viewDescription?.let { desc -> item(key = "viewdesc") {
+        Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)) {
+            Text(desc, Modifier.padding(horizontal = 14.dp, vertical = 10.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    } }
+    // Workload forecast bar at the top of Next-7-Days: committed estimate vs daily capacity.
+    if ((view as? ViewRef.Smart)?.kind == SmartKind.NEXT7) item(key = "workload") { WorkloadStrip(vm) }
+    // Fusion F1: today's still-due habits sit alongside tasks in Today / Do-Next.
+    (view as? ViewRef.Smart)?.kind?.let { k ->
+        if (k == SmartKind.TODAY || k == SmartKind.DO_NEXT) {
+            item(key = "recovery") { RecoveryStrip(vm) }   // P2: kind triage when overdue piles up
+            item(key = "habitsdue") { HabitsDueStrip(vm) }
+        }
+        // Countdowns whose target falls in this list's window show up here too, so a countdown you
+        // set surfaces in Today / Next-7-days / Scheduled — not only on the dedicated Countdowns hub.
+        if (k == SmartKind.TODAY || k == SmartKind.DO_NEXT || k == SmartKind.NEXT7 || k == SmartKind.SCHEDULED) {
+            item(key = "countdowns") { CountdownDueStrip(vm, k) }
+        }
+    }
+}
+
 @Composable
 private fun ManualReorderList(
     vm: AppViewModel, tasks: List<TaskEntity>, density: Density,
     ctxByTask: Map<String, List<Pair<String, Long?>>>, tagsByTask: Map<String, List<Pair<String, Long?>>>,
     listNameOf: (String) -> String?, labelNav: TaskLabelNav? = null,
     rightNear: SwipeAction, rightFar: SwipeAction, leftNear: SwipeAction, leftFar: SwipeAction,
+    selected: Set<String> = emptySet(), selectionMode: Boolean = false, onToggleSel: (String) -> Unit = {},
+    sortIsManual: Boolean = true,
     onOpenTask: (String) -> Unit, modifier: Modifier,
+    header: (androidx.compose.foundation.lazy.LazyListScope.() -> Unit)? = null,
 ) {
     // Local working order for the drag gesture.
     val listState = rememberLazyListState()
@@ -488,6 +551,8 @@ private fun ManualReorderList(
     val byId = remember(items) { items.associateBy { it.id } }
     val nestThreshold = with(LocalDensity.current) { 48.dp.toPx() }
     val dragVisualCap = with(LocalDensity.current) { 72.dp.toPx() }
+    // Below this much finger travel a long-press counts as "held, not dragged" → toggles selection.
+    val moveSlop = with(LocalDensity.current) { 14.dp.toPx() }
 
     LazyColumn(
         state = listState,
@@ -502,20 +567,28 @@ private fun ManualReorderList(
             onCommit = { finalDx ->
                 val id = draggingId
                 val idx = items.indexOfFirst { it.id == id }
+                val moved = kotlin.math.abs(delta) > moveSlop || kotlin.math.abs(finalDx) > moveSlop
                 when {
+                    id == null || idx < 0 -> {}
+                    // Stationary long-press (or already selecting) toggles multi-select instead of moving.
+                    selectionMode || !moved -> { onToggleSel(id); items = arrangeSubtaskOutline(tasks) }
                     // Drag right past the threshold → nest under the task directly above it.
-                    id != null && finalDx > nestThreshold && idx > 0 -> vm.nestUnder(id, items[idx - 1].id)
+                    finalDx > nestThreshold && idx > 0 -> vm.nestUnder(id, items[idx - 1].id)
                     // Drag left past the threshold → un-nest (promote to top level).
-                    id != null && finalDx < -nestThreshold -> vm.nestUnder(id, null)
-                    else -> vm.setManualOrder(items.map { it.id })
+                    finalDx < -nestThreshold -> vm.nestUnder(id, null)
+                    // Vertical reorder only persists under MANUAL sort; otherwise snap back to source order.
+                    sortIsManual -> vm.setManualOrder(items.map { it.id })
+                    else -> items = arrangeSubtaskOutline(tasks)
                 }
             },
         ),
-        contentPadding = PaddingValues(top = 6.dp, bottom = 100.dp, start = 12.dp, end = 12.dp),
+        contentPadding = PaddingValues(top = 6.dp, bottom = if (selectionMode) 120.dp else 100.dp, start = 12.dp, end = 12.dp),
     ) {
+        header?.invoke(this)
         itemsIndexed(items, key = { _, t -> t.id }) { _, task ->
             val dragging = task.id == draggingId
             val depth = subtaskDepth(task, byId)
+            val isSel = task.id in selected
             Surface(
                 Modifier
                     .padding(start = (depth * 18).dp, top = 3.dp, bottom = 3.dp)
@@ -525,18 +598,18 @@ private fun ManualReorderList(
                         translationX = if (dragging) dx.coerceIn(-dragVisualCap, dragVisualCap) else 0f
                     },
                 shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surface,
+                color = if (isSel) MaterialTheme.colorScheme.primaryContainer.copy(alpha = .55f) else MaterialTheme.colorScheme.surface,
                 shadowElevation = if (dragging) 8.dp else 1.dp,
             ) {
-                // Same reveal-action swipe as the flat list; disabled mid-reorder so the two
-                // gestures never fight. Long-press still starts a drag (handled on the LazyColumn).
+                // Same reveal-action swipe as the flat list; disabled mid-reorder and during multi-select
+                // so the gestures never fight. Long-press starts a drag (handled on the LazyColumn).
                 SwipeActionBox(
                     taskId = task.id, rightNear = rightNear, rightFar = rightFar, leftNear = leftNear, leftFar = leftFar,
-                    enabled = draggingId == null, isTrashRestore = false,
+                    enabled = draggingId == null && !selectionMode, isTrashRestore = false,
                     onAct = { a -> onSwipe(vm, a, task, false, {}, { onOpenTask(task.id) }, { onOpenTask(task.id) }) },
                 ) {
                     ReorderRow(task, density, ctxByTask[task.id].orEmpty(), tagsByTask[task.id].orEmpty(), listNameOf(task.listId), labelNav,
-                        onOpen = { onOpenTask(task.id) }, onToggle = { vm.toggleComplete(task) },
+                        onOpen = { if (selectionMode) onToggleSel(task.id) else onOpenTask(task.id) }, onToggle = { vm.toggleComplete(task) },
                         onCycleFlag = { vm.cycleFlag(task) }, onToggleStar = { vm.toggleStar(task) },
                         onSetPriority = { vm.setPriority(task, it) })
                 }
@@ -591,7 +664,9 @@ private fun Modifier.androidx_pointerReorder(
     detectDragGesturesAfterLongPress(
         onDragStart = { off ->
             val hit = listState.layoutInfo.visibleItemsInfo.firstOrNull { off.y.toInt() in it.offset..(it.offset + it.size) }
-            setDraggingId(hit?.key as? String); setDelta(0f); setDx(0f)
+            // Only pick up actual task rows — header strips (habits/countdowns/description) aren't draggable.
+            val key = hit?.key as? String
+            setDraggingId(if (key != null && indexOfId(key) >= 0) key else null); setDelta(0f); setDx(0f)
         },
         onDragEnd = { if (draggingId() != null) onCommit(dx()); setDraggingId(null); setDelta(0f); setDx(0f) },
         onDragCancel = { setDraggingId(null); setDelta(0f); setDx(0f) },
@@ -670,15 +745,18 @@ private fun HabitsDueStrip(vm: AppViewModel) {
             androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 due.forEach { h ->
                     val color = h.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
+                    // Mirror the calendar's day-habit pills: soft outline + leading dot, no checkmark
+                    // (a filled pill is the done-signal). Tap completes it, so it drops out of the due list.
                     Row(
-                        Modifier.clip(RoundedCornerShape(16.dp)).background(color.copy(alpha = .12f))
+                        Modifier.clip(RoundedCornerShape(20.dp)).background(color.copy(alpha = .12f))
+                            .border(1.dp, color.copy(alpha = .45f), RoundedCornerShape(20.dp))
                             .clickable { vm.setHabitValue(h, today, h.targetPerDay.coerceAtLeast(1)) }
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                            .padding(horizontal = 11.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text((h.emoji?.plus(" ") ?: "") + h.name, style = MaterialTheme.typography.labelLarge, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Spacer(Modifier.width(6.dp))
-                        Icon(Icons.Filled.Check, "Complete", tint = color, modifier = Modifier.size(16.dp))
+                        Box(Modifier.size(7.dp).clip(androidx.compose.foundation.shape.CircleShape).background(color))
+                        Spacer(Modifier.size(7.dp))
+                        Text((h.emoji?.plus(" ") ?: "") + h.name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
                     }
                 }
             }

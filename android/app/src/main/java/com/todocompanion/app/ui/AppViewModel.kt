@@ -108,8 +108,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val tasks: StateFlow<List<TaskEntity>> = wsTasks.state(emptyList())
     val folders = combine(repo.allFolders, activeWs) { f, ws -> f.filter { it.workspaceId == ws } }.state(emptyList())
     val lists = combine(repo.allLists, activeWs) { l, ws -> l.filter { it.workspaceId == ws || it.id == ListEntity.INBOX_ID } }.state(emptyList())
-    val tags: StateFlow<List<TagEntity>> = repo.allTags.state(emptyList())
-    val contexts: StateFlow<List<ContextEntity>> = repo.allContexts.state(emptyList())
+    val tags: StateFlow<List<TagEntity>> = combine(repo.allTags, activeWs) { t, ws -> t.filter { it.workspaceId == ws } }.state(emptyList())
+    val contexts: StateFlow<List<ContextEntity>> = combine(repo.allContexts, activeWs) { c, ws -> c.filter { it.workspaceId == ws } }.state(emptyList())
     val flags: StateFlow<List<FlagEntity>> = repo.allFlags.state(emptyList())
     val templates: StateFlow<List<TemplateEntity>> = repo.allTemplates.state(emptyList())
     val countdowns = repo.allCountdowns.state(emptyList())
@@ -286,9 +286,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                             // tasks blocked by an unfinished prerequisite, or not yet at their start date.
                             val byIdDN = all.associateBy { it.id }
                             val blockedDN = PriorityEngine.computeBlocked(deps, byIdDN, now)
-                            val actionable = ranked.filter { it.id !in blockedDN && (it.startDate == null || it.startDate!! <= now) }
-                            // "Time available" planner: keep tasks that fit the slot (unestimated always fit).
-                            val timed = cfg.timeAvail?.let { avail -> actionable.filter { t -> (t.estimateMin ?: t.estimateMax)?.let { it <= avail } ?: true } } ?: actionable
+                            // A focused "right now" list, not All re-sorted. Beyond the engine's gating we hide
+                            // everything that isn't worth surfacing today: future start dates, tasks dated for a
+                            // later day, and undated backlog with no explicit "do this" signal. What survives is
+                            // overdue + due-today + starred/flagged work — visibly narrower than All.
+                            val today = java.time.Instant.ofEpochMilli(now - dayStartMin * 60_000L).atZone(zone).toLocalDate()
+                            fun dueDay(t: TaskEntity) = t.dueDate?.let { java.time.Instant.ofEpochMilli(it - dayStartMin * 60_000L).atZone(zone).toLocalDate() }
+                            val actionable = ranked.filter { t ->
+                                if (t.id in blockedDN) return@filter false
+                                if (t.startDate != null && t.startDate!! > now) return@filter false
+                                val d = dueDay(t)
+                                if (d != null) !d.isAfter(today) else (t.star || t.flagId != null)
+                            }
+                            // "Time available" planner: keep tasks that fit the slot, using the best size figure we
+                            // have (estimate → duration). Only genuinely unsized tasks are treated as always-fit.
+                            val timed = cfg.timeAvail?.let { avail -> actionable.filter { t -> (t.estimateMin ?: t.estimateMax ?: t.durationMin)?.let { it <= avail } ?: true } } ?: actionable
                             // "Energy right now" planner: keep tasks needing at most that energy (untagged always fit).
                             cfg.energyAvail?.let { cap -> timed.filter { t -> (t.energy ?: 0) <= cap } } ?: timed
                         }
@@ -721,11 +733,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         val id = repo.createTask(listId, parsed.title.ifBlank { "Untitled" }, importance = imp, urgency = urg, dueDate = due, folderId = folderId)
 
+        val ws = settings.value.activeWorkspaceId
         val tagIds = opts.tagIds.toMutableList()
         if (parsed.tags.isNotEmpty()) {
-            val existing = repo.getTagsOnce().associateBy { it.name.lowercase() }
+            // Match names only within the active workspace so a same-named tag elsewhere isn't reused.
+            val existing = repo.getTagsOnce().filter { it.workspaceId == ws }.associateBy { it.name.lowercase() }
             parsed.tags.forEach { name ->
-                tagIds += existing[name.lowercase()]?.id ?: UUID.randomUUID().toString().also { repo.upsertTag(TagEntity(it, name)) }
+                tagIds += existing[name.lowercase()]?.id ?: UUID.randomUUID().toString().also { repo.upsertTag(TagEntity(it, name, workspaceId = ws)) }
             }
         }
         if (tagIds.isNotEmpty()) repo.setTaskTags(id, tagIds.distinct())
@@ -735,9 +749,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         run {
             val ctxIds = ArrayList(opts.contextIds)
             if (parsed.contexts.isNotEmpty()) {
-                val existingCtx = repo.getContextsOnce().associateBy { it.name.lowercase() }
+                val existingCtx = repo.getContextsOnce().filter { it.workspaceId == ws }.associateBy { it.name.lowercase() }
                 parsed.contexts.forEach { name ->
-                    ctxIds += existingCtx[name.lowercase()]?.id ?: UUID.randomUUID().toString().also { repo.upsertContext(ContextEntity(id = it, name = name)) }
+                    ctxIds += existingCtx[name.lowercase()]?.id ?: UUID.randomUUID().toString().also { repo.upsertContext(ContextEntity(id = it, name = name, workspaceId = ws)) }
                 }
             }
             if (ctxIds.isNotEmpty()) repo.setTaskContexts(id, ctxIds.distinct())
@@ -923,6 +937,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
     fun save(t: TaskEntity) = viewModelScope.launch { repo.saveTask(t) }
+    /** Selection-bar "Make subtask of…": nest every selected task under [parentId] (the parent itself,
+     *  if it happens to be in the selection, is skipped so it can't become its own child). Cycle-safe. */
+    fun nestManyUnder(childIds: Set<String>, parentId: String) = viewModelScope.launch {
+        val all = tasks.value
+        val parent = repo.getTask(parentId) ?: return@launch
+        childIds.filter { it != parentId }.forEach { cid ->
+            val child = repo.getTask(cid) ?: return@forEach
+            if (child.parentId == parentId) return@forEach
+            // Refuse to nest a task under one of its own descendants.
+            var p: String? = parentId; var guard = 0; var cyclic = false
+            while (p != null && guard++ < 1000) { if (p == cid) { cyclic = true; break }; p = all.firstOrNull { it.id == p }?.parentId }
+            if (cyclic) return@forEach
+            repo.saveTask(child.copy(parentId = parentId, listId = parent.listId, folderId = parent.folderId))
+        }
+    }
     /** Persist a manual drag reorder by writing each id's index as its sortOrder. */
     fun setManualOrder(orderedIds: List<String>) = viewModelScope.launch {
         val byId = tasks.value.associateBy { it.id }
@@ -2628,7 +2657,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun setTags(taskId: String, tagIds: List<String>) = viewModelScope.launch { repo.setTaskTags(taskId, tagIds) }
     fun setContexts(taskId: String, ids: List<String>) = viewModelScope.launch { repo.setTaskContexts(taskId, ids) }
-    fun createTag(name: String, parentId: String? = null) = viewModelScope.launch { repo.upsertTag(TagEntity(UUID.randomUUID().toString(), name.trim(), parentId = parentId)) }
+    fun createTag(name: String, parentId: String? = null) = viewModelScope.launch { repo.upsertTag(TagEntity(UUID.randomUUID().toString(), name.trim(), parentId = parentId, workspaceId = settings.value.activeWorkspaceId)) }
     fun renameTag(tag: TagEntity, name: String) = viewModelScope.launch { repo.upsertTag(tag.copy(name = name.trim())) }
     fun setTagColor(tag: TagEntity, argb: Long?) = viewModelScope.launch { repo.upsertTag(tag.copy(colorArgb = argb)) }
     fun deleteTag(tag: TagEntity) = viewModelScope.launch {
@@ -2640,7 +2669,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun moveTagToParent(tagId: String, parentId: String?) = viewModelScope.launch {
         tags.value.firstOrNull { it.id == tagId }?.let { repo.upsertTag(it.copy(parentId = parentId)) }
     }
-    fun createContext(name: String, parentId: String? = null) = viewModelScope.launch { repo.upsertContext(ContextEntity(id = UUID.randomUUID().toString(), name = name.trim(), parentId = parentId)) }
+    fun createContext(name: String, parentId: String? = null) = viewModelScope.launch { repo.upsertContext(ContextEntity(id = UUID.randomUUID().toString(), name = name.trim(), parentId = parentId, workspaceId = settings.value.activeWorkspaceId)) }
     /**
      * The dialog hands each mutator an open-time [ContextEntity] snapshot that is never refreshed, so
      * a `c.copy(...)` on it silently reverts every field another mutator changed while the dialog was
@@ -3040,8 +3069,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     repo.saveTask(t.copy(note = row.note, completed = row.completed, completedAt = if (row.completed) System.currentTimeMillis() else null))
                 }
                 if (row.tags.isNotEmpty()) {
-                    val tagExisting = repo.getTagsOnce().associateBy { it.name.lowercase() }
-                    val ids = row.tags.map { name -> tagExisting[name.lowercase()]?.id ?: UUID.randomUUID().toString().also { repo.upsertTag(TagEntity(it, name)) } }
+                    val ws = settings.value.activeWorkspaceId
+                    val tagExisting = repo.getTagsOnce().filter { it.workspaceId == ws }.associateBy { it.name.lowercase() }
+                    val ids = row.tags.map { name -> tagExisting[name.lowercase()]?.id ?: UUID.randomUUID().toString().also { repo.upsertTag(TagEntity(it, name, workspaceId = ws)) } }
                     repo.setTaskTags(id, ids.distinct())
                 }
             }

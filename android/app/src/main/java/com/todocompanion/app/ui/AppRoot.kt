@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -688,45 +689,53 @@ fun AppRoot(
                     )
                 },
                 bottomBar = {
-                    // T0: gate tabs by module. A tab shows only if its module is enabled; the primary
-                    // module's home tab is always shown (relaxing the old "Tasks always shown"); the rest
-                    // still honour bottomTabsHidden.
-                    val primaryHomeTab = when (Modules.primary(settings)) {
-                        Modules.HABITS -> Tab.HABITS; Modules.TIME -> Tab.TIME; else -> Tab.TASKS
-                    }
-                    val visibleTabs = Tab.entries.filter { t ->
-                        val m = Modules.moduleOfTab(t.name)
-                        val moduleOk = m == null || Modules.isEnabled(settings, m)
-                        // Focus folded into the Time hub — no longer its own bottom-bar destination.
-                        t != Tab.FOCUS && moduleOk && (t == primaryHomeTab || t.name !in settings.bottomTabsHidden)
-                    }
-                    Column {
-                        // Persistent running-timer bar — visible on every tab while a timer runs.
-                        if (Modules.isEnabled(settings, Modules.TIME)) RunningTimerBar(vm, onOpen = { tab = Tab.TIME })
-                        CompactBottomBar(visibleTabs, tab) { tab = it }
+                    // While multi-selecting tasks, drop the nav bar entirely so the selection action bar can
+                    // sit at the very bottom and cover that space (TickTick-style), rather than stacking above it.
+                    val selecting by vm.selectionActive.collectAsState()
+                    if (!(selecting && tab == Tab.TASKS)) {
+                        // T0: gate tabs by module. A tab shows only if its module is enabled; the primary
+                        // module's home tab is always shown (relaxing the old "Tasks always shown"); the rest
+                        // still honour bottomTabsHidden.
+                        val primaryHomeTab = when (Modules.primary(settings)) {
+                            Modules.HABITS -> Tab.HABITS; Modules.TIME -> Tab.TIME; else -> Tab.TASKS
+                        }
+                        val visibleTabs = Tab.entries.filter { t ->
+                            val m = Modules.moduleOfTab(t.name)
+                            val moduleOk = m == null || Modules.isEnabled(settings, m)
+                            // Focus folded into the Time hub — no longer its own bottom-bar destination.
+                            t != Tab.FOCUS && moduleOk && (t == primaryHomeTab || t.name !in settings.bottomTabsHidden)
+                        }
+                        Column {
+                            // Persistent running-timer bar — visible on every tab while a timer runs.
+                            if (Modules.isEnabled(settings, Modules.TIME)) RunningTimerBar(vm, onOpen = { tab = Tab.TIME })
+                            CompactBottomBar(visibleTabs, tab) { tab = it }
+                        }
                     }
                 },
                 snackbarHost = {
                     androidx.compose.material3.SnackbarHost(snackbar) { data ->
-                        // A rounded card that matches the app's own surface language — same shape, colour
-                        // and accent as every other card/sheet, with a subtle outline so it reads as ours.
-                        androidx.compose.material3.Surface(
-                            Modifier.padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth(),
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.surface,
-                            contentColor = MaterialTheme.colorScheme.onSurface,
-                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .6f)),
-                            tonalElevation = 3.dp, shadowElevation = 8.dp,
-                        ) {
-                            Row(Modifier.padding(start = 16.dp, end = 6.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text(data.visuals.message, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                                data.visuals.actionLabel?.let { label ->
-                                    TextButton(onClick = { data.performAction() }) {
-                                        Text(label, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                        // A compact rounded pill that sits to the side OPPOSITE the FAB, so it reads as
+                        // inline beside the button rather than a full-width bar stacked above it.
+                        val pillAlign = if (settings.fabPosition == "start") Alignment.CenterEnd else Alignment.CenterStart
+                        Box(Modifier.fillMaxWidth(), contentAlignment = pillAlign) {
+                            androidx.compose.material3.Surface(
+                                Modifier.padding(horizontal = 12.dp, vertical = 4.dp).widthIn(max = 320.dp),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+                                color = MaterialTheme.colorScheme.surface,
+                                contentColor = MaterialTheme.colorScheme.onSurface,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .6f)),
+                                tonalElevation = 3.dp, shadowElevation = 8.dp,
+                            ) {
+                                Row(Modifier.padding(start = 16.dp, end = 6.dp, top = 2.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(data.visuals.message, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                                    data.visuals.actionLabel?.let { label ->
+                                        TextButton(onClick = { data.performAction() }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp)) {
+                                            Text(label, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                                        }
                                     }
-                                }
-                                if (data.visuals.withDismissAction) IconButton(onClick = { data.dismiss() }) {
-                                    Icon(Icons.Filled.Close, "Dismiss", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                                    if (data.visuals.withDismissAction) IconButton(onClick = { data.dismiss() }) {
+                                        Icon(Icons.Filled.Close, "Dismiss", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                                    }
                                 }
                             }
                         }

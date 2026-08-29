@@ -69,24 +69,86 @@ private val QUAD = listOf(
 )
 private val ROMAN = listOf("I", "II", "III", "IV")
 
+/** A folder selection covers its nested folders too, so a task in any descendant list counts. */
+private fun expandFolderIds(seed: Set<String>, folders: List<com.todocompanion.app.data.entity.FolderEntity>): Set<String> {
+    if (seed.isEmpty()) return emptySet()
+    val out = seed.toMutableSet()
+    var changed = true
+    while (changed) {
+        changed = false
+        folders.forEach { if (it.parentId in out && it.id !in out) { out.add(it.id); changed = true } }
+    }
+    return out
+}
+
+/** Exclusive upper bound (epoch millis) of the Matrix date-range filter, or null for "all". */
+private fun matrixDateEnd(filter: String): Long? {
+    val zone = java.time.ZoneId.systemDefault()
+    val today = java.time.LocalDate.now(zone)
+    fun end(d: java.time.LocalDate) = d.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+    val sundayThisWeek = today.plusDays((7 - today.dayOfWeek.value).toLong())
+    return when (filter) {
+        "today" -> end(today)
+        "today_tom" -> end(today.plusDays(1))
+        "this_week" -> end(sundayThisWeek)
+        "week_next" -> end(sundayThisWeek.plusWeeks(1))
+        "this_month" -> end(today.withDayOfMonth(today.lengthOfMonth()))
+        "month_next" -> { val n = today.plusMonths(1); end(n.withDayOfMonth(n.lengthOfMonth())) }
+        else -> null
+    }
+}
+
+/** Within-quadrant ordering for the Matrix, selectable in settings. */
+private fun matrixSorter(mode: String): Comparator<TaskEntity> = when (mode) {
+    "due" -> compareBy(nullsLast<Long>()) { it.dueDate }
+    "created" -> compareBy { it.createdAt }
+    "alpha" -> compareBy { it.title.lowercase() }
+    "manual" -> compareBy<TaskEntity>({ it.sortOrder }, { it.createdAt })
+    else -> compareByDescending<TaskEntity> { maxOf(it.importance, it.urgency) }.thenByDescending { it.star }
+}
+
+private val MATRIX_DATE_OPTS = listOf(
+    "all" to "All", "today" to "Today", "today_tom" to "Today + tomorrow", "this_week" to "This week",
+    "week_next" to "This + next week", "this_month" to "This month", "month_next" to "This + next month",
+)
+private val MATRIX_SORT_OPTS = listOf(
+    "priority" to "Priority", "due" to "Due date", "created" to "Created", "alpha" to "A–Z", "manual" to "Manual",
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MatrixScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, showSettings: Boolean, onDismissSettings: () -> Unit, modifier: Modifier = Modifier) {
     val s by vm.settings.collectAsState()
     val tasks by vm.tasks.collectAsState()
+    val lists by vm.lists.collectAsState()
+    val folders by vm.folders.collectAsState()
 
     val now = System.currentTimeMillis()
+    // Container filter: lists OR folders (empty on both = all). A folder selection also covers its nested
+    // folders' lists and tasks captured directly into the folder.
+    val listFolderById = lists.associate { it.id to it.folderId }
+    val selectedFolders = expandFolderIds(s.matrixFolderFilter, folders)
+    fun inContainers(t: TaskEntity): Boolean {
+        if (s.matrixListFilter.isEmpty() && s.matrixFolderFilter.isEmpty()) return true
+        if (t.listId in s.matrixListFilter) return true
+        val fid = t.folderId ?: listFolderById[t.listId]
+        return fid != null && fid in selectedFolders
+    }
+    // Date-range filter: keep dated tasks whose due date lands on/before the window end (overdue included);
+    // undated tasks are never date-constrained. "all" = no constraint.
+    val dateEnd = matrixDateEnd(s.matrixDateFilter)
     val visible = tasks.filter {
         !it.trashed && !it.abandoned && (s.matrixShowCompleted || !it.completed) &&
-            // List filter (empty = all).
-            (s.matrixListFilter.isEmpty() || it.listId in s.matrixListFilter) &&
+            inContainers(it) &&
             // Duration cap: keep tasks estimated to fit; unestimated tasks always pass.
             (s.matrixMaxDuration == 0 || ((it.estimateMin ?: it.estimateMax ?: it.durationMin)?.let { d -> d <= s.matrixMaxDuration } ?: true)) &&
             // Overdue-only: past its due date and not yet done.
-            (!s.matrixOverdueOnly || (it.dueDate != null && it.dueDate!! < now && !it.completed))
+            (!s.matrixOverdueOnly || (it.dueDate != null && it.dueDate!! < now && !it.completed)) &&
+            (dateEnd == null || it.dueDate == null || it.dueDate!! < dateEnd)
     }
+    val sorter = matrixSorter(s.matrixSort)
     val byQuad = visible.groupBy { PriorityEngine.quadrant(it, s.matrixImportanceThreshold, s.matrixUrgencyThreshold) }
-        .mapValues { (_, list) -> list.sortedByDescending { maxOf(it.importance, it.urgency) } }
+        .mapValues { (_, list) -> list.sortedWith(sorter) }
 
     // Drag-to-move: long-press a task and drop it into another quadrant. Tracked in window coordinates
     // so it works in both the 2×2 grid and the stacked list layout.
@@ -232,6 +294,7 @@ private fun QuadrantCard(q: Int, title: String, tasks: List<TaskEntity>, onOpenT
 @Composable
 private fun MatrixSettings(vm: AppViewModel, s: com.todocompanion.app.domain.AppSettings) {
     val lists by vm.lists.collectAsState()
+    val folders by vm.folders.collectAsState()
     Column(Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 4.dp)) {
         Text("Matrix settings", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(14.dp))
@@ -250,10 +313,30 @@ private fun MatrixSettings(vm: AppViewModel, s: com.todocompanion.app.domain.App
         ToggleRow("List view (hide empty quadrants)", s.matrixHideEmpty) { vm.saveSettings(s.copy(matrixHideEmpty = it)) }
 
         androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 12.dp))
+        Text("Sort within quadrant", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(4.dp))
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            MATRIX_SORT_OPTS.forEach { (k, lab) ->
+                FilterChipCell(lab, s.matrixSort == k) { vm.saveSettings(s.copy(matrixSort = k)) }
+            }
+        }
+
+        androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 12.dp))
         Text("Filters", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(2.dp))
 
+        // Date range.
+        Spacer(Modifier.height(6.dp))
+        Text("Date range", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(4.dp))
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            MATRIX_DATE_OPTS.forEach { (k, lab) ->
+                FilterChipCell(lab, s.matrixDateFilter == k) { vm.saveSettings(s.copy(matrixDateFilter = k)) }
+            }
+        }
+
         // Overdue-only.
+        Spacer(Modifier.height(8.dp))
         ToggleRow("Overdue only", s.matrixOverdueOnly) { vm.saveSettings(s.copy(matrixOverdueOnly = it)) }
 
         // Duration cap. 0 = Any; steps of 15 min up to 4h.
@@ -283,6 +366,26 @@ private fun MatrixSettings(vm: AppViewModel, s: com.todocompanion.app.domain.App
                 FilterChipCell((l.emoji?.plus(" ") ?: "") + l.name, on) {
                     val next = if (on) s.matrixListFilter - l.id else s.matrixListFilter + l.id
                     vm.saveSettings(s.copy(matrixListFilter = next))
+                }
+            }
+        }
+
+        // Folders to include (empty = all). Combined with the list filter as OR.
+        if (folders.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Folders", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (s.matrixFolderFilter.isNotEmpty()) Text("Clear", Modifier.clickable { vm.saveSettings(s.copy(matrixFolderFilter = emptySet())) },
+                    style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            }
+            Spacer(Modifier.height(4.dp))
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                folders.forEach { f ->
+                    val on = f.id in s.matrixFolderFilter
+                    FilterChipCell((f.icon?.plus(" ") ?: "📁 ") + f.name, on) {
+                        val next = if (on) s.matrixFolderFilter - f.id else s.matrixFolderFilter + f.id
+                        vm.saveSettings(s.copy(matrixFolderFilter = next))
+                    }
                 }
             }
         }

@@ -14,6 +14,8 @@ data class TagEntity(
     val colorArgb: Long? = null,
     val parentId: String? = null,
     val sortOrder: Double = 0.0,
+    // Tags are scoped to a workspace so switching workspaces hides the other space's labels.
+    val workspaceId: String = WorkspaceEntity.DEFAULT_ID,
 )
 
 /** Task ↔ Tag many-to-many. */
@@ -43,6 +45,8 @@ data class ContextEntity(
     val openHoursJson: String? = null, // reserved for Phase 2 availability windows
     val active: Boolean = true,
     val sortOrder: Double = 0.0,
+    // Contexts are scoped to a workspace so switching workspaces hides the other space's contexts.
+    val workspaceId: String = WorkspaceEntity.DEFAULT_ID,
 )
 
 /** Task ↔ Context many-to-many. */

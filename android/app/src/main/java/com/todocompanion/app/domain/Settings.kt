@@ -60,6 +60,11 @@ data class AppSettings(
     val matrixListFilter: Set<String> = emptySet(),   // empty = all lists
     val matrixMaxDuration: Int = 0,                   // minutes; 0 = no duration cap
     val matrixOverdueOnly: Boolean = false,           // only tasks past their due date
+    val matrixFolderFilter: Set<String> = emptySet(), // folders to include (empty = all); OR-combined with lists
+    // Date-range filter: all · today · today_tom · this_week · week_next · this_month · month_next.
+    val matrixDateFilter: String = "all",
+    // Within-quadrant sort: priority · due · created · alpha · manual.
+    val matrixSort: String = "priority",
     // Calendar
     val calendarDefaultMode: String = "month",
     val calendarListFilter: Set<String> = emptySet(),   // empty = all lists
@@ -249,6 +254,9 @@ data class AppSettings(
         Keys.MX_LISTS to matrixListFilter.joinToString(","),
         Keys.MX_MAXDUR to matrixMaxDuration.toString(),
         Keys.MX_OVERDUE to matrixOverdueOnly.toString(),
+        Keys.MX_FOLDERS to matrixFolderFilter.joinToString(","),
+        Keys.MX_DATE to matrixDateFilter,
+        Keys.MX_SORT to matrixSort,
         Keys.CAL_MODE to calendarDefaultMode,
         Keys.CAL_FILTER to calendarListFilter.joinToString(","),
         Keys.HABIT_CAL_BLOCKS to habitCalendarBlocks.toString(),
@@ -359,6 +367,9 @@ data class AppSettings(
         const val MX_LISTS = "mx_lists"
         const val MX_MAXDUR = "mx_maxdur"
         const val MX_OVERDUE = "mx_overdue"
+        const val MX_FOLDERS = "mx_folders"
+        const val MX_DATE = "mx_date"
+        const val MX_SORT = "mx_sort"
         const val CAL_MODE = "cal_mode"
         const val CAL_FILTER = "cal_filter"
         const val HABIT_CAL_BLOCKS = "habit_cal_blocks"
@@ -485,6 +496,9 @@ data class AppSettings(
             matrixListFilter = (m[Keys.MX_LISTS] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             matrixMaxDuration = m[Keys.MX_MAXDUR]?.toIntOrNull() ?: 0,
             matrixOverdueOnly = m[Keys.MX_OVERDUE]?.toBooleanStrictOrNull() ?: false,
+            matrixFolderFilter = (m[Keys.MX_FOLDERS] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
+            matrixDateFilter = m[Keys.MX_DATE] ?: "all",
+            matrixSort = m[Keys.MX_SORT] ?: "priority",
             calendarDefaultMode = m[Keys.CAL_MODE] ?: "month",
             calendarListFilter = (m[Keys.CAL_FILTER] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             habitCalendarBlocks = m[Keys.HABIT_CAL_BLOCKS]?.toBooleanStrictOrNull() ?: false,

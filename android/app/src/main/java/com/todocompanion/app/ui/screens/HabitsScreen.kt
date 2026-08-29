@@ -519,13 +519,16 @@ private fun HabitRow(
               .clickable(onClick = onOpen)
               .padding(12.dp),
       ) {
+        // A numeric habit's ring opens the value-entry dialog (type or step an exact amount); a yes/no
+        // habit's ring simply toggles done. One tap-target per row — no separate inline stepper.
+        val isNumeric = !isBreak && (h.targetPerDay > 1 || h.unit != null || h.clickIncrement > 1)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            // Progress ring, tap to cycle / toggle. Break habits show a shield.
+            // Progress ring. Numeric → value dialog; yes/no → toggle. Break habits show a shield.
             Box(
                 Modifier.size(44.dp).clip(CircleShape)
                     .background(if (done && !isBreak) color.copy(alpha = .16f) else if (isBreak && HabitStats.isRelapse(h, todayCount)) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (scheduledToday) .5f else .25f))
                     .border(2.dp, when { isBreak && HabitStats.isRelapse(h, todayCount) -> MaterialTheme.colorScheme.error; done -> color; else -> MaterialTheme.colorScheme.outlineVariant }, CircleShape)
-                    .clickable { onCycle() },
+                    .clickable { if (isNumeric && scheduledToday && !skippedToday) onSetValue() else onCycle() },
                 contentAlignment = Alignment.Center,
             ) {
                 when {
@@ -535,6 +538,7 @@ private fun HabitRow(
                     done -> Icon(Icons.Filled.Check, null, tint = color, modifier = Modifier.size(22.dp))
                     !scheduledToday -> Text("–", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.outline)
                     h.targetPerDay > 1 -> Text("$todayCount/${h.targetPerDay}", style = MaterialTheme.typography.labelMedium, color = color)
+                    isNumeric -> Text("$todayCount", style = MaterialTheme.typography.labelMedium, color = color)
                     h.emoji != null -> Text(h.emoji, style = MaterialTheme.typography.titleMedium)
                     else -> Box(Modifier.size(10.dp))
                 }
@@ -554,23 +558,8 @@ private fun HabitRow(
                         color = if (anchorDoneToday) color else MaterialTheme.colorScheme.outline, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
-            // E2: friction-free numeric entry — an inline −/+ stepper right on the row, no digging into
-            // a menu. + adds the habit's per-tap step (so 10 000 steps takes a few taps, not 10 000);
-            // tap the number to type an exact value. Falls back to the streak flame for yes/no habits.
-            val isNumeric = !isBreak && (h.targetPerDay > 1 || h.unit != null || h.clickIncrement > 1)
-            if (isNumeric && scheduledToday && !skippedToday) {
-                val step = h.clickIncrement.coerceAtLeast(1)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    StepBtn("−", enabled = todayCount > 0) { onAddValue(-step) }
-                    Text(
-                        if (h.targetPerDay > 1) "$todayCount/${h.targetPerDay}" else "$todayCount",
-                        Modifier.clip(RoundedCornerShape(6.dp)).clickable { onSetValue() }.padding(horizontal = 8.dp, vertical = 2.dp),
-                        style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold,
-                        color = if (done) color else MaterialTheme.colorScheme.onSurface,
-                    )
-                    StepBtn("+", enabled = true) { onAddValue(step) }
-                }
-            } else if (streak > 0) Text((if (isBreak) "✨ " else "🔥 ") + streak, style = MaterialTheme.typography.labelLarge, color = color)
+            // Streak flame. Numeric entry now lives on the ring tap (value dialog), not an inline stepper.
+            if (streak > 0) Text((if (isBreak) "✨ " else "🔥 ") + streak, style = MaterialTheme.typography.labelLarge, color = color)
             Box {
                 // R4: full 48dp touch target for accessibility; the icon stays visually compact.
                 IconButton(onClick = { rowMenu = true }) {
@@ -615,20 +604,6 @@ private fun HabitRow(
             }
         }
       }
-    }
-}
-
-/** E2: a compact round −/+ button for inline numeric habit entry. */
-@Composable
-private fun StepBtn(label: String, enabled: Boolean, onClick: () -> Unit) {
-    Box(
-        Modifier.size(30.dp).clip(CircleShape)
-            .background(if (enabled) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .7f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .3f))
-            .clickable(enabled = enabled) { onClick() },
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(label, style = MaterialTheme.typography.titleMedium,
-            color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline)
     }
 }
 
