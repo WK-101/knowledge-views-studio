@@ -1,6 +1,7 @@
 package com.todocompanion.app.ui.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
@@ -59,6 +61,7 @@ data class DateChoice(
     val reminderOffsetMin: Int?,   // null = no reminder; 0 = on time; N = minutes before due
     val startMillis: Long? = null,     // R21: optional start date, set inside the same sheet
     val startHasTime: Boolean = false,
+    val deadlineMillis: Long? = null,  // R22: the hard deadline, also set inside the same sheet
 )
 
 /**
@@ -83,6 +86,8 @@ fun DateReminderSheet(
     showStart: Boolean = false,
     initialStart: Long? = null,
     initialStartHasTime: Boolean = false,
+    showDeadline: Boolean = false,
+    initialDeadline: Long? = null,
     repeatHasChildren: Boolean = false,
 ) {
     val zone = ZoneId.systemDefault()
@@ -96,13 +101,27 @@ fun DateReminderSheet(
     var reminder by remember { mutableStateOf(initialReminderOffsetMin) }
     var startMillis by remember { mutableStateOf(initialStart) }
     var startHasTime by remember { mutableStateOf(initialStartHasTime) }
+    var deadlineMillis by remember { mutableStateOf(initialDeadline) }
     var showTimePicker by remember { mutableStateOf(false) }
     var showDuration by remember { mutableStateOf(false) }
     var showRepeat by remember { mutableStateOf(false) }
     var showReminder by remember { mutableStateOf(false) }
     var showStartPicker by remember { mutableStateOf(false) }
+    var showDeadlinePicker by remember { mutableStateOf(false) }
     val hm = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
-    val startFmt = java.time.format.DateTimeFormatter.ofPattern("EEE, MMM d")
+    val dayFmt = java.time.format.DateTimeFormatter.ofPattern("EEE, MMM d")
+
+    val today = java.time.LocalDate.now(zone)
+    fun utcOf(d: java.time.LocalDate) = d.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+    // One DatePicker state drives both the calendar and the quick-date chips, so tapping a chip moves the
+    // calendar selection and vice-versa — one coherent control, not two that disagree (R22).
+    val dateState = rememberDatePickerState(initialSelectedDateMillis = initialDue ?: utcOf(date))
+    fun pick(d: java.time.LocalDate) { dateState.selectedDateMillis = utcOf(d); date = d; hasDate = true }
+    fun fmtInstant(ms: Long): String {
+        val dt = Instant.ofEpochMilli(ms).atZone(zone)
+        val timed = dt.hour != 0 || dt.minute != 0
+        return dt.format(dayFmt) + (if (timed) " " + LocalTime.of(dt.hour, dt.minute).format(hm) else "")
+    }
 
     fun confirm() {
         val effectiveAllDay = allDay || (hasDate && time == null)
@@ -111,11 +130,12 @@ fun DateReminderSheet(
             dueMillis = due,
             hasTime = hasDate && time != null && !effectiveAllDay,
             allDay = effectiveAllDay,
-            durationMin = if (!effectiveAllDay) durationMin else null,
+            durationMin = if (effectiveAllDay) null else durationMin,
             rrule = rrule,
             reminderOffsetMin = if (reminderSlot != null) null else reminder,
             startMillis = startMillis,
             startHasTime = startHasTime,
+            deadlineMillis = deadlineMillis,
         ))
     }
 
@@ -133,8 +153,19 @@ fun DateReminderSheet(
                     androidx.compose.material3.Icon(Icons.Filled.Check, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Done")
                 }
             }
+            // Quick-date chips — the common picks up front so most tasks never touch the calendar.
+            val sat = today.with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.SATURDAY))
+            androidx.compose.foundation.layout.Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 6.dp, bottom = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilterChip(selected = hasDate && date == today, onClick = { pick(today) }, label = { Text("Today") })
+                FilterChip(selected = hasDate && date == today.plusDays(1), onClick = { pick(today.plusDays(1)) }, label = { Text("Tomorrow") })
+                FilterChip(selected = hasDate && date == today.plusDays(3), onClick = { pick(today.plusDays(3)) }, label = { Text("In 3 days") })
+                FilterChip(selected = hasDate && date == today.plusWeeks(1), onClick = { pick(today.plusWeeks(1)) }, label = { Text("Next week") })
+                FilterChip(selected = hasDate && date == sat, onClick = { pick(sat) }, label = { Text("Weekend") })
+            }
             // Month calendar (themed M3 DatePicker, no separate time step).
-            val dateState = rememberDatePickerState(initialSelectedDateMillis = initialDue ?: date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
             DatePicker(state = dateState, showModeToggle = false, title = null,
                 headline = null, colors = androidx.compose.material3.DatePickerDefaults.colors())
             androidx.compose.runtime.LaunchedEffect(dateState.selectedDateMillis) {
@@ -142,32 +173,35 @@ fun DateReminderSheet(
             }
 
             androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
-            // All-day is top-level (not tab-gated): turning it on clears the time and duration.
-            SheetToggleRow("All day", allDay) { allDay = it; if (it) { time = null; durationMin = null } }
+            // Time & length. All-day sits on the same header line; Time and Duration are INDEPENDENT now —
+            // you can set a length without first picking a time, and vice-versa (R22).
+            androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text("Time & length", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("All day", style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.width(8.dp))
+                androidx.compose.material3.Switch(checked = allDay, onCheckedChange = { allDay = it; if (it) time = null })
+            }
             if (!allDay) {
-                Text("Time & duration", Modifier.padding(top = 4.dp, bottom = 2.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                // Time — OPTIONAL. Tap to add/change; clear with ✕. (The "don't force a time" behaviour.)
                 SheetRow(icon = Icons.Filled.Schedule, label = "Time",
                     value = time?.format(hm) ?: "None",
-                    onClear = if (time != null) ({ time = null; durationMin = null }) else null,
+                    onClear = if (time != null) ({ time = null }) else null,
                     onClick = { showTimePicker = true })
-                // Duration is optional and only meaningful once there's a start time (end = start + it);
-                // it opens the flexible any-amount picker rather than fixed presets (R21).
-                if (time != null) SheetRow(icon = Icons.Filled.Schedule, label = "Duration",
+                SheetRow(icon = Icons.Filled.Schedule, label = "Duration",
                     value = durationMin?.let { fmtDuration(it) } ?: "None",
                     onClear = if (durationMin != null) ({ durationMin = null }) else null,
                     onClick = { showDuration = true })
             }
-            if (showStart) {
+            if (showStart || showDeadline) {
                 androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
-                // "Starts" is now part of this one sheet, with an OPTIONAL time (R21).
-                SheetRow(icon = Icons.Filled.PlayArrow, label = "Starts",
-                    value = startMillis?.let { s ->
-                        val dt = Instant.ofEpochMilli(s).atZone(zone)
-                        dt.format(startFmt) + (if (startHasTime) " " + LocalTime.of(dt.hour, dt.minute).format(hm) else "")
-                    } ?: "None",
+                if (showStart) SheetRow(icon = Icons.Filled.PlayArrow, label = "Starts",
+                    value = startMillis?.let { fmtInstant(it) } ?: "None",
                     onClear = if (startMillis != null) ({ startMillis = null; startHasTime = false }) else null,
                     onClick = { showStartPicker = true })
+                // Deadline — the hard drop-dead moment, now part of this one sheet (R22).
+                if (showDeadline) SheetRow(icon = Icons.Filled.Flag, label = "Deadline",
+                    value = deadlineMillis?.let { fmtInstant(it) } ?: "None",
+                    onClear = if (deadlineMillis != null) ({ deadlineMillis = null }) else null,
+                    onClick = { showDeadlinePicker = true })
             }
             androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
             // Reminders: the full manager renders here (via the slot) so reminders live inside the sheet.
@@ -188,7 +222,8 @@ fun DateReminderSheet(
                 value = repeatLabel(rrule),
                 onClear = if (rrule != null) ({ rrule = null }) else null,
                 onClick = { showRepeat = true })
-            if (hasDate) TextButton(onClick = { hasDate = false; time = null; onConfirm(DateChoice(null, false, false, null, rrule, if (reminderSlot != null) null else reminder)) }) {
+            // Clear the date without leaving the sheet — start/deadline/repeat you've set stay put until Done.
+            if (hasDate) TextButton(onClick = { hasDate = false; time = null; durationMin = null }) {
                 Text("Clear date", color = MaterialTheme.colorScheme.error)
             }
         }
@@ -215,6 +250,10 @@ fun DateReminderSheet(
     if (showRepeat) com.todocompanion.app.ui.screens.RepeatDialog(rrule, repeatHasChildren, onDismiss = { showRepeat = false }) { rrule = it; showRepeat = false }
     if (showDuration) com.todocompanion.app.ui.screens.DurationPickerDialog(durationMin ?: 30, onDismiss = { showDuration = false }) { durationMin = it.takeIf { m -> m > 0 }; showDuration = false }
     if (showStartPicker) DateTimeOptionalDialog(startMillis, startHasTime, onDismiss = { showStartPicker = false }) { m, ht -> startMillis = m; startHasTime = ht; showStartPicker = false }
+    if (showDeadlinePicker) {
+        val dlTimed = deadlineMillis?.let { Instant.ofEpochMilli(it).atZone(zone).let { z -> z.hour != 0 || z.minute != 0 } } ?: false
+        DateTimeOptionalDialog(deadlineMillis, dlTimed, onDismiss = { showDeadlinePicker = false }) { m, _ -> deadlineMillis = m; showDeadlinePicker = false }
+    }
 }
 
 /**

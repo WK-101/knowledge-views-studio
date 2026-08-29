@@ -280,8 +280,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         SmartKind.DO_NEXT -> {
                             val base = TaskViews.filterSmart(all, v.kind, now, zone, dayStartMin)
                             val ranked = rankDoNext(base, all, now, cfg.prio, deps, tcRefs, ctxEntities)
+                            // Do Next is NOT "All re-sorted": it's a focused, actionable shortlist. On top of the
+                            // engine (which already drops container parents, context-unavailable & order-gated
+                            // tasks and ranks by score), we also hide what genuinely can't be started right now —
+                            // tasks blocked by an unfinished prerequisite, or not yet at their start date.
+                            val byIdDN = all.associateBy { it.id }
+                            val blockedDN = PriorityEngine.computeBlocked(deps, byIdDN, now)
+                            val actionable = ranked.filter { it.id !in blockedDN && (it.startDate == null || it.startDate!! <= now) }
                             // "Time available" planner: keep tasks that fit the slot (unestimated always fit).
-                            val timed = cfg.timeAvail?.let { avail -> ranked.filter { t -> (t.estimateMin ?: t.estimateMax)?.let { it <= avail } ?: true } } ?: ranked
+                            val timed = cfg.timeAvail?.let { avail -> actionable.filter { t -> (t.estimateMin ?: t.estimateMax)?.let { it <= avail } ?: true } } ?: actionable
                             // "Energy right now" planner: keep tasks needing at most that energy (untagged always fit).
                             cfg.energyAvail?.let { cap -> timed.filter { t -> (t.energy ?: 0) <= cap } } ?: timed
                         }
@@ -657,6 +664,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         else -> ListEntity.INBOX_ID to null
     }
 
+    // A new task captured from a date-scoped smart list inherits that date (TickTick behaviour): adding
+    // from Today lands it today, from Tomorrow lands it tomorrow. Other views leave the date unset.
+    private fun defaultDueForView(): Long? {
+        val kind = (currentView.value as? ViewRef.Smart)?.kind ?: return null
+        val day = when (kind) {
+            SmartKind.TODAY -> java.time.LocalDate.now(zone)
+            SmartKind.TOMORROW -> java.time.LocalDate.now(zone).plusDays(1)
+            else -> return null
+        }
+        return day.atStartOfDay(zone).plusHours(9).toInstant().toEpochMilli()
+    }
+
     /** A legible breakdown of a task's Do-Next priority score — surfaced in the task detail. */
     fun explainScore(task: TaskEntity): PriorityEngine.ScoreBreakdown {
         val byId = tasks.value.associateBy { it.id }
@@ -682,7 +701,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             1 -> com.todocompanion.app.domain.priority.PriorityLevel.LOW
             else -> null
         }
-        val due = opts.dueMillis ?: parsed.dateTime?.atZone(zone)?.toInstant()?.toEpochMilli()
+        val due = opts.dueMillis ?: parsed.dateTime?.atZone(zone)?.toInstant()?.toEpochMilli() ?: defaultDueForView()
         val level = opts.priority ?: tokPriority ?: parsed.priority
         // No priority chosen ⇒ "None" (importance/urgency 2), not Low.
         val imp = level?.importance ?: com.todocompanion.app.domain.priority.PriorityLevel.NONE.importance

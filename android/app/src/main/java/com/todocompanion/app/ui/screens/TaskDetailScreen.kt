@@ -63,7 +63,9 @@ import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.foundation.layout.offset
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Switch
@@ -154,7 +156,6 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
 
     var showDue by remember { mutableStateOf(false) }
     var showStart by remember { mutableStateOf(false) }
-    var showDeadline by remember { mutableStateOf(false) }
     var showDuration by remember { mutableStateOf(false) }
     var showEstimate by remember { mutableStateOf(false) }
     var showReminder by remember { mutableStateOf(false) }
@@ -273,11 +274,14 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             Box(Modifier.fillMaxWidth().padding(start = 42.dp, end = 4.dp)) {
                 if (task.note.isNotBlank() && notePreview) {
                     // View-only: the note renders as formatted text and only the eye button switches to editing —
-                    // tapping the body no longer flips it into an editor.
-                    com.todocompanion.app.ui.components.MarkdownText(
-                        task.note,
-                        modifier = Modifier.fillMaxWidth().padding(end = 34.dp, bottom = 4.dp),
-                    )
+                    // tapping the body no longer flips it into an editor. Wrapped so the rendered text is
+                    // selectable (copy) while reading (R22).
+                    androidx.compose.foundation.text.selection.SelectionContainer {
+                        com.todocompanion.app.ui.components.MarkdownText(
+                            task.note,
+                            modifier = Modifier.fillMaxWidth().padding(end = 34.dp, bottom = 4.dp),
+                        )
+                    }
                 } else {
                     BorderlessField(
                         task.note, { v -> update { it.copy(note = v) } }, "Notes — Markdown supported",
@@ -331,11 +335,17 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             PropRow(Icons.Filled.Event, "Date", task.dueDate?.let { formatDueSpan(it, task.durationMin) } ?: "No date",
                 valueColor = if (dueOverdue) MaterialTheme.colorScheme.error else if (task.dueDate != null) MaterialTheme.colorScheme.primary else null,
                 onClear = if (task.dueDate != null) ({ update { it.copy(dueDate = null, durationMin = null) } }) else null) { showDue = true }
-            if (task.dueDate != null || task.startDate != null) {
-                // Start date, all-day, duration, repeat and reminders ALL live inside the unified Date
-                // sheet now (tap "Date" above) — no duplicated controls out here (R19 #9 / R21).
+            if (task.dueDate != null || task.startDate != null || task.deadlineDate != null) {
+                // Start date, all-day, duration, DEADLINE, repeat and reminders ALL live inside the unified Date
+                // sheet now (tap "Date" above) — no duplicated controls out here (R19 #9 / R21 / R22). These are
+                // read-only summaries of what's set in the sheet.
                 if (task.startDate != null) Text("Starts " + formatDue(task.startDate!!), Modifier.padding(start = 34.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                MenuRow("Show early", task.leadTimeMin?.let { "${it / 1440}d early" } ?: "Default",
+                task.deadlineDate?.let { dl ->
+                    val passed = dl < System.currentTimeMillis() && !task.completed
+                    Text("⚑ Deadline " + formatDue(dl), Modifier.padding(start = 34.dp), style = MaterialTheme.typography.labelSmall,
+                        color = if (passed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary)
+                }
+                if (task.dueDate != null) MenuRow("Show early", task.leadTimeMin?.let { "${it / 1440}d early" } ?: "Default",
                     listOf<Pair<Int?, String>>(null to "Default (7 days)", 1 to "1 day early", 3 to "3 days early", 7 to "1 week early", 14 to "2 weeks early")) { d -> update { it.copy(leadTimeMin = d?.let { n -> n * 1440 }) } }
             }
 
@@ -410,12 +420,15 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                             Icon(Icons.Filled.ExpandMore, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                         }
                         DropdownMenu(expanded = actMenu, onDismissRequest = { actMenu = false }) {
+                            // The link is STAGED into the draft (R22) — writing straight to the DB was overwritten
+                            // by the next Save of the draft (which still held the old value) and the checkmark
+                            // never moved. update{} keeps it consistent with every other field and Save persists it.
                             DropdownMenuItem(text = { Text("Tasks (default bucket)") },
                                 leadingIcon = { if (task.defaultActivityId == null) Icon(Icons.Filled.Check, null, Modifier.size(18.dp)) else Spacer(Modifier.width(18.dp)) },
-                                onClick = { vm.setTaskDefaultActivity(task.id, null); actMenu = false })
+                                onClick = { update { it.copy(defaultActivityId = null) }; actMenu = false })
                             timeActivities.filter { !it.archived }.forEach { a ->
                                 // Each activity is editable/removable in place (R21 #3) — the trailing pencil opens
-                                // the editor (which also deletes); tapping the row still just links it to the task.
+                                // the editor (which also deletes); tapping the row links it to the task.
                                 DropdownMenuItem(text = { Text((a.emoji?.plus(" ") ?: "") + a.name) },
                                     leadingIcon = { if (task.defaultActivityId == a.id) Icon(Icons.Filled.Check, null, Modifier.size(18.dp)) else Spacer(Modifier.width(18.dp)) },
                                     trailingIcon = {
@@ -423,7 +436,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                                             Icon(Icons.Outlined.Edit, "Edit activity", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                     },
-                                    onClick = { vm.setTaskDefaultActivity(task.id, a.id); actMenu = false })
+                                    onClick = { update { it.copy(defaultActivityId = a.id) }; actMenu = false })
                             }
                         }
                     }
@@ -432,7 +445,25 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
 
             // ---------- Priority & list (core, always shown) ----------
             Box {
-                PropRow(Icons.Filled.Flag, "Priority", level.label, valueColor = priorityColor(level)) { prioMenu = true }
+                // Custom priority row: the "why this priority?" explainer is now a small superscript ⓘ next to
+                // the label (R22) instead of a space-hungry button below — tapping it opens the score breakdown.
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { prioMenu = true }
+                        .padding(start = 6.dp, end = 4.dp, top = 11.dp, bottom = 11.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Filled.Flag, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(14.dp))
+                    Text("Priority", style = MaterialTheme.typography.bodyMedium)
+                    if (settings.priorityComputed) {
+                        IconButton(onClick = { showScore = true }, modifier = Modifier.size(20.dp).offset(y = (-5).dp)) {
+                            Icon(Icons.Outlined.Info, "Why this priority?", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Text(level.label, style = MaterialTheme.typography.bodyMedium, color = priorityColor(level), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 8.dp))
+                    Spacer(Modifier.width(4.dp)); Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
+                }
                 DropdownMenu(expanded = prioMenu, onDismissRequest = { prioMenu = false }) {
                     PriorityLevel.entries.forEach { lvl ->
                         DropdownMenuItem(text = { Text(lvl.label) }, leadingIcon = { Icon(Icons.Filled.Flag, null, tint = priorityColor(lvl), modifier = Modifier.size(18.dp)) },
@@ -443,12 +474,6 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             if (settings.advancedPriority) {
                 Dial("Importance", task.importance) { v -> update { it.copy(importance = v) } }
                 Dial("Urgency", task.urgency) { v -> update { it.copy(urgency = v) } }
-            }
-            // Legible Do-Next score — the thing MLO never shows.
-            if (settings.priorityComputed) {
-                TextButton(onClick = { showScore = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 40.dp, end = 8.dp, top = 0.dp, bottom = 0.dp)) {
-                    Text("Why this priority?", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                }
             }
             run {
                 // Folder-direct tasks (empty listId) show the folder they live in until moved to a list.
@@ -463,7 +488,6 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             // ---------- Optional fields — progressive disclosure (#114) ----------
             // Order + per-field visibility come from Settings → Task editor. A field that already
             // holds a value is always shown (its tier is ignored) so nothing you've set can hide.
-            val deadlinePassed = task.deadlineDate?.let { it < System.currentTimeMillis() && !task.completed } == true
             val myReminders = reminders.filter { it.taskId == task.id }
             val myCheck = checklist.filter { it.taskId == task.id }.sortedBy { it.sortOrder }
             val attFlow = remember(task.id) { vm.attachmentMeta(task.id) }
@@ -477,7 +501,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 com.todocompanion.app.domain.EditorField.REPEAT -> !task.rrule.isNullOrBlank()
                 com.todocompanion.app.domain.EditorField.REMINDERS -> myReminders.isNotEmpty()
                 com.todocompanion.app.domain.EditorField.CHECKLIST -> myCheck.isNotEmpty()
-                com.todocompanion.app.domain.EditorField.DEADLINE -> task.deadlineDate != null
+                com.todocompanion.app.domain.EditorField.DEADLINE -> false   // lives in the Date sheet now (R22)
                 com.todocompanion.app.domain.EditorField.ENERGY -> task.energy != null
                 com.todocompanion.app.domain.EditorField.FLAG -> task.flagId != null
                 com.todocompanion.app.domain.EditorField.ATTACHMENTS -> attachments.isNotEmpty()
@@ -494,12 +518,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 val visible = tier == com.todocompanion.app.domain.AppSettings.TIER_ALWAYS || hasFieldValue(f) || (tier == com.todocompanion.app.domain.AppSettings.TIER_MORE && moreExpanded)
                 if (!visible) return@forEach
                 when (f) {
-                    com.todocompanion.app.domain.EditorField.DEADLINE ->
-                        // A hard deadline is distinct from the work/plan date: the true drop-dead moment;
-                        // the priority engine pulls harder as it nears (see PriorityEngine.dateTerm).
-                        PropRow(Icons.Filled.Bolt, "Deadline", task.deadlineDate?.let { formatDue(it) } ?: "None",
-                            valueColor = if (deadlinePassed) MaterialTheme.colorScheme.error else if (task.deadlineDate != null) MaterialTheme.colorScheme.tertiary else null,
-                            onClear = if (task.deadlineDate != null) ({ update { it.copy(deadlineDate = null) } }) else null) { showDeadline = true }
+                    // Deadline is set inside the unified Date sheet now (R22) and summarised under the Date row,
+                    // so this standalone field renders nothing.
+                    com.todocompanion.app.domain.EditorField.DEADLINE -> {}
                     com.todocompanion.app.domain.EditorField.ENERGY ->
                         // Energy tag — surfaced by the "right now" filter so you can match tasks to how you feel.
                         MenuRow("Energy", when (task.energy) { 1 -> "Low"; 2 -> "Medium"; 3 -> "High"; else -> "Any" },
@@ -803,9 +824,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             initialReminderOffsetMin = null,
             onDismiss = { showDue = false },
             onConfirm = { c ->
-                // The sheet carries the full intended schedule state — due, all-day, duration, repeat AND
-                // the optional start date (R21) — so apply it all directly.
-                update { it.copy(dueDate = c.dueMillis, isAllDay = c.allDay, durationMin = c.durationMin, rrule = c.rrule, startDate = c.startMillis) }
+                // The sheet carries the full intended schedule state — due, all-day, duration, repeat, the
+                // optional start date (R21) AND the deadline (R22) — so apply it all directly.
+                update { it.copy(dueDate = c.dueMillis, isAllDay = c.allDay, durationMin = c.durationMin, rrule = c.rrule, startDate = c.startMillis, deadlineDate = c.deadlineMillis) }
                 showDue = false
             },
             // The full reminders manager lives inside the sheet (no separate section outside).
@@ -813,6 +834,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             showStart = true,
             initialStart = t0?.startDate,
             initialStartHasTime = startTimed0,
+            showDeadline = true,
+            initialDeadline = t0?.deadlineDate,
             repeatHasChildren = allTasks.any { it.parentId == t0?.id && !it.trashed },
         )
     }
@@ -828,7 +851,6 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             onSave = { updated -> vm.updateTimeActivity(updated); editActivity = null },
             onDelete = { vm.deleteTimeActivity(act.id); editActivity = null })
     }
-    if (showDeadline) DateTimePickerDialog(task?.deadlineDate, { showDeadline = false }) { m -> update { it.copy(deadlineDate = m) }; showDeadline = false }
     if (showReminder) DateTimePickerDialog(task?.dueDate ?: System.currentTimeMillis(), { showReminder = false }) { m -> task?.let { vm.addAbsoluteReminder(it, m) }; showReminder = false }
     if (showBlockPicker && task != null) {
         val existing = allDeps.filter { it.taskId == task.id }.map { it.dependsOnTaskId }.toSet()
@@ -1382,18 +1404,28 @@ fun fmtDuration(min: Int): String {
 }
 
 /** Flexible duration picker — any hours (0–23) and minutes (0–55, 5-min steps), not fixed presets. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun DurationPickerDialog(initialMin: Int, onDismiss: () -> Unit, onPick: (Int) -> Unit) {
-    var hours by remember { mutableStateOf((initialMin / 60).coerceIn(0, 23)) }
-    var mins by remember { mutableStateOf((initialMin % 60)) }
+    // Any amount of time (R22): hours 0–99 and minutes 0–59 at 1-minute granularity, typeable directly or
+    // nudged with ±. A quick-preset row covers the common cases without stepping.
+    var hours by remember { mutableStateOf((initialMin / 60).coerceIn(0, 99)) }
+    var mins by remember { mutableStateOf((initialMin % 60).coerceIn(0, 59)) }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Duration") },
         text = {
             Column {
-                DurStepper("Hours", hours, 0, 23, 1) { hours = it }
+                DurStepper("Hours", hours, 0, 99, 1) { hours = it }
                 Spacer(Modifier.height(8.dp))
-                DurStepper("Minutes", mins, 0, 55, 5) { mins = it }
+                DurStepper("Minutes", mins, 0, 59, 5) { mins = it }   // ± nudges by 5; type any minute directly
+                Spacer(Modifier.height(12.dp))
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(15, 30, 45, 60, 90, 120, 180, 240).forEach { m ->
+                        FilterChip(selected = hours * 60 + mins == m, onClick = { hours = m / 60; mins = m % 60 },
+                            label = { Text(fmtDuration(m)) })
+                    }
+                }
                 Spacer(Modifier.height(10.dp))
                 Text("= ${fmtDuration((hours * 60 + mins).coerceAtLeast(0))}",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
@@ -1409,7 +1441,18 @@ private fun DurStepper(label: String, value: Int, min: Int, max: Int, step: Int,
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         IconButton(onClick = { onChange((value - step).coerceAtLeast(min)) }) { Icon(Icons.Filled.Remove, "Less") }
-        Text("$value", Modifier.width(40.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center, style = MaterialTheme.typography.titleMedium)
+        // Editable field so any value in range can be typed, not only reached by stepping.
+        androidx.compose.material3.OutlinedTextField(
+            value = value.toString(),
+            onValueChange = { s ->
+                val digits = s.filter { it.isDigit() }.take(3)
+                onChange(digits.toIntOrNull()?.coerceIn(min, max) ?: min)
+            },
+            singleLine = true,
+            textStyle = MaterialTheme.typography.titleMedium.copy(textAlign = androidx.compose.ui.text.style.TextAlign.Center),
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+            modifier = Modifier.width(76.dp),
+        )
         IconButton(onClick = { onChange((value + step).coerceAtMost(max)) }) { Icon(Icons.Filled.Add, "More") }
     }
 }
