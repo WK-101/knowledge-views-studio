@@ -279,8 +279,7 @@ private fun QuadrantCard(q: Int, title: String, tasks: List<TaskEntity>, onOpenT
                                     t.title,
                                     style = MaterialTheme.typography.bodyMedium,
                                     maxLines = 2, overflow = TextOverflow.Ellipsis,
-                                    textDecoration = if (t.completed) androidx.compose.ui.text.style.TextDecoration.LineThrough else androidx.compose.ui.text.style.TextDecoration.None,
-                                    color = if (t.completed) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .55f) else MaterialTheme.colorScheme.onSurface,
+                                    color = if (t.completed) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .6f) else MaterialTheme.colorScheme.onSurface,
                                 )
                                 t.dueDate?.let { com.todocompanion.app.ui.components.DueChip(it) }
                             }

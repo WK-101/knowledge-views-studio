@@ -584,6 +584,8 @@ fun AppRoot(
                             onOpenDrawer = { scope.launch { drawerState.open() } },
                             mode = calMode, onModeChange = { calMode = it },
                             onOpenFilter = { calFilter = true }, filterActive = settings.calendarListFilter.isNotEmpty(),
+                            showCompleted = settings.calendarShowCompleted,
+                            onToggleShowCompleted = { vm.saveSettings(settings.copy(calendarShowCompleted = !settings.calendarShowCompleted)) },
                         )
                     } else if (tab == Tab.HABITS) {
                         // The Habits tab renders its actions here so it shows one header like the rest.

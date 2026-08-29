@@ -61,6 +61,8 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarViewMonth
+import androidx.compose.material.icons.filled.CheckBox
+import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -159,9 +161,12 @@ fun CalendarScreen(
     val calLists by vm.lists.collectAsState()
     val listFilter = s.calendarListFilter
     val listFolderById = remember(calLists) { calLists.associate { it.id to it.folderId } }
-    val dueByDate = remember(tasks, listFilter, listFolderById) {
+    val showCompleted = s.calendarShowCompleted
+    val dueByDate = remember(tasks, listFilter, listFolderById, showCompleted) {
         tasks.filter {
-            !it.trashed && !it.completed && !it.abandoned && it.dueDate != null &&
+            // R27 #6: completed tasks are hidden by default (the grid stays a plan of what's left);
+            // the "Show completed" toggle folds them back in so the day is a full record.
+            !it.trashed && (showCompleted || !it.completed) && !it.abandoned && it.dueDate != null &&
                 (listFilter.isEmpty() || it.listId in listFilter || it.folderId in listFilter || listFolderById[it.listId] in listFilter)
         }.groupBy { Instant.ofEpochMilli(it.dueDate!!).atZone(zone).toLocalDate() }
     }
@@ -351,6 +356,7 @@ fun CalHeader(
     onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onPickDate: (LocalDate) -> Unit,
     onOpenDrawer: () -> Unit, mode: String, onModeChange: (String) -> Unit,
     onOpenFilter: () -> Unit, filterActive: Boolean,
+    showCompleted: Boolean = false, onToggleShowCompleted: () -> Unit = {},
 ) {
     var showPicker by remember { mutableStateOf(false) }
     var typeMenu by remember { mutableStateOf(false) }
@@ -381,6 +387,13 @@ fun CalHeader(
                         onClick = { onModeChange(k); typeMenu = false },
                     )
                 }
+                androidx.compose.material3.HorizontalDivider()
+                // R27 #6: fold completed tasks into the grid on demand (off keeps it a plan of what's left).
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text("Show completed", color = if (showCompleted) MaterialTheme.colorScheme.primary else androidx.compose.material3.LocalContentColor.current) },
+                    leadingIcon = { Icon(if (showCompleted) Icons.Filled.CheckBox else Icons.Filled.CheckBoxOutlineBlank, null, tint = if (showCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) },
+                    onClick = { onToggleShowCompleted(); typeMenu = false },
+                )
             }
         }
         IconButton(onClick = onOpenFilter) { Icon(Icons.Filled.FilterList, "Filter lists", tint = if (filterActive) MaterialTheme.colorScheme.primary else androidx.compose.material3.LocalContentColor.current) }
@@ -874,6 +887,20 @@ private fun TimelineView(
             }
             androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
         }
+        // R27 #3: untimed habits (no reminder time) sit in a header band ABOVE the hour grid — not pinned to
+        // a fake ~01:00 inside the timeline, where they used to stack and read as 1-o'clock events. Each day
+        // column lists its own; the grid below then carries only timed habits at their real reminder time.
+        val untimedByDay = days.associateWith { d -> habitBlocksFor(d).filter { it.untimed }.distinctBy { hb -> hb.id } }
+        if (untimedByDay.values.any { it.isNotEmpty() }) {
+            Row(Modifier.fillMaxWidth().padding(start = GUTTER_DP.dp).heightIn(max = 104.dp)) {
+                days.forEach { d ->
+                    Column(Modifier.weight(1f).padding(horizontal = 2.dp).verticalScroll(rememberScrollState())) {
+                        untimedByDay[d].orEmpty().forEach { hb -> UntimedHabitChip(hb, onOpenHabit) }
+                    }
+                }
+            }
+            androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
+        }
         // Scrollable hour grid — pinch anywhere on it to zoom the hour height.
         Row(Modifier.fillMaxWidth().weight(1f)
             .onSizeChanged { viewportPx = it.height }
@@ -889,7 +916,8 @@ private fun TimelineView(
             days.forEach { d ->
                 val timed = dueByDate[d].orEmpty().filter { !it.isAllDay && hasTime(it.dueDate!!, zone) }
                 DayColumn(d, timed, zone, hourDp, onOpenTask, onAddAt, onResize, onMoveAt = { id, min -> onMoveAt(d, id, min) },
-                    habitBlocks = habitBlocksFor(d), onOpenHabit = onOpenHabit, trackedBlocks = trackedBlocksFor(d), revealUntracked = revealUntracked, onOpenTracked = onOpenTracked, modifier = Modifier.weight(1f))
+                    // Untimed habits render in the band above the grid (R27 #3); the grid gets only timed ones.
+                    habitBlocks = habitBlocksFor(d).filter { !it.untimed }, onOpenHabit = onOpenHabit, trackedBlocks = trackedBlocksFor(d), revealUntracked = revealUntracked, onOpenTracked = onOpenTracked, modifier = Modifier.weight(1f))
             }
         }
     }
@@ -949,10 +977,19 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hou
                     // that is released without sliding also opens the task (so a "hold" never falls through to
                     // the empty-slot time-block popup behind it). consume() keeps the grid from scrolling mid-drag.
                     .pointerInput(p.task.id, hourDp) {
+                        // R27 #7: accumulate the raw drag in a float (minutes) and snap only for display, so the
+                        // block follows the finger continuously. The old code re-snapped liveStart from its own
+                        // snapped value each frame, truncating every sub-15-min delta to zero — the block stalled
+                        // mid-drag and "lost hold". consume() keeps the grid from scrolling underneath.
                         var startLive = liveStart
+                        var rawMin = liveStart.toFloat()
                         detectDragGesturesAfterLongPress(
-                            onDragStart = { dragging = true; startLive = liveStart },
-                            onDrag = { change, off -> change.consume(); liveStart = snap((liveStart + (off.y / hourPx * 60f).toInt())).coerceIn(0, 1440 - liveDur) },
+                            onDragStart = { dragging = true; startLive = liveStart; rawMin = liveStart.toFloat() },
+                            onDrag = { change, off ->
+                                change.consume()
+                                rawMin = (rawMin + off.y / hourPx * 60f).coerceIn(0f, (1440 - liveDur).toFloat())
+                                liveStart = snap(rawMin.roundToInt()).coerceIn(0, 1440 - liveDur)
+                            },
                             onDragEnd = { dragging = false; if (liveStart != startLive) onMoveAt(p.task.id, liveStart) else onOpenTask(p.task.id) },
                             onDragCancel = { dragging = false; liveStart = startLive },
                         )
@@ -969,10 +1006,16 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hou
             Box(
                 Modifier.offset(x = railW + laneW * p.lane + 1.dp, y = top + h - 18.dp).width(laneW - 1.dp).height(22.dp)
                     .pointerInput(p.task.id, hourDp) {
+                        // R27 #7: same raw-float accumulation as the move drag, so resizing is smooth instead of
+                        // truncating each sub-snap frame to zero. consume() keeps the grid's vertical scroll off.
+                        var rawDur = liveDur.toFloat()
                         detectVerticalDragGestures(
-                            onDragStart = { dragging = true },
-                            // consume() so the resize drag isn't stolen by the grid's vertical scroll (R23).
-                            onVerticalDrag = { change, dy -> change.consume(); liveDur = snap((liveDur + (dy / hourPx * 60f)).toInt()).coerceIn(15, 24 * 60 - liveStart) },
+                            onDragStart = { dragging = true; rawDur = liveDur.toFloat() },
+                            onVerticalDrag = { change, dy ->
+                                change.consume()
+                                rawDur = (rawDur + dy / hourPx * 60f).coerceIn(15f, (24 * 60 - liveStart).toFloat())
+                                liveDur = snap(rawDur.roundToInt()).coerceIn(15, 24 * 60 - liveStart)
+                            },
                             onDragEnd = { dragging = false; onResize(p.task.id, liveDur) },
                             onDragCancel = { dragging = false },
                         )
@@ -984,7 +1027,7 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hou
         if (habitBlocks.isNotEmpty()) {
             val habitAreaX = railW + taskAreaW + 1.dp
             val habitAreaW = contentW - taskAreaW - 2.dp
-            val untimedH = habitBlocks.filter { it.untimed }
+            // Untimed habits are drawn in the band above the grid now (R27 #3); the grid carries only timed ones.
             val timedH = habitBlocks.filter { !it.untimed }.sortedBy { it.startMin }
             @Composable
             fun habitChip(hb: HabitBlock, mod: Modifier) {
@@ -1002,14 +1045,6 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hou
                         fontWeight = if (hb.done) FontWeight.SemiBold else FontWeight.Normal,
                         color = if (hb.done) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-            }
-            // Untimed habits have no reminder time — stack them as compact chips down the top of the habit
-            // lane rather than piling them all at a fake 09:00 (R23). Their offset/height scale with the
-            // pinch zoom (via `z`) so they grow and space out with the hour grid instead of staying pinned
-            // at a fixed size on top.
-            val z = (hourDp / HOUR_DP).coerceIn(0.6f, 3f)
-            untimedH.forEachIndexed { i, hb ->
-                habitChip(hb, Modifier.offset(x = habitAreaX, y = ((2 + i * 24) * z).dp).width(habitAreaW).height((22 * z).dp.coerceAtLeast(18.dp)))
             }
             // Timed habits sit at their reminder time; lane-split so simultaneous ones never overlap.
             if (timedH.isNotEmpty()) {
@@ -1060,6 +1095,25 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hou
             Box(Modifier.fillMaxWidth().offset(y = y).height(2.dp).background(MaterialTheme.colorScheme.error))
             Box(Modifier.size(7.dp).offset(y = y - 3.dp).clip(CircleShape).background(MaterialTheme.colorScheme.error))
         }
+    }
+}
+
+/** R27 #3: one untimed habit as a compact chip in the header band above the hour grid (tap opens it). */
+@Composable
+private fun UntimedHabitChip(hb: HabitBlock, onOpenHabit: (String) -> Unit) {
+    val col = hb.color ?: MaterialTheme.colorScheme.tertiary
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 1.dp).clip(RoundedCornerShape(6.dp))
+            .background(col.copy(alpha = if (hb.done) 0.26f else if (hb.partial) 0.16f else 0.09f))
+            .then(if (hb.done) Modifier else Modifier.border(1.dp, col.copy(alpha = .35f), RoundedCornerShape(6.dp)))
+            .clickable { onOpenHabit(hb.id) },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.width(3.dp).height(18.dp).background(if (hb.done) col else col.copy(alpha = .45f)))
+        Text((if (hb.done) "✓ " else if (hb.partial) "◑ " else "") + hb.label, Modifier.padding(horizontal = 5.dp, vertical = 3.dp),
+            style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            fontWeight = if (hb.done) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (hb.done) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -1208,8 +1262,7 @@ private fun WeekChip(task: TaskEntity, onOpenTask: (String) -> Unit) {
         Spacer(Modifier.size(8.dp))
         Text(task.title.ifBlank { "Untitled" }, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.bodyMedium,
-            textDecoration = if (task.completed) androidx.compose.ui.text.style.TextDecoration.LineThrough else null,
-            color = if (task.completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
+            color = if (task.completed) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .6f) else MaterialTheme.colorScheme.onSurface)
     }
 }
 
@@ -1301,8 +1354,7 @@ private fun TaskLine(task: TaskEntity, onOpenTask: (String) -> Unit, swipe: CalS
                 Column(Modifier.weight(1f).padding(vertical = 9.dp)) {
                     Text(
                         task.title.ifBlank { "Untitled" }, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
-                        textDecoration = if (task.completed) androidx.compose.ui.text.style.TextDecoration.LineThrough else androidx.compose.ui.text.style.TextDecoration.None,
-                        color = if (task.completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                        color = if (task.completed) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .6f) else MaterialTheme.colorScheme.onSurface,
                     )
                     if (task.note.isNotBlank()) Text(task.note.trim().lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

@@ -75,6 +75,8 @@ data class AppSettings(
     val calendarListFilter: Set<String> = emptySet(),   // empty = all lists
     // M1: draw timed habits as blocks in the day/week calendar. Off by default — opt-in.
     val habitCalendarBlocks: Boolean = false,
+    // R27 #6: show completed tasks on the calendar too (off by default so the grid stays a plan of what's left).
+    val calendarShowCompleted: Boolean = false,
     // A subtle whole-app background tint: none | warm | cool | mint | dusk | rose.
     val appBackground: String = "none",
     // Planning: hours you can realistically commit per day (workload forecast + auto-schedule).
@@ -267,6 +269,7 @@ data class AppSettings(
         Keys.CAL_MODE to calendarDefaultMode,
         Keys.CAL_FILTER to calendarListFilter.joinToString(","),
         Keys.HABIT_CAL_BLOCKS to habitCalendarBlocks.toString(),
+        Keys.CAL_SHOW_COMPLETED to calendarShowCompleted.toString(),
         Keys.APP_BG to appBackground,
         Keys.CAPACITY to dailyCapacityHours.toString(),
         Keys.CAPACITY_DAYS to capacityByDay.joinToString(","),
@@ -381,6 +384,7 @@ data class AppSettings(
         const val CAL_MODE = "cal_mode"
         const val CAL_FILTER = "cal_filter"
         const val HABIT_CAL_BLOCKS = "habit_cal_blocks"
+        const val CAL_SHOW_COMPLETED = "cal_show_completed"
         const val SUMMARY_ON = "summary_on"
         const val APP_BG = "app_bg"
         const val CAPACITY = "daily_capacity_h"
@@ -513,6 +517,7 @@ data class AppSettings(
             calendarDefaultMode = m[Keys.CAL_MODE] ?: "month",
             calendarListFilter = (m[Keys.CAL_FILTER] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             habitCalendarBlocks = m[Keys.HABIT_CAL_BLOCKS]?.toBooleanStrictOrNull() ?: false,
+            calendarShowCompleted = m[Keys.CAL_SHOW_COMPLETED]?.toBooleanStrictOrNull() ?: false,
             pinnedRefs = (m[Keys.PINNED] ?: "").split("|").filter { it.isNotBlank() },
             viewTabsJson = m[Keys.VIEW_TABS] ?: "",
             resumeLastView = m[Keys.RESUME_LAST]?.toBooleanStrictOrNull() ?: false,

@@ -1,6 +1,8 @@
 package com.todocompanion.app.ui.screens
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -209,17 +211,22 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
         }
         if (pomo && !running && bankedSec == 0) {
             Spacer(Modifier.size(10.dp))
-            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            // All lengths + Custom on a single line; scrolls horizontally if the screen is too narrow to fit.
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 val presets = listOf(15, 25, 45, 60)
                 presets.forEach { m ->
-                    androidx.compose.material3.FilterChip(selected = pomoMin == m, onClick = { pomoMin = m }, label = { Text("$m min") })
+                    androidx.compose.material3.FilterChip(selected = pomoMin == m, onClick = { pomoMin = m }, label = { Text("$m") })
                 }
                 // Custom length: any hours:minutes via the shared time picker, so the presets aren't a cap.
                 val isCustom = pomoMin !in presets
                 androidx.compose.material3.FilterChip(
                     selected = isCustom,
                     onClick = { showCustomPomo = true },
-                    label = { Text(if (isCustom) "$pomoMin min" else "Custom…") },
+                    label = { Text(if (isCustom) "$pomoMin" else "Custom") },
                     leadingIcon = { androidx.compose.material3.Icon(Icons.Filled.Tune, null, modifier = Modifier.size(16.dp)) },
                 )
             }

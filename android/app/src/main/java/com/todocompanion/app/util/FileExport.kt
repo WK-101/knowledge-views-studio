@@ -61,8 +61,9 @@ object FileExport {
     /** A backup/export file the app can restore from without a system picker. */
     data class SavedFile(val name: String, val location: String, val whenMillis: Long, val uri: android.net.Uri?, val file: File?)
 
-    /** Importable file extensions the in-app browser shows. */
-    private val IMPORT_EXTS = setOf("json", "csv", "md", "opml", "txt", "ics")
+    /** Importable / exportable file extensions the in-app browser surfaces (backups, MLO .mlobak, CSV/OPML
+     *  imports, Markdown/ICS exports) so every file the app can actually read is selectable. */
+    private val IMPORT_EXTS = setOf("json", "csv", "md", "opml", "txt", "ics", "mlobak", "backup")
 
     /** One entry in the in-app file browser. */
     data class Entry(val file: File, val isDir: Boolean) { val name: String get() = file.name }

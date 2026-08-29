@@ -177,6 +177,12 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
     // only under MANUAL sort), drag right nests as a subtask, drag left un-nests. A stationary long-press
     // (no drag) still enters multi-select, so both gestures live on the same list.
     val singleFlat = groups.size == 1 && groups.first().title.isBlank() && !isTrash
+    // R27 #1 — a folder's tasks are one flat set (its per-list headers are redundant with the list label
+    // on each row), so folders get the SAME long-press drag/nest/select list as an ungrouped list. That's
+    // the "make it consistent across lists AND folders" ask; only genuinely date-sectioned smart lists keep
+    // the grouped layout (reordering across date sections is meaningless — TickTick doesn't allow it either).
+    val useFlatDrag = !isTrash && (singleFlat || inFolderView)
+    val flatDragTasks = if (singleFlat) groups.first().tasks else groups.flatMap { it.tasks }
 
     // Multi-select: long-press a row to enter selection mode; a bottom action bar batches edits.
     var selected by remember { mutableStateOf(setOf<String>()) }
@@ -208,10 +214,10 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
     }
 
     Box(modifier.fillMaxSize()) {
-      if (singleFlat) {
+      if (useFlatDrag) {
         // TickTick-style long-press drag (reorder + drag-to-nest) with multi-select on a stationary
         // long-press. The same top strips (habits due, countdowns, workload, description) ride along.
-        ManualReorderList(vm, groups.first().tasks, settings.density, ctxByTask, tagsByTask,
+        ManualReorderList(vm, flatDragTasks, settings.density, ctxByTask, tagsByTask,
             listNameOf = { listId -> listLabel(listId) }, labelNav = labelNav,
             rightNear = settings.swipeRight, rightFar = settings.swipeRightFar, leftNear = settings.swipeLeft, leftFar = settings.swipeLeftFar,
             selected = selected, selectionMode = selectionMode, onToggleSel = { toggleSel(it) },
@@ -550,39 +556,58 @@ private fun ManualReorderList(
     // into a subtask outline each time so a just-nested child appears indented under its parent.
     androidx.compose.runtime.LaunchedEffect(tasks) { if (draggingId == null) items = arrangeSubtaskOutline(tasks) }
     val byId = remember(items) { items.associateBy { it.id } }
-    val nestThreshold = with(LocalDensity.current) { 40.dp.toPx() }
-    val dragVisualCap = with(LocalDensity.current) { 64.dp.toPx() }
+    val density2 = LocalDensity.current
+    val nestThreshold = with(density2) { 40.dp.toPx() }
+    val dragVisualCap = with(density2) { 72.dp.toPx() }
     // Below this much finger travel a long-press counts as "held, not dragged" → toggles selection.
-    val moveSlop = with(LocalDensity.current) { 14.dp.toPx() }
+    val moveSlop = with(density2) { 12.dp.toPx() }
+
+    // R27 #1 — the gesture lives PER ROW, on the innermost content inside the swipe box, not on the
+    // whole LazyColumn. That's the fix for drag-to-nest: the row's swipe (an outer sibling) used to eat
+    // the horizontal movement before the container's drag ever saw it. As an inner detector the reorder
+    // gesture only fires AFTER the long-press and then consumes every move, so a held-then-swipe nests
+    // while a quick swipe (no hold) still reveals the swipe actions. Spec: tap = open · long-press = select
+    // · long-press + vertical drag = reorder · long-press + drag right = nest / drag left = un-nest.
+    fun startRowDrag(id: String) { draggingId = id; delta = 0f; dx = 0f }
+    fun onRowDrag(dy: Float, dxAmt: Float) {
+        delta += dy; dx += dxAmt
+        val id = draggingId ?: return
+        val info = listState.layoutInfo.visibleItemsInfo
+        val cur = info.firstOrNull { it.key == id } ?: return
+        // Only reorder from vertical travel; a mostly-horizontal pull is a nest, so leave the order be.
+        if (kotlin.math.abs(delta) <= kotlin.math.abs(dx)) return
+        val center = cur.offset + cur.size / 2 + delta
+        val target = info.firstOrNull { it.key != id && it.key is String && center.toInt() in it.offset..(it.offset + it.size) }
+        if (target != null) {
+            val from = items.indexOfFirst { it.id == id }
+            val to = items.indexOfFirst { it.id == target.key }
+            if (from >= 0 && to >= 0 && from != to) {
+                items = items.toMutableList().also { it.add(to, it.removeAt(from)) }
+                delta += (cur.offset - target.offset)
+            }
+        }
+    }
+    fun endRowDrag() {
+        val id = draggingId; val finalDx = dx; val finalDy = delta
+        val idx = items.indexOfFirst { it.id == id }
+        val moved = kotlin.math.abs(finalDy) > moveSlop || kotlin.math.abs(finalDx) > moveSlop
+        when {
+            id == null || idx < 0 -> {}
+            // Stationary long-press (or already selecting) toggles multi-select instead of moving.
+            selectionMode || !moved -> { onToggleSel(id); items = arrangeSubtaskOutline(tasks) }
+            // A dominant horizontal pull nests: right → subtask of the row above, left → back to top level.
+            finalDx > nestThreshold && kotlin.math.abs(finalDx) >= kotlin.math.abs(finalDy) && idx > 0 -> vm.nestUnder(id, items[idx - 1].id)
+            finalDx < -nestThreshold && kotlin.math.abs(finalDx) >= kotlin.math.abs(finalDy) -> vm.nestUnder(id, null)
+            // Vertical reorder only persists under MANUAL sort; otherwise snap back to source order.
+            sortIsManual -> vm.setManualOrder(items.map { it.id })
+            else -> items = arrangeSubtaskOutline(tasks)
+        }
+        draggingId = null; delta = 0f; dx = 0f
+    }
 
     LazyColumn(
         state = listState,
-        modifier = modifier.fillMaxSize().androidx_pointerReorder(
-            listState = listState,
-            draggingId = { draggingId },
-            setDraggingId = { draggingId = it },
-            delta = { delta }, setDelta = { delta = it },
-            dx = { dx }, setDx = { dx = it },
-            indexOfId = { id -> items.indexOfFirst { it.id == id } },
-            moveItem = { from, to -> items = items.toMutableList().also { it.add(to, it.removeAt(from)) } },
-            onCommit = { finalDx ->
-                val id = draggingId
-                val idx = items.indexOfFirst { it.id == id }
-                val moved = kotlin.math.abs(delta) > moveSlop || kotlin.math.abs(finalDx) > moveSlop
-                when {
-                    id == null || idx < 0 -> {}
-                    // Stationary long-press (or already selecting) toggles multi-select instead of moving.
-                    selectionMode || !moved -> { onToggleSel(id); items = arrangeSubtaskOutline(tasks) }
-                    // Drag right past the threshold → nest under the task directly above it.
-                    finalDx > nestThreshold && idx > 0 -> vm.nestUnder(id, items[idx - 1].id)
-                    // Drag left past the threshold → un-nest (promote to top level).
-                    finalDx < -nestThreshold -> vm.nestUnder(id, null)
-                    // Vertical reorder only persists under MANUAL sort; otherwise snap back to source order.
-                    sortIsManual -> vm.setManualOrder(items.map { it.id })
-                    else -> items = arrangeSubtaskOutline(tasks)
-                }
-            },
-        ),
+        modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(top = 6.dp, bottom = if (selectionMode) 120.dp else 100.dp, start = 12.dp, end = 12.dp),
     ) {
         header?.invoke(this)
@@ -592,8 +617,8 @@ private fun ManualReorderList(
             val isSel = task.id in selected
             // Live nest feedback: while dragging, a strong right pull = "make subtask of the row above",
             // a strong left pull = "promote to top level". Shown as an accent border + hint so it's clear.
-            val willNest = dragging && dx > nestThreshold
-            val willUnnest = dragging && dx < -nestThreshold
+            val willNest = dragging && dx > nestThreshold && kotlin.math.abs(dx) >= kotlin.math.abs(delta)
+            val willUnnest = dragging && dx < -nestThreshold && kotlin.math.abs(dx) >= kotlin.math.abs(delta)
             val accent = MaterialTheme.colorScheme.primary
             Surface(
                 Modifier
@@ -615,17 +640,29 @@ private fun ManualReorderList(
                     if (willNest) "↳ subtask" else "↥ top level",
                     Modifier.align(Alignment.CenterEnd).padding(end = 10.dp).zIndex(2f),
                     style = MaterialTheme.typography.labelSmall, color = accent, fontWeight = FontWeight.SemiBold)
-                // Same reveal-action swipe as the flat list; disabled mid-reorder and during multi-select
-                // so the gestures never fight. Long-press starts a drag (handled on the LazyColumn).
+                // Same reveal-action swipe as before, disabled during multi-select. The long-press reorder
+                // gesture is an INNER detector (a Box wrapping the row content) so it wins horizontal only
+                // after the hold; a quick swipe with no hold falls through to this outer swipe box.
                 SwipeActionBox(
                     taskId = task.id, rightNear = rightNear, rightFar = rightFar, leftNear = leftNear, leftFar = leftFar,
                     enabled = draggingId == null && !selectionMode, isTrashRestore = false,
                     onAct = { a -> onSwipe(vm, a, task, false, {}, { onOpenTask(task.id) }, { onOpenTask(task.id) }) },
                 ) {
-                    ReorderRow(task, density, ctxByTask[task.id].orEmpty(), tagsByTask[task.id].orEmpty(), listNameOf(task.listId), labelNav,
-                        onOpen = { if (selectionMode) onToggleSel(task.id) else onOpenTask(task.id) }, onToggle = { vm.toggleComplete(task) },
-                        onCycleFlag = { vm.cycleFlag(task) }, onToggleStar = { vm.toggleStar(task) },
-                        onSetPriority = { vm.setPriority(task, it) })
+                    Box(
+                        Modifier.pointerInput(task.id) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = { startRowDrag(task.id) },
+                                onDrag = { change, amt -> change.consume(); onRowDrag(amt.y, amt.x) },
+                                onDragEnd = { endRowDrag() },
+                                onDragCancel = { draggingId = null; delta = 0f; dx = 0f },
+                            )
+                        }
+                    ) {
+                        ReorderRow(task, density, ctxByTask[task.id].orEmpty(), tagsByTask[task.id].orEmpty(), listNameOf(task.listId), labelNav,
+                            onOpen = { if (selectionMode) onToggleSel(task.id) else onOpenTask(task.id) }, onToggle = { vm.toggleComplete(task) },
+                            onCycleFlag = { vm.cycleFlag(task) }, onToggleStar = { vm.toggleStar(task) },
+                            onSetPriority = { vm.setPriority(task, it) })
+                    }
                 }
               }
             }
@@ -666,45 +703,6 @@ private fun ReorderRow(
                 onTagClick = labelNav?.let { nav -> { name -> nav.onTag(name) } })
         }
     }
-}
-
-/** Long-press reorder gesture for a LazyColumn, factored out to keep the list readable. */
-private fun Modifier.androidx_pointerReorder(
-    listState: androidx.compose.foundation.lazy.LazyListState,
-    draggingId: () -> String?, setDraggingId: (String?) -> Unit,
-    delta: () -> Float, setDelta: (Float) -> Unit,
-    dx: () -> Float = { 0f }, setDx: (Float) -> Unit = {},
-    indexOfId: (String) -> Int, moveItem: (Int, Int) -> Unit, onCommit: (Float) -> Unit,
-): Modifier = this.pointerInput(Unit) {
-    detectDragGesturesAfterLongPress(
-        onDragStart = { off ->
-            val hit = listState.layoutInfo.visibleItemsInfo.firstOrNull { off.y.toInt() in it.offset..(it.offset + it.size) }
-            // Only pick up actual task rows — header strips (habits/countdowns/description) aren't draggable.
-            val key = hit?.key as? String
-            setDraggingId(if (key != null && indexOfId(key) >= 0) key else null); setDelta(0f); setDx(0f)
-        },
-        onDragEnd = { if (draggingId() != null) onCommit(dx()); setDraggingId(null); setDelta(0f); setDx(0f) },
-        onDragCancel = { setDraggingId(null); setDelta(0f); setDx(0f) },
-        onDrag = { change, drag ->
-            change.consume()
-            setDelta(delta() + drag.y)
-            setDx(dx() + drag.x)
-            val id = draggingId()
-            val info = listState.layoutInfo.visibleItemsInfo
-            val cur = id?.let { d -> info.firstOrNull { it.key == d } }
-            if (id != null && cur != null) {
-                val center = cur.offset + cur.size / 2 + delta()
-                val target = info.firstOrNull { it.key != id && center.toInt() in it.offset..(it.offset + it.size) }
-                if (target != null) {
-                    val from = indexOfId(id); val to = indexOfId(target.key as String)
-                    if (from >= 0 && to >= 0 && from != to) {
-                        moveItem(from, to)
-                        setDelta(delta() + (cur.offset - target.offset))
-                    }
-                }
-            }
-        },
-    )
 }
 
 /** Compact 7-day workload forecast: each upcoming day's committed estimate against the daily
@@ -1004,10 +1002,8 @@ private fun TaskTitle(task: TaskEntity, done: Boolean) {
             task.title.ifBlank { "Untitled" },
             modifier = Modifier.weight(1f),
             maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge,
-            // Completed: soft muted grey (the strikethrough inherits this colour, so it reads as a gentle
-            // done-marker rather than a harsh black line slashing through readable text — TickTick-style).
-            textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None,
-            color = if (done) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .55f) else MaterialTheme.colorScheme.onSurface,
+            // Completed: muted grey, no strike-through (the line made titles hard to read).
+            color = if (done) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .6f) else MaterialTheme.colorScheme.onSurface,
         )
     }
 }

@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PlayArrow
@@ -533,7 +535,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                             listOf<Pair<Int?, String>>(null to "Any", 1 to "Low", 2 to "Medium", 3 to "High")) { e -> update { it.copy(energy = e) } }
                     com.todocompanion.app.domain.EditorField.FLAG ->
                         Box {
-                            PropRow(Icons.Filled.Flag, "Flag", allFlags.firstOrNull { it.id == task.flagId }?.name ?: "None", valueColor = task.flagColorArgb?.let { Color(it) }) { flagMenu = true }
+                            // Flag uses the bookmark glyph app-wide (FlagStar / FlagIcons); Priority keeps the flag
+                            // glyph. Two different icons so the two rows aren't confused (R27 #5).
+                            PropRow(Icons.Filled.Bookmark, "Flag", allFlags.firstOrNull { it.id == task.flagId }?.name ?: "None", valueColor = task.flagColorArgb?.let { Color(it) }) { flagMenu = true }
                             DropdownMenu(expanded = flagMenu, onDismissRequest = { flagMenu = false }) {
                                 DropdownMenuItem(text = { Text("None") }, onClick = { update { it.copy(flagId = null, flagColorArgb = null) }; flagMenu = false })
                                 allFlags.forEach { fl ->
@@ -962,15 +966,31 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
 
 @Composable
 private fun BlockerPickerDialog(candidates: List<TaskEntity>, onDismiss: () -> Unit, onPick: (String) -> Unit) {
+    // R27 #4: the blocker list can be long, so filter it live by a search box.
+    var query by remember { mutableStateOf("") }
+    val shown = remember(candidates, query) {
+        val q = query.trim().lowercase()
+        if (q.isEmpty()) candidates else candidates.filter { it.title.lowercase().contains(q) }
+    }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
         title = { Text("Blocked by which task?") },
         text = {
             if (candidates.isEmpty()) Text("No other tasks to depend on.")
-            else LazyColumn(Modifier.heightIn(max = 340.dp)) {
-                items(candidates, key = { it.id }) { t ->
-                    Text(t.title, Modifier.fillMaxWidth().clickable { onPick(t.id) }.padding(vertical = 12.dp), maxLines = 1)
+            else Column {
+                com.todocompanion.app.ui.components.AppTextField(
+                    query, { query = it }, singleLine = true,
+                    label = { Text("Search tasks") },
+                    leadingIcon = { Icon(Icons.Filled.Search, null) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(8.dp))
+                if (shown.isEmpty()) Text("No tasks match “${query.trim()}”.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                else LazyColumn(Modifier.heightIn(max = 340.dp)) {
+                    items(shown, key = { it.id }) { t ->
+                        Text(t.title, Modifier.fillMaxWidth().clickable { onPick(t.id) }.padding(vertical = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
             }
         },

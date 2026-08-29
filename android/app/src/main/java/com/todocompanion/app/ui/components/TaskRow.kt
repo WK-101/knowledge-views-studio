@@ -91,8 +91,8 @@ fun TaskRow(
             Text(
                 task.title, Modifier.weight(1f),
                 style = MaterialTheme.typography.bodyLarge,
-                textDecoration = if (task.completed) TextDecoration.LineThrough else TextDecoration.None,
-                color = if (task.completed) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .55f) else MaterialTheme.colorScheme.onSurface,
+                // Completed: muted grey, no strike-through (a line makes the title hard to read).
+                color = if (task.completed) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .6f) else MaterialTheme.colorScheme.onSurface,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             task.dueDate?.let { DueChip(it); Spacer(Modifier.width(2.dp)) }
