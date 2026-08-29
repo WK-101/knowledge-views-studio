@@ -144,7 +144,9 @@ fun MatrixScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, showSettings: B
             (s.matrixMaxDuration == 0 || ((it.estimateMin ?: it.estimateMax ?: it.durationMin)?.let { d -> d <= s.matrixMaxDuration } ?: true)) &&
             // Overdue-only: past its due date and not yet done.
             (!s.matrixOverdueOnly || (it.dueDate != null && it.dueDate!! < now && !it.completed)) &&
-            (dateEnd == null || it.dueDate == null || it.dueDate!! < dateEnd)
+            // A date range (today … month+next) keeps only DATED tasks within it (overdue included);
+            // undated tasks are excluded. "all" (dateEnd == null) keeps everything.
+            (dateEnd == null || (it.dueDate != null && it.dueDate!! < dateEnd))
     }
     val sorter = matrixSorter(s.matrixSort)
     val byQuad = visible.groupBy { PriorityEngine.quadrant(it, s.matrixImportanceThreshold, s.matrixUrgencyThreshold) }
@@ -278,7 +280,7 @@ private fun QuadrantCard(q: Int, title: String, tasks: List<TaskEntity>, onOpenT
                                     style = MaterialTheme.typography.bodyMedium,
                                     maxLines = 2, overflow = TextOverflow.Ellipsis,
                                     textDecoration = if (t.completed) androidx.compose.ui.text.style.TextDecoration.LineThrough else androidx.compose.ui.text.style.TextDecoration.None,
-                                    color = if (t.completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                                    color = if (t.completed) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .55f) else MaterialTheme.colorScheme.onSurface,
                                 )
                                 t.dueDate?.let { com.todocompanion.app.ui.components.DueChip(it) }
                             }

@@ -67,13 +67,30 @@ object FileExport {
     /** One entry in the in-app file browser. */
     data class Entry(val file: File, val isDir: Boolean) { val name: String get() = file.name }
 
+    private fun granted(context: Context, perm: String) =
+        androidx.core.content.ContextCompat.checkSelfPermission(context, perm) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    /** The runtime read permissions to REQUEST for this API level (the dialog always appears, unlike the
+     *  "All files access" settings screen which some de-Googled ROMs don't ship). */
+    fun readPermissions(): Array<String> =
+        if (Build.VERSION.SDK_INT >= 33) arrayOf(
+            android.Manifest.permission.READ_MEDIA_IMAGES,
+            android.Manifest.permission.READ_MEDIA_VIDEO,
+            android.Manifest.permission.READ_MEDIA_AUDIO,
+        ) else arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+
+    /** True if any runtime read permission is granted (media on 33+, storage on ≤32). */
+    fun hasReadAccess(context: Context): Boolean =
+        if (Build.VERSION.SDK_INT >= 33) readPermissions().any { granted(context, it) }
+        else granted(context, android.Manifest.permission.READ_EXTERNAL_STORAGE)
+
     /**
-     * Whether the app can read arbitrary user files under /sdcard right now. On API 30+ this is
-     * "All files access" (MANAGE_EXTERNAL_STORAGE); on ≤29 it's READ_EXTERNAL_STORAGE.
+     * Whether the app can read user files under /sdcard right now. All-files access (30+) is best, but a
+     * plain runtime read grant is enough for the shared dirs on many ROMs — accepting it means the browser
+     * works after the normal permission dialog even where the "All files access" screen is missing.
      */
     fun canBrowseStorage(context: Context): Boolean =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) Environment.isExternalStorageManager()
-        else androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_EXTERNAL_STORAGE) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && Environment.isExternalStorageManager()) || hasReadAccess(context)
 
     /** The system screen where the user turns on "All files access" for THIS app (API 30+). */
     fun manageAllFilesIntent(context: Context): android.content.Intent {
@@ -83,11 +100,15 @@ object FileExport {
         else android.content.Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
     }
 
-    /** Roots the browser can start from (all readable once storage access is granted). */
-    fun browseRoots(): List<File> = listOfNotNull(
-        Environment.getExternalStorageDirectory(),
-        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
+    /** Roots the browser can start from. The app's own external dir needs NO permission, so it's always
+     *  present as a guaranteed browsable location; the public dirs appear once storage access is granted. */
+    fun browseRoots(context: Context? = null): List<File> = (
+        listOfNotNull(context?.getExternalFilesDir(null)) +
+        listOfNotNull(
+            Environment.getExternalStorageDirectory(),
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
+        )
     ).filter { runCatching { it.exists() }.getOrDefault(false) }.distinctBy { it.absolutePath }
 
     /** One directory level: folders first, then importable files (or every file if [allTypes]). */

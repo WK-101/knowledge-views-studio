@@ -953,7 +953,8 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 internal fun FileBrowser(vm: AppViewModel, title: String = "Choose a backup file", allTypes: Boolean = false, confirmLabel: String? = null, onDismiss: () -> Unit, onPicked: (java.io.File) -> Unit) {
-    val roots = remember { com.todocompanion.app.util.FileExport.browseRoots() }
+    val browseCtx = androidx.compose.ui.platform.LocalContext.current
+    val roots = remember { com.todocompanion.app.util.FileExport.browseRoots(browseCtx) }
     var dir by remember { mutableStateOf(roots.firstOrNull() ?: java.io.File("/")) }
     var entries by remember { mutableStateOf<List<com.todocompanion.app.util.FileExport.Entry>>(emptyList()) }
     var query by remember { mutableStateOf("") }

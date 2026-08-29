@@ -642,16 +642,14 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 // Universal fallback: if the system picker is missing, the app's own file browser always
                 // works — it just needs storage access, which we request right here rather than dead-ending
                 // on a toast. So "Browse device" is always offered and self-heals the permission.
-                val readPermLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) showAttachBrowser = true }
-                val manageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { if (vm.canBrowseStorage()) showAttachBrowser = true }
+                // The browser ALWAYS opens (the app's own storage folder needs no permission, so there's
+                // always something to browse); we additionally request the runtime read permission via the
+                // standard dialog to unlock the shared folders (Downloads, Documents). This never dead-ends
+                // on a settings screen that a stripped ROM may not even have.
+                val readPermLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { }
                 fun browseDevice() {
-                    when {
-                        vm.canBrowseStorage() -> showAttachBrowser = true
-                        android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R ->
-                            runCatching { manageLauncher.launch(com.todocompanion.app.util.FileExport.manageAllFilesIntent(attachCtx)) }
-                                .onFailure { android.widget.Toast.makeText(attachCtx, "Grant “All files access” in Settings to browse for files.", android.widget.Toast.LENGTH_LONG).show() }
-                        else -> readPermLauncher.launch(android.Manifest.permission.READ_EXTERNAL_STORAGE)
-                    }
+                    showAttachBrowser = true
+                    if (!vm.canBrowseStorage()) runCatching { readPermLauncher.launch(com.todocompanion.app.util.FileExport.readPermissions()) }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = {

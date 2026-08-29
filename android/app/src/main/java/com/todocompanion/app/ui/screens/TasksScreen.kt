@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
@@ -340,10 +341,10 @@ private fun SelectionBar(
     dangerousDelete: Boolean = false, canSubtask: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
-    // Sits at the very bottom, covering where the nav bar was (the Scaffold already insets us above the
-    // system navigation bar, so no extra inset is needed here).
+    // Sits at the very bottom, covering where the nav bar was. Pad for the system navigation bar so the
+    // action row is never hidden underneath it (the reason it looked cut off when the nav bar was gone).
     Surface(modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface, shadowElevation = 12.dp, tonalElevation = 3.dp) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             androidx.compose.material3.IconButton(onClick = onClear) { Icon(Icons.Filled.Close, "Clear selection") }
             Text("$count", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             // Select-all / none toggle.
@@ -549,8 +550,8 @@ private fun ManualReorderList(
     // into a subtask outline each time so a just-nested child appears indented under its parent.
     androidx.compose.runtime.LaunchedEffect(tasks) { if (draggingId == null) items = arrangeSubtaskOutline(tasks) }
     val byId = remember(items) { items.associateBy { it.id } }
-    val nestThreshold = with(LocalDensity.current) { 48.dp.toPx() }
-    val dragVisualCap = with(LocalDensity.current) { 72.dp.toPx() }
+    val nestThreshold = with(LocalDensity.current) { 40.dp.toPx() }
+    val dragVisualCap = with(LocalDensity.current) { 64.dp.toPx() }
     // Below this much finger travel a long-press counts as "held, not dragged" → toggles selection.
     val moveSlop = with(LocalDensity.current) { 14.dp.toPx() }
 
@@ -589,6 +590,11 @@ private fun ManualReorderList(
             val dragging = task.id == draggingId
             val depth = subtaskDepth(task, byId)
             val isSel = task.id in selected
+            // Live nest feedback: while dragging, a strong right pull = "make subtask of the row above",
+            // a strong left pull = "promote to top level". Shown as an accent border + hint so it's clear.
+            val willNest = dragging && dx > nestThreshold
+            val willUnnest = dragging && dx < -nestThreshold
+            val accent = MaterialTheme.colorScheme.primary
             Surface(
                 Modifier
                     .padding(start = (depth * 18).dp, top = 3.dp, bottom = 3.dp)
@@ -596,11 +602,19 @@ private fun ManualReorderList(
                     .graphicsLayer {
                         translationY = if (dragging) delta else 0f
                         translationX = if (dragging) dx.coerceIn(-dragVisualCap, dragVisualCap) else 0f
-                    },
+                    }
+                    .then(if (willNest || willUnnest) Modifier.border(2.dp, accent, RoundedCornerShape(16.dp)) else Modifier),
                 shape = RoundedCornerShape(16.dp),
-                color = if (isSel) MaterialTheme.colorScheme.primaryContainer.copy(alpha = .55f) else MaterialTheme.colorScheme.surface,
+                color = if (isSel) MaterialTheme.colorScheme.primaryContainer.copy(alpha = .55f)
+                    else if (willNest || willUnnest) accent.copy(alpha = .10f)
+                    else MaterialTheme.colorScheme.surface,
                 shadowElevation = if (dragging) 8.dp else 1.dp,
             ) {
+              Box {
+                if (willNest || willUnnest) Text(
+                    if (willNest) "↳ subtask" else "↥ top level",
+                    Modifier.align(Alignment.CenterEnd).padding(end = 10.dp).zIndex(2f),
+                    style = MaterialTheme.typography.labelSmall, color = accent, fontWeight = FontWeight.SemiBold)
                 // Same reveal-action swipe as the flat list; disabled mid-reorder and during multi-select
                 // so the gestures never fight. Long-press starts a drag (handled on the LazyColumn).
                 SwipeActionBox(
@@ -613,6 +627,7 @@ private fun ManualReorderList(
                         onCycleFlag = { vm.cycleFlag(task) }, onToggleStar = { vm.toggleStar(task) },
                         onSetPriority = { vm.setPriority(task, it) })
                 }
+              }
             }
         }
     }
@@ -989,8 +1004,10 @@ private fun TaskTitle(task: TaskEntity, done: Boolean) {
             task.title.ifBlank { "Untitled" },
             modifier = Modifier.weight(1f),
             maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge,
+            // Completed: soft muted grey (the strikethrough inherits this colour, so it reads as a gentle
+            // done-marker rather than a harsh black line slashing through readable text — TickTick-style).
             textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None,
-            color = if (done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+            color = if (done) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .55f) else MaterialTheme.colorScheme.onSurface,
         )
     }
 }

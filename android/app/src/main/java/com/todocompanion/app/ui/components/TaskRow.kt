@@ -92,7 +92,7 @@ fun TaskRow(
                 task.title, Modifier.weight(1f),
                 style = MaterialTheme.typography.bodyLarge,
                 textDecoration = if (task.completed) TextDecoration.LineThrough else TextDecoration.None,
-                color = if (task.completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                color = if (task.completed) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .55f) else MaterialTheme.colorScheme.onSurface,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             task.dueDate?.let { DueChip(it); Spacer(Modifier.width(2.dp)) }

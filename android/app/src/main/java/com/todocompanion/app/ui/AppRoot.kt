@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -236,6 +237,31 @@ private fun RunningTimerBar(vm: AppViewModel, onOpen: () -> Unit) {
  * Here the FAB-styled Surface has NO onClick of its own; `combinedClickable` is the only gesture
  * handler, so tap and hold are both delivered.
  */
+/** The compact undo pill (rounded, wrap-content) shown for the SnackbarHost's current message. */
+@Composable
+private fun UndoPill(data: androidx.compose.material3.SnackbarData) {
+    androidx.compose.material3.Surface(
+        Modifier.widthIn(max = 320.dp),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .6f)),
+        tonalElevation = 3.dp, shadowElevation = 8.dp,
+    ) {
+        Row(Modifier.padding(start = 16.dp, end = 6.dp, top = 2.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(data.visuals.message, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+            data.visuals.actionLabel?.let { label ->
+                TextButton(onClick = { data.performAction() }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp)) {
+                    Text(label, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                }
+            }
+            if (data.visuals.withDismissAction) IconButton(onClick = { data.dismiss() }) {
+                Icon(Icons.Filled.Close, "Dismiss", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+            }
+        }
+    }
+}
+
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun DualFab(icon: ImageVector, contentDescription: String, onClick: () -> Unit, onLongClick: () -> Unit) {
@@ -712,35 +738,9 @@ fun AppRoot(
                         }
                     }
                 },
-                snackbarHost = {
-                    androidx.compose.material3.SnackbarHost(snackbar) { data ->
-                        // A compact rounded pill that sits to the side OPPOSITE the FAB, so it reads as
-                        // inline beside the button rather than a full-width bar stacked above it.
-                        val pillAlign = if (settings.fabPosition == "start") Alignment.CenterEnd else Alignment.CenterStart
-                        Box(Modifier.fillMaxWidth(), contentAlignment = pillAlign) {
-                            androidx.compose.material3.Surface(
-                                Modifier.padding(horizontal = 12.dp, vertical = 4.dp).widthIn(max = 320.dp),
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
-                                color = MaterialTheme.colorScheme.surface,
-                                contentColor = MaterialTheme.colorScheme.onSurface,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .6f)),
-                                tonalElevation = 3.dp, shadowElevation = 8.dp,
-                            ) {
-                                Row(Modifier.padding(start = 16.dp, end = 6.dp, top = 2.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text(data.visuals.message, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                                    data.visuals.actionLabel?.let { label ->
-                                        TextButton(onClick = { data.performAction() }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp)) {
-                                            Text(label, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                                        }
-                                    }
-                                    if (data.visuals.withDismissAction) IconButton(onClick = { data.dismiss() }) {
-                                        Icon(Icons.Filled.Close, "Dismiss", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
+                // The undo pill is rendered inside the content overlay (below) so it can sit at the FAB's
+                // level beside it, rather than in the Scaffold slot that floats it above the FAB.
+                snackbarHost = {},
                 floatingActionButtonPosition = when (settings.fabPosition) {
                     "center" -> androidx.compose.material3.FabPosition.Center
                     "start" -> androidx.compose.material3.FabPosition.Start
@@ -789,6 +789,14 @@ fun AppRoot(
                 },
             ) { padding ->
                 Box(Modifier.padding(padding).fillMaxSize()) {
+                    // Undo pill: bottom of the content, on the side OPPOSITE the FAB and at its level, drawn
+                    // on top of the tab content (zIndex) — so it sits beside the FAB, not floating above it.
+                    androidx.compose.material3.SnackbarHost(
+                        snackbar,
+                        modifier = Modifier
+                            .align(if (settings.fabPosition == "start") Alignment.BottomEnd else Alignment.BottomStart)
+                            .zIndex(10f).padding(horizontal = 12.dp, vertical = 16.dp),
+                    ) { data -> UndoPill(data) }
                     Crossfade(targetState = tab, animationSpec = tween(180), label = "tab") { t ->
                         when (t) {
                             Tab.TASKS -> androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()) {

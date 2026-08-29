@@ -22,7 +22,14 @@
       READ_EXTERNAL_STORAGE is capped at API 29 (it does nothing for non-media files on 30+);
       MANAGE_EXTERNAL_STORAGE ("All files access", user-granted & revocable) covers API 30+.
     -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+    <!-- Storage read for the in-app file browser fallback (attach files where no system picker exists).
+         READ_EXTERNAL_STORAGE up to API 32 and the granular READ_MEDIA_* on 33+ so the runtime permission
+         DIALOG works on every level — that dialog is a core OS feature, unlike the "All files access"
+         settings screen which some de-Googled ROMs don't ship. All storage-only; no network/location. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
 
     <!-- Android 11+ package visibility: without these, ACTION_OPEN_DOCUMENT / GET_CONTENT / VIEW can

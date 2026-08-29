@@ -156,7 +156,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Live task count per smart list, for the drawer. */
     val smartCounts: StateFlow<Map<SmartKind, Int>> =
-        combine(wsTasks, repo.allDependencies) { t, deps ->
+        combine(
+            wsTasks, repo.allDependencies, settings,
+            combine(repo.taskContextRefs, repo.allContexts) { r, c -> r to c },
+        ) { t, deps, set, rc ->
             val now = System.currentTimeMillis()
             SmartKind.entries.associateWith { k ->
                 when (k) {
@@ -166,6 +169,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         val blocked = PriorityEngine.computeBlocked(deps, byId, now)
                         t.count { !it.trashed && !it.completed && !it.abandoned && it.id in blocked }
                     }
+                    // Do-Next uses the SAME focus filter as the rendered list, so the badge matches the list.
+                    // (The transient "I have N min / energy" planners aren't applied to the badge.)
+                    SmartKind.DO_NEXT -> doNextFocused(t, now, set.priorityConfig(), deps, rc.first, rc.second, null, null).size
                     else -> TaskViews.filterSmart(t, k, now, zone, dayStartMin).size
                 }
             }
@@ -287,33 +293,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val filtered = when (val v = cfg.view) {
                 is ViewRef.Smart -> {
                     when (v.kind) {
-                        SmartKind.DO_NEXT -> {
-                            val base = TaskViews.filterSmart(all, v.kind, now, zone, dayStartMin)
-                            val ranked = rankDoNext(base, all, now, cfg.prio, deps, tcRefs, ctxEntities)
-                            // Do Next is NOT "All re-sorted": it's a focused, actionable shortlist. On top of the
-                            // engine (which already drops container parents, context-unavailable & order-gated
-                            // tasks and ranks by score), we also hide what genuinely can't be started right now —
-                            // tasks blocked by an unfinished prerequisite, or not yet at their start date.
-                            val byIdDN = all.associateBy { it.id }
-                            val blockedDN = PriorityEngine.computeBlocked(deps, byIdDN, now)
-                            // A focused "right now" list, not All re-sorted. Beyond the engine's gating we hide
-                            // everything that isn't worth surfacing today: future start dates, tasks dated for a
-                            // later day, and undated backlog with no explicit "do this" signal. What survives is
-                            // overdue + due-today + starred/flagged work — visibly narrower than All.
-                            val today = java.time.Instant.ofEpochMilli(now - dayStartMin * 60_000L).atZone(zone).toLocalDate()
-                            fun dueDay(t: TaskEntity) = t.dueDate?.let { java.time.Instant.ofEpochMilli(it - dayStartMin * 60_000L).atZone(zone).toLocalDate() }
-                            val actionable = ranked.filter { t ->
-                                if (t.id in blockedDN) return@filter false
-                                if (t.startDate != null && t.startDate!! > now) return@filter false
-                                val d = dueDay(t)
-                                if (d != null) !d.isAfter(today) else (t.star || t.flagId != null)
-                            }
-                            // "Time available" planner: keep tasks that fit the slot, using the best size figure we
-                            // have (estimate → duration). Only genuinely unsized tasks are treated as always-fit.
-                            val timed = cfg.timeAvail?.let { avail -> actionable.filter { t -> (t.estimateMin ?: t.estimateMax ?: t.durationMin)?.let { it <= avail } ?: true } } ?: actionable
-                            // "Energy right now" planner: keep tasks needing at most that energy (untagged always fit).
-                            cfg.energyAvail?.let { cap -> timed.filter { t -> (t.energy ?: 0) <= cap } } ?: timed
-                        }
+                        SmartKind.DO_NEXT -> doNextFocused(all, now, cfg.prio, deps, tcRefs, ctxEntities, cfg.timeAvail, cfg.energyAvail)
                         // Waiting-on: open tasks currently blocked by an incomplete prerequisite.
                         SmartKind.WAITING -> {
                             val byId = all.associateBy { it.id }
@@ -352,7 +332,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val flagRank = cfg.flags.sortedBy { it.sortOrder }.mapIndexed { i, f -> f.id to i }.toMap()
             val sorted = if ((cfg.view as? ViewRef.Smart)?.kind == SmartKind.DO_NEXT) filtered
             else TaskViews.sort(filtered, cfg.sort, flagRank)
-            val gm = if ((cfg.view as? ViewRef.Smart)?.kind == SmartKind.DO_NEXT) GroupMode.NONE else cfg.group
+            // Manual sort flattens the view into ONE ungrouped list so long-press drag (reorder + nest)
+            // works everywhere — folders, lists and smart lists alike — not only when grouping is off.
+            val gm = if ((cfg.view as? ViewRef.Smart)?.kind == SmartKind.DO_NEXT || cfg.sort == SortMode.MANUAL) GroupMode.NONE else cfg.group
             if (gm == GroupMode.FLAG) {
                 // Group by flag, in the user's flag order; unflagged tasks fall into a trailing bucket.
                 val ordered = cfg.flags.sortedBy { it.sortOrder }
@@ -439,6 +421,30 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
             buildFilteredOutline(all.filter { !it.trashed }, matched)
         }.state(emptyList())
+
+    /** The focused Do-Next list — engine ranking + the "right now" filter (not blocked, not future-start,
+     *  due-today/overdue or starred/flagged, within the time/energy planner). Shared by the rendered list
+     *  and the sidebar count so the two always agree. */
+    private fun doNextFocused(
+        all: List<TaskEntity>, now: Long, prioCfg: PriorityEngine.Config,
+        deps: List<DependencyEntity>, tcRefs: List<com.todocompanion.app.data.entity.TaskContextCrossRef>,
+        ctxs: List<ContextEntity>, timeAvail: Int?, energyAvail: Int?,
+    ): List<TaskEntity> {
+        val base = TaskViews.filterSmart(all, SmartKind.DO_NEXT, now, zone, dayStartMin)
+        val ranked = rankDoNext(base, all, now, prioCfg, deps, tcRefs, ctxs)
+        val byId = all.associateBy { it.id }
+        val blocked = PriorityEngine.computeBlocked(deps, byId, now)
+        val today = java.time.Instant.ofEpochMilli(now - dayStartMin * 60_000L).atZone(zone).toLocalDate()
+        fun dueDay(t: TaskEntity) = t.dueDate?.let { java.time.Instant.ofEpochMilli(it - dayStartMin * 60_000L).atZone(zone).toLocalDate() }
+        val actionable = ranked.filter { t ->
+            if (t.id in blocked) return@filter false
+            if (t.startDate != null && t.startDate!! > now) return@filter false
+            val d = dueDay(t)
+            if (d != null) !d.isAfter(today) else (t.star || t.flagId != null)
+        }
+        val timed = timeAvail?.let { avail -> actionable.filter { t -> (t.estimateMin ?: t.estimateMax ?: t.durationMin)?.let { it <= avail } ?: true } } ?: actionable
+        return energyAvail?.let { cap -> timed.filter { t -> (t.energy ?: 0) <= cap } } ?: timed
+    }
 
     private fun rankDoNext(
         base: List<TaskEntity>, all: List<TaskEntity>, now: Long, cfg: PriorityEngine.Config,
