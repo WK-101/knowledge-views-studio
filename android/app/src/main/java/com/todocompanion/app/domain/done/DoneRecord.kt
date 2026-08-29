@@ -154,4 +154,110 @@ object DoneRecord {
             d.isBefore(today) && d.dayOfMonth == today.dayOfMonth &&
                 (d.year < today.year || d.monthValue != today.monthValue)
         }.sortedByDescending { it.whenMillis }
+
+    // ---------- Phase 3–4: the receipt primitive, and everything built on it ----------
+
+    /** R28 Phase 3 — one achievement-shaped line for a finished task (the atom of the brag doc / résumé). */
+    fun receiptLine(a: Accomplishment, listName: String?): String {
+        val b = StringBuilder("- ")
+        if (a.isWin) b.append("⭐ ")
+        b.append(a.title)
+        if (a.durationMin > 0) b.append(" _(${a.durationMin}m)_")
+        listName?.takeIf { it != "Inbox" }?.let { b.append(" · $it") }
+        a.outcome?.let { b.append(" — $it") }
+        a.praise?.let { b.append("  \n  > “$it”") }
+        return b.toString()
+    }
+
+    /** R28 Phase 3 — résumé/CV bullet points from real finished work: impact-first, quantified where the
+     *  data allows. Written from what you DID, not what you typed. */
+    fun resumeMarkdown(items: List<Accomplishment>, listNameById: Map<String, String>): String {
+        val sb = StringBuilder()
+        sb.appendLine("# Résumé lines")
+        sb.appendLine()
+        sb.appendLine("_Generated from your finished work — edit freely._")
+        sb.appendLine()
+        val tasks = items.filter { it.isTaskLike }
+        // Lead with wins and outcome-carrying items — the strongest evidence.
+        val strong = tasks.filter { it.isWin || it.outcome != null }.sortedByDescending { it.durationMin }
+        if (strong.isNotEmpty()) {
+            sb.appendLine("## Highlights")
+            strong.take(20).forEach { a ->
+                val name = a.listId?.let { listNameById[it] }
+                val impact = a.outcome?.let { " — $it" } ?: ""
+                val time = if (a.durationMin >= 60) " (${a.durationMin / 60}h invested)" else ""
+                sb.appendLine("- ${a.title}$impact$time" + (name?.takeIf { it != "Inbox" }?.let { " · $it" } ?: ""))
+            }
+            sb.appendLine()
+        }
+        // Then a compact per-project tally so scope is legible.
+        val byProject = tasks.groupBy { it.listId?.let { id -> listNameById[id] } ?: "Other" }.toList().sortedByDescending { it.second.size }
+        sb.appendLine("## By area")
+        byProject.take(12).forEach { (name, group) ->
+            val mins = group.sumOf { it.durationMin }
+            sb.appendLine("- **$name** — ${group.size} completed" + (if (mins >= 60) ", ${mins / 60}h" else ""))
+        }
+        return sb.toString()
+    }
+
+    /** R28 Phase 4 — the living archive: the whole record as a portable, offline "book of what I've done",
+     *  grouped by year then project. */
+    fun archiveMarkdown(items: List<Accomplishment>, listNameById: Map<String, String>, today: LocalDate = LocalDate.now()): String {
+        val sb = StringBuilder()
+        sb.appendLine("# The record — everything done")
+        sb.appendLine()
+        val s = stats(items)
+        sb.appendLine("_${s.totalTasks} tasks · ${s.goalsAchieved} goals · ${s.focusedMinutes / 60}h focused · ${s.habitCheckins} habit days · ${s.totalWins} wins · ${s.activeDays} active days._")
+        sb.appendLine()
+        items.groupBy { LocalDate.ofEpochDay(it.epochDay).year }.toSortedMap(compareByDescending { it }).forEach { (year, ofYear) ->
+            sb.appendLine("## $year")
+            ofYear.filter { it.isTaskLike }.groupBy { it.listId?.let { id -> listNameById[id] } ?: "Other" }.toList().sortedBy { it.first }.forEach { (name, group) ->
+                sb.appendLine("### $name")
+                group.sortedByDescending { it.whenMillis }.forEach { sb.appendLine(receiptLine(it, name)) }
+                sb.appendLine()
+            }
+            val habitDays = ofYear.count { it.kind == DoneKind.HABIT }
+            val focus = ofYear.filter { it.kind == DoneKind.FOCUS }.sumOf { it.durationMin }
+            if (habitDays > 0 || focus > 0) { sb.appendLine("_Also: $habitDays habit days, ${focus / 60}h focused._"); sb.appendLine() }
+        }
+        sb.appendLine("_Generated ${today} on-device. This record is yours, permanently and privately._")
+        return sb.toString()
+    }
+
+    /** R28 Phase 3 — the honesty ledger: how your estimates compare to the time actually invested on the
+     *  tasks you finished. [trackedByTask] is minutes tracked per task id. */
+    data class LedgerRow(val label: String, val estimateMin: Int, val actualMin: Int) {
+        val ratio: Float get() = if (estimateMin > 0) actualMin.toFloat() / estimateMin else 0f
+    }
+    data class Honesty(val overall: LedgerRow?, val worst: List<LedgerRow>)
+    fun honesty(tasks: List<TaskEntity>, trackedByTask: Map<String, Int>, listNameById: Map<String, String>): Honesty {
+        val rows = tasks.asSequence()
+            .filter { it.completed && !it.trashed && (it.estimateMin ?: 0) > 0 }
+            .mapNotNull { t ->
+                val actual = trackedByTask[t.id] ?: t.durationMin ?: 0
+                if (actual <= 0) null else LedgerRow(t.title.ifBlank { "Untitled" }, t.estimateMin!!, actual)
+            }.toList()
+        if (rows.isEmpty()) return Honesty(null, emptyList())
+        val overall = LedgerRow("All estimated tasks", rows.sumOf { it.estimateMin }, rows.sumOf { it.actualMin })
+        val worst = rows.sortedByDescending { kotlin.math.abs(it.ratio - 1f) }.take(4)
+        return Honesty(overall, worst)
+    }
+
+    /** R28 Phase 4 — kind, evidence-based momentum: recovery and standout effort, not just streaks. */
+    fun comeback(items: List<Accomplishment>, today: LocalDate = LocalDate.now()): List<String> {
+        if (items.isEmpty()) return emptyList()
+        val out = ArrayList<String>()
+        val thisWeek = items.count { !LocalDate.ofEpochDay(it.epochDay).isBefore(today.minusDays(6)) }
+        val lastWeek = items.count {
+            val d = LocalDate.ofEpochDay(it.epochDay)
+            d.isBefore(today.minusDays(6)) && !d.isBefore(today.minusDays(13))
+        }
+        if (thisWeek > lastWeek && lastWeek >= 0) out += "More done this week than last — $thisWeek vs $lastWeek."
+        if (lastWeek <= 2 && thisWeek >= lastWeek + 3) out += "Bounced back after a quieter week. 💪"
+        // The standout finish this month, by effort.
+        val monthStart = today.withDayOfMonth(1).toEpochDay()
+        val hardest = items.filter { it.isTaskLike && it.epochDay >= monthStart }.maxByOrNull { it.durationMin }
+        if (hardest != null && hardest.durationMin >= 30) out += "Biggest finish this month: “${hardest.title}” (${hardest.durationMin}m)."
+        return out
+    }
 }

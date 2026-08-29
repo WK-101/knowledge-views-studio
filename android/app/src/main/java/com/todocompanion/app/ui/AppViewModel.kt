@@ -977,10 +977,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- The Done Record (R27) ----------
     /** Flip the "this was a win" flag — one tap from the accomplishment feed or the task editor. */
     fun toggleWin(t: TaskEntity) = viewModelScope.launch { repo.saveTask(t.copy(winFlag = !t.winFlag)) }
-    /** Save a generated brag document (Markdown) to a reachable location, no system picker needed. */
-    fun exportBragDoc(markdown: String, onDone: (String?) -> Unit) = viewModelScope.launch {
+    /** Save a generated Done-Record document (Markdown) to a reachable location, no system picker needed. */
+    fun exportBragDoc(markdown: String, filename: String = "brag-document.md", onDone: (String?) -> Unit) = viewModelScope.launch {
         val loc = runCatching {
-            com.todocompanion.app.util.FileExport.saveToDownloads(appCtx, "brag-document.md", "text/markdown", markdown.toByteArray())
+            com.todocompanion.app.util.FileExport.saveToDownloads(appCtx, filename, "text/markdown", markdown.toByteArray())
         }.getOrNull()
         onDone(loc)
     }

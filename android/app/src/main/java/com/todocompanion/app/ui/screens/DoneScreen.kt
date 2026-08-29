@@ -92,6 +92,20 @@ fun DoneScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> Uni
     var query by remember { mutableStateOf("") }
     var winsOnly by remember { mutableStateOf(false) }
     var showBrag by remember { mutableStateOf(false) }
+    var exportMenu by remember { mutableStateOf(false) }
+
+    // R28 Phase 3 — minutes actually tracked per task (for the honesty ledger: estimate vs. real).
+    val trackedByTask = remember(timeEntries) {
+        val m = HashMap<String, Int>()
+        timeEntries.forEach { e ->
+            val id = e.taskId ?: return@forEach
+            val end = e.endMillis ?: return@forEach
+            if (end > e.startMillis) m[id] = (m[id] ?: 0) + ((end - e.startMillis) / 60_000L).toInt()
+        }
+        m
+    }
+    val honesty = remember(tasks, trackedByTask, listNameById) { DoneRecord.honesty(tasks, trackedByTask, listNameById) }
+    val comeback = remember(rangedFeed) { DoneRecord.comeback(rangedFeed, today) }
 
     val shown = remember(rangedFeed, query, winsOnly, listNameById) {
         val q = query.trim().lowercase()
@@ -110,7 +124,22 @@ fun DoneScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> Uni
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
             title = { Text("The Record") },
             actions = {
-                IconButton(onClick = { showBrag = true }) { Icon(Icons.Filled.EmojiEvents, "Brag document") }
+                Box {
+                    IconButton(onClick = { exportMenu = true }) { Icon(Icons.Filled.EmojiEvents, "Export the record") }
+                    androidx.compose.material3.DropdownMenu(expanded = exportMenu, onDismissRequest = { exportMenu = false }) {
+                        androidx.compose.material3.DropdownMenuItem(text = { Text("Brag document…") }, onClick = { exportMenu = false; showBrag = true })
+                        androidx.compose.material3.DropdownMenuItem(text = { Text("Résumé lines") }, onClick = {
+                            exportMenu = false
+                            val md = DoneRecord.resumeMarkdown(rangedFeed, listNameById)
+                            vm.exportBragDoc(md, "resume-lines.md") { loc -> android.widget.Toast.makeText(ctx, if (loc != null) "Résumé lines saved to $loc" else "Save failed", android.widget.Toast.LENGTH_LONG).show() }
+                        })
+                        androidx.compose.material3.DropdownMenuItem(text = { Text("Living archive (everything)") }, onClick = {
+                            exportMenu = false
+                            val md = DoneRecord.archiveMarkdown(feed, listNameById, today)
+                            vm.exportBragDoc(md, "the-record-archive.md") { loc -> android.widget.Toast.makeText(ctx, if (loc != null) "Archive saved to $loc" else "Save failed", android.widget.Toast.LENGTH_LONG).show() }
+                        })
+                    }
+                }
             },
         )
     }) { padding ->
@@ -139,6 +168,10 @@ fun DoneScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> Uni
             }
             // Totals + personal bests, over the chosen range.
             item(key = "stats") { LifetimeCard(stats, rangeLabel(range)) }
+            // Momentum — kind, evidence-based (recovery + standout effort), not just streaks.
+            if (comeback.isNotEmpty()) item(key = "comeback") { ComebackCard(comeback) }
+            // The honesty ledger — estimate vs. the time actually invested.
+            honesty.overall?.let { ov -> item(key = "honesty") { HonestyCard(ov, honesty.worst) } }
             // On this day.
             if (onThisDay.isNotEmpty()) item(key = "onthisday") { OnThisDayCard(onThisDay, listNameById) }
             // Trophy case — the wins, front and centre.
@@ -224,6 +257,44 @@ private fun LifetimeCard(s: com.todocompanion.app.domain.done.DoneStats, rangeLa
                 Stat("${s.longestStreakDays}", "best streak")
                 Stat("${s.bestDayCount}", "best day")
                 Stat("${s.totalWins}", "wins")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ComebackCard(lines: List<String>) {
+    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .35f), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp)) {
+            Text("📈 Momentum", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.size(6.dp))
+            lines.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 2.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun HonestyCard(overall: com.todocompanion.app.domain.done.DoneRecord.LedgerRow, worst: List<com.todocompanion.app.domain.done.DoneRecord.LedgerRow>) {
+    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .4f), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp)) {
+            Text("⚖️ Estimate vs. actual", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.size(4.dp))
+            val pct = (overall.ratio * 100).toInt()
+            Text(
+                if (pct in 90..110) "Your estimates are on the money — finished work took ${pct}% of the estimate."
+                else if (pct > 110) "Finished work runs long: ${pct}% of your estimate on average. Pad by ~${pct - 100}%."
+                else "You beat your estimates — work took only ${pct}% of what you planned.",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (worst.isNotEmpty()) {
+                Spacer(Modifier.size(8.dp))
+                worst.forEach { r ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(r.label, Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("${r.estimateMin}m → ${r.actualMin}m", style = MaterialTheme.typography.labelMedium,
+                            color = if (r.ratio > 1.15f) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+                    }
+                }
             }
         }
     }
