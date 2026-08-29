@@ -41,6 +41,7 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.fillMaxHeight
+import com.todocompanion.app.domain.AutomationRule
 import com.todocompanion.app.domain.TimeInsights
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -782,9 +783,16 @@ private fun ManualEntryDialog(activities: List<TimeActivityEntity>, day: LocalDa
 @Composable
 private fun AutomationRuleDialog(activities: List<TimeActivityEntity>, onDismiss: () -> Unit, onSave: (com.todocompanion.app.domain.AutomationRule) -> Unit) {
     var whenId by remember { mutableStateOf(activities.firstOrNull()?.id ?: "") }
-    var action by remember { mutableStateOf(com.todocompanion.app.domain.AutomationRule.ACTION_NOTIFY) }
+    var action by remember { mutableStateOf(AutomationRule.ACTION_NOTIFY) }
     var notifyText by remember { mutableStateOf("") }
     var startId by remember { mutableStateOf(activities.getOrNull(1)?.id ?: activities.firstOrNull()?.id ?: "") }
+    var stopId by remember { mutableStateOf("") }   // "" = every other timer
+    var afterMin by remember { mutableStateOf(-1) }
+    var beforeMin by remember { mutableStateOf(-1) }
+    var days by remember { mutableStateOf(setOf<Int>()) }
+    var pickAfter by remember { mutableStateOf(false) }
+    var pickBefore by remember { mutableStateOf(false) }
+    fun hhmm(m: Int) = "%02d:%02d".format(m / 60, m % 60)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("New automation") },
@@ -799,32 +807,60 @@ private fun AutomationRuleDialog(activities: List<TimeActivityEntity>, onDismiss
                 Spacer(Modifier.height(12.dp))
                 Text("Then", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FilterChip(selected = action == com.todocompanion.app.domain.AutomationRule.ACTION_NOTIFY, onClick = { action = com.todocompanion.app.domain.AutomationRule.ACTION_NOTIFY }, label = { Text("Notify me") })
-                    FilterChip(selected = action == com.todocompanion.app.domain.AutomationRule.ACTION_START, onClick = { action = com.todocompanion.app.domain.AutomationRule.ACTION_START }, label = { Text("Start another") })
+                    FilterChip(selected = action == AutomationRule.ACTION_NOTIFY, onClick = { action = AutomationRule.ACTION_NOTIFY }, label = { Text("Notify me") })
+                    FilterChip(selected = action == AutomationRule.ACTION_START, onClick = { action = AutomationRule.ACTION_START }, label = { Text("Start another") })
+                    FilterChip(selected = action == AutomationRule.ACTION_STOP, onClick = { action = AutomationRule.ACTION_STOP }, label = { Text("Stop another") })
                 }
                 Spacer(Modifier.height(8.dp))
-                if (action == com.todocompanion.app.domain.AutomationRule.ACTION_NOTIFY) {
-                    com.todocompanion.app.ui.components.AppTextField(notifyText, { notifyText = it }, label = { Text("Message (e.g. Phone on silent?)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                } else {
-                    Text("Requires “Allow overlapping timers” on.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        activities.filter { it.id != whenId }.forEach { a ->
-                            FilterChip(selected = a.id == startId, onClick = { startId = a.id }, label = { Text((a.emoji?.plus(" ") ?: "") + a.name) })
+                when (action) {
+                    AutomationRule.ACTION_NOTIFY -> com.todocompanion.app.ui.components.AppTextField(notifyText, { notifyText = it }, label = { Text("Message (e.g. Phone on silent?)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    AutomationRule.ACTION_START -> {
+                        Text("Requires “Allow overlapping timers” on.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            activities.filter { it.id != whenId }.forEach { a ->
+                                FilterChip(selected = a.id == startId, onClick = { startId = a.id }, label = { Text((a.emoji?.plus(" ") ?: "") + a.name) })
+                            }
                         }
+                    }
+                    else -> Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        FilterChip(selected = stopId.isBlank(), onClick = { stopId = "" }, label = { Text("All other timers") })
+                        activities.filter { it.id != whenId }.forEach { a ->
+                            FilterChip(selected = a.id == stopId, onClick = { stopId = a.id }, label = { Text((a.emoji?.plus(" ") ?: "") + a.name) })
+                        }
+                    }
+                }
+                // Expert guards (R23): only within a time window and/or on chosen weekdays.
+                Spacer(Modifier.height(12.dp)); androidx.compose.material3.HorizontalDivider()
+                Text("Only when (optional)", Modifier.padding(top = 8.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    FilterChip(selected = afterMin >= 0, onClick = { if (afterMin >= 0) afterMin = -1 else pickAfter = true }, label = { Text(if (afterMin >= 0) "After ${hhmm(afterMin)}" else "After…") })
+                    FilterChip(selected = beforeMin >= 0, onClick = { if (beforeMin >= 0) beforeMin = -1 else pickBefore = true }, label = { Text(if (beforeMin >= 0) "Before ${hhmm(beforeMin)}" else "Before…") })
+                }
+                Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    val names = listOf(1 to "M", 2 to "T", 3 to "W", 4 to "T", 5 to "F", 6 to "S", 7 to "S")
+                    names.forEach { (d, lbl) ->
+                        FilterChip(selected = d in days, onClick = { days = if (d in days) days - d else days + d }, label = { Text(lbl) })
                     }
                 }
             }
         },
         confirmButton = {
-            val valid = whenId.isNotBlank() && (action == com.todocompanion.app.domain.AutomationRule.ACTION_NOTIFY && notifyText.isNotBlank() || action == com.todocompanion.app.domain.AutomationRule.ACTION_START && startId.isNotBlank())
+            val valid = whenId.isNotBlank() && when (action) {
+                AutomationRule.ACTION_NOTIFY -> notifyText.isNotBlank()
+                AutomationRule.ACTION_START -> startId.isNotBlank()
+                else -> true
+            }
             TextButton(enabled = valid, onClick = {
-                onSave(com.todocompanion.app.domain.AutomationRule(
+                onSave(AutomationRule(
                     id = java.util.UUID.randomUUID().toString(), whenActivityId = whenId,
-                    actionType = action, notifyText = notifyText.trim(), startActivityId = startId))
+                    actionType = action, notifyText = notifyText.trim(), startActivityId = startId, stopActivityId = stopId,
+                    afterMin = afterMin, beforeMin = beforeMin, days = days.sorted().joinToString(",")))
             }) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
+    if (pickAfter) com.todocompanion.app.ui.components.TimeFieldDialog(if (afterMin >= 0) afterMin else 9 * 60, onDismiss = { pickAfter = false }) { afterMin = it; pickAfter = false }
+    if (pickBefore) com.todocompanion.app.ui.components.TimeFieldDialog(if (beforeMin >= 0) beforeMin else 17 * 60, onDismiss = { pickBefore = false }) { beforeMin = it; pickBefore = false }
 }
 
 /** Edit a logged entry: adjust its times, reassign the activity, tag it, split it, or delete it.

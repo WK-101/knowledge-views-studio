@@ -71,6 +71,7 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.foundation.layout.WindowInsets
@@ -153,10 +154,16 @@ fun CalendarScreen(
     val zone = ZoneId.systemDefault()
 
     val firstDow = if (s.weekStart in 1..7) DayOfWeek.of(s.weekStart) else WeekFields.of(Locale.getDefault()).firstDayOfWeek
+    // The calendar filter set holds list IDs AND folder IDs now (R23): a task matches if its list, its
+    // direct folder, or the folder its list lives in is selected. Empty = show everything.
+    val calLists by vm.lists.collectAsState()
     val listFilter = s.calendarListFilter
-    val dueByDate = remember(tasks, listFilter) {
-        tasks.filter { !it.trashed && !it.completed && !it.abandoned && it.dueDate != null && (listFilter.isEmpty() || it.listId in listFilter) }
-            .groupBy { Instant.ofEpochMilli(it.dueDate!!).atZone(zone).toLocalDate() }
+    val listFolderById = remember(calLists) { calLists.associate { it.id to it.folderId } }
+    val dueByDate = remember(tasks, listFilter, listFolderById) {
+        tasks.filter {
+            !it.trashed && !it.completed && !it.abandoned && it.dueDate != null &&
+                (listFilter.isEmpty() || it.listId in listFilter || it.folderId in listFilter || listFolderById[it.listId] in listFilter)
+        }.groupBy { Instant.ofEpochMilli(it.dueDate!!).atZone(zone).toLocalDate() }
     }
 
     // Countdowns land on the calendar at their target date — a dot in the month grid and a chip under
@@ -169,22 +176,30 @@ fun CalendarScreen(
     // M1: optionally draw timed habits as read-only blocks in the day/week grid. Opt-in (default off).
     val habits by vm.habits.collectAsState()
     val habitCheckins by vm.habitCheckins.collectAsState()
+    val todayEd = LocalDate.now(zone).toEpochDay()
     val habitBlocksFor: (LocalDate) -> List<HabitBlock> = block@{ d ->
         if (!s.habitCalendarBlocks) return@block emptyList()
         val hs = com.todocompanion.app.domain.habit.HabitStats
         val ed = d.toEpochDay()
         habits.filter { !it.archived && !it.paused && it.habitType != "break" }.flatMap { h ->
             val scheduled = hs.isExpectedDay(h, ed) || h.freqType == hs.FREQ_TIMES_WEEK || h.freqType == hs.FREQ_TIMES_MONTH
-            // G2: an untimed-but-scheduled habit still gets a block — anchored at 09:00 — so turning the
-            // toggle on actually shows something. Previously habits with no reminder time were silently dropped.
             val rawTimes = h.reminderTimes.split(",").mapNotNull { it.trim().toIntOrNull() }.filter { it in 0..1439 }
-            val times = rawTimes.ifEmpty { listOf(9 * 60) }
-            if (!scheduled) emptyList()
+            // A habit only carries a real time if it has a reminder time; otherwise it's untimed and must
+            // NOT be pinned to a fake 09:00 on the grid (R23 — that's why they all overlapped).
+            val untimed = rawTimes.isEmpty()
+            val checkin = habitCheckins.firstOrNull { it.habitId == h.id && it.epochDay == ed }
+            val done = checkin != null && checkin.status == "done" && hs.meetsGoal(h, checkin.count)
+            val progressed = checkin != null && (checkin.status == "done" || checkin.count > 0)
+            // On PAST days, only show habits that were actually done (full or partial) — a scheduled-but-
+            // skipped habit shouldn't clutter history (R23). Today/future show every scheduled habit.
+            val show = scheduled && (ed >= todayEd || progressed)
+            if (!show) emptyList()
             else {
-                val done = habitCheckins.any { it.habitId == h.id && it.epochDay == ed && it.status == "done" && hs.meetsGoal(h, it.count) }
                 val dur = if (h.unit == "min") h.targetPerDay.coerceIn(10, 180) else 30
                 val col = h.colorArgb?.let { androidx.compose.ui.graphics.Color(it) }
-                times.map { m -> HabitBlock(h.id, (h.emoji?.plus(" ") ?: "") + h.name, col, m, dur, done) }
+                rawTimes.ifEmpty { listOf(0) }.map { m ->
+                    HabitBlock(h.id, (h.emoji?.plus(" ") ?: "") + h.name, col, m, dur, done, progressed && !done, untimed)
+                }
             }
         }
     }
@@ -257,6 +272,9 @@ fun CalendarScreen(
     }
     val prev = { onAnchor(calStep(mode, anchor, -1)) }
     val next = { onAnchor(calStep(mode, anchor, 1)) }
+    // Hoisted above AnimatedContent so collapsing the month to a week survives month navigation (R23):
+    // otherwise a cross-month week-swipe re-created MonthView and reset it back to the full grid.
+    var monthCollapsed by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
 
     // The combined header lives in the app-bar slot (see AppRoot), so switching tabs never shifts
     // the content and the buttons line up with every other screen.
@@ -279,6 +297,7 @@ fun CalendarScreen(
         ) { (mode, anchor) ->
         when (mode) {
             "month" -> MonthView(anchor, selected, dueByDate, firstDow, onSelect = { onSelected(it) }, onPrev = prev, onNext = next, onOpenTask = onOpenTask, swipe = swipe, onAdd = { onAddOnDate(selected) },
+                collapsed = monthCollapsed, onCollapsedChange = { monthCollapsed = it },
                 habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, countdownsFor = countdownsFor, trackedDayInfo = trackedDayInfo,
                 onMoveToDay = { d, id ->
                     // Preserve the task's time-of-day when dropping it on another day; default 9am.
@@ -515,7 +534,7 @@ private fun MonthYearPicker(current: YearMonth, onDismiss: () -> Unit, onPick: (
 }
 
 @Composable
-private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, swipe: CalSwipe, onAdd: () -> Unit, habitBlocksFor: (LocalDate) -> List<HabitBlock>, onOpenHabit: (String) -> Unit, countdownsFor: (LocalDate) -> List<com.todocompanion.app.data.entity.CountdownEntity>, trackedDayInfo: (LocalDate) -> Pair<Int, androidx.compose.ui.graphics.Color?> = { 0 to null }, onMoveToDay: (LocalDate, String) -> Unit) {
+private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, swipe: CalSwipe, onAdd: () -> Unit, collapsed: Boolean, onCollapsedChange: (Boolean) -> Unit, habitBlocksFor: (LocalDate) -> List<HabitBlock>, onOpenHabit: (String) -> Unit, countdownsFor: (LocalDate) -> List<com.todocompanion.app.data.entity.CountdownEntity>, trackedDayInfo: (LocalDate) -> Pair<Int, androidx.compose.ui.graphics.Color?> = { 0 to null }, onMoveToDay: (LocalDate, String) -> Unit) {
     val ym = YearMonth.from(anchor)
     val labels = (0..6).map { firstDow.plus(it.toLong()) }
     val first = ym.atDay(1)
@@ -531,7 +550,6 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
     // Long-press a task in the agenda to drag it onto a day cell and reschedule. All coordinates in
     // window space so the finger, the cell bounds and the floating chip line up.
     var dragTask by remember { mutableStateOf<TaskEntity?>(null) }
-    var monthCollapsed by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     var pointer by remember { mutableStateOf(Offset.Zero) }
     var boxOrigin by remember { mutableStateOf(Offset.Zero) }
     val cellBounds = remember { mutableStateMapOf<LocalDate, Rect>() }
@@ -550,14 +568,20 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
         val selWeek = weeks.indexOfFirst { wk -> wk.any { it == selected } }
             .let { if (it >= 0) it else weeks.indexOfFirst { wk -> wk.any { it == today } }.coerceAtLeast(0) }
             .coerceIn(0, weeks.lastIndex)
+        // When collapsed to a single week, a horizontal swipe moves by WEEK (and stays collapsed); only the
+        // full month grid swipes by month (R23). Crossing a month boundary also nudges the anchor so the
+        // right week renders.
+        val onPrevWeek = { val ns = selected.minusWeeks(1); if (YearMonth.from(ns) != ym) onPrev(); onSelect(ns) }
+        val onNextWeek = { val ns = selected.plusWeeks(1); if (YearMonth.from(ns) != ym) onNext(); onSelect(ns) }
         Column(
-            Modifier.fillMaxWidth().padding(horizontal = 8.dp).swipeNav(onPrev, onNext)
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+                .swipeNav(if (collapsed) onPrevWeek else onPrev, if (collapsed) onNextWeek else onNext)
                 .pointerInput(Unit) {
-                    detectVerticalDragGestures { _, dy -> if (dy < -2.5f) monthCollapsed = true else if (dy > 2.5f) monthCollapsed = false }
+                    detectVerticalDragGestures { _, dy -> if (dy < -2.5f) onCollapsedChange(true) else if (dy > 2.5f) onCollapsedChange(false) }
                 },
         ) {
             weeks.forEachIndexed { wi, week ->
-                androidx.compose.animation.AnimatedVisibility(visible = wi == selWeek || !monthCollapsed) {
+                androidx.compose.animation.AnimatedVisibility(visible = wi == selWeek || !collapsed) {
                     Row(Modifier.fillMaxWidth()) {
                         week.forEach { date ->
                             val isToday = date == today
@@ -620,10 +644,10 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
                 if (selected == today) "TODAY" else "${selected.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()).uppercase()} ${selected.dayOfMonth} ${selected.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()).uppercase()}",
                 Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            androidx.compose.material3.IconButton(onClick = { monthCollapsed = !monthCollapsed }, modifier = Modifier.size(32.dp)) {
+            androidx.compose.material3.IconButton(onClick = { onCollapsedChange(!collapsed) }, modifier = Modifier.size(32.dp)) {
                 Icon(
-                    if (monthCollapsed) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowUp,
-                    if (monthCollapsed) "Expand month" else "Collapse to week",
+                    if (collapsed) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowUp,
+                    if (collapsed) "Expand month" else "Collapse to week",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp),
                 )
             }
@@ -925,7 +949,9 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hou
                     .pointerInput(p.task.id, hourDp) {
                         detectDragGesturesAfterLongPress(
                             onDragStart = { dragging = true },
-                            onDrag = { _, off -> liveStart = snap((liveStart + (off.y / hourPx * 60f).toInt())).coerceIn(0, 1440 - liveDur) },
+                            // consume() so the enclosing vertical scroll doesn't fight the drag (R23 — the
+                            // "stuck"/janky feel came from the grid scrolling mid-drag).
+                            onDrag = { change, off -> change.consume(); liveStart = snap((liveStart + (off.y / hourPx * 60f).toInt())).coerceIn(0, 1440 - liveDur) },
                             onDragEnd = { dragging = false; onMoveAt(p.task.id, liveStart) },
                             onDragCancel = { dragging = false },
                         )
@@ -940,40 +966,63 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hou
             }
             // Bottom resize grip: a comfortable full-width target; drag to change duration (snapped 15 min).
             Box(
-                Modifier.offset(x = railW + laneW * p.lane + 1.dp, y = top + h - 16.dp).width(laneW - 1.dp).height(18.dp)
+                Modifier.offset(x = railW + laneW * p.lane + 1.dp, y = top + h - 18.dp).width(laneW - 1.dp).height(22.dp)
                     .pointerInput(p.task.id, hourDp) {
                         detectVerticalDragGestures(
                             onDragStart = { dragging = true },
-                            onVerticalDrag = { _, dy -> liveDur = snap((liveDur + (dy / hourPx * 60f)).toInt()).coerceIn(15, 24 * 60 - liveStart) },
+                            // consume() so the resize drag isn't stolen by the grid's vertical scroll (R23).
+                            onVerticalDrag = { change, dy -> change.consume(); liveDur = snap((liveDur + (dy / hourPx * 60f)).toInt()).coerceIn(15, 24 * 60 - liveStart) },
                             onDragEnd = { dragging = false; onResize(p.task.id, liveDur) },
                             onDragCancel = { dragging = false },
                         )
                     },
                 contentAlignment = Alignment.Center,
-            ) { Box(Modifier.width(26.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(c)) }
+            ) { Box(Modifier.width(28.dp).height(if (dragging) 5.dp else 4.dp).clip(RoundedCornerShape(3.dp)).background(c)) }
         }
-        // M1: habit blocks in the right lane — read-only, tap opens the habit. Distinct dotted-ish look.
+        // M1/R23: habit blocks in the right lane — read-only, tap opens the habit.
         if (habitBlocks.isNotEmpty()) {
             val habitAreaX = railW + taskAreaW + 1.dp
             val habitAreaW = contentW - taskAreaW - 2.dp
-            habitBlocks.sortedBy { it.startMin }.forEach { hb ->
+            val untimedH = habitBlocks.filter { it.untimed }
+            val timedH = habitBlocks.filter { !it.untimed }.sortedBy { it.startMin }
+            @Composable
+            fun habitChip(hb: HabitBlock, mod: Modifier) {
                 val col = hb.color ?: habitColor
-                val top = (hourDp * hb.startMin / 60f).dp
-                val hh = ((hourDp * hb.durMin / 60f).dp).coerceAtLeast(22.dp)
-                // Done = saturated fill + solid accent bar + bolder text; pending = faint + soft outline.
-                // The fill is the "done" signal, so no checkmark clutters the small block.
                 Row(
-                    Modifier.offset(x = habitAreaX, y = top).width(habitAreaW).height(hh - 2.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(col.copy(alpha = if (hb.done) 0.26f else 0.09f))
+                    mod.clip(RoundedCornerShape(6.dp))
+                        .background(col.copy(alpha = if (hb.done) 0.26f else if (hb.partial) 0.16f else 0.09f))
                         .then(if (hb.done) Modifier else Modifier.border(1.dp, col.copy(alpha = .35f), RoundedCornerShape(6.dp)))
                         .clickable { onOpenHabit(hb.id) },
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(Modifier.width(3.dp).fillMaxHeight().background(if (hb.done) col else col.copy(alpha = .45f)))
-                    Text(hb.label, Modifier.padding(horizontal = 5.dp, vertical = 3.dp),
-                        style = MaterialTheme.typography.labelSmall, maxLines = if (hh > 46.dp) 2 else 1, overflow = TextOverflow.Ellipsis,
+                    Text((if (hb.done) "✓ " else if (hb.partial) "◑ " else "") + hb.label, Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                        style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         fontWeight = if (hb.done) FontWeight.SemiBold else FontWeight.Normal,
                         color = if (hb.done) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            // Untimed habits have no reminder time — stack them as compact chips down the top of the habit
+            // lane rather than piling them all at a fake 09:00 (R23). Reads as "today's habits".
+            untimedH.forEachIndexed { i, hb ->
+                habitChip(hb, Modifier.offset(x = habitAreaX, y = (2 + i * 24).dp).width(habitAreaW).height(22.dp))
+            }
+            // Timed habits sit at their reminder time; lane-split so simultaneous ones never overlap.
+            if (timedH.isNotEmpty()) {
+                val laneEnd = ArrayList<Int>()
+                val laneOf = IntArray(timedH.size)
+                timedH.forEachIndexed { i, hb ->
+                    val end = hb.startMin + hb.durMin.coerceAtLeast(20)
+                    var placed = laneEnd.indexOfFirst { it <= hb.startMin }
+                    if (placed < 0) { placed = laneEnd.size; laneEnd.add(end) } else laneEnd[placed] = end
+                    laneOf[i] = placed
+                }
+                val lanes = maxOf(1, laneEnd.size)
+                val laneW = (habitAreaW - 1.dp) / lanes
+                timedH.forEachIndexed { i, hb ->
+                    val top = (hourDp * hb.startMin / 60f).dp
+                    val hh = ((hourDp * hb.durMin / 60f).dp).coerceAtLeast(22.dp)
+                    habitChip(hb, Modifier.offset(x = habitAreaX + laneW * laneOf[i], y = top).width(laneW - 1.dp).height(hh - 2.dp))
                 }
             }
         }
@@ -1014,6 +1063,7 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hou
 private data class HabitBlock(
     val id: String, val label: String, val color: androidx.compose.ui.graphics.Color?,
     val startMin: Int, val durMin: Int, val done: Boolean,
+    val partial: Boolean = false, val untimed: Boolean = false,
 )
 
 /** Round 14: one segment of the "actual" spine — a tracked time interval clamped to the day. */
@@ -1252,6 +1302,11 @@ private fun TaskLine(task: TaskEntity, onOpenTask: (String) -> Unit, swipe: CalS
                     )
                     if (task.note.isNotBlank()) Text(task.note.trim().lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                // R23: match the smart-list rows — surface recurrence, flag and star alongside the time so a
+                // calendar task carries the same at-a-glance detail as it does in the list views.
+                if (!task.rrule.isNullOrBlank()) Icon(Icons.Filled.Repeat, "Repeats", Modifier.padding(end = 6.dp).size(15.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                task.flagColorArgb?.let { Box(Modifier.padding(end = 6.dp).size(9.dp).clip(CircleShape).background(Color(it))) }
+                if (task.star) Icon(Icons.Filled.Star, "Starred", Modifier.padding(end = 6.dp).size(15.dp), tint = Color(0xFFF5A623))
                 task.dueDate?.let { if (!task.isAllDay && hasTime(it, zone)) { Text(timeLabel(it, zone), Modifier.padding(end = 12.dp), style = MaterialTheme.typography.labelMedium, color = accent) } }
             }
         }

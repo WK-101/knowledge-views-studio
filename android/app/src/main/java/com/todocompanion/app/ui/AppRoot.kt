@@ -1038,7 +1038,7 @@ fun AppRoot(
             }
         }
         if (calFilter) {
-            CalendarFilterDialog(lists.filter { !it.archived }, settings.calendarListFilter, onDismiss = { calFilter = false }) { sel ->
+            CalendarFilterDialog(lists.filter { !it.archived }, folders, settings.calendarListFilter, onDismiss = { calFilter = false }) { sel ->
                 vm.saveSettings(settings.copy(calendarListFilter = sel))
             }
         }
@@ -1331,27 +1331,45 @@ private fun FilterGroup(label: String, content: @Composable androidx.compose.fou
 
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
-private fun CalendarFilterDialog(lists: List<ListEntity>, selected: Set<String>, onDismiss: () -> Unit, onApply: (Set<String>) -> Unit) {
+private fun CalendarFilterDialog(lists: List<ListEntity>, folders: List<FolderEntity>, selected: Set<String>, onDismiss: () -> Unit, onApply: (Set<String>) -> Unit) {
+    // R23: same folders-then-lists grammar as the sidebar & the move picker — folders (📁) group their
+    // lists, ungrouped lists sit below. Selecting a folder shows everything under it. Multi-select.
+    @Composable
+    fun row(label: String, checked: Boolean, indent: Int, leading: @Composable () -> Unit, onToggle: () -> Unit) {
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onToggle() }
+                .padding(start = (8 + indent * 18).dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            leading()
+            Spacer(Modifier.width(10.dp))
+            Text(label, Modifier.weight(1f), maxLines = 1, style = MaterialTheme.typography.bodyMedium)
+            androidx.compose.material3.Checkbox(checked = checked, onCheckedChange = { onToggle() })
+        }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
         dismissButton = { TextButton(onClick = { onApply(emptySet()) }) { Text("Show all") } },
         title = { Text("Filter calendar") },
         text = {
-            // Compact colour-coded chips instead of a loose checkbox list.
-            androidx.compose.foundation.layout.FlowRow(
-                Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                androidx.compose.material3.FilterChip(selected = selected.isEmpty(), onClick = { onApply(emptySet()) }, label = { Text("All lists") })
-                lists.forEach { l ->
-                    val on = l.id in selected
-                    androidx.compose.material3.FilterChip(
-                        selected = on,
-                        onClick = { onApply(if (on) selected - l.id else selected + l.id) },
-                        label = { Text(l.name, maxLines = 1) },
-                        leadingIcon = l.colorArgb?.let { { Box(Modifier.size(12.dp).clip(CircleShape).background(Color(it))) } },
-                    )
+            Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                row("All folders & lists", selected.isEmpty(), 0, { Icon(Icons.Filled.FilterList, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }) { onApply(emptySet()) }
+                HorizontalDivider(Modifier.padding(vertical = 2.dp))
+                folders.filter { it.parentId == null }.sortedBy { it.sortOrder }.forEach { f ->
+                    row(f.name, f.id in selected, 0, { Text(f.icon ?: "📁", style = MaterialTheme.typography.bodyLarge) }) {
+                        onApply(if (f.id in selected) selected - f.id else selected + f.id)
+                    }
+                    lists.filter { it.folderId == f.id }.sortedBy { it.sortOrder }.forEach { l ->
+                        row(l.name, l.id in selected, 1, { Box(Modifier.size(12.dp).clip(CircleShape).background(l.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary)) }) {
+                            onApply(if (l.id in selected) selected - l.id else selected + l.id)
+                        }
+                    }
+                }
+                lists.filter { it.folderId == null && it.parentListId == null }.sortedBy { it.sortOrder }.forEach { l ->
+                    row(l.name, l.id in selected, 0, { Box(Modifier.size(12.dp).clip(CircleShape).background(l.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary)) }) {
+                        onApply(if (l.id in selected) selected - l.id else selected + l.id)
+                    }
                 }
             }
         },

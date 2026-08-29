@@ -606,6 +606,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** The private, on-device activity trail for one task (created / completed / rescheduled …). */
     fun taskActivity(id: String): Flow<List<com.todocompanion.app.data.entity.ActivityEntity>> = repo.taskActivity(id)
+    // R23: delete a single activity-log entry, or clear a task's whole history. Independent log rows, so
+    // there's no cascade; a recurring task's reliability just recomputes from the remaining completions.
+    fun deleteActivityEntry(id: String) = viewModelScope.launch { repo.deleteActivity(id) }
+    fun clearTaskActivity(taskId: String) = viewModelScope.launch { repo.clearTaskActivity(taskId) }
     fun taskRevisions(id: String): Flow<List<com.todocompanion.app.data.entity.TaskRevisionEntity>> = repo.taskRevisions(id)
     fun restoreRevision(revisionId: String) = viewModelScope.launch { repo.restoreRevision(revisionId) }
     /** How many times each task has been rescheduled — the procrastination signal (E2). */
@@ -996,6 +1000,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (!ok) toast("Could not save attachment")
     }
     fun removeAttachment(id: String) = viewModelScope.launch { repo.deleteAttachment(id) }
+    /** Attach a file the user picked through the in-app browser — the reliable path on de-Googled phones
+     *  and custom ROMs that ship no system document picker (R23). Same on-device store as [addAttachment]. */
+    fun addAttachmentFromFile(taskId: String, file: java.io.File) = viewModelScope.launch {
+        val bytes = withContext(Dispatchers.IO) { runCatching { file.readBytes() }.getOrNull() }
+        if (bytes == null) { toast("Could not read file"); return@launch }
+        if (bytes.size > repo.maxAttachmentBytes) { toast("File too large (max 25 MB per file)"); return@launch }
+        val mime = java.net.URLConnection.guessContentTypeFromName(file.name) ?: "application/octet-stream"
+        val ok = withContext(Dispatchers.IO) {
+            runCatching {
+                val dir = java.io.File(appCtx.filesDir, "attachments").apply { mkdirs() }
+                val f = java.io.File(dir, UUID.randomUUID().toString())
+                f.writeBytes(bytes)
+                repo.addAttachmentFile(taskId, file.name, mime, bytes.size.toLong(), f.absolutePath)
+                true
+            }.getOrDefault(false)
+        }
+        if (!ok) toast("Could not save attachment")
+    }
 
     /** Set a list's background image: decode, downscale to ≤1280px, re-encode JPEG, store as base64. */
     fun setListBackgroundFromUri(listId: String, uri: Uri) = viewModelScope.launch {
@@ -3083,29 +3105,38 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * JSON vs external (CSV/OPML) when the filename carries no usable extension.
      */
     fun importFromIntent(uri: Uri, merge: Boolean = false, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
-        val name = displayNameOf(uri) ?: ""
+        // Robust filename: content providers give DISPLAY_NAME; a file:// URI falls back to the last path
+        // segment so the extension is still known (de-Googled file managers use both).
+        val name = (displayNameOf(uri) ?: uri.lastPathSegment ?: "").lowercase()
+        val ext = name.substringAfterLast('.', "")
         val text = readImportText(uri = uri)
         if (text.isNullOrBlank()) { onDone(false, "Couldn't read that file. Try 'Share → ToDo Companion' from your file manager."); return@launch }
-        // Decide by CONTENT, not just filename/first-char: a shared MLO `.mlobak` unzips to a mix of
-        // entries and can lead with a non-XML block that starts with '{', which used to be misread as a
-        // JSON backup and rejected. The external parser reliably recognizes MLO/CSV/OPML, so let it win;
-        // only fall back to a JSON restore when the file genuinely isn't a known external export.
         val external = com.todocompanion.app.data.sync.Importers.parse(text)
-        val looksJson = name.endsWith(".json", true) ||
-            text.trimStart().firstOrNull()?.let { it == '{' || it == '[' } == true
-        if (external != null && !name.endsWith(".json", true)) {
-            importExternalText(text, onDone)
-        } else if (looksJson) {
-            val ok = runCatching {
-                val plain = com.todocompanion.app.data.sync.Crypto.decrypt(text, settings.value.syncPassphrase) ?: text
-                if (merge) repo.importJsonMerge(plain) else repo.importJsonReplace(plain)
-                AlarmScheduler.rescheduleAll(appCtx, repo); true
-            }.getOrDefault(false)
-            val verb = if (merge) "Merged" else "Restored"
-            if (ok) onDone(true, "$verb ${name.ifBlank { "your backup" }}")
-            else if (external != null) importExternalText(text, onDone) // last resort: try as external export
-            else onDone(false, "That file isn't a valid ToDo Companion backup")
-        } else importExternalText(text, onDone)
+        // Route by intent, not by a fragile first-character sniff. A file from another app (.mlobak/.ml/
+        // .opml/.csv/.xml) is NEVER our JSON backup, so it must never reach the JSON path — that misroute
+        // is what showed "isn't a valid ToDo Companion backup" for a real MLO .mlobak (R23).
+        val externalExt = ext in setOf("mlobak", "ml", "mlt", "opml", "csv", "tsv", "xml")
+        val jsonExt = ext == "json" || ext == "todobackup"
+        val looksJson = jsonExt || (ext.isEmpty() && text.trimStart().firstOrNull()?.let { it == '{' || it == '[' } == true)
+        when {
+            externalExt -> {
+                if (external != null) importExternalText(text, onDone)
+                else onDone(false, "Couldn't read that ${ext.uppercase()} file. In MyLifeOrganized, use Menu ▸ Backup/Export ▸ OPML and share the .opml — some .mlobak archives are password-protected or in a format we can't open.")
+            }
+            external != null && !looksJson -> importExternalText(text, onDone)
+            looksJson -> {
+                val ok = runCatching {
+                    val plain = com.todocompanion.app.data.sync.Crypto.decrypt(text, settings.value.syncPassphrase) ?: text
+                    if (merge) repo.importJsonMerge(plain) else repo.importJsonReplace(plain)
+                    AlarmScheduler.rescheduleAll(appCtx, repo); true
+                }.getOrDefault(false)
+                val verb = if (merge) "Merged" else "Restored"
+                if (ok) onDone(true, "$verb ${name.ifBlank { "your backup" }}")
+                else if (external != null) importExternalText(text, onDone) // last resort: try as external export
+                else onDone(false, "That file isn't a valid ToDo Companion backup")
+            }
+            else -> importExternalText(text, onDone)
+        }
     }
 
     fun importFrom(uri: Uri, onDone: (Boolean) -> Unit) = viewModelScope.launch {

@@ -29,10 +29,12 @@ object Importers {
         val trimmed = text.trimStart()
         return when {
             trimmed.contains("<opml", ignoreCase = true) -> Result("MLO", parseOpml(text))
-            // MLO's native document/backup XML (what a .mlobak/.ml unpacks to) — task titles live in
-            // Caption attributes/elements on <TaskNode>s, not OPML <outline>s.
-            trimmed.contains("MyLifeOrganized", ignoreCase = true) || trimmed.contains("<TaskNode", ignoreCase = true) ->
-                Result("MLO", parseMloXml(text))
+            // MLO's native document/backup XML — task titles live in Caption attributes/elements.
+            isMloXml(text) -> Result("MLO", parseMloXml(text)).takeIf { it.rows.isNotEmpty() }
+            // MLO `.mlobak` also ships as a ZIP of multi-section CSV (no XML at all): detect the task
+            // section by MLO's distinctive columns and pull the titles. This is the format that made a
+            // shared .mlobak fail with "not a valid backup" (R23).
+            isMloCsv(text) -> Result("MLO", parseMloCsv(text)).takeIf { it.rows.isNotEmpty() }
             else -> {
                 val header = firstDataLine(text) ?: return null
                 when {
@@ -41,6 +43,23 @@ object Importers {
                     else -> null
                 }
             }
+        }
+    }
+
+    private fun isMloXml(text: String): Boolean =
+        text.contains("MyLifeOrganized", ignoreCase = true) ||
+            text.contains("<TaskNode", ignoreCase = true) ||
+            text.contains("<MLO", ignoreCase = true) ||
+            Regex("\\bCaption\\s*=\\s*\"", RegexOption.IGNORE_CASE).containsMatchIn(text)
+
+    /** MLO's exported task table (CSV, inside a .mlobak) carries a dual importance/urgency model and a
+     *  Caption/ParentTaskId shape no other tool exports — a reliable fingerprint that won't match a
+     *  Todoist/TickTick CSV or our own JSON. */
+    private fun isMloCsv(text: String): Boolean {
+        if (text.trimStart().startsWith("<") || text.trimStart().startsWith("{")) return false
+        return text.lineSequence().take(300).any { line ->
+            val u = line.lowercase()
+            u.contains("caption") || u.contains("parenttaskid") || (u.contains("importance") && u.contains("urgency"))
         }
     }
 
@@ -97,6 +116,36 @@ object Importers {
         (attrRe.findAll(text).map { it.groupValues[1] } + elemRe.findAll(text).map { it.groupValues[1] }).forEach { raw ->
             val title = unescapeXml(raw.trim())
             if (title.isNotBlank() && title.length in 1..500 && seen.add(title)) out.add(Imported(list = "MLO import", title = title))
+        }
+        return out
+    }
+
+    // ---------- MLO multi-section CSV (inside a .mlobak) ----------
+    private val MLO_TITLE_COLS = setOf("caption", "text", "title", "name", "task", "subject")
+    private val MLO_SECTION_COLS = setOf("completed", "importance", "urgency", "parenttaskid", "duedatetime", "id", "flag")
+    private fun parseMloCsv(text: String): List<Imported> {
+        val rows = csvRows(text)
+        val out = ArrayList<Imported>()
+        val seen = LinkedHashSet<String>()
+        var titleIdx = -1
+        var completedIdx = -1
+        for (r in rows) {
+            val lower = r.map { it.trim().lowercase() }
+            // A header row for the task section: a title column plus at least one MLO-specific column.
+            val hIdx = lower.indexOfFirst { it in MLO_TITLE_COLS }
+            if (hIdx >= 0 && lower.any { it in MLO_SECTION_COLS }) {
+                titleIdx = hIdx
+                completedIdx = lower.indexOfFirst { it == "completed" || it == "done" }
+                continue
+            }
+            if (titleIdx in r.indices) {
+                val title = r[titleIdx].trim()
+                if (title.isNotBlank() && title.length in 1..500 && title.lowercase() !in MLO_TITLE_COLS && seen.add(title)) {
+                    val done = completedIdx in r.indices &&
+                        r[completedIdx].trim().let { it == "1" || it.equals("true", true) || it.equals("yes", true) }
+                    out.add(Imported(list = "MLO import", title = title, completed = done))
+                }
+            }
         }
         return out
     }

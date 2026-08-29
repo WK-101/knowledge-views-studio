@@ -17,14 +17,36 @@ data class AutomationRule(
     val enabled: Boolean = true,
     // Trigger: this activity's timer starting.
     val whenActivityId: String,
-    // Action: "notify" posts [notifyText]; "start" also begins [startActivityId] (needs multi-timer on).
+    // Action: "notify" posts [notifyText]; "start" also begins [startActivityId] (needs multi-timer on);
+    // "stop" stops [stopActivityId] (blank = every other running timer).
     val actionType: String = ACTION_NOTIFY,
     val notifyText: String = "",
     val startActivityId: String = "",
+    val stopActivityId: String = "",
+    // Expert guards (R23): only fire inside a time-of-day window and/or on certain weekdays. -1 = unset;
+    // [days] is a CSV of ISO day numbers (1=Mon…7=Sun), blank = any day. A window whose start > end wraps
+    // past midnight (e.g. 22:00–06:00).
+    val afterMin: Int = -1,
+    val beforeMin: Int = -1,
+    val days: String = "",
 ) {
+    fun passesGuard(nowMin: Int, dow: Int): Boolean {
+        val dayList = days.split(",").mapNotNull { it.trim().toIntOrNull() }
+        val dayOk = dayList.isEmpty() || dow in dayList
+        val timeOk = when {
+            afterMin < 0 && beforeMin < 0 -> true
+            afterMin >= 0 && beforeMin >= 0 && afterMin <= beforeMin -> nowMin in afterMin..beforeMin
+            afterMin >= 0 && beforeMin >= 0 -> nowMin >= afterMin || nowMin <= beforeMin // wraps midnight
+            afterMin >= 0 -> nowMin >= afterMin
+            else -> nowMin <= beforeMin
+        }
+        return dayOk && timeOk
+    }
+
     companion object {
         const val ACTION_NOTIFY = "notify"
         const val ACTION_START = "start"
+        const val ACTION_STOP = "stop"
     }
 }
 

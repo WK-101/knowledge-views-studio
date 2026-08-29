@@ -952,14 +952,14 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
  */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun FileBrowser(vm: AppViewModel, onDismiss: () -> Unit, onPicked: (java.io.File) -> Unit) {
+internal fun FileBrowser(vm: AppViewModel, title: String = "Choose a backup file", allTypes: Boolean = false, confirmLabel: String? = null, onDismiss: () -> Unit, onPicked: (java.io.File) -> Unit) {
     val roots = remember { com.todocompanion.app.util.FileExport.browseRoots() }
     var dir by remember { mutableStateOf(roots.firstOrNull() ?: java.io.File("/")) }
     var entries by remember { mutableStateOf<List<com.todocompanion.app.util.FileExport.Entry>>(emptyList()) }
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<java.io.File>>(emptyList()) }
     var confirming by remember { mutableStateOf<java.io.File?>(null) }
-    androidx.compose.runtime.LaunchedEffect(dir) { vm.browseDir(dir) { entries = it } }
+    androidx.compose.runtime.LaunchedEffect(dir, allTypes) { vm.browseDir(dir, allTypes) { entries = it } }
     androidx.compose.runtime.LaunchedEffect(query) { if (query.trim().length >= 2) vm.searchFilesystem(query) { results = it } else results = emptyList() }
     val searching = query.trim().length >= 2
 
@@ -968,7 +968,7 @@ private fun FileBrowser(vm: AppViewModel, onDismiss: () -> Unit, onPicked: (java
             Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = onDismiss) { Text("Close") }
-                    Text("Choose a backup file", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                     Spacer(Modifier.width(56.dp))
                 }
                 com.todocompanion.app.ui.components.AppTextField(query, { query = it }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
@@ -1011,10 +1011,10 @@ private fun FileBrowser(vm: AppViewModel, onDismiss: () -> Unit, onPicked: (java
     confirming?.let { f ->
         AlertDialog(
             onDismissRequest = { confirming = null },
-            confirmButton = { TextButton(onClick = { onPicked(f); confirming = null }) { Text(if (f.name.endsWith(".json", true)) "Restore" else "Import") } },
+            confirmButton = { TextButton(onClick = { onPicked(f); confirming = null }) { Text(confirmLabel ?: if (f.name.endsWith(".json", true)) "Restore" else "Import") } },
             dismissButton = { TextButton(onClick = { confirming = null }) { Text("Cancel") } },
             title = { Text(f.name) },
-            text = { Text(if (f.name.endsWith(".json", true)) "Restoring this backup replaces ALL current data. This can't be undone." else "Import tasks/habits from this file into your current data.") },
+            text = { Text(when { confirmLabel != null -> "Attach this file to the task."; f.name.endsWith(".json", true) -> "Restoring this backup replaces ALL current data. This can't be undone."; else -> "Import tasks/habits from this file into your current data." }) },
         )
     }
 }

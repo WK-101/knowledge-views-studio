@@ -184,6 +184,9 @@ interface ActivityDao {
     @Insert
     suspend fun insertAll(a: List<com.todocompanion.app.data.entity.ActivityEntity>)
 
+    @Query("DELETE FROM task_activity WHERE id = :id")
+    suspend fun deleteById(id: String)
+
     @Query("DELETE FROM task_activity WHERE taskId = :taskId")
     suspend fun clearForTask(taskId: String)
 

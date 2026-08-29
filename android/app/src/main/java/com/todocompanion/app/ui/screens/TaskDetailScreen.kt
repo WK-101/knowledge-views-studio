@@ -109,6 +109,7 @@ import androidx.compose.material.icons.filled.Slideshow
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.AudioFile
 import androidx.compose.material.icons.filled.VideoFile
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.automirrored.filled.TextSnippet
@@ -158,6 +159,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     var showStart by remember { mutableStateOf(false) }
     var showDuration by remember { mutableStateOf(false) }
     var showEstimate by remember { mutableStateOf(false) }
+    var showAttachBrowser by remember { mutableStateOf(false) }
     var showReminder by remember { mutableStateOf(false) }
     var editActivity by remember { mutableStateOf<com.todocompanion.app.data.entity.TimeActivityEntity?>(null) }
     var newTag by remember { mutableStateOf("") }
@@ -320,7 +322,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                         Text("Progress", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("${p.toInt()}%", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    androidx.compose.material3.Slider(value = p, onValueChange = { p = it }, onValueChangeFinished = { update { it.copy(progressPct = p.toInt().takeIf { v -> v > 0 }) } }, valueRange = 0f..100f, steps = 19)
+                    ModernSlider(p, 0f..100f, 0, { p = it }, { update { it.copy(progressPct = p.toInt().takeIf { v -> v > 0 }) } }, Modifier.fillMaxWidth())
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             }
@@ -492,7 +494,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             val myCheck = checklist.filter { it.taskId == task.id }.sortedBy { it.sortOrder }
             val attFlow = remember(task.id) { vm.attachmentMeta(task.id) }
             val attachments by attFlow.collectAsState(initial = emptyList())
-            val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> if (uri != null) vm.addAttachment(task.id, uri) }
+            // SAF OpenDocument is present on more ROMs than the GET_CONTENT chooser; when even that is
+            // missing (very stripped AOSP), we fall back to the app's own file browser (R23).
+            val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) vm.addAttachment(task.id, uri) }
             // Staged tag/context sets (R21 #2): pending edits if any, else the live DB sets.
             val assignedTags = effTags
             val assignedCtx = effCtx
@@ -633,7 +637,20 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     }
                 }
                 val attachCtx = androidx.compose.ui.platform.LocalContext.current
-                TextButton(onClick = { try { pickFile.launch("*/*") } catch (e: Exception) { android.widget.Toast.makeText(attachCtx, "No file manager is available on this device.", android.widget.Toast.LENGTH_LONG).show() } }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Icon(Icons.Filled.AttachFile, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Add file") }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = {
+                        try { pickFile.launch(arrayOf("*/*")) }
+                        catch (e: Exception) {
+                            if (vm.canBrowseStorage()) showAttachBrowser = true
+                            else android.widget.Toast.makeText(attachCtx, "No system file picker on this device. Enable “All files access” (Settings → Backup & data) to browse for files.", android.widget.Toast.LENGTH_LONG).show()
+                        }
+                    }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Icon(Icons.Filled.AttachFile, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Add file") }
+                    // Always-available reliable path for de-Googled phones with no system picker (R23).
+                    if (vm.canBrowseStorage()) {
+                        Spacer(Modifier.width(4.dp))
+                        TextButton(onClick = { showAttachBrowser = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Icon(Icons.Filled.Folder, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Browse device") }
+                    }
+                }
                 if (attachments.isEmpty()) Text("Any file up to 25 MB — images, PDF, docs. Stored on-device and in backups.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
@@ -695,6 +712,10 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
 
                     com.todocompanion.app.domain.EditorField.ACTIVITY ->
                      DetailSection("Activity", activityLog.size.takeIf { it > 0 }?.toString(), false) {
+                // R23: activity entries are an independent append-only log — any one (including "created")
+                // can be deleted with no cascade; each deletion is confirmed first.
+                var confirmDel by remember { mutableStateOf<com.todocompanion.app.data.entity.ActivityEntity?>(null) }
+                var confirmClear by remember { mutableStateOf(false) }
                 if (activityLog.isEmpty()) {
                     Text("No activity recorded yet.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
@@ -704,9 +725,27 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                             Spacer(Modifier.width(9.dp))
                             Text(activityLabel(a.type, a.detail), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                             Text(relativeTime(a.at), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            IconButton(onClick = { confirmDel = a }, modifier = Modifier.size(28.dp)) {
+                                Icon(Icons.Filled.Close, "Delete entry", modifier = Modifier.size(15.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
+                    TextButton(onClick = { confirmClear = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
+                        Icon(Icons.Filled.Delete, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error); Spacer(Modifier.width(4.dp)); Text("Clear history", color = MaterialTheme.colorScheme.error)
+                    }
                 }
+                confirmDel?.let { a ->
+                    AlertDialog(onDismissRequest = { confirmDel = null },
+                        confirmButton = { TextButton(onClick = { vm.deleteActivityEntry(a.id); confirmDel = null }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
+                        dismissButton = { TextButton(onClick = { confirmDel = null }) { Text("Cancel") } },
+                        title = { Text("Delete this entry?") },
+                        text = { Text("Removes “${activityLabel(a.type, a.detail)}” from this task's history. Only the log is edited — the task itself is unchanged.") })
+                }
+                if (confirmClear) AlertDialog(onDismissRequest = { confirmClear = false },
+                    confirmButton = { TextButton(onClick = { vm.clearTaskActivity(task.id); confirmClear = false }) { Text("Clear all", color = MaterialTheme.colorScheme.error) } },
+                    dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancel") } },
+                    title = { Text("Clear activity history?") },
+                    text = { Text("Deletes every recorded event for this task, including “created”. The task and its data are untouched — only the history log is cleared.") })
             }
 
                     com.todocompanion.app.domain.EditorField.ADVANCED ->
@@ -715,7 +754,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     // Leaf manual progress lives here when not already set/shown above.
                     var p by remember(task.id, task.progressPct) { mutableStateOf((task.progressPct ?: 0).toFloat()) }
                     Text("Manual progress", style = MaterialTheme.typography.bodyMedium)
-                    androidx.compose.material3.Slider(value = p, onValueChange = { p = it }, onValueChangeFinished = { update { it.copy(progressPct = p.toInt().takeIf { v -> v > 0 }) } }, valueRange = 0f..100f, steps = 19)
+                    ModernSlider(p, 0f..100f, 0, { p = it }, { update { it.copy(progressPct = p.toInt().takeIf { v -> v > 0 }) } }, Modifier.fillMaxWidth())
                 }
                 // Estimate: any amount of time via the flexible duration picker (R21 #9) — the old 0–75 min
                 // dial couldn't represent longer estimates.
@@ -851,6 +890,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             onSave = { updated -> vm.updateTimeActivity(updated); editActivity = null },
             onDelete = { vm.deleteTimeActivity(act.id); editActivity = null })
     }
+    // In-app file browser fallback for attachments on ROMs with no system picker (R23).
+    if (showAttachBrowser && task != null) FileBrowser(vm, title = "Choose a file to attach", allTypes = true, confirmLabel = "Attach",
+        onDismiss = { showAttachBrowser = false }) { file -> showAttachBrowser = false; vm.addAttachmentFromFile(task.id, file) }
     if (showReminder) DateTimePickerDialog(task?.dueDate ?: System.currentTimeMillis(), { showReminder = false }) { m -> task?.let { vm.addAbsoluteReminder(it, m) }; showReminder = false }
     if (showBlockPicker && task != null) {
         val existing = allDeps.filter { it.taskId == task.id }.map { it.dependsOnTaskId }.toSet()
@@ -1209,6 +1251,28 @@ private fun PropRow(icon: ImageVector, label: String, value: String?, valueColor
     }
 }
 
+/** A modernized slider (R23): primary rounded track, a slim pill thumb and no busy tick marks — a calmer,
+ *  more current look than the default dotted M3 slider. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ModernSlider(value: Float, valueRange: ClosedFloatingPointRange<Float>, steps: Int, onValueChange: (Float) -> Unit, onFinished: (() -> Unit)?, modifier: Modifier = Modifier) {
+    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    androidx.compose.material3.Slider(
+        value = value, onValueChange = onValueChange, onValueChangeFinished = onFinished, valueRange = valueRange, steps = steps,
+        interactionSource = interaction, modifier = modifier,
+        thumb = {
+            Box(Modifier.size(width = 10.dp, height = 22.dp).clip(RoundedCornerShape(5.dp)).background(MaterialTheme.colorScheme.primary))
+        },
+        track = { state ->
+            val span = (valueRange.endInclusive - valueRange.start)
+            val frac = (if (span > 0f) (state.value - valueRange.start) / span else 0f).coerceIn(0f, 1f)
+            Box(Modifier.fillMaxWidth().height(7.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                Box(Modifier.fillMaxWidth(frac).height(7.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.primary))
+            }
+        },
+    )
+}
+
 /** An indented compact row whose value opens a dropdown of choices. */
 @Composable
 private fun <T> MenuRow(label: String, current: String, options: List<Pair<T, String>>, onPick: (T) -> Unit) {
@@ -1302,7 +1366,7 @@ private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
 private fun Dial(name: String, value: Int, onChange: (Int) -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text("$name: $value", Modifier.width(130.dp), style = MaterialTheme.typography.bodyMedium)
-        Slider(value = value.toFloat(), onValueChange = { onChange(it.roundToInt().coerceIn(1, 5)) }, valueRange = 1f..5f, steps = 3, modifier = Modifier.weight(1f))
+        ModernSlider(value.toFloat(), 1f..5f, 3, { onChange(it.roundToInt().coerceIn(1, 5)) }, null, Modifier.weight(1f))
     }
 }
 

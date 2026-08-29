@@ -104,6 +104,11 @@ class AppRepository(private val db: AppDatabase) {
     fun taskActivity(taskId: String): Flow<List<com.todocompanion.app.data.entity.ActivityEntity>> = activity.observeForTask(taskId)
     val allActivity: Flow<List<com.todocompanion.app.data.entity.ActivityEntity>> = activity.observeAll()
     suspend fun getActivitiesOnce(): List<com.todocompanion.app.data.entity.ActivityEntity> = activity.getAll()
+    // R23: the activity trail is an independent append-only log — deleting one row (or clearing the task's
+    // whole history) removes only those rows; no cascade. Derived state (e.g. a recurring task's reliability
+    // score, computed on the fly from completion events) simply recomputes from what remains.
+    suspend fun deleteActivity(id: String) = activity.deleteById(id)
+    suspend fun clearTaskActivity(taskId: String) = activity.clearForTask(taskId)
     suspend fun getFocusSessionsOnce(): List<com.todocompanion.app.data.entity.FocusSessionEntity> = focus.getAll()
     private suspend fun logActivity(taskId: String, type: String, detail: String? = null) {
         activity.insert(com.todocompanion.app.data.entity.ActivityEntity(uid(), taskId, type, now(), detail))

@@ -14,13 +14,24 @@ import com.todocompanion.app.domain.AutomationRules
 object AutomationRunner {
     suspend fun onStart(context: Context, repo: AppRepository, activityId: String) {
         val s = repo.settingsSnapshot()
+        // Expert guards (R23): evaluate the rule's time-of-day window and weekday filter at fire time.
+        val now = java.time.ZonedDateTime.now()
+        val nowMin = now.hour * 60 + now.minute
+        val dow = now.dayOfWeek.value
         val matched = AutomationRules.onStart(AutomationRules.parse(s.automationRulesJson), activityId)
+            .filter { it.passesGuard(nowMin, dow) }
         for (r in matched) when (r.actionType) {
             AutomationRule.ACTION_NOTIFY ->
                 if (r.notifyText.isNotBlank()) Notifications.simple(context, "auto:${r.id}", "Automation", r.notifyText)
             AutomationRule.ACTION_START ->
                 if (s.multiTimer && r.startActivityId.isNotBlank() && r.startActivityId != activityId)
                     repo.startTimeTracking(r.startActivityId, stopFirst = false)
+            // "Stop" a specific activity, or every OTHER running timer (never the one that just triggered).
+            AutomationRule.ACTION_STOP -> {
+                val running = repo.runningTimeEntries().filter { it.activityId != activityId }
+                val targets = if (r.stopActivityId.isBlank()) running else running.filter { it.activityId == r.stopActivityId }
+                targets.forEach { repo.stopTimeEntry(it.id) }
+            }
         }
     }
 }
