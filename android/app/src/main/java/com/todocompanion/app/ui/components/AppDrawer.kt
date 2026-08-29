@@ -271,7 +271,11 @@ fun AppDrawer(
             if ("tags" !in hidden) {
             SectionHeader("Tags", open = open("tags"), onToggle = { toggle("tags") }, onAdd = { onNewTag(null) })
             if (open("tags")) DragReorderColumn(
-                tags.filter { it.parentId == null }.sortedWith(compareBy({ it.sortOrder }, { it.name })),
+                // Show real roots (parentId == null) AND orphans whose parent isn't in the visible set,
+                // so a child is never lost just because its parent tag is filtered out (e.g. stranded in
+                // another workspace after a migration) — the whole branch would otherwise vanish.
+                run { val ids = tags.mapTo(HashSet()) { it.id }; tags.filter { it.parentId == null || it.parentId !in ids } }
+                    .sortedWith(compareBy({ it.sortOrder }, { it.name })),
                 id = { it.id }, onReorder = { vm.setTagOrder(it) },
             ) { t -> TagNode(t, 0, tags, current, vm, onSelect, onNewTag, onManageTag, onMoveTag) }
             }
@@ -595,7 +599,7 @@ private fun PinnedFavourites(
             "smart" -> runCatching { SmartKind.valueOf(id) }.getOrNull()?.let { k ->
                 val active = (current as? ViewRef.Smart)?.kind == k
                 val hideEmpty = (settings.smartListVis[k] ?: SmartVis.SHOW) == SmartVis.AUTO && (counts[k] ?: 0) == 0 && !active
-                if (hideEmpty) null else Pin(smartIcon(k), null, k.title, null, ref, active) { onSelect(ViewRef.Smart(k)) }
+                if (hideEmpty) null else Pin(smartIcon(k), null, com.todocompanion.app.domain.smartTitle(settings, k), null, ref, active) { onSelect(ViewRef.Smart(k)) }
             }
             "list" -> lists.firstOrNull { it.id == id }?.let { Pin(Icons.AutoMirrored.Filled.FormatListBulleted, it.emoji, it.name, it.colorArgb?.let(::Color), ref, current == ViewRef.ListView(id)) { onSelect(ViewRef.ListView(id)) } }
             "folder" -> folders.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.Folder, it.icon, it.name, null, ref, current == ViewRef.FolderView(id)) { onSelect(ViewRef.FolderView(id)) } }
@@ -764,7 +768,10 @@ private fun ContextNode(
 @Composable
 private fun SmartRow(kind: SmartKind, count: Int?, selected: Boolean, vm: AppViewModel, onClick: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf(false) }
     val pinRef = "smart:${kind.name}"
+    val settings by vm.settings.collectAsState()
+    val title = com.todocompanion.app.domain.smartTitle(settings, kind)
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
             .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
@@ -773,15 +780,36 @@ private fun SmartRow(kind: SmartKind, count: Int?, selected: Boolean, vm: AppVie
     ) {
         Icon(smartIcon(kind), null, tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(12.dp))
-        Text(kind.title, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
+        Text(title, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
         if (count != null) Text(count.toString(), Modifier.padding(end = 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Box {
             Icon(Icons.Filled.MoreVert, "Smart list menu", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp).clickable { menu = true })
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 MenuItem(Icons.Filled.PushPin, if (vm.isPinned(pinRef)) "Remove from Favourites" else "Add to Favourites") { vm.togglePinnedRef(pinRef); menu = false }
+                MenuItem(Icons.Filled.Edit, "Rename…") { renaming = true; menu = false }
             }
         }
+    }
+    if (renaming) {
+        val custom = settings.smartListNames[kind.name].orEmpty()
+        var text by remember(kind) { mutableStateOf(custom) }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { renaming = false },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { vm.setSmartListName(kind.name, text.trim().takeIf { it.isNotBlank() }); renaming = false }) { Text("Save") } },
+            dismissButton = {
+                Row {
+                    // "Reset" clears the custom name so the built-in title (kind.title) is used again.
+                    if (custom.isNotBlank()) androidx.compose.material3.TextButton(onClick = { vm.setSmartListName(kind.name, null); renaming = false }) { Text("Reset") }
+                    androidx.compose.material3.TextButton(onClick = { renaming = false }) { Text("Cancel") }
+                }
+            },
+            title = { Text("Rename “${kind.title}”") },
+            text = {
+                androidx.compose.material3.OutlinedTextField(value = text, onValueChange = { text = it }, singleLine = true,
+                    placeholder = { Text(kind.title) }, label = { Text("Display name") })
+            },
+        )
     }
 }
 

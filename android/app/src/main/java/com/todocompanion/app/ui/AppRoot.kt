@@ -482,7 +482,7 @@ fun AppRoot(
 
         val title = when (tab) {
             Tab.TASKS -> when (val v = currentView) {
-                is ViewRef.Smart -> v.kind.title
+                is ViewRef.Smart -> com.todocompanion.app.domain.smartTitle(settings, v.kind)
                 is ViewRef.ListView -> lists.firstOrNull { it.id == v.listId }?.name ?: "List"
                 is ViewRef.FolderView -> folders.firstOrNull { it.id == v.folderId }?.name ?: "Folder"
                 is ViewRef.TagView -> "#" + (tags.firstOrNull { it.id == v.tagId }?.name ?: "")

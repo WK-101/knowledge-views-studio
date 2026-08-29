@@ -54,6 +54,7 @@ fun SearchScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, query: String, 
     // E1: habits are searchable too — shown only under the "All" filter (task filters don't apply).
     val habitResults = remember(query, habits) { vm.searchHabits(query) }
     val lists by vm.lists.collectAsState()
+    val folders by vm.folders.collectAsState()
     var filter by remember { mutableStateOf(SF.ALL) }
     val zone = java.time.ZoneId.systemDefault()
     val shown = remember(results, filter) {
@@ -143,8 +144,12 @@ fun SearchScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, query: String, 
                                 Column(Modifier.weight(1f)) {
                                     Text(task.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
                                     if (task.note.isNotBlank()) Text(task.note.trim().lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    val listName = lists.firstOrNull { it.id == task.listId }?.name ?: "Inbox"
-                                    Text(listName + (if (task.completed) " · done" else ""), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    // Location: the task's list, or — for a task captured straight into a
+                                    // folder (empty listId) — the folder name, rather than a wrong "Inbox".
+                                    val loc = lists.firstOrNull { it.id == task.listId }?.name
+                                        ?: task.folderId?.let { fid -> folders.firstOrNull { it.id == fid }?.let { "📁 " + it.name } }
+                                        ?: "Inbox"
+                                    Text(loc + (if (task.completed) " · done" else ""), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 task.dueDate?.let { Spacer(Modifier.width(6.dp)); DueChip(it) }
                             }

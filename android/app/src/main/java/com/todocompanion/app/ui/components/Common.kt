@@ -30,7 +30,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Flag
@@ -181,9 +183,11 @@ fun flagStarSize(d: Density): Dp = when (d) {
 fun FlagStar(flagArgb: Long?, starred: Boolean, onCycleFlag: () -> Unit, onToggleStar: () -> Unit, iconSize: Dp = 26.dp) {
     val ghost = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
     val box = iconSize + 16.dp
+    // The "flag" marker uses a BOOKMARK so it's visually distinct from PRIORITY (which is the coloured
+    // flag, the TickTick/Todoist convention) — the two used to share the flag icon and looked identical.
     Box(Modifier.size(box).clip(CircleShape).clickable { onCycleFlag() }, contentAlignment = Alignment.Center) {
-        if (flagArgb != null) Icon(Icons.Filled.Flag, "Flag", tint = Color(flagArgb), modifier = Modifier.size(iconSize))
-        else Icon(Icons.Outlined.Flag, "Flag", tint = ghost, modifier = Modifier.size(iconSize))
+        if (flagArgb != null) Icon(Icons.Filled.Bookmark, "Flag", tint = Color(flagArgb), modifier = Modifier.size(iconSize))
+        else Icon(Icons.Outlined.BookmarkBorder, "Flag", tint = ghost, modifier = Modifier.size(iconSize))
     }
     Box(Modifier.size(box).clip(CircleShape).clickable { onToggleStar() }, contentAlignment = Alignment.Center) {
         if (starred) Icon(Icons.Filled.Star, "Star", tint = Color(0xFFF5A623), modifier = Modifier.size(iconSize + 1.dp))

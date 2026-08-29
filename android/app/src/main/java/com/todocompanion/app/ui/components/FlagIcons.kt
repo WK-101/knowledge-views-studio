@@ -28,6 +28,8 @@ object FlagIcons {
         "fire" -> Icons.Filled.Whatshot
         "heart" -> Icons.Filled.Favorite
         "priority" -> Icons.Filled.PriorityHigh
-        else -> Icons.Filled.Flag
+        "flag" -> Icons.Filled.Flag
+        // Default marker is a bookmark, kept visually distinct from PRIORITY (the coloured flag).
+        else -> Icons.Filled.Bookmark
     }
 }

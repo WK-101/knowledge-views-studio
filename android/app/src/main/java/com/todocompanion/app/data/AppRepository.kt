@@ -614,11 +614,14 @@ class AppRepository(private val db: AppDatabase) {
         workspaces.upsert(WorkspaceEntity(id, name, now().toDouble()))
         return id
     }
-    /** Delete a workspace, reassigning its folders/lists (and thus tasks) to the default space. */
+    /** Delete a workspace, reassigning its folders/lists/tags/contexts (and thus tasks) to the default
+     *  space so nothing is left stranded on a workspaceId that no longer exists (which would hide it). */
     suspend fun deleteWorkspace(id: String) {
         if (id == WorkspaceEntity.DEFAULT_ID) return
         folders.getAll().filter { it.workspaceId == id }.forEach { folders.upsert(it.copy(workspaceId = WorkspaceEntity.DEFAULT_ID)) }
         lists.getAll().filter { it.workspaceId == id }.forEach { lists.upsert(it.copy(workspaceId = WorkspaceEntity.DEFAULT_ID)) }
+        tags.getAll().filter { it.workspaceId == id }.forEach { tags.upsert(it.copy(workspaceId = WorkspaceEntity.DEFAULT_ID)) }
+        contexts.getAll().filter { it.workspaceId == id }.forEach { contexts.upsert(it.copy(workspaceId = WorkspaceEntity.DEFAULT_ID)) }
         workspaces.deleteById(id)
     }
 

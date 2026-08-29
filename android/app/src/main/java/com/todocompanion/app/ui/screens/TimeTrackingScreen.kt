@@ -382,7 +382,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                                             if (pinned) { Spacer(Modifier.width(4.dp)); Text("★", style = MaterialTheme.typography.labelSmall, color = c) }
                                         }
                                         Spacer(Modifier.height(3.dp))
-                                        Text((if (a.id in childIds) "↳ " else "") + a.name, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                        Text((if (a.id in childIds) "↳ " else "") + a.name, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = androidx.compose.ui.text.style.TextAlign.Center, lineHeight = androidx.compose.ui.unit.TextUnit(13f, androidx.compose.ui.unit.TextUnitType.Sp))
                                         Text(if (isRun) "● running" else if (todayMin > 0) fmtDur(todayMin) else "start",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = if (isRun) c else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)

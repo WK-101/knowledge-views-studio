@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -77,6 +78,7 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
 
     var pomo by remember { mutableStateOf(true) }
     var pomoMin by remember { mutableIntStateOf(25) }              // configurable Pomodoro length
+    var showCustomPomo by remember { mutableStateOf(false) }       // custom (any HH:MM) focus length
     var focusTaskId by remember { mutableStateOf<String?>(null) }  // the task this session is spent on
     var focusHabitId by remember { mutableStateOf<String?>(null) } // a habit this session credits
     // Seconds banked from earlier (paused) segments of THIS session; the live segment adds on top.
@@ -208,11 +210,25 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
         if (pomo && !running && bankedSec == 0) {
             Spacer(Modifier.size(10.dp))
             androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf(15, 25, 45, 60).forEach { m ->
+                val presets = listOf(15, 25, 45, 60)
+                presets.forEach { m ->
                     androidx.compose.material3.FilterChip(selected = pomoMin == m, onClick = { pomoMin = m }, label = { Text("$m min") })
                 }
+                // Custom length: any hours:minutes via the shared time picker, so the presets aren't a cap.
+                val isCustom = pomoMin !in presets
+                androidx.compose.material3.FilterChip(
+                    selected = isCustom,
+                    onClick = { showCustomPomo = true },
+                    label = { Text(if (isCustom) "$pomoMin min" else "Custom…") },
+                    leadingIcon = { androidx.compose.material3.Icon(Icons.Filled.Tune, null, modifier = Modifier.size(16.dp)) },
+                )
             }
         }
+        if (showCustomPomo) com.todocompanion.app.ui.components.TimeFieldDialog(
+            initialMinuteOfDay = pomoMin.coerceIn(1, 1439),
+            onDismiss = { showCustomPomo = false },
+            onConfirm = { mins -> pomoMin = mins.coerceIn(1, 1439); showCustomPomo = false },
+        )
         Spacer(Modifier.size(12.dp))
         // Task (or habit) the session is spent on.
         val habitTitle = focusHabitId?.let { id -> habits.firstOrNull { it.id == id }?.let { (it.emoji?.plus(" ") ?: "") + it.name } }

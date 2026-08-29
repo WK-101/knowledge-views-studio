@@ -945,15 +945,16 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hou
             Row(
                 Modifier.offset(x = railW + laneW * p.lane + 1.dp, y = top).width(laneW - 1.dp).height(h - 2.dp)
                     .clip(RoundedCornerShape(6.dp)).background(c.copy(alpha = if (dragging) 0.30f else 0.16f))
-                    // Long-press then drag to move the block to another time; tap opens the task.
+                    // Tap opens the task; long-press then SLIDE moves the block to another time; a long-press
+                    // that is released without sliding also opens the task (so a "hold" never falls through to
+                    // the empty-slot time-block popup behind it). consume() keeps the grid from scrolling mid-drag.
                     .pointerInput(p.task.id, hourDp) {
+                        var startLive = liveStart
                         detectDragGesturesAfterLongPress(
-                            onDragStart = { dragging = true },
-                            // consume() so the enclosing vertical scroll doesn't fight the drag (R23 — the
-                            // "stuck"/janky feel came from the grid scrolling mid-drag).
+                            onDragStart = { dragging = true; startLive = liveStart },
                             onDrag = { change, off -> change.consume(); liveStart = snap((liveStart + (off.y / hourPx * 60f).toInt())).coerceIn(0, 1440 - liveDur) },
-                            onDragEnd = { dragging = false; onMoveAt(p.task.id, liveStart) },
-                            onDragCancel = { dragging = false },
+                            onDragEnd = { dragging = false; if (liveStart != startLive) onMoveAt(p.task.id, liveStart) else onOpenTask(p.task.id) },
+                            onDragCancel = { dragging = false; liveStart = startLive },
                         )
                     }
                     .clickable { onOpenTask(p.task.id) },
@@ -1003,9 +1004,12 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hou
                 }
             }
             // Untimed habits have no reminder time — stack them as compact chips down the top of the habit
-            // lane rather than piling them all at a fake 09:00 (R23). Reads as "today's habits".
+            // lane rather than piling them all at a fake 09:00 (R23). Their offset/height scale with the
+            // pinch zoom (via `z`) so they grow and space out with the hour grid instead of staying pinned
+            // at a fixed size on top.
+            val z = (hourDp / HOUR_DP).coerceIn(0.6f, 3f)
             untimedH.forEachIndexed { i, hb ->
-                habitChip(hb, Modifier.offset(x = habitAreaX, y = (2 + i * 24).dp).width(habitAreaW).height(22.dp))
+                habitChip(hb, Modifier.offset(x = habitAreaX, y = ((2 + i * 24) * z).dp).width(habitAreaW).height((22 * z).dp.coerceAtLeast(18.dp)))
             }
             // Timed habits sit at their reminder time; lane-split so simultaneous ones never overlap.
             if (timedH.isNotEmpty()) {

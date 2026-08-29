@@ -347,8 +347,10 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     Text("⚑ Deadline " + formatDue(dl), Modifier.padding(start = 34.dp), style = MaterialTheme.typography.labelSmall,
                         color = if (passed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary)
                 }
-                if (task.dueDate != null) MenuRow("Show early", task.leadTimeMin?.let { "${it / 1440}d early" } ?: "Default",
-                    listOf<Pair<Int?, String>>(null to "Default (7 days)", 1 to "1 day early", 3 to "3 days early", 7 to "1 week early", 14 to "2 weeks early")) { d -> update { it.copy(leadTimeMin = d?.let { n -> n * 1440 }) } }
+                // Distinct from "Starts" (which defers a task by its own start date): this is how far
+                // BEFORE the due date the task begins ramping up in urgency / surfacing.
+                if (task.dueDate != null) MenuRow("Surface before due", task.leadTimeMin?.let { "${it / 1440}d before" } ?: "Default",
+                    listOf<Pair<Int?, String>>(null to "Default (7 days)", 1 to "1 day before", 3 to "3 days before", 7 to "1 week before", 14 to "2 weeks before")) { d -> update { it.copy(leadTimeMin = d?.let { n -> n * 1440 }) } }
             }
 
             // T2: track time against this task (Time module only). Planned (duration/estimate) vs actual,
@@ -637,19 +639,28 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     }
                 }
                 val attachCtx = androidx.compose.ui.platform.LocalContext.current
+                // Universal fallback: if the system picker is missing, the app's own file browser always
+                // works — it just needs storage access, which we request right here rather than dead-ending
+                // on a toast. So "Browse device" is always offered and self-heals the permission.
+                val readPermLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) showAttachBrowser = true }
+                val manageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { if (vm.canBrowseStorage()) showAttachBrowser = true }
+                fun browseDevice() {
+                    when {
+                        vm.canBrowseStorage() -> showAttachBrowser = true
+                        android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R ->
+                            runCatching { manageLauncher.launch(com.todocompanion.app.util.FileExport.manageAllFilesIntent(attachCtx)) }
+                                .onFailure { android.widget.Toast.makeText(attachCtx, "Grant “All files access” in Settings to browse for files.", android.widget.Toast.LENGTH_LONG).show() }
+                        else -> readPermLauncher.launch(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+                    }
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = {
-                        try { pickFile.launch(arrayOf("*/*")) }
-                        catch (e: Exception) {
-                            if (vm.canBrowseStorage()) showAttachBrowser = true
-                            else android.widget.Toast.makeText(attachCtx, "No system file picker on this device. Enable “All files access” (Settings → Backup & data) to browse for files.", android.widget.Toast.LENGTH_LONG).show()
-                        }
+                        // Prefer the system picker (nicer, no permission); fall back to the app browser.
+                        try { pickFile.launch(arrayOf("*/*")) } catch (e: Exception) { browseDevice() }
                     }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Icon(Icons.Filled.AttachFile, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Add file") }
-                    // Always-available reliable path for de-Googled phones with no system picker (R23).
-                    if (vm.canBrowseStorage()) {
-                        Spacer(Modifier.width(4.dp))
-                        TextButton(onClick = { showAttachBrowser = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Icon(Icons.Filled.Folder, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Browse device") }
-                    }
+                    // Always-available reliable path for de-Googled phones with no system picker.
+                    Spacer(Modifier.width(4.dp))
+                    TextButton(onClick = { browseDevice() }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Icon(Icons.Filled.Folder, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Browse device") }
                 }
                 if (attachments.isEmpty()) Text("Any file up to 25 MB — images, PDF, docs. Stored on-device and in backups.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

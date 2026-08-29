@@ -195,7 +195,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val now = System.currentTimeMillis()
             val (ttRefs, tcRefs) = refs
             val (lists, folders) = lf
-            val (_, _, filtersL) = tcf
+            val (allTagsL, _, filtersL) = tcf
             val active = all.filter { !it.trashed && !it.completed && !it.abandoned }
             val activeIds = active.mapTo(HashSet()) { it.id }
             val listCounts = active.groupingBy { it.listId }.eachCount()
@@ -203,7 +203,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 val ids = folderListIds(fo.id, lists, folders)
                 fo.id to active.count { it.listId in ids || it.folderId == fo.id }
             }
-            val tagCounts = ttRefs.filter { it.taskId in activeIds }.groupingBy { it.tagId }.eachCount()
+            // Tag counts roll up the subtree, like folders: a parent tag's count includes every task
+            // tagged with it OR any descendant tag (distinct tasks, so a task tagged with both parent
+            // and child isn't double-counted).
+            val tasksByTag = ttRefs.filter { it.taskId in activeIds }.groupBy { it.tagId }.mapValues { e -> e.value.mapTo(HashSet()) { it.taskId } }
+            val tagChildren = allTagsL.groupBy { it.parentId }
+            val tagCounts = allTagsL.associate { tg ->
+                val seen = HashSet<String>(); val stack = ArrayDeque<String>().apply { add(tg.id) }
+                val taskIds = HashSet<String>()
+                while (stack.isNotEmpty()) { val id = stack.removeLast(); if (seen.add(id)) { tasksByTag[id]?.let { taskIds.addAll(it) }; tagChildren[id]?.forEach { stack.add(it.id) } } }
+                tg.id to taskIds.size
+            }.filterValues { it > 0 }
             val ctxCounts = tcRefs.filter { it.taskId in activeIds }.groupingBy { it.contextId }.eachCount()
             val tagsByTask = ttRefs.groupBy { it.taskId }.mapValues { e -> e.value.map { it.tagId }.toSet() }
             val ctxByTask = tcRefs.groupBy { it.taskId }.mapValues { e -> e.value.map { it.contextId }.toSet() }
@@ -661,7 +671,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun currentTitle(): String = when (val v = currentView.value) {
-        is ViewRef.Smart -> v.kind.title
+        is ViewRef.Smart -> com.todocompanion.app.domain.smartTitle(settings.value, v.kind)
         is ViewRef.ListView -> lists.value.firstOrNull { it.id == v.listId }?.name ?: "List"
         is ViewRef.FolderView -> folders.value.firstOrNull { it.id == v.folderId }?.name ?: "Folder"
         is ViewRef.TagView -> "#" + (tags.value.firstOrNull { it.id == v.tagId }?.name ?: "tag")
@@ -2732,6 +2742,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- settings ----------
     fun saveSettings(s: AppSettings) = viewModelScope.launch { repo.saveSettings(s) }
+    /** Rename a smart list (null/blank clears the custom name → reverts to the built-in title). */
+    fun setSmartListName(kindName: String, name: String?) = viewModelScope.launch {
+        val s = settings.value
+        val next = s.smartListNames.toMutableMap()
+        if (name.isNullOrBlank()) next.remove(kindName) else next[kindName] = name.trim()
+        repo.saveSettings(s.copy(smartListNames = next))
+    }
 
     // ---------- sidebar favourites (pin to top) ----------
     fun isPinned(ref: String): Boolean = ref in settings.value.pinnedRefs

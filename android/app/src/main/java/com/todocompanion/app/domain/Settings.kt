@@ -17,6 +17,9 @@ enum class SwipeAction(val label: String) {
     MOVE("Move")
 }
 
+/** The display name for a smart list — the user's custom name if set, else the built-in title. */
+fun smartTitle(settings: AppSettings, k: SmartKind): String = settings.smartListNames[k.name]?.takeIf { it.isNotBlank() } ?: k.title
+
 /** Typed snapshot of app settings, with defaults. */
 data class AppSettings(
     val firstView: FirstView = FirstView.MATRIX,
@@ -47,6 +50,8 @@ data class AppSettings(
     val swipeLeftFar: SwipeAction = SwipeAction.NONE,    // triggered by a longer left-swipe
     // Sidebar: per-smart-list visibility (absent = Show)
     val smartListVis: Map<SmartKind, SmartVis> = emptyMap(),
+    // Custom display names for smart lists (key = SmartKind.name). Empty = use the built-in title.
+    val smartListNames: Map<String, String> = emptyMap(),
     // Bottom navigation: tab names hidden from the bar (TASKS is always shown)
     val bottomTabsHidden: Set<String> = emptySet(),
     // Active workspace (MLO-style separate space)
@@ -241,6 +246,8 @@ data class AppSettings(
         Keys.SWIPE_RF to swipeRightFar.name,
         Keys.SWIPE_LF to swipeLeftFar.name,
         Keys.SMART_VIS to smartListVis.entries.joinToString(",") { "${it.key.name}:${it.value.name}" },
+        // Control-char separators (U+0001 entries, U+0002 key/value) so a name may contain commas/colons/spaces.
+        Keys.SMART_NAMES to smartListNames.entries.joinToString("\u0001") { "${it.key}\u0002${it.value}" },
         Keys.BOTTOM_HIDDEN to bottomTabsHidden.joinToString(","),
         Keys.PRIMARY_MODULE to primaryModule,
         Keys.DISABLED_MODULES to disabledModules.joinToString(","),
@@ -346,6 +353,7 @@ data class AppSettings(
         const val SWIPE_RF = "swipe_rf"
         const val SWIPE_LF = "swipe_lf"
         const val SMART_VIS = "smart_vis"
+        const val SMART_NAMES = "smart_names"
         const val BOTTOM_HIDDEN = "bottom_hidden"
         const val PRIMARY_MODULE = "primary_module"
         const val DISABLED_MODULES = "disabled_modules"
@@ -482,6 +490,9 @@ data class AppSettings(
                 val k = runCatching { enumValueOf<SmartKind>(p[0]) }.getOrNull()
                 val v = runCatching { enumValueOf<SmartVis>(p[1]) }.getOrNull()
                 if (k != null && v != null) k to v else null
+            }.toMap(),
+            smartListNames = (m[Keys.SMART_NAMES] ?: "").split('\u0001').filter { it.isNotBlank() }.mapNotNull { pair ->
+                val p = pair.split('\u0002'); if (p.size == 2 && p[1].isNotBlank()) p[0] to p[1] else null
             }.toMap(),
             bottomTabsHidden = (m[Keys.BOTTOM_HIDDEN] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             primaryModule = m[Keys.PRIMARY_MODULE]?.takeIf { it.isNotBlank() } ?: "tasks",

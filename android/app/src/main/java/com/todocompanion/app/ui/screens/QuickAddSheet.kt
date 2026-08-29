@@ -101,6 +101,7 @@ fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Bo
 
     val focus = remember { FocusRequester() }
 
+    val qaCtx = androidx.compose.ui.platform.LocalContext.current
     val attachLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) attachments = attachments + uri
     }
@@ -215,7 +216,13 @@ fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Bo
                         }
                     }
                     IconTool(Icons.AutoMirrored.Filled.FormatListBulleted, "List or folder", listId != null || folderId != null) { listPicker = true }
-                    IconTool(Icons.Filled.AttachFile, "Attach a file", attachments.isNotEmpty()) { attachLauncher.launch("*/*") }
+                    IconTool(Icons.Filled.AttachFile, "Attach a file", attachments.isNotEmpty()) {
+                        // Guard against a device with no picker (would otherwise crash); the task editor's
+                        // "Browse device" is the reliable fallback for attaching there instead.
+                        try { attachLauncher.launch("*/*") } catch (e: Exception) {
+                            android.widget.Toast.makeText(qaCtx, "No file picker here — open the task and use “Browse device” to attach.", android.widget.Toast.LENGTH_LONG).show()
+                        }
+                    }
                     IconTool(Icons.Filled.Mic, "Dictate task", false) { startVoice() }
                 }
                 Spacer(Modifier.width(6.dp))

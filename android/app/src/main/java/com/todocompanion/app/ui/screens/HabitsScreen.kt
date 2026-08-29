@@ -685,6 +685,7 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
     var target by remember { mutableStateOf(existing?.targetPerDay ?: 1) }
     var days by remember { mutableStateOf(HabitStats.parseSchedule(existing?.scheduleDays ?: "")) }
     var reminders by remember { mutableStateOf(existing?.reminderTimes.orEmpty().split(",").mapNotNull { it.trim().toIntOrNull() }.filter { it in 0..1439 }.toSortedSet()) }
+    var showReminderPicker by remember { mutableStateOf(false) }
     var freqType by remember { mutableStateOf(existing?.freqType ?: HabitStats.FREQ_WEEKLY) }
     var freqParam by remember { mutableStateOf((existing?.freqParam ?: 3).coerceAtLeast(1)) }
     var habitType by remember { mutableStateOf(existing?.habitType ?: "build") }
@@ -870,11 +871,17 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
                         TextButton(onClick = { reminders = reminders.toSortedSet().also { it.remove(m) } }) { Text("Remove") }
                     }
                 }
-                TextButton(onClick = {
-                    val n = java.time.LocalTime.now()
-                    android.app.TimePickerDialog(ctx, { _, hr, min -> reminders = reminders.toSortedSet().also { it.add(hr * 60 + min) } },
-                        n.hour, n.minute, android.text.format.DateFormat.is24HourFormat(ctx)).show()
-                }, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)) { Text("＋ Add reminder time") }
+                // Use the app's own Material3 time picker (not the OS dialog) so the surface matches every
+                // other time selection in the app.
+                TextButton(onClick = { showReminderPicker = true }, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)) { Text("＋ Add reminder time") }
+            }
+            if (showReminderPicker) {
+                val n = java.time.LocalTime.now()
+                com.todocompanion.app.ui.components.TimeFieldDialog(
+                    initialMinuteOfDay = n.hour * 60 + n.minute,
+                    onDismiss = { showReminderPicker = false },
+                    onConfirm = { mins -> reminders = reminders.toSortedSet().also { it.add(mins) }; showReminderPicker = false },
+                )
             }
 
             // E6: everything below folds behind one tap so a new habit stays as simple as quick-add.
