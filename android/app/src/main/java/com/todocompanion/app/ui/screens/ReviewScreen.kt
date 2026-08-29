@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -56,6 +57,10 @@ import java.time.ZoneId
 fun ReviewScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> Unit) {
     BackHandler { onBack() }
     val allTasks by vm.tasks.collectAsState()
+    // R27 Done Record — the material for the "Today I did" highlights card.
+    val reviewHabits by vm.habits.collectAsState()
+    val reviewCheckins by vm.habitCheckins.collectAsState()
+    val reviewTimeEntries by vm.timeEntries.collectAsState()
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now()
     val startOfToday = today.atStartOfDay(zone).toInstant().toEpochMilli()
@@ -91,6 +96,43 @@ fun ReviewScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> U
                 Text("$doneThisWeek done in the last 7 days · $openCount still open", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.height(12.dp))
+
+            // R27 "Today I did" — the day closes on a record of what you accomplished, not just what's left.
+            run {
+                val todayEd = today.toEpochDay()
+                val todayFeed = remember(allTasks, reviewHabits, reviewCheckins, reviewTimeEntries) {
+                    com.todocompanion.app.domain.done.DoneRecord.build(allTasks, reviewHabits, reviewCheckins, reviewTimeEntries, zone)
+                        .filter { it.epochDay == todayEd }
+                }
+                if (todayFeed.isNotEmpty()) {
+                    val tasksDone = todayFeed.count { it.isTaskLike }
+                    val focusMin = todayFeed.filter { it.kind == com.todocompanion.app.domain.done.DoneKind.FOCUS }.sumOf { it.durationMin }
+                    val habitsKept = todayFeed.count { it.kind == com.todocompanion.app.domain.done.DoneKind.HABIT }
+                    // Top three, wins first, then longer/earlier work.
+                    val highlights = todayFeed.filter { it.isTaskLike }
+                        .sortedWith(compareByDescending<com.todocompanion.app.domain.done.Accomplishment> { it.isWin }.thenByDescending { it.durationMin })
+                        .take(3)
+                    AppCard {
+                        Text("Today I did", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(6.dp))
+                        Text(buildString {
+                            append("✓ $tasksDone done")
+                            if (focusMin > 0) append("   ·   🎯 ${focusMin}m focused")
+                            if (habitsKept > 0) append("   ·   🔁 $habitsKept habits")
+                        }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (highlights.isNotEmpty()) {
+                            Spacer(Modifier.height(8.dp))
+                            highlights.forEach { a ->
+                                Row(Modifier.fillMaxWidth().clickable { onOpenTask(a.refId) }.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(if (a.isWin) "⭐" else "•", modifier = Modifier.width(22.dp))
+                                    Text(a.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
+            }
 
             // L3: weekly habit review — the week's wins and the one that's slipping.
             HabitsReviewCard(vm)

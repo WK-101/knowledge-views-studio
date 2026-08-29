@@ -346,6 +346,7 @@ fun AppRoot(
         var templatePicker by remember { mutableStateOf(false) }
         var showAttachments by remember { mutableStateOf(false) }
         var showCountdowns by remember { mutableStateOf(false) }
+        var showDone by remember { mutableStateOf(false) }   // R27 The Done Record
         var showPlan by remember { mutableStateOf(false) }
         // Tier Ω: the command palette, the any-period recap overlay, and the annual-report picker.
         var showPalette by remember { mutableStateOf(false) }
@@ -556,6 +557,7 @@ fun AppRoot(
                     onOpenTemplates = { templatePicker = true; scope.launch { drawerState.close() } },
                     onOpenAttachments = { showAttachments = true; scope.launch { drawerState.close() } },
                     onOpenCountdowns = { showCountdowns = true; scope.launch { drawerState.close() } },
+                    onOpenDone = { showDone = true; scope.launch { drawerState.close() } },
                     onOpenMomentum = { showMomentum = true; scope.launch { drawerState.close() } },
                     onOpenTime = { showTimeTracking = true; scope.launch { drawerState.close() } },
                     onOpenRecap = { val td = java.time.LocalDate.now().toEpochDay(); recapRange = Triple(td - 6, td, "This week"); scope.launch { drawerState.close() } },
@@ -860,6 +862,7 @@ fun AppRoot(
         if (showStats) com.todocompanion.app.ui.screens.StatisticsScreen(vm, onBack = { showStats = false })
         if (showAttachments) com.todocompanion.app.ui.screens.AttachmentsScreen(vm, onOpenTask = { showAttachments = false; openTask(it) }, onBack = { showAttachments = false })
         if (showCountdowns) com.todocompanion.app.ui.screens.CountdownScreen(vm, onBack = { showCountdowns = false })
+        if (showDone) com.todocompanion.app.ui.screens.DoneScreen(vm, onOpenTask = { showDone = false; openTask(it) }, onBack = { showDone = false })
         if (showPlan) com.todocompanion.app.ui.screens.PlanYourDayScreen(vm, onOpenTask = { showPlan = false; openTask(it) }, onBack = { showPlan = false })
         if (showReview) com.todocompanion.app.ui.screens.ReviewScreen(vm, onOpenTask = { showReview = false; openTask(it) }, onBack = { showReview = false })
         if (showMomentum) com.todocompanion.app.ui.screens.MomentumScreen(vm, onBack = { showMomentum = false })

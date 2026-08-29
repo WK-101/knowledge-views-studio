@@ -145,6 +145,7 @@ fun AppDrawer(
     onOpenTemplates: () -> Unit = {},
     onOpenAttachments: () -> Unit = {},
     onOpenCountdowns: () -> Unit = {},
+    onOpenDone: () -> Unit = {},
     onOpenMomentum: () -> Unit = {},
     onOpenTime: () -> Unit = {},
     onOpenRecap: () -> Unit = {},
@@ -221,6 +222,7 @@ fun AppDrawer(
                         ref == "more:templates" -> onOpenTemplates()
                         ref == "more:countdowns" -> onOpenCountdowns()
                         ref == "more:attachments" -> onOpenAttachments()
+                        ref == "more:done" -> onOpenDone()
                         ref == "more:statistics" -> onOpenStats()
                         ref == "more:review" -> onOpenReview()
                         ref == "more:recap" -> onOpenRecap()
@@ -358,6 +360,7 @@ fun AppDrawer(
                 if ("templates" !in hidden) DrawerRow(Icons.Filled.ContentCopy, "Templates", pinned = vm.isPinned("more:templates"), onLongClick = { vm.togglePinnedRef("more:templates") }, onClick = onOpenTemplates)
                 if ("countdowns" !in hidden) DrawerRow(Icons.Filled.Timelapse, "Countdowns", pinned = vm.isPinned("more:countdowns"), onLongClick = { vm.togglePinnedRef("more:countdowns") }, onClick = onOpenCountdowns)
                 if ("attachments" !in hidden) DrawerRow(Icons.Filled.AttachFile, "Attachments", pinned = vm.isPinned("more:attachments"), onLongClick = { vm.togglePinnedRef("more:attachments") }, onClick = onOpenAttachments)
+                if ("done" !in hidden) DrawerRow(Icons.Filled.EmojiEvents, "The Record", pinned = vm.isPinned("more:done"), onLongClick = { vm.togglePinnedRef("more:done") }, onClick = onOpenDone)
                 if ("statistics" !in hidden) DrawerRow(Icons.Filled.BarChart, "Statistics", pinned = vm.isPinned("more:statistics"), onLongClick = { vm.togglePinnedRef("more:statistics") }, onClick = onOpenStats)
                 if ("review" !in hidden) DrawerRow(Icons.Filled.ChecklistRtl, "Weekly review", pinned = vm.isPinned("more:review"), onLongClick = { vm.togglePinnedRef("more:review") }, onClick = onOpenReview)
                 if ("recap" !in hidden) DrawerRow(Icons.Filled.AutoAwesome, "Recap", pinned = vm.isPinned("more:recap"), onLongClick = { vm.togglePinnedRef("more:recap") }, onClick = onOpenRecap)

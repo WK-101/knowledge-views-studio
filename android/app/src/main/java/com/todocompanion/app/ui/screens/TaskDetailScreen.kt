@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Flag
@@ -815,6 +816,47 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     Icon(if (moreExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(if (moreExpanded) "Show fewer fields" else "More fields")
+                }
+            }
+
+            // R27 The Done Record — reflection on a finished task: mark it a win, note the outcome/impact,
+            // capture a lesson or a compliment, rate how it felt. All optional; it feeds the accomplishment
+            // record, the trophy case and the brag document. Shown once complete, or whenever it holds a note.
+            val hasReflection = task.winFlag || !task.outcomeNote.isNullOrBlank() || !task.learnedNote.isNullOrBlank() || !task.praiseQuote.isNullOrBlank() || task.mood != null
+            if (task.completed || hasReflection) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                Column(Modifier.padding(top = 8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.EmojiEvents, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text("Reflection", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                        FilterChip(selected = task.winFlag, onClick = { update { it.copy(winFlag = !it.winFlag) } },
+                            label = { Text("Win") },
+                            leadingIcon = { Icon(if (task.winFlag) Icons.Filled.Star else Icons.Filled.StarBorder, null, Modifier.size(16.dp)) })
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    // Mood: how it felt to finish. Tap again to clear.
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val moods = listOf(1 to "😞", 2 to "😕", 3 to "🙂", 4 to "😀", 5 to "🤩")
+                        moods.forEach { (v, e) ->
+                            val sel = task.mood == v
+                            Text(e, style = MaterialTheme.typography.titleLarge,
+                                modifier = Modifier.clip(CircleShape)
+                                    .background(if (sel) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                                    .clickable { update { it.copy(mood = if (sel) null else v) } }
+                                    .padding(6.dp))
+                            Spacer(Modifier.width(4.dp))
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    com.todocompanion.app.ui.components.AppTextField(task.outcomeNote ?: "", { v -> update { it.copy(outcomeNote = v) } },
+                        label = { Text("Outcome / impact") }, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(6.dp))
+                    com.todocompanion.app.ui.components.AppTextField(task.learnedNote ?: "", { v -> update { it.copy(learnedNote = v) } },
+                        label = { Text("What I learned") }, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(6.dp))
+                    com.todocompanion.app.ui.components.AppTextField(task.praiseQuote ?: "", { v -> update { it.copy(praiseQuote = v) } },
+                        label = { Text("Praise / thank-you to remember") }, modifier = Modifier.fillMaxWidth())
                 }
             }
 

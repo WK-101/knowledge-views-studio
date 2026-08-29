@@ -69,6 +69,14 @@ data class TaskEntity(
     val progressPct: Int? = null,   // manual completion 0..100 for a leaf task (null = none / use rollup)
     val isGoal: Boolean = false,
     val isProject: Boolean = false,
+
+    // The Done Record (R27): additive completion metadata that turns a finished task from a dead archive
+    // line into a record worth reading back. All optional, off by default, and part of the lossless export.
+    val outcomeNote: String? = null,   // what came of it / the impact — the brag-doc line
+    val winFlag: Boolean = false,      // "this was a win" — feeds the Trophy case + brag doc
+    val learnedNote: String? = null,   // a lesson captured on finishing — the learnings log
+    val praiseQuote: String? = null,   // a compliment / thank-you pinned to this work
+    val mood: Int? = null,             // how it felt to finish: 1=rough … 5=great (null = unrated)
     // Q2: the habit "identity/why" + reward vocabulary, on goals & projects. whyText shows when you open
     // the goal (the reason it matters); rewardText fires as a celebration when the goal is completed.
     val whyText: String = "",

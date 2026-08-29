@@ -953,6 +953,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
     fun save(t: TaskEntity) = viewModelScope.launch { repo.saveTask(t) }
+
+    // ---------- The Done Record (R27) ----------
+    /** Flip the "this was a win" flag — one tap from the accomplishment feed or the task editor. */
+    fun toggleWin(t: TaskEntity) = viewModelScope.launch { repo.saveTask(t.copy(winFlag = !t.winFlag)) }
+    /** Save a generated brag document (Markdown) to a reachable location, no system picker needed. */
+    fun exportBragDoc(markdown: String, onDone: (String?) -> Unit) = viewModelScope.launch {
+        val loc = runCatching {
+            com.todocompanion.app.util.FileExport.saveToDownloads(appCtx, "brag-document.md", "text/markdown", markdown.toByteArray())
+        }.getOrNull()
+        onDone(loc)
+    }
     /** Selection-bar "Make subtask of…": nest every selected task under [parentId] (the parent itself,
      *  if it happens to be in the selection, is skipped so it can't become its own child). Cycle-safe. */
     fun nestManyUnder(childIds: Set<String>, parentId: String) = viewModelScope.launch {

@@ -69,7 +69,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         com.todocompanion.app.data.entity.TimeActivityEntity::class,
         com.todocompanion.app.data.entity.TimeEntryEntity::class,
     ],
-    version = 38,
+    version = 39,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -416,6 +416,19 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // R27 The Done Record: additive completion metadata on tasks (outcome/impact, win flag, learned
+        // note, praise quote, day mood). All nullable/defaulted, so existing rows keep working; every
+        // field lands in the lossless JSON backup. No new tables, no new permissions, 0 network.
+        private val MIGRATION_38_39 = object : Migration(38, 39) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `outcomeNote` TEXT")
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `winFlag` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `learnedNote` TEXT")
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `praiseQuote` TEXT")
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `mood` INTEGER")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: run {
@@ -428,7 +441,7 @@ abstract class AppDatabase : RoomDatabase() {
                     val factory = runCatching { com.todocompanion.app.data.security.SecureDb.openFactory(app) }.getOrNull()
                     Room.databaseBuilder(app, AppDatabase::class.java, "todocompanion.db")
                         .apply { if (factory != null) openHelperFactory(factory) }
-                        .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30, MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35, MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38)
+                        .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30, MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35, MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39)
                         .fallbackToDestructiveMigration()
                         .build()
                         .also { INSTANCE = it }
