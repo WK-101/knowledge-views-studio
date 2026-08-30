@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import com.todocompanion.app.data.AppRepository
+import com.todocompanion.app.data.entity.EventEntity
 import com.todocompanion.app.data.entity.ReminderEntity
 import com.todocompanion.app.data.entity.TaskEntity
 import java.time.Instant
@@ -28,6 +29,7 @@ object AlarmScheduler {
     const val ACTION_HABIT_DONE = "com.todocompanion.app.action.HABIT_DONE"
     const val ACTION_HABIT_SNOOZE = "com.todocompanion.app.action.HABIT_SNOOZE"
     const val ACTION_MORNING = "com.todocompanion.app.action.MORNING"
+    const val ACTION_EVENT_ALERT = "com.todocompanion.app.action.EVENT_ALERT"
 
     const val EXTRA_TASK_ID = "taskId"
     const val EXTRA_TITLE = "title"
@@ -38,6 +40,11 @@ object AlarmScheduler {
     const val EXTRA_HABIT_ID = "habitId"
     const val EXTRA_HABIT_NAME = "habitName"
     const val EXTRA_HABIT_MIN = "habitMin"
+    const val EXTRA_EVENT_ID = "eventId"
+    const val EXTRA_EVENT_TITLE = "eventTitle"
+    const val EXTRA_EVENT_LOC = "eventLoc"
+    const val EXTRA_EVENT_START = "eventStart"
+    const val EXTRA_EVENT_MIN = "eventMin"
 
     private const val SUMMARY_REQ = 918_273
     private const val EVENING_REQ = 918_275
@@ -222,5 +229,59 @@ object AlarmScheduler {
         if (next <= System.currentTimeMillis()) next += 86_400_000L
         setAlarm(context, next, broadcast(context, ACTION_HABIT, habitReqCode(habitId, minute),
             mapOf(EXTRA_HABIT_ID to habitId, EXTRA_HABIT_NAME to habitName, EXTRA_HABIT_MIN to minute.toString())))
+    }
+
+    // ---------- R38 · calendar event alerts ----------
+    private fun eventReqCode(eventId: String, minutesBefore: Int): Int =
+        (("ev:$eventId:$minutesBefore").hashCode() and 0x3FFFFFFF) + 3_000_000
+
+    /** First occurrence start strictly after [after] (honouring EXDATE, UNTIL and COUNT), or null. */
+    private fun nextOccurrenceStart(e: EventEntity, after: Long, zone: ZoneId): Long? {
+        if (e.rrule.isBlank()) return e.startMillis.takeIf { it > after }
+        val r = com.todocompanion.app.domain.recurrence.Recurrence.parse(e.rrule)
+        val ex = e.exDates.split(",").mapNotNull { it.trim().toLongOrNull() }.toSet()
+        var cur = e.startMillis
+        var emitted = 0
+        var guard = 0
+        while (guard++ < 3000) {
+            val day = Instant.ofEpochMilli(cur).atZone(zone).toLocalDate().toEpochDay()
+            r?.untilEpochDay?.let { if (day > it) return null }
+            if (r?.count != null && emitted >= r.count) return null
+            if (day !in ex && cur > after) return cur
+            emitted++
+            val nxt = com.todocompanion.app.domain.recurrence.Recurrence.next(e.rrule, cur, zone)
+            if (nxt <= cur) return null
+            cur = nxt
+        }
+        return null
+    }
+
+    /** Schedule one exact alarm per configured lead time for the next upcoming occurrence of [e].
+     *  For a repeating event the receiver re-arms the following occurrence after the closest alert fires.
+     *  [fromMillis] lets the receiver ask for the occurrence strictly after the one that just fired. */
+    fun scheduleEventAlerts(context: Context, e: EventEntity, zone: ZoneId = ZoneId.systemDefault(), fromMillis: Long = System.currentTimeMillis()) {
+        cancelEventAlerts(context, e)
+        val mins = e.alertsMinutes.split(",").mapNotNull { it.trim().toIntOrNull() }.filter { it >= 0 }.distinct()
+        if (mins.isEmpty()) return
+        val now = System.currentTimeMillis()
+        val nextStart = nextOccurrenceStart(e, fromMillis, zone) ?: return
+        mins.forEach { m ->
+            val at = nextStart - m * 60_000L
+            if (at > now) setAlarm(context, at, broadcast(context, ACTION_EVENT_ALERT, eventReqCode(e.id, m),
+                mapOf(EXTRA_EVENT_ID to e.id, EXTRA_EVENT_TITLE to e.title, EXTRA_EVENT_LOC to e.location,
+                    EXTRA_EVENT_START to nextStart.toString(), EXTRA_EVENT_MIN to m.toString())))
+        }
+    }
+
+    fun cancelEventAlerts(context: Context, e: EventEntity) {
+        val am = context.getSystemService(AlarmManager::class.java) ?: return
+        e.alertsMinutes.split(",").mapNotNull { it.trim().toIntOrNull() }.filter { it >= 0 }.distinct().forEach { m ->
+            am.cancel(broadcast(context, ACTION_EVENT_ALERT, eventReqCode(e.id, m), emptyMap()))
+        }
+    }
+
+    /** Re-arm every event's alerts (startup / boot). Self-healing: past occurrences simply don't schedule. */
+    suspend fun rescheduleEventAlerts(context: Context, repo: AppRepository) {
+        repo.eventsOnce().filter { it.recurrenceParentId == null }.forEach { scheduleEventAlerts(context, it) }
     }
 }

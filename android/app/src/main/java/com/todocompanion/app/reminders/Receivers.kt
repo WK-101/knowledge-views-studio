@@ -242,6 +242,27 @@ class ReminderReceiver : BroadcastReceiver() {
                 }
             }
 
+            AlarmScheduler.ACTION_EVENT_ALERT -> {
+                if (app == null) return
+                val eventId = intent.getStringExtra(AlarmScheduler.EXTRA_EVENT_ID) ?: return
+                val evTitle = intent.getStringExtra(AlarmScheduler.EXTRA_EVENT_TITLE) ?: "Event"
+                val loc = intent.getStringExtra(AlarmScheduler.EXTRA_EVENT_LOC) ?: ""
+                val start = intent.getStringExtra(AlarmScheduler.EXTRA_EVENT_START)?.toLongOrNull() ?: 0L
+                val min = intent.getStringExtra(AlarmScheduler.EXTRA_EVENT_MIN)?.toIntOrNull() ?: 0
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val e = app.repository.eventById(eventId) ?: return@launch
+                        Notifications.showEventAlert(context, eventId, evTitle, loc, start, min)
+                        // Repeating event: once the closest lead alert has fired, arm the following occurrence.
+                        if (e.rrule.isNotBlank()) {
+                            val closest = e.alertsMinutes.split(",").mapNotNull { it.trim().toIntOrNull() }.minOrNull()
+                            if (closest != null && min == closest) AlarmScheduler.scheduleEventAlerts(context, e, fromMillis = start)
+                        }
+                    } finally { pending.finish() }
+                }
+            }
+
             AlarmScheduler.ACTION_HABIT_SNOOZE -> {
                 val habitId = intent.getStringExtra(AlarmScheduler.EXTRA_HABIT_ID) ?: return
                 val name = intent.getStringExtra(AlarmScheduler.EXTRA_HABIT_NAME) ?: "your habit"
@@ -269,6 +290,7 @@ class BootReceiver : BroadcastReceiver() {
                 if (s.morningBriefEnabled) AlarmScheduler.scheduleMorningBrief(context, s.morningBriefHour)
                 if (s.autoBackupEnabled && s.autoBackupFolder.isNotBlank()) AlarmScheduler.scheduleAutoBackup(context, s.autoBackupHour)
                 if (s.autoTrackPrompt) AlarmScheduler.scheduleTrackPrompts(context, app.repository)
+                AlarmScheduler.rescheduleEventAlerts(context, app.repository)
             } finally { pending.finish() }
         }
     }

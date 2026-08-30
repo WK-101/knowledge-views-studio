@@ -64,10 +64,13 @@ data class BackupFile(
     val nudgeEvents: List<com.todocompanion.app.data.entity.NudgeEventEntity> = emptyList(),
     // R37 — task time-travel history, so a restore is truly lossless. Additive; old backups carry empty.
     val revisions: List<com.todocompanion.app.data.entity.TaskRevisionEntity> = emptyList(),
+    // R38 — the dedicated-calendar layer: local calendars + events. Additive; old backups carry empty.
+    val eventCalendars: List<com.todocompanion.app.data.entity.EventCalendarEntity> = emptyList(),
+    val events: List<com.todocompanion.app.data.entity.EventEntity> = emptyList(),
 ) {
     companion object {
         const val FORMAT = "todo-companion"
-        const val VERSION = 14
+        const val VERSION = 15
     }
 }
 

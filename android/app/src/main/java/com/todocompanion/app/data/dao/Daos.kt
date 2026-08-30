@@ -303,6 +303,31 @@ interface NudgeEventDao {
     @Query("DELETE FROM nudge_events") suspend fun clear()
 }
 
+// R38 — the dedicated-calendar layer.
+@Dao
+interface EventCalendarDao {
+    @Query("SELECT * FROM event_calendars ORDER BY orderIndex ASC, createdAt ASC")
+    fun observeAll(): Flow<List<com.todocompanion.app.data.entity.EventCalendarEntity>>
+    @Query("SELECT * FROM event_calendars") suspend fun getAll(): List<com.todocompanion.app.data.entity.EventCalendarEntity>
+    @Upsert suspend fun upsert(c: com.todocompanion.app.data.entity.EventCalendarEntity)
+    @Upsert suspend fun upsertAll(c: List<com.todocompanion.app.data.entity.EventCalendarEntity>)
+    @Query("DELETE FROM event_calendars WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM event_calendars") suspend fun clear()
+}
+
+@Dao
+interface EventDao {
+    @Query("SELECT * FROM events ORDER BY startMillis ASC")
+    fun observeAll(): Flow<List<com.todocompanion.app.data.entity.EventEntity>>
+    @Query("SELECT * FROM events") suspend fun getAll(): List<com.todocompanion.app.data.entity.EventEntity>
+    @Query("SELECT * FROM events WHERE id = :id") suspend fun getById(id: String): com.todocompanion.app.data.entity.EventEntity?
+    @Upsert suspend fun upsert(e: com.todocompanion.app.data.entity.EventEntity)
+    @Upsert suspend fun upsertAll(e: List<com.todocompanion.app.data.entity.EventEntity>)
+    @Query("DELETE FROM events WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM events WHERE recurrenceParentId = :parentId") suspend fun deleteOverridesOf(parentId: String)
+    @Query("DELETE FROM events") suspend fun clear()
+}
+
 @Dao
 interface SealedNoteDao {
     @Query("SELECT * FROM sealed_notes ORDER BY revealEpochDay")

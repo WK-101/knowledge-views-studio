@@ -58,6 +58,8 @@ class AppRepository(private val db: AppDatabase) {
     private val dayLogs = db.dayLogDao()
     private val escrows = db.escrowDao()
     private val nudgeEvents = db.nudgeEventDao()
+    private val eventCalendars = db.eventCalendarDao()
+    private val events = db.eventDao()
     private val templateJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     // ----- task time-travel: sparse revision history (H5) -----
@@ -183,6 +185,17 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun nudgeForHabitDay(habitId: String, day: Long): com.todocompanion.app.data.entity.NudgeEventEntity? = nudgeEvents.forHabitDay(habitId, day)
     suspend fun openNudgesSince(sinceDay: Long): List<com.todocompanion.app.data.entity.NudgeEventEntity> = nudgeEvents.openSince(sinceDay)
     suspend fun upsertNudgeEvent(e: com.todocompanion.app.data.entity.NudgeEventEntity) = nudgeEvents.upsert(e)
+    // R38 — dedicated-calendar accessors.
+    val allEventCalendars: Flow<List<com.todocompanion.app.data.entity.EventCalendarEntity>> = eventCalendars.observeAll()
+    suspend fun upsertEventCalendar(c: com.todocompanion.app.data.entity.EventCalendarEntity) = eventCalendars.upsert(c)
+    suspend fun deleteEventCalendar(id: String) = eventCalendars.deleteById(id)
+    suspend fun eventCalendarsOnce(): List<com.todocompanion.app.data.entity.EventCalendarEntity> = eventCalendars.getAll()
+    val allEvents: Flow<List<com.todocompanion.app.data.entity.EventEntity>> = events.observeAll()
+    suspend fun eventById(id: String): com.todocompanion.app.data.entity.EventEntity? = events.getById(id)
+    suspend fun eventsOnce(): List<com.todocompanion.app.data.entity.EventEntity> = events.getAll()
+    suspend fun upsertEvent(e: com.todocompanion.app.data.entity.EventEntity) = events.upsert(e)
+    suspend fun upsertEvents(e: List<com.todocompanion.app.data.entity.EventEntity>) = events.upsertAll(e)
+    suspend fun deleteEvent(id: String) { events.deleteOverridesOf(id); events.deleteById(id) }
     val allSettings: Flow<List<SettingEntity>> = settings.observeAll()
     private val habits = db.habitDao()
     val allHabits: Flow<List<HabitEntity>> = habits.observeAll()
@@ -1100,6 +1113,8 @@ class AppRepository(private val db: AppDatabase) {
             escrows = escrows.getAll(),
             nudgeEvents = nudgeEvents.getAll(),
             revisions = revisions.getAll(),
+            eventCalendars = eventCalendars.getAll(),
+            events = events.getAll(),
         )
     )
 
@@ -1153,7 +1168,7 @@ class AppRepository(private val db: AppDatabase) {
         timeTrack.clearEntries(); timeTrack.clearActivities(); sealedNotes.clear(); cravings.clear()
         coreValues.clear(); witnesses.clear(); scorecard.clear(); buddies.clear(); integrityReviews.clear()
         experiments.clear(); activation.clear(); dayLogs.clear()
-        escrows.clear(); nudgeEvents.clear()
+        escrows.clear(); nudgeEvents.clear(); eventCalendars.clear(); events.clear()
         folders.upsertAll(b.folders)
         lists.upsertAll(b.lists)
         tasks.upsertAll(b.tasks)
@@ -1179,6 +1194,7 @@ class AppRepository(private val db: AppDatabase) {
         buddies.upsertAll(b.buddySnapshots); integrityReviews.upsertAll(b.integrityReviews)
         experiments.upsertAll(b.experiments); activation.upsertAll(b.activationItems); dayLogs.upsertAll(b.dayLogs)
         escrows.upsertAll(b.escrows); nudgeEvents.upsertAll(b.nudgeEvents); revisions.upsertAll(b.revisions)
+        eventCalendars.upsertAll(b.eventCalendars); events.upsertAll(b.events)
         ensureDefaultWorkspace()
         ensureInbox()
         ensureDefaultFlags()

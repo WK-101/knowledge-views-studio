@@ -144,6 +144,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // R36 — fourth-wave flows.
     val escrows = repo.allEscrows.state(emptyList())
     val nudgeEvents = repo.allNudgeEvents.state(emptyList())
+    // R38 — dedicated-calendar flows. calendarRoute overlays the Events surface (agenda|editor:<id>|
+    // calendars|gaps|heatmap|worldclock|import). eventEditorId holds the event being edited (or "new").
+    val eventCalendars = repo.allEventCalendars.state(emptyList())
+    val events = repo.allEvents.state(emptyList())
+    val calendarRoute = MutableStateFlow<String?>(null)
     // Non-null → the Life-Systems hub/screen overlays the tab (route key: hub|values|scorecard|correlations|reviews|ledger|buddies|friction|experiments|activation|forecast|heatmap|valuestime|runner|companion).
     val lifeSystemsRoute = MutableStateFlow<String?>(null)
     fun saveCountdown(id: String?, title: String, targetMillis: Long, emoji: String?, colorArgb: Long?) = viewModelScope.launch {
@@ -189,6 +194,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // Honour the configured time zone (Settings) for all date math; fall back to the device zone.
     private val zone: ZoneId get() = settings.value.timeZone.takeIf { it.isNotBlank() }
         ?.let { runCatching { ZoneId.of(it) }.getOrNull() } ?: ZoneId.systemDefault()
+    /** Public read-only view of the configured zone, so calendar UI expands occurrences consistently. */
+    val zoneId: ZoneId get() = zone
 
     /** "Day starts at" rollover, in minutes past midnight, for Today/Tomorrow/overdue math. */
     private val dayStartMin: Int get() = settings.value.dayStartHour.coerceIn(0, 6) * 60
@@ -2790,6 +2797,125 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             if (dueDay < today) { repo.saveTask(t.copy(dueDate = todayStart)); moved++ }
         }
         toast(if (moved > 0) "Pulled $moved overdue task${if (moved == 1) "" else "s"} onto today — fresh start." else "Nothing overdue — you're clear.")
+    }
+
+    // ── R38 · dedicated calendar ────────────────────────────────────────────────────────────────────
+    fun openCalendar() = viewModelScope.launch { ensureDefaultCalendar(); calendarRoute.value = "agenda" }
+
+    private suspend fun ensureDefaultCalendar(): String {
+        val existing = repo.eventCalendarsOnce()
+        existing.firstOrNull { it.isDefault }?.let { return it.id }
+        existing.firstOrNull()?.let { return it.id }
+        val id = java.util.UUID.randomUUID().toString()
+        repo.upsertEventCalendar(com.todocompanion.app.data.entity.EventCalendarEntity(
+            id = id, name = "Personal", colorArgb = 0xFF4F46E5, isDefault = true, orderIndex = 0,
+            workspaceId = settings.value.activeWorkspaceId, createdAt = System.currentTimeMillis()))
+        return id
+    }
+
+    fun createEventCalendar(name: String, color: Long) = viewModelScope.launch {
+        val n = name.trim(); if (n.isBlank()) return@launch
+        repo.upsertEventCalendar(com.todocompanion.app.data.entity.EventCalendarEntity(
+            id = java.util.UUID.randomUUID().toString(), name = n, colorArgb = color,
+            orderIndex = repo.eventCalendarsOnce().size, workspaceId = settings.value.activeWorkspaceId, createdAt = System.currentTimeMillis()))
+    }
+    fun setEventCalendarVisible(c: com.todocompanion.app.data.entity.EventCalendarEntity, visible: Boolean) = viewModelScope.launch { repo.upsertEventCalendar(c.copy(visible = visible)) }
+    fun renameEventCalendar(c: com.todocompanion.app.data.entity.EventCalendarEntity, name: String, color: Long) = viewModelScope.launch { repo.upsertEventCalendar(c.copy(name = name.trim().ifBlank { c.name }, colorArgb = color)) }
+    fun deleteEventCalendar(id: String) = viewModelScope.launch {
+        val evs = repo.eventsOnce().filter { it.calendarId == id }
+        evs.forEach { com.todocompanion.app.reminders.AlarmScheduler.cancelEventAlerts(appCtx, it); repo.deleteEvent(it.id) }
+        repo.deleteEventCalendar(id)
+    }
+
+    /** Create or update an event, then (re)schedule its alerts. */
+    fun saveEvent(existingId: String?, calendarId: String, title: String, location: String, notes: String, url: String,
+                  startMillis: Long, endMillis: Long, allDay: Boolean, rrule: String, alertsMinutes: String,
+                  colorArgb: Long?, floating: Boolean = false, busy: Boolean = true) = viewModelScope.launch {
+        val t = title.trim().ifBlank { "Event" }
+        val old = existingId?.let { repo.eventById(it) }
+        old?.let { com.todocompanion.app.reminders.AlarmScheduler.cancelEventAlerts(appCtx, it) }
+        val e = (old ?: com.todocompanion.app.data.entity.EventEntity(
+            id = java.util.UUID.randomUUID().toString(), calendarId = calendarId, title = t,
+            startMillis = startMillis, endMillis = endMillis, createdAt = System.currentTimeMillis(), updatedAt = System.currentTimeMillis()))
+            .copy(calendarId = calendarId, title = t, location = location.trim(), notes = notes.trim(), url = url.trim(),
+                startMillis = startMillis, endMillis = endMillis, allDay = allDay, rrule = rrule, alertsMinutes = alertsMinutes,
+                colorArgb = colorArgb, floating = floating, busy = busy, updatedAt = System.currentTimeMillis())
+        repo.upsertEvent(e)
+        com.todocompanion.app.reminders.AlarmScheduler.scheduleEventAlerts(appCtx, e)
+    }
+
+    /** Delete an event. scope: "series" (all), "this" (add an exdate), "following" (end the series before this day). */
+    fun deleteEvent(id: String, scope: String = "series", instanceDay: Long = 0) = viewModelScope.launch {
+        val e = repo.eventById(id) ?: return@launch
+        when {
+            e.rrule.isBlank() || scope == "series" -> { com.todocompanion.app.reminders.AlarmScheduler.cancelEventAlerts(appCtx, e); repo.deleteEvent(id) }
+            scope == "this" -> {
+                val ex = (e.exDates.split(",").mapNotNull { it.trim().toLongOrNull() } + instanceDay).distinct().joinToString(",")
+                repo.upsertEvent(e.copy(exDates = ex, updatedAt = System.currentTimeMillis()))
+            }
+            scope == "following" -> repo.upsertEvent(e.copy(rrule = capUntil(e.rrule, instanceDay - 1), updatedAt = System.currentTimeMillis()))
+        }
+    }
+    private fun capUntil(rule: String, untilDay: Long): String {
+        val r = com.todocompanion.app.domain.recurrence.Recurrence.parse(rule) ?: return rule
+        return com.todocompanion.app.domain.recurrence.Recurrence.encode(r.copy(untilEpochDay = untilDay, count = null))
+    }
+
+    /** FW moat — turn a task into a scheduled time block (an event linked back to the task). */
+    fun blockTaskAsEvent(taskId: String, startMillis: Long, durationMin: Int) = viewModelScope.launch {
+        val task = repo.getTask(taskId) ?: return@launch
+        val calId = ensureDefaultCalendar()
+        val e = com.todocompanion.app.data.entity.EventEntity(
+            id = java.util.UUID.randomUUID().toString(), calendarId = calId, title = task.title,
+            startMillis = startMillis, endMillis = startMillis + durationMin.coerceAtLeast(15) * 60000L,
+            linkedTaskId = taskId, createdAt = System.currentTimeMillis(), updatedAt = System.currentTimeMillis())
+        repo.upsertEvent(e); toast("Blocked ${durationMin}m for “${task.title}”.")
+    }
+
+    /** Natural-language quick add on the calendar: parse → an event (or a task if it starts with todo/reminder). */
+    fun quickAddCalendar(text: String, forDay: Long) = viewModelScope.launch {
+        val calId = ensureDefaultCalendar()
+        val draft = com.todocompanion.app.domain.calendar.EventParser.parse(text, java.time.LocalDate.ofEpochDay(forDay), zone)
+        if (draft == null) {
+            // No date/time recognised — make an all-day event on the focused day.
+            val start = java.time.LocalDate.ofEpochDay(forDay).atStartOfDay(zone).toInstant().toEpochMilli()
+            repo.upsertEvent(com.todocompanion.app.data.entity.EventEntity(
+                id = java.util.UUID.randomUUID().toString(), calendarId = calId, title = text.trim().ifBlank { "Event" },
+                startMillis = start, endMillis = start + 86_399_000L, allDay = true,
+                createdAt = System.currentTimeMillis(), updatedAt = System.currentTimeMillis()))
+            return@launch
+        }
+        if (draft.isTask) {
+            repo.ensureInbox()
+            repo.createTask(listId = com.todocompanion.app.data.entity.ListEntity.INBOX_ID, title = draft.title, dueDate = draft.startMillis)
+                .let { id -> repo.getTask(id)?.let { repo.saveTask(it.copy(isAllDay = draft.allDay)) } }
+            toast("Added task “${draft.title}”.")
+            return@launch
+        }
+        val e = com.todocompanion.app.data.entity.EventEntity(
+            id = java.util.UUID.randomUUID().toString(), calendarId = calId, title = draft.title, location = draft.location,
+            startMillis = draft.startMillis, endMillis = draft.endMillis, allDay = draft.allDay, rrule = draft.rrule,
+            alertsMinutes = draft.alertsMinutes, createdAt = System.currentTimeMillis(), updatedAt = System.currentTimeMillis())
+        repo.upsertEvent(e); com.todocompanion.app.reminders.AlarmScheduler.scheduleEventAlerts(appCtx, e)
+    }
+
+    fun importIcsEvents(uri: android.net.Uri, onDone: (Int) -> Unit = {}) = viewModelScope.launch {
+        val calId = ensureDefaultCalendar()
+        val text = withContext(Dispatchers.IO) { runCatching { appCtx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull() }
+        if (text == null) { toast("Couldn't read that file."); onDone(0); return@launch }
+        val evs = com.todocompanion.app.domain.calendar.EventIcs.import(text, calId, zone)
+        repo.upsertEvents(evs); evs.forEach { com.todocompanion.app.reminders.AlarmScheduler.scheduleEventAlerts(appCtx, it) }
+        toast("Imported ${evs.size} event${if (evs.size == 1) "" else "s"}."); onDone(evs.size)
+    }
+    fun exportIcsEventsTo(uri: android.net.Uri, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+        val ics = com.todocompanion.app.domain.calendar.EventIcs.export(repo.eventsOnce(), zone)
+        val ok = withContext(Dispatchers.IO) { runCatching { appCtx.contentResolver.openOutputStream(uri)?.use { it.write(ics.toByteArray()) }; true }.getOrDefault(false) }
+        toast(if (ok) "Calendar exported (.ics)." else "Export failed."); onDone(ok)
+    }
+    fun exportIcsEventsToDownloads(onDone: (String?) -> Unit = {}) = viewModelScope.launch {
+        val ics = com.todocompanion.app.domain.calendar.EventIcs.export(repo.eventsOnce(), zone)
+        val loc = withContext(Dispatchers.IO) { com.todocompanion.app.util.FileExport.saveToDownloads(appCtx, "todocompanion-calendar.ics", "text/calendar", ics.toByteArray()) }
+        toast(if (loc != null) "Saved to $loc" else "Export failed."); onDone(loc)
     }
 
     fun skipHabitDay(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, reason: String = "") = viewModelScope.launch {

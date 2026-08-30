@@ -461,6 +461,7 @@ fun AppRoot(
                 a == "open_plan" -> { showPlan = true; launchAction.value = null }
                 a == "open_momentum" -> { showMomentum = true; launchAction.value = null }
                 a == "open_time" -> { showTimeTracking = true; launchAction.value = null }
+                a == "open_calendar" -> { vm.openCalendar(); launchAction.value = null }
                 a != null && a.startsWith(com.todocompanion.app.MainActivity.ACTION_TRACK_ACTIVITY) -> {
                     val id = a.removePrefix(com.todocompanion.app.MainActivity.ACTION_TRACK_ACTIVITY)
                     vm.startTimeTracking(id); showTimeTracking = true; launchAction.value = null
@@ -574,6 +575,7 @@ fun AppRoot(
                     onOpenTemplates = { templatePicker = true; scope.launch { drawerState.close() } },
                     onOpenAttachments = { showAttachments = true; scope.launch { drawerState.close() } },
                     onOpenCountdowns = { showCountdowns = true; scope.launch { drawerState.close() } },
+                    onOpenCalendar = { vm.openCalendar(); scope.launch { drawerState.close() } },
                     onOpenDone = { showDone = true; scope.launch { drawerState.close() } },
                     onOpenMomentum = { showMomentum = true; scope.launch { drawerState.close() } },
                     onOpenTime = { showTimeTracking = true; scope.launch { drawerState.close() } },
@@ -919,6 +921,11 @@ fun AppRoot(
         if (showMomentum) com.todocompanion.app.ui.screens.MomentumScreen(vm, onBack = { showMomentum = false })
         if (showTimeTracking) com.todocompanion.app.ui.screens.TimeTrackingScreen(vm, onBack = { showTimeTracking = false })
         if (showTimeStats) com.todocompanion.app.ui.screens.TimeStatsScreen(vm, onBack = { showTimeStats = false })
+
+        // R38 · the dedicated calendar (own event store) — overlay driven by the ViewModel route.
+        val calRoute by vm.calendarRoute.collectAsState()
+        if (calRoute != null) com.todocompanion.app.ui.screens.CalendarStudioScreen(
+            vm, onBack = { vm.calendarRoute.value = null }, onOpenTask = { vm.calendarRoute.value = null; openTask(it) })
 
         // ── Tier Ω · command palette, recap overlay, annual-report picker ──────────────────────────
         if (showPalette) CommandPaletteDialog(vm, onDismiss = { showPalette = false }) { cmd ->

@@ -125,6 +125,39 @@ object Notifications {
         runCatching { NotificationManagerCompat.from(context).cancel(taskId.hashCode()) }
     }
 
+    const val EVENT_ALERT_BASE = 424300
+
+    /** R38 — a dedicated-calendar event is coming up. Opens the calendar. No task actions. */
+    fun showEventAlert(context: Context, eventId: String, title: String, location: String, startMillis: Long, minutesBefore: Int) {
+        ensureChannel(context)
+        val whenTxt = runCatching {
+            java.time.Instant.ofEpochMilli(startMillis).atZone(java.time.ZoneId.systemDefault())
+                .format(java.time.format.DateTimeFormatter.ofPattern("EEE, MMM d · h:mm a"))
+        }.getOrDefault("")
+        val lead = when {
+            minutesBefore <= 0 -> "now"
+            minutesBefore % 1440 == 0 -> "in ${minutesBefore / 1440}d"
+            minutesBefore % 60 == 0 -> "in ${minutesBefore / 60}h"
+            else -> "in ${minutesBefore}m"
+        }
+        val text = buildString {
+            append(if (minutesBefore <= 0) "Starting now" else "Starts $lead")
+            if (whenTxt.isNotBlank()) append(" · ").append(whenTxt)
+            if (location.isNotBlank()) append(" · ").append(location)
+        }
+        val n = builder(context)
+            .setSmallIcon(android.R.drawable.ic_menu_my_calendar)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_EVENT)
+            .setAutoCancel(true)
+            .setContentIntent(openAppRoute(context, "open_calendar", ("evc$eventId").hashCode()))
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(EVENT_ALERT_BASE + (eventId.hashCode() and 0x3FF), n) }
+    }
+
     const val FOCUS_ID = 424243
 
     fun showFocusDone(context: Context) {

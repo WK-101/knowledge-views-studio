@@ -106,6 +106,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.Slideshow
@@ -501,9 +502,16 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             val myCheck = checklist.filter { it.taskId == task.id }.sortedBy { it.sortOrder }
             val attFlow = remember(task.id) { vm.attachmentMeta(task.id) }
             val attachments by attFlow.collectAsState(initial = emptyList())
-            // SAF OpenDocument is present on more ROMs than the GET_CONTENT chooser; when even that is
-            // missing (very stripped AOSP), we fall back to the app's own file browser (R23).
+            // R38 — the TickTick approach to attachments: every source is permission-free. The system
+            // grants access to exactly the file the user picks; we copy its bytes in (openInputStream).
+            //  • Files: SAF OpenDocument (content:// URI, no storage permission).
+            //  • Photos/videos: the Android Photo Picker (PickVisualMedia) — no permission on any API.
+            //  • Camera: ACTION_IMAGE_CAPTURE into a FileProvider URI — no CAMERA permission needed by us.
+            // The in-app browser (which DOES need storage access) is only a last resort for stripped ROMs.
             val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) vm.addAttachment(task.id, uri) }
+            val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) vm.addAttachment(task.id, uri) }
+            var cameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
+            val takePhoto = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok -> if (ok) cameraUri?.let { vm.addAttachment(task.id, it) } }
             // Staged tag/context sets (R21 #2): pending edits if any, else the live DB sets.
             val assignedTags = effTags
             val assignedCtx = effCtx
@@ -661,16 +669,28 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     showAttachBrowser = true
                     if (!vm.canBrowseStorage()) runCatching { readPermLauncher.launch(com.todocompanion.app.util.FileExport.readPermissions()) }
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                    // Photos — the Android Photo Picker: no permission, ever.
                     TextButton(onClick = {
-                        // Prefer the system picker (nicer, no permission); fall back to the app browser.
+                        runCatching { pickPhoto.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) }
+                    }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.Image, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Photo") }
+                    // Camera — capture straight into a FileProvider URI (no CAMERA permission needed by us).
+                    TextButton(onClick = {
+                        runCatching {
+                            val dir = java.io.File(attachCtx.cacheDir, "shared").apply { mkdirs() }
+                            val f = java.io.File(dir, "cam_${System.currentTimeMillis()}.jpg")
+                            val u = androidx.core.content.FileProvider.getUriForFile(attachCtx, "${attachCtx.packageName}.fileprovider", f)
+                            cameraUri = u; takePhoto.launch(u)
+                        }.onFailure { android.widget.Toast.makeText(attachCtx, "No camera app available", android.widget.Toast.LENGTH_SHORT).show() }
+                    }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.CameraAlt, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Camera") }
+                    // Files — SAF system picker: no permission.
+                    TextButton(onClick = {
                         try { pickFile.launch(arrayOf("*/*")) } catch (e: Exception) { browseDevice() }
-                    }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Icon(Icons.Filled.AttachFile, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Add file") }
-                    // Always-available reliable path for de-Googled phones with no system picker.
-                    Spacer(Modifier.width(4.dp))
-                    TextButton(onClick = { browseDevice() }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Icon(Icons.Filled.Folder, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Browse device") }
+                    }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.AttachFile, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("File") }
                 }
-                if (attachments.isEmpty()) Text("Any file up to 25 MB — images, PDF, docs. Stored on-device and in backups.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (attachments.isEmpty()) Text("Photos, camera or any file up to 25 MB. Picked through the system picker — no storage permission. Stored on-device and in backups.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // Last-resort path for stripped ROMs with no system picker at all (needs storage access).
+                TextButton(onClick = { browseDevice() }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text("No picker? Browse device", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline) }
             }
 
                     com.todocompanion.app.domain.EditorField.TAGS ->

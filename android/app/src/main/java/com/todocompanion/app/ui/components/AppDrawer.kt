@@ -145,6 +145,7 @@ fun AppDrawer(
     onOpenTemplates: () -> Unit = {},
     onOpenAttachments: () -> Unit = {},
     onOpenCountdowns: () -> Unit = {},
+    onOpenCalendar: () -> Unit = {},
     onOpenDone: () -> Unit = {},
     onOpenMomentum: () -> Unit = {},
     onOpenTime: () -> Unit = {},
@@ -359,6 +360,7 @@ fun AppDrawer(
                 if ("momentum" !in hidden) DrawerRow(Icons.Filled.Insights, "Momentum", pinned = vm.isPinned("more:momentum"), onLongClick = { vm.togglePinnedRef("more:momentum") }, onClick = onOpenMomentum)
                 if ("templates" !in hidden) DrawerRow(Icons.Filled.ContentCopy, "Templates", pinned = vm.isPinned("more:templates"), onLongClick = { vm.togglePinnedRef("more:templates") }, onClick = onOpenTemplates)
                 if ("countdowns" !in hidden) DrawerRow(Icons.Filled.Timelapse, "Countdowns", pinned = vm.isPinned("more:countdowns"), onLongClick = { vm.togglePinnedRef("more:countdowns") }, onClick = onOpenCountdowns)
+                if ("calendar2" !in hidden) DrawerRow(Icons.Filled.EventAvailable, "Calendar", pinned = vm.isPinned("more:calendar2"), onLongClick = { vm.togglePinnedRef("more:calendar2") }, onClick = onOpenCalendar)
                 if ("attachments" !in hidden) DrawerRow(Icons.Filled.AttachFile, "Attachments", pinned = vm.isPinned("more:attachments"), onLongClick = { vm.togglePinnedRef("more:attachments") }, onClick = onOpenAttachments)
                 if ("done" !in hidden) DrawerRow(Icons.Filled.EmojiEvents, "The Record", pinned = vm.isPinned("more:done"), onLongClick = { vm.togglePinnedRef("more:done") }, onClick = onOpenDone)
                 // R32 — Statistics (charts) and Recap (period narrative) sit together under one "Insights"
