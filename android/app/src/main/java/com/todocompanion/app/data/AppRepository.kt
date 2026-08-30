@@ -56,6 +56,8 @@ class AppRepository(private val db: AppDatabase) {
     private val experiments = db.experimentDao()
     private val activation = db.activationDao()
     private val dayLogs = db.dayLogDao()
+    private val escrows = db.escrowDao()
+    private val nudgeEvents = db.nudgeEventDao()
     private val templateJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     // ----- task time-travel: sparse revision history (H5) -----
@@ -173,6 +175,14 @@ class AppRepository(private val db: AppDatabase) {
     val allDayLogs: Flow<List<com.todocompanion.app.data.entity.DayLogEntity>> = dayLogs.observeAll()
     suspend fun dayLogFor(day: Long): com.todocompanion.app.data.entity.DayLogEntity? = dayLogs.forDay(day)
     suspend fun upsertDayLog(d: com.todocompanion.app.data.entity.DayLogEntity) = dayLogs.upsert(d)
+    // R36 — fourth-wave accessors.
+    val allEscrows: Flow<List<com.todocompanion.app.data.entity.EscrowEntity>> = escrows.observeAll()
+    suspend fun upsertEscrow(e: com.todocompanion.app.data.entity.EscrowEntity) = escrows.upsert(e)
+    suspend fun deleteEscrow(id: String) = escrows.deleteById(id)
+    val allNudgeEvents: Flow<List<com.todocompanion.app.data.entity.NudgeEventEntity>> = nudgeEvents.observeAll()
+    suspend fun nudgeForHabitDay(habitId: String, day: Long): com.todocompanion.app.data.entity.NudgeEventEntity? = nudgeEvents.forHabitDay(habitId, day)
+    suspend fun openNudgesSince(sinceDay: Long): List<com.todocompanion.app.data.entity.NudgeEventEntity> = nudgeEvents.openSince(sinceDay)
+    suspend fun upsertNudgeEvent(e: com.todocompanion.app.data.entity.NudgeEventEntity) = nudgeEvents.upsert(e)
     val allSettings: Flow<List<SettingEntity>> = settings.observeAll()
     private val habits = db.habitDao()
     val allHabits: Flow<List<HabitEntity>> = habits.observeAll()
@@ -1067,6 +1077,8 @@ class AppRepository(private val db: AppDatabase) {
             experiments = experiments.getAll(),
             activationItems = activation.getAll(),
             dayLogs = dayLogs.getAll(),
+            escrows = escrows.getAll(),
+            nudgeEvents = nudgeEvents.getAll(),
         )
     )
 
@@ -1120,6 +1132,7 @@ class AppRepository(private val db: AppDatabase) {
         timeTrack.clearEntries(); timeTrack.clearActivities(); sealedNotes.clear(); cravings.clear()
         coreValues.clear(); witnesses.clear(); scorecard.clear(); buddies.clear(); integrityReviews.clear()
         experiments.clear(); activation.clear(); dayLogs.clear()
+        escrows.clear(); nudgeEvents.clear()
         folders.upsertAll(b.folders)
         lists.upsertAll(b.lists)
         tasks.upsertAll(b.tasks)
@@ -1144,6 +1157,7 @@ class AppRepository(private val db: AppDatabase) {
         coreValues.upsertAll(b.coreValues); witnesses.upsertAll(b.witnessEvents); scorecard.upsertAll(b.scorecardItems)
         buddies.upsertAll(b.buddySnapshots); integrityReviews.upsertAll(b.integrityReviews)
         experiments.upsertAll(b.experiments); activation.upsertAll(b.activationItems); dayLogs.upsertAll(b.dayLogs)
+        escrows.upsertAll(b.escrows); nudgeEvents.upsertAll(b.nudgeEvents)
         ensureDefaultWorkspace()
         ensureInbox()
         ensureDefaultFlags()

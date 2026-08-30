@@ -258,6 +258,18 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
             }
         }
 
+        // R36 · FW-5 — new-habit WIP limiter. When more habits are "in formation" than your chosen cap,
+        // a gentle heads-up: focus finishes habits; splitting attention across many tanks them all.
+        if (appSettings.habitWipLimit > 0) {
+            val forming = remember(habits, checkins, appSettings.habitWipLimit) { com.todocompanion.app.domain.habit.FourthWave.inFormation(habits, checkins, appSettings.habitWipLimit) }
+            if (forming.overCap) {
+                Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .6f)) {
+                    Text("⚖️  ${forming.count} habits still forming (your focus limit is ${forming.limit}). Consider locking in one before starting another — attention is the scarce resource.",
+                        Modifier.padding(12.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                }
+            }
+        }
+
         if (habits.isEmpty()) {
             Column(Modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(Modifier.size(88.dp).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f), CircleShape), contentAlignment = Alignment.Center) {

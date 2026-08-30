@@ -277,6 +277,32 @@ interface DayLogDao {
     @Query("DELETE FROM day_logs") suspend fun clear()
 }
 
+// R36 — the FOURTH-WAVE layer's tables.
+@Dao
+interface EscrowDao {
+    @Query("SELECT * FROM escrows ORDER BY createdAt DESC")
+    fun observeAll(): Flow<List<com.todocompanion.app.data.entity.EscrowEntity>>
+    @Query("SELECT * FROM escrows") suspend fun getAll(): List<com.todocompanion.app.data.entity.EscrowEntity>
+    @Upsert suspend fun upsert(e: com.todocompanion.app.data.entity.EscrowEntity)
+    @Upsert suspend fun upsertAll(e: List<com.todocompanion.app.data.entity.EscrowEntity>)
+    @Query("DELETE FROM escrows WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM escrows") suspend fun clear()
+}
+
+@Dao
+interface NudgeEventDao {
+    @Query("SELECT * FROM nudge_events ORDER BY epochDay DESC")
+    fun observeAll(): Flow<List<com.todocompanion.app.data.entity.NudgeEventEntity>>
+    @Query("SELECT * FROM nudge_events") suspend fun getAll(): List<com.todocompanion.app.data.entity.NudgeEventEntity>
+    @Query("SELECT * FROM nudge_events WHERE habitId = :habitId AND epochDay = :day LIMIT 1")
+    suspend fun forHabitDay(habitId: String, day: Long): com.todocompanion.app.data.entity.NudgeEventEntity?
+    @Query("SELECT * FROM nudge_events WHERE acted = 0 AND epochDay >= :sinceDay")
+    suspend fun openSince(sinceDay: Long): List<com.todocompanion.app.data.entity.NudgeEventEntity>
+    @Upsert suspend fun upsert(e: com.todocompanion.app.data.entity.NudgeEventEntity)
+    @Upsert suspend fun upsertAll(e: List<com.todocompanion.app.data.entity.NudgeEventEntity>)
+    @Query("DELETE FROM nudge_events") suspend fun clear()
+}
+
 @Dao
 interface SealedNoteDao {
     @Query("SELECT * FROM sealed_notes ORDER BY revealEpochDay")

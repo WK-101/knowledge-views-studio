@@ -362,6 +362,18 @@
             </intent-filter>
         </service>
 
+        <!-- R36 · FW-1: Quick Settings tile — one-tap habit check-in from the shade, or open Habits. Offline. -->
+        <service
+            android:name=".tiles.HabitTileService"
+            android:exported="true"
+            android:icon="@android:drawable/checkbox_on_background"
+            android:label="@string/tile_habit_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <!-- Fires scheduled reminder / summary / habit notifications. Not exported. -->
         <receiver
             android:name=".reminders.ReminderReceiver"

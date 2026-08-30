@@ -141,6 +141,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val experiments = repo.allExperiments.state(emptyList())
     val activationItems = repo.allActivationItems.state(emptyList())
     val dayLogs = repo.allDayLogs.state(emptyList())
+    // R36 — fourth-wave flows.
+    val escrows = repo.allEscrows.state(emptyList())
+    val nudgeEvents = repo.allNudgeEvents.state(emptyList())
     // Non-null → the Life-Systems hub/screen overlays the tab (route key: hub|values|scorecard|correlations|reviews|ledger|buddies|friction|experiments|activation|forecast|heatmap|valuestime|runner|companion).
     val lifeSystemsRoute = MutableStateFlow<String?>(null)
     fun saveCountdown(id: String?, title: String, targetMillis: Long, emoji: String?, colorArgb: Long?) = viewModelScope.launch {
@@ -2665,6 +2668,71 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun saveEveningReflection(day: Long, text: String, mood: Int) = viewModelScope.launch {
         val cur = repo.dayLogFor(day) ?: com.todocompanion.app.data.entity.DayLogEntity(day)
         repo.upsertDayLog(cur.copy(pmReflection = text.trim(), pmMood = mood.coerceIn(0, 5), updatedAt = System.currentTimeMillis()))
+    }
+
+    // ── R36 · fourth-wave actions ───────────────────────────────────────────────────────────────────
+    // FW-5 New-Habit WIP limiter.
+    fun setHabitWipLimit(n: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(habitWipLimit = n.coerceIn(0, 20))) }
+
+    // FW-11 Transition detector + reset window.
+    fun setTransition(label: String, startDay: Long) = viewModelScope.launch {
+        repo.saveSettings(settings.value.copy(transitionLabel = label.trim(), transitionStartDay = startDay))
+        if (label.isNotBlank()) toast("Transition noted. A 3-week reset window is open — a good time to re-choose your routines.")
+    }
+    fun clearTransition() = viewModelScope.launch { repo.saveSettings(settings.value.copy(transitionLabel = "", transitionStartDay = 0)) }
+
+    // FW-6 Daily shutdown + carry-forward — push each still-open, due-today task to tomorrow.
+    fun carryForwardTasks(taskIds: List<String>) = viewModelScope.launch {
+        if (taskIds.isEmpty()) return@launch
+        val tomorrowMillis = java.time.LocalDate.now(zone).plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        var moved = 0
+        taskIds.forEach { id ->
+            val t = repo.getTask(id) ?: return@forEach
+            if (!t.completed) { repo.saveTask(t.copy(dueDate = tomorrowMillis)); moved++ }
+        }
+        if (moved > 0) toast("Carried $moved task${if (moved == 1) "" else "s"} forward to tomorrow. Day closed.")
+    }
+
+    // FW-9 Self-escrow contingency reward.
+    fun addEscrow(habitId: String?, description: String, kind: String, milestoneKind: String, milestoneValue: Int) = viewModelScope.launch {
+        val d = description.trim(); if (d.isBlank()) return@launch
+        repo.upsertEscrow(com.todocompanion.app.data.entity.EscrowEntity(
+            id = java.util.UUID.randomUUID().toString(), habitId = habitId, description = d, kind = kind,
+            milestoneKind = milestoneKind, milestoneValue = milestoneValue.coerceAtLeast(1), createdAt = System.currentTimeMillis()))
+        toast(if (kind == "stake") "Stake locked. It's real now — reach the milestone or it's forfeit." else "Reward escrowed. Earn it at the milestone.")
+    }
+    fun releaseEscrow(e: com.todocompanion.app.data.entity.EscrowEntity, redeem: Boolean) = viewModelScope.launch {
+        repo.upsertEscrow(e.copy(released = true, redeemed = redeem))
+        toast(when {
+            e.kind == "stake" && redeem -> "Stake paid. The contract held."
+            e.kind == "stake" -> "Stake returned — you made it."
+            redeem -> "Enjoy it — you earned this one. 🎉"
+            else -> "Banked for later."
+        })
+    }
+    fun deleteEscrow(id: String) = viewModelScope.launch { repo.deleteEscrow(id) }
+
+    // FW-14 Personal Nudge MRT — record that an opportunity nudge (variant v) was shown for a habit today,
+    // and reconcile past open impressions against whether the habit was completed.
+    fun logNudgeShown(habitId: String, variant: Int, day: Long) = viewModelScope.launch {
+        if (repo.nudgeForHabitDay(habitId, day) != null) return@launch   // one impression per habit per day
+        repo.upsertNudgeEvent(com.todocompanion.app.data.entity.NudgeEventEntity(
+            id = java.util.UUID.randomUUID().toString(), habitId = habitId, variant = variant, epochDay = day,
+            createdAt = System.currentTimeMillis()))
+    }
+    /** Mark open nudge impressions from the last two weeks as acted/not, by whether that habit's day is done. */
+    fun reconcileNudges() = viewModelScope.launch {
+        val today = java.time.LocalDate.now(zone).toEpochDay()
+        val open = repo.openNudgesSince(today - 14)
+        if (open.isEmpty()) return@launch
+        val checkins = repo.getHabitCheckinsOnce()
+        val habits = repo.getHabitsOnce().associateBy { it.id }
+        open.forEach { ev ->
+            if (ev.epochDay >= today) return@forEach   // only reconcile past days
+            val h = habits[ev.habitId] ?: return@forEach
+            val done = checkins.any { it.habitId == ev.habitId && it.epochDay == ev.epochDay && it.status == "done" && com.todocompanion.app.domain.habit.HabitStats.meetsGoal(h, it.count) }
+            if (done) repo.upsertNudgeEvent(ev.copy(acted = true))
+        }
     }
 
     fun skipHabitDay(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, reason: String = "") = viewModelScope.launch {

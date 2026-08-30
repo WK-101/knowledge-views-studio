@@ -613,6 +613,16 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 Toggle("Companion garden", s.companionEnabled) { on -> vm.setCompanion(on) }
                 Text("A plant that grows from your consistency, shown on the habits screen — never shamed on a miss. A calm alternative to numbers (open it from Life systems › Your garden).",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                // R36 · fourth-wave: new-habit WIP limiter.
+                Text("New-habit focus limit", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                Text("Cap how many habits can be forming at once. When you're over the cap, the Habits screen gently suggests finishing one before starting another. Attention is the scarce resource.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(0, 2, 3, 4, 5).forEach { n ->
+                        FilterChip(selected = s.habitWipLimit == n, onClick = { vm.setHabitWipLimit(n) }, label = { Text(if (n == 0) "Off" else "$n") })
+                    }
+                }
             }
         }
 

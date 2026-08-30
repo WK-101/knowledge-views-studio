@@ -59,10 +59,13 @@ data class BackupFile(
     val experiments: List<com.todocompanion.app.data.entity.ExperimentEntity> = emptyList(),
     val activationItems: List<com.todocompanion.app.data.entity.ActivationItemEntity> = emptyList(),
     val dayLogs: List<com.todocompanion.app.data.entity.DayLogEntity> = emptyList(),
+    // R36 — the fourth-wave layer's tables. Additive; old backups carry empty lists.
+    val escrows: List<com.todocompanion.app.data.entity.EscrowEntity> = emptyList(),
+    val nudgeEvents: List<com.todocompanion.app.data.entity.NudgeEventEntity> = emptyList(),
 ) {
     companion object {
         const val FORMAT = "todo-companion"
-        const val VERSION = 12
+        const val VERSION = 13
     }
 }
 

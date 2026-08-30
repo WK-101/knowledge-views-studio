@@ -223,6 +223,13 @@ data class AppSettings(
     val bookendsEnabled: Boolean = false,
     val companionEnabled: Boolean = false,
     val strengthMeter: Boolean = false,
+    // R36 · fourth-wave. habitWipLimit caps how many habits may be "in formation" (not yet graduated)
+    // at once — the New-Habit WIP Limiter; 0 = no cap. transitionLabel/transitionStartDay declare a
+    // life transition (new job, move, term start) whose fresh-start window the coach uses to prompt a
+    // gentle re-plan (Transition Detector + Reset Window). transitionStartDay is an epoch day; 0 = none.
+    val habitWipLimit: Int = 0,
+    val transitionLabel: String = "",
+    val transitionStartDay: Long = 0,
 ) {
     /** Effective tier for an optional editor field: user override, else its built-in default. */
     fun editorTier(f: EditorField): Int = editorFieldTiers[f.id] ?: f.defaultTier
@@ -363,6 +370,9 @@ data class AppSettings(
         Keys.BOOKENDS to bookendsEnabled.toString(),
         Keys.COMPANION to companionEnabled.toString(),
         Keys.STRENGTH_METER to strengthMeter.toString(),
+        Keys.HABIT_WIP_LIMIT to habitWipLimit.toString(),
+        Keys.TRANSITION_LABEL to transitionLabel,
+        Keys.TRANSITION_START to transitionStartDay.toString(),
     )
 
     object Keys {
@@ -487,6 +497,9 @@ data class AppSettings(
         const val BOOKENDS = "bookends_enabled"
         const val COMPANION = "companion_enabled"
         const val STRENGTH_METER = "strength_meter"
+        const val HABIT_WIP_LIMIT = "habit_wip_limit"
+        const val TRANSITION_LABEL = "transition_label"
+        const val TRANSITION_START = "transition_start"
     }
 
     companion object {
@@ -633,6 +646,9 @@ data class AppSettings(
             bookendsEnabled = m[Keys.BOOKENDS]?.toBooleanStrictOrNull() ?: false,
             companionEnabled = m[Keys.COMPANION]?.toBooleanStrictOrNull() ?: false,
             strengthMeter = m[Keys.STRENGTH_METER]?.toBooleanStrictOrNull() ?: false,
+            habitWipLimit = m[Keys.HABIT_WIP_LIMIT]?.toIntOrNull()?.coerceIn(0, 20) ?: 0,
+            transitionLabel = m[Keys.TRANSITION_LABEL] ?: "",
+            transitionStartDay = m[Keys.TRANSITION_START]?.toLongOrNull() ?: 0,
         )
     }
 }

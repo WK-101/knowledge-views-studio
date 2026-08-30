@@ -1023,6 +1023,9 @@ private fun BuilderSection(
     // forecast, graduation, make-up, lapse early-warning, future-self scene).
     ThirdWaveHabitCards(vm, h, hc, doneDays, skipDays, today, color)
 
+    // R36 — the fourth-wave cards (adaptive horizon, red-chain, micro-lesson, extinction ladder, escrow).
+    FourthWaveHabitCards(vm, h, hc, today, color, myCravings)
+
     // F17 — the insights coach (both kinds).
     if (tips.isNotEmpty()) {
         Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
@@ -1400,3 +1403,108 @@ private fun ThirdWaveHabitCards(
     }
 }
 
+
+private typealias FW = com.todocompanion.app.domain.habit.FourthWave
+
+/** R36 — the fourth-wave cards: adaptive automaticity horizon, red-chain counter, just-in-time
+ *  micro-lesson, cue-exposure extinction ladder, and any escrow riding on this habit. */
+@Composable
+private fun FourthWaveHabitCards(
+    vm: com.todocompanion.app.ui.AppViewModel, h: com.todocompanion.app.data.entity.HabitEntity,
+    hc: List<com.todocompanion.app.data.entity.HabitCheckinEntity>, today: Long, color: Color,
+    cravings: List<com.todocompanion.app.data.entity.CravingEventEntity>,
+) {
+    val isBreak = h.habitType == "break"
+    val escrows by vm.escrows.collectAsState()
+    val checkins = hc
+
+    // FW-2 · just-in-time micro-lesson (the teachable moment for where this habit is right now).
+    FW.microLesson(h, hc, cravings, today)?.let { lesson ->
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .45f)) {
+            Column(Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(lesson.emoji, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(end = 10.dp))
+                    Text(lesson.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                }
+                Text(lesson.body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onTertiaryContainer, modifier = Modifier.padding(top = 6.dp))
+            }
+        }
+    }
+
+    // FW-3 · adaptive automaticity horizon (build).
+    if (!isBreak) FW.adaptiveHorizon(h, hc, today)?.let { hz ->
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+            Column(Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Automaticity horizon", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text("${hz.pct}%", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = color)
+                }
+                Box(Modifier.fillMaxWidth().height(8.dp).padding(top = 6.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                    Box(Modifier.fillMaxWidth(hz.pct / 100f).height(8.dp).clip(RoundedCornerShape(4.dp)).background(color))
+                }
+                Text(
+                    if (hz.repsToTarget == 0) "Automatic — this one runs itself now."
+                    else "~${hz.etaDays} days to automatic at your current pace (${hz.adherence}% adherence, ${hz.repsToTarget} more reps). Not a fixed 66 days — it's tuned to you.",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+            }
+        }
+    }
+
+    // FW-4 · red-chain counter (break).
+    if (isBreak) FW.redChain(h, hc, today)?.let { rc ->
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
+            color = if (rc.redDays > 0) MaterialTheme.colorScheme.errorContainer.copy(alpha = .45f) else MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+            Column(Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Clean streak", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text("🟢 ${rc.cleanDays}d", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = color)
+                }
+                Text("Longest clean run: ${rc.longestClean} days · ${rc.relapses} slips logged.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                if (rc.redDays > 0) Text("🔴 Red chain: ${rc.redDays} day${if (rc.redDays == 1) "" else "s"} in a row. Two is a pattern forming — break it today, the smallest way you can.",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.padding(top = 6.dp))
+            }
+        }
+    }
+
+    // FW-8 · cue-exposure extinction ladder (break).
+    if (isBreak) FW.extinctionLadder(h, cravings)?.let { ex ->
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+            Column(Modifier.padding(16.dp)) {
+                Text("Extinction ladder", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text("Rung ${ex.rung}/4 — ${ex.rungLabel}", style = MaterialTheme.typography.bodyMedium, color = color, modifier = Modifier.padding(top = 2.dp))
+                Box(Modifier.fillMaxWidth().height(8.dp).padding(top = 6.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                    Box(Modifier.fillMaxWidth(ex.rung / 4f).height(8.dp).clip(RoundedCornerShape(4.dp)).background(color))
+                }
+                Text(
+                    (if (ex.falling) "Your urge intensity is falling — from ${"%.1f".format(ex.earlyAvg)} to ${"%.1f".format(ex.recentAvg)} out of 5. The cue is losing its grip. "
+                    else "Average urge intensity: ${"%.1f".format(ex.recentAvg)}/5 across ${ex.exposures} logged urges. ") +
+                    "Keep facing the trigger without acting — that's what extinguishes it.",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+            }
+        }
+    }
+
+    // FW-9 · escrows riding on this habit.
+    val mine = escrows.filter { it.habitId == h.id }
+    if (mine.isNotEmpty()) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+            Column(Modifier.padding(16.dp)) {
+                Text("On the line", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                mine.forEach { e ->
+                    val st = FW.escrowStatus(e, listOf(h), checkins, today)
+                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(if (e.kind == "stake") "🎯 " else "🎁 ", style = MaterialTheme.typography.bodyMedium)
+                        Column(Modifier.weight(1f)) {
+                            Text(e.description, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                            Box(Modifier.fillMaxWidth().height(6.dp).padding(top = 4.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                                Box(Modifier.fillMaxWidth(st.pct / 100f).height(6.dp).clip(RoundedCornerShape(3.dp)).background(if (e.released) MaterialTheme.colorScheme.outline else color))
+                            }
+                        }
+                        Text(if (e.released) "done" else "${st.current}/${st.target}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 10.dp))
+                    }
+                }
+                TextButton(onClick = { vm.lifeSystemsRoute.value = "escrow" }) { Text("Manage escrows") }
+            }
+        }
+    }
+}

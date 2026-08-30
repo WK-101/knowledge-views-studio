@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.todocompanion.app.data.entity.CoreValueEntity
 import com.todocompanion.app.data.entity.ScorecardItemEntity
+import com.todocompanion.app.domain.habit.FourthWave
 import com.todocompanion.app.domain.habit.HabitStats
 import com.todocompanion.app.domain.habit.LifeSystems
 import com.todocompanion.app.ui.AppViewModel
@@ -79,6 +80,13 @@ fun LifeSystemsScreen(vm: AppViewModel, route: String, onBack: () -> Unit, onOpe
         "buddies" -> BuddiesScreen(vm, onBack)
         "experiments", "activation", "heatmap", "valuestime", "runner", "companion", "focuslock" ->
             ThirdWaveScreen(vm, route, onBack, onOpenHabit)
+        "loadbalancer" -> LoadBalancerScreen(vm, onBack)
+        "causal" -> CausalGraphScreen(vm, onBack, onOpenHabit)
+        "receptivity" -> ReceptivityScreen(vm, onBack)
+        "nudgelab" -> NudgeLabScreen(vm, onBack)
+        "escrow" -> EscrowScreen(vm, onBack)
+        "grounding" -> GroundingScreen(vm, onBack)
+        "freshstart" -> FreshStartScreen(vm, onBack)
         else -> HubScreen(vm, onBack)
     }
 }
@@ -112,6 +120,14 @@ private fun HubScreen(vm: AppViewModel, onBack: () -> Unit) {
         Entry("reviews", "📆", "Weekly & annual review", "A private integrity report assembled from your ledger."),
         Entry("ledger", "🗳️", "Identity ledger", "Every vote you've cast for the person you're becoming."),
         Entry("buddies", "🤝", "Buddies", "Share a progress digest, or cheer a friend — peer-to-peer, no account."),
+        // R36 · Fourth wave.
+        Entry("loadbalancer", "⚖️", "Life-load balancer", "Next week's committed minutes vs your capacity — from your own tasks & habits. No external calendar."),
+        Entry("causal", "🕸️", "Causal trigger graph", "Which habit, done today, most often precedes a good day tomorrow — your own lagged patterns."),
+        Entry("receptivity", "📡", "Receptivity model", "When you actually act — across habits and tasks — so nudges land at your peak, not at random."),
+        Entry("nudgelab", "🎲", "Nudge lab (MRT)", "A micro-randomised trial of nudge wordings on you — see which message actually gets you moving."),
+        Entry("escrow", "🔐", "Self-escrow", "Pre-commit a reward or a stake, released only when you hit a real milestone. Contingency contracts, offline."),
+        Entry("grounding", "🧯", "Grounding library", "A calm, offline toolkit for panic and hard urges — 5-4-3-2-1, box breathing, and more."),
+        Entry("freshstart", "🌅", "Fresh-start windows", "Temporal landmarks and life transitions — the moments a reset actually sticks."),
     )
     LSScaffold("Life systems", onBack) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -487,5 +503,384 @@ private fun EmptyBlock(emoji: String, title: String, body: String, onAdd: (() ->
         Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
         if (onAdd != null) { Spacer(Modifier.height(10.dp)); FilledTonalButton(onClick = onAdd) { Text("Get started") } }
+    }
+}
+
+// ══════════════════════════════ R36 · Fourth-wave screens ══════════════════════════════
+
+@Composable
+private fun FWCard(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), content = content)
+    }
+}
+
+@Composable
+private fun FWBar(fraction: Float, color: Color) {
+    Box(Modifier.fillMaxWidth().height(9.dp).clip(RoundedCornerShape(5.dp)).background(color.copy(alpha = 0.18f))) {
+        Box(Modifier.fillMaxWidth(fraction.coerceIn(0f, 1f)).height(9.dp).clip(RoundedCornerShape(5.dp)).background(color))
+    }
+}
+
+private fun hrsMin(min: Int): String = if (min < 60) "${min}m" else "${min / 60}h${if (min % 60 == 0) "" else " ${min % 60}m"}"
+
+// FW-15 · Life-load balancer.
+@Composable
+private fun LoadBalancerScreen(vm: AppViewModel, onBack: () -> Unit) {
+    val tasks by vm.tasks.collectAsState()
+    val habits by vm.habits.collectAsState()
+    val settings by vm.settings.collectAsState()
+    val today = LocalDate.now().toEpochDay()
+    val forecast = remember(tasks, habits, settings) { FourthWave.lifeLoadForecast(tasks, habits, settings, today, 7) }
+    LSScaffold("Life-load balancer", onBack) { pad ->
+        LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            item {
+                FWCard {
+                    Text("Next 7 days", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(forecast.advice, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                    Text("Load is your own task estimates + scheduled habit minutes — no external calendar is ever read.",
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+                }
+            }
+            items(forecast.days.size) { i ->
+                val dl = forecast.days[i]
+                val date = LocalDate.ofEpochDay(dl.day)
+                val cap = settings.capacityHoursFor(date.dayOfWeek) * 60
+                val over = dl.day in forecast.overloaded
+                val color = if (over) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                FWCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(date.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault()) + " " + date.dayOfMonth,
+                            style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        Text("${hrsMin(dl.total)} / ${hrsMin(cap)}", style = MaterialTheme.typography.labelLarge, color = color)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    FWBar(if (cap == 0) 0f else dl.total.toFloat() / cap, color)
+                    if (dl.taskMin > 0 || dl.habitMin > 0) Text(
+                        "Tasks ${hrsMin(dl.taskMin)} · Habits ${hrsMin(dl.habitMin)}" + if (over) " · over capacity" else "",
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+                }
+            }
+        }
+    }
+}
+
+// FW-13 · Causal trigger graph.
+@Composable
+private fun CausalGraphScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit: (String) -> Unit) {
+    val habits by vm.habits.collectAsState()
+    val checkins by vm.habitCheckins.collectAsState()
+    val today = LocalDate.now().toEpochDay()
+    val edges = remember(habits, checkins) { FourthWave.causalPrecursors(habits, checkins, today) }
+    LSScaffold("Causal trigger graph", onBack) { pad ->
+        LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (edges.isEmpty()) item {
+                EmptyBlock("🕸️", "Not enough signal yet", "Log a daily mood on your check-ins for a couple of weeks. Then this shows which habit, done today, most often precedes a good day tomorrow — your own lagged patterns. Correlation, not proof.", null)
+            } else item {
+                Text("On days after you did these, your next-day mood was better than usual. Suggestive, not proof — a lead to test in the Causal Life Lab.",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+            }
+            items(edges.size) { i ->
+                val e = edges[i]
+                val pctMore = ((e.lift - 1.0) * 100).toInt()
+                Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
+                    modifier = Modifier.fillMaxWidth().clickable { onOpenHabit(e.habitId) }) {
+                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(e.emoji, fontSize = 24.sp, modifier = Modifier.padding(end = 12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(e.habitName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                            Text("→ a good day follows ${pctMore}% more often (n=${e.nWith})", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Text("×${"%.2f".format(e.lift)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// FW-16 · Cross-domain receptivity model.
+@Composable
+private fun ReceptivityScreen(vm: AppViewModel, onBack: () -> Unit) {
+    val checkins by vm.habitCheckins.collectAsState()
+    val tasks by vm.allTasksLive.collectAsState()
+    val rec = remember(checkins, tasks) { FourthWave.receptivity(checkins, tasks) }
+    LSScaffold("Receptivity model", onBack) { pad ->
+        if (rec == null) {
+            Column(Modifier.padding(pad).fillMaxSize()) {
+                EmptyBlock("📡", "Learning your rhythm", "Once you've checked in habits and finished tasks a handful of times, this learns the hours and weekdays you actually act — so reminders can aim at your peak, not a random time.", null)
+            }
+            return@LSScaffold
+        }
+        val maxB = (rec.byBucket.maxOrNull() ?: 1).coerceAtLeast(1)
+        val maxD = ((1..7).maxOf { rec.byDow[it] }).coerceAtLeast(1)
+        LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            item {
+                FWCard {
+                    Text("You're most receptive around", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${rec.bucketLabel(rec.bestBucket)} · ${java.time.DayOfWeek.of(rec.bestDow).getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault())}s",
+                        style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text("Learned from ${rec.n} completed habits & tasks. Aim your hardest habit and any nudges at this window.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+                }
+            }
+            item {
+                FWCard {
+                    Text("By time of day", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(8.dp))
+                    for (b in 0..7) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 3.dp)) {
+                            Text(rec.bucketLabel(b), style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(78.dp))
+                            Box(Modifier.weight(1f)) { FWBar(rec.byBucket[b].toFloat() / maxB, if (b == rec.bestBucket) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary) }
+                            Text(" ${rec.byBucket[b]}", style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(28.dp))
+                        }
+                    }
+                }
+            }
+            item {
+                FWCard {
+                    Text("By weekday", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(8.dp))
+                    for (d in 1..7) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 3.dp)) {
+                            Text(rec.dowLabel(d), style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(78.dp))
+                            Box(Modifier.weight(1f)) { FWBar(rec.byDow[d].toFloat() / maxD, if (d == rec.bestDow) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary) }
+                            Text(" ${rec.byDow[d]}", style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(28.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// FW-14 · Nudge lab (Personal Nudge MRT).
+@Composable
+private fun NudgeLabScreen(vm: AppViewModel, onBack: () -> Unit) {
+    val events by vm.nudgeEvents.collectAsState()
+    val readout = remember(events) { FourthWave.nudgeMrtReadout(events) }
+    LSScaffold("Nudge lab", onBack) { pad ->
+        if (readout == null) {
+            Column(Modifier.padding(pad).fillMaxSize()) {
+                EmptyBlock("🎲", "No trials yet", "When a habit is due at your usual time, Today shows an opportunity nudge with a randomly-chosen wording. Over time this reads out which message actually gets you to act — a single-case randomised trial, run only on you.", null)
+            }
+            return@LSScaffold
+        }
+        LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            item {
+                Text("${readout.totalShown} nudge${if (readout.totalShown == 1) "" else "s"} shown so far. Each was a random pick between these wordings — here's how often you acted after each.",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+            }
+            items(readout.variants.size) { i ->
+                val v = readout.variants[i]
+                val best = v.variant == readout.bestVariant && v.shown >= 3
+                FWCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("“${v.label}”", style = MaterialTheme.typography.bodyMedium, fontWeight = if (best) FontWeight.SemiBold else FontWeight.Normal, modifier = Modifier.weight(1f))
+                        if (best) Text("★ best", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    FWBar(v.rate / 100f, if (best) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary)
+                    Text(if (v.shown == 0) "not shown yet" else "${v.rate}% acted · ${v.acted}/${v.shown}",
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+                }
+            }
+        }
+    }
+}
+
+// FW-9 · Self-escrow.
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EscrowScreen(vm: AppViewModel, onBack: () -> Unit) {
+    val escrows by vm.escrows.collectAsState()
+    val habits by vm.habits.collectAsState()
+    val checkins by vm.habitCheckins.collectAsState()
+    val today = LocalDate.now().toEpochDay()
+    var addOpen by remember { mutableStateOf(false) }
+    LSScaffold("Self-escrow", onBack, actions = { IconButton(onClick = { addOpen = true }) { Icon(Icons.Filled.Add, "New escrow") } }) { pad ->
+        LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (escrows.isEmpty()) item {
+                EmptyBlock("🔐", "Pre-commit to a milestone", "Lock a reward you'll only unlock at a real target (a 30-day streak, 90 clean days, 80% automatic) — or a stake you forfeit if you don't. Commitment devices beat willpower. Nothing leaves your device.") { addOpen = true }
+            }
+            items(escrows.size) { i ->
+                val e = escrows[i]
+                val st = FourthWave.escrowStatus(e, habits, checkins, today)
+                val habitName = habits.firstOrNull { it.id == e.habitId }?.name
+                val kindLabel = when (e.milestoneKind) { "streak" -> "day streak"; "cleandays" -> "clean days"; else -> "% automatic" }
+                FWCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(if (e.kind == "stake") "🎯" else "🎁", fontSize = 22.sp, modifier = Modifier.padding(end = 10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(e.description, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                            Text((if (e.kind == "stake") "Stake · " else "Reward · ") + "at ${e.milestoneValue} $kindLabel" + (habitName?.let { " · $it" } ?: ""),
+                                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        IconButton(onClick = { vm.deleteEscrow(e.id) }) { Icon(Icons.Filled.Delete, "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    }
+                    if (!e.released) {
+                        Spacer(Modifier.height(8.dp))
+                        FWBar(st.pct / 100f, if (st.reached) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary)
+                        Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("${st.current} / ${st.target} — ${st.pct}%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                            if (st.reached) {
+                                if (e.kind == "stake") {
+                                    TextButton(onClick = { vm.releaseEscrow(e, false) }) { Text("I made it") }
+                                } else {
+                                    TextButton(onClick = { vm.releaseEscrow(e, false) }) { Text("Bank") }
+                                    Button(onClick = { vm.releaseEscrow(e, true) }) { Text("Claim") }
+                                }
+                            }
+                        }
+                        if (st.reached && e.kind == "stake") TextButton(onClick = { vm.releaseEscrow(e, true) }) { Text("Missed — pay the stake", color = MaterialTheme.colorScheme.error) }
+                    } else {
+                        Text(when {
+                            e.kind == "stake" && e.redeemed -> "Stake paid."
+                            e.kind == "stake" -> "Cleared — you made it. 🎉"
+                            e.redeemed -> "Claimed. 🎉"
+                            else -> "Banked."
+                        }, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 6.dp))
+                    }
+                }
+            }
+        }
+    }
+    if (addOpen) EscrowAddDialog(vm, habits, onClose = { addOpen = false })
+}
+
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun EscrowAddDialog(vm: AppViewModel, habits: List<com.todocompanion.app.data.entity.HabitEntity>, onClose: () -> Unit) {
+    var desc by remember { mutableStateOf("") }
+    var kind by remember { mutableStateOf("reward") }
+    var mKind by remember { mutableStateOf("streak") }
+    var value by remember { mutableStateOf("30") }
+    var habitId by remember { mutableStateOf<String?>(null) }
+    val buildHabits = habits.filter { !it.archived && it.habitType != "break" }
+    val breakHabits = habits.filter { !it.archived && it.habitType == "break" }
+    AlertDialog(onDismissRequest = onClose,
+        title = { Text("New escrow") },
+        text = {
+            Column {
+                OutlinedTextField(desc, { desc = it }, label = { Text("Reward or stake") }, placeholder = { Text("e.g. new headphones") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                Spacer(Modifier.height(10.dp))
+                Text("Type", style = MaterialTheme.typography.labelMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(kind == "reward", { kind = "reward" }, label = { Text("Reward") })
+                    FilterChip(kind == "stake", { kind = "stake" }, label = { Text("Stake") })
+                }
+                Spacer(Modifier.height(10.dp))
+                Text("Milestone", style = MaterialTheme.typography.labelMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(mKind == "streak", { mKind = "streak"; value = "30" }, label = { Text("Streak") })
+                    FilterChip(mKind == "cleandays", { mKind = "cleandays"; value = "90" }, label = { Text("Clean days") })
+                    FilterChip(mKind == "automaticity", { mKind = "automaticity"; value = "80" }, label = { Text("Automatic %") })
+                }
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(value, { v -> value = v.filter { it.isDigit() }.take(4) }, label = { Text("Target") }, modifier = Modifier.width(140.dp), singleLine = true)
+                val linkable = if (mKind == "cleandays") breakHabits else buildHabits
+                if (linkable.isNotEmpty()) {
+                    Spacer(Modifier.height(10.dp))
+                    Text("Track on habit (optional)", style = MaterialTheme.typography.labelMedium)
+                    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(habitId == null, { habitId = null }, label = { Text("None") })
+                        linkable.take(8).forEach { h -> FilterChip(habitId == h.id, { habitId = h.id }, label = { Text(h.name, maxLines = 1) }) }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(enabled = desc.isNotBlank(), onClick = {
+            vm.addEscrow(habitId, desc, kind, mKind, value.toIntOrNull() ?: 1); onClose()
+        }) { Text("Lock it") } },
+        dismissButton = { TextButton(onClick = onClose) { Text("Cancel") } })
+}
+
+// FW-10 · Grounding library.
+@Composable
+private fun GroundingScreen(vm: AppViewModel, onBack: () -> Unit) {
+    val techniques = remember { FourthWave.groundingTechniques() }
+    LSScaffold("Grounding library", onBack) { pad ->
+        LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            item {
+                Text("For the hard moments — panic, a spike of craving, overwhelm. Pick any one and take it slowly. All offline, always here.",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+            }
+            items(techniques.size) { i ->
+                val g = techniques[i]
+                FWCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(g.emoji, fontSize = 24.sp, modifier = Modifier.padding(end = 12.dp))
+                        Text(g.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    }
+                    Text(g.steps, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+                }
+            }
+        }
+    }
+}
+
+// FW-11/FW-12 · Fresh-start windows (temporal landmarks + transition detector).
+@Composable
+private fun FreshStartScreen(vm: AppViewModel, onBack: () -> Unit) {
+    val settings by vm.settings.collectAsState()
+    val today = LocalDate.now().toEpochDay()
+    val landmark = remember(today) { FourthWave.temporalLandmark(today) }
+    val transition = remember(settings, today) { FourthWave.transitionWindow(settings, today) }
+    var declareOpen by remember { mutableStateOf(false) }
+    LSScaffold("Fresh-start windows", onBack) { pad ->
+        LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            item {
+                Text("People re-commit more readily at boundaries — a new week, a new month, a life change. These windows are when a reset actually sticks.",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+            }
+            landmark?.let { lm -> item {
+                Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.fillMaxWidth()) {
+                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(lm.emoji, fontSize = 26.sp, modifier = Modifier.padding(end = 12.dp))
+                        Text(lm.label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                }
+            } }
+            item {
+                FWCard {
+                    Text("Life transition", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    if (transition != null) {
+                        Text(transition.message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+                        Spacer(Modifier.height(8.dp))
+                        FWBar(transition.dayOfWindow.toFloat() / transition.windowDays, MaterialTheme.colorScheme.primary)
+                        Text("Day ${transition.dayOfWindow} of a ${transition.windowDays}-day reset window", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+                        Row(Modifier.padding(top = 6.dp)) {
+                            TextButton(onClick = { declareOpen = true }) { Text("Edit") }
+                            TextButton(onClick = { vm.clearTransition() }) { Text("Clear") }
+                        }
+                    } else if (settings.transitionLabel.isNotBlank()) {
+                        Text("“${settings.transitionLabel}” — its reset window has passed. Habits chosen during it are the ones to keep.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+                        Row(Modifier.padding(top = 6.dp)) {
+                            TextButton(onClick = { declareOpen = true }) { Text("Declare a new one") }
+                            TextButton(onClick = { vm.clearTransition() }) { Text("Clear") }
+                        }
+                    } else {
+                        Text("Starting a new job, a move, a term, becoming a parent? Declaring it opens a 3-week window where re-choosing routines is far more likely to hold.",
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+                        Spacer(Modifier.height(8.dp))
+                        FilledTonalButton(onClick = { declareOpen = true }) { Text("Declare a transition") }
+                    }
+                }
+            }
+        }
+    }
+    if (declareOpen) {
+        var label by remember { mutableStateOf(settings.transitionLabel) }
+        AlertDialog(onDismissRequest = { declareOpen = false },
+            title = { Text("Declare a transition") },
+            text = {
+                Column {
+                    Text("Name the change. A 3-week fresh-start window opens from today.", style = MaterialTheme.typography.bodySmall)
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(label, { label = it }, placeholder = { Text("e.g. New job, Moved cities") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                }
+            },
+            confirmButton = { TextButton(enabled = label.isNotBlank(), onClick = { vm.setTransition(label, today); declareOpen = false }) { Text("Open window") } },
+            dismissButton = { TextButton(onClick = { declareOpen = false }) { Text("Cancel") } })
     }
 }

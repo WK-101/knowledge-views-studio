@@ -544,9 +544,11 @@ private fun androidx.compose.foundation.lazy.LazyListScope.taskListHeaders(vm: A
     (view as? ViewRef.Smart)?.kind?.let { k ->
         if (k == SmartKind.TODAY || k == SmartKind.DO_NEXT) {
             item(key = "recovery") { RecoveryStrip(vm) }   // P2: kind triage when overdue piles up
-            item(key = "twnudges") { NudgeStrip(vm) }       // R35 TW-B: right-now risk / opportunity nudges
+            item(key = "freshstart") { FreshStartStrip(vm) } // R36 FW-11/12: temporal-landmark / transition reset
+            item(key = "twnudges") { NudgeStrip(vm) }       // R35 TW-B / R36 FW-14: right-now nudges (MRT)
             item(key = "bookend") { BookendCard(vm) }       // R35 TW-E: AM/PM intention-review bookend
             item(key = "habitsdue") { HabitsDueStrip(vm) }
+            item(key = "shutdown") { ShutdownStrip(vm) }    // R36 FW-6: evening shutdown + carry-forward
         }
         // Countdowns whose target falls in this list's window show up here too, so a countdown you
         // set surfaces in Today / Next-7-days / Scheduled — not only on the dedicated Countdowns hub.
@@ -891,16 +893,73 @@ private fun NudgeStrip(vm: AppViewModel) {
     val nudges = remember(habits, checkins, cravings, now.hour, today) {
         com.todocompanion.app.domain.habit.ThirdWave.nudges(habits, checkins, cravings, now.hour * 60 + now.minute, today)
     }
+    // FW-14 · Personal Nudge MRT — reconcile past impressions once per day; pick a stable variant per
+    // (habit, day) for each opportunity nudge shown, and log the impression so effectiveness can be read out.
+    val opportunityVariants = remember(nudges, today) {
+        nudges.filter { it.kind == "opportunity" }.associate { it.habitId to com.todocompanion.app.domain.habit.FourthWave.pickVariant(it.habitId.hashCode().toLong() + today) }
+    }
+    androidx.compose.runtime.LaunchedEffect(today) { vm.reconcileNudges() }
+    androidx.compose.runtime.LaunchedEffect(opportunityVariants) {
+        opportunityVariants.forEach { (habitId, variant) -> vm.logNudgeShown(habitId, variant, today) }
+    }
     if (nudges.isEmpty()) return
     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         nudges.forEach { n ->
             val risk = n.kind == "risk"
+            val text = if (n.kind == "opportunity") opportunityVariants[n.habitId]?.let { v -> "${com.todocompanion.app.domain.habit.FourthWave.NUDGE_VARIANTS[v]} — ${n.text}" } ?: n.text else n.text
             Surface(Modifier.fillMaxWidth().clickable { vm.habitDetailId.value = n.habitId }, shape = RoundedCornerShape(14.dp),
                 color = if (risk) MaterialTheme.colorScheme.errorContainer.copy(alpha = .55f) else MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .55f)) {
                 Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(n.emoji, Modifier.padding(end = 10.dp))
-                    Text(n.text, style = MaterialTheme.typography.bodyMedium, color = if (risk) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onTertiaryContainer)
+                    Text(text, style = MaterialTheme.typography.bodyMedium, color = if (risk) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onTertiaryContainer)
                 }
+            }
+        }
+    }
+}
+
+/** R36 · FW-12/FW-11 — a fresh-start banner on Today: a temporal landmark (new week/month/quarter/year)
+ *  or a live life-transition reset window. Tapping opens the Fresh-start windows screen. Calm, dismissible
+ *  by its own nature (landmarks pass), and never nags. */
+@Composable
+private fun FreshStartStrip(vm: AppViewModel) {
+    val settings by vm.settings.collectAsState()
+    val today = java.time.LocalDate.now().toEpochDay()
+    val landmark = remember(today) { com.todocompanion.app.domain.habit.FourthWave.temporalLandmark(today) }
+    val transition = remember(settings, today) { com.todocompanion.app.domain.habit.FourthWave.transitionWindow(settings, today) }
+    val emoji: String; val msg: String
+    when {
+        transition != null -> { emoji = "🌅"; msg = transition.message }
+        landmark != null -> { emoji = landmark.emoji; msg = landmark.label }
+        else -> return
+    }
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).clickable { vm.lifeSystemsRoute.value = "freshstart" },
+        shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .6f)) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(emoji, Modifier.padding(end = 12.dp), style = MaterialTheme.typography.titleMedium)
+            Text(msg, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+        }
+    }
+}
+
+/** R36 · FW-6 — the daily shutdown card: after ~5pm, the still-open tasks due today, with one tap to
+ *  carry them all forward to tomorrow and close the day cleanly (Zeigarnik: an intentional close beats
+ *  a nagging open loop). Opt-in feel — only appears in the evening when there's something to close. */
+@Composable
+private fun ShutdownStrip(vm: AppViewModel) {
+    val tasks by vm.tasks.collectAsState()
+    val today = java.time.LocalDate.now().toEpochDay()
+    val hour = java.time.LocalTime.now().hour
+    if (hour < 17) return
+    val open = remember(tasks, today) { com.todocompanion.app.domain.habit.FourthWave.shutdownCarryForward(tasks, today) }
+    if (open.isEmpty()) return
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Column(Modifier.padding(14.dp)) {
+            Text("🌇 Daily shutdown", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            Text("${open.size} task${if (open.size == 1) "" else "s"} still open for today. Carry them forward and close the day — an intentional stop, not a loose end.",
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
+            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                androidx.compose.material3.FilledTonalButton(onClick = { vm.carryForwardTasks(open.map { it.id }) }) { Text("Carry ${open.size} to tomorrow") }
             }
         }
     }

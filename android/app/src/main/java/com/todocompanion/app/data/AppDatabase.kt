@@ -78,8 +78,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         com.todocompanion.app.data.entity.ExperimentEntity::class,
         com.todocompanion.app.data.entity.ActivationItemEntity::class,
         com.todocompanion.app.data.entity.DayLogEntity::class,
+        com.todocompanion.app.data.entity.EscrowEntity::class,
+        com.todocompanion.app.data.entity.NudgeEventEntity::class,
     ],
-    version = 44,
+    version = 45,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -113,6 +115,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun experimentDao(): com.todocompanion.app.data.dao.ExperimentDao
     abstract fun activationDao(): com.todocompanion.app.data.dao.ActivationDao
     abstract fun dayLogDao(): com.todocompanion.app.data.dao.DayLogDao
+    abstract fun escrowDao(): com.todocompanion.app.data.dao.EscrowDao
+    abstract fun nudgeEventDao(): com.todocompanion.app.data.dao.NudgeEventDao
 
     companion object {
         @Volatile
@@ -530,6 +534,14 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // R36 — the FOURTH-WAVE layer: two small tables (self-escrows, nudge-MRT events). No data touched.
+        private val MIGRATION_44_45 = object : Migration(44, 45) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `escrows` (`id` TEXT NOT NULL, `habitId` TEXT, `description` TEXT NOT NULL, `kind` TEXT NOT NULL, `milestoneKind` TEXT NOT NULL, `milestoneValue` INTEGER NOT NULL, `released` INTEGER NOT NULL DEFAULT 0, `redeemed` INTEGER NOT NULL DEFAULT 0, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `nudge_events` (`id` TEXT NOT NULL, `habitId` TEXT NOT NULL, `variant` INTEGER NOT NULL, `epochDay` INTEGER NOT NULL, `acted` INTEGER NOT NULL DEFAULT 0, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: run {
@@ -542,7 +554,7 @@ abstract class AppDatabase : RoomDatabase() {
                     val factory = runCatching { com.todocompanion.app.data.security.SecureDb.openFactory(app) }.getOrNull()
                     Room.databaseBuilder(app, AppDatabase::class.java, "todocompanion.db")
                         .apply { if (factory != null) openHelperFactory(factory) }
-                        .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30, MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35, MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39, MIGRATION_39_40, MIGRATION_40_41, MIGRATION_41_42, MIGRATION_42_43)
+                        .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30, MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35, MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39, MIGRATION_39_40, MIGRATION_40_41, MIGRATION_41_42, MIGRATION_42_43, MIGRATION_43_44, MIGRATION_44_45)
                         .fallbackToDestructiveMigration()
                         .build()
                         .also { INSTANCE = it }

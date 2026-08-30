@@ -16,6 +16,7 @@
     <string name="widget_momentum_desc">Your unified momentum — habits, task reliability and focus in one score</string>
     <string name="widget_time_desc">Start, switch and stop time tracking from the home screen — a live timer for the running activity</string>
     <string name="tile_track_label">Track time</string>
+    <string name="tile_habit_label">Check off habit</string>
     <!-- R17: launcher long-press shortcuts. -->
     <string name="sc_quick_add_short">Quick add</string>
     <string name="sc_quick_add_long">Add a task</string>

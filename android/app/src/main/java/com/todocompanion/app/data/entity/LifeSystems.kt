@@ -125,3 +125,33 @@ data class DayLogEntity(
     val pmMood: Int = 0,
     val updatedAt: Long = 0,
 )
+
+/** R36 · FW-F — a self-escrow contingency reward/stake: pre-committed now, released only at a verified
+ *  milestone (a streak / clean-days / automaticity target). Bank-or-redeem on release. Fully offline. */
+@Serializable
+@Entity(tableName = "escrows")
+data class EscrowEntity(
+    @PrimaryKey val id: String,
+    val habitId: String? = null,
+    val description: String,       // the reward or the stake ("new headphones", "donate ₹500")
+    val kind: String,              // "reward" | "stake"
+    val milestoneKind: String,     // "streak" | "cleandays" | "automaticity"
+    val milestoneValue: Int,
+    val released: Boolean = false, // milestone reached and acted on
+    val redeemed: Boolean = false, // for a reward: taken (vs banked); for a stake: paid
+    val createdAt: Long,
+)
+
+/** R36 · FW-M2 — Personal Nudge MRT: each time the app shows an opportunity nudge it micro-randomizes the
+ *  message variant and logs it; a daily reconcile marks whether the habit was then done, so per-variant
+ *  effectiveness can be read out. Single-case science, offline. One row per (habit, day) impression. */
+@Serializable
+@Entity(tableName = "nudge_events")
+data class NudgeEventEntity(
+    @PrimaryKey val id: String,
+    val habitId: String,
+    val variant: Int,             // which message variant was shown (0..N-1)
+    val epochDay: Long,
+    val acted: Boolean = false,   // was the habit completed that day after the nudge
+    val createdAt: Long,
+)
