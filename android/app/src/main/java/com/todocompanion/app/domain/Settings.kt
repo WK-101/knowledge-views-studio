@@ -103,6 +103,8 @@ data class AppSettings(
     val completionSound: Boolean = false,
     // Require biometric / device credential to open the app.
     val appLockEnabled: Boolean = false,
+    // Frontier F5 — the proof vault: lock just The Record behind biometrics (when the whole app isn't locked).
+    val lockRecord: Boolean = false,
     // Security hardening (R18): block screenshots / screen recording / recents-thumbnail capture, and
     // hide task text on the lock screen. Both default off so nothing changes unless the user opts in.
     val secureScreen: Boolean = false,
@@ -134,6 +136,8 @@ data class AppSettings(
     val resumeLastView: Boolean = false,
     val lastViewRef: String = "",       // ref token of the last-opened view (kept only when resume is on)
     val defaultViewRef: String = "",    // ref token to open on launch (empty = Today)
+    // R30 #5 — long-pressing the first bottom-nav tab jumps here (a ref token; default = Inbox).
+    val navShortcutRef: String = "smart:INBOX",
     // Tier T0: the modular top-level system. primaryModule ∈ {tasks, habits, time} sets the launch home
     // and the always-shown module. disabledModules holds fully-off modules (from {tasks, habits, time}),
     // hidden from nav, drawer, capture, widgets, Momentum and Today — but never deleted.
@@ -287,6 +291,7 @@ data class AppSettings(
         Keys.RELIABILITY to reliabilityOnboarded.toString(),
         Keys.COMPLETION_SOUND to completionSound.toString(),
         Keys.APP_LOCK to appLockEnabled.toString(),
+        Keys.LOCK_RECORD to lockRecord.toString(),
         Keys.SECURE_SCREEN to secureScreen.toString(),
         Keys.LOCKSCREEN_PRIVACY to lockscreenPrivacy.toString(),
         Keys.FAB_POS to fabPosition,
@@ -306,6 +311,7 @@ data class AppSettings(
         Keys.RESUME_LAST to resumeLastView.toString(),
         Keys.LAST_VIEW to lastViewRef,
         Keys.DEFAULT_VIEW to defaultViewRef,
+        Keys.NAV_SHORTCUT to navShortcutRef,
         Keys.SIDEBAR_COLLAPSED to sidebarCollapsed.joinToString(","),
         Keys.SIDEBAR_HIDDEN to sidebarHidden.joinToString(","),
         Keys.SMART_ORDER to smartOrder.joinToString(","),
@@ -403,6 +409,7 @@ data class AppSettings(
         const val RELIABILITY = "reliability_onboarded"
         const val COMPLETION_SOUND = "completion_sound"
         const val APP_LOCK = "app_lock"
+        const val LOCK_RECORD = "lock_record"
         const val SECURE_SCREEN = "secure_screen"
         const val LOCKSCREEN_PRIVACY = "lockscreen_privacy"
         const val FAB_POS = "fab_pos"
@@ -422,6 +429,7 @@ data class AppSettings(
         const val RESUME_LAST = "resume_last"
         const val LAST_VIEW = "last_view"
         const val DEFAULT_VIEW = "default_view"
+        const val NAV_SHORTCUT = "nav_shortcut"
         const val SIDEBAR_COLLAPSED = "sidebar_collapsed"
         const val SIDEBAR_HIDDEN = "sidebar_hidden"
         const val SMART_ORDER = "smart_order"
@@ -527,6 +535,7 @@ data class AppSettings(
             resumeLastView = m[Keys.RESUME_LAST]?.toBooleanStrictOrNull() ?: false,
             lastViewRef = m[Keys.LAST_VIEW] ?: "",
             defaultViewRef = m[Keys.DEFAULT_VIEW] ?: "",
+            navShortcutRef = m[Keys.NAV_SHORTCUT] ?: "smart:INBOX",
             sidebarCollapsed = (m[Keys.SIDEBAR_COLLAPSED] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             sidebarHidden = (m[Keys.SIDEBAR_HIDDEN] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             smartOrder = (m[Keys.SMART_ORDER] ?: "").split(",").filter { it.isNotBlank() },
@@ -578,6 +587,7 @@ data class AppSettings(
             reliabilityOnboarded = m[Keys.RELIABILITY]?.toBooleanStrictOrNull() ?: false,
             completionSound = m[Keys.COMPLETION_SOUND]?.toBooleanStrictOrNull() ?: false,
             appLockEnabled = m[Keys.APP_LOCK]?.toBooleanStrictOrNull() ?: false,
+            lockRecord = m[Keys.LOCK_RECORD]?.toBooleanStrictOrNull() ?: false,
             secureScreen = m[Keys.SECURE_SCREEN]?.toBooleanStrictOrNull() ?: false,
             lockscreenPrivacy = m[Keys.LOCKSCREEN_PRIVACY]?.toBooleanStrictOrNull() ?: false,
             fabPosition = m[Keys.FAB_POS] ?: "end",

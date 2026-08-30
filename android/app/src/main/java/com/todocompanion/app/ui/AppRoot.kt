@@ -151,16 +151,28 @@ private data class NewReq(val isFolder: Boolean, val parentId: String?)
 
 /** Compact, icon-only bottom navigation (TickTick-style) — shorter than the Material NavigationBar. */
 @Composable
-private fun CompactBottomBar(tabs: List<Tab>, current: Tab, onSelect: (Tab) -> Unit) {
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+private fun CompactBottomBar(
+    tabs: List<Tab>, current: Tab, onSelect: (Tab) -> Unit,
+    onReselect: (Tab) -> Unit = {}, onLongPressPrimary: () -> Unit = {},
+) {
     androidx.compose.material3.Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 10.dp, tonalElevation = 2.dp) {
         Row(
             Modifier.fillMaxWidth().navigationBarsPadding().height(56.dp),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            tabs.forEach { t ->
+            tabs.forEachIndexed { idx, t ->
                 val selected = t == current
-                Box(Modifier.weight(1f).fillMaxHeight().clickable { onSelect(t) }, contentAlignment = Alignment.Center) {
+                // Tapping the active tab re-triggers it (Calendar → jump to today). Long-pressing the FIRST
+                // tab jumps to the configured home shortcut (default Inbox).
+                Box(
+                    Modifier.weight(1f).fillMaxHeight().combinedClickable(
+                        onClick = { if (selected) onReselect(t) else onSelect(t) },
+                        onLongClick = if (idx == 0) ({ onLongPressPrimary() }) else null,
+                    ),
+                    contentAlignment = Alignment.Center,
+                ) {
                     Icon(t.icon, t.label, tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(25.dp))
                 }
             }
@@ -749,7 +761,17 @@ fun AppRoot(
                         Column {
                             // Persistent running-timer bar — visible on every tab while a timer runs.
                             if (Modules.isEnabled(settings, Modules.TIME)) RunningTimerBar(vm, onOpen = { tab = Tab.TIME })
-                            CompactBottomBar(visibleTabs, tab) { tab = it }
+                            CompactBottomBar(
+                                visibleTabs, tab, onSelect = { tab = it },
+                                onReselect = { t ->
+                                    // Re-tap the active Calendar tab → jump to today (mirrors the top-bar Today).
+                                    if (t == Tab.CALENDAR) { calAnchor = java.time.LocalDate.now(); calSelected = java.time.LocalDate.now() }
+                                },
+                                onLongPressPrimary = {
+                                    val ref = settings.navShortcutRef.ifBlank { "smart:INBOX" }
+                                    com.todocompanion.app.domain.view.ViewTabs.viewOf(ref)?.let { vm.select(it); tab = Tab.TASKS }
+                                },
+                            )
                         }
                     }
                 },

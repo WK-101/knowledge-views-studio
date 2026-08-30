@@ -28,6 +28,10 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.material.icons.filled.Handshake
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
@@ -68,9 +72,19 @@ import java.util.Locale
  * Replaces the dead "Completed" archive with a living record: a feed, a trophy case, lifetime totals,
  * on-this-day memories and a one-tap brag-document export. Everything derived on-device; 0 network.
  */
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+/** Frontier F5 — the proof vault: when enabled (and the whole app isn't already locked), gate The Record
+ *  behind the device biometric before it renders. */
 @Composable
 fun DoneScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> Unit) {
+    val gateSettings by vm.settings.collectAsState()
+    if (gateSettings.lockRecord && !gateSettings.appLockEnabled) {
+        com.todocompanion.app.ui.AppLockGate(enabled = true) { DoneScreenBody(vm, onOpenTask, onBack) }
+    } else DoneScreenBody(vm, onOpenTask, onBack)
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
     val tasks by vm.tasks.collectAsState()
     val habits by vm.habits.collectAsState()
@@ -110,7 +124,14 @@ fun DoneScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> Uni
         m
     }
     val honesty = remember(tasks, trackedByTask, listNameById) { DoneRecord.honesty(tasks, trackedByTask, listNameById) }
-    val comeback = remember(rangedFeed) { DoneRecord.comeback(rangedFeed, today) }
+    // Momentum = evidence-based comeback lines + a private rank against your own past (frontier F4).
+    val comeback = remember(rangedFeed, feed) {
+        DoneRecord.comeback(rangedFeed, today) + listOfNotNull(
+            com.todocompanion.app.domain.done.Percentile.bestWeekSince(feed, today),
+            com.todocompanion.app.domain.done.Percentile.todayStandout(feed, today),
+        )
+    }
+    var showCoSign by remember { mutableStateOf(false) }
 
     // R29 Phase 5/7 — the impact graph (finished work → the goals it served) and the verifiable timeline.
     val settings by vm.settings.collectAsState()
@@ -121,6 +142,10 @@ fun DoneScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> Uni
     }
     if (showImpact) {
         ImpactScreen(impact, rangeLabel(range), listNameById, onOpenTask = onOpenTask, onBack = { showImpact = false })
+        return
+    }
+    if (showCoSign) {
+        CoSignScreen(vm, onBack = { showCoSign = false })
         return
     }
 
@@ -155,6 +180,16 @@ fun DoneScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> Uni
                             val md = DoneRecord.archiveMarkdown(feed, listNameById, today)
                             vm.exportBragDoc(md, "the-record-archive.md") { loc -> android.widget.Toast.makeText(ctx, if (loc != null) "Archive saved to $loc" else "Save failed", android.widget.Toast.LENGTH_LONG).show() }
                         })
+                        // F5 — redacted archive: the shape of your work, private titles hidden.
+                        androidx.compose.material3.DropdownMenuItem(text = { Text("Redacted archive") }, onClick = {
+                            exportMenu = false
+                            val md = DoneRecord.archiveMarkdown(feed, listNameById, today, redact = true)
+                            vm.exportBragDoc(md, "the-record-redacted.md") { loc -> android.widget.Toast.makeText(ctx, if (loc != null) "Redacted archive saved to $loc" else "Save failed", android.widget.Toast.LENGTH_LONG).show() }
+                        })
+                        // F2 — sealed-year certificate (shareable image for the current year).
+                        androidx.compose.material3.DropdownMenuItem(text = { Text("Sealed-year certificate") }, onClick = {
+                            exportMenu = false; vm.shareYearCertificate(today.year)
+                        })
                     }
                 }
             },
@@ -185,10 +220,12 @@ fun DoneScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> Uni
             }
             // Totals + personal bests, over the chosen range.
             item(key = "stats") { LifetimeCard(stats, rangeLabel(range)) }
-            // Impact graph entry — what the finished work added up to.
-            if (impact.goalsServed > 0) item(key = "impact") { ImpactTeaser(impact) { showImpact = true } }
+            // Impact graph entry — always reachable; the map itself shows an empty state if nothing links yet.
+            item(key = "impact") { ImpactTeaser(impact) { showImpact = true } }
             // Verifiable timeline — seal the record so back-dating is detectable.
             item(key = "integrity") { IntegrityCard(integrity, onSeal = { vm.sealRecord() }, onClear = { vm.clearSeal() }) }
+            // Peer co-sign — witness a proof phone-to-phone, no cloud.
+            item(key = "cosign") { CoSignTeaser { showCoSign = true } }
             // Momentum — kind, evidence-based (recovery + standout effort), not just streaks.
             if (comeback.isNotEmpty()) item(key = "comeback") { ComebackCard(comeback) }
             // The honesty ledger — estimate vs. the time actually invested.
@@ -670,6 +707,104 @@ private fun ImpactNodeCard(node: com.todocompanion.app.domain.done.Impact.Node, 
                 Spacer(Modifier.height(6.dp))
                 node.outcomes.take(4).forEach { o ->
                     Text("→ $o", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+    }
+}
+
+// ---------- R30 frontier F3 — peer co-sign ----------
+
+@Composable
+private fun CoSignTeaser(onOpen: () -> Unit) {
+    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
+        modifier = Modifier.fillMaxWidth().clickable { onOpen() }) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.Handshake, null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Peer co-sign", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text("Have a teammate witness a proof — phone to phone, no cloud.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Text("Open →", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        }
+    }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun CoSignScreen(vm: AppViewModel, onBack: () -> Unit) {
+    BackHandler(onBack = onBack)
+    val ctx = LocalContext.current
+    val deviceId = remember { com.todocompanion.app.domain.done.PeerSign.deviceId() }
+    var inToken by remember { mutableStateOf("") }       // a proof's verify token, to co-sign
+    var producedToken by remember { mutableStateOf<String?>(null) }
+    var verifyToken by remember { mutableStateOf("") }   // a co-sign token, to verify
+    var verifyResult by remember { mutableStateOf<String?>(null) }
+
+    Scaffold(topBar = {
+        TopAppBar(expandedHeight = 52.dp,
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+            title = { Text("Peer co-sign") })
+    }) { padding ->
+        Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("This device signs and verifies with a key held only in its secure hardware. Everything here is offline — a token (or its QR) is the only thing that moves between phones.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Your signer id · $deviceId", style = MaterialTheme.typography.labelMedium,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, color = MaterialTheme.colorScheme.primary)
+
+            // 1) Co-sign someone's proof.
+            Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp)) {
+                    Text("Co-sign a proof", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text("Paste the verify token from a friend's receipt (under its QR), then sign to witness it.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(8.dp))
+                    com.todocompanion.app.ui.components.AppTextField(inToken, { inToken = it }, label = { Text("Their proof token (TDC1|…)") }, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(8.dp))
+                    androidx.compose.material3.FilledTonalButton(enabled = inToken.isNotBlank(), onClick = {
+                        producedToken = com.todocompanion.app.domain.done.PeerSign.coSign(inToken.trim())
+                        if (producedToken == null) android.widget.Toast.makeText(ctx, "Couldn't sign that", android.widget.Toast.LENGTH_SHORT).show()
+                    }) { Text("Sign it") }
+                    producedToken?.let { tok ->
+                        Spacer(Modifier.height(10.dp))
+                        Text("Hand this back — it's your co-signature:", style = MaterialTheme.typography.labelMedium)
+                        val coQr = remember(tok) { com.todocompanion.app.ui.util.ReceiptRenderer.qrBitmap(tok) }
+                        coQr?.let { bmp -> Image(bmp.asImageBitmap(), "co-sign QR", Modifier.padding(vertical = 8.dp).size(180.dp)) }
+                        Text(tok, style = MaterialTheme.typography.labelSmall, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                        androidx.compose.material3.TextButton(onClick = {
+                            val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(android.content.Intent.EXTRA_TEXT, tok) }
+                            runCatching { ctx.startActivity(android.content.Intent.createChooser(send, "Co-signature")) }
+                        }) { Text("Share token") }
+                    }
+                }
+            }
+
+            // 2) Verify a co-signature.
+            Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp)) {
+                    Text("Verify a co-signature", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text("Paste a COSIGN|… token you received to check it's genuine.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(8.dp))
+                    com.todocompanion.app.ui.components.AppTextField(verifyToken, { verifyToken = it }, label = { Text("Co-signature token (COSIGN|…)") }, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(8.dp))
+                    androidx.compose.material3.FilledTonalButton(enabled = verifyToken.isNotBlank(), onClick = {
+                        val v = com.todocompanion.app.domain.done.PeerSign.verify(verifyToken.trim())
+                        verifyResult = if (v == null) "✗ Not a valid co-signature."
+                        else {
+                            val d = java.time.Instant.ofEpochMilli(v.at).atZone(ZoneId.systemDefault()).toLocalDate()
+                            "✓ Valid — signed by ${v.signerId} on $d."
+                        }
+                    }) { Text("Verify") }
+                    verifyResult?.let {
+                        Spacer(Modifier.height(8.dp))
+                        Text(it, style = MaterialTheme.typography.bodyMedium,
+                            color = if (it.startsWith("✓")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                    }
                 }
             }
         }

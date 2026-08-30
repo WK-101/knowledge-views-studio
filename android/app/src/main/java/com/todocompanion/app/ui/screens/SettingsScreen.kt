@@ -52,6 +52,7 @@ import com.todocompanion.app.ui.components.formatDue
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -377,6 +378,50 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                     FilterChip(selected = s.defaultViewRef == ref, onClick = { vm.saveSettings(s.copy(defaultViewRef = ref)) }, label = { Text(label) })
                 }
             }
+
+            // R30 #5 — long-press the first bottom-bar tab jumps to this view (default Inbox).
+            Spacer(Modifier.height(14.dp)); Sub("Home shortcut")
+            Text("Long-press the first bottom-bar tab to jump straight to this view.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+            val navLists by vm.lists.collectAsState()
+            val navFolders by vm.folders.collectAsState()
+            val navTags by vm.tags.collectAsState()
+            val navContexts by vm.contexts.collectAsState()
+            val navFilters by vm.filters.collectAsState()
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(
+                    "smart:INBOX" to "Inbox", "smart:TODAY" to "Today", "smart:DO_NEXT" to "Do Next",
+                    "smart:NEXT7" to "Next 7", "smart:SCHEDULED" to "Scheduled", "smart:ALL" to "All",
+                ).forEach { (ref, label) ->
+                    FilterChip(selected = s.navShortcutRef == ref, onClick = { vm.saveSettings(s.copy(navShortcutRef = ref)) }, label = { Text(label) })
+                }
+            }
+            var navPick by remember { mutableStateOf(false) }
+            val curLabel = run {
+                val ref = s.navShortcutRef; val id = ref.substringAfter(':', "")
+                when (ref.substringBefore(':')) {
+                    "smart" -> id.lowercase().replaceFirstChar { c -> c.titlecase() }
+                    "list" -> navLists.firstOrNull { it.id == id }?.name ?: "List"
+                    "folder" -> "📁 " + (navFolders.firstOrNull { it.id == id }?.name ?: "Folder")
+                    "tag" -> "#" + (navTags.firstOrNull { it.id == id }?.name ?: "tag")
+                    "context" -> "@" + (navContexts.firstOrNull { it.id == id }?.name ?: "context")
+                    "filter" -> navFilters.firstOrNull { it.id == id }?.name ?: "Filter"
+                    else -> "Inbox"
+                }
+            }
+            Box {
+                androidx.compose.material3.TextButton(onClick = { navPick = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 6.dp)) {
+                    Text("Or pick a list / folder / tag / context / filter…")
+                }
+                DropdownMenu(expanded = navPick, onDismissRequest = { navPick = false }) {
+                    navLists.forEach { l -> DropdownMenuItem(text = { Text(l.name) }, onClick = { vm.saveSettings(s.copy(navShortcutRef = "list:${l.id}")); navPick = false }) }
+                    navFolders.forEach { f -> DropdownMenuItem(text = { Text("📁 ${f.name}") }, onClick = { vm.saveSettings(s.copy(navShortcutRef = "folder:${f.id}")); navPick = false }) }
+                    navTags.forEach { t -> DropdownMenuItem(text = { Text("#${t.name}") }, onClick = { vm.saveSettings(s.copy(navShortcutRef = "tag:${t.id}")); navPick = false }) }
+                    navContexts.forEach { c -> DropdownMenuItem(text = { Text("@${c.name}") }, onClick = { vm.saveSettings(s.copy(navShortcutRef = "context:${c.id}")); navPick = false }) }
+                    navFilters.forEach { fl -> DropdownMenuItem(text = { Text("⚑ ${fl.name}") }, onClick = { vm.saveSettings(s.copy(navShortcutRef = "filter:${fl.id}")); navPick = false }) }
+                }
+            }
+            Text("Now: $curLabel", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
         }
 
         SettingsGroup(Icons.Filled.ViewSidebar, "Sidebar & tabs", open["sidebar"] == true, { open["sidebar"] = open["sidebar"] != true }, keywords = "smart lists entry counts bottom bar tabs drawer sections show hide navigation") {
@@ -697,6 +742,11 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Toggle("Require unlock to open", s.appLockEnabled) { vm.saveSettings(s.copy(appLockEnabled = it)) }
             Text("Ask for your fingerprint, face or device PIN each time the app opens (strong biometric preferred). All checks happen on-device.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (!s.appLockEnabled) {
+                Toggle("Lock The Record (proof vault)", s.lockRecord) { vm.saveSettings(s.copy(lockRecord = it)) }
+                Text("Gate just your accomplishment record behind the device biometric, even when the whole app isn't locked.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             Toggle("Block screenshots & screen recording", s.secureScreen) { vm.saveSettings(s.copy(secureScreen = it)) }
             Text("Marks the app secure (FLAG_SECURE): screenshots, screen recorders and the recent-apps thumbnail can't capture your content.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -749,7 +799,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
         }
 
-        SettingsGroup(Icons.Filled.Flag, "Flags", open["flags"] == true, { open["flags"] = open["flags"] != true }) {
+        SettingsGroup(Icons.Filled.Bookmark, "Flags", open["flags"] == true, { open["flags"] = open["flags"] != true }) {
             Text("Named, coloured markers you can sort and group by. A flag stays on a task; the star is a separate ‘focus now’ toggle.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
             flags.forEachIndexed { i, f ->
@@ -1004,7 +1054,11 @@ private fun ChooserRow(title: String, subtitle: String, onClick: () -> Unit) {
  */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-internal fun FileBrowser(vm: AppViewModel, title: String = "Choose a backup file", allTypes: Boolean = false, confirmLabel: String? = null, onDismiss: () -> Unit, onPicked: (java.io.File) -> Unit) {
+internal fun FileBrowser(
+    vm: AppViewModel, title: String = "Choose a backup file", allTypes: Boolean = false,
+    confirmLabel: String? = null, multi: Boolean = false,
+    onDismiss: () -> Unit, onPicked: (java.io.File) -> Unit = {}, onPickedMulti: (List<java.io.File>) -> Unit = {},
+) {
     val browseCtx = androidx.compose.ui.platform.LocalContext.current
     val roots = remember { com.todocompanion.app.util.FileExport.browseRoots(browseCtx) }
     var dir by remember { mutableStateOf(roots.firstOrNull() ?: java.io.File("/")) }
@@ -1012,11 +1066,20 @@ internal fun FileBrowser(vm: AppViewModel, title: String = "Choose a backup file
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<java.io.File>>(emptyList()) }
     var confirming by remember { mutableStateOf<java.io.File?>(null) }
-    // R28 #6 — let the user reveal EVERY file (not just importable types) so any format can be picked/attached.
-    var showAll by remember { mutableStateOf(allTypes) }
+    var selected by remember { mutableStateOf(setOf<String>()) }   // multi: absolute paths
+    // R30 #6 — show EVERY file by default (the old importable-only default hid whole folders and read
+    // "no importable files"). The "Importable only" toggle narrows it for backup restores when wanted.
+    var showAll by remember { mutableStateOf(true) }
     androidx.compose.runtime.LaunchedEffect(dir, showAll) { vm.browseDir(dir, showAll) { entries = it } }
-    androidx.compose.runtime.LaunchedEffect(query) { if (query.trim().length >= 2) vm.searchFilesystem(query) { results = it } else results = emptyList() }
+    androidx.compose.runtime.LaunchedEffect(query, showAll) { if (query.trim().length >= 2) vm.searchFilesystem(query, showAll) { results = it } else results = emptyList() }
     val searching = query.trim().length >= 2
+
+    fun meta(f: java.io.File): String {
+        val len = runCatching { f.length() }.getOrDefault(0L)
+        val size = when { len < 1024 -> "$len B"; len < 1024 * 1024 -> "%.0f KB".format(len / 1024.0); else -> "%.1f MB".format(len / 1024.0 / 1024.0) }
+        val date = java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.getDefault()).format(java.util.Date(f.lastModified()))
+        return "$size · $date"
+    }
 
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
         androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -1024,7 +1087,9 @@ internal fun FileBrowser(vm: AppViewModel, title: String = "Choose a backup file
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = onDismiss) { Text("Close") }
                     Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                    Spacer(Modifier.width(56.dp))
+                    if (multi) TextButton(enabled = selected.isNotEmpty(), onClick = { onPickedMulti(selected.map { java.io.File(it) }) }) {
+                        Text((confirmLabel ?: "Attach") + if (selected.isNotEmpty()) " (${selected.size})" else "")
+                    } else Spacer(Modifier.width(56.dp))
                 }
                 com.todocompanion.app.ui.components.AppTextField(query, { query = it }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
                     label = { Text("Search filenames…") })
@@ -1039,24 +1104,46 @@ internal fun FileBrowser(vm: AppViewModel, title: String = "Choose a backup file
                         val canUp = dir.parentFile != null && roots.none { it.absolutePath == dir.absolutePath }
                         TextButton(enabled = canUp, onClick = { dir.parentFile?.let { dir = it } }) { Text("↑ Up") }
                         Text(dir.absolutePath, Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        // Toggle between "importable types only" and every file on disk.
-                        FilterChip(selected = showAll, onClick = { showAll = !showAll }, label = { Text("All files") },
-                            leadingIcon = { if (showAll) Icon(Icons.Filled.Check, null, Modifier.size(16.dp)) })
+                        // Narrow to backup/import types only when restoring; off by default.
+                        FilterChip(selected = !showAll, onClick = { showAll = !showAll }, label = { Text("Importable only") },
+                            leadingIcon = { if (!showAll) Icon(Icons.Filled.Check, null, Modifier.size(16.dp)) })
                     }
                 }
                 val rows: List<Pair<java.io.File, Boolean>> = if (searching) results.map { it to false } else entries.map { it.file to it.isDir }
                 if (rows.isEmpty()) {
                     Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                        Text(if (searching) "No matching files" else "Empty folder — no importable files here", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(if (searching) "No files match “${query.trim()}”" else "This folder is empty.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 } else LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
                     items(rows, key = { it.first.absolutePath }) { (f, isDir) ->
-                        Row(Modifier.fillMaxWidth().clickable { if (isDir) { query = ""; dir = f } else confirming = f }.padding(vertical = 11.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (isDir) "📁" else "📄", style = MaterialTheme.typography.titleMedium)
-                            Spacer(Modifier.width(12.dp))
+                        val isSel = f.absolutePath in selected
+                        Row(
+                            Modifier.fillMaxWidth().clickable {
+                                when {
+                                    isDir -> { query = ""; dir = f }
+                                    multi -> selected = if (isSel) selected - f.absolutePath else selected + f.absolutePath
+                                    else -> confirming = f
+                                }
+                            }.padding(vertical = 10.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (multi && !isDir) {
+                                androidx.compose.material3.Checkbox(checked = isSel, onCheckedChange = { selected = if (isSel) selected - f.absolutePath else selected + f.absolutePath })
+                                Spacer(Modifier.width(4.dp))
+                            } else {
+                                Text(if (isDir) "📁" else "📄", style = MaterialTheme.typography.titleMedium)
+                                Spacer(Modifier.width(12.dp))
+                            }
                             Column(Modifier.weight(1f)) {
-                                Text(f.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                if (searching) Text(f.parent ?: "", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(f.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                                    if (!isDir && com.todocompanion.app.util.FileExport.isImportable(f)) {
+                                        Spacer(Modifier.width(6.dp))
+                                        Box(Modifier.size(7.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
+                                    }
+                                }
+                                if (isDir) Text("Folder", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                else Text(meta(f) + if (searching) " · ${f.parentFile?.name ?: ""}" else "", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                             if (isDir) Text("›", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }

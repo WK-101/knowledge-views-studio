@@ -201,10 +201,11 @@ object DoneRecord {
     }
 
     /** R28 Phase 4 — the living archive: the whole record as a portable, offline "book of what I've done",
-     *  grouped by year then project. */
-    fun archiveMarkdown(items: List<Accomplishment>, listNameById: Map<String, String>, today: LocalDate = LocalDate.now()): String {
+     *  grouped by year then project. R30 F5 — [redact] hides the private titles/notes while keeping the shape
+     *  (counts, dates, effort), so you can share the outline of your work without the details. */
+    fun archiveMarkdown(items: List<Accomplishment>, listNameById: Map<String, String>, today: LocalDate = LocalDate.now(), redact: Boolean = false): String {
         val sb = StringBuilder()
-        sb.appendLine("# The record — everything done")
+        sb.appendLine("# The record — everything done" + if (redact) " (redacted)" else "")
         sb.appendLine()
         val s = stats(items)
         sb.appendLine("_${s.totalTasks} tasks · ${s.goalsAchieved} goals · ${s.focusedMinutes / 60}h focused · ${s.habitCheckins} habit days · ${s.totalWins} wins · ${s.activeDays} active days._")
@@ -213,7 +214,12 @@ object DoneRecord {
             sb.appendLine("## $year")
             ofYear.filter { it.isTaskLike }.groupBy { it.listId?.let { id -> listNameById[id] } ?: "Other" }.toList().sortedBy { it.first }.forEach { (name, group) ->
                 sb.appendLine("### $name")
-                group.sortedByDescending { it.whenMillis }.forEach { sb.appendLine(receiptLine(it, name)) }
+                group.sortedByDescending { it.whenMillis }.forEach {
+                    if (redact) {
+                        val d = LocalDate.ofEpochDay(it.epochDay)
+                        sb.appendLine("- ••• _(${d})_" + (if (it.durationMin > 0) " · ${it.durationMin}m" else "") + (if (it.isWin) " ⭐" else ""))
+                    } else sb.appendLine(receiptLine(it, name))
+                }
                 sb.appendLine()
             }
             val habitDays = ofYear.count { it.kind == DoneKind.HABIT }

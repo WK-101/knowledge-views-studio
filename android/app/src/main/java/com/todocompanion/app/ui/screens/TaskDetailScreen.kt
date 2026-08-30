@@ -814,14 +814,15 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 }
             }
                     com.todocompanion.app.domain.EditorField.REFLECTION -> {
-                        // R27/R29 #5 — reflection on a task: win, mood, outcome, lesson, praise. Now a proper
-                        // reorderable editor field (Settings ▸ Task editor: Always / Under "More" / Hidden), and
-                        // it still auto-appears on a completed task unless you've hidden it. Feeds the record.
-                        Column {
+                        // R27/R29 #5, R30 #2 — reflection: win, mood, outcome, lesson, praise. A proper
+                        // reorderable editor field, now wrapped in the same collapsible DetailSection every other
+                        // field uses (fold consistency), and still open by default on a finished task.
+                        val hasRefl = task.winFlag || !task.outcomeNote.isNullOrBlank() || !task.learnedNote.isNullOrBlank() || !task.praiseQuote.isNullOrBlank() || task.mood != null
+                        DetailSection("Reflection", if (task.winFlag) "★" else null, task.completed || hasRefl) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Filled.EmojiEvents, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
-                                Spacer(Modifier.width(12.dp))
-                                Text("Reflection", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                                Spacer(Modifier.width(10.dp))
+                                Text("Mark this a win", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                                 FilterChip(selected = task.winFlag, onClick = { update { it.copy(winFlag = !it.winFlag) } },
                                     label = { Text("Win") },
                                     leadingIcon = { Icon(if (task.winFlag) Icons.Filled.Star else Icons.Filled.StarBorder, null, Modifier.size(16.dp)) })
@@ -946,9 +947,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             onSave = { updated -> vm.updateTimeActivity(updated); editActivity = null },
             onDelete = { vm.deleteTimeActivity(act.id); editActivity = null })
     }
-    // In-app file browser fallback for attachments on ROMs with no system picker (R23).
-    if (showAttachBrowser && task != null) FileBrowser(vm, title = "Choose a file to attach", allTypes = true, confirmLabel = "Attach",
-        onDismiss = { showAttachBrowser = false }) { file -> showAttachBrowser = false; vm.addAttachmentFromFile(task.id, file) }
+    // In-app file browser fallback for attachments on ROMs with no system picker (R23). R30 #6 — multi-select.
+    if (showAttachBrowser && task != null) FileBrowser(vm, title = "Choose files to attach", allTypes = true, confirmLabel = "Attach", multi = true,
+        onDismiss = { showAttachBrowser = false }, onPickedMulti = { files -> showAttachBrowser = false; vm.addAttachmentsFromFiles(task.id, files) })
     if (showReminder) DateTimePickerDialog(task?.dueDate ?: System.currentTimeMillis(), { showReminder = false }) { m -> task?.let { vm.addAbsoluteReminder(it, m) }; showReminder = false }
     if (showBlockPicker && task != null) {
         val existing = allDeps.filter { it.taskId == task.id }.map { it.dependsOnTaskId }.toSet()

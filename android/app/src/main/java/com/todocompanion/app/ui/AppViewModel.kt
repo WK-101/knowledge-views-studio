@@ -2931,6 +2931,31 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun clearSeal() = viewModelScope.launch { saveSettings(settings.value.copy(integritySeal = null)) }
 
+    /** Frontier F2 — render a sealed-year certificate image for [year] and hand it to the share sheet. */
+    fun shareYearCertificate(year: Int, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+        val ofYear = doneFeed().filter { java.time.LocalDate.ofEpochDay(it.epochDay).year == year }
+        if (ofYear.isEmpty()) { toast("Nothing finished in $year yet"); onDone(false); return@launch }
+        val stats = com.todocompanion.app.domain.done.DoneRecord.stats(ofYear)
+        val head = com.todocompanion.app.domain.done.Integrity.headOf(ofYear.sortedBy { it.whenMillis })
+        val uri = withContext(Dispatchers.IO) {
+            runCatching {
+                val bmp = com.todocompanion.app.ui.util.ReceiptRenderer.renderCertificate(year, stats, head, ofYear.size)
+                val dir = java.io.File(appCtx.cacheDir, "shared").apply { mkdirs() }
+                val f = java.io.File(dir, "certificate-$year.png")
+                java.io.FileOutputStream(f).use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+                androidx.core.content.FileProvider.getUriForFile(appCtx, "${appCtx.packageName}.fileprovider", f)
+            }.getOrNull()
+        }
+        if (uri == null) { toast("Couldn't make the certificate"); onDone(false); return@launch }
+        val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "image/png"; putExtra(android.content.Intent.EXTRA_STREAM, uri)
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val chooser = android.content.Intent.createChooser(send, "Certificate of work · $year").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { appCtx.startActivity(chooser) }.onFailure { toast("No app to share to") }
+        onDone(true)
+    }
+
     // Drag-reorder persistence for the drawer sections.
     fun setTagOrder(ids: List<String>) = viewModelScope.launch { repo.setTagOrder(ids) }
     fun setHabitOrder(ids: List<String>) = viewModelScope.launch { repo.setHabitOrder(ids); refreshHabitWidgets() }
@@ -3218,8 +3243,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun browseDir(dir: java.io.File, allTypes: Boolean = false, onDone: (List<com.todocompanion.app.util.FileExport.Entry>) -> Unit) = viewModelScope.launch {
         onDone(withContext(Dispatchers.IO) { com.todocompanion.app.util.FileExport.listDir(dir, allTypes) })
     }
-    fun searchFilesystem(q: String, onDone: (List<java.io.File>) -> Unit) = viewModelScope.launch {
-        onDone(withContext(Dispatchers.IO) { com.todocompanion.app.util.FileExport.searchFiles(q) })
+    fun searchFilesystem(q: String, allTypes: Boolean = false, onDone: (List<java.io.File>) -> Unit) = viewModelScope.launch {
+        onDone(withContext(Dispatchers.IO) { com.todocompanion.app.util.FileExport.searchFiles(q, allTypes) })
+    }
+    /** R30 #6 — attach several browsed files at once. */
+    fun addAttachmentsFromFiles(taskId: String, files: List<java.io.File>) {
+        files.forEach { addAttachmentFromFile(taskId, it) }
     }
     /** Import a browsed file by wrapping it as a SavedFile and reusing the restore pipeline. */
     fun importBrowsedFile(file: java.io.File, onDone: (Boolean, String) -> Unit) {

@@ -8,7 +8,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.automirrored.filled.DriveFileMove
@@ -73,7 +72,11 @@ import androidx.compose.material3.Text
 import com.todocompanion.app.data.entity.HabitEntity
 import com.todocompanion.app.domain.habit.HabitStats
 import androidx.compose.animation.core.Animatable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.Composable
@@ -611,18 +614,17 @@ private fun ManualReorderList(
     fun endRowDrag() {
         val id = draggingId; val finalDx = dx; val finalDy = delta
         val idx = items.indexOfFirst { it.id == id }
-        // The handle drag is always a reorder/nest — selection is a separate gesture now.
+        // "moved" is sticky: any real travel makes this a drag. Released in place (or in a computed sort where
+        // hand-ordering is meaningless) it's a SELECT instead — the predictable long-press-to-select.
         val moved = draggedFar
         when {
             id == null || idx < 0 -> {}
-            // A grab with no real travel is a no-op: snap the outline back, change nothing.
-            !moved -> { items = arrangeSubtaskOutline(tasks) }
+            !moved || !sortIsManual -> { onToggleSel(id); items = arrangeSubtaskOutline(tasks) }
             // A dominant horizontal pull nests: right → subtask of the row above, left → back to top level.
             finalDx > nestThreshold && kotlin.math.abs(finalDx) >= kotlin.math.abs(finalDy) && idx > 0 -> vm.nestUnder(id, items[idx - 1].id)
             finalDx < -nestThreshold && kotlin.math.abs(finalDx) >= kotlin.math.abs(finalDy) -> vm.nestUnder(id, null)
-            // Vertical reorder only persists under MANUAL sort; otherwise snap back to source order.
-            sortIsManual -> vm.setManualOrder(items.map { it.id })
-            else -> items = arrangeSubtaskOutline(tasks)
+            // Otherwise it's a vertical reorder — persist the new manual order.
+            else -> vm.setManualOrder(items.map { it.id })
         }
         draggingId = null; delta = 0f; dx = 0f; draggedFar = false
     }
@@ -642,21 +644,11 @@ private fun ManualReorderList(
             val willNest = dragging && dx > nestThreshold && kotlin.math.abs(dx) >= kotlin.math.abs(delta)
             val willUnnest = dragging && dx < -nestThreshold && kotlin.math.abs(dx) >= kotlin.math.abs(delta)
             val accent = MaterialTheme.colorScheme.primary
-            // R29 #1 — SELECTION and REORDER are now separate gestures, the way TickTick & Todoist do it:
-            // long-press anywhere (combinedClickable in ReorderRow) selects immediately, and reordering /
-            // nesting is grabbed from a dedicated drag handle. The handle is a plain drag detector (fires on
-            // touch, no hold), so it never collides with long-press-to-select or the row's horizontal swipe.
-            // The handle appears only under MANUAL sort — the only order the app persists, matching TickTick
-            // (you can't hand-order a computed sort). Selection itself works in every sort and every view.
-            val showHandle = sortIsManual && !selectionMode
-            val handleModifier = if (showHandle) Modifier.pointerInput(task.id) {
-                detectDragGestures(
-                    onDragStart = { startRowDrag(task.id) },
-                    onDrag = { change, amt -> change.consume(); onRowDrag(amt.y, amt.x) },
-                    onDragEnd = { endRowDrag() },
-                    onDragCancel = { draggingId = null; delta = 0f; dx = 0f; draggedFar = false },
-                )
-            } else Modifier
+            // R30 #1 — no drag handle (it cluttered small screens). One gesture, disambiguated by movement
+            // with strong immediate feedback: long-press LIFTS the row (haptic + shadow + scale) so you know
+            // you've grabbed it; release without moving = SELECT; drag = reorder (vertical) or nest (drag
+            // right → subtask of the row above, left → back to top level). Reorder/nest persist only under
+            // MANUAL sort — in a computed sort the same long-press simply selects. Tap still opens.
             Surface(
                 Modifier
                     .padding(start = (depth * 18).dp, top = 3.dp, bottom = 3.dp)
@@ -664,32 +656,57 @@ private fun ManualReorderList(
                     .graphicsLayer {
                         translationY = if (dragging) delta else 0f
                         translationX = if (dragging) dx.coerceIn(-dragVisualCap, dragVisualCap) else 0f
+                        if (dragging) { scaleX = 1.03f; scaleY = 1.03f }
                     }
                     .then(if (willNest || willUnnest) Modifier.border(2.dp, accent, RoundedCornerShape(16.dp)) else Modifier),
                 shape = RoundedCornerShape(16.dp),
                 color = if (isSel) MaterialTheme.colorScheme.primaryContainer.copy(alpha = .55f)
                     else if (willNest || willUnnest) accent.copy(alpha = .10f)
+                    else if (dragging) MaterialTheme.colorScheme.surfaceVariant
                     else MaterialTheme.colorScheme.surface,
-                shadowElevation = if (dragging) 8.dp else 1.dp,
+                shadowElevation = if (dragging) 10.dp else 1.dp,
             ) {
               Box {
                 if (willNest || willUnnest) Text(
                     if (willNest) "↳ subtask" else "↥ top level",
-                    Modifier.align(Alignment.CenterEnd).padding(end = 46.dp).zIndex(2f),
+                    Modifier.align(Alignment.CenterEnd).padding(end = 14.dp).zIndex(2f),
                     style = MaterialTheme.typography.labelSmall, color = accent, fontWeight = FontWeight.SemiBold)
-                // Reveal-action swipe, disabled during multi-select or an in-progress handle drag.
+                // Reveal-action swipe, disabled during multi-select or an in-progress drag.
                 SwipeActionBox(
                     taskId = task.id, rightNear = rightNear, rightFar = rightFar, leftNear = leftNear, leftFar = leftFar,
                     enabled = draggingId == null && !selectionMode, isTrashRestore = false,
                     onAct = { a -> onSwipe(vm, a, task, false, {}, { onOpenTask(task.id) }, { onOpenTask(task.id) }) },
                 ) {
-                    ReorderRow(task, density, ctxByTask[task.id].orEmpty(), tagsByTask[task.id].orEmpty(), listNameOf(task.listId), labelNav,
-                        selectionMode = selectionMode, selected = isSel,
-                        showHandle = showHandle, handleModifier = handleModifier,
-                        onOpen = { if (selectionMode) onToggleSel(task.id) else onOpenTask(task.id) },
-                        onLongPress = { onToggleSel(task.id) }, onToggle = { vm.toggleComplete(task) },
-                        onCycleFlag = { vm.cycleFlag(task) }, onToggleStar = { vm.toggleStar(task) },
-                        onSetPriority = { vm.setPriority(task, it) })
+                    // R30 #1 (fixed) — one deterministic gesture on this inner Box. A quick tap falls through
+                    // to the row's clickable (open/toggle). A HELD press (long-press) grabs the row, and we
+                    // CONSUME the release so the tap can't also fire: release-in-place selects, drag reorders/
+                    // nests. A pre-hold move is left unconsumed, so the outer swipe and the list scroll still
+                    // work. This replaces the racy clickable-vs-drag split the review flagged.
+                    Box(
+                        Modifier.pointerInput(task.id) {
+                            awaitEachGesture {
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                val lp = awaitLongPressOrCancellation(down.id) ?: return@awaitEachGesture
+                                startRowDrag(task.id)
+                                lp.consume()
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                    if (!change.pressed) { change.consume(); break }
+                                    val d = change.positionChange()
+                                    if (d != Offset.Zero) { onRowDrag(d.y, d.x); change.consume() }
+                                }
+                                endRowDrag()
+                            }
+                        }
+                    ) {
+                        ReorderRow(task, density, ctxByTask[task.id].orEmpty(), tagsByTask[task.id].orEmpty(), listNameOf(task.listId), labelNav,
+                            selectionMode = selectionMode, selected = isSel,
+                            onOpen = { if (selectionMode) onToggleSel(task.id) else onOpenTask(task.id) },
+                            onToggle = { vm.toggleComplete(task) },
+                            onCycleFlag = { vm.cycleFlag(task) }, onToggleStar = { vm.toggleStar(task) },
+                            onSetPriority = { vm.setPriority(task, it) })
+                    }
                 }
               }
             }
@@ -697,24 +714,23 @@ private fun ManualReorderList(
     }
 }
 
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun ReorderRow(
     task: TaskEntity, density: Density, contexts: List<Pair<String, Long?>>, tags: List<Pair<String, Long?>>, listName: String?,
     labelNav: TaskLabelNav? = null,
     selectionMode: Boolean = false, selected: Boolean = false,
-    showHandle: Boolean = false, handleModifier: Modifier = Modifier,
-    onOpen: () -> Unit, onLongPress: () -> Unit = {}, onToggle: () -> Unit, onCycleFlag: () -> Unit, onToggleStar: () -> Unit,
+    onOpen: () -> Unit, onToggle: () -> Unit, onCycleFlag: () -> Unit, onToggleStar: () -> Unit,
     onSetPriority: ((PriorityLevel) -> Unit)? = null,
 ) {
     val level = PriorityLevel.from(task.importance, task.urgency)
     val done = task.completed || task.abandoned
     Row(
-        // Tap opens (toggles in selection mode); long-press ANYWHERE selects immediately — the universal
-        // multi-select gesture. Reordering is grabbed from the trailing handle instead, so the two never mix.
+        // Tap opens (toggles in selection mode). Long-press is handled by the drag detector wrapping this row
+        // (no onLongClick here, so the hold falls through to it): hold lifts the row, release-in-place selects,
+        // drag reorders/nests. No handle — the whole row is the grab target.
         Modifier.fillMaxWidth()
-            .combinedClickable(onClick = onOpen, onLongClick = onLongPress)
-            .padding(start = 8.dp, end = 4.dp, top = rowVerticalPadding(density), bottom = rowVerticalPadding(density)),
+            .clickable(onClick = onOpen)
+            .padding(start = 8.dp, end = 8.dp, top = rowVerticalPadding(density), bottom = rowVerticalPadding(density)),
         verticalAlignment = Alignment.Top,
     ) {
         if (selectionMode) Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
@@ -737,13 +753,6 @@ private fun ReorderRow(
                 onListClick = labelNav?.let { { it.onList(task.listId) } },
                 onContextClick = labelNav?.let { nav -> { name -> nav.onContext(name) } },
                 onTagClick = labelNav?.let { nav -> { name -> nav.onTag(name) } })
-        }
-        // Dedicated reorder handle — grab it to drag (vertical = reorder, horizontal = nest / un-nest).
-        // Only in manual sort; hidden during multi-select so it never competes with the selection tap.
-        if (showHandle) Box(
-            handleModifier.align(Alignment.CenterVertically).size(40.dp), contentAlignment = Alignment.Center,
-        ) {
-            Icon(Icons.Filled.DragIndicator, "Reorder", tint = MaterialTheme.colorScheme.outline.copy(alpha = .7f), modifier = Modifier.size(22.dp))
         }
     }
 }

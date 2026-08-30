@@ -120,8 +120,12 @@ object FileExport {
             .map { Entry(it, it.isDirectory) }.toList()
     }.getOrDefault(emptyList())
 
-    /** Recursive filename search across the common roots. Bounded depth + result cap so it stays snappy. */
-    fun searchFiles(query: String, maxDepth: Int = 4, cap: Int = 300): List<File> {
+    /** True when a file is one the app can directly import (backup/CSV/OPML/…). */
+    fun isImportable(file: File): Boolean = file.extension.lowercase() in IMPORT_EXTS
+
+    /** Recursive filename search across the common roots. Bounded depth + result cap so it stays snappy.
+     *  [allTypes] surfaces every file (attachments); otherwise only importable ones (backups). */
+    fun searchFiles(query: String, allTypes: Boolean = false, maxDepth: Int = 4, cap: Int = 300): List<File> {
         val q = query.trim().lowercase()
         if (q.isEmpty()) return emptyList()
         val out = ArrayList<File>()
@@ -134,7 +138,7 @@ object FileExport {
                 if (f.isDirectory) {
                     // Android/data & Android/obb are unreadable even with All-files access — skip.
                     if (!f.isHidden && f.name != "Android" && visited.add(f.absolutePath)) walk(f, depth + 1)
-                } else if (f.extension.lowercase() in IMPORT_EXTS && f.name.lowercase().contains(q)) out += f
+                } else if ((allTypes || f.extension.lowercase() in IMPORT_EXTS) && f.name.lowercase().contains(q)) out += f
             }
         }
         browseRoots().forEach { walk(it, 0) }
