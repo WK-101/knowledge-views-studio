@@ -111,14 +111,22 @@ class MainActivity : FragmentActivity() {
     }
 
     /**
-     * The file-open routes, richest first. THE FIX for "I can only see the files our app exported":
-     * ACTION_OPEN_DOCUMENT is served ONLY by DocumentsUI. On a de-Googled ROM whose DocumentsUI is
-     * stripped, that surfaces almost no roots, so the picker collapses to "Recent" — which shows only
-     * the json/csv/ics our own app just wrote. ACTION_GET_CONTENT is instead served by the ROM's real
-     * file-manager and gallery apps (and DocumentsUI too), so a chooser over it reaches the whole
-     * filesystem. We copy the bytes immediately and release the grant, so GET_CONTENT's non-persistable
-     * URI is fine here (only the backup/sync FOLDER, via OPEN_TREE, needs a durable grant). Both routes
-     * use a wildcard type so every file type is offered; OPEN_DOCUMENT stays as the fallback.
+     * The file-open routes. THE REAL FIX for "I can see every file but attaching anything except our own
+     * json/csv/ics fails with SecurityException":
+     *
+     * The failure was never the size or the visibility — it was READ PERMISSION on the returned URI.
+     * ACTION_GET_CONTENT (and a chooser over it) can hand back a legacy file manager's `file://` URI, or a
+     * content:// grant that a chooser delivers to the resolver instead of to us. A `file://` path outside
+     * our own sandbox is unreadable without a storage permission (which we deliberately never request), so
+     * every file EXCEPT the ones our app itself wrote — its json/csv/ics exports, which live in our
+     * sandbox — threw SecurityException on read.
+     *
+     * ACTION_OPEN_DOCUMENT (SAF) is the cure: it ALWAYS returns a content:// URI carrying an automatic,
+     * permission-free read grant to us, for ANY file type, from anywhere the user browses. So the bytes
+     * are always readable with zero storage permission. We also point it at the device's real storage
+     * root via EXTRA_INITIAL_URI so it opens in a browsable location instead of "Recent" (which is why
+     * only our own exports were visible before). GET_CONTENT stays purely as a launch fallback — no
+     * chooser, so its grant still comes straight to us — for the rare ROM without a documents UI.
      */
     private fun openFileCandidates(mimeTypes: Array<String>): List<Intent> {
         val mime = if (mimeTypes.size == 1) mimeTypes[0] else "*/*"
@@ -128,20 +136,21 @@ class MainActivity : FragmentActivity() {
             putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
             putExtra("android.content.extra.SHOW_ADVANCED", true)
         }
-        val getContent = Intent(Intent.ACTION_GET_CONTENT).apply { addCategory(Intent.CATEGORY_OPENABLE) }.withTypes()
         val openDoc = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addFlags(DOC_GRANT_FLAGS)
             addCategory(Intent.CATEGORY_OPENABLE)
             putExtra("android.content.extra.FANCY", true)
             putExtra("android.content.extra.SHOW_FILESIZE", true)
+            // Open at the real primary-storage root (ExternalStorageProvider), not "Recent", so the whole
+            // filesystem is browsable and every pick returns a readable SAF content:// URI.
+            runCatching {
+                val initial = android.provider.DocumentsContract.buildDocumentUri(
+                    "com.android.externalstorage.documents", "primary:")
+                putExtra(android.provider.DocumentsContract.EXTRA_INITIAL_URI, initial)
+            }
         }.withTypes()
-        // A chooser over GET_CONTENT lists every file source on the device — the ROM's file manager,
-        // gallery, Downloads and DocumentsUI — instead of only DocumentsUI's crippled "Recent". But a
-        // chooser always "launches" even with zero targets, so only lead with it when something actually
-        // handles GET_CONTENT; otherwise go straight to the OPEN_DOCUMENT (DocumentsUI) route.
-        val hasGetContent = packageManager.queryIntentActivities(getContent, 0).isNotEmpty()
-        return if (hasGetContent) listOf(Intent.createChooser(getContent, "Choose a file"), openDoc)
-        else listOf(openDoc, getContent)
+        val getContent = Intent(Intent.ACTION_GET_CONTENT).apply { addCategory(Intent.CATEGORY_OPENABLE) }.withTypes()
+        return listOf(openDoc, getContent)
     }
 
     @Deprecated("Deprecated in Java")

@@ -1320,7 +1320,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      */
     private fun readUriBytes(uri: Uri): Pair<ByteArray?, String?> {
         val cr = appCtx.contentResolver
-        // 1) the normal path.
+        // 1) the normal path (SAF content:// URIs carry a read grant — this is the route that works).
         runCatching { cr.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()?.let { return it to null }
         val firstErr = runCatching { cr.openInputStream(uri) }.exceptionOrNull()
         // 2) the file-descriptor path — works for providers that only implement openFile().
@@ -1329,8 +1329,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 java.io.FileInputStream(pfd.fileDescriptor).use { it.readBytes() }
             }
         }.getOrNull()?.let { return it to null }
-        val why = (firstErr ?: runCatching { cr.openFileDescriptor(uri, "r") }.exceptionOrNull())
-            ?.javaClass?.simpleName ?: "no data"
+        // 3) a raw file:// URI (some legacy file managers return these) — readable only where the OS lets
+        //    us: our own sandbox, or a world-readable path. Outside that it needs a storage permission we
+        //    never request, so this fails cleanly rather than crashing.
+        if (uri.scheme == "file") uri.path?.let { p ->
+            runCatching { java.io.File(p).readBytes() }.getOrNull()?.let { return it to null }
+        }
+        val ex = firstErr ?: runCatching { cr.openInputStream(uri) }.exceptionOrNull()
+        val why = when {
+            ex is SecurityException || ex?.cause is SecurityException ->
+                "no permission to read a ${uri.scheme ?: "?"} file — pick it via Documents/Files, not a basic file manager"
+            ex != null -> "${ex.javaClass.simpleName} (${uri.scheme})"
+            else -> "no data (${uri.scheme})"
+        }
         return null to why
     }
 
