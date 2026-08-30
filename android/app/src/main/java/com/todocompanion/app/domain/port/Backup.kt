@@ -45,10 +45,12 @@ data class BackupFile(
     // Tier S — time tracking. Additive; old backups simply carry empty lists.
     val timeActivities: List<com.todocompanion.app.data.entity.TimeActivityEntity> = emptyList(),
     val timeEntries: List<com.todocompanion.app.data.entity.TimeEntryEntity> = emptyList(),
+    // R32 — sealed "letter to your future self" notes. Additive; old backups carry an empty list.
+    val sealedNotes: List<com.todocompanion.app.data.entity.SealedNoteEntity> = emptyList(),
 ) {
     companion object {
         const val FORMAT = "todo-companion"
-        const val VERSION = 8
+        const val VERSION = 9
     }
 }
 

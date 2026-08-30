@@ -23,6 +23,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MarkEmailUnread
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -62,6 +65,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.todocompanion.app.domain.done.Accomplishment
+import com.todocompanion.app.domain.done.LivingRecord
+import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.domain.done.DoneKind
 import com.todocompanion.app.domain.done.DoneRecord
 import com.todocompanion.app.ui.AppViewModel
@@ -107,10 +112,26 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
     // R28 #10 — the record is scoped to a chosen window (today … lifetime); everything below reads the
     // ranged slice so the totals, trophy case and feed all reflect the same span.
     var range by remember { mutableStateOf("all") }
-    val fromDay = rangeFromDay(range, today)
-    val rangedFeed = remember(feed, fromDay) { if (fromDay == Long.MIN_VALUE) feed else feed.filter { it.epochDay >= fromDay } }
+    val bounds = rangeBounds(range, today)
+    val rangedFeed = remember(feed, range) { feed.filter { it.epochDay in bounds } }
     val stats = remember(rangedFeed) { DoneRecord.stats(rangedFeed) }
     val wins = remember(rangedFeed) { rangedFeed.filter { it.isWin } }
+
+    // R32 · Living Record read-side. Tag names per task power the skills roll-up.
+    val taskTags by vm.taskTags.collectAsState()
+    val allTags by vm.tags.collectAsState()
+    val tagNamesByTask = remember(taskTags, allTags) {
+        val nameById = allTags.associate { it.id to it.name }
+        taskTags.groupBy { it.taskId }.mapValues { e -> e.value.mapNotNull { nameById[it.tagId] } }
+    }
+    val heat = remember(rangedFeed) { com.todocompanion.app.domain.done.LivingRecord.heatmap(rangedFeed) }
+    val milestones = remember(rangedFeed) { com.todocompanion.app.domain.done.LivingRecord.milestones(rangedFeed, today) }
+    val patternInsights = remember(rangedFeed) { com.todocompanion.app.domain.done.LivingRecord.insights(rangedFeed, today) }
+    val skills = remember(rangedFeed, tagNamesByTask, listNameById) { com.todocompanion.app.domain.done.LivingRecord.skills(rangedFeed, tagNamesByTask, listNameById) }
+    val sealedNotes by vm.sealedNotes.collectAsState()
+    var writeLetter by remember { mutableStateOf(false) }
+    var openLetter by remember { mutableStateOf<com.todocompanion.app.data.entity.SealedNoteEntity?>(null) }
+    var showWrapped by remember { mutableStateOf(false) }
 
     var query by remember { mutableStateOf("") }
     var winsOnly by remember { mutableStateOf(false) }
@@ -152,24 +173,36 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
         com.todocompanion.app.domain.done.Integrity.status(feed, com.todocompanion.app.domain.done.Integrity.Seal.decode(settings.integritySeal))
     }
     if (showImpact) {
-        ImpactScreen(impact, rangeLabel(range), listNameById, onOpenTask = onOpenTask, onBack = { showImpact = false })
+        // Impact map owns its own range picker (today … lifetime), independent of the feed's range.
+        ImpactScreen(feed, tasks, today, listNameById, onOpenTask = onOpenTask, onBack = { showImpact = false })
         return
     }
     if (showCoSign) {
         CoSignScreen(vm, onBack = { showCoSign = false })
         return
     }
+    if (showWrapped) {
+        WrappedScreen(feed, today, onBack = { showWrapped = false })
+        return
+    }
 
-    val shown = remember(rangedFeed, query, winsOnly, listNameById, typeFilter.toList(), listFilter) {
-        val q = query.trim().lowercase()
+    // R32 Living Record #3 — search over every finished item: tokenised AND-matching across the title,
+    // outcome note, its list name and its tags, so multi-word queries actually narrow the archive.
+    val shown = remember(rangedFeed, query, winsOnly, listNameById, tagNamesByTask, typeFilter.toList(), listFilter) {
+        val terms = query.trim().lowercase().split(Regex("\\s+")).filter { it.isNotBlank() }
         val types = typeFilter.toSet()
         rangedFeed.filter { a ->
-            (!winsOnly || a.isWin) &&
-                (types.isEmpty() || a.kind in types) &&
-                (listFilter == null || a.listId == listFilter) &&
-                (q.isEmpty() || a.title.lowercase().contains(q) ||
-                    (a.outcome?.lowercase()?.contains(q) == true) ||
-                    (a.listId?.let { listNameById[it] }?.lowercase()?.contains(q) == true))
+            if (winsOnly && !a.isWin) return@filter false
+            if (types.isNotEmpty() && a.kind !in types) return@filter false
+            if (listFilter != null && a.listId != listFilter) return@filter false
+            if (terms.isEmpty()) return@filter true
+            val hay = buildString {
+                append(a.title.lowercase()); append(' ')
+                a.outcome?.let { append(it.lowercase()); append(' ') }
+                a.listId?.let { listNameById[it] }?.let { append(it.lowercase()); append(' ') }
+                tagNamesByTask[a.refId]?.forEach { append(it.lowercase()); append(' ') }
+            }
+            terms.all { hay.contains(it) }
         }
     }
     val byDay = remember(shown, oldestFirst) {
@@ -240,6 +273,18 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
             }
             // Totals + personal bests, over the chosen range.
             item(key = "stats") { LifetimeCard(stats, rangeLabel(range)) }
+            // R32 #1 — the done heatmap: a year of finishes at a glance.
+            item(key = "heatmap") { HeatmapCard(heat, today) }
+            // R32 #5 — year-in-review story launcher.
+            item(key = "wrapped") { WrappedTeaser { showWrapped = true } }
+            // R32 #2 — milestone shelf: earned badges + the next target, each shareable.
+            if (milestones.isNotEmpty()) item(key = "milestones") { MilestonesCard(milestones) { m -> vm.shareMilestone(m) } }
+            // R32 #4 — heuristic pattern insights (best day, peak hour, focus lift).
+            if (patternInsights.isNotEmpty()) item(key = "insights") { PatternInsightsCard(patternInsights) }
+            // R32 #8 — skills ledger: finished work rolled up into evidence-backed areas.
+            if (skills.isNotEmpty()) item(key = "skills") { SkillsCard(skills) }
+            // R32 #7 — sealed letters to your future self (reveal when their day comes).
+            item(key = "sealed") { SealedLettersCard(sealedNotes, today, onWrite = { writeLetter = true }, onOpen = { openLetter = it }) }
             // Impact graph entry — always reachable; the map itself shows an empty state if nothing links yet.
             item(key = "impact") { ImpactTeaser(impact) { showImpact = true } }
             // Verifiable timeline — seal the record so back-dating is detectable.
@@ -347,23 +392,36 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
             showBrag = false
         },
     )
+
+    if (writeLetter) WriteLetterDialog(today, onDismiss = { writeLetter = false }, onSeal = { title, body, reveal ->
+        vm.sealLetter(title, body, reveal); writeLetter = false
+    })
+    openLetter?.let { n ->
+        LetterRevealDialog(n, today, revealedNow = feed.size - n.sealedCount, intact = vm.letterIntact(n),
+            onDismiss = { openLetter = null },
+            onAck = { vm.acknowledgeLetter(n); openLetter = null },
+            onDelete = { vm.deleteLetter(n.id); openLetter = null })
+    }
 }
 
 /** R28 #10 — the windows the record can be scoped to. */
-private val RANGES = listOf(
+internal val RANGES = listOf(
     "today" to "Today", "month" to "This month", "4mo" to "4 months", "6mo" to "6 months",
-    "year" to "This year", "5y" to "5 years", "10y" to "10 years", "all" to "Lifetime",
+    "year" to "This year", "lastyear" to "Last year", "5y" to "5 years", "10y" to "10 years", "all" to "Lifetime",
 )
-private fun rangeLabel(k: String): String = RANGES.firstOrNull { it.first == k }?.second ?: "Lifetime"
-private fun rangeFromDay(k: String, today: LocalDate): Long = when (k) {
-    "today" -> today.toEpochDay()
-    "month" -> today.withDayOfMonth(1).toEpochDay()
-    "4mo" -> today.minusMonths(4).toEpochDay()
-    "6mo" -> today.minusMonths(6).toEpochDay()
-    "year" -> today.withDayOfYear(1).toEpochDay()
-    "5y" -> today.minusYears(5).toEpochDay()
-    "10y" -> today.minusYears(10).toEpochDay()
-    else -> Long.MIN_VALUE
+internal fun rangeLabel(k: String): String = RANGES.firstOrNull { it.first == k }?.second ?: "Lifetime"
+/** Two-sided day bounds for a range key — needed so "Last year" is the previous calendar year only,
+ *  not everything since it began. Every other key is [start .. today]. */
+internal fun rangeBounds(k: String, today: LocalDate): LongRange = when (k) {
+    "today" -> today.toEpochDay()..today.toEpochDay()
+    "month" -> today.withDayOfMonth(1).toEpochDay()..today.toEpochDay()
+    "4mo" -> today.minusMonths(4).toEpochDay()..today.toEpochDay()
+    "6mo" -> today.minusMonths(6).toEpochDay()..today.toEpochDay()
+    "year" -> today.withDayOfYear(1).toEpochDay()..today.toEpochDay()
+    "lastyear" -> today.minusYears(1).withDayOfYear(1).toEpochDay()..today.withDayOfYear(1).minusDays(1).toEpochDay()
+    "5y" -> today.minusYears(5).toEpochDay()..today.toEpochDay()
+    "10y" -> today.minusYears(10).toEpochDay()..today.toEpochDay()
+    else -> Long.MIN_VALUE..Long.MAX_VALUE
 }
 
 @Composable
@@ -705,42 +763,53 @@ private fun IntegrityCard(status: com.todocompanion.app.domain.done.Integrity.St
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun ImpactScreen(
-    g: com.todocompanion.app.domain.done.Impact.Graph, rangeLabel: String,
+    feed: List<Accomplishment>, tasks: List<TaskEntity>, today: LocalDate,
     listNameById: Map<String, String>, onOpenTask: (String) -> Unit, onBack: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
+    // R32 — the Impact map now scopes to its own range window, like The Record.
+    var range by remember { mutableStateOf("all") }
+    val bounds = rangeBounds(range, today)
+    val g = remember(feed, tasks, range) { com.todocompanion.app.domain.done.Impact.build(feed.filter { it.epochDay in bounds }, tasks) }
     Scaffold(topBar = {
         TopAppBar(expandedHeight = 52.dp,
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
             title = { Text("Impact map") })
     }) { padding ->
-        if (g.nodes.isEmpty()) {
-            Column(Modifier.padding(padding).fillMaxSize().padding(32.dp),
-                verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("🕸️", style = MaterialTheme.typography.displaySmall)
-                Spacer(Modifier.height(8.dp))
-                Text("No goal-linked work in this range yet. Finish tasks under a goal or project and they'll web up here.",
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-            }
-            return@Scaffold
-        }
-        val maxMin = (g.nodes.maxOfOrNull { it.totalMinutes } ?: 0).coerceAtLeast(1)
         LazyColumn(Modifier.padding(padding).fillMaxSize(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            item(key = "impact-head") {
-                Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .5f), modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(14.dp)) {
-                        Text(rangeLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("${g.finished} finished  →  ${g.goalsServed} goals  →  ${g.outcomes} outcomes",
-                            style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("Each finished task rolled up to the goal it served — the shape of what your work added up to.",
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+            item(key = "impact-range") {
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    RANGES.forEach { (k, l) -> FilterChip(selected = range == k, onClick = { range = k }, label = { Text(l) }) }
                 }
             }
-            items(g.nodes, key = { it.goalId ?: "direct" }) { node -> ImpactNodeCard(node, maxMin, onOpenTask) }
+            if (g.nodes.isEmpty()) {
+                item(key = "impact-empty") {
+                    Column(Modifier.fillMaxWidth().padding(top = 48.dp, start = 24.dp, end = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("🕸️", style = MaterialTheme.typography.displaySmall)
+                        Spacer(Modifier.height(8.dp))
+                        Text("No goal-linked work in ${rangeLabel(range).lowercase()} yet. Finish tasks under a goal or project and they'll web up here.",
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    }
+                }
+            } else {
+                val maxMin = (g.nodes.maxOfOrNull { it.totalMinutes } ?: 0).coerceAtLeast(1)
+                item(key = "impact-head") {
+                    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .5f), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(14.dp)) {
+                            Text(rangeLabel(range), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("${g.finished} finished  →  ${g.goalsServed} goals  →  ${g.outcomes} outcomes",
+                                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Each finished task rolled up to the goal it served — the shape of what your work added up to.",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+                items(g.nodes, key = { it.goalId ?: "direct" }) { node -> ImpactNodeCard(node, maxMin, onOpenTask) }
+            }
         }
     }
 }
@@ -884,6 +953,283 @@ private fun CoSignScreen(vm: AppViewModel, onBack: () -> Unit) {
                     }
                 }
             }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+//  R32 · The Living Record — heatmap, milestones, insights, skills, sealed letters, year-in-review.
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+
+/** #1 — GitHub-style day grid: 26 weeks of finishes, darker = more done. Renders with plain boxes so it
+ *  stays crisp and theme-correct without a Canvas. */
+@Composable
+private fun HeatmapCard(heat: Map<Long, LivingRecord.HeatCell>, today: LocalDate) {
+    val weeks = 26
+    val startSunday = today.minusDays(((today.dayOfWeek.value % 7) + (weeks - 1) * 7).toLong())
+    val maxCount = (heat.values.maxOfOrNull { it.count } ?: 1).coerceAtLeast(1)
+    val base = MaterialTheme.colorScheme.primary
+    val empty = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .55f)
+    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp)) {
+            Text("Your season of finishing", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text("Each square is a day — darker means more done.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.size(10.dp))
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                for (w in 0 until weeks) Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    for (d in 0 until 7) {
+                        val day = startSunday.plusDays((w * 7 + d).toLong())
+                        val cell = heat[day.toEpochDay()]
+                        val color = when {
+                            day.isAfter(today) -> Color.Transparent
+                            cell == null -> empty
+                            else -> base.copy(alpha = (0.28f + 0.72f * (cell.count.toFloat() / maxCount)).coerceIn(0.28f, 1f))
+                        }
+                        Box(Modifier.size(13.dp).clip(RoundedCornerShape(3.dp)).background(color))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** #5 — a soft launcher into the year-in-review story. */
+@Composable
+private fun WrappedTeaser(onOpen: () -> Unit) {
+    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .6f),
+        modifier = Modifier.fillMaxWidth().clickable { onOpen() }) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("✨", style = MaterialTheme.typography.headlineSmall)
+            Spacer(Modifier.size(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Your year, wrapped", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                Text("A private, swipe-through story of everything you did", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = .8f))
+            }
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
+        }
+    }
+}
+
+/** #2 — milestone shelf: earned badges (tap to share a verifiable card) + the single next target. */
+@Composable
+private fun MilestonesCard(milestones: List<LivingRecord.Milestone>, onShare: (LivingRecord.Milestone) -> Unit) {
+    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp)) {
+            Text("Milestones", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.size(10.dp))
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                milestones.forEach { m ->
+                    val accent = if (m.reached) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+                    Column(
+                        Modifier.width(128.dp).clip(RoundedCornerShape(14.dp))
+                            .background(if (m.reached) MaterialTheme.colorScheme.primaryContainer.copy(alpha = .35f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .4f))
+                            .then(if (m.reached) Modifier.clickable { onShare(m) } else Modifier)
+                            .padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(m.emoji, style = MaterialTheme.typography.headlineSmall)
+                        Spacer(Modifier.size(6.dp))
+                        Text(m.label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                        Spacer(Modifier.size(4.dp))
+                        if (!m.reached) {
+                            Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.outlineVariant)) {
+                                Box(Modifier.fillMaxWidth(m.progress).height(5.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.primary))
+                            }
+                            Spacer(Modifier.size(4.dp))
+                        }
+                        Text(if (m.reached) "Tap to share" else m.detail, style = MaterialTheme.typography.labelSmall, color = accent, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** #4 — heuristic pattern insights. */
+@Composable
+private fun PatternInsightsCard(insights: List<LivingRecord.Insight>) {
+    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .4f), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("What your record reveals", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            insights.forEach { i ->
+                Row(verticalAlignment = Alignment.Top) {
+                    Text(i.emoji, style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.size(10.dp))
+                    Text(i.text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+            Text("Computed on-device from your own history — nothing leaves the phone.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** #8 — skills ledger: finished work rolled into areas, each with a count and hours as evidence. */
+@Composable
+private fun SkillsCard(skills: List<LivingRecord.Skill>) {
+    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Skills you're building", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text("Where your finished work adds up — backed by the entries behind it.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            skills.take(8).forEach { s ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(if (s.fromTag) "🏷️" else "📂", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.size(10.dp))
+                    Text(s.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(buildString {
+                        append("${s.count}")
+                        if (s.minutes >= 60) append(" · ${s.minutes / 60}h")
+                    }, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+    }
+}
+
+/** #7 — sealed letters to your future self: list, reveal when due, and a write entry. */
+@Composable
+private fun SealedLettersCard(
+    notes: List<com.todocompanion.app.data.entity.SealedNoteEntity>, today: LocalDate,
+    onWrite: () -> Unit, onOpen: (com.todocompanion.app.data.entity.SealedNoteEntity) -> Unit,
+) {
+    val todayDay = today.toEpochDay()
+    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("✉️", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.size(8.dp))
+                Text("Letters to your future self", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                androidx.compose.material3.TextButton(onClick = onWrite) { Text("Write") }
+            }
+            if (notes.isEmpty()) {
+                Text("Seal a note today; it opens on a date you choose, beside everything you got done since. Tamper-evident and fully offline.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else notes.sortedBy { it.revealEpochDay }.forEach { n ->
+                val ready = todayDay >= n.revealEpochDay
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                    .then(if (ready) Modifier.clickable { onOpen(n) } else Modifier)
+                    .background(if (ready) MaterialTheme.colorScheme.primaryContainer.copy(alpha = .4f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .35f))
+                    .padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(if (ready) Icons.Filled.MarkEmailUnread else Icons.Filled.Lock, null,
+                        tint = if (ready) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.size(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(n.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val revealDate = LocalDate.ofEpochDay(n.revealEpochDay)
+                        Text(if (ready) "Ready to open" else "Opens ${revealDate} · ${n.revealEpochDay - todayDay} days",
+                            style = MaterialTheme.typography.labelSmall, color = if (ready) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Write & seal a new letter. Reveal date is a simple horizon chip so there's no date-picker to fuss with. */
+@Composable
+private fun WriteLetterDialog(today: LocalDate, onDismiss: () -> Unit, onSeal: (String, String, Long) -> Unit) {
+    var title by remember { mutableStateOf("") }
+    var body by remember { mutableStateOf("") }
+    val horizons = listOf("6 months" to 6L, "1 year" to 12L, "2 years" to 24L, "5 years" to 60L)
+    var months by remember { mutableStateOf(12L) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { androidx.compose.material3.TextButton(enabled = body.isNotBlank(), onClick = {
+            onSeal(title, body, today.plusMonths(months).toEpochDay())
+        }) { Text("Seal it") } },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("A letter to future you") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                com.todocompanion.app.ui.components.AppTextField(title, { title = it }, singleLine = true, label = { Text("Title (optional)") }, modifier = Modifier.fillMaxWidth())
+                com.todocompanion.app.ui.components.AppTextField(body, { body = it }, singleLine = false, label = { Text("What do you want to tell yourself?") }, modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp))
+                Text("Open it in…", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    horizons.forEach { (lbl, m) -> FilterChip(selected = months == m, onClick = { months = m }, label = { Text(lbl) }) }
+                }
+                Text("Sealed with a tamper-evident hash. It can't be edited once sealed.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+    )
+}
+
+/** Reveal a due letter beside a diff of what you accomplished since sealing it. */
+@Composable
+private fun LetterRevealDialog(
+    n: com.todocompanion.app.data.entity.SealedNoteEntity, today: LocalDate, revealedNow: Int, intact: Boolean,
+    onDismiss: () -> Unit, onAck: () -> Unit, onDelete: () -> Unit,
+) {
+    val sealedOn = LocalDate.ofEpochDay(n.createdEpochDay)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { androidx.compose.material3.TextButton(onClick = onAck) { Text("Keep") } },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onDelete) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
+        title = { Text(n.title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Sealed on $sealedOn", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(n.body, style = MaterialTheme.typography.bodyLarge)
+                androidx.compose.material3.HorizontalDivider()
+                Text("Since you sealed this, you've finished ${revealedNow.coerceAtLeast(0)} more things.",
+                    style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                Text(if (intact) "✓ Untouched since sealing (hash verified)." else "⚠ This letter's text no longer matches its seal.",
+                    style = MaterialTheme.typography.labelSmall, color = if (intact) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+            }
+        },
+    )
+}
+
+/** #5 — year-in-review story: bold, scroll-through slides generated on-device from the record. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun WrappedScreen(feed: List<Accomplishment>, today: LocalDate, onBack: () -> Unit) {
+    BackHandler(onBack = onBack)
+    val year = today.year
+    val ofYear = remember(feed) { feed.filter { LocalDate.ofEpochDay(it.epochDay).year == year } }
+    val stats = remember(ofYear) { DoneRecord.stats(ofYear) }
+    val topList = remember(ofYear) { ofYear.filter { it.isTaskLike && it.listId != null }.groupingBy { it.listId }.eachCount().maxByOrNull { it.value } }
+    val bestMonth = remember(ofYear) {
+        ofYear.groupBy { LocalDate.ofEpochDay(it.epochDay).month }.maxByOrNull { it.value.size }
+    }
+    data class Slide(val emoji: String, val big: String, val cap: String, val bg: Color)
+    val primary = MaterialTheme.colorScheme.primary
+    val tertiary = MaterialTheme.colorScheme.tertiary
+    val secondary = MaterialTheme.colorScheme.secondary
+    val slides = buildList {
+        add(Slide("📖", "$year", "Your year, on the record", primary))
+        add(Slide("🏁", "${stats.totalTasks}", "tasks finished", tertiary))
+        if (stats.focusedMinutes >= 60) add(Slide("🎯", "${stats.focusedMinutes / 60}h", "of focused time", secondary))
+        if (stats.habitCheckins > 0) add(Slide("🔁", "${stats.habitCheckins}", "habit days kept", primary))
+        if (stats.longestStreakDays >= 3) add(Slide("🔥", "${stats.longestStreakDays}", "day longest streak", tertiary))
+        bestMonth?.let { add(Slide("📅", it.key.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault()), "was your biggest month · ${it.value.size} done", secondary)) }
+        if (stats.totalWins > 0) add(Slide("⭐", "${stats.totalWins}", "moments you marked a win", primary))
+        add(Slide("🏅", "${stats.activeDays}", "days you showed up", tertiary))
+    }
+    Scaffold(topBar = {
+        TopAppBar(expandedHeight = 52.dp, title = { Text("$year, wrapped") },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } })
+    }) { padding ->
+        if (ofYear.isEmpty()) {
+            Column(Modifier.padding(padding).fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("✨", style = MaterialTheme.typography.displaySmall)
+                Text("Nothing finished in $year yet — your story starts with the first thing you do.",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            }
+            return@Scaffold
+        }
+        Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            slides.forEach { s ->
+                Surface(shape = RoundedCornerShape(26.dp), color = s.bg.copy(alpha = .16f), modifier = Modifier.fillMaxWidth().heightIn(min = 200.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                        Text(s.emoji, style = MaterialTheme.typography.displaySmall)
+                        Spacer(Modifier.size(10.dp))
+                        Text(s.big, style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold, color = s.bg, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                        Spacer(Modifier.size(6.dp))
+                        Text(s.cap, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    }
+                }
+            }
+            Text("Generated on your device from your private record. Share a screenshot if you like — it never left the phone.",
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
         }
     }
 }

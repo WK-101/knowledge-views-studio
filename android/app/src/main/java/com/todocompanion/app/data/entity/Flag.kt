@@ -18,7 +18,7 @@ data class FlagEntity(
     @PrimaryKey val id: String,
     val name: String,
     val colorArgb: Long,
-    val icon: String = "flag",       // an icon key resolved by FlagIcons
+    val icon: String = "bookmark",   // an icon key resolved by FlagIcons
     val sortOrder: Double,           // user-defined order → group/sort rank
     val createdAt: Long = 0L,
 ) {
@@ -29,11 +29,11 @@ data class FlagEntity(
          * its legacy [TaskEntity.flagColorArgb] deterministically.
          */
         val DEFAULTS: List<FlagEntity> = listOf(
-            FlagEntity("flag-red", "Red", 0xFFE5484D, "flag", 1.0),
-            FlagEntity("flag-amber", "Amber", 0xFFF59E0B, "flag", 2.0),
-            FlagEntity("flag-teal", "Teal", 0xFF12A594, "flag", 3.0),
-            FlagEntity("flag-blue", "Blue", 0xFF3E7BFA, "flag", 4.0),
-            FlagEntity("flag-purple", "Purple", 0xFF8B5CF6, "flag", 5.0),
+            FlagEntity("flag-red", "Red", 0xFFE5484D, "bookmark", 1.0),
+            FlagEntity("flag-amber", "Amber", 0xFFF59E0B, "bookmark", 2.0),
+            FlagEntity("flag-teal", "Teal", 0xFF12A594, "bookmark", 3.0),
+            FlagEntity("flag-blue", "Blue", 0xFF3E7BFA, "bookmark", 4.0),
+            FlagEntity("flag-purple", "Purple", 0xFF8B5CF6, "bookmark", 5.0),
         )
     }
 }

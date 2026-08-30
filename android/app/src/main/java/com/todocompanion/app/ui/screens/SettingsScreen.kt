@@ -1224,7 +1224,7 @@ private fun ZonePickerDialog(current: String, onDismiss: () -> Unit, onPick: (St
 private fun FlagEditDialog(initial: FlagEntity?, onDismiss: () -> Unit, onSave: (String, Long, String) -> Unit) {
     var name by remember { mutableStateOf(initial?.name ?: "") }
     var color by remember { mutableStateOf(initial?.colorArgb ?: FLAG_COLORS.first()) }
-    var icon by remember { mutableStateOf(initial?.icon ?: "flag") }
+    var icon by remember { mutableStateOf(initial?.icon ?: "bookmark") }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = { onSave(name.trim().ifBlank { "Flag" }, color, icon) }) { Text("Save") } },

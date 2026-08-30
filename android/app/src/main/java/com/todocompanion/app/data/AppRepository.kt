@@ -46,6 +46,7 @@ class AppRepository(private val db: AppDatabase) {
     private val activity = db.activityDao()
     private val revisions = db.revisionDao()
     private val timeTrack = db.timeTrackingDao()
+    private val sealedNotes = db.sealedNoteDao()
     private val templateJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     // ----- task time-travel: sparse revision history (H5) -----
@@ -131,6 +132,9 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun allCountdownsOnce(): List<com.todocompanion.app.data.entity.CountdownEntity> = countdowns.getAll()
     suspend fun upsertCountdown(c: com.todocompanion.app.data.entity.CountdownEntity) = countdowns.upsert(c)
     suspend fun deleteCountdown(id: String) = countdowns.deleteById(id)
+    val allSealedNotes: Flow<List<com.todocompanion.app.data.entity.SealedNoteEntity>> = sealedNotes.observeAll()
+    suspend fun upsertSealedNote(n: com.todocompanion.app.data.entity.SealedNoteEntity) = sealedNotes.upsert(n)
+    suspend fun deleteSealedNote(id: String) = sealedNotes.deleteById(id)
     val allSettings: Flow<List<SettingEntity>> = settings.observeAll()
     private val habits = db.habitDao()
     val allHabits: Flow<List<HabitEntity>> = habits.observeAll()
@@ -850,7 +854,7 @@ class AppRepository(private val db: AppDatabase) {
     // ============ flags ============
     suspend fun getFlagsOnce(): List<FlagEntity> = flags.getAll()
     suspend fun upsertFlag(f: FlagEntity) = flags.upsert(f)
-    suspend fun createFlag(name: String, colorArgb: Long, icon: String = "flag"): String {
+    suspend fun createFlag(name: String, colorArgb: Long, icon: String = "bookmark"): String {
         val id = uid()
         flags.upsert(FlagEntity(id = id, name = name.ifBlank { "Flag" }, colorArgb = colorArgb, icon = icon, sortOrder = flags.maxSortOrder() + 1.0, createdAt = now()))
         return id
@@ -1009,6 +1013,7 @@ class AppRepository(private val db: AppDatabase) {
             activities = activity.getAll(),
             timeActivities = timeTrack.getActivities(),
             timeEntries = timeTrack.getEntries(),
+            sealedNotes = sealedNotes.getAll(),
         )
     )
 
@@ -1059,7 +1064,7 @@ class AppRepository(private val db: AppDatabase) {
         tags.clear(); tags.clearCrossRefs(); contexts.clear(); contexts.clearCrossRefs()
         reminders.clear(); deps.clear(); settings.clear(); workspaces.clear(); filters.clear()
         habits.clear(); habits.clearCheckins(); focus.clear(); attachments.clear(); flags.clear(); templates.clear(); countdowns.clear(); activity.clear(); revisions.clear()
-        timeTrack.clearEntries(); timeTrack.clearActivities()
+        timeTrack.clearEntries(); timeTrack.clearActivities(); sealedNotes.clear()
         folders.upsertAll(b.folders)
         lists.upsertAll(b.lists)
         tasks.upsertAll(b.tasks)
@@ -1079,6 +1084,7 @@ class AppRepository(private val db: AppDatabase) {
         countdowns.upsertAll(b.countdowns)
         activity.insertAll(b.activities)
         timeTrack.upsertActivities(b.timeActivities); timeTrack.upsertEntries(b.timeEntries)
+        sealedNotes.upsertAll(b.sealedNotes)
         ensureDefaultWorkspace()
         ensureInbox()
         ensureDefaultFlags()

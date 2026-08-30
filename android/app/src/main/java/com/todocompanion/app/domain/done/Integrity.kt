@@ -27,6 +27,9 @@ object Integrity {
         val sealedCount: Int, val newSinceSeal: Int, val sealedAt: Long?,
     )
 
+    /** Public SHA-256 hex — reused by the sealed "future self" letter to make its body tamper-evident. */
+    fun hash(s: String): String = sha(s)
+
     private fun sha(s: String): String {
         val bytes = MessageDigest.getInstance("SHA-256").digest(s.toByteArray(Charsets.UTF_8))
         val hex = "0123456789abcdef"

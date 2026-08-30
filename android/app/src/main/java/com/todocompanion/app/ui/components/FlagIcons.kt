@@ -5,7 +5,6 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.PriorityHigh
 import androidx.compose.material.icons.filled.Star
@@ -17,7 +16,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
  * as a stable string key so it survives export/import; resolved to a vector for rendering.
  */
 object FlagIcons {
-    val keys: List<String> = listOf("flag", "star", "bookmark", "label", "circle", "bolt", "fire", "heart", "priority")
+    // R32 — the flag marker's identity is a BOOKMARK (the literal flag glyph collided with PRIORITY,
+    // which now owns the coloured flag). "flag" is dropped from the picker; any legacy value stored as
+    // "flag" resolves to the bookmark below, so old flags render consistently with the revised icon.
+    val keys: List<String> = listOf("bookmark", "star", "label", "circle", "bolt", "fire", "heart", "priority")
 
     fun vector(key: String?): ImageVector = when (key) {
         "star" -> Icons.Filled.Star
@@ -28,8 +30,7 @@ object FlagIcons {
         "fire" -> Icons.Filled.Whatshot
         "heart" -> Icons.Filled.Favorite
         "priority" -> Icons.Filled.PriorityHigh
-        "flag" -> Icons.Filled.Flag
-        // Default marker is a bookmark, kept visually distinct from PRIORITY (the coloured flag).
+        // Default marker (and legacy "flag") is a bookmark, kept visually distinct from PRIORITY.
         else -> Icons.Filled.Bookmark
     }
 }

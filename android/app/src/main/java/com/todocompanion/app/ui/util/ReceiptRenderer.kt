@@ -194,6 +194,34 @@ object ReceiptRenderer {
         return bmp
     }
 
+    /** R32 — a shareable "achievement" card for a single milestone, with an offline-verifiable QR that
+     *  ties it back to the record's chain head. Square, screenshot-friendly, theme-independent. */
+    fun renderMilestoneCard(emoji: String, headline: String, detail: String, qrPayload: String): Bitmap {
+        val w = 1080; val h = 1080
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val bg = Color.parseColor("#0F172A"); val card = Color.parseColor("#111C33")
+        val accent = Color.parseColor("#C9A24B"); val ink = Color.parseColor("#F1F5F9"); val muted = Color.parseColor("#94A3B8")
+        c.drawColor(bg)
+        val pad = 64f
+        val cardRect = RectF(pad, pad, w - pad, h - pad)
+        c.drawRoundRect(cardRect, 40f, 40f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = card })
+        c.drawRoundRect(RectF(cardRect.left + 16f, cardRect.top + 16f, cardRect.right - 16f, cardRect.bottom - 16f), 28f, 28f,
+            Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; color = accent; strokeWidth = 3f })
+        val bold = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+        val cx = w / 2f
+        fun centered(s: String, y: Float, p: Paint) { c.drawText(s, cx - p.measureText(s) / 2f, y, p) }
+        centered("MILESTONE", cardRect.top + 110f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = accent; typeface = bold; textSize = 38f; letterSpacing = 0.22f })
+        centered(emoji, cardRect.top + 300f, Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 150f })
+        centered(headline, cardRect.top + 430f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = ink; typeface = bold; textSize = 78f })
+        centered(detail, cardRect.top + 500f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = muted; typeface = Typeface.SANS_SERIF; textSize = 40f })
+        val sealSize = 176f
+        drawQr(c, qrPayload, cx - sealSize / 2f, cardRect.bottom - sealSize - 150f, sealSize, Color.BLACK, Color.WHITE)
+        centered("verifiable · on-device · private", cardRect.bottom - 96f,
+            Paint(Paint.ANTI_ALIAS_FLAG).apply { color = muted; typeface = Typeface.MONOSPACE; textSize = 26f; letterSpacing = 0.06f })
+        return bmp
+    }
+
     private fun wrap(text: String, paint: Paint, maxWidth: Float): List<String> {
         val words = text.split(" ")
         val out = ArrayList<String>()

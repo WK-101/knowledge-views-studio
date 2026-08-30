@@ -129,6 +129,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val flags: StateFlow<List<FlagEntity>> = repo.allFlags.state(emptyList())
     val templates: StateFlow<List<TemplateEntity>> = repo.allTemplates.state(emptyList())
     val countdowns = repo.allCountdowns.state(emptyList())
+    val sealedNotes = repo.allSealedNotes.state(emptyList())
     fun saveCountdown(id: String?, title: String, targetMillis: Long, emoji: String?, colorArgb: Long?) = viewModelScope.launch {
         val existing = id?.let { cid -> countdowns.value.firstOrNull { it.id == cid } }
         repo.upsertCountdown(
@@ -2673,7 +2674,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setFlag(t: TaskEntity, flagId: String?) = viewModelScope.launch { repo.setTaskFlag(t, flagId) }
 
     // ---------- flag management ----------
-    fun createFlag(name: String, colorArgb: Long, icon: String = "flag") = viewModelScope.launch { repo.createFlag(name, colorArgb, icon) }
+    fun createFlag(name: String, colorArgb: Long, icon: String = "bookmark") = viewModelScope.launch { repo.createFlag(name, colorArgb, icon) }
     fun updateFlag(f: FlagEntity) = viewModelScope.launch {
         repo.upsertFlag(f)
         // Keep the colour cache on tasks wearing this flag in sync with the edited colour.
@@ -2939,6 +2940,27 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun clearSeal() = viewModelScope.launch { saveSettings(settings.value.copy(integritySeal = null)) }
 
+    // ── R32 · sealed letter to your future self (Living Record #7) ──────────────────────────────────
+    /** Seal a note now to be revealed on [revealEpochDay]. The anchor hash over the body proves it wasn't
+     *  edited after sealing, and we stamp the current accomplishment count so the reveal can show the delta. */
+    fun sealLetter(title: String, body: String, revealEpochDay: Long) = viewModelScope.launch {
+        val today = java.time.LocalDate.now().toEpochDay()
+        val hash = com.todocompanion.app.domain.done.Integrity.hash("${body}|$today")
+        repo.upsertSealedNote(com.todocompanion.app.data.entity.SealedNoteEntity(
+            id = java.util.UUID.randomUUID().toString(), createdEpochDay = today,
+            revealEpochDay = revealEpochDay.coerceAtLeast(today + 1), title = title.trim().ifBlank { "A letter to future me" },
+            body = body.trim(), anchorHash = hash, sealedCount = doneFeed().size,
+        ))
+        toast("Sealed — opens ${java.time.LocalDate.ofEpochDay(revealEpochDay)}")
+    }
+    fun acknowledgeLetter(n: com.todocompanion.app.data.entity.SealedNoteEntity) = viewModelScope.launch {
+        repo.upsertSealedNote(n.copy(acknowledged = true))
+    }
+    fun deleteLetter(id: String) = viewModelScope.launch { repo.deleteSealedNote(id) }
+    /** Whether a sealed note's body still matches its anchor hash (i.e. hasn't been tampered with). */
+    fun letterIntact(n: com.todocompanion.app.data.entity.SealedNoteEntity): Boolean =
+        com.todocompanion.app.domain.done.Integrity.hash("${n.body}|${n.createdEpochDay}") == n.anchorHash
+
     /** Frontier F2 — render a sealed-year certificate image for [year] and hand it to the share sheet. */
     fun shareYearCertificate(year: Int, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
         val ofYear = doneFeed().filter { java.time.LocalDate.ofEpochDay(it.epochDay).year == year }
@@ -2961,6 +2983,30 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         val chooser = android.content.Intent.createChooser(send, "Certificate of work · $year").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
         runCatching { appCtx.startActivity(chooser) }.onFailure { toast("No app to share to") }
+        onDone(true)
+    }
+
+    /** R32 Living Record #6 — share a single milestone as a verifiable achievement card image. */
+    fun shareMilestone(m: com.todocompanion.app.domain.done.LivingRecord.Milestone, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+        val feed = doneFeed()
+        val head = com.todocompanion.app.domain.done.Integrity.headOf(feed.sortedBy { it.whenMillis })
+        val payload = "TDCM|${m.key}|${feed.size}|$head"
+        val uri = withContext(Dispatchers.IO) {
+            runCatching {
+                val bmp = com.todocompanion.app.ui.util.ReceiptRenderer.renderMilestoneCard(m.emoji, m.label, m.detail, payload)
+                val dir = java.io.File(appCtx.cacheDir, "shared").apply { mkdirs() }
+                val f = java.io.File(dir, "milestone-${m.key}.png")
+                java.io.FileOutputStream(f).use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+                androidx.core.content.FileProvider.getUriForFile(appCtx, "${appCtx.packageName}.fileprovider", f)
+            }.getOrNull()
+        }
+        if (uri == null) { toast("Couldn't make the card"); onDone(false); return@launch }
+        val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "image/png"; putExtra(android.content.Intent.EXTRA_STREAM, uri)
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        runCatching { appCtx.startActivity(android.content.Intent.createChooser(send, m.label).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            .onFailure { toast("No app to share to") }
         onDone(true)
     }
 

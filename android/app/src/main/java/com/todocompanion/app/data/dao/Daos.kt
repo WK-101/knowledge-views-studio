@@ -167,6 +167,27 @@ interface CountdownDao {
 }
 
 @Dao
+interface SealedNoteDao {
+    @Query("SELECT * FROM sealed_notes ORDER BY revealEpochDay")
+    fun observeAll(): Flow<List<com.todocompanion.app.data.entity.SealedNoteEntity>>
+
+    @Query("SELECT * FROM sealed_notes")
+    suspend fun getAll(): List<com.todocompanion.app.data.entity.SealedNoteEntity>
+
+    @Upsert
+    suspend fun upsert(n: com.todocompanion.app.data.entity.SealedNoteEntity)
+
+    @Upsert
+    suspend fun upsertAll(n: List<com.todocompanion.app.data.entity.SealedNoteEntity>)
+
+    @Query("DELETE FROM sealed_notes WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM sealed_notes")
+    suspend fun clear()
+}
+
+@Dao
 interface ActivityDao {
     @Query("SELECT * FROM task_activity WHERE taskId = :taskId ORDER BY at DESC")
     fun observeForTask(taskId: String): Flow<List<com.todocompanion.app.data.entity.ActivityEntity>>

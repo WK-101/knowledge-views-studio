@@ -361,9 +361,12 @@ fun AppDrawer(
                 if ("countdowns" !in hidden) DrawerRow(Icons.Filled.Timelapse, "Countdowns", pinned = vm.isPinned("more:countdowns"), onLongClick = { vm.togglePinnedRef("more:countdowns") }, onClick = onOpenCountdowns)
                 if ("attachments" !in hidden) DrawerRow(Icons.Filled.AttachFile, "Attachments", pinned = vm.isPinned("more:attachments"), onLongClick = { vm.togglePinnedRef("more:attachments") }, onClick = onOpenAttachments)
                 if ("done" !in hidden) DrawerRow(Icons.Filled.EmojiEvents, "The Record", pinned = vm.isPinned("more:done"), onLongClick = { vm.togglePinnedRef("more:done") }, onClick = onOpenDone)
+                // R32 — Statistics (charts) and Recap (period narrative) sit together under one "Insights"
+                // sub-label: different jobs, same shelf, so the analytics surfaces don't read as scattered.
+                if (("statistics" !in hidden) || ("recap" !in hidden)) SubLabel("Insights")
                 if ("statistics" !in hidden) DrawerRow(Icons.Filled.BarChart, "Statistics", pinned = vm.isPinned("more:statistics"), onLongClick = { vm.togglePinnedRef("more:statistics") }, onClick = onOpenStats)
-                if ("review" !in hidden) DrawerRow(Icons.Filled.ChecklistRtl, "Weekly review", pinned = vm.isPinned("more:review"), onLongClick = { vm.togglePinnedRef("more:review") }, onClick = onOpenReview)
                 if ("recap" !in hidden) DrawerRow(Icons.Filled.AutoAwesome, "Recap", pinned = vm.isPinned("more:recap"), onLongClick = { vm.togglePinnedRef("more:recap") }, onClick = onOpenRecap)
+                if ("review" !in hidden) DrawerRow(Icons.Filled.ChecklistRtl, "Weekly review", pinned = vm.isPinned("more:review"), onLongClick = { vm.togglePinnedRef("more:review") }, onClick = onOpenReview)
                 if ("annual" !in hidden) DrawerRow(Icons.Filled.EmojiEvents, "Year in review", pinned = vm.isPinned("more:annual"), onLongClick = { vm.togglePinnedRef("more:annual") }, onClick = onOpenAnnual)
             }
             }
@@ -732,6 +735,14 @@ private fun <T> DragReorderColumn(items: List<T>, id: (T) -> String, onReorder: 
 @Composable
 private fun MenuItem(icon: ImageVector, label: String, onClick: () -> Unit) {
     DropdownMenuItem(text = { Text(label) }, leadingIcon = { Icon(icon, null, modifier = Modifier.size(20.dp)) }, onClick = onClick)
+}
+
+/** A quiet indented caption that groups a couple of related rows inside a section (e.g. "Insights"). */
+@Composable
+private fun SubLabel(text: String) {
+    Text(text.uppercase(), style = MaterialTheme.typography.labelSmall, letterSpacing = 0.8.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .8f), fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(start = 22.dp, top = 10.dp, bottom = 2.dp))
 }
 
 @Composable
