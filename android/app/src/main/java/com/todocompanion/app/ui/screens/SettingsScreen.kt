@@ -125,49 +125,25 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     var editFlag by remember { mutableStateOf<FlagEntity?>(null) }
     var addingFlag by remember { mutableStateOf(false) }
 
-    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-        if (uri != null) vm.exportTo(uri) { ok -> Toast.makeText(context, if (ok) "Exported" else "Export failed", Toast.LENGTH_SHORT).show() }
-    }
-    // R43 — every import goes through the robust, top-level layered-chain picker (OPEN_DOCUMENT →
-    // GET_CONTENT → chooser), which surfaces the real exception if all tiers fail. Its raw OPEN_DOCUMENT
-    // first tier is exactly the path TickTick uses and that works on de-Googled ROMs. See SystemPickers.kt.
-    val importLauncher = com.todocompanion.app.util.rememberFilePicker(onError = { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }) { uris ->
-        uris.firstOrNull()?.let { uri -> vm.importFrom(uri) { ok -> Toast.makeText(context, if (ok) "Imported" else "Import failed", Toast.LENGTH_SHORT).show() } }
-    }
-    // Import from another app (Todoist/TickTick CSV, MLO OPML).
-    val importExternalLauncher = com.todocompanion.app.util.rememberFilePicker(onError = { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }) { uris ->
-        uris.firstOrNull()?.let { uri -> vm.importExternal(uri) { ok, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() } }
-    }
-    // CU3: import a calendar (.ics) back into tasks — the other half of the 2-way bridge.
-    val importIcsLauncher = com.todocompanion.app.util.rememberFilePicker(onError = { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }) { uris ->
-        uris.firstOrNull()?.let { uri -> vm.importIcs(uri) { _, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() } }
-    }
-    // Folder pickers for backup & sync — take a persistable grant so alarms can write later.
+    // R45 — every picker goes through SystemPicker → MainActivity's classic startActivityForResult
+    // (no ActivityOptions bundle, the thing the ROM rejected). Each launcher below is now just a lambda
+    // that opens the right route. Imports = OPEN_DOCUMENT; exports = CREATE_DOCUMENT; folders = tree.
+    val err: (String) -> Unit = { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
+    val exportLauncher: (String) -> Unit = { name -> com.todocompanion.app.util.SystemPicker.createFile("application/json", name, onError = err) { uri -> vm.exportTo(uri) { ok -> Toast.makeText(context, if (ok) "Exported" else "Export failed", Toast.LENGTH_SHORT).show() } } }
+    val importLauncher: (Array<String>) -> Unit = { types -> com.todocompanion.app.util.SystemPicker.openFile(types, onError = err) { uri -> vm.importFrom(uri) { ok -> Toast.makeText(context, if (ok) "Imported" else "Import failed", Toast.LENGTH_SHORT).show() } } }
+    val importExternalLauncher: (Array<String>) -> Unit = { types -> com.todocompanion.app.util.SystemPicker.openFile(types, onError = err) { uri -> vm.importExternal(uri) { _, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() } } }
+    val importIcsLauncher: (Array<String>) -> Unit = { types -> com.todocompanion.app.util.SystemPicker.openFile(types, onError = err) { uri -> vm.importIcs(uri) { _, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() } } }
     fun persist(uri: android.net.Uri) = runCatching {
         context.contentResolver.takePersistableUriPermission(uri,
             android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
     }
-    val backupFolderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        if (uri != null) { persist(uri); vm.setAutoBackupFolder(uri.toString()) }
-    }
-    val syncFolderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        if (uri != null) { persist(uri); vm.setSyncFolder(uri.toString()) }
-    }
-    val exportMdLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri ->
-        if (uri != null) vm.exportMarkdownTo(uri, includeCompleted = true) { ok -> Toast.makeText(context, if (ok) "Exported" else "Export failed", Toast.LENGTH_SHORT).show() }
-    }
-    val exportCsvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
-        if (uri != null) vm.exportCsvTo(uri, includeCompleted = true) { ok -> Toast.makeText(context, if (ok) "Exported" else "Export failed", Toast.LENGTH_SHORT).show() }
-    }
-    val exportIcsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/calendar")) { uri ->
-        if (uri != null) vm.exportIcsTo(uri, includeCompleted = false) { ok -> Toast.makeText(context, if (ok) "Calendar exported" else "Export failed", Toast.LENGTH_SHORT).show() }
-    }
-    val exportHabitsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
-        if (uri != null) vm.exportHabitsCsvTo(uri) { ok -> Toast.makeText(context, if (ok) "Habits exported" else "Export failed", Toast.LENGTH_SHORT).show() }
-    }
-    val importHabitsLauncher = com.todocompanion.app.util.rememberFilePicker(onError = { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }) { uris ->
-        uris.firstOrNull()?.let { uri -> vm.importHabitsCsv(uri) { _, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() } }
-    }
+    val backupFolderLauncher: () -> Unit = { com.todocompanion.app.util.SystemPicker.openTree(onError = err) { uri -> persist(uri); vm.setAutoBackupFolder(uri.toString()) } }
+    val syncFolderLauncher: () -> Unit = { com.todocompanion.app.util.SystemPicker.openTree(onError = err) { uri -> persist(uri); vm.setSyncFolder(uri.toString()) } }
+    val exportMdLauncher: (String) -> Unit = { name -> com.todocompanion.app.util.SystemPicker.createFile("text/markdown", name, onError = err) { uri -> vm.exportMarkdownTo(uri, includeCompleted = true) { ok -> Toast.makeText(context, if (ok) "Exported" else "Export failed", Toast.LENGTH_SHORT).show() } } }
+    val exportCsvLauncher: (String) -> Unit = { name -> com.todocompanion.app.util.SystemPicker.createFile("text/csv", name, onError = err) { uri -> vm.exportCsvTo(uri, includeCompleted = true) { ok -> Toast.makeText(context, if (ok) "Exported" else "Export failed", Toast.LENGTH_SHORT).show() } } }
+    val exportIcsLauncher: (String) -> Unit = { name -> com.todocompanion.app.util.SystemPicker.createFile("text/calendar", name, onError = err) { uri -> vm.exportIcsTo(uri, includeCompleted = false) { ok -> Toast.makeText(context, if (ok) "Calendar exported" else "Export failed", Toast.LENGTH_SHORT).show() } } }
+    val exportHabitsLauncher: (String) -> Unit = { name -> com.todocompanion.app.util.SystemPicker.createFile("text/csv", name, onError = err) { uri -> vm.exportHabitsCsvTo(uri) { ok -> Toast.makeText(context, if (ok) "Habits exported" else "Export failed", Toast.LENGTH_SHORT).show() } } }
+    val importHabitsLauncher: (Array<String>) -> Unit = { types -> com.todocompanion.app.util.SystemPicker.openFile(types, onError = err) { uri -> vm.importHabitsCsv(uri) { _, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() } } }
     // Opening the system document picker (Storage Access Framework) can throw
     // ActivityNotFoundException on devices whose Files / DocumentsUI app is missing or disabled —
     // which crashed every import/export action. Guard the launch so it shows a message instead.
@@ -945,7 +921,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             // R28 #11 — one clear back-up-and-restore flow, then two choosers for everything else, instead of
             // 15 flat rows. Restore opens the in-app browser first (no system picker needed).
             Sub("Back up & restore")
-            Action("Back up everything") { safeExport("json") { exportLauncher.launch("todo-companion-backup.json") } }
+            Action("Back up everything") { safeExport("json") { exportLauncher("todo-companion-backup.json") } }
             // Restore uses the SYSTEM file picker (ACTION_GET_CONTENT) first — no storage permission, and it
             // shows your files straight away. The in-app browser is only the fallback (offered below, and
             // reached automatically if the device has no system picker at all).
@@ -972,7 +948,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             // the folder action below lets you point it at a synced folder instead.
             Toggle("Automatic backup", s.autoBackupEnabled) { on -> if (on && s.autoBackupFolder.isBlank()) vm.setAutoBackupFolder(com.todocompanion.app.data.sync.SyncEngine.DOWNLOADS_FOLDER) else vm.setAutoBackupEnabled(on) }
             if (s.autoBackupEnabled) {
-                Action("Backup folder: " + folderLabel(s.autoBackupFolder.ifBlank { com.todocompanion.app.data.sync.SyncEngine.DOWNLOADS_FOLDER }) + " · change…") { safePick { backupFolderLauncher.launch(null) } }
+                Action("Backup folder: " + folderLabel(s.autoBackupFolder.ifBlank { com.todocompanion.app.data.sync.SyncEngine.DOWNLOADS_FOLDER }) + " · change…") { safePick { backupFolderLauncher() } }
                 if (s.autoBackupFolder == com.todocompanion.app.data.sync.SyncEngine.DOWNLOADS_FOLDER)
                     Action("Use Device Downloads (no picker)") { vm.setAutoBackupFolder(com.todocompanion.app.data.sync.SyncEngine.DOWNLOADS_FOLDER) }
                 else Action("Reset to Device Downloads (no picker)") { vm.setAutoBackupFolder(com.todocompanion.app.data.sync.SyncEngine.DOWNLOADS_FOLDER) }
@@ -981,9 +957,9 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
             Action("Back up now") { vm.runBackupNow { ok -> Toast.makeText(context, if (ok) "Backed up" else "Choose a folder first", Toast.LENGTH_SHORT).show() } }
             HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-            Toggle("Sync across devices (shared folder)", s.syncEnabled) { on -> if (on && s.syncFolder.isBlank()) safePick { syncFolderLauncher.launch(null) } else vm.setSyncEnabled(on) }
+            Toggle("Sync across devices (shared folder)", s.syncEnabled) { on -> if (on && s.syncFolder.isBlank()) safePick { syncFolderLauncher() } else vm.setSyncEnabled(on) }
             if (s.syncEnabled || s.syncFolder.isNotBlank()) {
-                Action(if (s.syncFolder.isBlank()) "Choose sync folder…" else "Sync folder: " + folderLabel(s.syncFolder)) { safePick { syncFolderLauncher.launch(null) } }
+                Action(if (s.syncFolder.isBlank()) "Choose sync folder…" else "Sync folder: " + folderLabel(s.syncFolder)) { safePick { syncFolderLauncher() } }
                 Action("Sync now") { vm.runSyncNow { ok, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() } }
                 // G2: last-sync change summary is more informative than just a timestamp.
                 if (s.lastSyncSummary.isNotBlank()) Text(s.lastSyncSummary + (if (s.lastSyncAt > 0) " · " + formatDue(s.lastSyncAt) else ""),
@@ -1140,10 +1116,10 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         title = { Text("Export a copy as…") },
         text = {
             Column {
-                ChooserRow("Markdown (.md)", "A readable outline of your lists and tasks") { showExportChooser = false; safeExport("md") { exportMdLauncher.launch("todo-companion.md") } }
-                ChooserRow("Spreadsheet (CSV)", "Open in any spreadsheet app") { showExportChooser = false; safeExport("csv") { exportCsvLauncher.launch("todo-companion.csv") } }
-                ChooserRow("Calendar (.ics)", "Your dated tasks, for any calendar app") { showExportChooser = false; safeExport("ics") { exportIcsLauncher.launch("todo-companion.ics") } }
-                ChooserRow("Habits (CSV)", "Habit check-ins as a spreadsheet") { showExportChooser = false; safeExport("habits") { exportHabitsLauncher.launch("todo-companion-habits.csv") } }
+                ChooserRow("Markdown (.md)", "A readable outline of your lists and tasks") { showExportChooser = false; safeExport("md") { exportMdLauncher("todo-companion.md") } }
+                ChooserRow("Spreadsheet (CSV)", "Open in any spreadsheet app") { showExportChooser = false; safeExport("csv") { exportCsvLauncher("todo-companion.csv") } }
+                ChooserRow("Calendar (.ics)", "Your dated tasks, for any calendar app") { showExportChooser = false; safeExport("ics") { exportIcsLauncher("todo-companion.ics") } }
+                ChooserRow("Habits (CSV)", "Habit check-ins as a spreadsheet") { showExportChooser = false; safeExport("habits") { exportHabitsLauncher("todo-companion-habits.csv") } }
             }
         },
     )

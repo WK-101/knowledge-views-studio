@@ -33,4 +33,12 @@ data class CountdownEntity(
     val notes: String = "",
     val prepLeadDays: Int = 0,            // >0 = auto-create a prep task this many days before each occurrence
     val prepTaskId: String? = null,       // the id of the auto-created prep task, so we can keep it in sync
+    // R45 "beyond countdowns" fields --------------------------------------------------------------
+    val countUp: Boolean = false,         // count UP from the date ("time since") instead of down
+    val unit: String = "days",            // display/milestone unit: days | weeks | workdays | hours | sleeps
+    val category: String = "",            // free-form grouping ("Family", "Work"…); "" = none
+    val archived: Boolean = false,        // kept but out of the main list
+    val favorite: Boolean = false,        // pinned to the top / "important"
+    val photoBase64: String? = null,      // an optional photo face (added via the system gallery picker)
+    val locked: Boolean = false,          // gate this occasion behind the app's biometric lock
 )

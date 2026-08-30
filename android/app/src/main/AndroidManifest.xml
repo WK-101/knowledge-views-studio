@@ -77,6 +77,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|uiMode|density|fontScale"
             android:label="@string/app_name"
             android:theme="@style/Theme.ToDoCompanion.Splash">
             <intent-filter>

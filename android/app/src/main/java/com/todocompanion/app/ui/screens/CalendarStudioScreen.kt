@@ -146,14 +146,7 @@ fun CalendarStudioScreen(vm: AppViewModel, onBack: () -> Unit, onOpenTask: (Stri
     val calById = remember(calendars) { calendars.associateBy { it.id } }
     val shownEvents = remember(events, visibleCalIds) { events.filter { it.calendarId in visibleCalIds } }
 
-    // ICS launchers — permission-free (SAF), same posture as attachments. R43: import uses the robust
-    // layered-chain helper (OPEN_DOCUMENT → GET_CONTENT → chooser) with real error surfacing.
-    val importIcs = com.todocompanion.app.util.rememberFilePicker(onError = { vm.toastMsg(it) }) { uris ->
-        uris.firstOrNull()?.let { vm.importIcsEvents(it) }
-    }
-    val exportIcs = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/calendar")) { uri ->
-        if (uri != null) vm.exportIcsEventsTo(uri)
-    }
+    // R45 — ICS import/export via SystemPicker (classic Activity startActivityForResult).
 
     fun openNew(start: Long, end: Long) { editing = null; editorSeedStart = start; editorSeedEnd = end; editorOpen = true }
 
@@ -210,8 +203,8 @@ fun CalendarStudioScreen(vm: AppViewModel, onBack: () -> Unit, onOpenTask: (Stri
                                 DropdownMenuItem(text = { Text("Calendars…") }, onClick = { overflow = false; calsOpen = true })
                                 DropdownMenuItem(text = { Text("Find a gap…") }, onClick = { overflow = false; gapOpen = true })
                                 DropdownMenuItem(text = { Text("Block time for a task…") }, onClick = { overflow = false; blockOpen = true })
-                                DropdownMenuItem(text = { Text("Import .ics") }, onClick = { overflow = false; importIcs(arrayOf("text/calendar", "application/octet-stream", "*/*")) })
-                                DropdownMenuItem(text = { Text("Export .ics (file)") }, onClick = { overflow = false; runCatching { exportIcs.launch("todocompanion-calendar.ics") }.onFailure { vm.exportIcsEventsToDownloads() } })
+                                DropdownMenuItem(text = { Text("Import .ics") }, onClick = { overflow = false; com.todocompanion.app.util.SystemPicker.openFile(arrayOf("text/calendar", "application/octet-stream", "*/*"), onError = { vm.toastMsg(it) }) { vm.importIcsEvents(it) } })
+                                DropdownMenuItem(text = { Text("Export .ics (file)") }, onClick = { overflow = false; com.todocompanion.app.util.SystemPicker.createFile("text/calendar", "todocompanion-calendar.ics", onError = { vm.exportIcsEventsToDownloads() }) { vm.exportIcsEventsTo(it) } })
                                 DropdownMenuItem(text = { Text("Export .ics (Downloads)") }, onClick = { overflow = false; vm.exportIcsEventsToDownloads() })
                             }
                         }

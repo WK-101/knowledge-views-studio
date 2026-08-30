@@ -102,11 +102,7 @@ fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Bo
     val focus = remember { FocusRequester() }
 
     val qaCtx = androidx.compose.ui.platform.LocalContext.current
-    // R43 — robust file picker (OPEN_DOCUMENT → GET_CONTENT → chooser), registered at the top of the
-    // sheet, real error surfaced. Multi-select supported. See util/SystemPickers.kt.
-    val attachLauncher = com.todocompanion.app.util.rememberFilePicker(onError = { android.widget.Toast.makeText(qaCtx, it, android.widget.Toast.LENGTH_LONG).show() }) { uris ->
-        if (uris.isNotEmpty()) attachments = attachments + uris
-    }
+    // R45 — attach via SystemPicker (classic Activity startActivityForResult; see util/SystemPickers.kt).
     // Voice capture (F3): dictate a task with the platform speech recognizer and append the result.
     val voiceLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         val spoken = res.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
@@ -219,8 +215,7 @@ fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Bo
                     }
                     IconTool(Icons.AutoMirrored.Filled.FormatListBulleted, "List or folder", listId != null || folderId != null) { listPicker = true }
                     IconTool(Icons.Filled.AttachFile, "Attach a file", attachments.isNotEmpty()) {
-                        // The helper runs the layered chain and surfaces the real error if all tiers fail.
-                        attachLauncher(arrayOf("*/*"))
+                        com.todocompanion.app.util.SystemPicker.openFiles(arrayOf("*/*"), onError = { android.widget.Toast.makeText(qaCtx, it, android.widget.Toast.LENGTH_LONG).show() }) { uris -> attachments = attachments + uris }
                     }
                     IconTool(Icons.Filled.Mic, "Dictate task", false) { startVoice() }
                 }

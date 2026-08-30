@@ -1580,12 +1580,8 @@ private fun ManageListDialog(
     var name by remember { mutableStateOf(list.name) }
     var description by remember { mutableStateOf(list.description) }
     var confirmDelete by remember { mutableStateOf(false) }
-    // R43 — robust image picker (Android Photo Picker → GET_CONTENT → chooser), registered at the top
-    // of this dialog, real error surfaced. See util/SystemPickers.kt.
+    // R45 — image pick via SystemPicker (classic Activity startActivityForResult, gallery ACTION_PICK).
     val bgCtxTop = androidx.compose.ui.platform.LocalContext.current
-    val bgPicker = com.todocompanion.app.util.rememberPhotoPicker(onError = { android.widget.Toast.makeText(bgCtxTop, it, android.widget.Toast.LENGTH_LONG).show() }) { uris ->
-        uris.firstOrNull()?.let { onPickBackground(it) }
-    }
     if (confirmDelete) ConfirmDeleteDialog("list", list.name, onCancel = { confirmDelete = false }, onConfirm = { confirmDelete = false; onDelete() })
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1612,7 +1608,7 @@ private fun ManageListDialog(
                 Text("Background image", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 val bgCtx = androidx.compose.ui.platform.LocalContext.current
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { bgPicker() }) { Text(if (list.backgroundBase64 == null) "Set image" else "Change image") }
+                    TextButton(onClick = { com.todocompanion.app.util.SystemPicker.galleryOne(onError = { android.widget.Toast.makeText(bgCtxTop, it, android.widget.Toast.LENGTH_LONG).show() }) { onPickBackground(it) } }) { Text(if (list.backgroundBase64 == null) "Set image" else "Change image") }
                     if (list.backgroundBase64 != null) TextButton(onClick = onClearBackground) { Text("Remove", color = MaterialTheme.colorScheme.error) }
                 }
             }

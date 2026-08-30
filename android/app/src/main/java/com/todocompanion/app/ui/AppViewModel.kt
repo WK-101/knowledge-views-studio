@@ -166,18 +166,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * re-date a task in the Inbox that falls that many days before the next occurrence — the one thing a
      * single-purpose reminder app can't do, because it doesn't own the task list. Fully offline.
      */
-    fun saveOccasion(
-        id: String?, title: String, personName: String, targetMillis: Long, eventType: String,
-        yearly: Boolean, yearKnown: Boolean, emoji: String?, colorArgb: Long?, notes: String, prepLeadDays: Int,
-    ) = viewModelScope.launch {
-        val existing = id?.let { cid -> countdowns.value.firstOrNull { it.id == cid } }
-        var row = (existing ?: com.todocompanion.app.data.entity.CountdownEntity(
-            id = UUID.randomUUID().toString(), title = title, targetMillis = targetMillis, createdAt = System.currentTimeMillis(),
-        )).copy(
-            title = title.trim().ifBlank { com.todocompanion.app.domain.LifeEvent.EventType.from(eventType).label },
-            personName = personName.trim(), targetMillis = targetMillis, eventType = eventType, yearly = yearly,
-            yearKnown = yearKnown, emoji = emoji, colorArgb = colorArgb, notes = notes.trim(), prepLeadDays = prepLeadDays,
+    /** R45 — save a fully-built occasion row and keep its auto "prepare" task in sync. */
+    fun saveOccasionRow(input: com.todocompanion.app.data.entity.CountdownEntity) = viewModelScope.launch {
+        var row = input.copy(
+            title = input.title.trim().ifBlank { com.todocompanion.app.domain.LifeEvent.EventType.from(input.eventType).label },
+            personName = input.personName.trim(), notes = input.notes.trim(),
         )
+        val prepLeadDays = row.prepLeadDays
         // Keep the auto "prepare" task in step with the occasion.
         val next = com.todocompanion.app.domain.LifeEvent.nextOccurrence(row)
         if (prepLeadDays > 0) {
@@ -215,6 +210,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.deleteCountdown(id); com.todocompanion.app.widget.CountdownWidget.refresh(appCtx)
     }
     fun toggleCountdownPin(c: com.todocompanion.app.data.entity.CountdownEntity) = viewModelScope.launch { repo.upsertCountdown(c.copy(pinned = !c.pinned)); com.todocompanion.app.widget.CountdownWidget.refresh(appCtx) }
+    fun toggleOccasionFavorite(c: com.todocompanion.app.data.entity.CountdownEntity) = viewModelScope.launch { repo.upsertCountdown(c.copy(favorite = !c.favorite)) }
+    fun setOccasionArchived(c: com.todocompanion.app.data.entity.CountdownEntity, archived: Boolean) = viewModelScope.launch { repo.upsertCountdown(c.copy(archived = archived)) }
+    /** R45 — On-This-Day: tasks the user completed on this calendar day (month+day) in prior years. */
+    fun onThisDay(today: java.time.LocalDate = java.time.LocalDate.now(zone)): List<Pair<Int, TaskEntity>> {
+        val out = ArrayList<Pair<Int, TaskEntity>>()
+        allTasksLive.value.forEach { t ->
+            val at = t.completedAt ?: return@forEach
+            val d = java.time.Instant.ofEpochMilli(at).atZone(zone).toLocalDate()
+            if (d.monthValue == today.monthValue && d.dayOfMonth == today.dayOfMonth && d.year < today.year)
+                out.add((today.year - d.year) to t)
+        }
+        return out.sortedBy { it.first }
+    }
     val filters = combine(repo.allFilters, activeWs) { f, ws -> f.filter { it.workspaceId == ws } }.state(emptyList())
     val habits = combine(repo.allHabits, activeWs) { h, ws -> h.filter { it.workspaceId == ws && !it.archived } }.state(emptyList())
     val habitCheckins = repo.allCheckins.state(emptyList())
@@ -1233,6 +1241,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.setListBackground(listId, b64)
     }
     fun clearListBackground(listId: String) = viewModelScope.launch { repo.setListBackground(listId, null) }
+
+    /** R45 — decode+downscale a picked image to a small square-ish face (≤512px JPEG base64), for an
+     *  occasion photo. Calls back on the main thread with the base64 (or null). Permission-free. */
+    fun imageUriToBase64(uri: Uri, onDone: (String?) -> Unit) = viewModelScope.launch {
+        val b64 = withContext(Dispatchers.IO) {
+            runCatching {
+                val bytes = appCtx.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@runCatching null
+                val src = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return@runCatching null
+                val maxDim = 512
+                val scale = minOf(1f, maxDim.toFloat() / maxOf(src.width, src.height).coerceAtLeast(1))
+                val bmp = if (scale < 1f) android.graphics.Bitmap.createScaledBitmap(src, (src.width * scale).toInt().coerceAtLeast(1), (src.height * scale).toInt().coerceAtLeast(1), true) else src
+                val out = java.io.ByteArrayOutputStream()
+                bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 78, out)
+                android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+            }.getOrNull()
+        }
+        onDone(b64)
+    }
     /** Decode an attachment to a temp cache file and hand it to a local viewer app. */
     fun openAttachment(id: String, fileName: String, mime: String) = viewModelScope.launch {
         val b64 = attachmentContent(id) ?: return@launch

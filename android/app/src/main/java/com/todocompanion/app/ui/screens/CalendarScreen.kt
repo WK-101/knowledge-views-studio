@@ -191,10 +191,7 @@ fun CalendarScreen(
     var plannerOpen by remember { mutableStateOf(false) }
     var plannerTab by remember { mutableStateOf(0) }
     val openEvent: (String) -> Unit = { id -> eventEditing = eventsAll.firstOrNull { e -> e.id == id }; if (eventEditing != null) eventEditorOpen = true }
-    // R43 — robust import via the layered chain (OPEN_DOCUMENT → GET_CONTENT → chooser), registered
-    // at the top level, real error surfaced. See util/SystemPickers.kt.
-    val eventImport = com.todocompanion.app.util.rememberFilePicker(onError = { vm.toastMsg(it) }) { uris -> uris.firstOrNull()?.let { vm.importIcsEvents(it) } }
-    val eventExport = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/calendar")) { uri -> if (uri != null) vm.exportIcsEventsTo(uri) }
+    // R45 — import/export via SystemPicker (classic Activity startActivityForResult). See SystemPickers.kt.
 
     val firstDow = if (s.weekStart in 1..7) DayOfWeek.of(s.weekStart) else WeekFields.of(Locale.getDefault()).firstDayOfWeek
     // The calendar filter set holds list IDs AND folder IDs now (R23): a task matches if its list, its
@@ -391,10 +388,9 @@ fun CalendarScreen(
             "block" -> eventBlockOpen = true
             "plan" -> { plannerTab = 0; plannerOpen = true }
             "review" -> { plannerTab = 1; plannerOpen = true }
-            "import" -> eventImport(arrayOf("text/calendar", "application/octet-stream", "*/*"))
+            "import" -> com.todocompanion.app.util.SystemPicker.openFile(arrayOf("text/calendar", "application/octet-stream", "*/*"), onError = { vm.toastMsg(it) }) { vm.importIcsEvents(it) }
             // Export: try the system file-saver; if the device has no DocumentsUI, fall back to Downloads.
-            "export" -> runCatching { eventExport.launch("todocompanion-calendar.ics") }
-                .onFailure { vm.exportIcsEventsToDownloads() }
+            "export" -> com.todocompanion.app.util.SystemPicker.createFile("text/calendar", "todocompanion-calendar.ics", onError = { vm.exportIcsEventsToDownloads() }) { vm.exportIcsEventsTo(it) }
         }
         if (eventAction != null) onEventActionConsumed()
     }

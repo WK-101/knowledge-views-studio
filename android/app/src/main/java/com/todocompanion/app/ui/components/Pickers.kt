@@ -475,3 +475,26 @@ fun DateTimePickerDialog(
         }
     }
 }
+
+/**
+ * R45 — a DATE-ONLY picker (no forced time step). Occasions are all-day by nature (a birthday is a
+ * date, not a time), so their editor uses this instead of DateTimePickerDialog. Returns the local
+ * start-of-day millis for the chosen date.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DateOnlyPickerDialog(initial: Long?, onDismiss: () -> Unit, onConfirm: (Long) -> Unit) {
+    val dateState = rememberDatePickerState(initialSelectedDateMillis = initial)
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = {
+                dateState.selectedDateMillis?.let { utc ->
+                    val ld = Instant.ofEpochMilli(utc).atZone(ZoneOffset.UTC).toLocalDate()
+                    onConfirm(ld.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli())
+                } ?: onDismiss()
+            }) { Text("OK") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    ) { DatePicker(state = dateState) }
+}

@@ -171,4 +171,140 @@ object LifeEvent {
             else -> Bucket.LATER
         }
     }
+
+    // ── R45 · count-up, units, date-facts, milestone radar ───────────────────────────────────────
+
+    /** Whole days elapsed since the origin date (for count-up "time since"); ≥0 for past origins. */
+    fun daysSince(c: CountdownEntity, today: LocalDate = LocalDate.now()): Long =
+        ChronoUnit.DAYS.between(originDate(c), today).coerceAtLeast(0)
+
+    /** The signed day span the card shows: count-up → days since origin; else → days until next. */
+    fun primaryDays(c: CountdownEntity, today: LocalDate = LocalDate.now()): Long =
+        if (c.countUp) daysSince(c, today) else daysUntil(c, today)
+
+    /** Convert a day-count to the chosen unit's value. */
+    fun inUnit(days: Long, unit: String, from: LocalDate, to: LocalDate): Long = when (unit) {
+        "weeks" -> days / 7
+        "hours" -> days * 24
+        "sleeps" -> days
+        "workdays" -> workdaysBetween(if (days >= 0) from else to, if (days >= 0) to else from)
+        else -> days
+    }
+
+    fun unitLabel(unit: String, n: Long): String = when (unit) {
+        "weeks" -> if (n == 1L) "week" else "weeks"
+        "hours" -> if (n == 1L) "hour" else "hours"
+        "sleeps" -> if (n == 1L) "sleep" else "sleeps"
+        "workdays" -> "work days"
+        else -> if (n == 1L) "day" else "days"
+    }
+
+    private fun workdaysBetween(a: LocalDate, b: LocalDate): Long {
+        if (!b.isAfter(a)) return 0
+        var d = a; var n = 0L
+        while (d.isBefore(b)) { if (d.dayOfWeek.value <= 5) n++; d = d.plusDays(1) }
+        return n
+    }
+
+    /** The big number + unit label the card shows, honouring count-up + unit. */
+    fun displayCount(c: CountdownEntity, today: LocalDate = LocalDate.now()): Pair<Long, String> {
+        val days = primaryDays(c, today)
+        val from = if (c.countUp) originDate(c) else today
+        val to = if (c.countUp) today else nextOccurrence(c, today)
+        val n = inUnit(kotlin.math.abs(days), c.unit, from, to)
+        return n to unitLabel(c.unit, n)
+    }
+
+    // ---- Date-fact pack -------------------------------------------------------------------------
+    private val CHINESE = listOf("🐀 Rat", "🐂 Ox", "🐅 Tiger", "🐇 Rabbit", "🐉 Dragon", "🐍 Snake",
+        "🐎 Horse", "🐐 Goat", "🐒 Monkey", "🐓 Rooster", "🐕 Dog", "🐖 Pig")
+
+    fun chineseZodiac(c: CountdownEntity): String? {
+        if (type(c) != EventType.BIRTHDAY || !c.yearKnown) return null
+        val y = originDate(c).year
+        return CHINESE[(((y - 1900) % 12) + 12) % 12]
+    }
+
+    /** Numerology Life-Path number (single digit, or master 11/22/33). Birthdays only. */
+    fun lifePath(c: CountdownEntity): Int? {
+        if (type(c) != EventType.BIRTHDAY || !c.yearKnown) return null
+        fun reduce(n: Int): Int { var x = n; while (x > 9 && x != 11 && x != 22 && x != 33) x = x.toString().sumOf { it - '0' }; return x }
+        val d = originDate(c)
+        return reduce(reduce(d.year) + reduce(d.monthValue) + reduce(d.dayOfMonth))
+    }
+
+    /** The "golden birthday" — the age when age == day-of-month. */
+    fun goldenBirthday(c: CountdownEntity): Pair<Int, LocalDate>? {
+        if (type(c) != EventType.BIRTHDAY || !c.yearKnown) return null
+        val d = originDate(c); val age = d.dayOfMonth
+        return age to d.plusYears(age.toLong())
+    }
+
+    /** The date this person/date reaches a round number of days old (10 000, 20 000, 25 000…). */
+    fun nextRoundDayMilestone(c: CountdownEntity, today: LocalDate = LocalDate.now()): Pair<Int, LocalDate>? {
+        if (!c.yearKnown) return null
+        val origin = originDate(c)
+        val livedDays = ChronoUnit.DAYS.between(origin, today)
+        for (round in listOf(1000, 5000, 10000, 15000, 20000, 25000, 30000, 40000)) {
+            if (livedDays < round) return round to origin.plusDays(round.toLong())
+        }
+        return null
+    }
+
+    /** The date this reaches 1 billion seconds (~31.7 years) — a cult milestone. */
+    fun billionSeconds(c: CountdownEntity): LocalDate? =
+        if (c.yearKnown) originDate(c).plusDays(1_000_000_000L / 86_400L) else null
+
+    fun dayOfWeekBorn(c: CountdownEntity): String? =
+        if (c.yearKnown) originDate(c).dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault()) else null
+
+    // ---- Milestone radar: rare upcoming milestones across all occasions --------------------------
+    data class RadarHit(val occasionId: String, val label: String, val date: LocalDate, val daysUntil: Long, val emoji: String)
+
+    fun radar(all: List<CountdownEntity>, today: LocalDate = LocalDate.now(), horizonDays: Long = 120): List<RadarHit> {
+        val out = ArrayList<RadarHit>()
+        for (c in all) {
+            if (c.archived) continue
+            val who = c.personName.ifBlank { c.title }
+            fun add(label: String, date: LocalDate, emoji: String) {
+                val d = ChronoUnit.DAYS.between(today, date)
+                if (d in 0..horizonDays) out.add(RadarHit(c.id, label, date, d, emoji))
+            }
+            // Golden birthday
+            goldenBirthday(c)?.let { (age, date) -> if (!date.isBefore(today)) add("$who's golden birthday ($age)", date, "🥂") }
+            // 10k/… days old
+            nextRoundDayMilestone(c)?.let { (round, date) -> add("$who turns ${"%,d".format(round)} days old", date, "✨") }
+            // 1 billion seconds
+            billionSeconds(c)?.let { date -> add("$who at 1 billion seconds", date, "⏱️") }
+            // round-number birthday/anniversary already covered by milestone(); add its next occurrence
+            milestone(c, today)?.let { m -> add("$who — $m", nextOccurrence(c, today), type(c).emoji) }
+        }
+        return out.sortedBy { it.daysUntil }
+    }
+
+    // ---- Life in weeks (#18) & life-spent (#13) --------------------------------------------------
+    /** Total weeks in a life of [lifeYears]; each square is one week. Tesla/Wait-But-Why "4000 weeks". */
+    fun totalLifeWeeks(lifeYears: Int = 80): Int = lifeYears * 52
+
+    /** Whole weeks lived since birth (0 if the year is unknown or the date is in the future). */
+    fun weeksLived(c: CountdownEntity, today: LocalDate = LocalDate.now()): Int {
+        if (!c.yearKnown) return 0
+        val w = ChronoUnit.WEEKS.between(originDate(c), today)
+        return w.coerceIn(0, Int.MAX_VALUE.toLong()).toInt()
+    }
+
+    /** Percentage of an [lifeYears]-year life already lived, 0..100 (null if the year is unknown). */
+    fun lifeSpentPct(c: CountdownEntity, lifeYears: Int = 80, today: LocalDate = LocalDate.now()): Int? {
+        if (!c.yearKnown) return null
+        val lived = weeksLived(c, today).toDouble()
+        val total = totalLifeWeeks(lifeYears).toDouble()
+        return ((lived / total) * 100.0).toInt().coerceIn(0, 100)
+    }
+
+    /** The best occasion to visualise as a "life in weeks": a favourite birthday with a known year,
+     *  else any birthday with a known year, else null. */
+    fun lifeInWeeksSubject(all: List<CountdownEntity>): CountdownEntity? {
+        val births = all.filter { !it.archived && it.yearKnown && type(it) == EventType.BIRTHDAY }
+        return births.firstOrNull { it.favorite } ?: births.minByOrNull { originDate(it) }
+    }
 }

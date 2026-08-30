@@ -177,21 +177,11 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     var showHistory by remember { mutableStateOf(false) }
     var notePreview by remember(taskId) { mutableStateOf(true) }
 
-    // R43 — attachment pickers hoisted to the TOP LEVEL of the screen so registration is
-    // unconditional and stable for the screen's whole lifetime. The old launchers lived inside the
-    // Attachments section's content lambda — a conditionally-composed slot. A launcher registered
-    // there unregisters the instant that slot leaves composition, and then .launch() throws
-    // IllegalStateException ("unregistered ActivityResultLauncher") for EVERY intent, on EVERY ROM.
-    // That was the real, six-rounds-old cause of the "couldn't open the picker" toasts (confirmed by
-    // decompiling TickTick: it never uses the Compose registry — it launches through the Activity's
-    // own startActivityForResult, which is always registered). These helpers do the layered launch
-    // chain (OPEN_DOCUMENT → GET_CONTENT → chooser; photos lead with the Photo Picker) and surface the
-    // real exception if all tiers fail. See util/SystemPickers.kt.
+    // R45 — attachments pick through SystemPicker, which launches via MainActivity's classic
+    // startActivityForResult (no ActivityOptions bundle — the thing that threw IllegalArgumentException
+    // through the Compose registry on the user's ROM). This is exactly how Tasks.org attaches files.
     val pickerCtx = LocalContext.current
     val onPickerError: (String) -> Unit = { msg -> android.widget.Toast.makeText(pickerCtx, msg, android.widget.Toast.LENGTH_LONG).show() }
-    val pickFiles = com.todocompanion.app.util.rememberFilePicker(onError = onPickerError) { uris -> vm.addAttachments(taskId, uris) }
-    val pickPhotos = com.todocompanion.app.util.rememberPhotoPicker(onError = onPickerError) { uris -> vm.addAttachments(taskId, uris) }
-    val takePhoto = com.todocompanion.app.util.rememberCameraCapture(onError = onPickerError) { uri -> vm.addAttachment(taskId, uri) }
 
     // Staged editing: edits mutate the local draft only and are persisted on Save — never on Back.
     var savedSnapshot by remember(taskId) { mutableStateOf<TaskEntity?>(null) }
@@ -667,9 +657,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     // Each button just invokes the hoisted, top-level picker (registered for the whole
                     // screen's lifetime). The helper runs the layered launch chain and surfaces the real
                     // error if every tier fails — so it never silently dead-ends. See SystemPickers.kt.
-                    TextButton(onClick = { pickPhotos() }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.Image, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Photo") }
-                    TextButton(onClick = { takePhoto() }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.CameraAlt, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Camera") }
-                    TextButton(onClick = { pickFiles(arrayOf("*/*")) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.AttachFile, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("File") }
+                    TextButton(onClick = { com.todocompanion.app.util.SystemPicker.gallery(onError = onPickerError) { uris -> vm.addAttachments(taskId, uris) } }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.Image, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Photo") }
+                    TextButton(onClick = { com.todocompanion.app.util.SystemPicker.camera(onError = onPickerError) { uri -> vm.addAttachment(taskId, uri) } }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.CameraAlt, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Camera") }
+                    TextButton(onClick = { com.todocompanion.app.util.SystemPicker.openFiles(arrayOf("*/*"), onError = onPickerError) { uris -> vm.addAttachments(taskId, uris) } }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.AttachFile, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("File") }
                 }
                 if (attachments.isEmpty()) Text("Photos, camera, or any file up to 25 MB — picked through your phone's own picker, so no storage permission is ever asked. Stored on-device and in your backups.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

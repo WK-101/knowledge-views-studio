@@ -1,16 +1,21 @@
 package com.todocompanion.app
 
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.provider.MediaStore
 import android.view.WindowManager
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.mutableStateOf
+import androidx.core.content.FileProvider
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
 import com.todocompanion.app.ui.AppRoot
+import com.todocompanion.app.util.SystemPicker
 import kotlinx.coroutines.launch
+import java.io.File
 
 // FragmentActivity (a ComponentActivity subclass) so androidx.biometric's BiometricPrompt can attach.
 class MainActivity : FragmentActivity() {
@@ -18,6 +23,12 @@ class MainActivity : FragmentActivity() {
     private val launchAction = mutableStateOf<String?>(null)
     // E9: a backup file URI handed to us by the user's file manager ("Open with"/"Share").
     private val importUri = mutableStateOf<Uri?>(null)
+
+    // R45 — the ground-up picker. The whole app picks files/photos/documents through SystemPicker, which
+    // calls THIS classic startActivityForResult (no ActivityOptions bundle — the thing the ROM rejected
+    // with IllegalArgumentException through the Compose registry). Mirrors how Tasks.org launches.
+    private var pendingPick: SystemPicker.Request? = null
+    private var cameraOutputUri: Uri? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Swap the branded splash window for the plain (transparent) theme before the first frame,
@@ -37,7 +48,76 @@ class MainActivity : FragmentActivity() {
                 com.todocompanion.app.reminders.Notifications.lockscreenPrivate = flag(com.todocompanion.app.domain.AppSettings.Keys.LOCKSCREEN_PRIVACY)
             }
         }
+        // R45 — route every file/photo/document pick through the classic Activity result API.
+        SystemPicker.launcher = { req -> launchPicker(req) }
         setContent { AppRoot(launchAction = launchAction, importUri = importUri) }
+    }
+
+    /**
+     * The one place a picker is launched — a classic startActivityForResult with NO options bundle, the
+     * exact mechanism Tasks.org uses. Each op is an independent intent (menu of routes); the gallery
+     * route is ACTION_PICK on the MediaStore, which opens on ROMs with no document UI.
+     */
+    private fun launchPicker(req: SystemPicker.Request) {
+        pendingPick = req
+        val intent: Intent = try {
+            when (req.op) {
+                SystemPicker.Op.GALLERY -> Intent(Intent.ACTION_PICK).apply {
+                    setDataAndType(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, "image/*")
+                    putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                SystemPicker.Op.OPEN_FILE -> Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = if (req.mimeTypes.size == 1) req.mimeTypes[0] else "*/*"
+                    if (req.mimeTypes.size > 1) putExtra(Intent.EXTRA_MIME_TYPES, req.mimeTypes)
+                    putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                SystemPicker.Op.CREATE_FILE -> Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = req.mimeTypes.firstOrNull() ?: "application/octet-stream"
+                    putExtra(Intent.EXTRA_TITLE, req.createName ?: "file")
+                }
+                SystemPicker.Op.OPEN_TREE -> Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+                SystemPicker.Op.CAMERA -> {
+                    if (!packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)) {
+                        pendingPick = null; req.onError("No camera on this device."); return
+                    }
+                    val dir = File(cacheDir, "shared").apply { mkdirs() }
+                    val f = File(dir, "cam_${System.currentTimeMillis()}.jpg")
+                    cameraOutputUri = FileProvider.getUriForFile(this, "$packageName.fileprovider", f)
+                    Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                        putExtra(MediaStore.EXTRA_OUTPUT, cameraOutputUri)
+                        addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            pendingPick = null; req.onError("Couldn't build the picker: ${e.javaClass.simpleName}"); return
+        }
+        try {
+            @Suppress("DEPRECATION")
+            startActivityForResult(intent, RC_PICK)
+        } catch (e: Exception) {
+            pendingPick = null
+            req.onError("This device has no app for that (${e.javaClass.simpleName}). Try the Photo or Camera button, or Share a file into the app.")
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != RC_PICK) return
+        val req = pendingPick ?: return
+        pendingPick = null
+        if (resultCode != RESULT_OK) return
+        val uris = when (req.op) {
+            SystemPicker.Op.CAMERA -> listOfNotNull(cameraOutputUri)
+            SystemPicker.Op.CREATE_FILE, SystemPicker.Op.OPEN_TREE -> listOfNotNull(data?.data)
+            else -> SystemPicker.extractUris(data)
+        }
+        if (uris.isNotEmpty()) req.onResult(uris)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -107,6 +187,7 @@ class MainActivity : FragmentActivity() {
     }
 
     companion object {
+        private const val RC_PICK = 0x9A01   // R45 — the one request code for every SystemPicker launch
         const val EXTRA_ACTION = "com.todocompanion.app.action"
         const val ACTION_QUICK_ADD = "quick_add"
         // Prefix carrying shared/selected text into quick-add: "quick_add_text:<text>".
