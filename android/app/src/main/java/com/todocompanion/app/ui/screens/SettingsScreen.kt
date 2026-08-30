@@ -894,9 +894,15 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             // 15 flat rows. Restore opens the in-app browser first (no system picker needed).
             Sub("Back up & restore")
             Action("Back up everything") { safeExport("json") { exportLauncher.launch("todo-companion-backup.json") } }
-            Action("Restore a backup…") { requestAndBrowse() }
+            // Restore uses the SYSTEM file picker (ACTION_GET_CONTENT) first — no storage permission, and it
+            // shows your files straight away. The in-app browser is only the fallback (offered below, and
+            // reached automatically if the device has no system picker at all).
+            Action("Restore a backup…") { safeImport { importLauncher.launch("*/*") } }
             Action("Send a copy to another device") { vm.shareBackupCopy() }
-            Text("Your complete, lossless backup — no account, no cloud, no network. Back up saves a JSON file; Restore opens the in-app file browser (turn on “All files” to see everything). You can also drop a file into ${vm.importInboxHint()}.",
+            // Last-resort restore for stripped ROMs with no system picker: the in-app browser (needs storage
+            // access). Deliberately secondary — most people never need it.
+            Action("Can’t see your file? Browse this device instead") { requestAndBrowse() }
+            Text("Your complete, lossless backup — no account, no cloud, no network. Restore opens your device’s file picker (no permission needed). You can also drop a file into ${vm.importInboxHint()}, or paste the backup text below.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp, bottom = 6.dp))
             HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             Sub("More formats")

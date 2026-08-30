@@ -60,6 +60,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.CalendarViewMonth
 import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
@@ -149,11 +150,43 @@ fun CalendarScreen(
     vm: AppViewModel, onOpenTask: (String) -> Unit, mode: String, onModeChange: (String) -> Unit,
     anchor: LocalDate, selected: LocalDate, onAnchor: (LocalDate) -> Unit, onSelected: (LocalDate) -> Unit,
     onAddOnDate: (LocalDate) -> Unit, onAddAt: (LocalDate, Int) -> Unit = { d, _ -> onAddOnDate(d) },
+    // R39 — event tools invoked from the shared header's events menu ("new"|"calendars"|"gap"|"import"
+    // |"export"|"block"); the calendar owns the dialogs so events live inside this one calendar.
+    eventAction: String? = null, onEventActionConsumed: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val s by vm.settings.collectAsState()
     val tasks by vm.tasks.collectAsState()
     val zone = ZoneId.systemDefault()
+
+    // R39 — dedicated-calendar EVENTS folded into this one calendar (no separate calendar screen).
+    val eventsAll by vm.events.collectAsState()
+    val eventCals by vm.eventCalendars.collectAsState()
+    val visEventCalIds = remember(eventCals) { eventCals.filter { it.visible }.map { it.id }.toSet() }
+    val eventCalById = remember(eventCals) { eventCals.associateBy { it.id } }
+    val visEvents = remember(eventsAll, visEventCalIds) { eventsAll.filter { it.calendarId in visEventCalIds } }
+    val eventOccForDay: (LocalDate) -> List<com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence> = { d ->
+        com.todocompanion.app.domain.calendar.CalendarEngine.onDay(visEvents, d.toEpochDay(), zone)
+    }
+    val eventBlocksFor: (LocalDate) -> List<EventBlock> = { d ->
+        eventOccForDay(d).filter { !it.event.allDay }.map { o ->
+            val st = Instant.ofEpochMilli(o.startMillis).atZone(zone)
+            val startMin = (st.hour * 60 + st.minute).coerceIn(0, 1439)
+            val durMin = ((o.endMillis - o.startMillis) / 60000L).toInt().coerceIn(15, 1440 - startMin)
+            EventBlock(o.event.id, o.event.title, colorOf(o.event, eventCalById), startMin, durMin)
+        }
+    }
+    // Event editor / management dialog state (reuses the R38 dialogs, now folded into this calendar).
+    var eventEditing by remember { mutableStateOf<com.todocompanion.app.data.entity.EventEntity?>(null) }
+    var eventEditorOpen by remember { mutableStateOf(false) }
+    var eventSeedStart by remember { mutableStateOf(0L) }
+    var eventSeedEnd by remember { mutableStateOf(0L) }
+    var eventCalsOpen by remember { mutableStateOf(false) }
+    var eventGapOpen by remember { mutableStateOf(false) }
+    var eventBlockOpen by remember { mutableStateOf(false) }
+    val openEvent: (String) -> Unit = { id -> eventEditing = eventsAll.firstOrNull { e -> e.id == id }; if (eventEditing != null) eventEditorOpen = true }
+    val eventImport = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri -> if (uri != null) vm.importIcsEvents(uri) }
+    val eventExport = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/calendar")) { uri -> if (uri != null) vm.exportIcsEventsTo(uri) }
 
     val firstDow = if (s.weekStart in 1..7) DayOfWeek.of(s.weekStart) else WeekFields.of(Locale.getDefault()).firstDayOfWeek
     // The calendar filter set holds list IDs AND folder IDs now (R23): a task matches if its list, its
@@ -304,6 +337,7 @@ fun CalendarScreen(
             "month" -> MonthView(anchor, selected, dueByDate, firstDow, onSelect = { onSelected(it) }, onPrev = prev, onNext = next, onOpenTask = onOpenTask, swipe = swipe, onAdd = { onAddOnDate(selected) },
                 collapsed = monthCollapsed, onCollapsedChange = { monthCollapsed = it },
                 habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, countdownsFor = countdownsFor, trackedDayInfo = trackedDayInfo,
+                eventOccForDay = eventOccForDay, onOpenEvent = openEvent,
                 onMoveToDay = { d, id ->
                     // Preserve the task's time-of-day when dropping it on another day; default 9am.
                     val min = tasks.firstOrNull { it.id == id }?.dueDate?.let { Instant.ofEpochMilli(it).atZone(zone).let { z -> z.hour * 60 + z.minute } } ?: 540
@@ -311,11 +345,11 @@ fun CalendarScreen(
                 })
             "week" -> {
                 val start = startOfWeek(anchor, firstDow)
-                TimelineView((0..6).map { start.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it })
+                TimelineView((0..6).map { start.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it }, eventBlocksFor = eventBlocksFor, onOpenEvent = openEvent)
             }
             "weekly" -> WeeklyView(startOfWeek(anchor, firstDow), dueByDate, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate)
-            "3day" -> TimelineView((0..2).map { anchor.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it })
-            "day" -> TimelineView(listOf(anchor), dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it })
+            "3day" -> TimelineView((0..2).map { anchor.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it }, eventBlocksFor = eventBlocksFor, onOpenEvent = openEvent)
+            "day" -> TimelineView(listOf(anchor), dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it }, eventBlocksFor = eventBlocksFor, onOpenEvent = openEvent)
             "year" -> YearView(anchor, dueByDate, onPrev = prev, onNext = next, onMonth = { m -> onAnchor(m.atDay(1)); onModeChange("month") }, onDay = { d -> onAnchor(d); onModeChange("day") })
             else -> AgendaView(dueByDate, onOpenTask, swipe)
         }
@@ -331,6 +365,32 @@ fun CalendarScreen(
             onSave = { vm.updateTimeEntry(it); editTrackedId = null })
         else editTrackedId = null
     }
+
+    // R39 — ensure there's a colour-coded calendar to hang events on the first time this screen opens,
+    // so "New event" can always save (a fresh install has no event calendars yet).
+    androidx.compose.runtime.LaunchedEffect(Unit) { vm.ensureEventCalendar() }
+    // R39 — the shared header's events menu routes its choice here; the calendar owns every event dialog.
+    androidx.compose.runtime.LaunchedEffect(eventAction) {
+        when (eventAction) {
+            "new" -> {
+                eventEditing = null
+                val s0 = selected.atTime(9, 0).atZone(zone).toInstant().toEpochMilli()
+                eventSeedStart = s0; eventSeedEnd = s0 + 3_600_000L; eventEditorOpen = true
+            }
+            "calendars" -> eventCalsOpen = true
+            "gap" -> eventGapOpen = true
+            "block" -> eventBlockOpen = true
+            "import" -> runCatching { eventImport.launch("*/*") }
+            "export" -> runCatching { eventExport.launch("todocompanion-calendar.ics") }
+        }
+        if (eventAction != null) onEventActionConsumed()
+    }
+    if (eventEditorOpen) EventEditor(vm, zone, eventCals, eventEditing, eventSeedStart, eventSeedEnd) { eventEditorOpen = false; eventEditing = null }
+    if (eventCalsOpen) CalendarsManager(vm, eventCals) { eventCalsOpen = false }
+    if (eventGapOpen) GapFinder(visEvents, selected.toEpochDay(), zone, s.workStartHour, s.workEndHour,
+        onDismiss = { eventGapOpen = false },
+        onPick = { st, en -> eventGapOpen = false; eventEditing = null; eventSeedStart = st; eventSeedEnd = en; eventEditorOpen = true })
+    if (eventBlockOpen) BlockTaskDialog(vm, selected.toEpochDay(), zone, s.workStartHour, visEvents) { eventBlockOpen = false }
 }
 
 private fun rangeTitle(a: LocalDate, b: LocalDate): String {
@@ -357,9 +417,11 @@ fun CalHeader(
     onOpenDrawer: () -> Unit, mode: String, onModeChange: (String) -> Unit,
     onOpenFilter: () -> Unit, filterActive: Boolean,
     showCompleted: Boolean = false, onToggleShowCompleted: () -> Unit = {},
+    onEventAction: (String) -> Unit = {},
 ) {
     var showPicker by remember { mutableStateOf(false) }
     var typeMenu by remember { mutableStateOf(false) }
+    var eventMenu by remember { mutableStateOf(false) }
     androidx.compose.material3.Surface(color = MaterialTheme.colorScheme.surface) {
     Row(
         Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).height(52.dp).padding(horizontal = 4.dp),
@@ -372,7 +434,9 @@ fun CalHeader(
             Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable(enabled = showNav) { showPicker = true }.padding(vertical = 4.dp, horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            // Match the title size of every other view's top bar (Habits/Matrix/Time all use the
+            // TopAppBar default, titleLarge) so the calendar's period label reads at the same weight.
+            Text(label, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (showNav) { Spacer(Modifier.width(3.dp)); Icon(Icons.Filled.ArrowDropDown, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         IconButton(onClick = onToday) { Icon(Icons.Filled.Today, "Today") }
@@ -394,6 +458,20 @@ fun CalHeader(
                     leadingIcon = { Icon(if (showCompleted) Icons.Filled.CheckBox else Icons.Filled.CheckBoxOutlineBlank, null, tint = if (showCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) },
                     onClick = { onToggleShowCompleted(); typeMenu = false },
                 )
+            }
+        }
+        // R39 — events live in this one calendar now: add an event, manage calendars, find a gap, block a
+        // task, or import/export .ics — all from here, no separate calendar screen.
+        Box {
+            IconButton(onClick = { eventMenu = true }) { Icon(Icons.Filled.Event, "Events") }
+            androidx.compose.material3.DropdownMenu(expanded = eventMenu, onDismissRequest = { eventMenu = false }) {
+                androidx.compose.material3.DropdownMenuItem(text = { Text("New event") }, leadingIcon = { Icon(Icons.Filled.Add, null, Modifier.size(18.dp)) }, onClick = { eventMenu = false; onEventAction("new") })
+                androidx.compose.material3.DropdownMenuItem(text = { Text("Block time for a task…") }, onClick = { eventMenu = false; onEventAction("block") })
+                androidx.compose.material3.DropdownMenuItem(text = { Text("Find a gap…") }, onClick = { eventMenu = false; onEventAction("gap") })
+                androidx.compose.material3.DropdownMenuItem(text = { Text("Calendars…") }, onClick = { eventMenu = false; onEventAction("calendars") })
+                androidx.compose.material3.HorizontalDivider()
+                androidx.compose.material3.DropdownMenuItem(text = { Text("Import .ics") }, onClick = { eventMenu = false; onEventAction("import") })
+                androidx.compose.material3.DropdownMenuItem(text = { Text("Export .ics") }, onClick = { eventMenu = false; onEventAction("export") })
             }
         }
         IconButton(onClick = onOpenFilter) { Icon(Icons.Filled.FilterList, "Filter lists", tint = if (filterActive) MaterialTheme.colorScheme.primary else androidx.compose.material3.LocalContentColor.current) }
@@ -547,7 +625,7 @@ private fun MonthYearPicker(current: YearMonth, onDismiss: () -> Unit, onPick: (
 }
 
 @Composable
-private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, swipe: CalSwipe, onAdd: () -> Unit, collapsed: Boolean, onCollapsedChange: (Boolean) -> Unit, habitBlocksFor: (LocalDate) -> List<HabitBlock>, onOpenHabit: (String) -> Unit, countdownsFor: (LocalDate) -> List<com.todocompanion.app.data.entity.CountdownEntity>, trackedDayInfo: (LocalDate) -> Pair<Int, androidx.compose.ui.graphics.Color?> = { 0 to null }, onMoveToDay: (LocalDate, String) -> Unit) {
+private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, swipe: CalSwipe, onAdd: () -> Unit, collapsed: Boolean, onCollapsedChange: (Boolean) -> Unit, habitBlocksFor: (LocalDate) -> List<HabitBlock>, onOpenHabit: (String) -> Unit, countdownsFor: (LocalDate) -> List<com.todocompanion.app.data.entity.CountdownEntity>, trackedDayInfo: (LocalDate) -> Pair<Int, androidx.compose.ui.graphics.Color?> = { 0 to null }, eventOccForDay: (LocalDate) -> List<com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence> = { emptyList() }, onOpenEvent: (String) -> Unit = {}, onMoveToDay: (LocalDate, String) -> Unit) {
     val ym = YearMonth.from(anchor)
     val labels = (0..6).map { firstDow.plus(it.toLong()) }
     val first = ym.atDay(1)
@@ -631,7 +709,10 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
                                     val hasTask = inMonth && dueByDate.containsKey(date)
                                     val hasHabit = inMonth && habitBlocksFor(date).isNotEmpty()
                                     val hasCountdown = inMonth && countdownsFor(date).isNotEmpty()
-                                    if (hasTask || hasHabit || hasCountdown) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    val hasEvent = inMonth && eventOccForDay(date).isNotEmpty()
+                                    val eventDot = Color(0xFF7C3AED)
+                                    if (hasTask || hasHabit || hasCountdown || hasEvent) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        if (hasEvent) Box(Modifier.size(5.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.onPrimary else eventDot))
                                         if (hasTask) Box(Modifier.size(5.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.onPrimary else primary))
                                         if (hasHabit) Box(Modifier.size(5.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.tertiary))
                                         if (hasCountdown) Box(Modifier.size(5.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.secondary))
@@ -715,8 +796,29 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
                 }
             }
         }
+        // R39 — calendar EVENTS on the selected day: a colour-coded pill each, tap to edit. Events live
+        // in this one calendar now, right beside the day's tasks and habits.
+        val dayEvents = eventOccForDay(selected)
+        if (dayEvents.isNotEmpty()) {
+            val hm = java.time.format.DateTimeFormatter.ofPattern("h:mm a")
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                dayEvents.forEach { o ->
+                    val c = Color(o.event.colorArgb ?: 0xFF7C3AED)
+                    Row(
+                        Modifier.clip(RoundedCornerShape(20.dp)).background(c.copy(alpha = .14f))
+                            .border(1.dp, c.copy(alpha = .45f), RoundedCornerShape(20.dp))
+                            .clickable { onOpenEvent(o.event.id) }.padding(horizontal = 11.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(Modifier.size(7.dp).clip(CircleShape).background(c)); Spacer(Modifier.size(7.dp))
+                        val t = if (o.event.allDay) "" else Instant.ofEpochMilli(o.startMillis).atZone(java.time.ZoneId.systemDefault()).format(hm) + "  "
+                        Text(t + o.event.title, style = MaterialTheme.typography.labelMedium, maxLines = 1, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+            }
+        }
         val agenda = dueByDate[selected].orEmpty()
-        if (agenda.isEmpty() && dayCountdowns.isEmpty()) Text("Nothing due — enjoy the day", Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (agenda.isEmpty() && dayCountdowns.isEmpty() && dayEvents.isEmpty()) Text("Nothing due — enjoy the day", Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         else if (agenda.isEmpty()) Spacer(Modifier.height(4.dp))
         else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 2.dp, bottom = 100.dp)) {
             items(agenda, key = { it.id }) { task ->
@@ -834,6 +936,7 @@ private fun TimelineView(
     habitBlocksFor: (LocalDate) -> List<HabitBlock> = { emptyList() }, onOpenHabit: (String) -> Unit = {},
     trackedBlocksFor: (LocalDate) -> List<TrackedBlock> = { emptyList() },
     revealUntracked: Boolean = false, onOpenTracked: (String) -> Unit = {},
+    eventBlocksFor: (LocalDate) -> List<EventBlock> = { emptyList() }, onOpenEvent: (String) -> Unit = {},
 ) {
     val allDayByDay = days.associateWith { d -> dueByDate[d].orEmpty().filter { it.isAllDay || !hasTime(it.dueDate!!, zone) } }
     val hasAllDay = allDayByDay.values.any { it.isNotEmpty() }
@@ -919,7 +1022,8 @@ private fun TimelineView(
                 val timed = dueByDate[d].orEmpty().filter { !it.isAllDay && hasTime(it.dueDate!!, zone) }
                 DayColumn(d, timed, zone, hourDp, onOpenTask, onAddAt, onResize, onMoveAt = { id, min -> onMoveAt(d, id, min) },
                     // Untimed habits render in the band above the grid (R27 #3); the grid gets only timed ones.
-                    habitBlocks = habitBlocksFor(d).filter { !it.untimed }, onOpenHabit = onOpenHabit, trackedBlocks = trackedBlocksFor(d), revealUntracked = revealUntracked, onOpenTracked = onOpenTracked, modifier = Modifier.weight(1f))
+                    habitBlocks = habitBlocksFor(d).filter { !it.untimed }, onOpenHabit = onOpenHabit, trackedBlocks = trackedBlocksFor(d), revealUntracked = revealUntracked, onOpenTracked = onOpenTracked,
+                    eventBlocks = eventBlocksFor(d), onOpenEvent = onOpenEvent, modifier = Modifier.weight(1f))
             }
         }
     }
@@ -927,7 +1031,8 @@ private fun TimelineView(
 
 @Composable
 private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hourDp: Float, onOpenTask: (String) -> Unit, onAddAt: (LocalDate, Int) -> Unit, onResize: (String, Int) -> Unit, onMoveAt: (String, Int) -> Unit,
-    habitBlocks: List<HabitBlock> = emptyList(), onOpenHabit: (String) -> Unit = {}, trackedBlocks: List<TrackedBlock> = emptyList(), revealUntracked: Boolean = false, onOpenTracked: (String) -> Unit = {}, modifier: Modifier) {
+    habitBlocks: List<HabitBlock> = emptyList(), onOpenHabit: (String) -> Unit = {}, trackedBlocks: List<TrackedBlock> = emptyList(), revealUntracked: Boolean = false, onOpenTracked: (String) -> Unit = {},
+    eventBlocks: List<EventBlock> = emptyList(), onOpenEvent: (String) -> Unit = {}, modifier: Modifier) {
     val placed = remember(timed, zone) { layoutEvents(timed, zone) }
     val dens = LocalDensity.current
     val isToday = day == LocalDate.now()
@@ -949,9 +1054,14 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hou
         val railScale = (hourDp / HOUR_DP).coerceIn(0.85f, 2.8f)
         val railW = if (trackedBlocks.isEmpty() && !revealUntracked) 0.dp else (7.dp * railScale)
         val contentW = colW - railW
-        // M1: when habit blocks share the column, tasks take the left ~60% and habits the right ~40%
-        // so the two never collide and the task drag/resize math is otherwise unchanged.
-        val taskAreaW = if (habitBlocks.isEmpty()) contentW else contentW * 0.6f
+        // M1/R39: tasks keep the left; timed habits and dedicated-calendar EVENTS each take a lane on the
+        // right so nothing collides and the task drag/resize math is unchanged. With both present the aux
+        // strip splits in two (habits then events).
+        val hasHabitLane = habitBlocks.isNotEmpty()
+        val hasEventLane = eventBlocks.isNotEmpty()
+        val auxCount = (if (hasHabitLane) 1 else 0) + (if (hasEventLane) 1 else 0)
+        val taskAreaW = when (auxCount) { 0 -> contentW; 1 -> contentW * 0.6f; else -> contentW * 0.5f }
+        val auxSliceW = if (auxCount >= 2) (contentW - taskAreaW) / 2 else (contentW - taskAreaW)
         val habitColor = MaterialTheme.colorScheme.tertiary
         // Hour gridlines
         (0..24).forEach { h ->
@@ -1028,7 +1138,7 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hou
         // M1/R23: habit blocks in the right lane — read-only, tap opens the habit.
         if (habitBlocks.isNotEmpty()) {
             val habitAreaX = railW + taskAreaW + 1.dp
-            val habitAreaW = contentW - taskAreaW - 2.dp
+            val habitAreaW = auxSliceW - 2.dp
             // Untimed habits are drawn in the band above the grid now (R27 #3); the grid carries only timed ones.
             val timedH = habitBlocks.filter { !it.untimed }.sortedBy { it.startMin }
             @Composable
@@ -1064,6 +1174,38 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hou
                     val top = (hourDp * hb.startMin / 60f).dp
                     val hh = ((hourDp * hb.durMin / 60f).dp).coerceAtLeast(22.dp)
                     habitChip(hb, Modifier.offset(x = habitAreaX + laneW * laneOf[i], y = top).width(laneW - 1.dp).height(hh - 2.dp))
+                }
+            }
+        }
+        // R39 — dedicated-calendar EVENTS as read-only blocks in their own right-hand lane (after habits
+        // when both are present), tap to open the event editor. Lane-split so overlapping events don't stack.
+        if (eventBlocks.isNotEmpty()) {
+            val evAreaX = railW + taskAreaW + (if (hasHabitLane) auxSliceW else 0.dp) + 1.dp
+            val sorted = eventBlocks.sortedBy { it.startMin }
+            val laneEnd = ArrayList<Int>()
+            val laneOf = IntArray(sorted.size)
+            sorted.forEachIndexed { i, eb ->
+                val end = eb.startMin + eb.durMin.coerceAtLeast(20)
+                var lane = laneEnd.indexOfFirst { it <= eb.startMin }
+                if (lane < 0) { lane = laneEnd.size; laneEnd.add(end) } else laneEnd[lane] = end
+                laneOf[i] = lane
+            }
+            val lanes = maxOf(1, laneEnd.size)
+            val laneW = (auxSliceW - 1.dp) / lanes
+            sorted.forEachIndexed { i, eb ->
+                val top = (hourDp * eb.startMin / 60f).dp
+                val hh = ((hourDp * eb.durMin / 60f).dp).coerceAtLeast(22.dp)
+                Row(
+                    Modifier.offset(x = evAreaX + laneW * laneOf[i], y = top).width(laneW - 1.dp).height(hh - 2.dp)
+                        .clip(RoundedCornerShape(6.dp)).background(eb.color.copy(alpha = 0.20f))
+                        .border(1.dp, eb.color.copy(alpha = .5f), RoundedCornerShape(6.dp))
+                        .clickable { onOpenEvent(eb.id) },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.width(3.dp).fillMaxHeight().background(eb.color))
+                    Text(eb.title, Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                        style = MaterialTheme.typography.labelSmall, maxLines = if (hh > 46.dp) 2 else 1, overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurface)
                 }
             }
         }
@@ -1129,6 +1271,12 @@ private data class HabitBlock(
 /** Round 14: one segment of the "actual" spine — a tracked time interval clamped to the day. */
 private data class TrackedBlock(
     val startMin: Int, val durMin: Int, val color: androidx.compose.ui.graphics.Color?, val id: String,
+)
+
+/** R39 — a dedicated-calendar EVENT drawn as a read-only block in the day grid (tap opens its editor). */
+private data class EventBlock(
+    val id: String, val title: String, val color: androidx.compose.ui.graphics.Color,
+    val startMin: Int, val durMin: Int,
 )
 
 @Composable

@@ -166,7 +166,7 @@ fun CalendarStudioScreen(vm: AppViewModel, onBack: () -> Unit, onOpenTask: (Stri
             topBar = {
                 TopAppBar(
                     navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-                    title = { Text(periodLabel, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold) },
+                    title = { Text(periodLabel, style = MaterialTheme.typography.titleLarge, maxLines = 1) },
                     actions = {
                         IconButton(onClick = {
                             when (view) {
@@ -266,7 +266,7 @@ fun CalendarStudioScreen(vm: AppViewModel, onBack: () -> Unit, onOpenTask: (Stri
 
 // ── Block a task as a calendar time-block (the task ⇄ calendar moat) ───────────────────────────────
 @Composable
-private fun BlockTaskDialog(vm: AppViewModel, day: Long, zone: ZoneId, workStart: Int, events: List<EventEntity>, onDismiss: () -> Unit) {
+internal fun BlockTaskDialog(vm: AppViewModel, day: Long, zone: ZoneId, workStart: Int, events: List<EventEntity>, onDismiss: () -> Unit) {
     val tasks by vm.tasks.collectAsState()
     val open = remember(tasks) { tasks.filter { !it.completed && !it.trashed && !it.abandoned && !it.isNote }.take(60) }
     // Default to the first free slot in working hours, else 9am.
@@ -488,7 +488,7 @@ private fun EventRow(o: CalendarEngine.Occurrence, calById: Map<String, EventCal
 
 // ── Quick add (natural language) ──────────────────────────────────────────────────────────────────
 @Composable
-private fun QuickAddDialog(onDismiss: () -> Unit, onAdd: (String) -> Unit) {
+internal fun QuickAddDialog(onDismiss: () -> Unit, onAdd: (String) -> Unit) {
     var text by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -513,7 +513,7 @@ private fun QuickAddDialog(onDismiss: () -> Unit, onAdd: (String) -> Unit) {
 
 // ── Calendars manager ─────────────────────────────────────────────────────────────────────────────
 @Composable
-private fun CalendarsManager(vm: AppViewModel, calendars: List<EventCalendarEntity>, onDismiss: () -> Unit) {
+internal fun CalendarsManager(vm: AppViewModel, calendars: List<EventCalendarEntity>, onDismiss: () -> Unit) {
     var adding by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf<EventCalendarEntity?>(null) }
     AlertDialog(
@@ -582,7 +582,7 @@ private fun ColorRow(selected: Long, onPick: (Long) -> Unit) {
 
 // ── Gap finder ──────────────────────────────────────────────────────────────────────────────────
 @Composable
-private fun GapFinder(events: List<EventEntity>, day: Long, zone: ZoneId, workStart: Int, workEnd: Int, onDismiss: () -> Unit, onPick: (Long, Long) -> Unit) {
+internal fun GapFinder(events: List<EventEntity>, day: Long, zone: ZoneId, workStart: Int, workEnd: Int, onDismiss: () -> Unit, onPick: (Long, Long) -> Unit) {
     var dur by remember { mutableStateOf(60) }
     val hm = DateTimeFormatter.ofPattern("h:mm a")
     val busy = remember(events, day) { CalendarEngine.onDay(events, day, zone).filter { it.event.busy && !it.event.allDay }.map { it.startMillis to it.endMillis } }
@@ -617,7 +617,7 @@ private fun GapFinder(events: List<EventEntity>, day: Long, zone: ZoneId, workSt
 // ── Event editor ──────────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun EventEditor(
+internal fun EventEditor(
     vm: AppViewModel, zone: ZoneId, calendars: List<EventCalendarEntity>, existing: EventEntity?,
     seedStart: Long, seedEnd: Long, onClose: () -> Unit,
 ) {
@@ -753,7 +753,7 @@ private fun EditorToggle(label: String, checked: Boolean, onChange: (Boolean) ->
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────────────────────────
-private fun colorOf(e: EventEntity, calById: Map<String, EventCalendarEntity>): Color =
+internal fun colorOf(e: EventEntity, calById: Map<String, EventCalendarEntity>): Color =
     Color(e.colorArgb ?: calById[e.calendarId]?.colorArgb ?: 0xFF4F46E5)
 
 private fun weekStartIso(weekStart: Int): Int =

@@ -504,11 +504,13 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             val attachments by attFlow.collectAsState(initial = emptyList())
             // R38 — the TickTick approach to attachments: every source is permission-free. The system
             // grants access to exactly the file the user picks; we copy its bytes in (openInputStream).
-            //  • Files: SAF OpenDocument (content:// URI, no storage permission).
+            //  • Files: ACTION_GET_CONTENT (GetContent) — answered by BOTH the system document picker and
+            //    ordinary file managers, and it opens straight onto a list of files (unlike OpenDocument,
+            //    which lands on an empty "Recent" on many ROMs). No storage permission; we copy the bytes in.
             //  • Photos/videos: the Android Photo Picker (PickVisualMedia) — no permission on any API.
             //  • Camera: ACTION_IMAGE_CAPTURE into a FileProvider URI — no CAMERA permission needed by us.
             // The in-app browser (which DOES need storage access) is only a last resort for stripped ROMs.
-            val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) vm.addAttachment(task.id, uri) }
+            val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> if (uri != null) vm.addAttachment(task.id, uri) }
             val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) vm.addAttachment(task.id, uri) }
             var cameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
             val takePhoto = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok -> if (ok) cameraUri?.let { vm.addAttachment(task.id, it) } }
@@ -683,9 +685,10 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                             cameraUri = u; takePhoto.launch(u)
                         }.onFailure { android.widget.Toast.makeText(attachCtx, "No camera app available", android.widget.Toast.LENGTH_SHORT).show() }
                     }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.CameraAlt, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Camera") }
-                    // Files — SAF system picker: no permission.
+                    // Files — the system picker via ACTION_GET_CONTENT: no permission, and it lands on a
+                    // list of files (so files are actually shown). The in-app browser is only the fallback.
                     TextButton(onClick = {
-                        try { pickFile.launch(arrayOf("*/*")) } catch (e: Exception) { browseDevice() }
+                        try { pickFile.launch("*/*") } catch (e: Exception) { browseDevice() }
                     }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.AttachFile, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("File") }
                 }
                 if (attachments.isEmpty()) Text("Photos, camera or any file up to 25 MB. Picked through the system picker — no storage permission. Stored on-device and in backups.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

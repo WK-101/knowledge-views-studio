@@ -908,7 +908,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             com.todocompanion.app.domain.recurrence.Recurrence.advance(t.rrule!!, t.dueDate!!, zone, System.currentTimeMillis()) else null to null
         if (nextDue != null) {
             val delta = nextDue - t.dueDate!!
-            repo.saveTask(t.copy(dueDate = nextDue, startDate = t.startDate?.plus(delta), rrule = newRule, completed = false, completedAt = null))
+            // Roll the whole date bundle forward by the same delta so a repeating task keeps its shape:
+            // the start→due lead time AND the hard deadline both move to the next occurrence. (Previously
+            // the deadline stayed frozen on the first occurrence and then read as permanently overdue.)
+            repo.saveTask(t.copy(dueDate = nextDue, startDate = t.startDate?.plus(delta),
+                deadlineDate = t.deadlineDate?.plus(delta), rrule = newRule, completed = false, completedAt = null))
             repo.logRecurringCompletion(t.id)   // P1: record this occurrence so reliability can be scored
             if (settings.value.completionSound) playCompletionChime()
             // Reset the subtasks of a recurring task per its chosen mode (all / only-if-all-done / keep).
@@ -983,7 +987,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val (nextDue, newRule) = com.todocompanion.app.domain.recurrence.Recurrence.advance(t.rrule!!, t.dueDate!!, zone, System.currentTimeMillis())
         if (nextDue == null) { repo.setCompleted(t, true); return@launch }
         val delta = nextDue - t.dueDate!!
-        repo.saveTask(t.copy(dueDate = nextDue, startDate = t.startDate?.plus(delta), rrule = newRule))
+        repo.saveTask(t.copy(dueDate = nextDue, startDate = t.startDate?.plus(delta),
+            deadlineDate = t.deadlineDate?.plus(delta), rrule = newRule))
         val updated = repo.getTask(t.id)
         reminders.value.filter { it.taskId == t.id && it.atTime != null }.forEach { r ->
             val nr = r.copy(atTime = r.atTime!! + delta); repo.upsertReminder(nr); updated?.let { AlarmScheduler.schedule(appCtx, nr, it) }
@@ -2801,6 +2806,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ── R38 · dedicated calendar ────────────────────────────────────────────────────────────────────
     fun openCalendar() = viewModelScope.launch { ensureDefaultCalendar(); calendarRoute.value = "agenda" }
+    /** R39 — make sure at least one event calendar exists (called when the unified Calendar screen opens). */
+    fun ensureEventCalendar() = viewModelScope.launch { ensureDefaultCalendar() }
 
     private suspend fun ensureDefaultCalendar(): String {
         val existing = repo.eventCalendarsOnce()
@@ -3157,8 +3164,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val delta = nextDue - t.dueDate!!
             val seriesId = UUID.randomUUID().toString()
             repo.saveTask(t.copy(id = seriesId, dueDate = nextDue, startDate = t.startDate?.plus(delta),
-                rrule = newRule, completed = false, completedAt = null, createdAt = nowMs, updatedAt = nowMs,
-                sortOrder = t.sortOrder + 0.0001))
+                deadlineDate = t.deadlineDate?.plus(delta), rrule = newRule, completed = false, completedAt = null,
+                createdAt = nowMs, updatedAt = nowMs, sortOrder = t.sortOrder + 0.0001))
             onSeries(seriesId)
         }
     }
