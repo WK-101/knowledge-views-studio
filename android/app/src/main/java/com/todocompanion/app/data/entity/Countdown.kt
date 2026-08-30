@@ -46,4 +46,8 @@ data class CountdownEntity(
     val momentsJson: String = "",         // logged moments/answers as a JSON array of {d:epochDay,n:note} — rides
                                           // the existing countdowns backup/sync, so no new table is needed
     val recurCalendar: String = "gregorian", // yearly recurrence calendar: gregorian | hijri (tabular, offline)
+    // R47 "next frontier" fields ------------------------------------------------------------------
+    val chainNextId: String? = null,      // #32 countdown chains: the id of the occasion that follows this one
+    val sealedLetter: String = "",        // #31 a letter to the future, revealed on/after sealedUntil
+    val sealedUntil: Long = 0L,           // epoch-millis the letter unlocks (0 = no letter)
 )

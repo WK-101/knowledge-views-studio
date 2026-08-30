@@ -190,7 +190,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             if (existingTask != null && !existingTask.trashed) {
                 repo.saveTask(existingTask.copy(title = prepTitle, dueDate = dueMillis, completed = false, completedAt = null))
             } else {
+                // #11/#16 — turn the milestone into a real plan: seed a checklist (and last year's gift, so you
+                // don't repeat it) as the task's notes, once at creation so later edits are never clobbered.
+                val lastGift = com.todocompanion.app.domain.Moments.lastGift(row)
+                val prepNote = buildString {
+                    appendLine("Prep checklist:")
+                    appendLine("• Idea / gift")
+                    appendLine("• Card or message")
+                    appendLine("• Plan the day / budget")
+                    lastGift?.let { appendLine("Last year you gave: ${it.second} (${it.first.year}) — pick something new.") }
+                }.trim()
                 val newId = repo.createTask(listId = com.todocompanion.app.data.entity.ListEntity.INBOX_ID, title = prepTitle, dueDate = dueMillis)
+                repo.getTask(newId)?.let { repo.saveTask(it.copy(note = prepNote)) }
                 row = row.copy(prepTaskId = newId)
             }
         } else if (row.prepTaskId != null) {
@@ -227,6 +238,93 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun refreshOccasionNotification() = viewModelScope.launch {
         val on = settings.value.occasionLiveNotif
         com.todocompanion.app.reminders.Notifications.refreshOccasion(appCtx, if (on) countdowns.value else emptyList())
+    }
+
+    // ---- R47 "next frontier" read models (all computed from data we already hold) -----------------
+    /** #13 — total tracked hours in the current calendar year, for the honest "life spent" line. */
+    fun trackedHoursThisYear(today: java.time.LocalDate = java.time.LocalDate.now(zone)): Int {
+        val yStart = today.withDayOfYear(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val ms = timeEntries.value.sumOf { e ->
+            val end = e.endMillis ?: return@sumOf 0L
+            val s = maxOf(e.startMillis, yStart)
+            (end - s).coerceAtLeast(0L)
+        }
+        return (ms / 3_600_000L).toInt()
+    }
+
+    /** #12 — a one-glance "this week" digest fusing occasions, tasks due and habits. */
+    data class WeekDigest(val occasions: Int, val tasksDue: Int, val habitsActive: Int, val nextLine: String?)
+    fun weekDigest(today: java.time.LocalDate = java.time.LocalDate.now(zone)): WeekDigest {
+        val weekEnd = today.plusDays(7)
+        val occ = countdowns.value.filter { !it.archived && !it.countUp }
+            .count { val d = com.todocompanion.app.domain.LifeEvent.daysUntil(it, today); d in 0..7 }
+        val endMs = weekEnd.atStartOfDay(zone).toInstant().toEpochMilli()
+        val nowMs = today.atStartOfDay(zone).toInstant().toEpochMilli()
+        val due = allTasksLive.value.count { !it.completed && !it.trashed && !it.abandoned && !it.isNote && it.dueDate != null && it.dueDate!! in nowMs until endMs }
+        val habitsActive = habits.value.count { !it.archived }
+        val nextOcc = countdowns.value.filter { !it.archived && !it.countUp }
+            .minByOrNull { com.todocompanion.app.domain.LifeEvent.daysUntil(it, today).let { d -> if (d < 0) Long.MAX_VALUE else d } }
+        val line = nextOcc?.takeIf { com.todocompanion.app.domain.LifeEvent.daysUntil(it, today) in 0..7 }?.let {
+            "${it.personName.ifBlank { it.title }} ${com.todocompanion.app.domain.LifeEvent.daysLabel(com.todocompanion.app.domain.LifeEvent.daysUntil(it, today))}"
+        }
+        return WeekDigest(occ, due, habitsActive, line)
+    }
+
+    /** #25/#26 — people whose keep-in-touch cadence has lapsed, most overdue first. */
+    fun driftPeople(today: java.time.LocalDate = java.time.LocalDate.now(zone)): List<com.todocompanion.app.data.entity.CountdownEntity> =
+        countdowns.value.filter { !it.archived && it.keepInTouchDays > 0 && com.todocompanion.app.domain.Moments.cadenceOverdue(it, today) }
+            .sortedByDescending { com.todocompanion.app.domain.Moments.daysSinceLast(it, today) ?: Long.MAX_VALUE }
+
+    /** #29 — "anniversaries of your wins": starred / high-priority tasks you finished on this day in a past year. */
+    fun achievementAnniversaries(today: java.time.LocalDate = java.time.LocalDate.now(zone)): List<Pair<Int, TaskEntity>> {
+        val out = ArrayList<Pair<Int, TaskEntity>>()
+        allTasksLive.value.forEach { t ->
+            if (!t.star && t.importance < 2) return@forEach
+            val at = t.completedAt ?: return@forEach
+            val d = java.time.Instant.ofEpochMilli(at).atZone(zone).toLocalDate()
+            if (d.monthValue == today.monthValue && d.dayOfMonth == today.dayOfMonth && d.year < today.year)
+                out.add((today.year - d.year) to t)
+        }
+        return out.sortedByDescending { it.first }
+    }
+
+    /** #34 — a private "year in people" recap. */
+    data class YearInPeople(val moments: Int, val topPerson: String?, val topCount: Int, val milestones: Int, val birthdays: Int)
+    fun yearInPeople(today: java.time.LocalDate = java.time.LocalDate.now(zone)): YearInPeople {
+        val yearStart = today.withDayOfYear(1).toEpochDay()
+        var total = 0; var topPerson: String? = null; var topCount = 0
+        countdowns.value.forEach { c ->
+            val n = com.todocompanion.app.domain.Moments.parse(c).count { it.d >= yearStart }
+            total += n
+            if (n > topCount) { topCount = n; topPerson = c.personName.ifBlank { c.title } }
+        }
+        val milestones = countdowns.value.count { com.todocompanion.app.domain.LifeEvent.milestone(it, today) != null }
+        val birthdays = countdowns.value.count { !it.archived && com.todocompanion.app.domain.LifeEvent.type(it) == com.todocompanion.app.domain.LifeEvent.EventType.BIRTHDAY }
+        return YearInPeople(total, topPerson, topCount, milestones, birthdays)
+    }
+
+    /** #27 — log a gift against an occasion (rides the moments store). */
+    fun logOccasionGift(c: com.todocompanion.app.data.entity.CountdownEntity, gift: String) = viewModelScope.launch {
+        if (gift.isBlank()) return@launch
+        repo.upsertCountdown(c.copy(momentsJson = com.todocompanion.app.domain.Moments.addGift(c, gift)))
+    }
+
+    /** #30 — "chapters of your life": each year you've been recording, labelled by its relative fullness. */
+    data class Chapter(val year: Int, val count: Int, val label: String)
+    fun lifeChapters(): List<Chapter> {
+        val byYear = allTasksLive.value.mapNotNull { it.completedAt }
+            .groupingBy { java.time.Instant.ofEpochMilli(it).atZone(zone).year }.eachCount()
+        if (byYear.size < 2) return emptyList()
+        val max = byYear.values.maxOrNull() ?: return emptyList()
+        return byYear.entries.sortedByDescending { it.key }.take(6).map { (y, c) ->
+            val label = when {
+                c == max -> "your fullest year"
+                c >= max * 0.6 -> "a full chapter"
+                c <= max * 0.25 -> "a quiet chapter"
+                else -> "a steady chapter"
+            }
+            Chapter(y, c, label)
+        }
     }
     /** R45 — On-This-Day: tasks the user completed on this calendar day (month+day) in prior years. */
     fun onThisDay(today: java.time.LocalDate = java.time.LocalDate.now(zone)): List<Pair<Int, TaskEntity>> {
@@ -1241,7 +1339,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private fun releasePersistedRead(uri: Uri) {
         runCatching {
             appCtx.contentResolver.releasePersistableUriPermission(
-                uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                    android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
         }
     }
 

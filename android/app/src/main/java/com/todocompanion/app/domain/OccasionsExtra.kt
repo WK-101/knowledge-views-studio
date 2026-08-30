@@ -47,6 +47,15 @@ object Moments {
     fun lastMomentDay(c: CountdownEntity): LocalDate? =
         parse(c).maxByOrNull { it.d }?.let { LocalDate.ofEpochDay(it.d) }
 
+    // #27 gift ledger — gifts are moments prefixed with a marker, so they ride the same JSON store.
+    const val GIFT_PREFIX = "🎁 "
+    fun addGift(c: CountdownEntity, gift: String, day: LocalDate = LocalDate.now()): String =
+        add(c, GIFT_PREFIX + gift.trim(), day)
+    fun gifts(c: CountdownEntity): List<Pair<LocalDate, String>> =
+        parse(c).filter { it.n.startsWith(GIFT_PREFIX) }
+            .map { LocalDate.ofEpochDay(it.d) to it.n.removePrefix(GIFT_PREFIX) }
+    fun lastGift(c: CountdownEntity): Pair<LocalDate, String>? = gifts(c).maxByOrNull { it.first.toEpochDay() }
+
     /** Days since you last logged a moment with this person (null if none yet). */
     fun daysSinceLast(c: CountdownEntity, today: LocalDate = LocalDate.now()): Long? =
         lastMomentDay(c)?.let { ChronoUnit.DAYS.between(it, today).coerceAtLeast(0) }
@@ -112,6 +121,55 @@ object HijriRecur {
         "Muharram", "Safar", "Rabiʿ I", "Rabiʿ II", "Jumada I", "Jumada II",
         "Rajab", "Shaʿban", "Ramadan", "Shawwal", "Dhuʾl-Qaʿda", "Dhuʾl-Hijja"
     )
+}
+
+/** #21 — a pure-offline date-intelligence lab: moon phase, planetary ages, weekday, "date + N days",
+ *  the next solstice/equinox. No location, no network — just arithmetic. */
+object DateLab {
+    private const val SYNODIC = 29.530588853
+    private const val REF_NEW_MOON_JD = 2451550.1   // 2000-01-06 18:14 UTC, a known new moon
+
+    private fun toJulian(date: LocalDate): Double {
+        var y = date.year; var m = date.monthValue
+        if (m <= 2) { y -= 1; m += 12 }
+        val a = Math.floor(y / 100.0)
+        val b = 2 - a + Math.floor(a / 4.0)
+        return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + date.dayOfMonth + b - 1524.5
+    }
+
+    private val PHASES = listOf(
+        "🌑 New moon", "🌒 Waxing crescent", "🌓 First quarter", "🌔 Waxing gibbous",
+        "🌕 Full moon", "🌖 Waning gibbous", "🌗 Last quarter", "🌘 Waning crescent",
+    )
+
+    fun moonPhase(date: LocalDate = LocalDate.now()): String {
+        val age = ((toJulian(date) - REF_NEW_MOON_JD) % SYNODIC + SYNODIC) % SYNODIC
+        val idx = (Math.round(age / SYNODIC * 8.0) % 8).toInt()
+        return PHASES[idx]
+    }
+
+    fun planetAge(origin: LocalDate, today: LocalDate, orbitDays: Double): Double =
+        ChronoUnit.DAYS.between(origin, today).coerceAtLeast(0) / orbitDays
+
+    fun marsAge(origin: LocalDate, today: LocalDate = LocalDate.now()) = planetAge(origin, today, 686.98)
+    fun jupiterAge(origin: LocalDate, today: LocalDate = LocalDate.now()) = planetAge(origin, today, 4332.59)
+
+    fun datePlus(date: LocalDate, days: Long): LocalDate = date.plusDays(days)
+
+    /** Next solstice/equinox on/after [from], using standard nominal dates — offline, no ephemeris. */
+    fun nextSeasonMarker(from: LocalDate = LocalDate.now()): Pair<String, LocalDate> {
+        val markers = listOf(
+            "Spring equinox" to (3 to 20), "Summer solstice" to (6 to 21),
+            "Autumn equinox" to (9 to 22), "Winter solstice" to (12 to 21),
+        )
+        for (yr in listOf(from.year, from.year + 1)) {
+            for ((label, md) in markers) {
+                val d = LocalDate.of(yr, md.first, md.second)
+                if (!d.isBefore(from)) return label to d
+            }
+        }
+        return markers.first().let { it.first to LocalDate.of(from.year + 1, it.second.first, it.second.second) }
+    }
 }
 
 /** #20 — a bundled, no-LLM "how well do you know them" deck. Answers save as moments (private notes). */

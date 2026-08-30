@@ -68,18 +68,31 @@ class MainActivity : FragmentActivity() {
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
                 SystemPicker.Op.OPEN_FILE -> Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    // The exact grant flags Tasks.org puts on its file-picker request. Requesting READ +
+                    // WRITE + PERSISTABLE + PREFIX up-front is what makes the document provider extend a
+                    // durable, readable grant back on de-Googled ROMs — with only READ the returned URI's
+                    // grant doesn't stick, so a later read threw SecurityException ("couldn't read the file").
+                    addFlags(DOC_GRANT_FLAGS)
                     addCategory(Intent.CATEGORY_OPENABLE)
+                    // Nudges the document UI to show internal/SD storage and file sizes (helps on ROMs whose
+                    // picker hides them). Harmless where unsupported.
+                    putExtra("android.content.extra.SHOW_ADVANCED", true)
+                    putExtra("android.content.extra.FANCY", true)
+                    putExtra("android.content.extra.SHOW_FILESIZE", true)
                     type = if (req.mimeTypes.size == 1) req.mimeTypes[0] else "*/*"
                     if (req.mimeTypes.size > 1) putExtra(Intent.EXTRA_MIME_TYPES, req.mimeTypes)
                     putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
                 SystemPicker.Op.CREATE_FILE -> Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                    addFlags(DOC_GRANT_FLAGS)
                     addCategory(Intent.CATEGORY_OPENABLE)
                     type = req.mimeTypes.firstOrNull() ?: "application/octet-stream"
                     putExtra(Intent.EXTRA_TITLE, req.createName ?: "file")
                 }
-                SystemPicker.Op.OPEN_TREE -> Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+                SystemPicker.Op.OPEN_TREE -> Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                    addFlags(DOC_GRANT_FLAGS)
+                    putExtra("android.content.extra.SHOW_ADVANCED", true)
+                }
                 SystemPicker.Op.CAMERA -> {
                     if (!packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)) {
                         pendingPick = null; req.onError("No camera on this device."); return
@@ -117,18 +130,13 @@ class MainActivity : FragmentActivity() {
             SystemPicker.Op.CREATE_FILE, SystemPicker.Op.OPEN_TREE -> listOfNotNull(data?.data)
             else -> SystemPicker.extractUris(data)
         }
-        // R46 — for document/tree results, convert the one-shot grant into a persistable one right here,
-        // while the grant is guaranteed live. Without this, reading the bytes from a later coroutine can
-        // hit SecurityException on ROMs that scope the temporary grant tightly — the "couldn't read the
-        // file" the user saw on the SAF route (gallery and camera go through readable MediaStore/FileProvider
-        // URIs, which is why only File failed). MediaStore ACTION_PICK URIs aren't persistable, so this is
-        // scoped to the document routes and wrapped so a provider that refuses simply falls back to the
-        // one-shot grant. The result Intent also carries the grant flags we re-apply for the same reason.
+        // R47 — take a persistable READ|WRITE grant on document/tree results, exactly as Tasks.org does.
+        // Because the request intent asked for a persistable grant (DOC_GRANT_FLAGS), this now succeeds on
+        // the user's ROM and makes the grant durable — so the copy coroutine reads without SecurityException.
+        // MediaStore ACTION_PICK URIs aren't persistable, so it's scoped to the document routes and wrapped.
         if (req.op == SystemPicker.Op.OPEN_FILE || req.op == SystemPicker.Op.OPEN_TREE) {
-            val flags = (data?.flags ?: 0) and
-                (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-            val takeFlags = if (flags != 0) flags else Intent.FLAG_GRANT_READ_URI_PERMISSION
-            for (u in uris) runCatching { contentResolver.takePersistableUriPermission(u, takeFlags) }
+            val mode = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            for (u in uris) runCatching { contentResolver.takePersistableUriPermission(u, mode) }
         }
         if (uris.isNotEmpty()) req.onResult(uris)
     }
@@ -201,6 +209,14 @@ class MainActivity : FragmentActivity() {
 
     companion object {
         private const val RC_PICK = 0x9A01   // R45 — the one request code for every SystemPicker launch
+        // R47 — the exact grant flags Tasks.org puts on its document-picker requests. Asking for a
+        // persistable READ+WRITE (plus PREFIX) grant up-front is what makes de-Googled document providers
+        // return a durable, readable URI — without it the read threw SecurityException.
+        private const val DOC_GRANT_FLAGS =
+            Intent.FLAG_GRANT_READ_URI_PERMISSION or
+            Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+            Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION or
+            Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
         const val EXTRA_ACTION = "com.todocompanion.app.action"
         const val ACTION_QUICK_ADD = "quick_add"
         // Prefix carrying shared/selected text into quick-add: "quick_add_text:<text>".
