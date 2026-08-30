@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Star
@@ -52,6 +54,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -97,13 +100,26 @@ private fun rememberFace(b64: String?) = remember(b64) {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CountdownScreen(vm: AppViewModel, onBack: () -> Unit) {
+fun CountdownScreen(vm: AppViewModel, onBack: () -> Unit, initialOpenId: String? = null) {
     BackHandler(onBack = onBack)
     val items by vm.countdowns.collectAsState()
     var editing by remember { mutableStateOf<CountdownEntity?>(null) }
+    var detailsFor by remember { mutableStateOf<CountdownEntity?>(null) }   // long-press → per-entry details
     var addOpen by remember { mutableStateOf(false) }
     var showArchived by remember { mutableStateOf(false) }
+    var showInsights by remember { mutableStateOf(false) }                   // reflective cards, folded by default
+    var filter by remember { mutableStateOf(OccasionFilter()) }
+    var filterOpen by remember { mutableStateOf(false) }
     val today = LocalDate.now()
+
+    // R48 — deep-link: open a specific occasion's editor once when arriving from the calendar / a list.
+    // Consume the id so closing the editor (or any later items change) doesn't re-open it.
+    var consumedOpenId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(initialOpenId, items) {
+        if (initialOpenId != null && initialOpenId != consumedOpenId && editing == null) {
+            items.firstOrNull { it.id == initialOpenId }?.let { editing = it; consumedOpenId = initialOpenId }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -111,6 +127,9 @@ fun CountdownScreen(vm: AppViewModel, onBack: () -> Unit) {
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                 title = { Text("Occasions") },
                 actions = {
+                    IconButton(onClick = { filterOpen = true }) {
+                        Icon(Icons.Filled.FilterList, "Filter", tint = if (filter.active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     if (items.any { it.archived }) IconButton(onClick = { showArchived = !showArchived }) {
                         Icon(if (showArchived) Icons.Filled.Unarchive else Icons.Filled.Archive, "Archived", tint = if (showArchived) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -129,52 +148,63 @@ fun CountdownScreen(vm: AppViewModel, onBack: () -> Unit) {
                 TextButton(onClick = { addOpen = true }) { Text("＋ New occasion") }
             }
         } else {
-            val visible = items.filter { showArchived == it.archived }
+            val visible = items.filter { showArchived == it.archived && filter.matches(it, today) }
             val sorted = visible.sortedWith(compareByDescending<CountdownEntity> { it.favorite }.thenBy { LifeEvent.sortKey(it, today) })
             val radar = remember(items, today) { LifeEvent.radar(items, today) }
             val onThisDay = remember(items) { vm.onThisDay() }
-            val weeksSubject = remember(items) { LifeEvent.lifeInWeeksSubject(items) }
             val historyFact = remember(today) { com.todocompanion.app.domain.Almanac.onThisDay(today) }
             // R47 frontier read-models (computed from data we already hold)
             val digest = remember(items) { vm.weekDigest() }
             val drift = remember(items) { vm.driftPeople() }
             val achievements = remember(items) { vm.achievementAnniversaries() }
             val wrapped = remember(items) { vm.yearInPeople() }
-            val trackedHours = remember(items) { vm.trackedHoursThisYear() }
             val unlockable = remember(items) { items.filter { it.sealedLetter.isNotBlank() && it.sealedUntil in 1..System.currentTimeMillis() } }
             val nameById = remember(items) { items.associate { it.id to it.personName.ifBlank { it.title } } }
             val chapters = remember(items) { vm.lifeChapters() }
             LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp, 12.dp, 12.dp, 90.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 item { OverviewStrip(sorted.filter { !it.archived }, today) }
+                // Actionable cards stay up top; the reflective "insights" fold away so the list is occasion-first.
                 if (!showArchived && (digest.occasions > 0 || digest.tasksDue > 0)) item { WeekDigestCard(digest) }
                 if (!showArchived && drift.isNotEmpty()) item { DriftCard(drift, onOpen = { editing = it }) }
                 if (!showArchived && unlockable.isNotEmpty()) item { SealedLettersReadyCard(unlockable, onOpen = { editing = it }) }
-                if (!showArchived && radar.isNotEmpty()) item { RadarCard(radar) }
-                if (!showArchived && onThisDay.isNotEmpty()) item { OnThisDayCard(onThisDay) }
-                if (!showArchived && achievements.isNotEmpty()) item { AchievementsCard(achievements) }
-                if (!showArchived && weeksSubject != null) item { LifeInWeeksCard(weeksSubject, today, trackedHours) }
-                if (!showArchived && wrapped.moments > 0) item { WrappedCard(wrapped) }
-                if (!showArchived && chapters.isNotEmpty()) item { ChaptersCard(chapters) }
-                if (!showArchived && historyFact != null) item { TodayInHistoryCard(historyFact) }
+                val hasInsights = !showArchived && (radar.isNotEmpty() || onThisDay.isNotEmpty() || achievements.isNotEmpty() || wrapped.moments > 0 || chapters.isNotEmpty() || historyFact != null)
+                if (hasInsights) {
+                    item(key = "hdr-insights") {
+                        Row(Modifier.fillMaxWidth().clickable { showInsights = !showInsights }.padding(start = 4.dp, top = 6.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(if (showInsights) "▾ Insights" else "▸ Insights", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    if (showInsights) {
+                        if (radar.isNotEmpty()) item { RadarCard(radar) }
+                        if (onThisDay.isNotEmpty()) item { OnThisDayCard(onThisDay) }
+                        if (achievements.isNotEmpty()) item { AchievementsCard(achievements) }
+                        if (wrapped.moments > 0) item { WrappedCard(wrapped) }
+                        if (chapters.isNotEmpty()) item { ChaptersCard(chapters) }
+                        if (historyFact != null) item { TodayInHistoryCard(historyFact) }
+                    }
+                }
                 val fav = sorted.filter { it.favorite }
                 if (fav.isNotEmpty() && !showArchived) {
                     item(key = "hdr-fav") { GroupHeader("★ Favourites") }
-                    items(fav, key = { it.id }) { c -> OccasionCard(c, today, onOpen = { editing = c }, onFav = { vm.toggleOccasionFavorite(c) }, chainNextName = c.chainNextId?.let { nameById[it] }) }
+                    items(fav, key = { it.id }) { c -> OccasionCard(c, today, onOpen = { editing = c }, onFav = { vm.toggleOccasionFavorite(c) }, onLongPress = { detailsFor = c }, chainNextName = c.chainNextId?.let { nameById[it] }) }
                 }
                 val rest = if (showArchived) sorted else sorted.filter { !it.favorite }
                 LifeEvent.Bucket.entries.forEach { bucket ->
                     val inB = rest.filter { LifeEvent.bucket(it, today) == bucket }
                     if (inB.isNotEmpty()) {
                         item(key = "hdr-${bucket.name}") { GroupHeader(bucket.label) }
-                        items(inB, key = { it.id }) { c -> OccasionCard(c, today, onOpen = { editing = c }, onFav = { vm.toggleOccasionFavorite(c) }, chainNextName = c.chainNextId?.let { nameById[it] }) }
+                        items(inB, key = { it.id }) { c -> OccasionCard(c, today, onOpen = { editing = c }, onFav = { vm.toggleOccasionFavorite(c) }, onLongPress = { detailsFor = c }, chainNextName = c.chainNextId?.let { nameById[it] }) }
                     }
                 }
+                if (sorted.isEmpty()) item { Text("No occasions match this filter.", Modifier.padding(24.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }
     }
 
     if (addOpen) OccasionEditorSheet(vm, null, onDismiss = { addOpen = false })
     editing?.let { c -> OccasionEditorSheet(vm, c, onDismiss = { editing = null }) }
+    detailsFor?.let { c -> OccasionDetailsSheet(c, today, onDismiss = { detailsFor = null }, onEdit = { detailsFor = null; editing = c }) }
+    if (filterOpen) OccasionFilterSheet(filter, items, onApply = { filter = it }, onDismiss = { filterOpen = false })
 }
 
 @Composable
@@ -375,8 +405,9 @@ private fun LifeInWeeksCard(subject: CountdownEntity, today: LocalDate, trackedH
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun OccasionCard(c: CountdownEntity, today: LocalDate, onOpen: () -> Unit, onFav: () -> Unit, chainNextName: String? = null) {
+private fun OccasionCard(c: CountdownEntity, today: LocalDate, onOpen: () -> Unit, onFav: () -> Unit, onLongPress: () -> Unit = {}, chainNextName: String? = null) {
     val type = LifeEvent.type(c)
     val next = LifeEvent.nextOccurrence(c, today)
     val (count, unitLabel) = LifeEvent.displayCount(c, today)
@@ -384,14 +415,14 @@ private fun OccasionCard(c: CountdownEntity, today: LocalDate, onOpen: () -> Uni
     val bg = if (type.celebratory) accent.copy(alpha = .12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)
     val face = rememberFace(c.photoBase64)
     val masked = c.locked
-    Surface(shape = RoundedCornerShape(16.dp), color = bg, modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen)) {
+    Surface(shape = RoundedCornerShape(16.dp), color = bg, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = onOpen, onLongClick = onLongPress)) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             if (face != null && !masked) Image(face, null, Modifier.size(46.dp).clip(CircleShape).padding(end = 0.dp), contentScale = ContentScale.Crop)
             else Text(if (masked) "🔒" else (c.emoji ?: type.emoji), style = MaterialTheme.typography.headlineMedium)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (masked) "Private occasion" else c.personName.ifBlank { c.title }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(if (masked) "Private occasion" else c.personName.ifBlank { c.title }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                     if (!masked) LifeEvent.milestone(c, today)?.let { m ->
                         Spacer(Modifier.width(6.dp))
                         Surface(shape = RoundedCornerShape(6.dp), color = accent.copy(alpha = .22f)) { Text(m, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = accent, modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)) }
@@ -682,6 +713,168 @@ private fun EditorSwitch(label: String, checked: Boolean, onChange: (Boolean) ->
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+/** R48 — extensive filter state for the Occasions list. Empty/false everywhere = show all. */
+private data class OccasionFilter(
+    val types: Set<String> = emptySet(),
+    val category: String? = null,
+    val favouritesOnly: Boolean = false,
+    val withCadence: Boolean = false,
+    val countUp: Boolean? = null,
+    val windowDays: Int = 0,
+) {
+    val active: Boolean get() = types.isNotEmpty() || category != null || favouritesOnly || withCadence || countUp != null || windowDays > 0
+    fun matches(c: CountdownEntity, today: LocalDate): Boolean {
+        if (types.isNotEmpty() && c.eventType !in types) return false
+        if (category != null && !c.category.equals(category, ignoreCase = true)) return false
+        if (favouritesOnly && !c.favorite) return false
+        if (withCadence && c.keepInTouchDays <= 0) return false
+        if (countUp != null && c.countUp != countUp) return false
+        if (windowDays > 0) { val d = LifeEvent.daysUntil(c, today); if (d < 0 || d > windowDays) return false }
+        return true
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun OccasionFilterSheet(current: OccasionFilter, items: List<CountdownEntity>, onApply: (OccasionFilter) -> Unit, onDismiss: () -> Unit) {
+    val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var f by remember { mutableStateOf(current) }
+    val categories = remember(items) { items.map { it.category.trim() }.filter { it.isNotBlank() }.distinct().sorted() }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 28.dp).verticalScroll(rememberScrollState())) {
+            Text("Filter occasions", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(10.dp))
+            Text("Type", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                LifeEvent.EventType.entries.forEach { t ->
+                    val on = t.name in f.types
+                    FilterChip(selected = on, onClick = { f = f.copy(types = if (on) f.types - t.name else f.types + t.name) }, label = { Text("${t.emoji} ${t.label}") })
+                }
+            }
+            if (categories.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Text("Category", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(selected = f.category == null, onClick = { f = f.copy(category = null) }, label = { Text("Any") })
+                    categories.forEach { cat -> FilterChip(selected = f.category == cat, onClick = { f = f.copy(category = cat) }, label = { Text(cat) }) }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text("Within", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(0 to "Any", 7 to "1 week", 30 to "1 month", 90 to "3 months", 365 to "1 year").forEach { (n, lbl) ->
+                    FilterChip(selected = f.windowDays == n, onClick = { f = f.copy(windowDays = n) }, label = { Text(lbl) })
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text("Direction", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FilterChip(selected = f.countUp == null, onClick = { f = f.copy(countUp = null) }, label = { Text("Any") })
+                FilterChip(selected = f.countUp == false, onClick = { f = f.copy(countUp = false) }, label = { Text("Countdown") })
+                FilterChip(selected = f.countUp == true, onClick = { f = f.copy(countUp = true) }, label = { Text("Count-up") })
+            }
+            Spacer(Modifier.height(4.dp))
+            EditorSwitch("Favourites only", f.favouritesOnly) { f = f.copy(favouritesOnly = it) }
+            EditorSwitch("Has a keep-in-touch cadence", f.withCadence) { f = f.copy(withCadence = it) }
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { f = OccasionFilter() }) { Text("Clear all") }
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+                TextButton(onClick = { onApply(f); onDismiss() }) { Text("Apply", fontWeight = FontWeight.SemiBold) }
+            }
+        }
+    }
+}
+
+/** R48 — a per-occasion details sheet on long-press: the person's life-in-weeks, their facts, the Date Lab,
+ *  moments and milestones — moved off the top of the list so the list itself stays occasion-first. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun OccasionDetailsSheet(c: CountdownEntity, today: LocalDate, onDismiss: () -> Unit, onEdit: () -> Unit) {
+    val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val next = LifeEvent.nextOccurrence(c, today)
+    val (count, unitLabel) = LifeEvent.displayCount(c, today)
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 28.dp).verticalScroll(rememberScrollState())) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                val face = rememberFace(c.photoBase64)
+                if (face != null && !c.locked) Image(face, null, Modifier.size(44.dp).clip(CircleShape), contentScale = ContentScale.Crop)
+                else Text(c.emoji ?: LifeEvent.type(c).emoji, style = MaterialTheme.typography.headlineMedium)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(LifeEvent.displayName(c), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    Text("${if (c.countUp) "since " else ""}${next.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault())}, ${next.dayOfMonth} ${next.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${next.year} · $count $unitLabel${if (c.countUp) " ago" else " left"}",
+                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                TextButton(onClick = onEdit) { Text("Edit") }
+            }
+            val chips = listOfNotNull(LifeEvent.ageChip(c, today), LifeEvent.zodiac(c), c.category.takeIf { it.isNotBlank() })
+            if (chips.isNotEmpty()) Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                chips.forEach { chip -> Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .6f)) { Text(chip, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)) } }
+            }
+            // Keep-in-touch cadence status (relationship-upkeep loop), when a cadence is set.
+            com.todocompanion.app.domain.Moments.cadenceLine(c, today)?.let { line ->
+                val overdue = com.todocompanion.app.domain.Moments.cadenceOverdue(c, today)
+                Spacer(Modifier.height(10.dp))
+                Surface(shape = RoundedCornerShape(10.dp),
+                    color = if (overdue) MaterialTheme.colorScheme.errorContainer.copy(alpha = .5f) else MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .5f)) {
+                    Text("${if (overdue) "🔔" else "💬"}  $line", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(10.dp))
+                }
+            }
+            // Life in weeks — for a birthday with a known year.
+            if (LifeEvent.type(c) == LifeEvent.EventType.BIRTHDAY && c.yearKnown) {
+                Spacer(Modifier.height(12.dp)); LifeInWeeksCard(c, today, 0)
+            }
+            // Facts
+            Spacer(Modifier.height(12.dp))
+            Text("Facts", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            listOfNotNull(
+                LifeEvent.chineseZodiac(c)?.let { "Chinese zodiac: $it" },
+                LifeEvent.lifePath(c)?.let { "Life-path number: $it" },
+                LifeEvent.dayOfWeekBorn(c)?.let { "Born on a $it" },
+                LifeEvent.goldenBirthday(c)?.let { (age, dt) -> "Golden birthday: turns $age in ${dt.year}" },
+                LifeEvent.nextRoundDayMilestone(c)?.let { (n, dt) -> "${"%,d".format(n)} days old on ${dt.dayOfMonth} ${dt.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${dt.year}" },
+            ).forEach { Text("• $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 1.dp)) }
+            // Date Lab
+            Spacer(Modifier.height(10.dp))
+            Text("Date Lab", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            val d = Instant.ofEpochMilli(c.targetMillis).atZone(ZoneId.systemDefault()).toLocalDate()
+            val (season, seasonDate) = com.todocompanion.app.domain.DateLab.nextSeasonMarker(today)
+            listOfNotNull(
+                "Moon on that date: ${com.todocompanion.app.domain.DateLab.moonPhase(d)}",
+                if (c.yearKnown) "Mars age: ${"%.1f".format(com.todocompanion.app.domain.DateLab.marsAge(d, today))} · Jupiter age: ${"%.2f".format(com.todocompanion.app.domain.DateLab.jupiterAge(d, today))}" else null,
+                "Next $season: ${seasonDate.dayOfMonth} ${seasonDate.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${seasonDate.year}",
+            ).forEach { Text("• $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 1.dp)) }
+            // Moments summary
+            val moments = com.todocompanion.app.domain.Moments.parse(c)
+            if (moments.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                Text("Moments (${moments.size})", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                moments.take(5).forEach { m ->
+                    val dd = LocalDate.ofEpochDay(m.d)
+                    Text("• ${m.n}  — ${dd.dayOfMonth} ${dd.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${dd.year}", style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 1.dp))
+                }
+            }
+            // Get-to-know-them: a bundled, no-LLM question that rotates daily — for a person occasion.
+            if (c.personName.isNotBlank() || LifeEvent.type(c) == LifeEvent.EventType.BIRTHDAY) {
+                Spacer(Modifier.height(10.dp))
+                Text("Get to know them", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(com.todocompanion.app.domain.KnowThem.questionFor(c, today), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
+            }
+            // A gentle finite-time reflection — the same one the daily nudge would show today.
+            Spacer(Modifier.height(12.dp))
+            Text(com.todocompanion.app.domain.Almanac.reflection(today), style = MaterialTheme.typography.bodySmall,
+                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .8f))
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onEdit) { Text("Open in editor", fontWeight = FontWeight.SemiBold) }
+            }
+        }
     }
 }
 

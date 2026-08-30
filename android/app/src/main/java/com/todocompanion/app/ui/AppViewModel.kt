@@ -1350,7 +1350,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val name = displayNameOf(uri) ?: "attachment"
         val (bytes, why) = withContext(Dispatchers.IO) { readUriBytes(uri) }
         if (bytes == null) { toast("Couldn't read that file ($why). Try Share ▸ ToDo Companion from your file manager."); onDone(false); return@launch }
-        if (bytes.size > repo.maxAttachmentBytes) { toast("File too large (max 25 MB per file)"); onDone(false); return@launch }
+        if (bytes.size > repo.maxAttachmentBytes) { toast("File too large (max 50 MB per file)"); onDone(false); return@launch }
         // F4: write the bytes to an app-private file and store only the path — the DB stays lean.
         val ok = withContext(Dispatchers.IO) {
             runCatching {
@@ -1377,7 +1377,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val name = displayNameOf(u) ?: "attachment"
             val (bytes, why) = withContext(Dispatchers.IO) { readUriBytes(u) }
             if (bytes == null) { toast("Couldn't read one file ($why). Try Share ▸ ToDo Companion from your file manager."); continue }
-            if (bytes.size > repo.maxAttachmentBytes) { toast("Skipped one file over 25 MB"); continue }
+            if (bytes.size > repo.maxAttachmentBytes) { toast("Skipped one file over 50 MB"); continue }
             val wrote = withContext(Dispatchers.IO) {
                 runCatching {
                     val dir = java.io.File(appCtx.filesDir, "attachments").apply { mkdirs() }

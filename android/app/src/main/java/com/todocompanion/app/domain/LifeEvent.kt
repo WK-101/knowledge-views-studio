@@ -41,6 +41,17 @@ object LifeEvent {
 
     fun type(c: CountdownEntity): EventType = EventType.from(c.eventType)
 
+    /** The name to show — the person if given, else the title. */
+    fun displayName(c: CountdownEntity): String = c.personName.ifBlank { c.title }
+
+    /** A richer one-line label for calendar/list surfaces: "Sara · Birthday" when the name and the type
+     *  differ, else just the name — so a birthday never shows as the bare word "Birthday". */
+    fun calendarLabel(c: CountdownEntity): String {
+        val name = displayName(c)
+        val t = type(c)
+        return if (t.countsAge && !name.equals(t.label, ignoreCase = true)) "$name · ${t.label}" else name
+    }
+
     fun originDate(c: CountdownEntity): LocalDate =
         Instant.ofEpochMilli(c.targetMillis).atZone(ZoneId.systemDefault()).toLocalDate()
 

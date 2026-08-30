@@ -868,11 +868,11 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun deleteChecklistItem(id: String) = checklist.deleteById(id)
 
     // ============ attachments ============
-    /** Max size accepted PER FILE (25 MB). There is no limit on the NUMBER of attachments a
+    /** Max size accepted PER FILE (50 MB). There is no limit on the NUMBER of attachments a
      *  task can hold. Bytes live Base64 in the DB and travel losslessly in JSON backups. Any
      *  file type is accepted (images, PDF, Office docs, epub, txt/md, etc.); the per-file cap
      *  just keeps any single file from bloating the backup. */
-    val maxAttachmentBytes = 25L * 1024 * 1024
+    val maxAttachmentBytes = 50L * 1024 * 1024
     fun attachmentMeta(taskId: String): Flow<List<AttachmentMeta>> = attachments.observeMetaForTask(taskId)
     val allAttachmentMeta: Flow<List<AttachmentMeta>> = attachments.observeAllMeta()
     fun attachmentCount(taskId: String): Flow<Int> = attachments.observeCountForTask(taskId)

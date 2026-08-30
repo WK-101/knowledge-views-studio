@@ -358,6 +358,9 @@ fun AppRoot(
         var templatePicker by remember { mutableStateOf(false) }
         var showAttachments by remember { mutableStateOf(false) }
         var showCountdowns by remember { mutableStateOf(false) }
+        // R48 — deep-link into Occasions (optionally opening a specific entry) from the calendar / lists.
+        var countdownOpenId by remember { mutableStateOf<String?>(null) }
+        val openOccasion: (String?) -> Unit = { id -> countdownOpenId = id; showCountdowns = true }
         var showDone by remember { mutableStateOf(false) }   // R27 The Done Record
         var showPlan by remember { mutableStateOf(false) }
         // Tier Ω: the command palette, the any-period recap overlay, and the annual-report picker.
@@ -863,7 +866,7 @@ fun AppRoot(
                                 ViewTabStrip(vm)
                                 Box(Modifier.weight(1f)) {
                                     ListBackgroundLayer(vm)
-                                    if (boardMode) com.todocompanion.app.ui.screens.KanbanScreen(vm, ::openTask) else TasksScreen(vm, ::openTask)
+                                    if (boardMode) com.todocompanion.app.ui.screens.KanbanScreen(vm, ::openTask) else TasksScreen(vm, ::openTask, onOpenOccasion = openOccasion)
                                 }
                             }
                             Tab.SEARCH -> SearchScreen(vm, ::openTask, searchQuery, onOpenHabit = { hid -> vm.habitDetailId.value = hid; tab = Tab.HABITS })
@@ -873,7 +876,8 @@ fun AppRoot(
                                 onAddOnDate = { d ->
                                     openQuickAdd(d.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli())
                                 }, onAddAt = { d, minute -> blockAt = d to minute },
-                                eventAction = calEventAction, onEventActionConsumed = { calEventAction = null })
+                                eventAction = calEventAction, onEventActionConsumed = { calEventAction = null },
+                                onOpenOccasion = openOccasion)
                             Tab.TIMELINE -> com.todocompanion.app.ui.screens.TimelineScreen(vm, ::openTask, selectedLists = timelineLists, showDone = timelineShowDone)
                             Tab.MATRIX -> MatrixScreen(vm, ::openTask, matrixSettings, { matrixSettings = false })
                             Tab.HABITS -> com.todocompanion.app.ui.screens.HabitsScreen(vm, onFocusHabit = { hid -> vm.pendingFocusHabitId.value = hid; timeFocus = true; tab = Tab.TIME })
@@ -925,7 +929,7 @@ fun AppRoot(
         }
         if (showStats) com.todocompanion.app.ui.screens.StatisticsScreen(vm, onBack = { showStats = false })
         if (showAttachments) com.todocompanion.app.ui.screens.AttachmentsScreen(vm, onOpenTask = { showAttachments = false; openTask(it) }, onBack = { showAttachments = false })
-        if (showCountdowns) com.todocompanion.app.ui.screens.CountdownScreen(vm, onBack = { showCountdowns = false })
+        if (showCountdowns) com.todocompanion.app.ui.screens.CountdownScreen(vm, onBack = { showCountdowns = false; countdownOpenId = null }, initialOpenId = countdownOpenId)
         if (showDone) com.todocompanion.app.ui.screens.DoneScreen(vm, onOpenTask = { showDone = false; openTask(it) }, onBack = { showDone = false })
         if (showPlan) com.todocompanion.app.ui.screens.PlanYourDayScreen(vm, onOpenTask = { showPlan = false; openTask(it) }, onBack = { showPlan = false })
         if (showReview) com.todocompanion.app.ui.screens.ReviewScreen(vm, onOpenTask = { showReview = false; openTask(it) }, onBack = { showReview = false })

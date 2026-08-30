@@ -124,7 +124,7 @@ import com.todocompanion.app.ui.components.TaskMeta
 import com.todocompanion.app.ui.components.rowVerticalPadding
 
 @Composable
-fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifier = Modifier) {
+fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifier = Modifier, onOpenOccasion: (String?) -> Unit = {}) {
     val outline by vm.outlineMode.collectAsState()
     val settings by vm.settings.collectAsState()
     val view by vm.currentView.collectAsState()
@@ -243,10 +243,10 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
             selected = selected, selectionMode = selectionMode, onToggleSel = { toggleSel(it) },
             sortIsManual = sortMode == com.todocompanion.app.domain.view.SortMode.MANUAL,
             onOpenTask = onOpenTask, modifier = Modifier.fillMaxSize(),
-            header = { taskListHeaders(vm, view, viewDescription) })
+            header = { taskListHeaders(vm, view, viewDescription, onOpenOccasion) })
       } else {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 6.dp, bottom = if (selectionMode) 120.dp else 100.dp)) {
-            taskListHeaders(vm, view, viewDescription)
+            taskListHeaders(vm, view, viewDescription, onOpenOccasion)
             items(groups, key = { it.key }) { group ->
                 val open = collapsed[group.key] != true
                 Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
@@ -531,7 +531,7 @@ private fun subtaskDepth(task: TaskEntity, byId: Map<String, TaskEntity>): Int {
 class TaskLabelNav(val onList: (String) -> Unit, val onContext: (String) -> Unit, val onTag: (String) -> Unit)
 
 /** The top strips (list description + smart-view helpers) shared by both list layouts. */
-private fun androidx.compose.foundation.lazy.LazyListScope.taskListHeaders(vm: AppViewModel, view: ViewRef, viewDescription: String?) {
+private fun androidx.compose.foundation.lazy.LazyListScope.taskListHeaders(vm: AppViewModel, view: ViewRef, viewDescription: String?, onOpenOccasion: (String?) -> Unit = {}) {
     viewDescription?.let { desc -> item(key = "viewdesc") {
         Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(12.dp),
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)) {
@@ -555,7 +555,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.taskListHeaders(vm: A
         // Countdowns whose target falls in this list's window show up here too, so a countdown you
         // set surfaces in Today / Next-7-days / Scheduled — not only on the dedicated Countdowns hub.
         if (k == SmartKind.TODAY || k == SmartKind.DO_NEXT || k == SmartKind.NEXT7 || k == SmartKind.SCHEDULED) {
-            item(key = "countdowns") { CountdownDueStrip(vm, k) }
+            item(key = "countdowns") { CountdownDueStrip(vm, k, onOpenOccasion) }
         }
     }
 }
@@ -1052,12 +1052,12 @@ private fun BookendCard(vm: AppViewModel) {
 /** Countdowns whose target falls in the current smart-list's window, so a countdown surfaces in
  *  Today / Next-7-days / Scheduled, not only on the dedicated Countdowns hub. */
 @Composable
-private fun CountdownDueStrip(vm: AppViewModel, kind: SmartKind) {
+private fun CountdownDueStrip(vm: AppViewModel, kind: SmartKind, onOpenOccasion: (String?) -> Unit = {}) {
     val countdowns by vm.countdowns.collectAsState()
     val zone = java.time.ZoneId.systemDefault()
     val today = java.time.LocalDate.now(zone)
     val relevant = remember(countdowns, kind, today) {
-        countdowns.mapNotNull { cd ->
+        countdowns.filter { !it.archived }.mapNotNull { cd ->
             // R43 — occasions surface on their NEXT occurrence (yearly birthdays roll forward).
             val days = com.todocompanion.app.domain.LifeEvent.daysUntil(cd, today)
             val inWindow = when (kind) {
@@ -1070,17 +1070,30 @@ private fun CountdownDueStrip(vm: AppViewModel, kind: SmartKind) {
         }.sortedBy { it.second }
     }
     if (relevant.isEmpty()) return
+    // R48 — the Scheduled list only shows the two closest occasions (with a "View all" into the hub);
+    // the tighter windows (Today / Next-7) already self-limit, so they show all that fall inside them.
+    val cap = if (kind == SmartKind.SCHEDULED) 2 else relevant.size
+    val shown = relevant.take(cap)
     Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
         Column(Modifier.padding(12.dp)) {
-            Text("Occasions", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.size(8.dp))
-            relevant.forEachIndexed { i, (cd, days) ->
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Occasions", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.weight(1f))
+                if (relevant.size > shown.size) TextButton(onClick = { onOpenOccasion(null) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(4.dp, 0.dp)) {
+                    Text("View all (${relevant.size})", style = MaterialTheme.typography.labelMedium)
+                }
+            }
+            Spacer(Modifier.size(6.dp))
+            shown.forEachIndexed { i, (cd, days) ->
                 if (i > 0) HorizontalDivider(Modifier.padding(vertical = 2.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
                 val color = cd.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.secondary
-                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(cd.emoji ?: "🎯", style = MaterialTheme.typography.titleMedium)
+                Row(Modifier.fillMaxWidth().clickable { onOpenOccasion(cd.id) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(cd.emoji ?: com.todocompanion.app.domain.LifeEvent.type(cd).emoji, style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.width(10.dp))
-                    Text(cd.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Column(Modifier.weight(1f)) {
+                        Text(com.todocompanion.app.domain.LifeEvent.calendarLabel(cd), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        com.todocompanion.app.domain.LifeEvent.ageChip(cd, today)?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    }
                     Text(
                         when { days == 0L -> "Today"; days == 1L -> "Tomorrow"; days > 1 -> "in $days days"; else -> "${-days}d ago" },
                         style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = color,
