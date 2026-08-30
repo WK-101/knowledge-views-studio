@@ -600,6 +600,19 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                         FilterChip(selected = s.chronotype == i, onClick = { vm.setChronotype(i) }, label = { Text(lbl) })
                     }
                 }
+                HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                // R35 · third-wave toggles.
+                Toggle("Strength meter", s.strengthMeter) { on -> vm.setStrengthMeter(on) }
+                Text("Show the forgiving strength % as the headline habit metric instead of the streak flame — every rep counts, a few misses barely dent it (Loop-style).",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                Toggle("Daily AM/PM bookends", s.bookendsEnabled) { on -> vm.setBookends(on) }
+                Text("A morning-intention card before noon and an evening-review card after 5pm, on the Today list — the daily reflection loop between your weekly reviews.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                Toggle("Companion garden", s.companionEnabled) { on -> vm.setCompanion(on) }
+                Text("A plant that grows from your consistency, shown on the habits screen — never shamed on a miss. A calm alternative to numbers (open it from Life systems › Your garden).",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 

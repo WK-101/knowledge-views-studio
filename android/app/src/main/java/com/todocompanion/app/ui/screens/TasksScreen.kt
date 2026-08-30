@@ -68,6 +68,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import com.todocompanion.app.data.entity.HabitEntity
@@ -542,6 +544,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.taskListHeaders(vm: A
     (view as? ViewRef.Smart)?.kind?.let { k ->
         if (k == SmartKind.TODAY || k == SmartKind.DO_NEXT) {
             item(key = "recovery") { RecoveryStrip(vm) }   // P2: kind triage when overdue piles up
+            item(key = "twnudges") { NudgeStrip(vm) }       // R35 TW-B: right-now risk / opportunity nudges
+            item(key = "bookend") { BookendCard(vm) }       // R35 TW-E: AM/PM intention-review bookend
             item(key = "habitsdue") { HabitsDueStrip(vm) }
         }
         // Countdowns whose target falls in this list's window show up here too, so a countdown you
@@ -870,6 +874,69 @@ private fun HabitsDueStrip(vm: AppViewModel) {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/** R35 · TW-B — the offline JITAI nudge strip: right-now risk (a quit habit's urge window) or
+ *  opportunity (a build habit due at its usual time). A local rules engine, surfaced in-app. */
+@Composable
+private fun NudgeStrip(vm: AppViewModel) {
+    val habits by vm.habits.collectAsState()
+    val checkins by vm.habitCheckins.collectAsState()
+    val cravings by vm.cravings.collectAsState()
+    val now = java.time.LocalTime.now()
+    val today = java.time.LocalDate.now().toEpochDay()
+    val nudges = remember(habits, checkins, cravings, now.hour, today) {
+        com.todocompanion.app.domain.habit.ThirdWave.nudges(habits, checkins, cravings, now.hour * 60 + now.minute, today)
+    }
+    if (nudges.isEmpty()) return
+    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        nudges.forEach { n ->
+            val risk = n.kind == "risk"
+            Surface(Modifier.fillMaxWidth().clickable { vm.habitDetailId.value = n.habitId }, shape = RoundedCornerShape(14.dp),
+                color = if (risk) MaterialTheme.colorScheme.errorContainer.copy(alpha = .55f) else MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .55f)) {
+                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(n.emoji, Modifier.padding(end = 10.dp))
+                    Text(n.text, style = MaterialTheme.typography.bodyMedium, color = if (risk) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onTertiaryContainer)
+                }
+            }
+        }
+    }
+}
+
+/** R35 · TW-E — the daily AM/PM bookend: a morning intention before noon, an evening review after ~5pm.
+ *  Opt-in (Settings). A tiny reflection loop that keeps monitoring alive between the weekly reviews. */
+@Composable
+private fun BookendCard(vm: AppViewModel) {
+    val settings by vm.settings.collectAsState()
+    if (!settings.bookendsEnabled) return
+    val dayLogs by vm.dayLogs.collectAsState()
+    val today = java.time.LocalDate.now().toEpochDay()
+    val log = dayLogs.firstOrNull { it.epochDay == today }
+    val hour = java.time.LocalTime.now().hour
+    val evening = hour >= 17
+    val alreadyDone = if (evening) (log?.pmReflection?.isNotBlank() == true) else (log?.amIntention?.isNotBlank() == true)
+    if (alreadyDone) return
+    var text by remember(evening, today) { mutableStateOf("") }
+    var mood by remember(evening, today) { mutableStateOf(0) }
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Column(Modifier.padding(14.dp)) {
+            Text(if (evening) "🌙 Evening review" else "🌅 Morning intention", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            Text(if (evening) "One honest line on how today went." else "One line on what today is for.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.size(6.dp))
+            com.todocompanion.app.ui.components.AppTextField(text, { text = it }, singleLine = true, label = { Text(if (evening) "How did it go?" else "Today, I will…") }, modifier = Modifier.fillMaxWidth())
+            Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Mood", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    (1..5).forEach { n -> androidx.compose.material3.FilterChip(selected = mood == n, onClick = { mood = n }, label = { Text("$n") }) }
+                }
+                Spacer(Modifier.weight(1f))
+                TextButton(enabled = text.isNotBlank(), onClick = {
+                    if (evening) vm.saveEveningReflection(today, text, mood) else vm.saveMorningIntention(today, text, mood)
+                }) { Text("Save") }
             }
         }
     }

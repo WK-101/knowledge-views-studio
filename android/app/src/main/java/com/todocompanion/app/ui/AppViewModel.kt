@@ -137,7 +137,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val scorecardItems = repo.allScorecardItems.state(emptyList())
     val buddies = repo.allBuddies.state(emptyList())
     val integrityReviews = repo.allIntegrityReviews.state(emptyList())
-    // Non-null → the Life-Systems hub/screen overlays the tab (route key: hub|values|scorecard|correlations|reviews|ledger|buddies|whatif).
+    // R35 — third-wave flows.
+    val experiments = repo.allExperiments.state(emptyList())
+    val activationItems = repo.allActivationItems.state(emptyList())
+    val dayLogs = repo.allDayLogs.state(emptyList())
+    // Non-null → the Life-Systems hub/screen overlays the tab (route key: hub|values|scorecard|correlations|reviews|ledger|buddies|friction|experiments|activation|forecast|heatmap|valuestime|runner|companion).
     val lifeSystemsRoute = MutableStateFlow<String?>(null)
     fun saveCountdown(id: String?, title: String, targetMillis: Long, emoji: String?, colorArgb: Long?) = viewModelScope.launch {
         val existing = id?.let { cid -> countdowns.value.firstOrNull { it.id == cid } }
@@ -2426,9 +2430,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val newCount = repo.getHabitCheckinsOnce().firstOrNull { it.habitId == h.id && it.epochDay == epochDay }?.count ?: 0
         if (hs.meetsGoal(h, newCount) && !hs.meetsGoal(h, oldCount)) {
             repo.awardPoints(1)
-            val phrase = h.encouragementList().takeIf { it.isNotEmpty() }?.random()
-                ?: listOf("Nice — that's a vote for who you're becoming.", "Done. Small wins compound.", "Kept it going 💪", "That's the one.").random()
-            habitShine.value = HabitShine(h.name, h.emoji, phrase, h.colorArgb)
+            // R35 · reward taper — a graduated habit has eased off celebration; it runs on its own now.
+            if (!h.graduated) {
+                val phrase = h.encouragementList().takeIf { it.isNotEmpty() }?.random()
+                    ?: listOf("Nice — that's a vote for who you're becoming.", "Done. Small wins compound.", "Kept it going 💪", "That's the one.").random()
+                habitShine.value = HabitShine(h.name, h.emoji, phrase, h.colorArgb)
+            }
             // F10 auto ramp-up — bump the daily target once consistency holds over the step window.
             if (epochDay == java.time.LocalDate.now(zone).toEpochDay()) {
                 val done = repo.getHabitCheckinsOnce().filter { it.habitId == h.id && it.status == "done" && hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
@@ -2596,6 +2603,69 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         toast("Review saved to your ledger.")
     }
     fun deleteIntegrityReview(id: String) = viewModelScope.launch { repo.deleteIntegrityReview(id) }
+
+    // ── R35 · third-wave actions ──────────────────────────────────────────────────────────────────
+    fun setBookends(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(bookendsEnabled = on)) }
+    fun setCompanion(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(companionEnabled = on)) }
+    fun setStrengthMeter(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(strengthMeter = on)) }
+
+    // TW-B self-tuning reminder — accept the suggested time.
+    fun applyReminderDrift(h: com.todocompanion.app.data.entity.HabitEntity, minute: Int) = viewModelScope.launch {
+        val others = h.reminderTimes.split(",").mapNotNull { it.trim().toIntOrNull() }
+        val typical = com.todocompanion.app.domain.habit.HabitStats.typicalDoneMinute(repo.getHabitCheckinsOnce().filter { it.habitId == h.id })
+        val replaced = if (others.isEmpty()) listOf(minute) else {
+            val nearest = others.minByOrNull { kotlin.math.abs(it - (typical ?: minute)) }
+            (others - (nearest ?: minute) + minute).distinct().sorted()
+        }
+        repo.upsertHabit(h.copy(reminderTimes = replaced.joinToString(",")))
+        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
+        toast("Reminder moved to ${com.todocompanion.app.domain.habit.HabitStats.minuteLabel(minute)}.")
+    }
+
+    // TW-D reward taper — graduate / un-graduate a habit that's reached automaticity.
+    fun setGraduated(h: com.todocompanion.app.data.entity.HabitEntity, on: Boolean) = viewModelScope.launch {
+        repo.upsertHabit(h.copy(graduated = on))
+        toast(if (on) "🎓 Graduated — this one's part of you now. Prompts will ease off." else "Back to active coaching.")
+    }
+
+    // TW-F make-up ledger — repay a missed non-negotiable by completing a past expected day.
+    fun logMakeUp(h: com.todocompanion.app.data.entity.HabitEntity, day: Long) = viewModelScope.launch {
+        repo.setDay(h.id, day, h.targetPerDay.coerceAtLeast(1), "done", "make-up")
+        refreshHabitWidgets()
+        toast("Made up ${java.time.LocalDate.ofEpochDay(day)}. Debt cleared — not a failure.")
+    }
+
+    // TW-C n-of-1 experiments.
+    fun startExperiment(habitId: String, outcome: String, blockLen: Int, blocks: Int) = viewModelScope.launch {
+        val today = java.time.LocalDate.now(zone).toEpochDay()
+        repo.upsertExperiment(com.todocompanion.app.data.entity.ExperimentEntity(
+            id = java.util.UUID.randomUUID().toString(), habitId = habitId, outcome = outcome,
+            startDay = today, blockLenDays = blockLen.coerceIn(1, 14), blocks = blocks.coerceIn(2, 12), createdAt = System.currentTimeMillis()))
+        toast("Experiment started. Follow the on/off blocks and log your ${outcome}.")
+    }
+    fun endExperiment(e: com.todocompanion.app.data.entity.ExperimentEntity) = viewModelScope.launch { repo.upsertExperiment(e.copy(active = false)) }
+    fun deleteExperiment(id: String) = viewModelScope.launch { repo.deleteExperiment(id) }
+
+    // TW-D behavioral activation.
+    fun addActivation(text: String, valueId: String?, day: Long) = viewModelScope.launch {
+        val t = text.trim(); if (t.isBlank()) return@launch
+        repo.upsertActivationItem(com.todocompanion.app.data.entity.ActivationItemEntity(
+            id = java.util.UUID.randomUUID().toString(), text = t, valueId = valueId, plannedDay = day, createdAt = System.currentTimeMillis()))
+    }
+    fun rateActivation(item: com.todocompanion.app.data.entity.ActivationItemEntity, pleasure: Int, mastery: Int) = viewModelScope.launch {
+        repo.upsertActivationItem(item.copy(done = true, pleasure = pleasure.coerceIn(0, 5), mastery = mastery.coerceIn(0, 5)))
+    }
+    fun deleteActivation(id: String) = viewModelScope.launch { repo.deleteActivationItem(id) }
+
+    // TW-E daily AM/PM bookends.
+    fun saveMorningIntention(day: Long, text: String, mood: Int) = viewModelScope.launch {
+        val cur = repo.dayLogFor(day) ?: com.todocompanion.app.data.entity.DayLogEntity(day)
+        repo.upsertDayLog(cur.copy(amIntention = text.trim(), amMood = mood.coerceIn(0, 5), updatedAt = System.currentTimeMillis()))
+    }
+    fun saveEveningReflection(day: Long, text: String, mood: Int) = viewModelScope.launch {
+        val cur = repo.dayLogFor(day) ?: com.todocompanion.app.data.entity.DayLogEntity(day)
+        repo.upsertDayLog(cur.copy(pmReflection = text.trim(), pmMood = mood.coerceIn(0, 5), updatedAt = System.currentTimeMillis()))
+    }
 
     fun skipHabitDay(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, reason: String = "") = viewModelScope.launch {
         if (beforeStart(h, epochDay)) return@launch

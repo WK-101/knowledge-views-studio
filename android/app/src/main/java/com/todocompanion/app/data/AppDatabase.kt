@@ -75,8 +75,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         com.todocompanion.app.data.entity.ScorecardItemEntity::class,
         com.todocompanion.app.data.entity.BuddySnapshotEntity::class,
         com.todocompanion.app.data.entity.IntegrityReviewEntity::class,
+        com.todocompanion.app.data.entity.ExperimentEntity::class,
+        com.todocompanion.app.data.entity.ActivationItemEntity::class,
+        com.todocompanion.app.data.entity.DayLogEntity::class,
     ],
-    version = 43,
+    version = 44,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -107,6 +110,9 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun scorecardDao(): com.todocompanion.app.data.dao.ScorecardDao
     abstract fun buddyDao(): com.todocompanion.app.data.dao.BuddyDao
     abstract fun integrityReviewDao(): com.todocompanion.app.data.dao.IntegrityReviewDao
+    abstract fun experimentDao(): com.todocompanion.app.data.dao.ExperimentDao
+    abstract fun activationDao(): com.todocompanion.app.data.dao.ActivationDao
+    abstract fun dayLogDao(): com.todocompanion.app.data.dao.DayLogDao
 
     companion object {
         @Volatile
@@ -506,6 +512,21 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("CREATE TABLE IF NOT EXISTS `scorecard_items` (`id` TEXT NOT NULL, `text` TEXT NOT NULL, `sign` INTEGER NOT NULL DEFAULT 0, `orderIndex` INTEGER NOT NULL DEFAULT 0, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
                 db.execSQL("CREATE TABLE IF NOT EXISTS `buddy_snapshots` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `importedAtMillis` INTEGER NOT NULL, `payloadJson` TEXT NOT NULL, PRIMARY KEY(`id`))")
                 db.execSQL("CREATE TABLE IF NOT EXISTS `integrity_reviews` (`id` TEXT NOT NULL, `kind` TEXT NOT NULL, `periodKey` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `note` TEXT NOT NULL DEFAULT '', `statsJson` TEXT NOT NULL DEFAULT '', PRIMARY KEY(`id`))")
+            }
+        }
+
+        // R35 — the THIRD-WAVE layer: additive habit columns + three small tables (experiments,
+        // behavioral-activation items, daily bookend logs). No existing data touched.
+        private val MIGRATION_43_44 = object : Migration(43, 44) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `frictionSteps` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `cueToDisrupt` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `cueDisruptionPlan` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `futureScene` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `graduated` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `experiments` (`id` TEXT NOT NULL, `habitId` TEXT NOT NULL, `outcome` TEXT NOT NULL, `startDay` INTEGER NOT NULL, `blockLenDays` INTEGER NOT NULL DEFAULT 3, `blocks` INTEGER NOT NULL DEFAULT 4, `active` INTEGER NOT NULL DEFAULT 1, `note` TEXT NOT NULL DEFAULT '', `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `activation_items` (`id` TEXT NOT NULL, `text` TEXT NOT NULL, `valueId` TEXT, `plannedDay` INTEGER NOT NULL, `done` INTEGER NOT NULL DEFAULT 0, `pleasure` INTEGER NOT NULL DEFAULT 0, `mastery` INTEGER NOT NULL DEFAULT 0, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `day_logs` (`epochDay` INTEGER NOT NULL, `amIntention` TEXT NOT NULL DEFAULT '', `pmReflection` TEXT NOT NULL DEFAULT '', `amMood` INTEGER NOT NULL DEFAULT 0, `pmMood` INTEGER NOT NULL DEFAULT 0, `updatedAt` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`epochDay`))")
             }
         }
 

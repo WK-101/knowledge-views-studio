@@ -1019,6 +1019,10 @@ private fun BuilderSection(
     // lapse-recovery, what-if, chronotype, context capture).
     LifeSystemsHabitCards(vm, h, hc, doneDays, skipDays, today, color, myCravings)
 
+    // R35 — the third-wave cards (friction, cue-disruption, context stability, self-tuning reminder,
+    // forecast, graduation, make-up, lapse early-warning, future-self scene).
+    ThirdWaveHabitCards(vm, h, hc, doneDays, skipDays, today, color)
+
     // F17 — the insights coach (both kinds).
     if (tips.isNotEmpty()) {
         Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
@@ -1224,7 +1228,6 @@ private fun LifeSystemsHabitCards(
                 }
             }
         }
-
         // LS10 · urge analytics — triggers, HALT, duration curve.
         if (myCravings.size >= 3) {
             val stats = remember(myCravings) { LS.urgeStats(myCravings) }
@@ -1238,7 +1241,6 @@ private fun LifeSystemsHabitCards(
                 }
             }
         }
-
         // LS · lapse-recovery — after a recent relapse, replace shame with a fresh start.
         val relapses = hc.filter { it.habitId == h.id && HabitStats.isRelapse(h, it.count) }.map { it.epochDay }
         val lastSlip = relapses.maxOrNull()
@@ -1257,3 +1259,144 @@ private fun LifeSystemsHabitCards(
         }
     }
 }
+
+private typealias TW = com.todocompanion.app.domain.habit.ThirdWave
+
+/** R35 — the third-wave cards: friction/prep, cue-disruption, context stability, self-tuning reminder,
+ *  data-grounded forecast, graduation, make-up ledger, lapse early-warning, future-self scene. */
+@Composable
+private fun ThirdWaveHabitCards(
+    vm: com.todocompanion.app.ui.AppViewModel, h: com.todocompanion.app.data.entity.HabitEntity,
+    hc: List<com.todocompanion.app.data.entity.HabitCheckinEntity>, doneDays: Set<Long>, skipDays: Set<Long>,
+    today: Long, color: Color,
+) {
+    val isBreak = h.habitType == "break"
+    val mine = remember(hc, h.id) { hc.filter { it.habitId == h.id } }
+
+    // TW-A · friction / prep steps (build = ready kit; break = obstacle course).
+    if (h.frictionSteps.isNotBlank()) {
+        val steps = h.frictionSteps.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+            Column(Modifier.padding(16.dp)) {
+                Text(if (isBreak) "Make it harder" else "Make it easy — your ready kit", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(if (isBreak) "Add steps between you and the bad habit — friction beats willpower." else "Prep the night before so the good habit takes the fewest possible steps.",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+                steps.forEach { s -> Row(Modifier.padding(vertical = 2.dp)) { Text("•  ", color = color); Text(s, style = MaterialTheme.typography.bodyMedium) } }
+            }
+        }
+    }
+
+    // TW-A · cue-disruption (break).
+    if (isBreak && (h.cueToDisrupt.isNotBlank() || h.cueDisruptionPlan.isNotBlank())) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+            Column(Modifier.padding(16.dp)) {
+                Text("Disrupt the cue", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                if (h.cueToDisrupt.isNotBlank()) Text("🔔 The trigger: ${h.cueToDisrupt}", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp))
+                if (h.cueDisruptionPlan.isNotBlank()) Text("✂ Your plan: ${h.cueDisruptionPlan}", style = MaterialTheme.typography.bodyMedium)
+                Text("Removing the antecedent is easier than resisting the routine — kill the cue, not the willpower.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
+            }
+        }
+    }
+
+    // TW-A · context-stability score (build).
+    if (!isBreak) TW.contextStability(h, hc)?.let { score ->
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+            Column(Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Context stability", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text("$score%", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = color)
+                }
+                Box(Modifier.fillMaxWidth().height(8.dp).padding(top = 6.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                    Box(Modifier.fillMaxWidth(score / 100f).height(8.dp).clip(RoundedCornerShape(4.dp)).background(color))
+                }
+                Text(if (score >= 70) "Rock-steady time & place — the fast lane to automatic." else "Scattered timing slows habit formation. Try pinning it to one anchor.",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+            }
+        }
+    }
+
+    // TW-B · self-tuning reminder drift.
+    TW.reminderDrift(h, hc)?.let { (minute, msg) ->
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .5f)) {
+            Column(Modifier.padding(16.dp)) {
+                Text(msg, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                FilledTonalButton(onClick = { vm.applyReminderDrift(h, minute) }, modifier = Modifier.padding(top = 8.dp)) { Text("Move the reminder") }
+            }
+        }
+    }
+
+    // TW-B · lapse early-warning (break).
+    TW.lapseWarning(h, hc, today)?.let { warn ->
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.errorContainer.copy(alpha = .45f)) {
+            Row(Modifier.padding(16.dp)) { Text("⚠", Modifier.padding(end = 10.dp)); Text(warn, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer) }
+        }
+    }
+
+    // TW-C · data-grounded forecast (build).
+    if (!isBreak) TW.forecast(h, hc, today)?.let { fc ->
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+            Column(Modifier.padding(16.dp)) {
+                Text("Forecast (from your own pace)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text("Projected automaticity, with a band from how steady you've actually been.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
+                fc.forEach { f ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("${f.weeks} wk", Modifier.width(48.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Box(Modifier.weight(1f).height(8.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                            Box(Modifier.fillMaxWidth(f.mid / 100f).height(8.dp).clip(RoundedCornerShape(4.dp)).background(color))
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Text("${f.low}–${f.high}%", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = color)
+                    }
+                }
+            }
+        }
+    }
+
+    // TW-F · make-up ledger — repay a recent missed expected day (build).
+    if (!isBreak) {
+        val missed = remember(doneDays, skipDays, today) {
+            ((today - 10) until today).filter { HabitStats.isExpectedDay(h, it) && it >= h.startEpochDay() && it !in doneDays && it !in skipDays }.sortedDescending()
+        }
+        if (missed.isNotEmpty()) {
+            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Make-up ledger", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text("Missed a day? Repay it — a make-up clears the debt. Not a failure, just a balance restored.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
+                    missed.take(3).forEach { d ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(java.time.LocalDate.ofEpochDay(d).toString(), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                            TextButton(onClick = { vm.logMakeUp(h, d) }) { Text("Make up") }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // TW-D · reward taper / graduation (build, near-automatic).
+    if (!isBreak) {
+        val auto = remember(doneDays) { com.todocompanion.app.domain.habit.HabitBuilder.automaticity(doneDays) }
+        if (h.graduated || auto.pct >= 90) {
+            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .5f)) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(if (h.graduated) "🎓 Graduated" else "Ready to graduate", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    Text(if (h.graduated) "This one's part of you now — celebrations and prompts have eased off. The app's job here is done." else "This habit is nearly automatic. Graduate it to quiet the prompts and let it run on its own.",
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.padding(top = 2.dp))
+                    TextButton(onClick = { vm.setGraduated(h, !h.graduated) }) { Text(if (h.graduated) "Bring back coaching" else "Graduate this habit") }
+                }
+            }
+        }
+    }
+
+    // TW-D · future-self scene (shown for reference; also surfaced in the urge dialog).
+    if (h.futureScene.isNotBlank()) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+            Column(Modifier.padding(16.dp)) {
+                Text("Your future self", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = color)
+                Text("“${h.futureScene}”", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp))
+                Text("Picturing a specific future you — the one who kept this — makes the payoff feel real now.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
+            }
+        }
+    }
+}
+

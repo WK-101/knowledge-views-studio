@@ -74,3 +74,54 @@ data class IntegrityReviewEntity(
     val note: String = "",        // the user's written reflection
     val statsJson: String = "",   // a snapshot of the period's computed figures, for the record
 )
+
+/** R35 · TW-C — a personal n-of-1 experiment: toggle one habit ON/OFF in alternating blocks and measure
+ *  an outcome, turning a correlation into a within-person causal test. The causal upgrade to correlation. */
+@Serializable
+@Entity(tableName = "experiments")
+data class ExperimentEntity(
+    @PrimaryKey val id: String,
+    val habitId: String,          // the habit being manipulated (the independent variable)
+    val outcome: String,          // the dependent variable: "mood" | "energy" | "tasks" | "focus"
+    val startDay: Long,           // epoch day the experiment began
+    val blockLenDays: Int = 3,    // length of each ON/OFF block
+    val blocks: Int = 4,          // total blocks (alternating ON/OFF)
+    val active: Boolean = true,
+    val note: String = "",
+    val createdAt: Long,
+) {
+    /** The plan: block index → whether the habit should be ON that block (odd blocks OFF). */
+    fun onForDay(day: Long): Boolean {
+        val idx = ((day - startDay) / blockLenDays.coerceAtLeast(1)).toInt()
+        return idx % 2 == 0
+    }
+    fun endDay() = startDay + blockLenDays.coerceAtLeast(1) * blocks - 1
+}
+
+/** R35 · TW-D — a behavioral-activation item: a small, values-linked activity scheduled and rated for
+ *  Pleasure & Mastery. Act before motivation returns; the ratings are the therapeutic loop. */
+@Serializable
+@Entity(tableName = "activation_items")
+data class ActivationItemEntity(
+    @PrimaryKey val id: String,
+    val text: String,
+    val valueId: String? = null,
+    val plannedDay: Long,         // epoch day it's scheduled for
+    val done: Boolean = false,
+    val pleasure: Int = 0,        // 0 unset, 1–5 after doing
+    val mastery: Int = 0,         // 0 unset, 1–5 after doing
+    val createdAt: Long,
+)
+
+/** R35 · TW-E — one day's morning-intention / evening-review bookend, plus the day's mood (a clean daily
+ *  signal for the correlation engine). One row per day. */
+@Serializable
+@Entity(tableName = "day_logs")
+data class DayLogEntity(
+    @PrimaryKey val epochDay: Long,
+    val amIntention: String = "",
+    val pmReflection: String = "",
+    val amMood: Int = 0,          // 0 unset, 1–5
+    val pmMood: Int = 0,
+    val updatedAt: Long = 0,
+)

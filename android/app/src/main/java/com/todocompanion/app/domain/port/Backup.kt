@@ -55,10 +55,14 @@ data class BackupFile(
     val scorecardItems: List<com.todocompanion.app.data.entity.ScorecardItemEntity> = emptyList(),
     val buddySnapshots: List<com.todocompanion.app.data.entity.BuddySnapshotEntity> = emptyList(),
     val integrityReviews: List<com.todocompanion.app.data.entity.IntegrityReviewEntity> = emptyList(),
+    // R35 — the third-wave layer's tables. Additive; old backups carry empty lists.
+    val experiments: List<com.todocompanion.app.data.entity.ExperimentEntity> = emptyList(),
+    val activationItems: List<com.todocompanion.app.data.entity.ActivationItemEntity> = emptyList(),
+    val dayLogs: List<com.todocompanion.app.data.entity.DayLogEntity> = emptyList(),
 ) {
     companion object {
         const val FORMAT = "todo-companion"
-        const val VERSION = 11
+        const val VERSION = 12
     }
 }
 

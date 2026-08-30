@@ -243,6 +243,40 @@ interface IntegrityReviewDao {
     @Query("DELETE FROM integrity_reviews") suspend fun clear()
 }
 
+// R35 — the THIRD-WAVE layer's tables.
+@Dao
+interface ExperimentDao {
+    @Query("SELECT * FROM experiments ORDER BY createdAt DESC")
+    fun observeAll(): Flow<List<com.todocompanion.app.data.entity.ExperimentEntity>>
+    @Query("SELECT * FROM experiments") suspend fun getAll(): List<com.todocompanion.app.data.entity.ExperimentEntity>
+    @Upsert suspend fun upsert(e: com.todocompanion.app.data.entity.ExperimentEntity)
+    @Upsert suspend fun upsertAll(e: List<com.todocompanion.app.data.entity.ExperimentEntity>)
+    @Query("DELETE FROM experiments WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM experiments") suspend fun clear()
+}
+
+@Dao
+interface ActivationDao {
+    @Query("SELECT * FROM activation_items ORDER BY plannedDay, createdAt")
+    fun observeAll(): Flow<List<com.todocompanion.app.data.entity.ActivationItemEntity>>
+    @Query("SELECT * FROM activation_items") suspend fun getAll(): List<com.todocompanion.app.data.entity.ActivationItemEntity>
+    @Upsert suspend fun upsert(a: com.todocompanion.app.data.entity.ActivationItemEntity)
+    @Upsert suspend fun upsertAll(a: List<com.todocompanion.app.data.entity.ActivationItemEntity>)
+    @Query("DELETE FROM activation_items WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM activation_items") suspend fun clear()
+}
+
+@Dao
+interface DayLogDao {
+    @Query("SELECT * FROM day_logs ORDER BY epochDay DESC")
+    fun observeAll(): Flow<List<com.todocompanion.app.data.entity.DayLogEntity>>
+    @Query("SELECT * FROM day_logs") suspend fun getAll(): List<com.todocompanion.app.data.entity.DayLogEntity>
+    @Query("SELECT * FROM day_logs WHERE epochDay = :day LIMIT 1") suspend fun forDay(day: Long): com.todocompanion.app.data.entity.DayLogEntity?
+    @Upsert suspend fun upsert(d: com.todocompanion.app.data.entity.DayLogEntity)
+    @Upsert suspend fun upsertAll(d: List<com.todocompanion.app.data.entity.DayLogEntity>)
+    @Query("DELETE FROM day_logs") suspend fun clear()
+}
+
 @Dao
 interface SealedNoteDao {
     @Query("SELECT * FROM sealed_notes ORDER BY revealEpochDay")

@@ -293,6 +293,20 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
                 vm.setHabitOrder(global)
             }
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 4.dp, bottom = 100.dp)) {
+                // R35 · TW-D — the companion garden, a calm consistency visual, when opted in.
+                if (appSettings.companionEnabled) item(key = "companion") {
+                    val comp = remember(habits, checkins, today) { com.todocompanion.app.domain.habit.ThirdWave.companion(habits, checkins, today) }
+                    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).clickable { vm.lifeSystemsRoute.value = "companion" },
+                        shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+                        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(comp.emoji, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(end = 12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(comp.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                Text("Grows from your consistency — never shamed.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
                 if (insights.isNotEmpty()) item(key = "insights") { InsightsCard(insights, vm) }
                 sections.forEach { (title, secHabits) ->
                     if (showHeaders) item(key = "sec-$title") {
@@ -302,7 +316,7 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
                     item(key = "seccol-$title") {
                         HabitDraggableColumn(secHabits, onReorder = { persistSection(secHabits, it) }) { h ->
                             HabitRow(
-                                h, checkins, today, allHabits = habits, forgiving = appSettings.forgivingStreaks, graded = appSettings.gradedStrength, calm = appSettings.calmMode,
+                                h, checkins, today, allHabits = habits, forgiving = appSettings.forgivingStreaks, graded = appSettings.gradedStrength, calm = appSettings.calmMode, strengthMeter = appSettings.strengthMeter,
                                 onCycle = {
                                     val cur = daysFor(h, checkins).counts[today] ?: 0
                                     if (h.habitType == "break") {
@@ -497,7 +511,7 @@ private fun HabitDraggableColumn(habits: List<HabitEntity>, onReorder: (List<Str
 @Composable
 private fun HabitRow(
     h: HabitEntity, checkins: List<com.todocompanion.app.data.entity.HabitCheckinEntity>, today: Long,
-    allHabits: List<HabitEntity> = emptyList(), forgiving: Boolean = false, graded: Boolean = false, calm: Boolean = false,
+    allHabits: List<HabitEntity> = emptyList(), forgiving: Boolean = false, graded: Boolean = false, calm: Boolean = false, strengthMeter: Boolean = false,
     onCycle: () -> Unit, onOpen: () -> Unit, onSkip: () -> Unit, onClear: () -> Unit,
     onSetValue: () -> Unit, onPause: () -> Unit, onEdit: () -> Unit, onFocus: () -> Unit,
     onAddValue: (Int) -> Unit = {},
@@ -574,8 +588,9 @@ private fun HabitRow(
                 }
             }
             // Streak flame. Numeric entry now lives on the ring tap (value dialog), not an inline stepper.
-            // R34 · calm mode hides the streak count to keep the focus on showing up, not the number.
-            if (streak > 0 && !calm) Text((if (isBreak) "✨ " else "🔥 ") + streak, style = MaterialTheme.typography.labelLarge, color = color)
+            // R34 · calm mode hides the streak count; R35 · strength meter shows the forgiving % instead.
+            if (strengthMeter && !calm) Text("$strength%", style = MaterialTheme.typography.labelLarge, color = color)
+            else if (streak > 0 && !calm) Text((if (isBreak) "✨ " else "🔥 ") + streak, style = MaterialTheme.typography.labelLarge, color = color)
             Box {
                 // R4: full 48dp touch target for accessibility; the icon stays visually compact.
                 IconButton(onClick = { rowMenu = true }) {
@@ -735,6 +750,11 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
     var refereeName by remember { mutableStateOf(existing?.refereeName ?: "") }
     var forfeitText by remember { mutableStateOf(existing?.forfeitText ?: "") }
     val coreValues by vm.coreValues.collectAsState()
+    // R35 third-wave editor fields.
+    var frictionSteps by remember { mutableStateOf(existing?.frictionSteps ?: "") }
+    var cueToDisrupt by remember { mutableStateOf(existing?.cueToDisrupt ?: "") }
+    var cueDisruptionPlan by remember { mutableStateOf(existing?.cueDisruptionPlan ?: "") }
+    var futureScene by remember { mutableStateOf(existing?.futureScene ?: "") }
     var confirmDelete by remember { mutableStateOf(false) }
     // T3: which time-tracking activity this habit is linked to (tracking it credits the habit).
     var timeActivityId by remember { mutableStateOf(existing?.timeActivityId) }
@@ -745,7 +765,8 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
             existing.rewardText.isNotBlank() || existing.category.isNotBlank() || existing.habitType == "break" ||
             existing.moneyPerUnit != null || existing.startDate != null || existing.clickIncrement > 1 || existing.extraTarget != null ||
             existing.woopObstacle.isNotBlank() || existing.woopCoping.isNotBlank() || existing.valueId != null ||
-            existing.competingResponse.isNotBlank() || existing.contractText.isNotBlank() || existing.refereeName.isNotBlank() || existing.forfeitText.isNotBlank())
+            existing.competingResponse.isNotBlank() || existing.contractText.isNotBlank() || existing.refereeName.isNotBlank() || existing.forfeitText.isNotBlank() ||
+            existing.frictionSteps.isNotBlank() || existing.cueToDisrupt.isNotBlank() || existing.futureScene.isNotBlank())
     ) }
     val ctx = LocalContext.current
     val isBreak = habitType == "break"
@@ -777,6 +798,8 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
             woopOutcome = woopOutcome.trim(), woopObstacle = woopObstacle.trim(), woopCoping = woopCoping.trim(),
             valueId = valueId, competingResponse = competingResponse.trim(),
             contractText = contractText.trim(), refereeName = refereeName.trim(), forfeitText = forfeitText.trim(),
+            frictionSteps = frictionSteps.trim(), cueToDisrupt = cueToDisrupt.trim(), cueDisruptionPlan = cueDisruptionPlan.trim(),
+            futureScene = futureScene.trim(),
         )
     }
     fun save() {
@@ -1009,6 +1032,18 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
                     label = { Text("Referee — who signs off? (optional)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
                 com.todocompanion.app.ui.components.AppTextField(forfeitText, { forfeitText = it }, singleLine = true,
                     label = { Text("Forfeit if you derail (donate ₹X, cold shower…)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                // R35 third-wave: friction / cue-disruption / future-self scene.
+                Text("FRICTION & FUTURE-SELF", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 14.dp, bottom = 2.dp))
+                com.todocompanion.app.ui.components.AppTextField(frictionSteps, { frictionSteps = it },
+                    label = { Text(if (isBreak) "Add friction — steps that make it harder (one per line)" else "Prep / ready-kit steps that make it easier (one per line)") }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
+                if (isBreak) {
+                    com.todocompanion.app.ui.components.AppTextField(cueToDisrupt, { cueToDisrupt = it }, singleLine = true,
+                        label = { Text("The cue that sets it off (the antecedent)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                    com.todocompanion.app.ui.components.AppTextField(cueDisruptionPlan, { cueDisruptionPlan = it }, singleLine = true,
+                        label = { Text("How you'll remove or alter that cue") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                }
+                com.todocompanion.app.ui.components.AppTextField(futureScene, { futureScene = it },
+                    label = { Text("Future-self scene — picture yourself having kept this (replayed at urges)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
                 // T3/V3: link this habit to a time-tracking activity — tracking that activity then credits
                 // the habit. (Fixes: no way to link an activity to a habit from the habit side.)
                 if (timeOn) {

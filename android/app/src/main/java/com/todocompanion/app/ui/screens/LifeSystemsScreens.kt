@@ -77,6 +77,8 @@ fun LifeSystemsScreen(vm: AppViewModel, route: String, onBack: () -> Unit, onOpe
         "reviews" -> ReviewsScreen(vm, onBack)
         "ledger" -> IdentityLedgerScreen(vm, onBack)
         "buddies" -> BuddiesScreen(vm, onBack)
+        "experiments", "activation", "heatmap", "valuestime", "runner", "companion", "focuslock" ->
+            ThirdWaveScreen(vm, route, onBack, onOpenHabit)
         else -> HubScreen(vm, onBack)
     }
 }
@@ -100,6 +102,13 @@ private fun HubScreen(vm: AppViewModel, onBack: () -> Unit) {
         Entry("values", "🧭", "Values → systems → habits", "Name what you stand for; see how the week's actions cash out each value."),
         Entry("scorecard", "📋", "Habits scorecard", "Audit a typical day — tag each behaviour good, neutral or bad."),
         Entry("correlations", "🔗", "Correlation engine", "What your own data reveals: “on days you do X, mood is +N.”"),
+        Entry("experiments", "🔬", "Causal Life Lab", "Run an n-of-1 experiment — prove which habit actually moves your mood."),
+        Entry("valuestime", "⚖️", "Values-time mirror", "Stated vs revealed: where your tracked hours really went."),
+        Entry("activation", "🌤️", "Behavioral activation", "Schedule small, values-linked wins; rate pleasure & mastery. Act first."),
+        Entry("runner", "▶️", "Routine runner", "Press play on a stack of habits and ride the momentum, step by step."),
+        Entry("focuslock", "🔒", "Focus lock", "A self-imposed focus session with rising exit friction — no server."),
+        Entry("heatmap", "🟩", "Life heatmap", "Your whole practice in one year-in-pixels grid, plus a memory from years past."),
+        Entry("companion", "🌳", "Your garden", "A plant that grows from consistency — never shamed. A calm alternative to numbers."),
         Entry("reviews", "📆", "Weekly & annual review", "A private integrity report assembled from your ledger."),
         Entry("ledger", "🗳️", "Identity ledger", "Every vote you've cast for the person you're becoming."),
         Entry("buddies", "🤝", "Buddies", "Share a progress digest, or cheer a friend — peer-to-peer, no account."),

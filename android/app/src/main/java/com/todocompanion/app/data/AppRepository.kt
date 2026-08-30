@@ -53,6 +53,9 @@ class AppRepository(private val db: AppDatabase) {
     private val scorecard = db.scorecardDao()
     private val buddies = db.buddyDao()
     private val integrityReviews = db.integrityReviewDao()
+    private val experiments = db.experimentDao()
+    private val activation = db.activationDao()
+    private val dayLogs = db.dayLogDao()
     private val templateJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     // ----- task time-travel: sparse revision history (H5) -----
@@ -160,6 +163,16 @@ class AppRepository(private val db: AppDatabase) {
     val allIntegrityReviews: Flow<List<com.todocompanion.app.data.entity.IntegrityReviewEntity>> = integrityReviews.observeAll()
     suspend fun upsertIntegrityReview(r: com.todocompanion.app.data.entity.IntegrityReviewEntity) = integrityReviews.upsert(r)
     suspend fun deleteIntegrityReview(id: String) = integrityReviews.deleteById(id)
+    // R35 — third-wave accessors.
+    val allExperiments: Flow<List<com.todocompanion.app.data.entity.ExperimentEntity>> = experiments.observeAll()
+    suspend fun upsertExperiment(e: com.todocompanion.app.data.entity.ExperimentEntity) = experiments.upsert(e)
+    suspend fun deleteExperiment(id: String) = experiments.deleteById(id)
+    val allActivationItems: Flow<List<com.todocompanion.app.data.entity.ActivationItemEntity>> = activation.observeAll()
+    suspend fun upsertActivationItem(a: com.todocompanion.app.data.entity.ActivationItemEntity) = activation.upsert(a)
+    suspend fun deleteActivationItem(id: String) = activation.deleteById(id)
+    val allDayLogs: Flow<List<com.todocompanion.app.data.entity.DayLogEntity>> = dayLogs.observeAll()
+    suspend fun dayLogFor(day: Long): com.todocompanion.app.data.entity.DayLogEntity? = dayLogs.forDay(day)
+    suspend fun upsertDayLog(d: com.todocompanion.app.data.entity.DayLogEntity) = dayLogs.upsert(d)
     val allSettings: Flow<List<SettingEntity>> = settings.observeAll()
     private val habits = db.habitDao()
     val allHabits: Flow<List<HabitEntity>> = habits.observeAll()
@@ -1051,6 +1064,9 @@ class AppRepository(private val db: AppDatabase) {
             scorecardItems = scorecard.getAll(),
             buddySnapshots = buddies.getAll(),
             integrityReviews = integrityReviews.getAll(),
+            experiments = experiments.getAll(),
+            activationItems = activation.getAll(),
+            dayLogs = dayLogs.getAll(),
         )
     )
 
@@ -1103,6 +1119,7 @@ class AppRepository(private val db: AppDatabase) {
         habits.clear(); habits.clearCheckins(); focus.clear(); attachments.clear(); flags.clear(); templates.clear(); countdowns.clear(); activity.clear(); revisions.clear()
         timeTrack.clearEntries(); timeTrack.clearActivities(); sealedNotes.clear(); cravings.clear()
         coreValues.clear(); witnesses.clear(); scorecard.clear(); buddies.clear(); integrityReviews.clear()
+        experiments.clear(); activation.clear(); dayLogs.clear()
         folders.upsertAll(b.folders)
         lists.upsertAll(b.lists)
         tasks.upsertAll(b.tasks)
@@ -1126,6 +1143,7 @@ class AppRepository(private val db: AppDatabase) {
         cravings.upsertAll(b.cravingEvents)
         coreValues.upsertAll(b.coreValues); witnesses.upsertAll(b.witnessEvents); scorecard.upsertAll(b.scorecardItems)
         buddies.upsertAll(b.buddySnapshots); integrityReviews.upsertAll(b.integrityReviews)
+        experiments.upsertAll(b.experiments); activation.upsertAll(b.activationItems); dayLogs.upsertAll(b.dayLogs)
         ensureDefaultWorkspace()
         ensureInbox()
         ensureDefaultFlags()

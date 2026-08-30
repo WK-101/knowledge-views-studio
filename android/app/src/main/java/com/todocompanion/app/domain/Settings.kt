@@ -217,6 +217,12 @@ data class AppSettings(
     val chronotype: Int = 0,
     val calmMode: Boolean = false,
     val rewardMenu: List<String> = emptyList(),
+    // R35 · third-wave toggles. bookends: a daily AM/PM intention-review card on Today. companion: a
+    // plant that grows from consistency (a calm-mode-native visual). strengthMeter: show the forgiving
+    // strength % as the headline habit metric instead of the streak flame.
+    val bookendsEnabled: Boolean = false,
+    val companionEnabled: Boolean = false,
+    val strengthMeter: Boolean = false,
 ) {
     /** Effective tier for an optional editor field: user override, else its built-in default. */
     fun editorTier(f: EditorField): Int = editorFieldTiers[f.id] ?: f.defaultTier
@@ -354,6 +360,9 @@ data class AppSettings(
         Keys.CHRONOTYPE to chronotype.toString(),
         Keys.CALM_MODE to calmMode.toString(),
         Keys.REWARD_MENU to rewardMenu.joinToString("\n"),
+        Keys.BOOKENDS to bookendsEnabled.toString(),
+        Keys.COMPANION to companionEnabled.toString(),
+        Keys.STRENGTH_METER to strengthMeter.toString(),
     )
 
     object Keys {
@@ -475,6 +484,9 @@ data class AppSettings(
         const val CHRONOTYPE = "chronotype"
         const val CALM_MODE = "calm_mode"
         const val REWARD_MENU = "reward_menu"
+        const val BOOKENDS = "bookends_enabled"
+        const val COMPANION = "companion_enabled"
+        const val STRENGTH_METER = "strength_meter"
     }
 
     companion object {
@@ -618,6 +630,9 @@ data class AppSettings(
             chronotype = m[Keys.CHRONOTYPE]?.toIntOrNull()?.coerceIn(0, 2) ?: 0,
             calmMode = m[Keys.CALM_MODE]?.toBooleanStrictOrNull() ?: false,
             rewardMenu = (m[Keys.REWARD_MENU] ?: "").split("\n").map { it.trim() }.filter { it.isNotEmpty() },
+            bookendsEnabled = m[Keys.BOOKENDS]?.toBooleanStrictOrNull() ?: false,
+            companionEnabled = m[Keys.COMPANION]?.toBooleanStrictOrNull() ?: false,
+            strengthMeter = m[Keys.STRENGTH_METER]?.toBooleanStrictOrNull() ?: false,
         )
     }
 }

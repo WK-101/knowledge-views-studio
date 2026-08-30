@@ -115,6 +115,16 @@ data class HabitEntity(
     val forfeitLevel: Int = 0,
     val pendingEaseMillis: Long = 0,
     val pendingEaseTarget: Int = 0,
+    // --- R35 · the THIRD-WAVE layer (all additive) ---
+    // TW-A friction & environment: prep/"ready kit" steps to make a good habit easier or an obstacle
+    // course to make a bad one harder (one per line), plus a bad habit's antecedent cue + disruption plan.
+    val frictionSteps: String = "",
+    val cueToDisrupt: String = "",
+    val cueDisruptionPlan: String = "",
+    // TW-D episodic future thinking: a vivid future-self scene, replayed at urge / decision points.
+    val futureScene: String = "",
+    // TW-D reward taper: once automatic, a habit "graduates" — celebration & prompting fade to a light check.
+    val graduated: Boolean = false,
 ) {
     /** V4: the encouragement lines, trimmed and non-empty. */
     fun encouragementList(): List<String> = encouragements.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
