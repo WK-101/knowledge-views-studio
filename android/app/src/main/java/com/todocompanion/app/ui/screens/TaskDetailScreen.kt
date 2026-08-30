@@ -163,7 +163,6 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     var showStart by remember { mutableStateOf(false) }
     var showDuration by remember { mutableStateOf(false) }
     var showEstimate by remember { mutableStateOf(false) }
-    var showAttachBrowser by remember { mutableStateOf(false) }
     var showReminder by remember { mutableStateOf(false) }
     var editActivity by remember { mutableStateOf<com.todocompanion.app.data.entity.TimeActivityEntity?>(null) }
     var newTag by remember { mutableStateOf("") }
@@ -504,14 +503,15 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             val attachments by attFlow.collectAsState(initial = emptyList())
             // R38 — the TickTick approach to attachments: every source is permission-free. The system
             // grants access to exactly the file the user picks; we copy its bytes in (openInputStream).
-            //  • Files: ACTION_GET_CONTENT (GetContent) — answered by BOTH the system document picker and
-            //    ordinary file managers, and it opens straight onto a list of files (unlike OpenDocument,
-            //    which lands on an empty "Recent" on many ROMs). No storage permission; we copy the bytes in.
-            //  • Photos/videos: the Android Photo Picker (PickVisualMedia) — no permission on any API.
-            //  • Camera: ACTION_IMAGE_CAPTURE into a FileProvider URI — no CAMERA permission needed by us.
-            // The in-app browser (which DOES need storage access) is only a last resort for stripped ROMs.
-            val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> if (uri != null) vm.addAttachment(task.id, uri) }
-            val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) vm.addAttachment(task.id, uri) }
+            // R40 — the whole attachment system is the SYSTEM pickers, TickTick-style. Every source hands
+            // back exactly the file(s) the user selects, scoped to that item, so NO storage/media permission
+            // is ever needed and there is no in-app file browser. All three support what they should:
+            //  • Files: ACTION_GET_CONTENT (GetMultipleContents) — the system document picker + any file
+            //    manager, opening straight onto a list of ALL files; multi-select. We copy the bytes in.
+            //  • Photos/videos: the Android Photo Picker (PickMultipleVisualMedia) — multi-select, no permission.
+            //  • Camera: capture into a FileProvider URI via the system camera app — no CAMERA permission.
+            val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris -> if (uris.isNotEmpty()) vm.addAttachments(task.id, uris) }
+            val pickPhotos = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { uris -> if (uris.isNotEmpty()) vm.addAttachments(task.id, uris) }
             var cameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
             val takePhoto = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok -> if (ok) cameraUri?.let { vm.addAttachment(task.id, it) } }
             // Staged tag/context sets (R21 #2): pending edits if any, else the live DB sets.
@@ -659,22 +659,11 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     }
                 }
                 val attachCtx = androidx.compose.ui.platform.LocalContext.current
-                // Universal fallback: if the system picker is missing, the app's own file browser always
-                // works — it just needs storage access, which we request right here rather than dead-ending
-                // on a toast. So "Browse device" is always offered and self-heals the permission.
-                // The browser ALWAYS opens (the app's own storage folder needs no permission, so there's
-                // always something to browse); we additionally request the runtime read permission via the
-                // standard dialog to unlock the shared folders (Downloads, Documents). This never dead-ends
-                // on a settings screen that a stripped ROM may not even have.
-                val readPermLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { }
-                fun browseDevice() {
-                    showAttachBrowser = true
-                    if (!vm.canBrowseStorage()) runCatching { readPermLauncher.launch(com.todocompanion.app.util.FileExport.readPermissions()) }
-                }
                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(0.dp)) {
-                    // Photos — the Android Photo Picker: no permission, ever.
+                    // Photos & videos — the Android Photo Picker, multi-select: no permission, ever.
                     TextButton(onClick = {
-                        runCatching { pickPhoto.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) }
+                        runCatching { pickPhotos.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) }
+                            .onFailure { android.widget.Toast.makeText(attachCtx, "No photo picker on this device", android.widget.Toast.LENGTH_SHORT).show() }
                     }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.Image, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Photo") }
                     // Camera — capture straight into a FileProvider URI (no CAMERA permission needed by us).
                     TextButton(onClick = {
@@ -685,15 +674,14 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                             cameraUri = u; takePhoto.launch(u)
                         }.onFailure { android.widget.Toast.makeText(attachCtx, "No camera app available", android.widget.Toast.LENGTH_SHORT).show() }
                     }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.CameraAlt, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Camera") }
-                    // Files — the system picker via ACTION_GET_CONTENT: no permission, and it lands on a
-                    // list of files (so files are actually shown). The in-app browser is only the fallback.
+                    // Files — the system document picker (ACTION_GET_CONTENT), multi-select: shows ALL files
+                    // from every provider, no storage permission. This is the only "files" path — no in-app browser.
                     TextButton(onClick = {
-                        try { pickFile.launch("*/*") } catch (e: Exception) { browseDevice() }
+                        runCatching { pickFiles.launch("*/*") }
+                            .onFailure { android.widget.Toast.makeText(attachCtx, "No file picker on this device — you can still drop a file into the app's import inbox from Settings.", android.widget.Toast.LENGTH_LONG).show() }
                     }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.AttachFile, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("File") }
                 }
-                if (attachments.isEmpty()) Text("Photos, camera or any file up to 25 MB. Picked through the system picker — no storage permission. Stored on-device and in backups.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                // Last-resort path for stripped ROMs with no system picker at all (needs storage access).
-                TextButton(onClick = { browseDevice() }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text("No picker? Browse device", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline) }
+                if (attachments.isEmpty()) Text("Photos, camera, or any file up to 25 MB — picked through your phone's own picker, so no storage permission is ever asked. Stored on-device and in your backups.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
                     com.todocompanion.app.domain.EditorField.TAGS ->
@@ -975,8 +963,6 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             onDelete = { vm.deleteTimeActivity(act.id); editActivity = null })
     }
     // In-app file browser fallback for attachments on ROMs with no system picker (R23). R30 #6 — multi-select.
-    if (showAttachBrowser && task != null) FileBrowser(vm, title = "Choose files to attach", allTypes = true, confirmLabel = "Attach", multi = true,
-        onDismiss = { showAttachBrowser = false }, onPickedMulti = { files -> showAttachBrowser = false; vm.addAttachmentsFromFiles(task.id, files) })
     if (showReminder) DateTimePickerDialog(task?.dueDate ?: System.currentTimeMillis(), { showReminder = false }) { m -> task?.let { vm.addAbsoluteReminder(it, m) }; showReminder = false }
     if (showBlockPicker && task != null) {
         val existing = allDeps.filter { it.taskId == task.id }.map { it.dependsOnTaskId }.toSet()

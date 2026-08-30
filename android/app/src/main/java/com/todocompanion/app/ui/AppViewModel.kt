@@ -1157,24 +1157,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (!ok) toast("Could not save attachment")
     }
     fun removeAttachment(id: String) = viewModelScope.launch { repo.deleteAttachment(id) }
-    /** Attach a file the user picked through the in-app browser — the reliable path on de-Googled phones
-     *  and custom ROMs that ship no system document picker (R23). Same on-device store as [addAttachment]. */
-    fun addAttachmentFromFile(taskId: String, file: java.io.File) = viewModelScope.launch {
-        val bytes = withContext(Dispatchers.IO) { runCatching { file.readBytes() }.getOrNull() }
-        if (bytes == null) { toast("Could not read file"); return@launch }
-        if (bytes.size > repo.maxAttachmentBytes) { toast("File too large (max 25 MB per file)"); return@launch }
-        val mime = java.net.URLConnection.guessContentTypeFromName(file.name) ?: "application/octet-stream"
-        val ok = withContext(Dispatchers.IO) {
-            runCatching {
-                val dir = java.io.File(appCtx.filesDir, "attachments").apply { mkdirs() }
-                val f = java.io.File(dir, UUID.randomUUID().toString())
-                f.writeBytes(bytes)
-                repo.addAttachmentFile(taskId, file.name, mime, bytes.size.toLong(), f.absolutePath)
-                true
-            }.getOrDefault(false)
-        }
-        if (!ok) toast("Could not save attachment")
-    }
+    /** R40 — attach several files at once from the system picker (Photo Picker / SAF, multi-select). Each
+     *  URI's bytes are copied into app-private storage; no storage permission is involved. */
+    fun addAttachments(taskId: String, uris: List<Uri>) { uris.forEach { addAttachment(taskId, it) } }
 
     /** Set a list's background image: decode, downscale to ≤1280px, re-encode JPEG, store as base64. */
     fun setListBackgroundFromUri(listId: String, uri: Uri) = viewModelScope.launch {
@@ -3801,22 +3786,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun loadSavedBackups(broad: Boolean = false, onDone: (List<com.todocompanion.app.util.FileExport.SavedFile>) -> Unit) = viewModelScope.launch {
         val list = withContext(Dispatchers.IO) { com.todocompanion.app.util.FileExport.listSaved(appCtx, broad) }
         onDone(list)
-    }
-    // ---- Full in-app file browser (needs storage access; browse + search the real filesystem) ----
-    fun canBrowseStorage(): Boolean = com.todocompanion.app.util.FileExport.canBrowseStorage(appCtx)
-    fun browseDir(dir: java.io.File, allTypes: Boolean = false, onDone: (List<com.todocompanion.app.util.FileExport.Entry>) -> Unit) = viewModelScope.launch {
-        onDone(withContext(Dispatchers.IO) { com.todocompanion.app.util.FileExport.listDir(dir, allTypes) })
-    }
-    fun searchFilesystem(q: String, allTypes: Boolean = false, onDone: (List<java.io.File>) -> Unit) = viewModelScope.launch {
-        onDone(withContext(Dispatchers.IO) { com.todocompanion.app.util.FileExport.searchFiles(q, allTypes) })
-    }
-    /** R30 #6 — attach several browsed files at once. */
-    fun addAttachmentsFromFiles(taskId: String, files: List<java.io.File>) {
-        files.forEach { addAttachmentFromFile(taskId, it) }
-    }
-    /** Import a browsed file by wrapping it as a SavedFile and reusing the restore pipeline. */
-    fun importBrowsedFile(file: java.io.File, onDone: (Boolean, String) -> Unit) {
-        restoreSaved(com.todocompanion.app.util.FileExport.SavedFile(file.name, file.parent ?: "", file.lastModified(), null, file), onDone)
     }
     /** The folder a user copies a backup into to import it with no picker and no permission. */
     fun importInboxHint(): String = com.todocompanion.app.util.FileExport.importInboxHint(appCtx)
