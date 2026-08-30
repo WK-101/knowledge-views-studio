@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.provider.MediaStore
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -17,39 +18,35 @@ import androidx.core.content.FileProvider
 import java.io.File
 
 /**
- * R43 — the ROM-proof picker system, rebuilt from a forensic decompile of TickTick + Todoist.
+ * R44 — the picker rebuilt from the ACTUAL working reference: the open-source Tasks.org (`org.tasks`),
+ * which attaches any file with zero storage/media/camera permission on stock AND de-Googled ROMs.
  *
- * ROOT CAUSE of the six rounds of "could not open the file picker / no camera or gallery / no photo
- * picker" toasts: it was NEVER the intent. It was the launch plumbing. Our old launchers were
- * `rememberLauncherForActivityResult` calls buried inside a `when{}` arm / section content lambda —
- * a conditionally-composed slot. A launcher registered there unregisters the moment that slot leaves
- * composition, so `.launch()` throws `IllegalStateException` ("unregistered ActivityResultLauncher"
- * / "Launcher has not been initialized") for EVERY intent, on EVERY ROM. That is exactly why the same
- * device runs TickTick fine: TickTick never touches the Compose registry — it launches through the
- * Activity/Fragment's own `startActivityForResult`, which is always "registered" because it IS the
- * Activity. (Decompiled proof: TickTick file pick = `Fragment.startActivityForResult(OPEN_DOCUMENT,108)`
- * with no try/catch; camera = IMAGE_CAPTURE gated by `hasSystemFeature` + try/catch; gallery = its own
- * in-app ImageGridActivity.)
+ * THE REAL ROOT CAUSE (finally): it was never the launch plumbing and never one magic contract. Our
+ * earlier "fixes" all launched the SAME family — ACTION_OPEN_DOCUMENT, ACTION_GET_CONTENT, and
+ * GET_CONTENT-in-a-chooser. On a debloated ROM where the system DocumentsUI is stripped and nothing
+ * claims GET_CONTENT, all three resolve to nothing and every attempt throws — a dead end with no route
+ * left. Tasks.org survives because it offers a MENU OF INDEPENDENT ROUTES, and the decisive one is
+ * `ACTION_PICK` on `MediaStore.Images.Media.EXTERNAL_CONTENT_URI`: that is served by the MEDIA PROVIDER,
+ * which is present on essentially every ROM — including ones with no DocumentsUI. So the gallery opens
+ * where SAF cannot. (Tasks.org also delegates the camera to any camera app via IMAGE_CAPTURE +
+ * FileProvider, and copies the picked bytes straight into app-private storage — which our attachment
+ * layer already does via openInputStream.)
  *
- * THE FIX, applied by these helpers:
- *   1. Register unconditionally at the TOP LEVEL of a screen composable. Callers invoke these
- *      remember* helpers once, before any `if`/`when`/`return`, and pass only the returned lambda down
- *      into sections/sheets. NEVER call them inside a when-arm, DetailSection body, dialog or lazy item.
- *   2. A layered launch chain that cannot dead-end: OPEN_DOCUMENT (SAF) → GET_CONTENT → GET_CONTENT in a
- *      system chooser. The photo path leads with the Android Photo Picker (PickVisualMedia), which itself
- *      falls back to GET_CONTENT on devices with no picker module.
- *   3. If every tier throws, surface the REAL exception (class + message) instead of a generic toast, so
- *      there is nothing left to guess, and point the user at the always-available "share a file into the
- *      app" path (the ACTION_SEND inbox in the manifest).
- *   4. Camera is feature-gated with `hasSystemFeature(FEATURE_CAMERA_ANY)` and writes to a FileProvider
- *      URI — mirrors both reference apps.
- * All permission-free: SAF / GET_CONTENT / the photo picker each hand back exactly the item the user
- * picks with a temporary read grant; no INTERNET, storage, media or camera permission is ever declared.
+ * THE FIX these helpers apply, mirroring Tasks.org:
+ *   • PHOTO → lead with `ACTION_PICK` (media provider, works on debloated ROMs), then the modern Photo
+ *     Picker, then a GET_CONTENT chooser. This is the route that was missing and the whole reason the
+ *     picker "wouldn't open".
+ *   • FILE  → ACTION_OPEN_DOCUMENT (SAF, any type) → GET_CONTENT chooser. When a ROM genuinely has no
+ *     SAF at all, arbitrary-file picking cannot work permission-free (Tasks.org has the same limit); we
+ *     surface a clear message pointing to the gallery/camera/"share into the app" routes instead.
+ *   • CAMERA → IMAGE_CAPTURE into a FileProvider URI, feature-gated by hasSystemFeature.
+ * Every route hands back exactly the picked item with a temporary read grant; the returned URI is read
+ * immediately with openInputStream and copied in, so no storage/media/camera permission is ever needed.
  */
 
 private const val TAG = "RobustPicker"
 
-/** Pull the URIs out of an ACTION_GET_CONTENT / chooser result — multi in clipData, single in data. */
+/** Pull the URIs out of a picker result — multi in clipData, single in data. */
 private fun extractUris(data: Intent?): List<Uri> {
     if (data == null) return emptyList()
     val out = ArrayList<Uri>()
@@ -71,94 +68,97 @@ private inline fun launchChain(attempts: List<Pair<String, () -> Unit>>, kind: S
     return last
 }
 
-private fun fatal(kind: String, e: Throwable?): String =
-    "Couldn't open the $kind picker: ${e?.javaClass?.simpleName ?: "unknown"}: ${e?.message ?: ""}. " +
-        "Tip: open the file in another app and Share → ToDo Companion instead."
+/** The MediaStore gallery intent — the route that survives ROMs with no DocumentsUI (Tasks.org's core). */
+private fun galleryPickIntent(): Intent = Intent(Intent.ACTION_PICK).apply {
+    setDataAndType(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, "image/*")
+    putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+}
+
+private fun getContentIntent(mimeTypes: Array<String>): Intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+    addCategory(Intent.CATEGORY_OPENABLE)
+    type = if (mimeTypes.size == 1) mimeTypes[0] else "*/*"
+    if (mimeTypes.size > 1) putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes)
+    putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+}
 
 /**
- * Robust FILE picker. Call at the top level of a screen composable; returns `launch(mimeTypes)`.
- * Handles single OR multi-select — the callback receives every URI the user picked.
+ * Robust FILE picker (arbitrary types). Call at the top level of a screen composable; returns
+ * `launch(mimeTypes)`. Handles single OR multi-select — the callback receives every URI picked.
  */
 @Composable
 fun rememberFilePicker(
     onError: (String) -> Unit = {},
     onPicked: (List<Uri>) -> Unit,
 ): (Array<String>) -> Unit {
-    val context = LocalContext.current
     val openDoc = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isNotEmpty()) onPicked(uris)
     }
     val getContent = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let { onPicked(listOf(it)) }
     }
-    val chooser = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
+    val raw = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         if (res.resultCode == Activity.RESULT_OK) extractUris(res.data).takeIf { it.isNotEmpty() }?.let(onPicked)
     }
     return { mimeTypes ->
         val types = if (mimeTypes.isEmpty()) arrayOf("*/*") else mimeTypes
         val primary = if (types.size == 1) types[0] else "*/*"
-        val getIntent = Intent(Intent.ACTION_GET_CONTENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE)
-            type = primary
-            if (types.size > 1) putExtra(Intent.EXTRA_MIME_TYPES, types)
-            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
         val err = launchChain(
             listOf(
                 "OPEN_DOCUMENT" to { openDoc.launch(types) },
                 "GET_CONTENT" to { getContent.launch(primary) },
-                "CHOOSER" to { chooser.launch(Intent.createChooser(getIntent, "Select a file")) },
+                "CHOOSER" to { raw.launch(Intent.createChooser(getContentIntent(types), "Select a file")) },
             ),
             "file",
         )
-        if (err != null) onError(fatal("file", err))
+        if (err != null) onError(
+            "This device has no document picker (${err.javaClass.simpleName}). Tip: use the Photo or " +
+                "Camera button for images, or open the file in another app and Share → ToDo Companion.",
+        )
     }
 }
 
 /**
- * Robust PHOTO/VIDEO picker. Leads with the Android Photo Picker (no permission, built-in GET_CONTENT
- * fallback), then GET_CONTENT, then a chooser. Call at the top level; returns `launch()`.
+ * Robust PHOTO/media picker. Leads with the MediaStore gallery (`ACTION_PICK`) — the route that opens on
+ * ROMs without DocumentsUI, exactly as Tasks.org does — then the modern Photo Picker, then a GET_CONTENT
+ * chooser. Call at the top level; returns `launch()`.
  */
 @Composable
 fun rememberPhotoPicker(
     onError: (String) -> Unit = {},
     onPicked: (List<Uri>) -> Unit,
 ): () -> Unit {
-    val context = LocalContext.current
+    val gallery = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
+        if (res.resultCode == Activity.RESULT_OK) extractUris(res.data).takeIf { it.isNotEmpty() }?.let(onPicked)
+    }
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { uris ->
         if (uris.isNotEmpty()) onPicked(uris)
-    }
-    val getContent = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let { onPicked(listOf(it)) }
     }
     val chooser = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         if (res.resultCode == Activity.RESULT_OK) extractUris(res.data).takeIf { it.isNotEmpty() }?.let(onPicked)
     }
     return {
-        val getIntent = Intent(Intent.ACTION_GET_CONTENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE)
-            type = "image/*"
-            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "video/*"))
-            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
         val err = launchChain(
             listOf(
+                // Media provider first — present on virtually every ROM, DocumentsUI or not. THE fix.
+                "MEDIA_PICK" to { gallery.launch(galleryPickIntent()) },
                 "PHOTO_PICKER" to {
                     photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
                 },
-                "GET_CONTENT" to { getContent.launch("image/*") },
-                "CHOOSER" to { chooser.launch(Intent.createChooser(getIntent, "Select photos")) },
+                "CHOOSER" to { chooser.launch(Intent.createChooser(getContentIntent(arrayOf("image/*", "video/*")), "Select photos")) },
             ),
             "photo",
         )
-        if (err != null) onError(fatal("photo", err))
+        if (err != null) onError(
+            "Couldn't open the gallery (${err.javaClass.simpleName}). Try the Camera or File button, or " +
+                "Share a photo into ToDo Companion from your gallery app.",
+        )
     }
 }
 
 /**
- * Robust CAMERA capture into a FileProvider URI. Feature-gated like TickTick/Todoist. Call at the top
+ * Robust CAMERA capture into a FileProvider URI. Feature-gated like Tasks.org/TickTick. Call at the top
  * level; returns `launch()`. On capture, `onCaptured(uri)` fires with the photo's content URI.
  */
 @Composable
