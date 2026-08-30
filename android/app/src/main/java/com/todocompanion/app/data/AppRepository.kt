@@ -48,6 +48,11 @@ class AppRepository(private val db: AppDatabase) {
     private val timeTrack = db.timeTrackingDao()
     private val sealedNotes = db.sealedNoteDao()
     private val cravings = db.cravingDao()
+    private val coreValues = db.coreValueDao()
+    private val witnesses = db.witnessDao()
+    private val scorecard = db.scorecardDao()
+    private val buddies = db.buddyDao()
+    private val integrityReviews = db.integrityReviewDao()
     private val templateJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     // ----- task time-travel: sparse revision history (H5) -----
@@ -139,6 +144,22 @@ class AppRepository(private val db: AppDatabase) {
     val allCravings: Flow<List<com.todocompanion.app.data.entity.CravingEventEntity>> = cravings.observeAll()
     suspend fun upsertCraving(c: com.todocompanion.app.data.entity.CravingEventEntity) = cravings.upsert(c)
     suspend fun deleteCraving(id: String) = cravings.deleteById(id)
+    // R34 — life-systems layer accessors.
+    val allCoreValues: Flow<List<com.todocompanion.app.data.entity.CoreValueEntity>> = coreValues.observeAll()
+    suspend fun upsertCoreValue(v: com.todocompanion.app.data.entity.CoreValueEntity) = coreValues.upsert(v)
+    suspend fun deleteCoreValue(id: String) = coreValues.deleteById(id)
+    val allWitnessEvents: Flow<List<com.todocompanion.app.data.entity.WitnessEventEntity>> = witnesses.observeAll()
+    suspend fun upsertWitness(w: com.todocompanion.app.data.entity.WitnessEventEntity) = witnesses.upsert(w)
+    suspend fun deleteWitness(id: String) = witnesses.deleteById(id)
+    val allScorecardItems: Flow<List<com.todocompanion.app.data.entity.ScorecardItemEntity>> = scorecard.observeAll()
+    suspend fun upsertScorecardItem(s: com.todocompanion.app.data.entity.ScorecardItemEntity) = scorecard.upsert(s)
+    suspend fun deleteScorecardItem(id: String) = scorecard.deleteById(id)
+    val allBuddies: Flow<List<com.todocompanion.app.data.entity.BuddySnapshotEntity>> = buddies.observeAll()
+    suspend fun upsertBuddy(b: com.todocompanion.app.data.entity.BuddySnapshotEntity) = buddies.upsert(b)
+    suspend fun deleteBuddy(id: String) = buddies.deleteById(id)
+    val allIntegrityReviews: Flow<List<com.todocompanion.app.data.entity.IntegrityReviewEntity>> = integrityReviews.observeAll()
+    suspend fun upsertIntegrityReview(r: com.todocompanion.app.data.entity.IntegrityReviewEntity) = integrityReviews.upsert(r)
+    suspend fun deleteIntegrityReview(id: String) = integrityReviews.deleteById(id)
     val allSettings: Flow<List<SettingEntity>> = settings.observeAll()
     private val habits = db.habitDao()
     val allHabits: Flow<List<HabitEntity>> = habits.observeAll()
@@ -229,6 +250,12 @@ class AppRepository(private val db: AppDatabase) {
         habits.upsertCheckin(HabitCheckinEntity(habitId, epochDay, 0, status = "skip", reason = reason))
     /** Remove any record for a day (back to unmarked). */
     suspend fun clearCheckin(habitId: String, epochDay: Long) = habits.deleteCheckin(habitId, epochDay)
+    /** R34 · LS2 — attach the context tags (energy/mood/place) to a day's check-in without disturbing
+     *  its count/status; seeds a done record if none exists yet. */
+    suspend fun setCheckinContext(habitId: String, epochDay: Long, energy: Int, mood: Int, place: String) {
+        val existing = habits.getCheckin(habitId, epochDay) ?: HabitCheckinEntity(habitId, epochDay, 1, status = "done")
+        habits.upsertCheckin(existing.copy(ctxEnergy = energy, ctxMood = mood, ctxPlace = place))
+    }
     /** Pause / resume a whole habit (vacation) without touching its history. */
     suspend fun setHabitPaused(habitId: String, paused: Boolean) {
         habits.getAll().firstOrNull { it.id == habitId }?.let { habits.upsert(it.copy(paused = paused)) }
@@ -1019,6 +1046,11 @@ class AppRepository(private val db: AppDatabase) {
             timeEntries = timeTrack.getEntries(),
             sealedNotes = sealedNotes.getAll(),
             cravingEvents = cravings.getAll(),
+            coreValues = coreValues.getAll(),
+            witnessEvents = witnesses.getAll(),
+            scorecardItems = scorecard.getAll(),
+            buddySnapshots = buddies.getAll(),
+            integrityReviews = integrityReviews.getAll(),
         )
     )
 
@@ -1070,6 +1102,7 @@ class AppRepository(private val db: AppDatabase) {
         reminders.clear(); deps.clear(); settings.clear(); workspaces.clear(); filters.clear()
         habits.clear(); habits.clearCheckins(); focus.clear(); attachments.clear(); flags.clear(); templates.clear(); countdowns.clear(); activity.clear(); revisions.clear()
         timeTrack.clearEntries(); timeTrack.clearActivities(); sealedNotes.clear(); cravings.clear()
+        coreValues.clear(); witnesses.clear(); scorecard.clear(); buddies.clear(); integrityReviews.clear()
         folders.upsertAll(b.folders)
         lists.upsertAll(b.lists)
         tasks.upsertAll(b.tasks)
@@ -1091,6 +1124,8 @@ class AppRepository(private val db: AppDatabase) {
         timeTrack.upsertActivities(b.timeActivities); timeTrack.upsertEntries(b.timeEntries)
         sealedNotes.upsertAll(b.sealedNotes)
         cravings.upsertAll(b.cravingEvents)
+        coreValues.upsertAll(b.coreValues); witnesses.upsertAll(b.witnessEvents); scorecard.upsertAll(b.scorecardItems)
+        buddies.upsertAll(b.buddySnapshots); integrityReviews.upsertAll(b.integrityReviews)
         ensureDefaultWorkspace()
         ensureInbox()
         ensureDefaultFlags()

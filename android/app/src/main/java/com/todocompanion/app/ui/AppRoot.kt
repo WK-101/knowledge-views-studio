@@ -898,6 +898,13 @@ fun AppRoot(
         }
         val habitTrends by vm.habitTrendsOpen.collectAsState()
         if (habitTrends) com.todocompanion.app.ui.screens.HabitTrendsScreen(vm, onBack = { vm.habitTrendsOpen.value = false })
+        // R34 — the Life-Systems hub + its screens (values, scorecard, correlations, reviews, ledger, buddies).
+        val lifeRoute by vm.lifeSystemsRoute.collectAsState()
+        lifeRoute?.let { route ->
+            com.todocompanion.app.ui.screens.LifeSystemsScreen(vm, route,
+                onBack = { if (route == "hub") vm.lifeSystemsRoute.value = null else vm.lifeSystemsRoute.value = "hub" },
+                onOpenHabit = { hid -> vm.lifeSystemsRoute.value = null; vm.habitDetailId.value = hid })
+        }
         if (showStats) com.todocompanion.app.ui.screens.StatisticsScreen(vm, onBack = { showStats = false })
         if (showAttachments) com.todocompanion.app.ui.screens.AttachmentsScreen(vm, onOpenTask = { showAttachments = false; openTask(it) }, onBack = { showAttachments = false })
         if (showCountdowns) com.todocompanion.app.ui.screens.CountdownScreen(vm, onBack = { showCountdowns = false })

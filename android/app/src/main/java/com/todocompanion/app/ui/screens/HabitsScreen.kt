@@ -223,7 +223,7 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
     var celebrated by remember { mutableStateOf(false) }
     var showConfetti by remember { mutableStateOf(false) }
     LaunchedEffect(perfectDay) {
-        if (perfectDay && !celebrated) { celebrated = true; showConfetti = true }
+        if (perfectDay && !celebrated) { celebrated = true; if (!appSettings.calmMode) showConfetti = true }
         if (!perfectDay) celebrated = false
     }
     // N2: a reward-unlock celebration when a habit reaches its self-chosen reward streak.
@@ -241,15 +241,18 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
     val shineHaptics = androidx.compose.ui.platform.LocalHapticFeedback.current
     LaunchedEffect(shine) {
         shine?.let { s ->
-            shineHaptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-            android.widget.Toast.makeText(rewardCtx, "${s.emoji ?: "✨"}  ${s.phrase}", android.widget.Toast.LENGTH_SHORT).show()
+            // R34 · calm mode silences the celebration (haptic + phrase) to protect intrinsic motivation.
+            if (!appSettings.calmMode) {
+                shineHaptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                android.widget.Toast.makeText(rewardCtx, "${s.emoji ?: "✨"}  ${s.phrase}", android.widget.Toast.LENGTH_SHORT).show()
+            }
             vm.habitShine.value = null
         }
     }
 
     Box(modifier.fillMaxSize()) {
       Column(Modifier.fillMaxSize()) {
-        if (perfectDay) {
+        if (perfectDay && !appSettings.calmMode) {
             Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.primaryContainer) {
                 Text("🎉  Perfect day — every habit done!", Modifier.padding(12.dp), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.SemiBold)
             }
@@ -299,7 +302,7 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
                     item(key = "seccol-$title") {
                         HabitDraggableColumn(secHabits, onReorder = { persistSection(secHabits, it) }) { h ->
                             HabitRow(
-                                h, checkins, today, allHabits = habits, forgiving = appSettings.forgivingStreaks, graded = appSettings.gradedStrength,
+                                h, checkins, today, allHabits = habits, forgiving = appSettings.forgivingStreaks, graded = appSettings.gradedStrength, calm = appSettings.calmMode,
                                 onCycle = {
                                     val cur = daysFor(h, checkins).counts[today] ?: 0
                                     if (h.habitType == "break") {
@@ -392,6 +395,7 @@ fun HabitsHeader(vm: AppViewModel, onOpenDrawer: () -> Unit) {
                 Box {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "More") }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        DropdownMenuItem(text = { Text("🧭 Life systems") }, onClick = { menu = false; vm.lifeSystemsRoute.value = "hub" })
                         DropdownMenuItem(text = { Text("Trends & correlations") }, onClick = { menu = false; vm.habitTrendsOpen.value = true })
                         DropdownMenuItem(text = { Text("Batch check-in") }, onClick = { menu = false; vm.habitBatchOpen.value = true })
                         val anyActive = habits.any { !it.paused }
@@ -493,7 +497,7 @@ private fun HabitDraggableColumn(habits: List<HabitEntity>, onReorder: (List<Str
 @Composable
 private fun HabitRow(
     h: HabitEntity, checkins: List<com.todocompanion.app.data.entity.HabitCheckinEntity>, today: Long,
-    allHabits: List<HabitEntity> = emptyList(), forgiving: Boolean = false, graded: Boolean = false,
+    allHabits: List<HabitEntity> = emptyList(), forgiving: Boolean = false, graded: Boolean = false, calm: Boolean = false,
     onCycle: () -> Unit, onOpen: () -> Unit, onSkip: () -> Unit, onClear: () -> Unit,
     onSetValue: () -> Unit, onPause: () -> Unit, onEdit: () -> Unit, onFocus: () -> Unit,
     onAddValue: (Int) -> Unit = {},
@@ -559,7 +563,7 @@ private fun HabitRow(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text((h.emoji?.plus(" ") ?: "") + h.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                     if (h.paused) { Spacer(Modifier.width(6.dp)); Text("paused", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline) }
-                    if (streak in MILESTONES) { Spacer(Modifier.width(6.dp)); Text("🏅", style = MaterialTheme.typography.labelMedium) }
+                    if (streak in MILESTONES && !calm) { Spacer(Modifier.width(6.dp)); Text("🏅", style = MaterialTheme.typography.labelMedium) }
                 }
                 Text("${strength}% · ${HabitStats.frequencyLabel(h)}" + (h.unit?.let { " · ${h.targetPerDay} $it" } ?: ""),
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -570,7 +574,8 @@ private fun HabitRow(
                 }
             }
             // Streak flame. Numeric entry now lives on the ring tap (value dialog), not an inline stepper.
-            if (streak > 0) Text((if (isBreak) "✨ " else "🔥 ") + streak, style = MaterialTheme.typography.labelLarge, color = color)
+            // R34 · calm mode hides the streak count to keep the focus on showing up, not the number.
+            if (streak > 0 && !calm) Text((if (isBreak) "✨ " else "🔥 ") + streak, style = MaterialTheme.typography.labelLarge, color = color)
             Box {
                 // R4: full 48dp touch target for accessibility; the icon stays visually compact.
                 IconButton(onClick = { rowMenu = true }) {
@@ -720,6 +725,16 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
     var cueContext by remember { mutableStateOf(existing?.cueContext ?: "") }
     var rampFinal by remember { mutableStateOf(existing?.rampFinalTarget?.toString() ?: "") }
     var quitMinutes by remember { mutableStateOf(existing?.minutesPerUnit?.takeIf { it > 0 }?.toString() ?: "") }
+    // R34 life-systems editor fields: WOOP back-half, value link, competing response, commitment + forfeit.
+    var woopOutcome by remember { mutableStateOf(existing?.woopOutcome ?: "") }
+    var woopObstacle by remember { mutableStateOf(existing?.woopObstacle ?: "") }
+    var woopCoping by remember { mutableStateOf(existing?.woopCoping ?: "") }
+    var valueId by remember { mutableStateOf(existing?.valueId) }
+    var competingResponse by remember { mutableStateOf(existing?.competingResponse ?: "") }
+    var contractText by remember { mutableStateOf(existing?.contractText ?: "") }
+    var refereeName by remember { mutableStateOf(existing?.refereeName ?: "") }
+    var forfeitText by remember { mutableStateOf(existing?.forfeitText ?: "") }
+    val coreValues by vm.coreValues.collectAsState()
     var confirmDelete by remember { mutableStateOf(false) }
     // T3: which time-tracking activity this habit is linked to (tracking it credits the habit).
     var timeActivityId by remember { mutableStateOf(existing?.timeActivityId) }
@@ -728,7 +743,9 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
     var advancedOpen by remember { mutableStateOf(
         existing != null && (existing.identity.isNotBlank() || existing.anchorHabitId != null ||
             existing.rewardText.isNotBlank() || existing.category.isNotBlank() || existing.habitType == "break" ||
-            existing.moneyPerUnit != null || existing.startDate != null || existing.clickIncrement > 1 || existing.extraTarget != null)
+            existing.moneyPerUnit != null || existing.startDate != null || existing.clickIncrement > 1 || existing.extraTarget != null ||
+            existing.woopObstacle.isNotBlank() || existing.woopCoping.isNotBlank() || existing.valueId != null ||
+            existing.competingResponse.isNotBlank() || existing.contractText.isNotBlank() || existing.refereeName.isNotBlank() || existing.forfeitText.isNotBlank())
     ) }
     val ctx = LocalContext.current
     val isBreak = habitType == "break"
@@ -757,6 +774,9 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
             cueContext = cueContext.trim(),
             rampFinalTarget = rampFinal.trim().toIntOrNull()?.takeIf { it > target },
             minutesPerUnit = quitMinutes.trim().toIntOrNull()?.coerceAtLeast(0) ?: 0,
+            woopOutcome = woopOutcome.trim(), woopObstacle = woopObstacle.trim(), woopCoping = woopCoping.trim(),
+            valueId = valueId, competingResponse = competingResponse.trim(),
+            contractText = contractText.trim(), refereeName = refereeName.trim(), forfeitText = forfeitText.trim(),
         )
     }
     fun save() {
@@ -953,6 +973,42 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
                 if (isBreak) com.todocompanion.app.ui.components.AppTextField(quitMinutes, { quitMinutes = it.filter { c -> c.isDigit() }.take(4) }, singleLine = true,
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
                     label = { Text("Minutes reclaimed per ${unit.ifBlank { "use" }} (optional)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+
+                // R34 · life-systems editor block.
+                Text("PLAN & COMMITMENT", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 14.dp, bottom = 2.dp))
+                // LS1 WOOP — the back half of the intention (mental contrasting ~doubles follow-through).
+                com.todocompanion.app.ui.components.AppTextField(woopObstacle, { woopObstacle = it }, singleLine = true,
+                    label = { Text("What usually gets in the way? (the obstacle)") }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
+                com.todocompanion.app.ui.components.AppTextField(woopCoping, { woopCoping = it }, singleLine = true,
+                    label = { Text("If that happens, I will… (coping plan)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                // LS5 value link.
+                if (coreValues.isNotEmpty()) {
+                    Text("Value it serves", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp))
+                    var valMenu by remember { mutableStateOf(false) }
+                    val valName = coreValues.firstOrNull { it.id == valueId }?.let { (it.emoji?.plus(" ") ?: "") + it.name }
+                    Box(Modifier.padding(top = 6.dp)) {
+                        Surface(Modifier.fillMaxWidth().clickable { valMenu = true }, shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)) {
+                            Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(valName ?: "None", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = if (valName != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (valueId != null) TextButton(onClick = { valueId = null }) { Text("Clear") }
+                                Icon(Icons.Filled.ExpandMore, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        DropdownMenu(expanded = valMenu, onDismissRequest = { valMenu = false }) {
+                            coreValues.forEach { v -> DropdownMenuItem(text = { Text((v.emoji?.plus(" ") ?: "") + v.name) }, onClick = { valueId = v.id; valMenu = false }) }
+                        }
+                    }
+                }
+                // LS10 competing response — for break habits.
+                if (isBreak) com.todocompanion.app.ui.components.AppTextField(competingResponse, { competingResponse = it }, singleLine = true,
+                    label = { Text("Instead, I'll… (a competing action for an urge)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                // LS7 commitment contract + referee + self-forfeit.
+                com.todocompanion.app.ui.components.AppTextField(contractText, { contractText = it }, singleLine = true,
+                    label = { Text("Commitment contract (optional)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                com.todocompanion.app.ui.components.AppTextField(refereeName, { refereeName = it }, singleLine = true,
+                    label = { Text("Referee — who signs off? (optional)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                com.todocompanion.app.ui.components.AppTextField(forfeitText, { forfeitText = it }, singleLine = true,
+                    label = { Text("Forfeit if you derail (donate ₹X, cold shower…)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
                 // T3/V3: link this habit to a time-tracking activity — tracking that activity then credits
                 // the habit. (Fixes: no way to link an activity to a habit from the habit side.)
                 if (timeOn) {

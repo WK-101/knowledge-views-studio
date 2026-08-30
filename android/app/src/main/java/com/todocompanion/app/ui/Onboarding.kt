@@ -58,6 +58,12 @@ fun Onboarding(onDone: () -> Unit) {
         Page("🔥", "Habits that actually stick",
             "A strength score values consistency over brittle streaks. Flexible schedules, numeric goals, habit stacking and one-tap starter routines.",
             listOf("Forgiving streaks & streak-freezes", "× per week / month, or every N days", "Identity, stacking & starter gallery")),
+        Page("🌟", "Not just a tracker — a builder",
+            "It actively helps you form good habits and break bad ones, using proven behaviour-change science — all on-device, no coaching subscription.",
+            listOf("Intention plans + WOOP obstacle & coping", "66-day automaticity meter · never-miss-twice + freezes", "Quit dashboard, urge surfing & competing-response swaps", "Two-minute ramp-up, celebrations & guided journeys")),
+        Page("🧭", "A private life-systems engine",
+            "Anchor habits to your values, keep yourself accountable without any account, and let years of your own data reveal what actually works for you.",
+            listOf("Values → systems → habits, calm mode", "Commitment contracts + a local referee, self-forfeits", "On-device correlation engine: “meditate → mood +1.2”", "Weekly & annual integrity review · a permanent identity ledger")),
         Page("⧗", "See where your time goes",
             "One tap starts a timer. A full Statistics screen shows a donut, Day/Week/Month/Year ranges and per-activity drill-downs — and time links to tasks & habits.",
             listOf("Donut + ranked breakdowns + trends", "Link an activity to a task or a habit", "On-device automations & a live timer")),
@@ -123,6 +129,8 @@ fun Onboarding(onDone: () -> Unit) {
                     Text(if (i < pages.lastIndex) "Next" else "Get started")
                 }
             }
+            // The same maker's mark that closes the sidebar & Settings, so the tour signs off in kind.
+            com.todocompanion.app.ui.components.AppSignature()
         }
     }
 }

@@ -6,6 +6,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
@@ -62,6 +63,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -79,6 +81,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.todocompanion.app.domain.habit.HabitStats
+import kotlin.math.roundToInt
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -1009,8 +1012,12 @@ private fun BuilderSection(
                 }
             }
         }
-        if (urge) UrgeDialog(onDismiss = { urge = false }, onLog = { intensity, trigger, surfed -> vm.logCraving(h, intensity, trigger, surfed); urge = false })
+        if (urge) UrgeDialog(competingResponse = h.competingResponse, onDismiss = { urge = false }, onLog = { intensity, trigger, surfed, halt, dur -> vm.logCraving(h, intensity, trigger, surfed, halt, dur); urge = false })
     }
+
+    // R34 — the life-systems cards for this habit (WOOP, values, commitment, forfeit, urge analytics,
+    // lapse-recovery, what-if, chronotype, context capture).
+    LifeSystemsHabitCards(vm, h, hc, doneDays, skipDays, today, color, myCravings)
 
     // F17 — the insights coach (both kinds).
     if (tips.isNotEmpty()) {
@@ -1029,17 +1036,21 @@ private fun BuilderSection(
     }
 }
 
-/** F13 — the urge-surfing timer: a 90-second breathing countdown, then log intensity + trigger + outcome. */
+/** F13 / LS10 — the urge-surfing timer: a 90-second breathing countdown that offers the pre-chosen
+ *  competing response, then logs intensity + trigger + HALT state + how long it lasted + outcome. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun UrgeDialog(onDismiss: () -> Unit, onLog: (Int, String, Boolean) -> Unit) {
+private fun UrgeDialog(competingResponse: String, onDismiss: () -> Unit, onLog: (Int, String, Boolean, String, Int) -> Unit) {
     var secs by remember { mutableStateOf(90) }
     var intensity by remember { mutableStateOf(3) }
     var trigger by remember { mutableStateOf("") }
+    val halt = remember { mutableStateListOf<String>() }
     LaunchedEffect(Unit) { while (secs > 0) { kotlinx.coroutines.delay(1000); secs-- } }
+    val elapsed = 90 - secs
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = { onLog(intensity, trigger, true) }) { Text("I rode it out 🌊") } },
-        dismissButton = { TextButton(onClick = { onLog(intensity, trigger, false) }) { Text("I gave in", color = MaterialTheme.colorScheme.error) } },
+        confirmButton = { TextButton(onClick = { onLog(intensity, trigger, true, halt.joinToString(","), elapsed) }) { Text("I rode it out 🌊") } },
+        dismissButton = { TextButton(onClick = { onLog(intensity, trigger, false, halt.joinToString(","), elapsed) }) { Text("I gave in", color = MaterialTheme.colorScheme.error) } },
         title = { Text(if (secs > 0) "Breathe — this will pass" else "You made it") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1048,14 +1059,201 @@ private fun UrgeDialog(onDismiss: () -> Unit, onLog: (Int, String, Boolean) -> U
                 Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
                     Box(Modifier.fillMaxWidth(1f - secs / 90f).height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.primary))
                 }
+                // LS10 competing response: redirect, don't just white-knuckle.
+                if (competingResponse.isNotBlank()) {
+                    Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .6f)) {
+                        Text("Instead, do: $competingResponse", Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    }
+                }
                 Text("How strong is it?", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     (1..5).forEach { n ->
                         androidx.compose.material3.FilterChip(selected = intensity == n, onClick = { intensity = n }, label = { Text("$n") })
                     }
                 }
+                // HALT check — hungry / angry / lonely / tired often underlie an urge.
+                Text("HALT — feeling any of these?", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("hungry", "angry", "lonely", "tired").forEach { f ->
+                        androidx.compose.material3.FilterChip(selected = f in halt, onClick = { if (f in halt) halt.remove(f) else halt.add(f) }, label = { Text(f.replaceFirstChar { it.uppercase() }) })
+                    }
+                }
                 com.todocompanion.app.ui.components.AppTextField(trigger, { trigger = it }, singleLine = true, label = { Text("Trigger? (optional)") }, modifier = Modifier.fillMaxWidth())
             }
         },
     )
+}
+
+private typealias LS = com.todocompanion.app.domain.habit.LifeSystems
+
+/** R34 — the life-systems cards for one habit: WOOP plan, value link, context capture, commitment +
+ *  witness, self-forfeit + akrasia horizon, lapse-recovery, urge analytics, what-if, chronotype. */
+@Composable
+private fun LifeSystemsHabitCards(
+    vm: com.todocompanion.app.ui.AppViewModel, h: com.todocompanion.app.data.entity.HabitEntity,
+    hc: List<com.todocompanion.app.data.entity.HabitCheckinEntity>, doneDays: Set<Long>, skipDays: Set<Long>,
+    today: Long, color: Color, myCravings: List<com.todocompanion.app.data.entity.CravingEventEntity>,
+) {
+    val isBreak = h.habitType == "break"
+    val settings by vm.settings.collectAsState()
+    val values by vm.coreValues.collectAsState()
+    val witnesses by vm.witnessEvents.collectAsState()
+    // Apply any queued "make it easier" change whose one-week horizon has now passed.
+    LaunchedEffect(h.id) { vm.applyPendingEaseIfDue(h) }
+
+    // LS1 · WOOP plan — the back half of the intention.
+    if (h.woopOutcome.isNotBlank() || h.woopObstacle.isNotBlank() || h.woopCoping.isNotBlank()) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Your plan (WOOP)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = color)
+                if (h.woopOutcome.isNotBlank()) Text("🎯 Outcome — ${h.woopOutcome}", style = MaterialTheme.typography.bodyMedium)
+                if (h.woopObstacle.isNotBlank()) Text("🧱 Obstacle — ${h.woopObstacle}", style = MaterialTheme.typography.bodyMedium)
+                if (h.woopCoping.isNotBlank()) Text("↪ If it hits: ${h.woopCoping}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+            }
+        }
+    }
+
+    // LS5 · value link.
+    h.valueId?.let { vid -> values.firstOrNull { it.id == vid } }?.let { v ->
+        Surface(Modifier.fillMaxWidth().clickable { vm.lifeSystemsRoute.value = "values" }, shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .5f)) {
+            Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(v.emoji ?: "🧭", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.width(10.dp))
+                Text("In service of your value: ${v.name}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onTertiaryContainer)
+            }
+        }
+    }
+
+    // LS · chronotype nudge.
+    val typical = remember(hc) { HabitStats.typicalDoneMinute(hc.filter { it.habitId == h.id }) }
+    LS.chronotypeNudge(h, typical, settings.chronotype)?.let { nudge ->
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)) {
+            Row(Modifier.padding(14.dp)) { Text("⏰", Modifier.padding(end = 10.dp)); Text(nudge, style = MaterialTheme.typography.bodyMedium) }
+        }
+    }
+
+    // LS2 · context capture — a light "how did it go?" once today's habit is done.
+    if (!isBreak && today in doneDays) {
+        val todayCheckin = hc.firstOrNull { it.habitId == h.id && it.epochDay == today }
+        var energy by remember(todayCheckin?.ctxEnergy) { mutableStateOf(todayCheckin?.ctxEnergy ?: 0) }
+        var mood by remember(todayCheckin?.ctxMood) { mutableStateOf(todayCheckin?.ctxMood ?: 0) }
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+            Column(Modifier.padding(16.dp)) {
+                Text("How did it go? (optional)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text("A tag or two now becomes the correlation engine's evidence later.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Energy", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    (1..5).forEach { n -> androidx.compose.material3.FilterChip(selected = energy == n, onClick = { energy = n; vm.setCheckinContext(h, today, energy, mood, "") }, label = { Text("$n") }) }
+                }
+                Text("Mood", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    (1..5).forEach { n -> androidx.compose.material3.FilterChip(selected = mood == n, onClick = { mood = n; vm.setCheckinContext(h, today, energy, mood, "") }, label = { Text("$n") }) }
+                }
+            }
+        }
+    }
+
+    // LS9 · what-if forward simulator (build habits).
+    if (!isBreak && doneDays.size >= 4) {
+        val proj = remember(doneDays, today) { LS.whatIf(h, doneDays, today) }
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+            Column(Modifier.padding(16.dp)) {
+                Text("What if…", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text("Where this habit's automaticity heads over the next 6 months, at three paces.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
+                proj.forEach { p ->
+                    val end = p.weeks.last().second
+                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(p.adherenceLabel, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                        Box(Modifier.width(90.dp).height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                            Box(Modifier.fillMaxWidth(end / 100f).height(6.dp).clip(RoundedCornerShape(3.dp)).background(color))
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Text("$end%", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = color)
+                    }
+                }
+            }
+        }
+    }
+
+    // LS7 · commitment contract + local referee.
+    if (h.contractText.isNotBlank() || h.refereeName.isNotBlank()) {
+        val myWitnesses = witnesses.filter { it.habitId == h.id }
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+            Column(Modifier.padding(16.dp)) {
+                Text("Commitment", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                if (h.contractText.isNotBlank()) Text("“${h.contractText}”", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp))
+                if (h.refereeName.isNotBlank()) {
+                    Text("Referee: ${h.refereeName}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                    FilledTonalButton(onClick = { vm.addWitness(h, "Day ${doneDays.size}", "") }, modifier = Modifier.padding(top = 8.dp)) { Text("✍️ ${h.refereeName} witnessed it") }
+                }
+                myWitnesses.take(3).forEach { w ->
+                    Text("· ${w.refereeName} confirmed ${w.milestoneLabel} — ${java.time.LocalDate.ofEpochDay(java.time.Instant.ofEpochMilli(w.atMillis).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toEpochDay())}",
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                }
+            }
+        }
+    }
+
+    // LS7 · self-forfeit + akrasia horizon.
+    if (h.forfeitText.isNotBlank()) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.errorContainer.copy(alpha = .4f)) {
+            Column(Modifier.padding(16.dp)) {
+                Text("Stake", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onErrorContainer)
+                Text("If you derail: ${h.forfeitText}" + if (h.forfeitLevel > 0) " · owed ${h.forfeitLevel}×" else "", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+                if (h.pendingEaseMillis > System.currentTimeMillis()) {
+                    val days = ((h.pendingEaseMillis - System.currentTimeMillis()) / (24L * 3600 * 1000)).toInt() + 1
+                    Text("An easing you queued applies in $days day${if (days == 1) "" else "s"} (akrasia horizon).", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.padding(top = 4.dp))
+                    TextButton(onClick = { vm.cancelEase(h) }) { Text("Cancel the easing") }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+                    TextButton(onClick = { vm.escalateForfeit(h) }) { Text("I derailed — owe the forfeit") }
+                    if (!isBreak && h.pendingEaseMillis <= System.currentTimeMillis()) TextButton(onClick = { vm.queueEase(h, (h.targetPerDay - 1).coerceAtLeast(1)) }) { Text("Make it easier (in 7d)") }
+                }
+            }
+        }
+    }
+
+    if (isBreak) {
+        // LS10 · competing response card (also offered live in the urge dialog).
+        if (h.competingResponse.isNotBlank()) {
+            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .5f)) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Do this instead", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    Text(h.competingResponse, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    Text("Redirect the same cue to an incompatible action — the clinical way to break a habit.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = .8f), modifier = Modifier.padding(top = 2.dp))
+                }
+            }
+        }
+
+        // LS10 · urge analytics — triggers, HALT, duration curve.
+        if (myCravings.size >= 3) {
+            val stats = remember(myCravings) { LS.urgeStats(myCravings) }
+            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Urge analytics", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    if (stats.medianDurationSec > 0) Text("Your urges pass in about ${stats.medianDurationSec}s — proof they crest and fall.", style = MaterialTheme.typography.bodyMedium)
+                    if (stats.topTriggers.isNotEmpty()) Text("Top triggers: " + stats.topTriggers.joinToString(", ") { "${it.first} (${it.second})" }, style = MaterialTheme.typography.bodyMedium)
+                    if (stats.haltCounts.isNotEmpty()) Text("Often when: " + stats.haltCounts.entries.joinToString(", ") { "${it.key} (${it.value})" }, style = MaterialTheme.typography.bodyMedium)
+                    Text("${(stats.surfedRate * 100).roundToInt()}% ridden out across ${stats.total} urges.", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+
+        // LS · lapse-recovery — after a recent relapse, replace shame with a fresh start.
+        val relapses = hc.filter { it.habitId == h.id && HabitStats.isRelapse(h, it.count) }.map { it.epochDay }
+        val lastSlip = relapses.maxOrNull()
+        if (lastSlip != null && (today - lastSlip) in 0..2) {
+            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .5f)) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("A lapse is data, not identity", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Text("One slip isn't a relapse — the spiral is what does the damage. You've already come far. Set the next tiny action and start clean from today.",
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.padding(top = 2.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+                        FilledTonalButton(onClick = { vm.startQuitClock(h) }) { Text("Fresh start today") }
+                        TextButton(onClick = { vm.pledgeToday(h) }) { Text("Re-pledge") }
+                    }
+                }
+            }
+        }
+    }
 }

@@ -22,4 +22,8 @@ data class CravingEventEntity(
     val trigger: String = "",       // free text: "stress", "after dinner", "saw an ad"
     val surfed: Boolean = true,     // true = rode it out; false = gave in (a slip)
     val note: String = "",
+    // R34 · LS10 urge analytics: HALT state flags (comma of hungry/angry/lonely/tired) and how long the
+    // urge lasted before it passed — the data behind the "urges crest at ~N min and fall" duration curve.
+    val halt: String = "",
+    val durationSec: Int = 0,
 )

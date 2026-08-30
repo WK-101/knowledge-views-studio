@@ -585,6 +585,21 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                     if (preview == null) "When on, a day you attempted but fell short of the goal earns partial credit toward the strength score, instead of counting as a miss."
                     else "When on, a partially-met day earns partial credit instead of a miss. On your data, average strength would move ${preview.first}% → ${preview.second}%. Your call — it only changes once you turn it on.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                // R34 · calm mode — hide points/streaks/celebration to protect intrinsic motivation (SDT).
+                Toggle("Calm mode", s.calmMode) { on -> vm.setCalmMode(on) }
+                Text("Hide points, streak flames and celebrations across habits — a quiet tracker for when visible rewards would crowd out the real motivation.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                // R34 · chronotype — the coach flags habits scheduled against your low-energy window.
+                Text("Your chronotype", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                Text("When set, the habit coach nudges habits scheduled against your natural low-energy window.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("Neutral", "Morning lark", "Night owl").forEachIndexed { i, lbl ->
+                        FilterChip(selected = s.chronotype == i, onClick = { vm.setChronotype(i) }, label = { Text(lbl) })
+                    }
+                }
             }
         }
 
@@ -610,6 +625,23 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 vm.saveRewards(rewards + com.todocompanion.app.domain.Reward(id = java.util.UUID.randomUUID().toString(), name = rName.trim(), cost = rCost.toIntOrNull()?.coerceAtLeast(1) ?: 10))
                 rName = ""; rCost = "10"
             }) { Text("＋ Add reward") }
+            // R34 · the intrinsic reward menu — real treats YOU choose to grant yourself at milestones.
+            // The app never invents the reward (avoids overjustification); it just holds your own list.
+            HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+            Text("Your reward menu", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+            Text("A list of real rewards you grant yourself at milestones — points-free, self-chosen.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            s.rewardMenu.forEach { r ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("🎁 $r", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    IconButton(onClick = { vm.removeReward(r) }) { Icon(Icons.Filled.Delete, "Remove", modifier = Modifier.size(18.dp)) }
+                }
+            }
+            var mName by remember { mutableStateOf("") }
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                com.todocompanion.app.ui.components.AppTextField(mName, { mName = it }, label = { Text("A reward you'd grant yourself") }, singleLine = true, modifier = Modifier.weight(1f))
+                Spacer(Modifier.width(8.dp))
+                TextButton(enabled = mName.isNotBlank(), onClick = { vm.addReward(mName); mName = "" }) { Text("Add") }
+            }
         }
 
         // W6: routine tags — a named bundle launched by one NFC/QR tap or shortcut.

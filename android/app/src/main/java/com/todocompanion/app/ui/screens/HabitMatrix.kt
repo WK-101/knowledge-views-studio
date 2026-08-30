@@ -26,8 +26,12 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -115,8 +119,16 @@ fun HabitMatrix(vm: AppViewModel, density: Int, onOpenHabit: (HabitEntity) -> Un
                     }
                 }
                 // Horizontally-scrollable day grid: header row of day numbers + a row per habit.
-                Column(Modifier.horizontalScroll(rememberScrollState())) {
-                    DayHeader(days, cell, preset.fontSp)
+                // R34: newest day (today) sits at the right edge, so a fresh scroll state starts at the
+                // oldest day and today's tappable "check" cell is off-screen — users read that as "the
+                // checkboxes vanished" when they switch to the grid. Auto-scroll to the end so today is
+                // always the first thing visible, in every density.
+                val hScroll = rememberScrollState()
+                LaunchedEffect(hScroll.maxValue, density) {
+                    if (hScroll.maxValue > 0) hScroll.scrollTo(hScroll.maxValue)
+                }
+                Column(Modifier.horizontalScroll(hScroll)) {
+                    DayHeader(days, cell, preset.fontSp, today)
                     habits.forEach { h ->
                         val color = h.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
                         Row(
@@ -170,9 +182,10 @@ private fun HabitLabel(h: HabitEntity, rowHeight: Dp, labelWidth: Dp, fontSp: In
     }
 }
 
-/** Column headers: day-of-month numbers with a faint marker under weekends. */
+/** Column headers: day-of-month numbers with a faint marker under weekends; today's number is
+ *  emphasised (bold + primary) so the "check today here" column is unmistakable. */
 @Composable
-private fun DayHeader(days: List<Long>, cell: Dp, fontSp: Int) {
+private fun DayHeader(days: List<Long>, cell: Dp, fontSp: Int, today: Long) {
     Row(
         Modifier.height(HEADER_HEIGHT),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -181,6 +194,7 @@ private fun DayHeader(days: List<Long>, cell: Dp, fontSp: Int) {
         days.forEach { day ->
             val date = LocalDate.ofEpochDay(day)
             val weekend = date.dayOfWeek == DayOfWeek.SATURDAY || date.dayOfWeek == DayOfWeek.SUNDAY
+            val isToday = day == today
             Column(
                 Modifier.width(cell),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -190,12 +204,12 @@ private fun DayHeader(days: List<Long>, cell: Dp, fontSp: Int) {
                     style = MaterialTheme.typography.labelSmall,
                     fontSize = fontSp.sp,
                     maxLines = 1,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = if (weekend) FontWeight.Normal else FontWeight.Medium,
+                    color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = if (isToday) FontWeight.Bold else if (weekend) FontWeight.Normal else FontWeight.Medium,
                 )
                 Box(
                     Modifier.padding(top = 2.dp).width(cell * 0.5f).height(2.dp).clip(RoundedCornerShape(1.dp))
-                        .background(if (weekend) MaterialTheme.colorScheme.outlineVariant else Color.Transparent),
+                        .background(when { isToday -> MaterialTheme.colorScheme.primary; weekend -> MaterialTheme.colorScheme.outlineVariant; else -> Color.Transparent }),
                 )
             }
         }
@@ -219,7 +233,9 @@ private fun DayCell(
 ) {
     val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
     val outline = MaterialTheme.colorScheme.outlineVariant
+    val primary = MaterialTheme.colorScheme.primary
     val future = day > today
+    val isToday = day == today
     // Days before the habit began / in the future are not loggable, but they still draw a FAINT box so
     // the grid always reads as a grid (blank-transparent cells made a fresh habit's whole row vanish).
     val preStart = day < h.startEpochDay()
@@ -234,8 +250,18 @@ private fun DayCell(
         HabitStats.isExpectedDay(h, day) -> surfaceVariant
         else -> surfaceVariant.copy(alpha = .25f)
     }
-    var m = Modifier.size(cell).clip(RoundedCornerShape(4.dp)).background(bg)
+    var m = Modifier.size(cell).clip(RoundedCornerShape(if (isToday) 7.dp else 4.dp)).background(bg)
+    // R34: today's cell is the live "checkbox" — give it a bold ring (habit colour) so it reads as the
+    // tappable target, not just another history square. Skip keeps its own hollow outline.
     if (skip) m = m.border(1.5.dp, outline, RoundedCornerShape(4.dp))
+    else if (isToday && !preStart) m = m.border(2.dp, color, RoundedCornerShape(7.dp))
     if (!future && !preStart) m = m.clickable { onToggle() }
-    Box(m)
+    Box(m, contentAlignment = Alignment.Center) {
+        // A visible check the moment today is done; an empty ring while it's still open — so the grid
+        // reads like a row of checkboxes for the current day.
+        if (isToday && !preStart) {
+            if (done) Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(cell * 0.5f))
+            else if (!skip) Box(Modifier.size((cell.value * 0.22f).dp).clip(CircleShape).background(primary.copy(alpha = .35f)))
+        }
+    }
 }

@@ -131,6 +131,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val countdowns = repo.allCountdowns.state(emptyList())
     val sealedNotes = repo.allSealedNotes.state(emptyList())
     val cravings = repo.allCravings.state(emptyList())
+    // R34 — life-systems layer flows.
+    val coreValues = repo.allCoreValues.state(emptyList())
+    val witnessEvents = repo.allWitnessEvents.state(emptyList())
+    val scorecardItems = repo.allScorecardItems.state(emptyList())
+    val buddies = repo.allBuddies.state(emptyList())
+    val integrityReviews = repo.allIntegrityReviews.state(emptyList())
+    // Non-null → the Life-Systems hub/screen overlays the tab (route key: hub|values|scorecard|correlations|reviews|ledger|buddies|whatif).
+    val lifeSystemsRoute = MutableStateFlow<String?>(null)
     fun saveCountdown(id: String?, title: String, targetMillis: Long, emoji: String?, colorArgb: Long?) = viewModelScope.launch {
         val existing = id?.let { cid -> countdowns.value.firstOrNull { it.id == cid } }
         repo.upsertCountdown(
@@ -2451,14 +2459,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.upsertHabit(h.copy(quitSinceMillis = System.currentTimeMillis()))
         toast("Clean-time started. Day one.")
     }
-    /** F13 — log an urge/craving after surfing it (or slipping). A slip also records a relapse day. */
-    fun logCraving(h: com.todocompanion.app.data.entity.HabitEntity, intensity: Int, trigger: String, surfed: Boolean) = viewModelScope.launch {
+    /** F13 / LS10 — log an urge/craving after surfing it (or slipping), with optional HALT state and how
+     *  long the urge lasted (the duration curve). A slip also records a relapse day. */
+    fun logCraving(h: com.todocompanion.app.data.entity.HabitEntity, intensity: Int, trigger: String, surfed: Boolean, halt: String = "", durationSec: Int = 0) = viewModelScope.launch {
         val now = System.currentTimeMillis()
         val d = java.time.Instant.ofEpochMilli(now).atZone(zone)
         repo.upsertCraving(com.todocompanion.app.data.entity.CravingEventEntity(
             id = java.util.UUID.randomUUID().toString(), habitId = h.id, atMillis = now,
             epochDay = d.toLocalDate().toEpochDay(), minuteOfDay = d.hour * 60 + d.minute,
             intensity = intensity.coerceIn(1, 5), trigger = trigger.trim(), surfed = surfed,
+            halt = halt, durationSec = durationSec.coerceAtLeast(0),
         ))
         if (!surfed) logSlip(h, trigger.ifBlank { "urge" })
         toast(if (surfed) "You rode it out 🌊 Nicely done." else "Logged. A slip isn't a relapse — back on it.")
@@ -2482,6 +2492,111 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         toast("Started “${j.name}” — step one is ready today.")
         refreshHabitWidgets()
     }
+
+    // ── R34 · life-systems actions ────────────────────────────────────────────────────────────────
+    fun setChronotype(i: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(chronotype = i.coerceIn(0, 2))) }
+    fun setCalmMode(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(calmMode = on)) }
+    fun addReward(text: String) = viewModelScope.launch {
+        val t = text.trim(); if (t.isBlank()) return@launch
+        if (t !in settings.value.rewardMenu) repo.saveSettings(settings.value.copy(rewardMenu = settings.value.rewardMenu + t))
+    }
+    fun removeReward(text: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(rewardMenu = settings.value.rewardMenu - text)) }
+
+    // LS5 values → systems → habits
+    fun saveValue(id: String?, name: String, emoji: String?, colorArgb: Long?, statement: String) = viewModelScope.launch {
+        val existing = id?.let { vid -> coreValues.value.firstOrNull { it.id == vid } }
+        val order = existing?.orderIndex ?: ((coreValues.value.maxOfOrNull { it.orderIndex } ?: 0) + 1)
+        repo.upsertCoreValue(
+            (existing ?: com.todocompanion.app.data.entity.CoreValueEntity(id = java.util.UUID.randomUUID().toString(), name = name, orderIndex = order, createdAt = System.currentTimeMillis()))
+                .copy(name = name.trim().ifBlank { "Value" }, emoji = emoji, colorArgb = colorArgb, statement = statement.trim())
+        )
+    }
+    fun deleteValue(id: String) = viewModelScope.launch {
+        repo.deleteCoreValue(id)
+        // Detach any habits pointing at it, so no dangling reference remains.
+        repo.getHabitsOnce().filter { it.valueId == id }.forEach { repo.upsertHabit(it.copy(valueId = null)) }
+    }
+    fun assignHabitValue(h: com.todocompanion.app.data.entity.HabitEntity, valueId: String?) = viewModelScope.launch { repo.upsertHabit(h.copy(valueId = valueId)) }
+
+    // LS · habit scorecard
+    fun addScorecardItem(text: String, sign: Int) = viewModelScope.launch {
+        val t = text.trim(); if (t.isBlank()) return@launch
+        val order = (scorecardItems.value.maxOfOrNull { it.orderIndex } ?: 0) + 1
+        repo.upsertScorecardItem(com.todocompanion.app.data.entity.ScorecardItemEntity(java.util.UUID.randomUUID().toString(), t, sign.coerceIn(-1, 1), order, System.currentTimeMillis()))
+    }
+    fun setScorecardSign(item: com.todocompanion.app.data.entity.ScorecardItemEntity, sign: Int) = viewModelScope.launch { repo.upsertScorecardItem(item.copy(sign = sign.coerceIn(-1, 1))) }
+    fun deleteScorecardItem(id: String) = viewModelScope.launch { repo.deleteScorecardItem(id) }
+    /** Turn a scorecard behaviour into a habit: a "+" becomes one to build, a "−" one to break. */
+    fun scorecardToHabit(item: com.todocompanion.app.data.entity.ScorecardItemEntity) = viewModelScope.launch {
+        if (item.sign == 0) { toast("Tag it good (+) or bad (−) first."); return@launch }
+        val order = (repo.getHabitsOnce().maxOfOrNull { it.sortOrder } ?: 0.0) + 1
+        repo.upsertHabit(com.todocompanion.app.data.entity.HabitEntity(
+            id = java.util.UUID.randomUUID().toString(), name = item.text.trim(),
+            habitType = if (item.sign > 0) "build" else "break",
+            targetComparison = if (item.sign > 0) "atleast" else "atmost",
+            targetPerDay = if (item.sign > 0) 1 else 0, sortOrder = order,
+            createdAt = System.currentTimeMillis(), workspaceId = settings.value.activeWorkspaceId,
+        ))
+        toast(if (item.sign > 0) "Added “${item.text}” as a habit to build." else "Added “${item.text}” as a habit to break.")
+        refreshHabitWidgets()
+    }
+
+    // LS7 commitment contract + witness sign-off
+    fun addWitness(h: com.todocompanion.app.data.entity.HabitEntity, milestoneLabel: String, note: String) = viewModelScope.launch {
+        val ref = h.refereeName.trim(); if (ref.isBlank()) { toast("Name a referee in the habit's editor first."); return@launch }
+        repo.upsertWitness(com.todocompanion.app.data.entity.WitnessEventEntity(
+            java.util.UUID.randomUUID().toString(), h.id, ref, milestoneLabel.trim().ifBlank { "Milestone" }, System.currentTimeMillis(), note.trim()))
+        toast("$ref witnessed it ✍️")
+    }
+    fun deleteWitness(id: String) = viewModelScope.launch { repo.deleteWitness(id) }
+
+    // LS7 self-forfeit + akrasia horizon
+    /** A derail happened — escalate the forfeit level (each repeat raises the stake). */
+    fun escalateForfeit(h: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch {
+        repo.upsertHabit(h.copy(forfeitLevel = h.forfeitLevel + 1))
+        toast("Forfeit owed" + (h.forfeitText.takeIf { it.isNotBlank() }?.let { ": $it" } ?: "") + ". Level ${h.forfeitLevel + 1}.")
+    }
+    /** Queue a "make it easier" change — it only takes effect after a one-week akrasia horizon. */
+    fun queueEase(h: com.todocompanion.app.data.entity.HabitEntity, newTarget: Int) = viewModelScope.launch {
+        val applyAt = System.currentTimeMillis() + 7L * 24 * 3600 * 1000
+        repo.upsertHabit(h.copy(pendingEaseMillis = applyAt, pendingEaseTarget = newTarget.coerceAtLeast(0)))
+        toast("Change queued — it applies in 7 days. No easing in the heat of the moment.")
+    }
+    fun cancelEase(h: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch { repo.upsertHabit(h.copy(pendingEaseMillis = 0, pendingEaseTarget = 0)) }
+    /** Apply a queued easing whose horizon has passed (called when the detail screen opens). */
+    fun applyPendingEaseIfDue(h: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch {
+        if (h.pendingEaseMillis in 1..System.currentTimeMillis()) {
+            repo.upsertHabit(h.copy(targetPerDay = h.pendingEaseTarget.coerceAtLeast(if (h.habitType == "break") 0 else 1), pendingEaseMillis = 0, pendingEaseTarget = 0))
+        }
+    }
+
+    // LS2 context capture at check-in
+    fun setCheckinContext(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, energy: Int, mood: Int, place: String) = viewModelScope.launch {
+        repo.setCheckinContext(h.id, epochDay, energy.coerceIn(0, 5), mood.coerceIn(0, 5), place.trim())
+    }
+
+    // LS · buddy digest export / import
+    fun exportBuddyDigest(name: String): String {
+        val today = java.time.LocalDate.now(zone).toEpochDay()
+        val digest = com.todocompanion.app.domain.habit.LifeSystems.buildDigest(name.ifBlank { "Me" }, habits.value, habitCheckins.value, today, settings.value.forgivingStreaks)
+        return kotlinx.serialization.json.Json.encodeToString(com.todocompanion.app.domain.habit.LifeSystems.BuddyDigest.serializer(), digest)
+    }
+    fun importBuddyDigest(json: String) = viewModelScope.launch {
+        val digest = runCatching { kotlinx.serialization.json.Json { ignoreUnknownKeys = true }.decodeFromString(com.todocompanion.app.domain.habit.LifeSystems.BuddyDigest.serializer(), json) }.getOrNull()
+        if (digest == null) { toast("That doesn't look like a buddy digest."); return@launch }
+        repo.upsertBuddy(com.todocompanion.app.data.entity.BuddySnapshotEntity(java.util.UUID.randomUUID().toString(), digest.name, System.currentTimeMillis(), json))
+        toast("Imported ${digest.name}'s progress 🤝")
+    }
+    fun deleteBuddy(id: String) = viewModelScope.launch { repo.deleteBuddy(id) }
+
+    // LS6 save an integrity-review reflection
+    fun saveIntegrityReview(kind: String, periodKey: String, note: String, statsJson: String) = viewModelScope.launch {
+        repo.upsertIntegrityReview(com.todocompanion.app.data.entity.IntegrityReviewEntity(
+            java.util.UUID.randomUUID().toString(), kind, periodKey, System.currentTimeMillis(), note.trim(), statsJson))
+        toast("Review saved to your ledger.")
+    }
+    fun deleteIntegrityReview(id: String) = viewModelScope.launch { repo.deleteIntegrityReview(id) }
+
     fun skipHabitDay(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, reason: String = "") = viewModelScope.launch {
         if (beforeStart(h, epochDay)) return@launch
         repo.skipDay(h.id, epochDay, reason); refreshHabitWidgets()

@@ -65,6 +65,7 @@ import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.AlertDialog
@@ -832,25 +833,41 @@ private fun HabitsDueStrip(vm: AppViewModel) {
         HabitStats.dueToday(h, today, doneDays, hc.firstOrNull { it.epochDay == today }?.count ?: 0)
     }
     if (due.isEmpty()) return
+    // R34: the habits card is foldable — unfolded by default, but the header collapses it so the task
+    // list is one tap away when the day's habits aren't the focus. State survives scroll & restart.
+    var expanded by rememberSaveable { mutableStateOf(true) }
     Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
         Column(Modifier.padding(12.dp)) {
-            Text("Habits · ${due.size} due today", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.size(8.dp))
-            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                due.forEach { h ->
-                    val color = h.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
-                    // Mirror the calendar's day-habit pills: soft outline + leading dot, no checkmark
-                    // (a filled pill is the done-signal). Tap completes it, so it drops out of the due list.
-                    Row(
-                        Modifier.clip(RoundedCornerShape(20.dp)).background(color.copy(alpha = .12f))
-                            .border(1.dp, color.copy(alpha = .45f), RoundedCornerShape(20.dp))
-                            .clickable { vm.setHabitValue(h, today, h.targetPerDay.coerceAtLeast(1)) }
-                            .padding(horizontal = 11.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(Modifier.size(7.dp).clip(androidx.compose.foundation.shape.CircleShape).background(color))
-                        Spacer(Modifier.size(7.dp))
-                        Text((h.emoji?.plus(" ") ?: "") + h.name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { expanded = !expanded }.padding(vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Habits · ${due.size} due today", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Icon(
+                    Icons.Filled.KeyboardArrowDown,
+                    if (expanded) "Collapse habits" else "Expand habits",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.rotate(if (expanded) 180f else 0f),
+                )
+            }
+            if (expanded) {
+                Spacer(Modifier.size(8.dp))
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    due.forEach { h ->
+                        val color = h.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
+                        // Mirror the calendar's day-habit pills: soft outline + leading dot, no checkmark
+                        // (a filled pill is the done-signal). Tap completes it, so it drops out of the due list.
+                        Row(
+                            Modifier.clip(RoundedCornerShape(20.dp)).background(color.copy(alpha = .12f))
+                                .border(1.dp, color.copy(alpha = .45f), RoundedCornerShape(20.dp))
+                                .clickable { vm.setHabitValue(h, today, h.targetPerDay.coerceAtLeast(1)) }
+                                .padding(horizontal = 11.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(Modifier.size(7.dp).clip(androidx.compose.foundation.shape.CircleShape).background(color))
+                            Spacer(Modifier.size(7.dp))
+                            Text((h.emoji?.plus(" ") ?: "") + h.name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
+                        }
                     }
                 }
             }

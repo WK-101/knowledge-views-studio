@@ -210,6 +210,13 @@ data class AppSettings(
     val showEntryCounts: Boolean = false,
     // R29 Phase 7 — the verifiable-timeline seal: "count:headHash:sealedAtMillis", or null when unsealed.
     val integritySeal: String? = null,
+    // R34 · life-systems layer. chronotype: 0 neutral · 1 morning lark · 2 night owl — the coach flags
+    // habits scheduled against your low-energy window. calmMode hides points/streaks/celebration to
+    // protect intrinsic motivation (SDT). rewardMenu is the user's own list of real rewards granted at
+    // milestones (the app never invents the reward — avoids overjustification).
+    val chronotype: Int = 0,
+    val calmMode: Boolean = false,
+    val rewardMenu: List<String> = emptyList(),
 ) {
     /** Effective tier for an optional editor field: user override, else its built-in default. */
     fun editorTier(f: EditorField): Int = editorFieldTiers[f.id] ?: f.defaultTier
@@ -344,6 +351,9 @@ data class AppSettings(
         Keys.PINNED_ACTIVITIES to pinnedActivities.joinToString(","),
         Keys.SHOW_ENTRY_COUNTS to showEntryCounts.toString(),
         Keys.INTEGRITY_SEAL to (integritySeal ?: ""),
+        Keys.CHRONOTYPE to chronotype.toString(),
+        Keys.CALM_MODE to calmMode.toString(),
+        Keys.REWARD_MENU to rewardMenu.joinToString("\n"),
     )
 
     object Keys {
@@ -462,6 +472,9 @@ data class AppSettings(
         const val PINNED_ACTIVITIES = "pinned_activities"
         const val SHOW_ENTRY_COUNTS = "show_entry_counts"
         const val INTEGRITY_SEAL = "integrity_seal"
+        const val CHRONOTYPE = "chronotype"
+        const val CALM_MODE = "calm_mode"
+        const val REWARD_MENU = "reward_menu"
     }
 
     companion object {
@@ -602,6 +615,9 @@ data class AppSettings(
             lastSyncSummary = m[Keys.LAST_SYNC_SUMMARY] ?: "",
             onboarded = m[Keys.ONBOARDED]?.toBooleanStrictOrNull() ?: false,
             themePack = m[Keys.THEME_PACK] ?: "",
+            chronotype = m[Keys.CHRONOTYPE]?.toIntOrNull()?.coerceIn(0, 2) ?: 0,
+            calmMode = m[Keys.CALM_MODE]?.toBooleanStrictOrNull() ?: false,
+            rewardMenu = (m[Keys.REWARD_MENU] ?: "").split("\n").map { it.trim() }.filter { it.isNotEmpty() },
         )
     }
 }

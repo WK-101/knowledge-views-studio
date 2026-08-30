@@ -96,6 +96,25 @@ data class HabitEntity(
     val replacementHabitId: String? = null,
     // F16 guided journeys: the journey that created this habit (for grouping + progress). "" = standalone.
     val journeyKey: String = "",
+    // --- R34 · the LIFE-SYSTEMS layer (all additive; a plain tracker leaves them at their defaults) ---
+    // LS1 WOOP: the back half of an implementation intention — the wished outcome, the concrete inner
+    // obstacle, and an if-then coping plan bound to it (mental contrasting ~doubles follow-through).
+    val woopOutcome: String = "",
+    val woopObstacle: String = "",
+    val woopCoping: String = "",
+    // LS5 values: the core value this habit is a vote for (id into core_values). null = unassigned.
+    val valueId: String? = null,
+    // LS10 competing response: for a break habit, the pre-chosen incompatible substitute offered on an urge.
+    val competingResponse: String = "",
+    // LS7 commitment contract + a real-world referee who signs off ("Witness") at milestones.
+    val contractText: String = "",
+    val refereeName: String = "",
+    // LS7 self-forfeit + akrasia horizon: a non-monetary forfeit owed on a derail, an escalation level,
+    // and a queued "make it easier" change that only applies after a one-week delay (pendingEaseMillis).
+    val forfeitText: String = "",
+    val forfeitLevel: Int = 0,
+    val pendingEaseMillis: Long = 0,
+    val pendingEaseTarget: Int = 0,
 ) {
     /** V4: the encouragement lines, trimmed and non-empty. */
     fun encouragementList(): List<String> = encouragements.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
@@ -124,6 +143,11 @@ data class HabitCheckinEntity(
     val doneAtMinute: Int? = null,
     // V5: an optional free-text journal note for the day ("what helped / what got in the way").
     val note: String = "",
+    // R34 · LS2 context tags captured at check-in — the substrate the correlation engine reads later.
+    // 0 = unset; energy & mood are 1–5 scales; place is free text ("home", "gym").
+    val ctxEnergy: Int = 0,
+    val ctxMood: Int = 0,
+    val ctxPlace: String = "",
 )
 
 /** A completed focus (Pomodoro / stopwatch) session, for the focus tab + statistics. */

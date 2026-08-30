@@ -187,6 +187,62 @@ interface CravingDao {
     suspend fun clear()
 }
 
+// R34 — the LIFE-SYSTEMS layer's tables. Same shape as the other lightweight DAOs.
+@Dao
+interface CoreValueDao {
+    @Query("SELECT * FROM core_values ORDER BY orderIndex, createdAt")
+    fun observeAll(): Flow<List<com.todocompanion.app.data.entity.CoreValueEntity>>
+    @Query("SELECT * FROM core_values") suspend fun getAll(): List<com.todocompanion.app.data.entity.CoreValueEntity>
+    @Upsert suspend fun upsert(v: com.todocompanion.app.data.entity.CoreValueEntity)
+    @Upsert suspend fun upsertAll(v: List<com.todocompanion.app.data.entity.CoreValueEntity>)
+    @Query("DELETE FROM core_values WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM core_values") suspend fun clear()
+}
+
+@Dao
+interface WitnessDao {
+    @Query("SELECT * FROM witness_events ORDER BY atMillis DESC")
+    fun observeAll(): Flow<List<com.todocompanion.app.data.entity.WitnessEventEntity>>
+    @Query("SELECT * FROM witness_events") suspend fun getAll(): List<com.todocompanion.app.data.entity.WitnessEventEntity>
+    @Upsert suspend fun upsert(w: com.todocompanion.app.data.entity.WitnessEventEntity)
+    @Upsert suspend fun upsertAll(w: List<com.todocompanion.app.data.entity.WitnessEventEntity>)
+    @Query("DELETE FROM witness_events WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM witness_events") suspend fun clear()
+}
+
+@Dao
+interface ScorecardDao {
+    @Query("SELECT * FROM scorecard_items ORDER BY orderIndex, createdAt")
+    fun observeAll(): Flow<List<com.todocompanion.app.data.entity.ScorecardItemEntity>>
+    @Query("SELECT * FROM scorecard_items") suspend fun getAll(): List<com.todocompanion.app.data.entity.ScorecardItemEntity>
+    @Upsert suspend fun upsert(s: com.todocompanion.app.data.entity.ScorecardItemEntity)
+    @Upsert suspend fun upsertAll(s: List<com.todocompanion.app.data.entity.ScorecardItemEntity>)
+    @Query("DELETE FROM scorecard_items WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM scorecard_items") suspend fun clear()
+}
+
+@Dao
+interface BuddyDao {
+    @Query("SELECT * FROM buddy_snapshots ORDER BY importedAtMillis DESC")
+    fun observeAll(): Flow<List<com.todocompanion.app.data.entity.BuddySnapshotEntity>>
+    @Query("SELECT * FROM buddy_snapshots") suspend fun getAll(): List<com.todocompanion.app.data.entity.BuddySnapshotEntity>
+    @Upsert suspend fun upsert(b: com.todocompanion.app.data.entity.BuddySnapshotEntity)
+    @Upsert suspend fun upsertAll(b: List<com.todocompanion.app.data.entity.BuddySnapshotEntity>)
+    @Query("DELETE FROM buddy_snapshots WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM buddy_snapshots") suspend fun clear()
+}
+
+@Dao
+interface IntegrityReviewDao {
+    @Query("SELECT * FROM integrity_reviews ORDER BY createdAt DESC")
+    fun observeAll(): Flow<List<com.todocompanion.app.data.entity.IntegrityReviewEntity>>
+    @Query("SELECT * FROM integrity_reviews") suspend fun getAll(): List<com.todocompanion.app.data.entity.IntegrityReviewEntity>
+    @Upsert suspend fun upsert(r: com.todocompanion.app.data.entity.IntegrityReviewEntity)
+    @Upsert suspend fun upsertAll(r: List<com.todocompanion.app.data.entity.IntegrityReviewEntity>)
+    @Query("DELETE FROM integrity_reviews WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM integrity_reviews") suspend fun clear()
+}
+
 @Dao
 interface SealedNoteDao {
     @Query("SELECT * FROM sealed_notes ORDER BY revealEpochDay")
