@@ -191,7 +191,9 @@ fun CalendarScreen(
     var plannerOpen by remember { mutableStateOf(false) }
     var plannerTab by remember { mutableStateOf(0) }
     val openEvent: (String) -> Unit = { id -> eventEditing = eventsAll.firstOrNull { e -> e.id == id }; if (eventEditing != null) eventEditorOpen = true }
-    val eventImport = androidx.activity.compose.rememberLauncherForActivityResult(com.todocompanion.app.util.PickContentSingle("Import .ics")) { uri -> if (uri != null) vm.importIcsEvents(uri) }
+    // R43 — robust import via the layered chain (OPEN_DOCUMENT → GET_CONTENT → chooser), registered
+    // at the top level, real error surfaced. See util/SystemPickers.kt.
+    val eventImport = com.todocompanion.app.util.rememberFilePicker(onError = { vm.toastMsg(it) }) { uris -> uris.firstOrNull()?.let { vm.importIcsEvents(it) } }
     val eventExport = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/calendar")) { uri -> if (uri != null) vm.exportIcsEventsTo(uri) }
 
     val firstDow = if (s.weekStart in 1..7) DayOfWeek.of(s.weekStart) else WeekFields.of(Locale.getDefault()).firstDayOfWeek
@@ -214,7 +216,8 @@ fun CalendarScreen(
     // the selected day, so a countdown you set is visible where you'd look for a dated event.
     val countdowns by vm.countdowns.collectAsState()
     val countdownsFor: (LocalDate) -> List<com.todocompanion.app.data.entity.CountdownEntity> = { d ->
-        countdowns.filter { Instant.ofEpochMilli(it.targetMillis).atZone(zone).toLocalDate() == d }
+        // R43 — occasions land on their NEXT occurrence (a yearly birthday shows on this year's date).
+        countdowns.filter { com.todocompanion.app.domain.LifeEvent.nextOccurrence(it, d) == d }
     }
 
     // M1: optionally draw timed habits as read-only blocks in the day/week grid. Opt-in (default off).
@@ -388,8 +391,7 @@ fun CalendarScreen(
             "block" -> eventBlockOpen = true
             "plan" -> { plannerTab = 0; plannerOpen = true }
             "review" -> { plannerTab = 1; plannerOpen = true }
-            "import" -> runCatching { eventImport.launch(arrayOf("text/calendar", "application/octet-stream", "*/*")) }
-                .onFailure { vm.toastMsg("Couldn't open a file picker on this device.") }
+            "import" -> eventImport(arrayOf("text/calendar", "application/octet-stream", "*/*"))
             // Export: try the system file-saver; if the device has no DocumentsUI, fall back to Downloads.
             "export" -> runCatching { eventExport.launch("todocompanion-calendar.ics") }
                 .onFailure { vm.exportIcsEventsToDownloads() }

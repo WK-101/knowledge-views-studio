@@ -1580,8 +1580,11 @@ private fun ManageListDialog(
     var name by remember { mutableStateOf(list.name) }
     var description by remember { mutableStateOf(list.description) }
     var confirmDelete by remember { mutableStateOf(false) }
-    val bgPicker = androidx.activity.compose.rememberLauncherForActivityResult(com.todocompanion.app.util.PickContentSingle("Set background")) { uri ->
-        if (uri != null) onPickBackground(uri)
+    // R43 — robust image picker (Android Photo Picker → GET_CONTENT → chooser), registered at the top
+    // of this dialog, real error surfaced. See util/SystemPickers.kt.
+    val bgCtxTop = androidx.compose.ui.platform.LocalContext.current
+    val bgPicker = com.todocompanion.app.util.rememberPhotoPicker(onError = { android.widget.Toast.makeText(bgCtxTop, it, android.widget.Toast.LENGTH_LONG).show() }) { uris ->
+        uris.firstOrNull()?.let { onPickBackground(it) }
     }
     if (confirmDelete) ConfirmDeleteDialog("list", list.name, onCancel = { confirmDelete = false }, onConfirm = { confirmDelete = false; onDelete() })
     AlertDialog(
@@ -1609,7 +1612,7 @@ private fun ManageListDialog(
                 Text("Background image", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 val bgCtx = androidx.compose.ui.platform.LocalContext.current
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { try { bgPicker.launch(arrayOf("image/*")) } catch (e: Exception) { android.widget.Toast.makeText(bgCtx, "No file manager is available on this device.", android.widget.Toast.LENGTH_LONG).show() } }) { Text(if (list.backgroundBase64 == null) "Set image" else "Change image") }
+                    TextButton(onClick = { bgPicker() }) { Text(if (list.backgroundBase64 == null) "Set image" else "Change image") }
                     if (list.backgroundBase64 != null) TextButton(onClick = onClearBackground) { Text("Remove", color = MaterialTheme.colorScheme.error) }
                 }
             }

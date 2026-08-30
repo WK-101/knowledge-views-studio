@@ -159,7 +159,61 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         )
         com.todocompanion.app.widget.CountdownWidget.refresh(appCtx)
     }
-    fun deleteCountdown(id: String) = viewModelScope.launch { repo.deleteCountdown(id); com.todocompanion.app.widget.CountdownWidget.refresh(appCtx) }
+
+    /**
+     * R43 — save a full life-event / occasion (birthday, anniversary, memorial, name day, holiday or a
+     * plain countdown) and keep its optional "prepare" task in sync: when prepLeadDays > 0 we create or
+     * re-date a task in the Inbox that falls that many days before the next occurrence — the one thing a
+     * single-purpose reminder app can't do, because it doesn't own the task list. Fully offline.
+     */
+    fun saveOccasion(
+        id: String?, title: String, personName: String, targetMillis: Long, eventType: String,
+        yearly: Boolean, yearKnown: Boolean, emoji: String?, colorArgb: Long?, notes: String, prepLeadDays: Int,
+    ) = viewModelScope.launch {
+        val existing = id?.let { cid -> countdowns.value.firstOrNull { it.id == cid } }
+        var row = (existing ?: com.todocompanion.app.data.entity.CountdownEntity(
+            id = UUID.randomUUID().toString(), title = title, targetMillis = targetMillis, createdAt = System.currentTimeMillis(),
+        )).copy(
+            title = title.trim().ifBlank { com.todocompanion.app.domain.LifeEvent.EventType.from(eventType).label },
+            personName = personName.trim(), targetMillis = targetMillis, eventType = eventType, yearly = yearly,
+            yearKnown = yearKnown, emoji = emoji, colorArgb = colorArgb, notes = notes.trim(), prepLeadDays = prepLeadDays,
+        )
+        // Keep the auto "prepare" task in step with the occasion.
+        val next = com.todocompanion.app.domain.LifeEvent.nextOccurrence(row)
+        if (prepLeadDays > 0) {
+            val dueDay = next.minusDays(prepLeadDays.toLong())
+            val dueMillis = dueDay.atStartOfDay(zone).toInstant().toEpochMilli()
+            val who = row.personName.ifBlank { row.title }
+            val t = com.todocompanion.app.domain.LifeEvent.type(row)
+            val prepTitle = when (t) {
+                com.todocompanion.app.domain.LifeEvent.EventType.BIRTHDAY -> "🎁 Gift for $who — birthday"
+                com.todocompanion.app.domain.LifeEvent.EventType.ANNIVERSARY -> "🎁 Plan for $who — anniversary"
+                com.todocompanion.app.domain.LifeEvent.EventType.MEMORIAL -> "🕯️ Remember $who"
+                else -> "Prepare for ${row.title}"
+            }
+            val existingTask = row.prepTaskId?.let { repo.getTask(it) }
+            if (existingTask != null && !existingTask.trashed) {
+                repo.saveTask(existingTask.copy(title = prepTitle, dueDate = dueMillis, completed = false, completedAt = null))
+            } else {
+                val newId = repo.createTask(listId = com.todocompanion.app.data.entity.ListEntity.INBOX_ID, title = prepTitle, dueDate = dueMillis)
+                row = row.copy(prepTaskId = newId)
+            }
+        } else if (row.prepTaskId != null) {
+            // Prep turned off — trash the auto task so it doesn't linger, and forget the link.
+            row.prepTaskId?.let { pid -> repo.getTask(pid)?.let { repo.saveTask(it.copy(trashed = true, trashedAt = System.currentTimeMillis())) } }
+            row = row.copy(prepTaskId = null)
+        }
+        repo.upsertCountdown(row)
+        com.todocompanion.app.widget.CountdownWidget.refresh(appCtx)
+    }
+
+    fun deleteCountdown(id: String) = viewModelScope.launch {
+        // Also clean up the occasion's auto "prepare" task, if any.
+        countdowns.value.firstOrNull { it.id == id }?.prepTaskId?.let { pid ->
+            repo.getTask(pid)?.let { repo.saveTask(it.copy(trashed = true, trashedAt = System.currentTimeMillis())) }
+        }
+        repo.deleteCountdown(id); com.todocompanion.app.widget.CountdownWidget.refresh(appCtx)
+    }
     fun toggleCountdownPin(c: com.todocompanion.app.data.entity.CountdownEntity) = viewModelScope.launch { repo.upsertCountdown(c.copy(pinned = !c.pinned)); com.todocompanion.app.widget.CountdownWidget.refresh(appCtx) }
     val filters = combine(repo.allFilters, activeWs) { f, ws -> f.filter { it.workspaceId == ws } }.state(emptyList())
     val habits = combine(repo.allHabits, activeWs) { h, ws -> h.filter { it.workspaceId == ws && !it.archived } }.state(emptyList())
@@ -2864,6 +2918,81 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             startMillis = startMillis, endMillis = startMillis + durationMin.coerceAtLeast(15) * 60000L,
             linkedTaskId = taskId, createdAt = System.currentTimeMillis(), updatedAt = System.currentTimeMillis())
         repo.upsertEvent(e); toast("Blocked ${durationMin}m for “${task.title}”.")
+    }
+
+    // ── R43 · Third-horizon planner support ────────────────────────────────────────────────────────
+    /** The daylight rail: store a latitude (999.0 = off) that the sunrise/sunset bands are computed from. */
+    fun setDaylightLatitude(lat: Double?) = viewModelScope.launch {
+        repo.saveSettings(settings.value.copy(daylightLatitude = lat?.coerceIn(-90.0, 90.0) ?: 999.0))
+    }
+    /** North-star allocation: set (or clear, share<=0) a target time-share for one calendar. */
+    fun setNorthStarTarget(calId: String, share: Double) = viewModelScope.launch {
+        val map = com.todocompanion.app.domain.calendar.ThirdHorizon.parseTargets(settings.value.northStarTargetsCsv).toMutableMap()
+        if (share > 0) map[calId] = share.coerceIn(0.0, 1.0) else map.remove(calId)
+        repo.saveSettings(settings.value.copy(northStarTargetsCsv = com.todocompanion.app.domain.calendar.ThirdHorizon.encodeTargets(map)))
+    }
+    fun clearNorthStarTargets() = viewModelScope.launch { repo.saveSettings(settings.value.copy(northStarTargetsCsv = "")) }
+
+    /** Booked (event) minutes per epoch-day across a range — feeds the ghost week and recovery-buffer reads. */
+    suspend fun bookedMinutesByDay(startDay: Long, endDay: Long): Map<Long, Long> {
+        val evs = events.value
+        val out = HashMap<Long, Long>()
+        var d = startDay
+        while (d <= endDay) {
+            val occ = com.todocompanion.app.domain.calendar.CalendarEngine.onDay(evs, d, zone)
+            out[d] = occ.filter { !it.event.allDay }.sumOf { it.durationMin() }
+            d++
+        }
+        return out
+    }
+
+    /** Deadline-aware chunking: spread a task's remaining estimate across the days before its deadline,
+     *  dropping a linked calendar block onto the first free slot of each chosen day. */
+    fun applyDeadlineChunks(taskId: String, onDone: (Int) -> Unit = {}) = viewModelScope.launch {
+        val task = repo.getTask(taskId) ?: return@launch
+        val est = task.estimateMin ?: return@launch
+        val deadlineMs = task.deadlineDate ?: task.dueDate ?: return@launch
+        val s = settings.value
+        val fromDay = java.time.LocalDate.now(zone).toEpochDay()
+        val deadlineDay = java.time.Instant.ofEpochMilli(deadlineMs).atZone(zone).toLocalDate().toEpochDay()
+        val evs = events.value
+        // Free minutes per day = working-window length minus what's already booked.
+        val freeByDay = HashMap<Long, Int>()
+        var d = fromDay
+        while (d <= deadlineDay) {
+            val occ = com.todocompanion.app.domain.calendar.CalendarEngine.onDay(evs, d, zone)
+            val budget = com.todocompanion.app.domain.calendar.CalendarPlanner.dayBudget(occ, d, s.workStartHour, s.workEndHour, zone)
+            freeByDay[d] = budget.remainingMin.coerceAtLeast(0)
+            d++
+        }
+        val chunks = com.todocompanion.app.domain.calendar.ThirdHorizon.deadlineChunks(est, freeByDay, fromDay, deadlineDay)
+        var placed = 0
+        chunks.forEach { c ->
+            val occ = com.todocompanion.app.domain.calendar.CalendarEngine.onDay(events.value, c.day, zone)
+            val fromMin = if (c.day == fromDay) (java.time.LocalTime.now(zone).hour * 60 + java.time.LocalTime.now(zone).minute) else s.workStartHour * 60
+            val slot = com.todocompanion.app.domain.calendar.CalendarPlanner.slideToFree(c.day, fromMin, c.minutes, occ.map { it.event }, s.workStartHour, s.workEndHour, zone)
+                ?: java.time.LocalDate.ofEpochDay(c.day).atTime(s.workStartHour.coerceIn(0, 23), 0).atZone(zone).toInstant().toEpochMilli()
+            val ev = com.todocompanion.app.data.entity.EventEntity(
+                id = java.util.UUID.randomUUID().toString(), calendarId = ensureDefaultCalendar(), title = task.title,
+                startMillis = slot, endMillis = slot + c.minutes * 60000L, linkedTaskId = taskId,
+                createdAt = System.currentTimeMillis(), updatedAt = System.currentTimeMillis())
+            repo.upsertEvent(ev); placed++
+        }
+        toast(if (placed > 0) "Spread “${task.title}” across $placed day${if (placed == 1) "" else "s"}." else "No free time before the deadline.")
+        onDone(placed)
+    }
+
+    /** Time-debt repayment: raise a task's estimate to what it actually took, so next time it's pre-booked right. */
+    fun bumpTaskEstimate(taskId: String, newEstimateMin: Int) = viewModelScope.launch {
+        val t = repo.getTask(taskId) ?: return@launch
+        repo.saveTask(t.copy(estimateMin = newEstimateMin.coerceAtLeast(5)))
+        toast("Estimate updated to ${newEstimateMin / 60}h ${newEstimateMin % 60}m.")
+    }
+
+    /** Focus contract: arm the Focus ring for this task (open the Focus tab to begin). */
+    fun armFocusForTask(taskId: String) {
+        pendingFocusTaskId.value = taskId
+        toast("Focus armed — open the Focus tab to start the session.")
     }
 
     /** Natural-language quick add on the calendar: parse → an event (or a task if it starts with todo/reminder). */

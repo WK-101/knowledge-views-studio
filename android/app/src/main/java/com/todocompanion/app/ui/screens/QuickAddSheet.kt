@@ -102,8 +102,10 @@ fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Bo
     val focus = remember { FocusRequester() }
 
     val qaCtx = androidx.compose.ui.platform.LocalContext.current
-    val attachLauncher = rememberLauncherForActivityResult(com.todocompanion.app.util.PickContentSingle("Attach a file")) { uri ->
-        if (uri != null) attachments = attachments + uri
+    // R43 — robust file picker (OPEN_DOCUMENT → GET_CONTENT → chooser), registered at the top of the
+    // sheet, real error surfaced. Multi-select supported. See util/SystemPickers.kt.
+    val attachLauncher = com.todocompanion.app.util.rememberFilePicker(onError = { android.widget.Toast.makeText(qaCtx, it, android.widget.Toast.LENGTH_LONG).show() }) { uris ->
+        if (uris.isNotEmpty()) attachments = attachments + uris
     }
     // Voice capture (F3): dictate a task with the platform speech recognizer and append the result.
     val voiceLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
@@ -217,11 +219,8 @@ fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Bo
                     }
                     IconTool(Icons.AutoMirrored.Filled.FormatListBulleted, "List or folder", listId != null || folderId != null) { listPicker = true }
                     IconTool(Icons.Filled.AttachFile, "Attach a file", attachments.isNotEmpty()) {
-                        // Guard against a device with no picker (would otherwise crash); the task editor's
-                        // "Browse device" is the reliable fallback for attaching there instead.
-                        try { attachLauncher.launch(arrayOf("*/*")) } catch (e: Exception) {
-                            android.widget.Toast.makeText(qaCtx, "No file picker here — open the task and use “Browse device” to attach.", android.widget.Toast.LENGTH_LONG).show()
-                        }
+                        // The helper runs the layered chain and surfaces the real error if all tiers fail.
+                        attachLauncher(arrayOf("*/*"))
                     }
                     IconTool(Icons.Filled.Mic, "Dictate task", false) { startVoice() }
                 }

@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -62,6 +63,8 @@ data class DateChoice(
     val startMillis: Long? = null,     // R21: optional start date, set inside the same sheet
     val startHasTime: Boolean = false,
     val deadlineMillis: Long? = null,  // R22: the hard deadline, also set inside the same sheet
+    val estimateMin: Int? = null,      // R43: the effort estimate, now set beside duration in this sheet
+    val estimateSet: Boolean = false,  // whether the sheet managed the estimate (so callers know to apply it)
 )
 
 /**
@@ -89,6 +92,9 @@ fun DateReminderSheet(
     showDeadline: Boolean = false,
     initialDeadline: Long? = null,
     repeatHasChildren: Boolean = false,
+    showEstimate: Boolean = false,
+    initialEstimateMin: Int? = null,
+    estimateHint: String? = null,
 ) {
     val zone = ZoneId.systemDefault()
     val initialDt = initialDue?.let { Instant.ofEpochMilli(it).atZone(zone) }
@@ -97,6 +103,8 @@ fun DateReminderSheet(
     var time by remember { mutableStateOf(if (initialHasTime && initialDt != null) LocalTime.of(initialDt.hour, initialDt.minute) else null) }
     var allDay by remember { mutableStateOf(initialAllDay) }
     var durationMin by remember { mutableStateOf(initialDurationMin) }
+    var estimateMin by remember { mutableStateOf(initialEstimateMin) }
+    var showEstimatePicker by remember { mutableStateOf(false) }
     var rrule by remember { mutableStateOf(initialRrule) }
     var reminder by remember { mutableStateOf(initialReminderOffsetMin) }
     var startMillis by remember { mutableStateOf(initialStart) }
@@ -139,6 +147,8 @@ fun DateReminderSheet(
             startMillis = startMillis,
             startHasTime = startHasTime,
             deadlineMillis = deadlineMillis,
+            estimateMin = estimateMin,
+            estimateSet = showEstimate,
         ))
     }
 
@@ -193,6 +203,17 @@ fun DateReminderSheet(
                     value = durationMin?.let { fmtDuration(it) } ?: "None",
                     onClear = if (durationMin != null) ({ durationMin = null }) else null,
                     onClick = { showDuration = true })
+            }
+            // R43 — Estimate now lives here, right beside Duration, so effort and block length are chosen
+            // together. Duration is the block on the grid; Estimate is how long you think it takes (feeds
+            // the planner's calibration). Available even for all-day, since effort is independent of a clock.
+            if (showEstimate) {
+                SheetRow(icon = Icons.Filled.HourglassEmpty, label = "Estimate",
+                    value = estimateMin?.let { fmtDuration(it) } ?: "None",
+                    onClear = if (estimateMin != null) ({ estimateMin = null }) else null,
+                    onClick = { showEstimatePicker = true })
+                if (estimateHint != null) Text(estimateHint, style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 34.dp, bottom = 2.dp))
             }
             if (showStart || showDeadline) {
                 androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
@@ -252,6 +273,7 @@ fun DateReminderSheet(
     // (the previous basic RRULE strings weren't parsed by the recurrence engine) — R21.
     if (showRepeat) com.todocompanion.app.ui.screens.RepeatDialog(rrule, repeatHasChildren, onDismiss = { showRepeat = false }) { rrule = it; showRepeat = false }
     if (showDuration) com.todocompanion.app.ui.screens.DurationPickerDialog(durationMin ?: 30, onDismiss = { showDuration = false }) { durationMin = it.takeIf { m -> m > 0 }; showDuration = false }
+    if (showEstimatePicker) com.todocompanion.app.ui.screens.DurationPickerDialog(estimateMin ?: 30, onDismiss = { showEstimatePicker = false }) { estimateMin = it.takeIf { m -> m > 0 }; showEstimatePicker = false }
     if (showStartPicker) DateTimeOptionalDialog(startMillis, startHasTime, onDismiss = { showStartPicker = false }) { m, ht -> startMillis = m; startHasTime = ht; showStartPicker = false }
     if (showDeadlinePicker) {
         val dlTimed = deadlineMillis?.let { Instant.ofEpochMilli(it).atZone(zone).let { z -> z.hour != 0 || z.minute != 0 } } ?: false

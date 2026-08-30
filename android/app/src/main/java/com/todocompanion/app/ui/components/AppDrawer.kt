@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Timelapse
 import androidx.compose.material.icons.filled.ViewTimeline
 import androidx.compose.material.icons.filled.Cancel
@@ -358,7 +359,7 @@ fun AppDrawer(
                 // E4: long-press any "More" item to pin it to Favourites (token "more:key").
                 if ("momentum" !in hidden) DrawerRow(Icons.Filled.Insights, "Momentum", pinned = vm.isPinned("more:momentum"), onLongClick = { vm.togglePinnedRef("more:momentum") }, onClick = onOpenMomentum)
                 if ("templates" !in hidden) DrawerRow(Icons.Filled.ContentCopy, "Templates", pinned = vm.isPinned("more:templates"), onLongClick = { vm.togglePinnedRef("more:templates") }, onClick = onOpenTemplates)
-                if ("countdowns" !in hidden) DrawerRow(Icons.Filled.Timelapse, "Countdowns", pinned = vm.isPinned("more:countdowns"), onLongClick = { vm.togglePinnedRef("more:countdowns") }, onClick = onOpenCountdowns)
+                if ("countdowns" !in hidden) DrawerRow(Icons.Filled.Cake, "Occasions", pinned = vm.isPinned("more:countdowns"), onLongClick = { vm.togglePinnedRef("more:countdowns") }, onClick = onOpenCountdowns)
                 if ("attachments" !in hidden) DrawerRow(Icons.Filled.AttachFile, "Attachments", pinned = vm.isPinned("more:attachments"), onLongClick = { vm.togglePinnedRef("more:attachments") }, onClick = onOpenAttachments)
                 if ("done" !in hidden) DrawerRow(Icons.Filled.EmojiEvents, "The Record", pinned = vm.isPinned("more:done"), onLongClick = { vm.togglePinnedRef("more:done") }, onClick = onOpenDone)
                 // R32 — Statistics (charts) and Recap (period narrative) sit together under one "Insights"
@@ -619,7 +620,7 @@ private fun PinnedFavourites(
     fun moreMeta(key: String): Pair<ImageVector, String>? = when (key) {
         "momentum" -> Icons.Filled.Insights to "Momentum"
         "time" -> Icons.Filled.Timer to "Time"
-        "templates" -> Icons.Filled.ContentCopy to "Templates"; "countdowns" -> Icons.Filled.Timelapse to "Countdowns"
+        "templates" -> Icons.Filled.ContentCopy to "Templates"; "countdowns" -> Icons.Filled.Cake to "Occasions"
         "attachments" -> Icons.Filled.AttachFile to "Attachments"; "statistics" -> Icons.Filled.BarChart to "Statistics"
         "review" -> Icons.Filled.ChecklistRtl to "Weekly review"
         "recap" -> Icons.Filled.AutoAwesome to "Recap"; "annual" -> Icons.Filled.EmojiEvents to "Year in review"; else -> null

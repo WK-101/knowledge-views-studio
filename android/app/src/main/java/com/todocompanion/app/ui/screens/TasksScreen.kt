@@ -1058,10 +1058,10 @@ private fun CountdownDueStrip(vm: AppViewModel, kind: SmartKind) {
     val today = java.time.LocalDate.now(zone)
     val relevant = remember(countdowns, kind, today) {
         countdowns.mapNotNull { cd ->
-            val d = java.time.Instant.ofEpochMilli(cd.targetMillis).atZone(zone).toLocalDate()
-            val days = java.time.temporal.ChronoUnit.DAYS.between(today, d)
+            // R43 — occasions surface on their NEXT occurrence (yearly birthdays roll forward).
+            val days = com.todocompanion.app.domain.LifeEvent.daysUntil(cd, today)
             val inWindow = when (kind) {
-                SmartKind.TODAY, SmartKind.DO_NEXT -> d == today
+                SmartKind.TODAY, SmartKind.DO_NEXT -> days == 0L
                 SmartKind.NEXT7 -> days in 0..6
                 SmartKind.SCHEDULED -> days >= 0
                 else -> false
@@ -1072,7 +1072,7 @@ private fun CountdownDueStrip(vm: AppViewModel, kind: SmartKind) {
     if (relevant.isEmpty()) return
     Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
         Column(Modifier.padding(12.dp)) {
-            Text("Countdowns", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            Text("Occasions", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.size(8.dp))
             relevant.forEachIndexed { i, (cd, days) ->
                 if (i > 0) HorizontalDivider(Modifier.padding(vertical = 2.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))

@@ -128,18 +128,19 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) vm.exportTo(uri) { ok -> Toast.makeText(context, if (ok) "Exported" else "Export failed", Toast.LENGTH_SHORT).show() }
     }
-    // GetContent (ACTION_GET_CONTENT) is answered by ordinary file managers, not only the system
-    // document picker — so imports still work on devices without com.android.documentsui.
-    val importLauncher = rememberLauncherForActivityResult(com.todocompanion.app.util.PickContentSingle("Restore a backup")) { uri ->
-        if (uri != null) vm.importFrom(uri) { ok -> Toast.makeText(context, if (ok) "Imported" else "Import failed", Toast.LENGTH_SHORT).show() }
+    // R43 — every import goes through the robust, top-level layered-chain picker (OPEN_DOCUMENT →
+    // GET_CONTENT → chooser), which surfaces the real exception if all tiers fail. Its raw OPEN_DOCUMENT
+    // first tier is exactly the path TickTick uses and that works on de-Googled ROMs. See SystemPickers.kt.
+    val importLauncher = com.todocompanion.app.util.rememberFilePicker(onError = { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }) { uris ->
+        uris.firstOrNull()?.let { uri -> vm.importFrom(uri) { ok -> Toast.makeText(context, if (ok) "Imported" else "Import failed", Toast.LENGTH_SHORT).show() } }
     }
     // Import from another app (Todoist/TickTick CSV, MLO OPML).
-    val importExternalLauncher = rememberLauncherForActivityResult(com.todocompanion.app.util.PickContentSingle("Import")) { uri ->
-        if (uri != null) vm.importExternal(uri) { ok, msg -> Toast.makeText(context, msg, if (ok) Toast.LENGTH_LONG else Toast.LENGTH_LONG).show() }
+    val importExternalLauncher = com.todocompanion.app.util.rememberFilePicker(onError = { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }) { uris ->
+        uris.firstOrNull()?.let { uri -> vm.importExternal(uri) { ok, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() } }
     }
     // CU3: import a calendar (.ics) back into tasks — the other half of the 2-way bridge.
-    val importIcsLauncher = rememberLauncherForActivityResult(com.todocompanion.app.util.PickContentSingle("Import .ics")) { uri ->
-        if (uri != null) vm.importIcs(uri) { _, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() }
+    val importIcsLauncher = com.todocompanion.app.util.rememberFilePicker(onError = { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }) { uris ->
+        uris.firstOrNull()?.let { uri -> vm.importIcs(uri) { _, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() } }
     }
     // Folder pickers for backup & sync — take a persistable grant so alarms can write later.
     fun persist(uri: android.net.Uri) = runCatching {
@@ -164,8 +165,8 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     val exportHabitsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         if (uri != null) vm.exportHabitsCsvTo(uri) { ok -> Toast.makeText(context, if (ok) "Habits exported" else "Export failed", Toast.LENGTH_SHORT).show() }
     }
-    val importHabitsLauncher = rememberLauncherForActivityResult(com.todocompanion.app.util.PickContentSingle("Import habits")) { uri ->
-        if (uri != null) vm.importHabitsCsv(uri) { _, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() }
+    val importHabitsLauncher = com.todocompanion.app.util.rememberFilePicker(onError = { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }) { uris ->
+        uris.firstOrNull()?.let { uri -> vm.importHabitsCsv(uri) { _, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() } }
     }
     // Opening the system document picker (Storage Access Framework) can throw
     // ActivityNotFoundException on devices whose Files / DocumentsUI app is missing or disabled —
@@ -948,7 +949,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             // Restore uses the SYSTEM file picker (ACTION_GET_CONTENT) first — no storage permission, and it
             // shows your files straight away. The in-app browser is only the fallback (offered below, and
             // reached automatically if the device has no system picker at all).
-            Action("Restore a backup…") { safeImport { importLauncher.launch(arrayOf("*/*")) } }
+            Action("Restore a backup…") { safeImport { importLauncher(arrayOf("*/*")) } }
             Action("Send a copy to another device") { vm.shareBackupCopy() }
             // A permissionless alternative: a list of backups the app can already reach (its own saved
             // copies in Downloads + anything dropped into the import inbox). No picker, no permission.
@@ -1154,9 +1155,9 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         title = { Text("Import from another app…") },
         text = {
             Column {
-                ChooserRow("Todoist / TickTick / MLO", "Their CSV export, or MLO's OPML") { showImportChooser = false; safeImport { importExternalLauncher.launch(arrayOf("*/*")) } }
-                ChooserRow("Calendar (.ics) → tasks", "Turn a calendar export into tasks") { showImportChooser = false; safeImport { importIcsLauncher.launch(arrayOf("*/*")) } }
-                ChooserRow("Habits (Loop / CSV)", "Loop Habit Tracker's Checkmarks, or our CSV") { showImportChooser = false; safeImport { importHabitsLauncher.launch(arrayOf("*/*")) } }
+                ChooserRow("Todoist / TickTick / MLO", "Their CSV export, or MLO's OPML") { showImportChooser = false; safeImport { importExternalLauncher(arrayOf("*/*")) } }
+                ChooserRow("Calendar (.ics) → tasks", "Turn a calendar export into tasks") { showImportChooser = false; safeImport { importIcsLauncher(arrayOf("*/*")) } }
+                ChooserRow("Habits (Loop / CSV)", "Loop Habit Tracker's Checkmarks, or our CSV") { showImportChooser = false; safeImport { importHabitsLauncher(arrayOf("*/*")) } }
             }
         },
     )

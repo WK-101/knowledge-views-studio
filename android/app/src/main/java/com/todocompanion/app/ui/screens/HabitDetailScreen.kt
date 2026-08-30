@@ -135,9 +135,11 @@ fun HabitDetailScreen(
     val relapseDays = hc.filter { HabitStats.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
     val photoByDay = hc.filter { it.photoUri != null }.associate { it.epochDay to it.photoUri!! }
     var editorDay by remember { mutableStateOf<Long?>(null) }
-    // K5: pick a photo for the day currently open in the editor.
-    val photoPicker = rememberLauncherForActivityResult(com.todocompanion.app.util.PickContentSingle("Add photo")) { uri ->
+    // K5: pick a photo for the day currently open in the editor. R43 — robust photo picker (Android
+    // Photo Picker → GET_CONTENT → chooser), registered at the top level. See util/SystemPickers.kt.
+    val photoPicker = com.todocompanion.app.util.rememberPhotoPicker(onError = { vm.toastMsg(it) }) { uris ->
         val day = editorDay
+        val uri = uris.firstOrNull()
         if (uri != null && day != null) vm.setHabitPhoto(h, day, uri)
     }
 
@@ -451,7 +453,7 @@ fun HabitDetailScreen(
             photoPath = photoByDay[day],
             canFreeze = h.freezeTokens > 0 && missedPast,
             onFreeze = { vm.spendHabitFreeze(h, day); editorDay = null },
-            onPickPhoto = { runCatching { photoPicker.launch(arrayOf("image/*")) } },
+            onPickPhoto = { photoPicker() },
             onRemovePhoto = { vm.setHabitPhoto(h, day, null) },
             onDismiss = { editorDay = null },
             onSave = { count, skip, note ->

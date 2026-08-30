@@ -56,6 +56,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.todocompanion.app.domain.calendar.CalendarEngine
 import com.todocompanion.app.domain.calendar.CalendarPlanner
+import com.todocompanion.app.domain.calendar.ThirdHorizon
 import com.todocompanion.app.ui.AppViewModel
 import java.time.Instant
 import java.time.LocalDate
@@ -85,11 +86,12 @@ fun PlannerSheet(vm: AppViewModel, zone: ZoneId, initialDay: Long, initialTab: I
             Text("Your events, tasks, habits and tracked time — planned together, on-device.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp, bottom = 12.dp))
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                SegmentedButton(selected = tab == 0, onClick = { tab = 0 }, shape = SegmentedButtonDefaults.itemShape(0, 2)) { Text("Plan today") }
-                SegmentedButton(selected = tab == 1, onClick = { tab = 1 }, shape = SegmentedButtonDefaults.itemShape(1, 2)) { Text("Weekly review") }
+                SegmentedButton(selected = tab == 0, onClick = { tab = 0 }, shape = SegmentedButtonDefaults.itemShape(0, 3)) { Text("Plan") }
+                SegmentedButton(selected = tab == 1, onClick = { tab = 1 }, shape = SegmentedButtonDefaults.itemShape(1, 3)) { Text("Review") }
+                SegmentedButton(selected = tab == 2, onClick = { tab = 2 }, shape = SegmentedButtonDefaults.itemShape(2, 3)) { Text("Horizon") }
             }
             Spacer(Modifier.height(14.dp))
-            if (tab == 0) PlanTodayTab(vm, zone, initialDay) else WeeklyReviewTab(vm, zone, initialDay)
+            when (tab) { 0 -> PlanTodayTab(vm, zone, initialDay); 1 -> WeeklyReviewTab(vm, zone, initialDay); else -> HorizonTab(vm, zone, initialDay) }
         }
     }
 }
@@ -390,6 +392,254 @@ private fun WeeklyReviewTab(vm: AppViewModel, zone: ZoneId, day: Long) {
             }
         }
     }
+}
+
+// ── R43 · The third horizon ─────────────────────────────────────────────────────────────────────
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun HorizonTab(vm: AppViewModel, zone: ZoneId, day: Long) {
+    val events by vm.events.collectAsState()
+    val tasks by vm.tasks.collectAsState()
+    val entries by vm.timeEntries.collectAsState()
+    val calendars by vm.eventCalendars.collectAsState()
+    val settings by vm.settings.collectAsState()
+    val ws = settings.workStartHour; val we = settings.workEndHour
+    val today = LocalDate.now(zone).toEpochDay()
+
+    val occ = remember(events, day) { CalendarEngine.onDay(events, day, zone) }
+    val budget = remember(occ, ws, we) { CalendarPlanner.dayBudget(occ, day, ws, we, zone) }
+    val nowFloor = if (day == today) System.currentTimeMillis() else null
+    val placements = remember(tasks, occ, day) {
+        CalendarPlanner.autoSchedule(tasks.filter { it.workspaceId == settings.activeWorkspaceId }, occ, day, ws, we, fromMillis = nowFloor, zone = zone)
+    }
+    val dayStartMs = LocalDate.ofEpochDay(day).atStartOfDay(zone).toInstant().toEpochMilli()
+    val dayEndMs = LocalDate.ofEpochDay(day + 1).atStartOfDay(zone).toInstant().toEpochMilli()
+
+    Text("Twelve reads only a unified store can form — your events, tasks, habits and tracked time, together.",
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 10.dp))
+
+    // 1 · The cost of yes
+    SectionCard {
+        HorizonHead("⇄", "The cost of yes")
+        Text("Before you accept a new block, see what it displaces.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        var dur by remember { mutableIntStateOf(60) }
+        Spacer(Modifier.height(6.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf(30, 60, 90, 120).forEach { m ->
+                FilterChip(selected = dur == m, onClick = { dur = m }, label = { Text(fmtMin(m)) })
+            }
+        }
+        val yes = ThirdHorizon.costOfYes(placements, budget.remainingMin, dur)
+        Spacer(Modifier.height(6.dp))
+        if (yes.freeAfterMin >= 0)
+            Text("Fits — ${fmtMin(yes.freeAfterMin)} would still be free today.", style = MaterialTheme.typography.bodyMedium)
+        else
+            Text("Overbooks by ${fmtMin(-yes.freeAfterMin)}. It would bump: ${yes.displacedTitles.joinToString(", ").ifBlank { "planned work" }}.",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+    }
+
+    // 2 · Backfill from actuals
+    val gaps = remember(entries, occ, day) { ThirdHorizon.backfillCandidates(entries, occ, dayStartMs, dayEndMs) }
+    if (gaps.isNotEmpty()) SectionCard {
+        HorizonHead("◔", "Backfill from actuals")
+        Text("Tracked time with no block behind it — turn it into a record of the day.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(4.dp))
+        val df = DateTimeFormatter.ofPattern("h:mm").withZone(zone)
+        gaps.take(5).forEach { g ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(df.format(Instant.ofEpochMilli(g.startMillis)), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.width(52.dp))
+                Text("${fmtMin(g.minutes)} untracked-as-plan", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                if (g.taskId != null) TextButton(onClick = { vm.blockTaskAsEvent(g.taskId!!, g.startMillis, g.minutes) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(8.dp, 0.dp)) { Text("Block it") }
+            }
+        }
+    }
+
+    // 3 · Ghost week
+    val weekStart = remember(day, settings.weekStart) { startOfWeek(day, settings.weekStart) }
+    val bookedByDay by produceState<Map<Long, Long>?>(initialValue = null, weekStart) {
+        value = vm.bookedMinutesByDay(weekStart - 35, weekStart + 6)
+    }
+    bookedByDay?.let { booked ->
+        val ghost = remember(booked, weekStart) { ThirdHorizon.ghostWeek(booked.mapValues { it.value.toInt() }, weekStart) }
+        SectionCard {
+            HorizonHead("▤", "The ghost week")
+            Text("Your usual week (median of the last 4) behind this one — see where today runs heavier or lighter.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(8.dp))
+            val maxV = (ghost.maxOrNull() ?: 1).coerceAtLeast((0 until 7).maxOf { (booked[weekStart + it] ?: 0L).toInt() }).coerceAtLeast(1)
+            Row(Modifier.fillMaxWidth().height(72.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
+                for (i in 0 until 7) {
+                    val thisWk = (booked[weekStart + i] ?: 0L).toInt()
+                    val ghostV = ghost[i]
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
+                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
+                            // ghost median (faint, wide)
+                            Box(Modifier.fillMaxWidth().height((52f * ghostV / maxV).coerceAtLeast(if (ghostV > 0) 3f else 0f).dp)
+                                .clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .22f)))
+                            // this week (solid, narrow)
+                            Box(Modifier.fillMaxWidth(0.55f).height((52f * thisWk / maxV).coerceAtLeast(if (thisWk > 0) 3f else 0f).dp)
+                                .clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.primary))
+                        }
+                        Spacer(Modifier.height(3.dp))
+                        Text(LocalDate.ofEpochDay(weekStart + i).dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()),
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+        // 6 · Recovery buffers (needs the history too)
+        val rec = remember(booked, today) { ThirdHorizon.recovery(booked.mapValues { it.value.toInt() }, today) }
+        if (rec.suggestBuffer) SectionCard {
+            HorizonHead("≈", "Recovery buffer")
+            Text("${rec.heavyStreak} heavy days in a row with no lighter one between — an energy-debt streak. Block a short decompress before it compounds.",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+        }
+    }
+
+    // 4 · Deadline-aware chunking
+    val chunkTask = remember(tasks, today) {
+        tasks.filter { it.workspaceId == settings.activeWorkspaceId && !it.completed && !it.trashed && (it.estimateMin ?: 0) >= 60 }
+            .filter { (it.deadlineDate ?: it.dueDate) != null }
+            .firstOrNull { (java.time.Instant.ofEpochMilli(it.deadlineDate ?: it.dueDate!!).atZone(zone).toLocalDate().toEpochDay()) > today }
+    }
+    chunkTask?.let { t ->
+        SectionCard {
+            HorizonHead("↦", "Deadline-aware chunking")
+            val dl = java.time.Instant.ofEpochMilli(t.deadlineDate ?: t.dueDate!!).atZone(zone).toLocalDate()
+            Text("“${t.title}” needs ${fmtMin(t.estimateMin ?: 0)} by ${dl.format(DateTimeFormatter.ofPattern("MMM d"))}. Spread it across the days before, not just today.",
+                style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(6.dp))
+            TextButton(onClick = { vm.applyDeadlineChunks(t.id) }, modifier = Modifier.align(Alignment.End)) { Text("Spread it out") }
+        }
+    }
+
+    // 5 · Habit-stacking finder
+    val stacks = remember(occ, day) { ThirdHorizon.habitStacks(occ, dayStartMs, dayEndMs) }
+    if (stacks.isNotEmpty()) SectionCard {
+        HorizonHead("⊕", "Habit-stacking finder")
+        Text("Small gaps right after something you already do — the perfect anchor for a micro-habit.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(4.dp))
+        stacks.take(4).forEach { s ->
+            Text("• ${fmtMin(s.minutes)} free right after “${s.anchorTitle}”", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 2.dp))
+        }
+    }
+
+    // 7 · Daylight rail
+    SectionCard {
+        HorizonHead("☀", "Daylight rail")
+        val lat = settings.daylightLatitude
+        val dl = remember(lat, day) { ThirdHorizon.daylight(lat, LocalDate.ofEpochDay(day)) }
+        if (dl == null) {
+            Text("Enter your latitude once (e.g. 51.5 for London, 40.7 for New York, −33.9 for Sydney) — sunrise/sunset are computed on-device, no location permission.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            var latText by remember { mutableStateOf("") }
+            Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.OutlinedTextField(latText, { latText = it }, singleLine = true, placeholder = { Text("Latitude") },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number), modifier = Modifier.weight(1f))
+                Spacer(Modifier.width(8.dp))
+                TextButton(onClick = { latText.toDoubleOrNull()?.let { vm.setDaylightLatitude(it) } }, enabled = latText.toDoubleOrNull() != null) { Text("Set") }
+            }
+        } else {
+            val tf = DateTimeFormatter.ofPattern("h:mm a")
+            when (dl.polar) {
+                1 -> Text("Midnight sun today — the sun doesn't set at this latitude.", style = MaterialTheme.typography.bodyMedium)
+                -1 -> Text("Polar night today — the sun doesn't rise at this latitude.", style = MaterialTheme.typography.bodyMedium)
+                else -> Text("☀ ${dl.sunrise.format(tf)} · 🌙 ${dl.sunset.format(tf)} — ${fmtMin(dl.daylightMin)} of daylight. Plan the bright hours first.", style = MaterialTheme.typography.bodyMedium)
+            }
+            TextButton(onClick = { vm.setDaylightLatitude(null) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text("Turn off") }
+        }
+    }
+
+    // 8 · Focus contract
+    val nextBlock = remember(occ, nowFloor) {
+        occ.filter { !it.event.allDay && it.event.linkedTaskId != null && (nowFloor == null || it.endMillis > nowFloor) }.minByOrNull { it.startMillis }
+    }
+    nextBlock?.let { o ->
+        SectionCard {
+            HorizonHead("◎", "The focus contract")
+            Text("Turn “${o.event.title}” into one gesture: arm the focus ring so starting it also tracks the time.",
+                style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(6.dp))
+            TextButton(onClick = { o.event.linkedTaskId?.let { vm.armFocusForTask(it) } }, modifier = Modifier.align(Alignment.End)) { Text("Arm focus") }
+        }
+    }
+
+    // 9 + 10 · What changed & North-star (both from the weekly audit)
+    val audit by produceState<CalendarPlanner.Audit?>(initialValue = null, weekStart) { value = vm.buildWeeklyAudit(weekStart) }
+    audit?.let { a ->
+        SectionCard {
+            HorizonHead("✎", "What changed")
+            Text(ThirdHorizon.whatChanged(0, 0, a.totalBookedMin, a.trackedMin), style = MaterialTheme.typography.bodyMedium)
+        }
+        SectionCard {
+            HorizonHead("✵", "North-star allocation")
+            val visibleCals = calendars.filter { it.visible }
+            val drifts = remember(settings.northStarTargetsCsv, a.minutesByCalendar) { ThirdHorizon.northStarDrift(settings.northStarTargetsCsv, a.minutesByCalendar) }
+            if (drifts.isEmpty()) {
+                Text("Set a target share of your time per calendar; the app reads the actual split and shows the drift.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                drifts.forEach { d ->
+                    val c = visibleCals.firstOrNull { it.id == d.calId }
+                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(10.dp).clip(CircleShape).background(Color(c?.colorArgb ?: 0xFF4F46E5)))
+                        Spacer(Modifier.width(8.dp))
+                        Text(c?.name ?: "Calendar", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                        Text("${d.actualPct}% vs ${d.targetPct}%", style = MaterialTheme.typography.labelMedium,
+                            color = if (kotlin.math.abs(d.delta) <= 5) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+            // Compact editor: bump a calendar's target by ±10%.
+            Spacer(Modifier.height(6.dp))
+            Text("Set targets:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            val targets = remember(settings.northStarTargetsCsv) { ThirdHorizon.parseTargets(settings.northStarTargetsCsv) }
+            visibleCals.take(6).forEach { c ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(c.name, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                    val cur = ((targets[c.id] ?: 0.0) * 100).toInt()
+                    TextButton(onClick = { vm.setNorthStarTarget(c.id, ((cur - 10) / 100.0)) }, enabled = cur > 0, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Text("−") }
+                    Text("$cur%", style = MaterialTheme.typography.labelMedium, modifier = Modifier.width(36.dp), textAlign = TextAlign.Center)
+                    TextButton(onClick = { vm.setNorthStarTarget(c.id, ((cur + 10) / 100.0)) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Text("+") }
+                }
+            }
+        }
+    }
+
+    // 11 · Attention-residue radar
+    val frag = remember(occ) { ThirdHorizon.fragmentation(occ) }
+    if (frag.score >= 20) SectionCard {
+        HorizonHead("⤨", "Attention-residue radar")
+        Text("Today is ${frag.shortBlocks} short blocks with ${frag.switches} context switches — batching similar work would cut the residue.",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+    }
+
+    // 12 · Time-debt repayment
+    val debts = remember(tasks, entries) { ThirdHorizon.timeDebts(tasks, entries) }
+    if (debts.isNotEmpty()) SectionCard {
+        HorizonHead("↺", "Time-debt repayment")
+        Text("These already ran past their estimate — repay the debt by pre-booking the real figure next time.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(4.dp))
+        debts.take(4).forEach { d ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(d.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                    Text("est ${fmtMin(d.estimateMin)} · took ${fmtMin(d.actualMin)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                TextButton(onClick = { vm.bumpTaskEstimate(d.taskId, d.actualMin) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(8.dp, 0.dp)) { Text("Update") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HorizonHead(glyph: String, title: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(glyph, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.width(10.dp))
+        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+    }
+    Spacer(Modifier.height(4.dp))
 }
 
 // ── small building blocks ─────────────────────────────────────────────────────────────────────────

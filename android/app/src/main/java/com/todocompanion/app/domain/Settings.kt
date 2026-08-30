@@ -236,6 +236,11 @@ data class AppSettings(
     val bookendsEnabled: Boolean = false,
     val companionEnabled: Boolean = false,
     val strengthMeter: Boolean = false,
+    // R43 · third-horizon planner. daylightLatitude powers the "daylight rail" (sunrise/sunset bands,
+    // computed locally); 999.0 = off / not set, so a real 0.0 (equator) is still usable. northStarTargetsCsv
+    // holds target time shares per event-calendar as "calId:0.40,calId2:0.30" — the north-star allocation.
+    val daylightLatitude: Double = 999.0,
+    val northStarTargetsCsv: String = "",
     // R36 · fourth-wave. habitWipLimit caps how many habits may be "in formation" (not yet graduated)
     // at once — the New-Habit WIP Limiter; 0 = no cap. transitionLabel/transitionStartDay declare a
     // life transition (new job, move, term start) whose fresh-start window the coach uses to prompt a
@@ -397,6 +402,8 @@ data class AppSettings(
         Keys.BOOKENDS to bookendsEnabled.toString(),
         Keys.COMPANION to companionEnabled.toString(),
         Keys.STRENGTH_METER to strengthMeter.toString(),
+        Keys.DAYLIGHT_LAT to daylightLatitude.toString(),
+        Keys.NORTH_STAR to northStarTargetsCsv,
         Keys.HABIT_WIP_LIMIT to habitWipLimit.toString(),
         Keys.TRANSITION_LABEL to transitionLabel,
         Keys.TRANSITION_START to transitionStartDay.toString(),
@@ -534,6 +541,8 @@ data class AppSettings(
         const val REWARD_MENU = "reward_menu"
         const val BOOKENDS = "bookends_enabled"
         const val COMPANION = "companion_enabled"
+        const val DAYLIGHT_LAT = "daylight_latitude"
+        const val NORTH_STAR = "north_star_targets"
         const val STRENGTH_METER = "strength_meter"
         const val HABIT_WIP_LIMIT = "habit_wip_limit"
         const val TRANSITION_LABEL = "transition_label"
@@ -695,6 +704,8 @@ data class AppSettings(
             bookendsEnabled = m[Keys.BOOKENDS]?.toBooleanStrictOrNull() ?: false,
             companionEnabled = m[Keys.COMPANION]?.toBooleanStrictOrNull() ?: false,
             strengthMeter = m[Keys.STRENGTH_METER]?.toBooleanStrictOrNull() ?: false,
+            daylightLatitude = m[Keys.DAYLIGHT_LAT]?.toDoubleOrNull() ?: 999.0,
+            northStarTargetsCsv = m[Keys.NORTH_STAR] ?: "",
             habitWipLimit = m[Keys.HABIT_WIP_LIMIT]?.toIntOrNull()?.coerceIn(0, 20) ?: 0,
             transitionLabel = m[Keys.TRANSITION_LABEL] ?: "",
             transitionStartDay = m[Keys.TRANSITION_START]?.toLongOrNull() ?: 0,

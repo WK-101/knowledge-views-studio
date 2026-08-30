@@ -177,6 +177,22 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     var showHistory by remember { mutableStateOf(false) }
     var notePreview by remember(taskId) { mutableStateOf(true) }
 
+    // R43 — attachment pickers hoisted to the TOP LEVEL of the screen so registration is
+    // unconditional and stable for the screen's whole lifetime. The old launchers lived inside the
+    // Attachments section's content lambda — a conditionally-composed slot. A launcher registered
+    // there unregisters the instant that slot leaves composition, and then .launch() throws
+    // IllegalStateException ("unregistered ActivityResultLauncher") for EVERY intent, on EVERY ROM.
+    // That was the real, six-rounds-old cause of the "couldn't open the picker" toasts (confirmed by
+    // decompiling TickTick: it never uses the Compose registry — it launches through the Activity's
+    // own startActivityForResult, which is always registered). These helpers do the layered launch
+    // chain (OPEN_DOCUMENT → GET_CONTENT → chooser; photos lead with the Photo Picker) and surface the
+    // real exception if all tiers fail. See util/SystemPickers.kt.
+    val pickerCtx = LocalContext.current
+    val onPickerError: (String) -> Unit = { msg -> android.widget.Toast.makeText(pickerCtx, msg, android.widget.Toast.LENGTH_LONG).show() }
+    val pickFiles = com.todocompanion.app.util.rememberFilePicker(onError = onPickerError) { uris -> vm.addAttachments(taskId, uris) }
+    val pickPhotos = com.todocompanion.app.util.rememberPhotoPicker(onError = onPickerError) { uris -> vm.addAttachments(taskId, uris) }
+    val takePhoto = com.todocompanion.app.util.rememberCameraCapture(onError = onPickerError) { uri -> vm.addAttachment(taskId, uri) }
+
     // Staged editing: edits mutate the local draft only and are persisted on Save — never on Back.
     var savedSnapshot by remember(taskId) { mutableStateOf<TaskEntity?>(null) }
     if (savedSnapshot == null && loaded != null) savedSnapshot = loaded
@@ -501,18 +517,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             val myCheck = checklist.filter { it.taskId == task.id }.sortedBy { it.sortOrder }
             val attFlow = remember(task.id) { vm.attachmentMeta(task.id) }
             val attachments by attFlow.collectAsState(initial = emptyList())
-            // R38 — the TickTick approach to attachments: every source is permission-free. The system
-            // grants access to exactly the file the user picks; we copy its bytes in (openInputStream).
-            // R41 — the whole attachment system is the SYSTEM pickers, TickTick-style, no storage permission.
-            // FILES use ACTION_OPEN_DOCUMENT (the Storage Access Framework), NOT ACTION_GET_CONTENT: SAF is
-            // backed by the system DocumentsUI, is present on every device, and is EXEMPT from Android 11+
-            // package-visibility — so it never throws "no file picker" the way GET_CONTENT can on OEM ROMs.
-            // This is exactly the path TickTick uses. Photos use the Android Photo Picker (which itself
-            // falls back to SAF), and Camera hands a FileProvider URI to the system camera app.
-            val pickFiles = rememberLauncherForActivityResult(com.todocompanion.app.util.PickContentMultiple("Attach files")) { uris -> if (uris.isNotEmpty()) vm.addAttachments(task.id, uris) }
-            val pickPhotos = rememberLauncherForActivityResult(com.todocompanion.app.util.PickContentMultiple("Add photos")) { uris -> if (uris.isNotEmpty()) vm.addAttachments(task.id, uris) }
-            var cameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
-            val takePhoto = rememberLauncherForActivityResult(com.todocompanion.app.util.CaptureImageChooser()) { ok -> if (ok) cameraUri?.let { vm.addAttachment(task.id, it) } }
+            // R43 — attachment pickers (pickFiles / pickPhotos / takePhoto) are hoisted to the top of
+            // the composable now, registered unconditionally. See the block near the state declarations.
             // Staged tag/context sets (R21 #2): pending edits if any, else the live DB sets.
             val assignedTags = effTags
             val assignedCtx = effCtx
@@ -657,34 +663,13 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                         IconButton(onClick = { vm.removeAttachment(a.id) }) { Icon(Icons.Filled.Close, "Remove attachment") }
                     }
                 }
-                val attachCtx = androidx.compose.ui.platform.LocalContext.current
                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(0.dp)) {
-                    // Photos & videos — the Android Photo Picker (multi-select, no permission). If a device
-                    // has no photo picker at all, fall back to the SAF document picker filtered to media —
-                    // which is always present, so this never dead-ends.
-                    TextButton(onClick = {
-                        runCatching { pickPhotos.launch(arrayOf("image/*", "video/*")) }
-                            .onFailure { android.widget.Toast.makeText(attachCtx, "Couldn't open a photo picker on this device.", android.widget.Toast.LENGTH_LONG).show() }
-                    }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.Image, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Photo") }
-                    // Camera — capture straight into a FileProvider URI (no CAMERA permission needed by us).
-                    TextButton(onClick = {
-                        runCatching {
-                            val dir = java.io.File(attachCtx.cacheDir, "shared").apply { mkdirs() }
-                            val f = java.io.File(dir, "cam_${System.currentTimeMillis()}.jpg")
-                            val u = androidx.core.content.FileProvider.getUriForFile(attachCtx, "${attachCtx.packageName}.fileprovider", f)
-                            cameraUri = u; takePhoto.launch(u)
-                        }.onFailure {
-                            // No camera app resolvable — degrade to picking an existing photo rather than dead-ending.
-                            runCatching { pickPhotos.launch(arrayOf("image/*", "video/*")) }
-                                .onFailure { android.widget.Toast.makeText(attachCtx, "No camera or gallery available on this device.", android.widget.Toast.LENGTH_LONG).show() }
-                        }
-                    }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.CameraAlt, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Camera") }
-                    // Files — the SAF document picker (ACTION_OPEN_DOCUMENT), multi-select: shows ALL files
-                    // from every provider, no storage permission, and is present on every device.
-                    TextButton(onClick = {
-                        runCatching { pickFiles.launch(arrayOf("*/*")) }
-                            .onFailure { android.widget.Toast.makeText(attachCtx, "Couldn't open the file picker — you can drop a file into the app's import inbox from Settings.", android.widget.Toast.LENGTH_LONG).show() }
-                    }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.AttachFile, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("File") }
+                    // Each button just invokes the hoisted, top-level picker (registered for the whole
+                    // screen's lifetime). The helper runs the layered launch chain and surfaces the real
+                    // error if every tier fails — so it never silently dead-ends. See SystemPickers.kt.
+                    TextButton(onClick = { pickPhotos() }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.Image, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Photo") }
+                    TextButton(onClick = { takePhoto() }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.CameraAlt, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Camera") }
+                    TextButton(onClick = { pickFiles(arrayOf("*/*")) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.AttachFile, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("File") }
                 }
                 if (attachments.isEmpty()) Text("Photos, camera, or any file up to 25 MB — picked through your phone's own picker, so no storage permission is ever asked. Stored on-device and in your backups.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -791,30 +776,12 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     Text("Manual progress", style = MaterialTheme.typography.bodyMedium)
                     ModernSlider(p, 0f..100f, 0, { p = it }, { update { it.copy(progressPct = p.toInt().takeIf { v -> v > 0 }) } }, Modifier.fillMaxWidth())
                 }
-                // Estimate: any amount of time via the flexible duration picker (R21 #9) — the old 0–75 min
-                // dial couldn't represent longer estimates.
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { showEstimate = true }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                // R43 — Estimate moved into the Date sheet so it sits right beside Duration. Summarised here
+                // with a pointer; tap opens the same sheet (via the Date row) where you set both together.
+                if (task.estimateMin != null) Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Estimate", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                    Text(task.estimateMin?.let { fmtDuration(it) } ?: "Not set",
-                        style = MaterialTheme.typography.bodyMedium, color = if (task.estimateMin != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (task.estimateMin != null) IconButton(onClick = { update { it.copy(estimateMin = null) } }, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Filled.Close, "Clear estimate", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                // R41 — the self-calibrating estimate: your own tracked history, applied here. Tap to adopt.
-                val estBias by vm.estimateBias.collectAsState()
-                estBias?.let { b ->
-                    val est = task.estimateMin
-                    val suggested = est?.let { b.suggestFor(it) }
-                    Text(
-                        buildString {
-                            append(b.sentence())
-                            if (est != null && suggested != null && kotlin.math.abs(suggested - est) >= 5) append("  Tap to set ${fmtDuration(suggested)}.")
-                        },
-                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
-                            .then(if (est != null && suggested != null && kotlin.math.abs(suggested - est) >= 5)
-                                Modifier.clip(RoundedCornerShape(6.dp)).clickable { update { it.copy(estimateMin = suggested) } } else Modifier))
+                    Text(fmtDuration(task.estimateMin!!), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                    Text("  · set it in the Date sheet", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 SwitchRow("Mark as goal", task.isGoal) { v -> update { it.copy(isGoal = v) } }
                 SwitchRow("Mark as project", task.isProject) { v -> update { it.copy(isProject = v) } }
@@ -956,8 +923,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             onDismiss = { showDue = false },
             onConfirm = { c ->
                 // The sheet carries the full intended schedule state — due, all-day, duration, repeat, the
-                // optional start date (R21) AND the deadline (R22) — so apply it all directly.
-                update { it.copy(dueDate = c.dueMillis, isAllDay = c.allDay, durationMin = c.durationMin, rrule = c.rrule, startDate = c.startMillis, deadlineDate = c.deadlineMillis) }
+                // optional start date (R21), the deadline (R22) AND the effort estimate (R43) — apply it all.
+                update { it.copy(dueDate = c.dueMillis, isAllDay = c.allDay, durationMin = c.durationMin, rrule = c.rrule, startDate = c.startMillis, deadlineDate = c.deadlineMillis, estimateMin = if (c.estimateSet) c.estimateMin else it.estimateMin) }
                 showDue = false
             },
             // The full reminders manager lives inside the sheet (no separate section outside).
@@ -968,6 +935,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             showDeadline = true,
             initialDeadline = t0?.deadlineDate,
             repeatHasChildren = allTasks.any { it.parentId == t0?.id && !it.trashed },
+            showEstimate = true,
+            initialEstimateMin = t0?.estimateMin,
+            estimateHint = vm.estimateBias.collectAsState().value?.sentence(),
         )
     }
     if (listMenu && task != null) MoveTargetDialog(
