@@ -15,6 +15,10 @@ import com.todocompanion.app.domain.port.BackupFile
  */
 object SyncEngine {
 
+    /** Sentinel "folder" that writes into the device's public Downloads via MediaStore — no SAF picker,
+     *  no permission. Lets automatic backup work on de-Googled devices that have no document picker. */
+    const val DOWNLOADS_FOLDER = "downloads"
+
     data class Result(val ok: Boolean, val message: String, val updated: Int = 0, val added: Int = 0, val peers: Int = 0)
 
     private fun fileName(deviceId: String) = "sync-$deviceId.json"
@@ -102,6 +106,8 @@ object SyncEngine {
     suspend fun backup(context: Context, repo: AppRepository, folderUri: String, stampName: String, passphrase: String = ""): Boolean {
         if (folderUri.isBlank()) return false
         val payload = Crypto.encrypt(repo.exportJson(), passphrase)
-        return BackupIO.writeText(context, folderUri, stampName, payload)
+        return if (folderUri == DOWNLOADS_FOLDER)
+            com.todocompanion.app.util.FileExport.saveToDownloads(context, stampName, "application/json", payload.toByteArray()) != null
+        else BackupIO.writeText(context, folderUri, stampName, payload)
     }
 }

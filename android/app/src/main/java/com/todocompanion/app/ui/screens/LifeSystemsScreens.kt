@@ -158,6 +158,8 @@ private fun ValuesScreen(vm: AppViewModel, onBack: () -> Unit) {
     val values by vm.coreValues.collectAsState()
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
+    val tasks by vm.allTasksLive.collectAsState()   // R37 · Port 9 — real work counts toward values too
+    val zone = java.time.ZoneId.systemDefault()
     val today = LocalDate.now().toEpochDay()
     val weekStart = today - 6
     var editing by remember { mutableStateOf<CoreValueEntity?>(null) }
@@ -171,7 +173,9 @@ private fun ValuesScreen(vm: AppViewModel, onBack: () -> Unit) {
                 val v = values[i]
                 val color = v.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
                 val attached = habits.filter { it.valueId == v.id && !it.archived }
-                val weekActions = checkins.count { c -> c.status == "done" && c.epochDay in weekStart..today && attached.any { it.id == c.habitId } }
+                val habitActions = checkins.count { c -> c.status == "done" && c.epochDay in weekStart..today && attached.any { it.id == c.habitId } }
+                val taskActions = tasks.count { t -> t.valueId == v.id && t.completed && t.completedAt?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate().toEpochDay() in weekStart..today } == true }
+                val weekActions = habitActions + taskActions
                 Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
                     modifier = Modifier.fillMaxWidth().clickable { editing = v }) {
                     Column(Modifier.padding(16.dp)) {
@@ -570,8 +574,10 @@ private fun LoadBalancerScreen(vm: AppViewModel, onBack: () -> Unit) {
 private fun CausalGraphScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit: (String) -> Unit) {
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
+    val tasks by vm.allTasksLive.collectAsState()
     val today = LocalDate.now().toEpochDay()
     val edges = remember(habits, checkins) { FourthWave.causalPrecursors(habits, checkins, today) }
+    val outEdges = remember(habits, checkins, tasks) { FourthWave.causalOutput(habits, checkins, tasks, today) }
     LSScaffold("Causal trigger graph", onBack) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (edges.isEmpty()) item {
@@ -592,6 +598,29 @@ private fun CausalGraphScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit:
                             Text("→ a good day follows ${pctMore}% more often (n=${e.nWith})", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Text("×${"%.2f".format(e.lift)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+            // R37 · Port 7 — the same lift, but the outcome is a high-OUTPUT day (task completions).
+            if (outEdges.isNotEmpty()) {
+                item {
+                    Text("→ Days you get more done", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 14.dp, bottom = 2.dp))
+                    Text("On days after these, you finished more tasks than your median. Same caveat — a lead, not proof.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+                }
+                items(outEdges.size) { i ->
+                    val e = outEdges[i]
+                    val pctMore = ((e.lift - 1.0) * 100).toInt()
+                    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
+                        modifier = Modifier.fillMaxWidth().clickable { onOpenHabit(e.habitId) }) {
+                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(e.emoji, fontSize = 24.sp, modifier = Modifier.padding(end = 12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(e.habitName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                Text("→ a high-output day follows ${pctMore}% more often (n=${e.nWith})", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Text("×${"%.2f".format(e.lift)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+                        }
                     }
                 }
             }
@@ -668,7 +697,7 @@ private fun NudgeLabScreen(vm: AppViewModel, onBack: () -> Unit) {
         }
         LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item {
-                Text("${readout.totalShown} nudge${if (readout.totalShown == 1) "" else "s"} shown so far. Each was a random pick between these wordings — here's how often you acted after each.",
+                Text("${readout.totalShown} nudge${if (readout.totalShown == 1) "" else "s"} shown so far, across habit prompts and task reminders. Each was a random pick between these wordings — here's how often you acted after each.",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
             }
             items(readout.variants.size) { i ->

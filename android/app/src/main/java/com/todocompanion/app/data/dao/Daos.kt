@@ -375,6 +375,13 @@ interface TaskRevisionDao {
 
     @Query("DELETE FROM task_revisions")
     suspend fun clear()
+
+    // R37 — full backup coverage: dump / restore the whole time-travel history.
+    @Query("SELECT * FROM task_revisions")
+    suspend fun getAll(): List<com.todocompanion.app.data.entity.TaskRevisionEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(r: List<com.todocompanion.app.data.entity.TaskRevisionEntity>)
 }
 
 @Dao

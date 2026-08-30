@@ -400,9 +400,14 @@ fun AppRoot(
             LaunchedEffect(Unit) { perm.launch(android.Manifest.permission.POST_NOTIFICATIONS) }
         }
         val context = LocalContext.current
-        LaunchedEffect(settings.dailySummaryEnabled, settings.dailySummaryHour, settings.dailySummaryMinute) {
-            if (settings.dailySummaryEnabled) AlarmScheduler.scheduleDailySummary(context, settings.dailySummaryHour, settings.dailySummaryMinute)
-            else AlarmScheduler.cancelDailySummary(context)
+        // R37 · Port 5 — when "time reminders to my peak" is on, aim the daily brief at the learned
+        // receptive hour instead of the fixed time.
+        val receptiveHour by vm.receptiveHour.collectAsState()
+        LaunchedEffect(settings.dailySummaryEnabled, settings.dailySummaryHour, settings.dailySummaryMinute, settings.receptivityTiming, receptiveHour) {
+            if (settings.dailySummaryEnabled) {
+                val hour = if (settings.receptivityTiming && receptiveHour != null) receptiveHour!! else settings.dailySummaryHour
+                AlarmScheduler.scheduleDailySummary(context, hour, settings.dailySummaryMinute)
+            } else AlarmScheduler.cancelDailySummary(context)
         }
         LaunchedEffect(settings.eveningReviewEnabled, settings.eveningReviewHour) {
             if (settings.eveningReviewEnabled) AlarmScheduler.scheduleEveningReview(context, settings.eveningReviewHour)

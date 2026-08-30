@@ -207,8 +207,12 @@ object SecureDb {
         tmp.delete()
         db.copyTo(bak, overwrite = true)   // rollback copy of the ORIGINAL (same encryption state)
         try {
+            // CREATE_IF_NECESSARY is required: ATTACH derives the attached file's open flags from this
+            // connection, and the migrate target (tmp) was just deleted — without the create bit SQLite
+            // returns "unable to open database" (SQLITE_CANTOPEN) and the migration can never complete.
             val src = net.sqlcipher.database.SQLiteDatabase.openDatabase(
-                db.absolutePath, srcKey, null, net.sqlcipher.database.SQLiteDatabase.OPEN_READWRITE,
+                db.absolutePath, srcKey, null,
+                net.sqlcipher.database.SQLiteDatabase.OPEN_READWRITE or net.sqlcipher.database.SQLiteDatabase.CREATE_IF_NECESSARY,
             )
             val version: Int
             val srcCount: Long
@@ -248,9 +252,11 @@ object SecureDb {
             // Success: the transient plaintext/encrypted backup is sensitive — remove it.
             bak.delete()
         } catch (e: Throwable) {
-            // Restore the original from backup if the live file was touched, then rethrow.
+            // Restore the original from backup if the live file was touched, then rethrow. The backup is a
+            // full plaintext/encrypted copy of the DB — delete it once restored so a failed attempt never
+            // leaves a sensitive copy at rest.
             runCatching { if (bak.exists()) bak.copyTo(db, overwrite = true) }
-            tmp.delete()
+            tmp.delete(); bak.delete()
             throw e
         }
     }

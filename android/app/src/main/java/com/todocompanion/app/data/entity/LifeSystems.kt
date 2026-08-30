@@ -135,11 +135,13 @@ data class EscrowEntity(
     val habitId: String? = null,
     val description: String,       // the reward or the stake ("new headphones", "donate ₹500")
     val kind: String,              // "reward" | "stake"
-    val milestoneKind: String,     // "streak" | "cleandays" | "automaticity"
+    val milestoneKind: String,     // "streak" | "cleandays" | "automaticity" | "taskdone" (R37)
     val milestoneValue: Int,
     val released: Boolean = false, // milestone reached and acted on
     val redeemed: Boolean = false, // for a reward: taken (vs banked); for a stake: paid
     val createdAt: Long,
+    // R37 — an escrow may instead ride on shipping a specific task/project (milestoneKind = "taskdone").
+    val taskId: String? = null,
 )
 
 /** R36 · FW-M2 — Personal Nudge MRT: each time the app shows an opportunity nudge it micro-randomizes the
@@ -149,9 +151,11 @@ data class EscrowEntity(
 @Entity(tableName = "nudge_events")
 data class NudgeEventEntity(
     @PrimaryKey val id: String,
-    val habitId: String,
+    val habitId: String,          // the target id — a habit id, or a task id when targetKind = "task"
     val variant: Int,             // which message variant was shown (0..N-1)
     val epochDay: Long,
-    val acted: Boolean = false,   // was the habit completed that day after the nudge
+    val acted: Boolean = false,   // was the habit/task completed that day after the nudge
     val createdAt: Long,
+    // R37 — the nudge MRT also covers task reminders; "habit" (default) or "task".
+    val targetKind: String = "habit",
 )

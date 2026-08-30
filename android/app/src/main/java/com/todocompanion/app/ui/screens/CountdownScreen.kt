@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -124,6 +125,7 @@ fun CountdownScreen(vm: AppViewModel, onBack: () -> Unit) {
 private fun CountdownDialog(existing: CountdownEntity?, onDismiss: () -> Unit, onDelete: () -> Unit, onSave: (String, Long, String?, Long?) -> Unit) {
     var title by remember { mutableStateOf(existing?.title ?: "") }
     var emoji by remember { mutableStateOf(existing?.emoji ?: "") }
+    var emojiOpen by remember { mutableStateOf(false) }
     var color by remember { mutableStateOf(existing?.colorArgb ?: CD_COLORS.first()) }
     var millis by remember { mutableStateOf(existing?.targetMillis ?: LocalDate.now().plusDays(30).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()) }
     var showDate by remember { mutableStateOf(false) }
@@ -135,9 +137,21 @@ private fun CountdownDialog(existing: CountdownEntity?, onDismiss: () -> Unit, o
         title = { Text(if (existing == null) "New countdown" else "Countdown") },
         text = {
             Column {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    com.todocompanion.app.ui.components.AppTextField(emoji, { emoji = it.take(2) }, singleLine = true, label = { Text("Emoji") }, modifier = Modifier.width(96.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier.width(72.dp).height(56.dp).clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .4f))
+                            .clickable { emojiOpen = !emojiOpen },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (emoji.isBlank()) Text("＋ Emoji", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        else Text(emoji, style = MaterialTheme.typography.headlineSmall)
+                    }
                     com.todocompanion.app.ui.components.AppTextField(title, { title = it }, singleLine = true, label = { Text("Title") }, modifier = Modifier.weight(1f))
+                }
+                if (emojiOpen) {
+                    Spacer(Modifier.size(8.dp))
+                    com.todocompanion.app.ui.components.EmojiGridPicker(current = emoji.ifBlank { null }, onPick = { emoji = it ?: ""; emojiOpen = false })
                 }
                 Spacer(Modifier.size(10.dp))
                 TextButton(onClick = { showDate = true }) { Text("Date: ${d.dayOfMonth} ${d.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${d.year}") }

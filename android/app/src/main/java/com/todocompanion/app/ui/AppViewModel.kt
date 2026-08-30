@@ -160,6 +160,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val habits = combine(repo.allHabits, activeWs) { h, ws -> h.filter { it.workspaceId == ws && !it.archived } }.state(emptyList())
     val habitCheckins = repo.allCheckins.state(emptyList())
     val focusSessions = repo.allFocusSessions.state(emptyList())
+    // R37 · Port 5 — the receptive hour (0..23) learned from when you actually finish habits & tasks, or
+    // null when there isn't enough signal / the setting is off. Feeds the daily-brief scheduler.
+    val receptiveHour: StateFlow<Int?> = combine(habitCheckins, allTasksLive, settings) { c, t, s ->
+        if (!s.receptivityTiming) null
+        else com.todocompanion.app.domain.habit.FourthWave.receptivity(c, t, zone)?.let { (it.bestBucket * 3 + 1).coerceIn(0, 23) }
+    }.state(null)
     // Tier S: time tracking.
     val timeActivities = repo.allTimeActivities.state(emptyList())
     val timeEntries = repo.allTimeEntries.state(emptyList())
@@ -205,6 +211,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     // Do-Next uses the SAME focus filter as the rendered list, so the badge matches the list.
                     // (The transient "I have N min / energy" planners aren't applied to the badge.)
                     SmartKind.DO_NEXT -> doNextFocused(t, now, set.priorityConfig(), deps, rc.first, rc.second, null, null).size
+                    // Trash is per-workspace (matches the rendered list); the shared Inbox otherwise leaked
+                    // trashed tasks into every workspace's count.
+                    SmartKind.TRASH -> t.count { it.trashed && it.workspaceId == set.activeWorkspaceId }
                     else -> TaskViews.filterSmart(t, k, now, zone, dayStartMin).size
                 }
             }
@@ -1006,7 +1015,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteForever(t: TaskEntity) = viewModelScope.launch { repo.deleteSubtree(t.id) }
     /** Permanently erase several tasks (and their subtrees) — the Trash multi-select "Delete forever". */
     fun deleteForeverMany(ids: Set<String>) = viewModelScope.launch { ids.forEach { repo.deleteSubtree(it) } }
-    fun emptyTrash() = viewModelScope.launch { repo.emptyTrash() }
+    fun emptyTrash() = viewModelScope.launch { repo.emptyTrash(settings.value.activeWorkspaceId) }
     fun indent(t: TaskEntity) = viewModelScope.launch { repo.indent(t) }
     fun outdent(t: TaskEntity) = viewModelScope.launch { repo.outdent(t) }
     fun moveUp(t: TaskEntity) = viewModelScope.launch { repo.moveUp(t) }
@@ -2720,7 +2729,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             id = java.util.UUID.randomUUID().toString(), habitId = habitId, variant = variant, epochDay = day,
             createdAt = System.currentTimeMillis()))
     }
-    /** Mark open nudge impressions from the last two weeks as acted/not, by whether that habit's day is done. */
+    /** Mark open nudge impressions from the last two weeks as acted/not, by whether the target (habit or
+     *  task) was completed that day. R37: extended to task-reminder impressions (targetKind = "task"). */
     fun reconcileNudges() = viewModelScope.launch {
         val today = java.time.LocalDate.now(zone).toEpochDay()
         val open = repo.openNudgesSince(today - 14)
@@ -2729,10 +2739,57 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val habits = repo.getHabitsOnce().associateBy { it.id }
         open.forEach { ev ->
             if (ev.epochDay >= today) return@forEach   // only reconcile past days
-            val h = habits[ev.habitId] ?: return@forEach
-            val done = checkins.any { it.habitId == ev.habitId && it.epochDay == ev.epochDay && it.status == "done" && com.todocompanion.app.domain.habit.HabitStats.meetsGoal(h, it.count) }
+            val done = if (ev.targetKind == "task") {
+                val t = repo.getTask(ev.habitId)
+                t?.completed == true && t.completedAt?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate().toEpochDay() } == ev.epochDay
+            } else {
+                val h = habits[ev.habitId] ?: return@forEach
+                checkins.any { it.habitId == ev.habitId && it.epochDay == ev.epochDay && it.status == "done" && com.todocompanion.app.domain.habit.HabitStats.meetsGoal(h, it.count) }
+            }
             if (done) repo.upsertNudgeEvent(ev.copy(acted = true))
         }
+    }
+
+    // ── R37 · habit-science ports to tasks ─────────────────────────────────────────────────────────
+    fun setTaskWipLimit(n: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(taskWipLimit = n.coerceIn(0, 20))) }
+    fun setReceptivityTiming(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(receptivityTiming = on)) }
+
+    /** Port 9 — link a project/task to a core value, so "living your values" counts real work. */
+    fun setTaskValue(taskId: String, valueId: String?) = viewModelScope.launch {
+        repo.getTask(taskId)?.let { repo.saveTask(it.copy(valueId = valueId)) }
+    }
+
+    /** Port 6 — a self-escrow that rides on shipping a specific task (milestoneKind = "taskdone"). */
+    fun addTaskEscrow(taskId: String, description: String, kind: String) = viewModelScope.launch {
+        val d = description.trim(); if (d.isBlank()) return@launch
+        repo.upsertEscrow(com.todocompanion.app.data.entity.EscrowEntity(
+            id = java.util.UUID.randomUUID().toString(), habitId = null, taskId = taskId, description = d, kind = kind,
+            milestoneKind = "taskdone", milestoneValue = 1, createdAt = System.currentTimeMillis()))
+        toast(if (kind == "stake") "Stake locked on shipping this. It's real now." else "Reward escrowed — earn it by finishing this.")
+    }
+
+    /** Port 4 — record that a task reminder (variant v) was shown, for the reminder-wording MRT. */
+    fun logTaskNudgeShown(taskId: String, variant: Int, day: Long) = viewModelScope.launch {
+        if (repo.nudgeForHabitDay(taskId, day) != null) return@launch
+        repo.upsertNudgeEvent(com.todocompanion.app.data.entity.NudgeEventEntity(
+            id = java.util.UUID.randomUUID().toString(), habitId = taskId, variant = variant, epochDay = day,
+            targetKind = "task", createdAt = System.currentTimeMillis()))
+    }
+
+    /** Port 8 — fresh-start task planning: pull every stale overdue task onto today, so the week's plan
+     *  starts clean. Landmarks are when re-planning sticks. */
+    fun freshStartReschedule() = viewModelScope.launch {
+        val zone = this@AppViewModel.zone
+        val todayStart = java.time.LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
+        val today = java.time.LocalDate.now(zone).toEpochDay()
+        var moved = 0
+        repo.allTasksOnce().forEach { t ->
+            if (t.completed || t.trashed || t.abandoned) return@forEach
+            val due = t.dueDate ?: return@forEach
+            val dueDay = java.time.Instant.ofEpochMilli(due).atZone(zone).toLocalDate().toEpochDay()
+            if (dueDay < today) { repo.saveTask(t.copy(dueDate = todayStart)); moved++ }
+        }
+        toast(if (moved > 0) "Pulled $moved overdue task${if (moved == 1) "" else "s"} onto today — fresh start." else "Nothing overdue — you're clear.")
     }
 
     fun skipHabitDay(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, reason: String = "") = viewModelScope.launch {

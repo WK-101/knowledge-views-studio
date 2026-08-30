@@ -862,6 +862,10 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 }
             }
 
+            // R37 — the task coach: habit-science ports (deferral chain, micro-lesson, value link,
+            // recurring-task reliability, ship-it escrow).
+            if (task != null) TaskCoachCard(vm, task)
+
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -1603,5 +1607,105 @@ private fun DurStepper(label: String, value: Int, min: Int, max: Int, step: Int,
             modifier = Modifier.width(76.dp),
         )
         IconButton(onClick = { onChange((value + step).coerceAtMost(max)) }) { Icon(Icons.Filled.Add, "More") }
+    }
+}
+
+// ══════════════════════════════ R37 · Task coach (habit-science ports) ══════════════════════════════
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun TaskCoachCard(vm: AppViewModel, task: com.todocompanion.app.data.entity.TaskEntity) {
+    val tasks by vm.tasks.collectAsState()
+    val values by vm.coreValues.collectAsState()
+    val escrows by vm.escrows.collectAsState()
+    val revisions by vm.taskRevisions(task.id).collectAsState(initial = emptyList())
+    val subtaskCount = remember(tasks, task.id) { tasks.count { it.parentId == task.id } }
+    val now = System.currentTimeMillis()
+    val hour = java.time.LocalTime.now().hour
+    val lesson = remember(task, subtaskCount, hour) { com.todocompanion.app.domain.task.TaskCoach.taskLesson(task, subtaskCount, hour, now) }
+    val reliability = remember(task, revisions) { com.todocompanion.app.domain.task.TaskCoach.reliability(task, revisions) }
+    val myEscrows = escrows.filter { it.taskId == task.id }
+    val color = MaterialTheme.colorScheme.primary
+    var valueOpen by remember { mutableStateOf(false) }
+    var escrowOpen by remember { mutableStateOf(false) }
+
+    // Nothing to show → render nothing (keep the editor clean).
+    val hasAny = lesson != null || task.deferCount >= 2 || reliability != null || values.isNotEmpty() || myEscrows.isNotEmpty() || !task.completed
+    if (!hasAny) return
+
+    Surface(Modifier.fillMaxWidth().padding(top = 10.dp), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Coach", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = color)
+
+            // Port 3 — deferral chain.
+            if (task.deferCount >= 2 && !task.completed) {
+                Text("🪃 You've pushed this ${task.deferCount} times. Rescheduling isn't a plan — make it smaller, or book it into a real slot today.",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+            }
+
+            // Port 2 — micro-lesson.
+            lesson?.let { l ->
+                Text("${l.emoji} ${l.title}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                Text(l.body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            // Port 10 — recurring-task reliability horizon.
+            reliability?.let { r ->
+                Text("Reliability: ${r.ratePct}% on-time (${r.onTime}/${r.completions})", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                Box(Modifier.fillMaxWidth().height(7.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                    Box(Modifier.fillMaxWidth(r.ratePct / 100f).height(7.dp).clip(RoundedCornerShape(4.dp)).background(color))
+                }
+                Text("How often you finish this repeating task on or before its due date — the honest analog to habit automaticity.",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            // Port 9 — value link.
+            if (values.isNotEmpty()) {
+                val vName = values.firstOrNull { it.id == task.valueId }?.let { (it.emoji?.plus(" ") ?: "") + it.name }
+                androidx.compose.material3.TextButton(onClick = { valueOpen = !valueOpen }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
+                    Text(if (vName != null) "Value: $vName" else "Link to a value…", color = color)
+                }
+                if (valueOpen) androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    androidx.compose.material3.FilterChip(task.valueId == null, { vm.setTaskValue(task.id, null); valueOpen = false }, label = { Text("None") })
+                    values.forEach { v -> androidx.compose.material3.FilterChip(task.valueId == v.id, { vm.setTaskValue(task.id, v.id); valueOpen = false }, label = { Text((v.emoji?.plus(" ") ?: "") + v.name, maxLines = 1) }) }
+                }
+            }
+
+            // Port 6 — ship-it escrow.
+            if (myEscrows.isNotEmpty()) {
+                myEscrows.forEach { e ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text((if (e.kind == "stake") "🎯 " else "🎁 ") + e.description + (if (e.released) " · done" else if (task.completed) " · ready to claim" else ""),
+                            Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                        if (!e.released && task.completed) androidx.compose.material3.TextButton(onClick = { vm.releaseEscrow(e, e.kind == "reward") }) { Text("Release") }
+                        androidx.compose.material3.IconButton(onClick = { vm.deleteEscrow(e.id) }) { Icon(Icons.Filled.Delete, "Remove", modifier = Modifier.size(18.dp)) }
+                    }
+                }
+            } else if (!task.completed) {
+                androidx.compose.material3.TextButton(onClick = { escrowOpen = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
+                    Text("Put something on shipping this…", color = color)
+                }
+            }
+        }
+    }
+
+    if (escrowOpen) {
+        var desc by remember { mutableStateOf("") }
+        var kind by remember { mutableStateOf("reward") }
+        AlertDialog(onDismissRequest = { escrowOpen = false },
+            title = { Text("Escrow on shipping this") },
+            text = {
+                Column {
+                    Text("Pre-commit a reward you'll unlock — or a stake you forfeit — when this task is done.", style = MaterialTheme.typography.bodySmall)
+                    Spacer(Modifier.height(8.dp))
+                    com.todocompanion.app.ui.components.AppTextField(desc, { desc = it }, singleLine = true, label = { Text("Reward or stake") }, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        androidx.compose.material3.FilterChip(kind == "reward", { kind = "reward" }, label = { Text("Reward") })
+                        androidx.compose.material3.FilterChip(kind == "stake", { kind = "stake" }, label = { Text("Stake") })
+                    }
+                }
+            },
+            confirmButton = { TextButton(enabled = desc.isNotBlank(), onClick = { vm.addTaskEscrow(task.id, desc, kind); escrowOpen = false }) { Text("Lock it") } },
+            dismissButton = { TextButton(onClick = { escrowOpen = false }) { Text("Cancel") } })
     }
 }

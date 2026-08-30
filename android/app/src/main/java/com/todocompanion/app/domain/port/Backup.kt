@@ -62,10 +62,12 @@ data class BackupFile(
     // R36 — the fourth-wave layer's tables. Additive; old backups carry empty lists.
     val escrows: List<com.todocompanion.app.data.entity.EscrowEntity> = emptyList(),
     val nudgeEvents: List<com.todocompanion.app.data.entity.NudgeEventEntity> = emptyList(),
+    // R37 — task time-travel history, so a restore is truly lossless. Additive; old backups carry empty.
+    val revisions: List<com.todocompanion.app.data.entity.TaskRevisionEntity> = emptyList(),
 ) {
     companion object {
         const val FORMAT = "todo-companion"
-        const val VERSION = 13
+        const val VERSION = 14
     }
 }
 

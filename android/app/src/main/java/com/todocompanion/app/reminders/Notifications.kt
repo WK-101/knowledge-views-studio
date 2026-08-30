@@ -94,7 +94,7 @@ object Notifications {
         runCatching { NotificationManagerCompat.from(context).notify(EVENING_ID, n) }
     }
 
-    fun show(context: Context, taskId: String, title: String, reminderId: String, annoying: Boolean, escalate: Boolean = false, step: Int = 0) {
+    fun show(context: Context, taskId: String, title: String, reminderId: String, annoying: Boolean, escalate: Boolean = false, step: Int = 0, subText: String? = null) {
         ensureChannel(context)
         val done = broadcast(context, AlarmScheduler.ACTION_DONE, ("done$taskId").hashCode(),
             mapOf(AlarmScheduler.EXTRA_TASK_ID to taskId))
@@ -103,7 +103,7 @@ object Notifications {
                 AlarmScheduler.EXTRA_REMINDER_ID to reminderId, AlarmScheduler.EXTRA_ANNOYING to annoying))
         // Escalation makes each successive alert harder to ignore: the text nags louder and, once it's
         // been ignored a few rounds, it takes over the screen (full-screen intent) and vibrates.
-        val text = if (escalate && step > 0) "Still not done — reminder ×${step + 1}" else "Reminder"
+        val text = if (escalate && step > 0) "Still not done — reminder ×${step + 1}" else (subText ?: "Reminder")
         val b = builder(context)
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
             .setContentTitle(title)

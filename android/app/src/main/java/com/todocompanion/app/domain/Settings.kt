@@ -230,6 +230,11 @@ data class AppSettings(
     val habitWipLimit: Int = 0,
     val transitionLabel: String = "",
     val transitionStartDay: Long = 0,
+    // R37 · habit-science ports to tasks. taskWipLimit caps how many tasks may be "in progress" (started,
+    // not done) at once — personal-kanban WIP. receptivityTiming shifts the daily brief / evening review to
+    // the hour you're most likely to act, learned from your own completions. 0 / false = off.
+    val taskWipLimit: Int = 0,
+    val receptivityTiming: Boolean = false,
 ) {
     /** Effective tier for an optional editor field: user override, else its built-in default. */
     fun editorTier(f: EditorField): Int = editorFieldTiers[f.id] ?: f.defaultTier
@@ -373,6 +378,8 @@ data class AppSettings(
         Keys.HABIT_WIP_LIMIT to habitWipLimit.toString(),
         Keys.TRANSITION_LABEL to transitionLabel,
         Keys.TRANSITION_START to transitionStartDay.toString(),
+        Keys.TASK_WIP_LIMIT to taskWipLimit.toString(),
+        Keys.RECEPTIVITY_TIMING to receptivityTiming.toString(),
     )
 
     object Keys {
@@ -500,6 +507,8 @@ data class AppSettings(
         const val HABIT_WIP_LIMIT = "habit_wip_limit"
         const val TRANSITION_LABEL = "transition_label"
         const val TRANSITION_START = "transition_start"
+        const val TASK_WIP_LIMIT = "task_wip_limit"
+        const val RECEPTIVITY_TIMING = "receptivity_timing"
     }
 
     companion object {
@@ -649,6 +658,8 @@ data class AppSettings(
             habitWipLimit = m[Keys.HABIT_WIP_LIMIT]?.toIntOrNull()?.coerceIn(0, 20) ?: 0,
             transitionLabel = m[Keys.TRANSITION_LABEL] ?: "",
             transitionStartDay = m[Keys.TRANSITION_START]?.toLongOrNull() ?: 0,
+            taskWipLimit = m[Keys.TASK_WIP_LIMIT]?.toIntOrNull()?.coerceIn(0, 20) ?: 0,
+            receptivityTiming = m[Keys.RECEPTIVITY_TIMING]?.toBooleanStrictOrNull() ?: false,
         )
     }
 }

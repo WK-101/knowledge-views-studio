@@ -31,7 +31,21 @@ class ReminderReceiver : BroadcastReceiver() {
                         // W8: suppress reminders for a task whose list the user has muted.
                         val listMuted = task?.listId != null && app.repository.settingsSnapshot().mutedLists.contains(task.listId)
                         if (task != null && !task.completed && !task.trashed && !task.abandoned && !listMuted) {
-                            Notifications.show(context, taskId, title, reminderId, annoying || escalate, escalate, step)
+                            // R37 · Port 4 — reminder-wording MRT: on the first (non-escalation) fire, micro-
+                            // randomise the motivational line and log the impression so the Nudge Lab can read
+                            // out which wording actually gets a task done. Escalation keeps its own insistent text.
+                            var subText: String? = null
+                            if (!escalate && step == 0) {
+                                val today = java.time.LocalDate.now().toEpochDay()
+                                if (app.repository.nudgeForHabitDay(taskId, today) == null) {
+                                    val variant = com.todocompanion.app.domain.habit.FourthWave.pickVariant(taskId.hashCode().toLong() + today)
+                                    subText = com.todocompanion.app.domain.habit.FourthWave.NUDGE_VARIANTS[variant]
+                                    app.repository.upsertNudgeEvent(com.todocompanion.app.data.entity.NudgeEventEntity(
+                                        id = java.util.UUID.randomUUID().toString(), habitId = taskId, variant = variant,
+                                        epochDay = today, targetKind = "task", createdAt = System.currentTimeMillis()))
+                                }
+                            }
+                            Notifications.show(context, taskId, title, reminderId, annoying || escalate, escalate, step, subText)
                             when {
                                 // Escalation ramps up: re-fire faster each round (5,5,4,3,2 min floor),
                                 // and the notification itself grows more insistent (see Notifications.show).

@@ -623,6 +623,20 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                         FilterChip(selected = s.habitWipLimit == n, onClick = { vm.setHabitWipLimit(n) }, label = { Text(if (n == 0) "Off" else "$n") })
                     }
                 }
+                HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                // R37 · task ports.
+                Text("Task focus limit (personal kanban)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                Text("Cap how many tasks can be in progress (started, not done) at once. Over the cap, Today nudges you to finish one before starting another.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(0, 3, 5, 7, 10).forEach { n ->
+                        FilterChip(selected = s.taskWipLimit == n, onClick = { vm.setTaskWipLimit(n) }, label = { Text(if (n == 0) "Off" else "$n") })
+                    }
+                }
+                HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                Toggle("Time reminders to my peak", s.receptivityTiming) { on -> vm.setReceptivityTiming(on) }
+                Text("Shift the daily brief and evening review to the hour you're most likely to act, learned from when you actually finish habits and tasks. Off = use the fixed times.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -896,10 +910,15 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         SettingsGroup(Icons.Filled.Sync, "Backup & sync (folder)", open["sync"] == true, { open["sync"] = open["sync"] != true }, keywords = "automatic backup folder sync across devices shared folder passphrase encryption schedule") {
             Text("Fully account-free: point the app at a folder (device, or a drive you already sync like Drive / Dropbox / Syncthing). Nothing goes to us.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
-            Toggle("Automatic backup", s.autoBackupEnabled) { on -> if (on && s.autoBackupFolder.isBlank()) safePick { backupFolderLauncher.launch(null) } else vm.setAutoBackupEnabled(on) }
+            // Defaults to the device's Downloads folder (no file picker, works on de-Googled devices);
+            // the folder action below lets you point it at a synced folder instead.
+            Toggle("Automatic backup", s.autoBackupEnabled) { on -> if (on && s.autoBackupFolder.isBlank()) vm.setAutoBackupFolder(com.todocompanion.app.data.sync.SyncEngine.DOWNLOADS_FOLDER) else vm.setAutoBackupEnabled(on) }
             if (s.autoBackupEnabled) {
-                Action(if (s.autoBackupFolder.isBlank()) "Choose backup folder…" else "Backup folder: " + folderLabel(s.autoBackupFolder)) { safePick { backupFolderLauncher.launch(null) } }
-                Text("A dated JSON copy is written daily around ${"%02d:00".format(s.autoBackupHour)}.",
+                Action("Backup folder: " + folderLabel(s.autoBackupFolder.ifBlank { com.todocompanion.app.data.sync.SyncEngine.DOWNLOADS_FOLDER }) + " · change…") { safePick { backupFolderLauncher.launch(null) } }
+                if (s.autoBackupFolder == com.todocompanion.app.data.sync.SyncEngine.DOWNLOADS_FOLDER)
+                    Action("Use Device Downloads (no picker)") { vm.setAutoBackupFolder(com.todocompanion.app.data.sync.SyncEngine.DOWNLOADS_FOLDER) }
+                else Action("Reset to Device Downloads (no picker)") { vm.setAutoBackupFolder(com.todocompanion.app.data.sync.SyncEngine.DOWNLOADS_FOLDER) }
+                Text("A dated JSON copy is written daily around ${"%02d:00".format(s.autoBackupHour)}. Choose a synced folder (Drive / Dropbox / Syncthing) to keep copies off-device.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Action("Back up now") { vm.runBackupNow { ok -> Toast.makeText(context, if (ok) "Backed up" else "Choose a folder first", Toast.LENGTH_SHORT).show() } }
@@ -951,8 +970,6 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         }
 
         Spacer(Modifier.height(20.dp))
-        Text("ToDo Companion · Phase 1a · offline & private by construction (no network permission).",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         // R31 #2 — the same maker's mark that closes the sidebar.
         com.todocompanion.app.ui.components.AppSignature()
         Spacer(Modifier.height(8.dp))
@@ -1382,10 +1399,13 @@ private fun Action(title: String, onClick: () -> Unit) {
 }
 
 /** A short human name for a SAF tree URI, e.g. "…/tree/primary:Backups" → "Backups". */
-private fun folderLabel(uri: String): String = runCatching {
-    val decoded = android.net.Uri.decode(uri)
-    decoded.substringAfterLast(':').substringAfterLast('/').ifBlank { "folder" }
-}.getOrDefault("folder")
+private fun folderLabel(uri: String): String {
+    if (uri == com.todocompanion.app.data.sync.SyncEngine.DOWNLOADS_FOLDER) return "Device Downloads"
+    return runCatching {
+        val decoded = android.net.Uri.decode(uri)
+        decoded.substringAfterLast(':').substringAfterLast('/').ifBlank { "folder" }
+    }.getOrDefault("folder")
+}
 
 private val ACCENTS = listOf(
     0xFF5B57D9, 0xFF2F6BFF, 0xFF0EA5E9, 0xFF06B6D4, 0xFF12A594, 0xFF0EA371, 0xFF65A30D, 0xFFCA8A04,

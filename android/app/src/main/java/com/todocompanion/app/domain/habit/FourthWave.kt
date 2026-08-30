@@ -193,7 +193,11 @@ object FourthWave {
         val pct: Int get() = if (target <= 0) 0 else (current * 100 / target).coerceIn(0, 100)
     }
 
-    fun escrowStatus(escrow: EscrowEntity, habits: List<HabitEntity>, checkins: List<HabitCheckinEntity>, today: Long): EscrowStatus {
+    fun escrowStatus(escrow: EscrowEntity, habits: List<HabitEntity>, checkins: List<HabitCheckinEntity>, today: Long, tasks: List<TaskEntity> = emptyList()): EscrowStatus {
+        if (escrow.milestoneKind == "taskdone") {
+            val done = escrow.taskId?.let { id -> tasks.firstOrNull { it.id == id }?.completed } == true
+            return EscrowStatus(escrow, if (done) 1 else 0, 1, done)
+        }
         val habit = habits.firstOrNull { it.id == escrow.habitId }
         val current = if (habit == null) 0 else {
             val mine = checkins.filter { it.habitId == habit.id }
@@ -277,6 +281,32 @@ object FourthWave {
             val goodAfter = eligible.count { (it + 1) in goodDays }
             val condRate = goodAfter.toDouble() / eligible.size
             val lift = condRate / baseRate
+            if (lift > 1.15) out += CausalEdge(h.id, h.name, h.emoji ?: "•", lift, eligible.size)
+        }
+        return out.sortedByDescending { it.lift }.take(5)
+    }
+
+    /** R37 port — the same lagged lift, but the outcome is a HIGH-OUTPUT day (task completions ≥ your
+     *  personal median). "On days after you do X, you finish more." Correlational, honestly labelled. */
+    fun causalOutput(habits: List<HabitEntity>, checkins: List<HabitCheckinEntity>, tasks: List<TaskEntity>, today: Long, zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): List<CausalEdge> {
+        val doneByDay = tasks.filter { it.completed && it.completedAt != null }
+            .groupingBy { java.time.Instant.ofEpochMilli(it.completedAt!!).atZone(zone).toLocalDate().toEpochDay() }.eachCount()
+        // Only days on which at least something was tracked count as observed days (last ~120 days).
+        val observed = (today - 119..today).filter { it in doneByDay || checkins.any { c -> c.epochDay == it } }
+        if (observed.size < 10) return emptyList()
+        val counts = observed.map { (doneByDay[it] ?: 0) }.sorted()
+        val median = counts[counts.size / 2].coerceAtLeast(1)
+        val highDays = observed.filter { (doneByDay[it] ?: 0) >= median.coerceAtLeast(2) }.toSet()
+        val baseRate = highDays.size.toDouble() / observed.size
+        if (baseRate <= 0.0 || baseRate >= 1.0) return emptyList()
+        val observedSet = observed.toSet()
+        val out = ArrayList<CausalEdge>()
+        habits.filter { !it.archived && it.habitType != "break" }.forEach { h ->
+            val doneDays = checkins.filter { it.habitId == h.id && it.status == "done" && HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
+            val eligible = doneDays.filter { (it + 1) in observedSet }
+            if (eligible.size < 4) return@forEach
+            val highAfter = eligible.count { (it + 1) in highDays }
+            val lift = (highAfter.toDouble() / eligible.size) / baseRate
             if (lift > 1.15) out += CausalEdge(h.id, h.name, h.emoji ?: "•", lift, eligible.size)
         }
         return out.sortedByDescending { it.lift }.take(5)

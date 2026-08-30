@@ -507,7 +507,23 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun saveTask(task: TaskEntity) {
         // Capture user-visible reschedules for the activity log (title/note edits don't log).
         val old = tasks.getById(task.id)
-        val saved = task.copy(updatedAt = now())
+        var saved = task.copy(updatedAt = now())
+        // R37 · deferral chain ("never defer twice"): pushing a due-today-or-overdue OPEN task to a later
+        // day counts as a defer (once per day). Moving it earlier resets the chain. Recurrence advances a
+        // just-completed task, so the "both open" guard keeps those from counting.
+        val od = old?.dueDate; val nd = saved.dueDate
+        if (old != null && !old.completed && !saved.completed && od != null && nd != null) {
+            val zone = java.time.ZoneId.systemDefault()
+            val today = java.time.LocalDate.now(zone).toEpochDay()
+            val oldDay = java.time.Instant.ofEpochMilli(od).atZone(zone).toLocalDate().toEpochDay()
+            val newDay = java.time.Instant.ofEpochMilli(nd).atZone(zone).toLocalDate().toEpochDay()
+            if (newDay > oldDay && oldDay <= today) {
+                val bump = if (saved.lastDeferDay == today) saved.deferCount else saved.deferCount + 1
+                saved = saved.copy(deferCount = bump, lastDeferDay = today)
+            } else if (newDay < oldDay) {
+                saved = saved.copy(deferCount = 0)
+            }
+        }
         tasks.upsert(saved)
         if (old != null && old.dueDate != task.dueDate) logActivity(task.id, "rescheduled", task.dueDate?.toString())
         maybeRecordRevision(saved)
@@ -515,7 +531,9 @@ class AppRepository(private val db: AppDatabase) {
 
     suspend fun setCompleted(task: TaskEntity, completed: Boolean) {
         val transition = completed && !task.completed
-        tasks.upsert(task.copy(completed = completed, completedAt = if (completed) now() else null, abandoned = false, updatedAt = now()))
+        // R37: finishing clears the deferral chain (you did it — no penalty carried forward).
+        tasks.upsert(task.copy(completed = completed, completedAt = if (completed) now() else null, abandoned = false,
+            deferCount = if (completed) 0 else task.deferCount, updatedAt = now()))
         logActivity(task.id, if (completed) "completed" else "reopened")
         if (transition) onTaskCompleted(task)
     }
@@ -593,8 +611,10 @@ class AppRepository(private val db: AppDatabase) {
         }
     }
 
-    suspend fun emptyTrash() {
-        tasks.getAll().filter { it.trashed }.forEach { deleteSubtree(it.id) }
+    /** Empty the Trash. When [workspaceId] is given, only tasks trashed in that workspace are purged —
+     *  the shared Inbox otherwise let one workspace's "Empty Trash" delete another's trashed tasks. */
+    suspend fun emptyTrash(workspaceId: String? = null) {
+        tasks.getAll().filter { it.trashed && (workspaceId == null || it.workspaceId == workspaceId) }.forEach { deleteSubtree(it.id) }
     }
 
     private suspend fun siblingsIn(listId: String, parentId: String?): List<TaskEntity> =
@@ -1079,6 +1099,7 @@ class AppRepository(private val db: AppDatabase) {
             dayLogs = dayLogs.getAll(),
             escrows = escrows.getAll(),
             nudgeEvents = nudgeEvents.getAll(),
+            revisions = revisions.getAll(),
         )
     )
 
@@ -1157,7 +1178,7 @@ class AppRepository(private val db: AppDatabase) {
         coreValues.upsertAll(b.coreValues); witnesses.upsertAll(b.witnessEvents); scorecard.upsertAll(b.scorecardItems)
         buddies.upsertAll(b.buddySnapshots); integrityReviews.upsertAll(b.integrityReviews)
         experiments.upsertAll(b.experiments); activation.upsertAll(b.activationItems); dayLogs.upsertAll(b.dayLogs)
-        escrows.upsertAll(b.escrows); nudgeEvents.upsertAll(b.nudgeEvents)
+        escrows.upsertAll(b.escrows); nudgeEvents.upsertAll(b.nudgeEvents); revisions.upsertAll(b.revisions)
         ensureDefaultWorkspace()
         ensureInbox()
         ensureDefaultFlags()

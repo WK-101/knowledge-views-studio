@@ -95,6 +95,13 @@ data class TaskEntity(
 
     val collapsed: Boolean = false,
 
+    // R37 — habit-science ports to tasks. valueId links a project/task to a core value ("living your
+    // values" counts real work). deferCount/lastDeferDay drive the "never defer twice" deferral-chain
+    // counter: how many days running this task's due date has been pushed forward.
+    val valueId: String? = null,
+    val deferCount: Int = 0,
+    val lastDeferDay: Long = 0,
+
     // R28 #3 — the workspace that owns this task's trash. Workspaces share only the Inbox; everything else
     // (including the Trash) is independent, so a trashed task is scoped to the workspace it was deleted in
     // rather than leaking across all of them via the shared Inbox. Backfilled from the task's list/folder.

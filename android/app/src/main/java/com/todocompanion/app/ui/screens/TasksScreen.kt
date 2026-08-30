@@ -544,7 +544,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.taskListHeaders(vm: A
     (view as? ViewRef.Smart)?.kind?.let { k ->
         if (k == SmartKind.TODAY || k == SmartKind.DO_NEXT) {
             item(key = "recovery") { RecoveryStrip(vm) }   // P2: kind triage when overdue piles up
+            item(key = "taskwip") { TaskWipStrip(vm) }      // R37 Port 1: personal-kanban WIP limit
             item(key = "freshstart") { FreshStartStrip(vm) } // R36 FW-11/12: temporal-landmark / transition reset
+            item(key = "tasklesson") { TaskLessonStrip(vm) } // R37 Port 2: just-in-time productivity micro-lesson
             item(key = "twnudges") { NudgeStrip(vm) }       // R35 TW-B / R36 FW-14: right-now nudges (MRT)
             item(key = "bookend") { BookendCard(vm) }       // R35 TW-E: AM/PM intention-review bookend
             item(key = "habitsdue") { HabitsDueStrip(vm) }
@@ -933,11 +935,57 @@ private fun FreshStartStrip(vm: AppViewModel) {
         landmark != null -> { emoji = landmark.emoji; msg = landmark.label }
         else -> return
     }
-    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).clickable { vm.lifeSystemsRoute.value = "freshstart" },
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
         shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .6f)) {
-        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(emoji, Modifier.padding(end = 12.dp), style = MaterialTheme.typography.titleMedium)
-            Text(msg, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+        Column(Modifier.padding(14.dp)) {
+            Row(Modifier.clickable { vm.lifeSystemsRoute.value = "freshstart" }, verticalAlignment = Alignment.CenterVertically) {
+                Text(emoji, Modifier.padding(end = 12.dp), style = MaterialTheme.typography.titleMedium)
+                Text(msg, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+            }
+            // R37 · Port 8 — a landmark is when re-planning sticks: one tap pulls stale overdue onto today.
+            androidx.compose.material3.TextButton(onClick = { vm.freshStartReschedule() }, modifier = Modifier.padding(top = 2.dp)) {
+                Text("Plan the week — pull overdue onto today", color = MaterialTheme.colorScheme.onPrimaryContainer)
+            }
+        }
+    }
+}
+
+/** R37 · Port 1 — personal-kanban WIP limit for tasks: when more tasks are "in progress" (started, not
+ *  done) than the chosen cap, a calm nudge to finish one before starting another. */
+@Composable
+private fun TaskWipStrip(vm: AppViewModel) {
+    val settings by vm.settings.collectAsState()
+    if (settings.taskWipLimit <= 0) return
+    val tasks by vm.tasks.collectAsState()
+    val now = System.currentTimeMillis()
+    val wip = remember(tasks, settings.taskWipLimit) { com.todocompanion.app.domain.task.TaskCoach.wip(tasks, settings.taskWipLimit, now, dayStartMin = settings.dayStartHour * 60) }
+    if (!wip.overCap) return
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .55f)) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("🧯", Modifier.padding(end = 10.dp))
+            Text("${wip.count} tasks in progress (your limit is ${wip.limit}). Finishing beats starting — close one before you pick up another.",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onTertiaryContainer)
+        }
+    }
+}
+
+/** R37 · Port 2 — a just-in-time productivity micro-lesson, chosen from today's open tasks. */
+@Composable
+private fun TaskLessonStrip(vm: AppViewModel) {
+    val settings by vm.settings.collectAsState()
+    val tasks by vm.tasks.collectAsState()
+    val now = System.currentTimeMillis()
+    val hour = java.time.LocalTime.now().hour
+    val childCounts = remember(tasks) { tasks.filter { it.parentId != null }.groupingBy { it.parentId!! }.eachCount() }
+    val lesson = remember(tasks, hour) { com.todocompanion.app.domain.task.TaskCoach.todayLesson(tasks, childCounts, hour, now, dayStartMin = settings.dayStartHour * 60) }
+    if (lesson == null) return
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Column(Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(lesson.emoji, Modifier.padding(end = 10.dp), style = MaterialTheme.typography.titleMedium)
+                Text(lesson.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            }
+            Text(lesson.body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
         }
     }
 }
