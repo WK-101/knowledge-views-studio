@@ -60,39 +60,26 @@ class MainActivity : FragmentActivity() {
      */
     private fun launchPicker(req: SystemPicker.Request) {
         pendingPick = req
-        val intent: Intent = try {
+        // A picker op can offer more than one route; we try them in order until one actually launches, so a
+        // ROM missing the first handler still gets the next. OPEN_FILE deliberately leads with GET_CONTENT.
+        val candidates: List<Intent> = try {
             when (req.op) {
-                SystemPicker.Op.GALLERY -> Intent(Intent.ACTION_PICK).apply {
+                SystemPicker.Op.GALLERY -> listOf(Intent(Intent.ACTION_PICK).apply {
                     setDataAndType(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, "image/*")
                     putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
-                SystemPicker.Op.OPEN_FILE -> Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                    // The exact grant flags Tasks.org puts on its file-picker request. Requesting READ +
-                    // WRITE + PERSISTABLE + PREFIX up-front is what makes the document provider extend a
-                    // durable, readable grant back on de-Googled ROMs — with only READ the returned URI's
-                    // grant doesn't stick, so a later read threw SecurityException ("couldn't read the file").
-                    addFlags(DOC_GRANT_FLAGS)
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                    // Nudges the document UI to show internal/SD storage and file sizes (helps on ROMs whose
-                    // picker hides them). Harmless where unsupported.
-                    putExtra("android.content.extra.SHOW_ADVANCED", true)
-                    putExtra("android.content.extra.FANCY", true)
-                    putExtra("android.content.extra.SHOW_FILESIZE", true)
-                    type = if (req.mimeTypes.size == 1) req.mimeTypes[0] else "*/*"
-                    if (req.mimeTypes.size > 1) putExtra(Intent.EXTRA_MIME_TYPES, req.mimeTypes)
-                    putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-                }
-                SystemPicker.Op.CREATE_FILE -> Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                })
+                SystemPicker.Op.OPEN_FILE -> openFileCandidates(req.mimeTypes)
+                SystemPicker.Op.CREATE_FILE -> listOf(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                     addFlags(DOC_GRANT_FLAGS)
                     addCategory(Intent.CATEGORY_OPENABLE)
                     type = req.mimeTypes.firstOrNull() ?: "application/octet-stream"
                     putExtra(Intent.EXTRA_TITLE, req.createName ?: "file")
-                }
-                SystemPicker.Op.OPEN_TREE -> Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                })
+                SystemPicker.Op.OPEN_TREE -> listOf(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
                     addFlags(DOC_GRANT_FLAGS)
                     putExtra("android.content.extra.SHOW_ADVANCED", true)
-                }
+                })
                 SystemPicker.Op.CAMERA -> {
                     if (!packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)) {
                         pendingPick = null; req.onError("No camera on this device."); return
@@ -100,22 +87,61 @@ class MainActivity : FragmentActivity() {
                     val dir = File(cacheDir, "shared").apply { mkdirs() }
                     val f = File(dir, "cam_${System.currentTimeMillis()}.jpg")
                     cameraOutputUri = FileProvider.getUriForFile(this, "$packageName.fileprovider", f)
-                    Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                    listOf(Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
                         putExtra(MediaStore.EXTRA_OUTPUT, cameraOutputUri)
                         addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    }
+                    })
                 }
             }
         } catch (e: Exception) {
             pendingPick = null; req.onError("Couldn't build the picker: ${e.javaClass.simpleName}"); return
         }
-        try {
-            @Suppress("DEPRECATION")
-            startActivityForResult(intent, RC_PICK)
-        } catch (e: Exception) {
-            pendingPick = null
-            req.onError("This device has no app for that (${e.javaClass.simpleName}). Try the Photo or Camera button, or Share a file into the app.")
+        var lastErr: String? = null
+        for (intent in candidates) {
+            try {
+                @Suppress("DEPRECATION")
+                startActivityForResult(intent, RC_PICK)
+                return
+            } catch (e: Exception) {
+                lastErr = e.javaClass.simpleName
+            }
         }
+        pendingPick = null
+        req.onError("This device has no app for that (${lastErr ?: "none"}). Try the Photo or Camera button, or Share a file into the app.")
+    }
+
+    /**
+     * The file-open routes, richest first. THE FIX for "I can only see the files our app exported":
+     * ACTION_OPEN_DOCUMENT is served ONLY by DocumentsUI. On a de-Googled ROM whose DocumentsUI is
+     * stripped, that surfaces almost no roots, so the picker collapses to "Recent" — which shows only
+     * the json/csv/ics our own app just wrote. ACTION_GET_CONTENT is instead served by the ROM's real
+     * file-manager and gallery apps (and DocumentsUI too), so a chooser over it reaches the whole
+     * filesystem. We copy the bytes immediately and release the grant, so GET_CONTENT's non-persistable
+     * URI is fine here (only the backup/sync FOLDER, via OPEN_TREE, needs a durable grant). Both routes
+     * use a wildcard type so every file type is offered; OPEN_DOCUMENT stays as the fallback.
+     */
+    private fun openFileCandidates(mimeTypes: Array<String>): List<Intent> {
+        val mime = if (mimeTypes.size == 1) mimeTypes[0] else "*/*"
+        fun Intent.withTypes() = apply {
+            type = mime
+            if (mimeTypes.size > 1) putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes)
+            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+            putExtra("android.content.extra.SHOW_ADVANCED", true)
+        }
+        val getContent = Intent(Intent.ACTION_GET_CONTENT).apply { addCategory(Intent.CATEGORY_OPENABLE) }.withTypes()
+        val openDoc = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addFlags(DOC_GRANT_FLAGS)
+            addCategory(Intent.CATEGORY_OPENABLE)
+            putExtra("android.content.extra.FANCY", true)
+            putExtra("android.content.extra.SHOW_FILESIZE", true)
+        }.withTypes()
+        // A chooser over GET_CONTENT lists every file source on the device — the ROM's file manager,
+        // gallery, Downloads and DocumentsUI — instead of only DocumentsUI's crippled "Recent". But a
+        // chooser always "launches" even with zero targets, so only lead with it when something actually
+        // handles GET_CONTENT; otherwise go straight to the OPEN_DOCUMENT (DocumentsUI) route.
+        val hasGetContent = packageManager.queryIntentActivities(getContent, 0).isNotEmpty()
+        return if (hasGetContent) listOf(Intent.createChooser(getContent, "Choose a file"), openDoc)
+        else listOf(openDoc, getContent)
     }
 
     @Deprecated("Deprecated in Java")
