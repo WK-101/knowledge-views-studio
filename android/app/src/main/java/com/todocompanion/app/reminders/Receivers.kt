@@ -156,6 +156,23 @@ class ReminderReceiver : BroadcastReceiver() {
                 }
             }
 
+            AlarmScheduler.ACTION_OCCASION_NUDGE -> {
+                if (app == null) return
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val s = app.repository.settingsSnapshot()
+                        if (s.occasionNudge) {
+                            val today = java.time.LocalDate.now()
+                            Notifications.showOccasionNudge(context,
+                                com.todocompanion.app.domain.Almanac.reflection(today),
+                                com.todocompanion.app.domain.Almanac.onThisDay(today))
+                            AlarmScheduler.scheduleOccasionNudge(context, s.occasionNudgeHour)
+                        }
+                    } finally { pending.finish() }
+                }
+            }
+
             AlarmScheduler.ACTION_AUTO_BACKUP -> {
                 if (app == null) return
                 val pending = goAsync()
@@ -288,6 +305,7 @@ class BootReceiver : BroadcastReceiver() {
                 if (s.dailySummaryEnabled) AlarmScheduler.scheduleDailySummary(context, s.dailySummaryHour, s.dailySummaryMinute)
                 if (s.eveningReviewEnabled) AlarmScheduler.scheduleEveningReview(context, s.eveningReviewHour)
                 if (s.morningBriefEnabled) AlarmScheduler.scheduleMorningBrief(context, s.morningBriefHour)
+                if (s.occasionNudge) AlarmScheduler.scheduleOccasionNudge(context, s.occasionNudgeHour)
                 if (s.autoBackupEnabled && s.autoBackupFolder.isNotBlank()) AlarmScheduler.scheduleAutoBackup(context, s.autoBackupHour)
                 if (s.autoTrackPrompt) AlarmScheduler.scheduleTrackPrompts(context, app.repository)
                 AlarmScheduler.rescheduleEventAlerts(context, app.repository)

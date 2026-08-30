@@ -28,6 +28,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Cake
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Star
@@ -133,11 +134,13 @@ fun CountdownScreen(vm: AppViewModel, onBack: () -> Unit) {
             val radar = remember(items, today) { LifeEvent.radar(items, today) }
             val onThisDay = remember(items) { vm.onThisDay() }
             val weeksSubject = remember(items) { LifeEvent.lifeInWeeksSubject(items) }
+            val historyFact = remember(today) { com.todocompanion.app.domain.Almanac.onThisDay(today) }
             LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp, 12.dp, 12.dp, 90.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 item { OverviewStrip(sorted.filter { !it.archived }, today) }
                 if (!showArchived && radar.isNotEmpty()) item { RadarCard(radar) }
                 if (!showArchived && onThisDay.isNotEmpty()) item { OnThisDayCard(onThisDay) }
                 if (!showArchived && weeksSubject != null) item { LifeInWeeksCard(weeksSubject, today) }
+                if (!showArchived && historyFact != null) item { TodayInHistoryCard(historyFact) }
                 val fav = sorted.filter { it.favorite }
                 if (fav.isNotEmpty() && !showArchived) {
                     item(key = "hdr-fav") { GroupHeader("★ Favourites") }
@@ -211,6 +214,19 @@ private fun OnThisDayCard(entries: List<Pair<Int, com.todocompanion.app.data.ent
     }
 }
 
+/** #24 Today-in-history — a bundled offline almanac fact for today, beside your own On-This-Day. */
+@Composable
+private fun TodayInHistoryCard(fact: String) {
+    Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .45f), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp)) {
+            Text("📜 Today in history", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text("A bundled almanac — offline, no server.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(4.dp))
+            Text(fact, style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
 /** #18 Life in weeks + #13 life-spent — a "4000 weeks" grid: one dot per week of an 80-year life,
  *  filled up to the weeks already lived. Rendered for a favourite/earliest birthday with a known year. */
 @Composable
@@ -279,6 +295,12 @@ private fun OccasionCard(c: CountdownEntity, today: LocalDate, onOpen: () -> Uni
                     if (chips.isNotEmpty()) Row(Modifier.padding(top = 3.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         chips.forEach { chip -> Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.surface.copy(alpha = .7f)) { Text(chip, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)) } }
                     }
+                    // #14/#17 keep-in-touch: how long since you last logged a moment, flagged when it's lapsed.
+                    com.todocompanion.app.domain.Moments.cadenceLine(c, today)?.let { line ->
+                        val overdue = com.todocompanion.app.domain.Moments.cadenceOverdue(c, today)
+                        Text(line, style = MaterialTheme.typography.labelSmall, fontWeight = if (overdue) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
+                    }
                 }
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(start = 6.dp)) {
@@ -311,6 +333,12 @@ private fun OccasionEditorSheet(vm: AppViewModel, existing: CountdownEntity?, on
     var photoB64 by remember { mutableStateOf(existing?.photoBase64) }
     var notes by remember { mutableStateOf(existing?.notes ?: "") }
     var leadDays by remember { mutableStateOf(existing?.prepLeadDays ?: 0) }
+    var keepInTouch by remember { mutableStateOf(existing?.keepInTouchDays ?: 0) }
+    var recurCal by remember { mutableStateOf(existing?.recurCalendar ?: "gregorian") }
+    // Moments (relationship loop / know-them). Persisted immediately on the row; mirrored here so the list
+    // in the sheet updates optimistically without re-observing.
+    var momentsLocal by remember { mutableStateOf(existing?.let { com.todocompanion.app.domain.Moments.parse(it) } ?: emptyList()) }
+    var momentDraft by remember { mutableStateOf("") }
     var millis by remember { mutableStateOf(existing?.targetMillis ?: LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()) }
     var showDate by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -319,7 +347,8 @@ private fun OccasionEditorSheet(vm: AppViewModel, existing: CountdownEntity?, on
     fun build(): CountdownEntity = (existing ?: CountdownEntity(id = java.util.UUID.randomUUID().toString(), title = title, targetMillis = millis, createdAt = System.currentTimeMillis()))
         .copy(title = title, personName = person, targetMillis = millis, eventType = type.name, yearly = yearly, yearKnown = yearKnown,
             emoji = emoji.trim().ifBlank { null }, colorArgb = color, notes = notes, prepLeadDays = leadDays,
-            countUp = countUp, unit = unit, category = category.trim(), favorite = favorite, locked = locked, photoBase64 = photoB64)
+            countUp = countUp, unit = unit, category = category.trim(), favorite = favorite, locked = locked, photoBase64 = photoB64,
+            keepInTouchDays = keepInTouch, recurCalendar = recurCal, momentsJson = com.todocompanion.app.domain.Moments.encode(momentsLocal))
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 28.dp).verticalScroll(rememberScrollState())) {
@@ -364,6 +393,26 @@ private fun OccasionEditorSheet(vm: AppViewModel, existing: CountdownEntity?, on
             }
             Spacer(Modifier.height(8.dp))
             com.todocompanion.app.ui.components.AppTextField(category, { category = it }, singleLine = true, label = { Text("Category (optional)") }, modifier = Modifier.fillMaxWidth())
+            // #3 alternate-calendar recurrence — only meaningful when the occasion repeats yearly.
+            if (yearly) {
+                Spacer(Modifier.height(8.dp))
+                Text("Repeats on", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(selected = recurCal == "gregorian", onClick = { recurCal = "gregorian" }, label = { Text("Gregorian") })
+                    FilterChip(selected = recurCal == "hijri", onClick = { recurCal = "hijri" }, label = { Text("Islamic (Hijri)") })
+                }
+                if (recurCal == "hijri") com.todocompanion.app.domain.HijriRecur.originLabel(d)?.let {
+                    Text("On $it each Hijri year (drifts ~11 days earlier each Gregorian year).", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            // #14/#17 keep-in-touch cadence.
+            Spacer(Modifier.height(8.dp))
+            Text("Keep in touch", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(0 to "Off", 7 to "Weekly", 14 to "Fortnightly", 30 to "Monthly", 90 to "Quarterly").forEach { (n, lbl) ->
+                    FilterChip(selected = keepInTouch == n, onClick = { keepInTouch = n }, label = { Text(lbl) })
+                }
+            }
             Spacer(Modifier.height(8.dp))
             // Colour
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -378,6 +427,39 @@ private fun OccasionEditorSheet(vm: AppViewModel, existing: CountdownEntity?, on
                 listOf(0 to "Off", 1 to "1 day", 3 to "3 days", 7 to "1 week", 14 to "2 weeks", 30 to "1 month").forEach { (n, lbl) ->
                     val sel = leadDays == n
                     AssistChip(onClick = { leadDays = n }, label = { Text(lbl) }, colors = if (sel) AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = .18f), labelColor = MaterialTheme.colorScheme.primary) else AssistChipDefaults.assistChipColors())
+                }
+            }
+            // #14/#20 Moments & connection — log a moment (or answer a know-them prompt). Saved occasions only.
+            if (existing != null) {
+                Spacer(Modifier.height(12.dp))
+                Text("Moments & connection", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                val prompt = remember(existing.id) { com.todocompanion.app.domain.KnowThem.questionFor(existing) }
+                Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .35f), modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                    Column(Modifier.padding(10.dp)) {
+                        Text("Get to know them", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(prompt, style = MaterialTheme.typography.bodyMedium)
+                        TextButton(onClick = { if (momentDraft.isBlank()) momentDraft = "$prompt — " }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text("Answer this") }
+                    }
+                }
+                com.todocompanion.app.ui.components.AppTextField(momentDraft, { momentDraft = it }, label = { Text("Log a moment or a note") }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(enabled = momentDraft.isNotBlank(), onClick = {
+                        vm.logOccasionMoment(existing, momentDraft)
+                        momentsLocal = (momentsLocal + com.todocompanion.app.domain.Moment(LocalDate.now().toEpochDay(), momentDraft.trim())).sortedByDescending { it.d }
+                        momentDraft = ""
+                    }) { Text("Log moment") }
+                }
+                momentsLocal.take(6).forEach { m ->
+                    val dd = LocalDate.ofEpochDay(m.d)
+                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(m.n, style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                            Text("${dd.dayOfMonth} ${dd.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${dd.year}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        IconButton(onClick = { vm.removeOccasionMoment(existing, m); momentsLocal = momentsLocal.filterNot { it.d == m.d && it.n == m.n } }) {
+                            Icon(Icons.Filled.Close, "Remove moment", modifier = Modifier.size(16.dp))
+                        }
+                    }
                 }
             }
             // Date-fact pack (saved birthdays)

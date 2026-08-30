@@ -117,6 +117,19 @@ class MainActivity : FragmentActivity() {
             SystemPicker.Op.CREATE_FILE, SystemPicker.Op.OPEN_TREE -> listOfNotNull(data?.data)
             else -> SystemPicker.extractUris(data)
         }
+        // R46 — for document/tree results, convert the one-shot grant into a persistable one right here,
+        // while the grant is guaranteed live. Without this, reading the bytes from a later coroutine can
+        // hit SecurityException on ROMs that scope the temporary grant tightly — the "couldn't read the
+        // file" the user saw on the SAF route (gallery and camera go through readable MediaStore/FileProvider
+        // URIs, which is why only File failed). MediaStore ACTION_PICK URIs aren't persistable, so this is
+        // scoped to the document routes and wrapped so a provider that refuses simply falls back to the
+        // one-shot grant. The result Intent also carries the grant flags we re-apply for the same reason.
+        if (req.op == SystemPicker.Op.OPEN_FILE || req.op == SystemPicker.Op.OPEN_TREE) {
+            val flags = (data?.flags ?: 0) and
+                (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            val takeFlags = if (flags != 0) flags else Intent.FLAG_GRANT_READ_URI_PERMISSION
+            for (u in uris) runCatching { contentResolver.takePersistableUriPermission(u, takeFlags) }
+        }
         if (uris.isNotEmpty()) req.onResult(uris)
     }
 

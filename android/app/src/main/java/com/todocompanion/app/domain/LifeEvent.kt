@@ -53,6 +53,9 @@ object LifeEvent {
     fun nextOccurrence(c: CountdownEntity, today: LocalDate = LocalDate.now()): LocalDate {
         val origin = originDate(c)
         if (!c.yearly) return origin
+        // R46 — alternate-calendar recurrence: a Hijri-repeating occasion recurs on its Islamic month/day,
+        // which drifts ~11 days earlier each Gregorian year. Falls back to Gregorian math if unavailable.
+        if (HijriRecur.isHijri(c)) HijriRecur.nextOccurrence(origin, today)?.let { return it }
         val month = origin.monthValue
         val day = origin.dayOfMonth
         fun dateInYear(year: Int): LocalDate {

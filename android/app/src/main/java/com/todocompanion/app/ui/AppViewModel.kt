@@ -212,6 +212,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleCountdownPin(c: com.todocompanion.app.data.entity.CountdownEntity) = viewModelScope.launch { repo.upsertCountdown(c.copy(pinned = !c.pinned)); com.todocompanion.app.widget.CountdownWidget.refresh(appCtx) }
     fun toggleOccasionFavorite(c: com.todocompanion.app.data.entity.CountdownEntity) = viewModelScope.launch { repo.upsertCountdown(c.copy(favorite = !c.favorite)) }
     fun setOccasionArchived(c: com.todocompanion.app.data.entity.CountdownEntity, archived: Boolean) = viewModelScope.launch { repo.upsertCountdown(c.copy(archived = archived)) }
+    /** R46 — relationship loop / know-them deck: log a moment (or a question's answer) against an occasion.
+     *  Stored as JSON on the row, so it rides the existing backup/sync; refreshes the live-countdown notif. */
+    fun logOccasionMoment(c: com.todocompanion.app.data.entity.CountdownEntity, note: String) = viewModelScope.launch {
+        if (note.isBlank()) return@launch
+        repo.upsertCountdown(c.copy(momentsJson = com.todocompanion.app.domain.Moments.add(c, note)))
+        refreshOccasionNotification()
+    }
+    fun removeOccasionMoment(c: com.todocompanion.app.data.entity.CountdownEntity, moment: com.todocompanion.app.domain.Moment) = viewModelScope.launch {
+        repo.upsertCountdown(c.copy(momentsJson = com.todocompanion.app.domain.Moments.remove(c, moment)))
+    }
+    /** #9 — refresh (or clear) the ongoing "next occasion" notification from the current data + setting.
+     *  Posted on demand (app open, occasion saved) rather than by a background worker — no new permission. */
+    fun refreshOccasionNotification() = viewModelScope.launch {
+        val on = settings.value.occasionLiveNotif
+        com.todocompanion.app.reminders.Notifications.refreshOccasion(appCtx, if (on) countdowns.value else emptyList())
+    }
     /** R45 — On-This-Day: tasks the user completed on this calendar day (month+day) in prior years. */
     fun onThisDay(today: java.time.LocalDate = java.time.LocalDate.now(zone)): List<Pair<Int, TaskEntity>> {
         val out = ArrayList<Pair<Int, TaskEntity>>()
@@ -1199,13 +1215,43 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         repo.attachmentContent(id)
     }
-    fun addAttachment(taskId: String, uri: Uri) = viewModelScope.launch {
+    /**
+     * R46 — read a content:// URI's bytes robustly, the way Tasks.org does. Some providers on de-Googled
+     * ROMs (and cloud/"recent" backends) refuse a plain openInputStream but serve a file descriptor, or
+     * vice-versa, so we try both before giving up. Returns the bytes, or null with the failure reason.
+     */
+    private fun readUriBytes(uri: Uri): Pair<ByteArray?, String?> {
+        val cr = appCtx.contentResolver
+        // 1) the normal path.
+        runCatching { cr.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()?.let { return it to null }
+        val firstErr = runCatching { cr.openInputStream(uri) }.exceptionOrNull()
+        // 2) the file-descriptor path — works for providers that only implement openFile().
+        runCatching {
+            cr.openFileDescriptor(uri, "r")?.use { pfd ->
+                java.io.FileInputStream(pfd.fileDescriptor).use { it.readBytes() }
+            }
+        }.getOrNull()?.let { return it to null }
+        val why = (firstErr ?: runCatching { cr.openFileDescriptor(uri, "r") }.exceptionOrNull())
+            ?.javaClass?.simpleName ?: "no data"
+        return null to why
+    }
+
+    /** After a one-shot attachment copy we no longer need the SAF grant MainActivity may have persisted, so
+     *  release it to keep clear of the ~512 persisted-permission ceiling (backup/sync folders keep theirs). */
+    private fun releasePersistedRead(uri: Uri) {
+        runCatching {
+            appCtx.contentResolver.releasePersistableUriPermission(
+                uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    }
+
+    fun addAttachment(taskId: String, uri: Uri, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
         val cr = appCtx.contentResolver
         val mime = cr.getType(uri) ?: "application/octet-stream"
         val name = displayNameOf(uri) ?: "attachment"
-        val bytes = withContext(Dispatchers.IO) { runCatching { cr.openInputStream(uri)?.use { it.readBytes() } }.getOrNull() }
-        if (bytes == null) { toast("Could not read file"); return@launch }
-        if (bytes.size > repo.maxAttachmentBytes) { toast("File too large (max 25 MB per file)"); return@launch }
+        val (bytes, why) = withContext(Dispatchers.IO) { readUriBytes(uri) }
+        if (bytes == null) { toast("Couldn't read that file ($why). Try Share ▸ ToDo Companion from your file manager."); onDone(false); return@launch }
+        if (bytes.size > repo.maxAttachmentBytes) { toast("File too large (max 25 MB per file)"); onDone(false); return@launch }
         // F4: write the bytes to an app-private file and store only the path — the DB stays lean.
         val ok = withContext(Dispatchers.IO) {
             runCatching {
@@ -1217,11 +1263,37 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }.getOrDefault(false)
         }
         if (!ok) toast("Could not save attachment")
+        releasePersistedRead(uri)
+        onDone(ok)
     }
     fun removeAttachment(id: String) = viewModelScope.launch { repo.deleteAttachment(id) }
-    /** R40 — attach several files at once from the system picker (Photo Picker / SAF, multi-select). Each
-     *  URI's bytes are copied into app-private storage; no storage permission is involved. */
-    fun addAttachments(taskId: String, uris: List<Uri>) { uris.forEach { addAttachment(taskId, it) } }
+    /** R40 — attach several files at once from the system picker (SAF, multi-select). Each URI's bytes are
+     *  copied into app-private storage; no storage permission is involved. [onDone] reports how many landed,
+     *  so the editor can acknowledge the save (R46). */
+    fun addAttachments(taskId: String, uris: List<Uri>, onDone: (Int) -> Unit = {}) = viewModelScope.launch {
+        var ok = 0
+        for (u in uris) {
+            val cr = appCtx.contentResolver
+            val mime = cr.getType(u) ?: "application/octet-stream"
+            val name = displayNameOf(u) ?: "attachment"
+            val (bytes, why) = withContext(Dispatchers.IO) { readUriBytes(u) }
+            if (bytes == null) { toast("Couldn't read one file ($why). Try Share ▸ ToDo Companion from your file manager."); continue }
+            if (bytes.size > repo.maxAttachmentBytes) { toast("Skipped one file over 25 MB"); continue }
+            val wrote = withContext(Dispatchers.IO) {
+                runCatching {
+                    val dir = java.io.File(appCtx.filesDir, "attachments").apply { mkdirs() }
+                    val f = java.io.File(dir, UUID.randomUUID().toString())
+                    f.writeBytes(bytes)
+                    repo.addAttachmentFile(taskId, name, mime, bytes.size.toLong(), f.absolutePath)
+                    true
+                }.getOrDefault(false)
+            }
+            if (wrote) ok++
+            releasePersistedRead(u)
+        }
+        if (ok > 0) toast(if (ok == 1) "Attachment added" else "$ok attachments added")
+        onDone(ok)
+    }
 
     /** Set a list's background image: decode, downscale to ≤1280px, re-encode JPEG, store as base64. */
     fun setListBackgroundFromUri(listId: String, uri: Uri) = viewModelScope.launch {

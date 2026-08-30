@@ -199,7 +199,13 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     val effCtx = draftCtx ?: liveCtx
     val tagsDirty = draftTags != null && draftTags != liveTags
     val ctxDirty = draftCtx != null && draftCtx != liveCtx
-    val dirty = (draft != null && savedSnapshot != null && draft != savedSnapshot) || tagsDirty || ctxDirty
+    // Attachments (and camera photos) copy into the DB the instant they're picked — they're auto-saved, not
+    // staged in the draft. So adding one never moved the draft and the Save check stayed grey, reading as
+    // "there's no way to save." attachBump lights the Save button so the change is acknowledged; because the
+    // bytes are already committed, Back needs no discard prompt for an attachment-only change.
+    var attachBump by remember(taskId) { mutableStateOf(0) }
+    val contentDirty = (draft != null && savedSnapshot != null && draft != savedSnapshot) || tagsDirty || ctxDirty
+    val dirty = contentDirty || attachBump > 0
 
     fun update(block: (TaskEntity) -> TaskEntity) {
         val d = draft ?: return; draft = block(d)
@@ -208,9 +214,10 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
         draft?.let { vm.save(it) }
         if (draftTags != null) vm.setTags(taskId, (draftTags ?: emptySet()).toList())
         if (draftCtx != null) vm.setContexts(taskId, (draftCtx ?: emptySet()).toList())
-        savedSnapshot = draft; draftTags = null; draftCtx = null; onBack()
+        savedSnapshot = draft; draftTags = null; draftCtx = null; attachBump = 0; onBack()
     }
-    fun attemptBack() { if (dirty) confirmDiscard = true else onBack() }
+    // Only real, still-unsaved content edits warrant a discard prompt; attachments are already on disk.
+    fun attemptBack() { if (contentDirty) confirmDiscard = true else onBack() }
 
     BackHandler { attemptBack() }
 
@@ -657,9 +664,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     // Each button just invokes the hoisted, top-level picker (registered for the whole
                     // screen's lifetime). The helper runs the layered launch chain and surfaces the real
                     // error if every tier fails — so it never silently dead-ends. See SystemPickers.kt.
-                    TextButton(onClick = { com.todocompanion.app.util.SystemPicker.gallery(onError = onPickerError) { uris -> vm.addAttachments(taskId, uris) } }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.Image, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Photo") }
-                    TextButton(onClick = { com.todocompanion.app.util.SystemPicker.camera(onError = onPickerError) { uri -> vm.addAttachment(taskId, uri) } }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.CameraAlt, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Camera") }
-                    TextButton(onClick = { com.todocompanion.app.util.SystemPicker.openFiles(arrayOf("*/*"), onError = onPickerError) { uris -> vm.addAttachments(taskId, uris) } }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.AttachFile, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("File") }
+                    TextButton(onClick = { com.todocompanion.app.util.SystemPicker.gallery(onError = onPickerError) { uris -> vm.addAttachments(taskId, uris) { n -> if (n > 0) attachBump++ } } }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.Image, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Photo") }
+                    TextButton(onClick = { com.todocompanion.app.util.SystemPicker.camera(onError = onPickerError) { uri -> vm.addAttachment(taskId, uri) { ok -> if (ok) attachBump++ } } }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.CameraAlt, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Camera") }
+                    TextButton(onClick = { com.todocompanion.app.util.SystemPicker.openFiles(arrayOf("*/*"), onError = onPickerError) { uris -> vm.addAttachments(taskId, uris) { n -> if (n > 0) attachBump++ } } }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.AttachFile, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("File") }
                 }
                 if (attachments.isEmpty()) Text("Photos, camera, or any file up to 25 MB — picked through your phone's own picker, so no storage permission is ever asked. Stored on-device and in your backups.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

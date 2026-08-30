@@ -41,4 +41,9 @@ data class CountdownEntity(
     val favorite: Boolean = false,        // pinned to the top / "important"
     val photoBase64: String? = null,      // an optional photo face (added via the system gallery picker)
     val locked: Boolean = false,          // gate this occasion behind the app's biometric lock
+    // R46 "relationship + intelligence" fields ---------------------------------------------------
+    val keepInTouchDays: Int = 0,         // >0 = a keep-in-touch cadence; flag when days-since-last-moment exceeds it
+    val momentsJson: String = "",         // logged moments/answers as a JSON array of {d:epochDay,n:note} — rides
+                                          // the existing countdowns backup/sync, so no new table is needed
+    val recurCalendar: String = "gregorian", // yearly recurrence calendar: gregorian | hijri (tabular, offline)
 )

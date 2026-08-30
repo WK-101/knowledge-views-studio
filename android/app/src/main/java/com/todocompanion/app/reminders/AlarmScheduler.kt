@@ -30,6 +30,7 @@ object AlarmScheduler {
     const val ACTION_HABIT_SNOOZE = "com.todocompanion.app.action.HABIT_SNOOZE"
     const val ACTION_MORNING = "com.todocompanion.app.action.MORNING"
     const val ACTION_EVENT_ALERT = "com.todocompanion.app.action.EVENT_ALERT"
+    const val ACTION_OCCASION_NUDGE = "com.todocompanion.app.action.OCCASION_NUDGE"
 
     const val EXTRA_TASK_ID = "taskId"
     const val EXTRA_TITLE = "title"
@@ -50,6 +51,7 @@ object AlarmScheduler {
     private const val EVENING_REQ = 918_275
     private const val AUTOBACKUP_REQ = 918_277
     private const val MORNING_REQ = 918_278
+    private const val OCCASION_NUDGE_REQ = 918_279
 
     fun triggerTimeFor(reminder: ReminderEntity, task: TaskEntity): Long? {
         val offset = (reminder.offsetMin ?: 0) * 60_000L
@@ -152,6 +154,18 @@ object AlarmScheduler {
     fun cancelMorningBrief(context: Context) {
         val am = context.getSystemService(AlarmManager::class.java) ?: return
         am.cancel(broadcast(context, ACTION_MORNING, MORNING_REQ, emptyMap()))
+    }
+
+    // ---------- R46 · occasions reflective nudge ----------
+    fun scheduleOccasionNudge(context: Context, hour: Int, zone: ZoneId = ZoneId.systemDefault()) {
+        val now = System.currentTimeMillis()
+        var next = LocalDate.now(zone).atTime(LocalTime.of(hour.coerceIn(0, 23), 0)).atZone(zone).toInstant().toEpochMilli()
+        if (next <= now) next += 86_400_000L
+        setAlarm(context, next, broadcast(context, ACTION_OCCASION_NUDGE, OCCASION_NUDGE_REQ, emptyMap()))
+    }
+    fun cancelOccasionNudge(context: Context) {
+        val am = context.getSystemService(AlarmManager::class.java) ?: return
+        am.cancel(broadcast(context, ACTION_OCCASION_NUDGE, OCCASION_NUDGE_REQ, emptyMap()))
     }
 
     // ---------- automatic backup ----------

@@ -415,6 +415,14 @@ fun AppRoot(
             if (settings.eveningReviewEnabled) AlarmScheduler.scheduleEveningReview(context, settings.eveningReviewHour)
             else AlarmScheduler.cancelEveningReview(context)
         }
+        // R46 Occasions — schedule/cancel the daily reflective nudge, and (re)post the ongoing "next
+        // occasion" notification whenever the toggle or the occasions data changes (on-demand, no worker).
+        LaunchedEffect(settings.occasionNudge, settings.occasionNudgeHour) {
+            if (settings.occasionNudge) AlarmScheduler.scheduleOccasionNudge(context, settings.occasionNudgeHour)
+            else AlarmScheduler.cancelOccasionNudge(context)
+        }
+        val occasionsForNotif by vm.countdowns.collectAsState()
+        LaunchedEffect(settings.occasionLiveNotif, occasionsForNotif) { vm.refreshOccasionNotification() }
         LaunchedEffect(settings.autoBackupEnabled, settings.autoBackupHour, settings.autoBackupFolder) {
             if (settings.autoBackupEnabled && settings.autoBackupFolder.isNotBlank()) AlarmScheduler.scheduleAutoBackup(context, settings.autoBackupHour)
             else AlarmScheduler.cancelAutoBackup(context)

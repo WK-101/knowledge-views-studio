@@ -94,6 +94,57 @@ object Notifications {
         runCatching { NotificationManagerCompat.from(context).notify(EVENING_ID, n) }
     }
 
+    const val OCCASION_LIVE_ID = 424246
+    const val OCCASION_NUDGE_ID = 424247
+
+    /** #9 — an ongoing, low-key notification pinning the single most imminent occasion. Posted on demand
+     *  (app open / occasion saved), never by a background worker, so it needs no new permission. An empty
+     *  list clears it (the setting is off, or nothing is upcoming). */
+    fun refreshOccasion(context: Context, occasions: List<com.todocompanion.app.data.entity.CountdownEntity>) {
+        val today = java.time.LocalDate.now()
+        val next = occasions
+            .filter { !it.archived && !it.countUp }
+            .map { it to com.todocompanion.app.domain.LifeEvent.daysUntil(it, today) }
+            .filter { it.second >= 0 }
+            .minByOrNull { it.second }
+        if (next == null) { runCatching { NotificationManagerCompat.from(context).cancel(OCCASION_LIVE_ID) }; return }
+        val (c, days) = next
+        val who = c.personName.ifBlank { c.title }
+        val label = com.todocompanion.app.domain.LifeEvent.daysLabel(days)
+        val date = com.todocompanion.app.domain.LifeEvent.nextOccurrence(c, today)
+        val emoji = c.emoji ?: com.todocompanion.app.domain.LifeEvent.type(c).emoji
+        ensureChannel(context)
+        val title = if (days == 0L) "$emoji $who is today 🎉" else "$emoji $who — $label"
+        val text = "${date.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault())}, " +
+            "${date.dayOfMonth} ${date.month.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault())}"
+        val n = builder(context)
+            .setSmallIcon(android.R.drawable.ic_menu_my_calendar)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .setContentIntent(openApp(context))
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(OCCASION_LIVE_ID, n) }
+    }
+
+    /** #23 — one gentle daily reflection (a finite-time thought + today-in-history), opt-in. */
+    fun showOccasionNudge(context: Context, reflection: String, history: String?) {
+        ensureChannel(context)
+        val big = reflection + (history?.let { "\n\nOn this day — $it" } ?: "")
+        val n = builder(context)
+            .setSmallIcon(android.R.drawable.ic_menu_compass)
+            .setContentTitle("A moment to reflect")
+            .setContentText(reflection)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(big))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(openApp(context))
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(OCCASION_NUDGE_ID, n) }
+    }
+
     fun show(context: Context, taskId: String, title: String, reminderId: String, annoying: Boolean, escalate: Boolean = false, step: Int = 0, subText: String? = null) {
         ensureChannel(context)
         val done = broadcast(context, AlarmScheduler.ACTION_DONE, ("done$taskId").hashCode(),

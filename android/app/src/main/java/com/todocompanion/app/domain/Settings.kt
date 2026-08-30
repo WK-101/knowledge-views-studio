@@ -97,6 +97,11 @@ data class AppSettings(
     // Evening review: an end-of-day nudge to plan tomorrow (opens Plan-your-day).
     val eveningReviewEnabled: Boolean = false,
     val eveningReviewHour: Int = 20,
+    // R46 Occasions — an ongoing notification pinning the next occasion (refreshed on app open / save), and
+    // a daily reflective nudge (a finite-time reflection + today-in-history). Both default off, no new perm.
+    val occasionLiveNotif: Boolean = false,
+    val occasionNudge: Boolean = false,
+    val occasionNudgeHour: Int = 9,
     // Whether the user has dismissed the Android reliability onboarding (battery + exact-alarm).
     val reliabilityOnboarded: Boolean = false,
     // Completion sound on checking a task off.
