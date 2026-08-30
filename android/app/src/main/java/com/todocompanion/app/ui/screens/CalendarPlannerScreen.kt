@@ -345,9 +345,9 @@ private fun fmtMin(min: Int): String {
 }
 
 private fun startOfWeek(day: Long, weekStart: Int): Long {
-    // weekStart: 0 = Sunday (app convention). Find the most recent weekStart day ≤ day.
+    // App convention: 0 = System (locale first-day), 1..7 = Mon..Sun (ISO). Most recent start day ≤ day.
     val date = LocalDate.ofEpochDay(day)
-    val target = if (weekStart in 1..7) weekStart else 7 // ISO value; 7 = Sunday
+    val target = if (weekStart in 1..7) weekStart else java.time.temporal.WeekFields.of(Locale.getDefault()).firstDayOfWeek.value
     var d = date
     var guard = 0
     while (d.dayOfWeek.value != target && guard++ < 7) d = d.minusDays(1)
