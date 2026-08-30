@@ -560,7 +560,7 @@ fun AppRoot(
                     onOpenDone = { showDone = true; scope.launch { drawerState.close() } },
                     onOpenMomentum = { showMomentum = true; scope.launch { drawerState.close() } },
                     onOpenTime = { showTimeTracking = true; scope.launch { drawerState.close() } },
-                    onOpenRecap = { val td = java.time.LocalDate.now().toEpochDay(); recapRange = Triple(td - 6, td, "This week"); scope.launch { drawerState.close() } },
+                    onOpenRecap = { val t = java.time.LocalDate.now(); val ws = com.todocompanion.app.ui.screens.weekStartOf(t, settings.weekStart); recapRange = Triple(ws.toEpochDay(), t.toEpochDay(), "This week"); scope.launch { drawerState.close() } },
                     onOpenAnnual = { showAnnual = true; scope.launch { drawerState.close() } },
                 )
             },
@@ -896,8 +896,8 @@ fun AppRoot(
                     OmegaCommand.Action.MOMENTUM -> showMomentum = true
                     OmegaCommand.Action.STATS -> showStats = true
                     OmegaCommand.Action.ANNUAL_REPORT -> showAnnual = true
-                    OmegaCommand.Action.RECAP_WEEK -> recapRange = Triple(td - 6, td, "This week")
-                    OmegaCommand.Action.RECAP_LAST_WEEK -> recapRange = Triple(td - 13, td - 7, "Last week")
+                    OmegaCommand.Action.RECAP_WEEK -> { val ws = com.todocompanion.app.ui.screens.weekStartOf(now, settings.weekStart); recapRange = Triple(ws.toEpochDay(), td, "This week") }
+                    OmegaCommand.Action.RECAP_LAST_WEEK -> { val ws = com.todocompanion.app.ui.screens.weekStartOf(now, settings.weekStart); recapRange = Triple(ws.minusWeeks(1).toEpochDay(), ws.minusDays(1).toEpochDay(), "Last week") }
                     OmegaCommand.Action.RECAP_MONTH -> recapRange = Triple(now.withDayOfMonth(1).toEpochDay(), td, "This month")
                 }
                 is OmegaCommand.Command.Goto -> {

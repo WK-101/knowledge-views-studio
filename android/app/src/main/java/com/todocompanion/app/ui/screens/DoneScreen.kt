@@ -24,6 +24,11 @@ import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material.icons.filled.Hub
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -107,6 +112,18 @@ fun DoneScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> Uni
     val honesty = remember(tasks, trackedByTask, listNameById) { DoneRecord.honesty(tasks, trackedByTask, listNameById) }
     val comeback = remember(rangedFeed) { DoneRecord.comeback(rangedFeed, today) }
 
+    // R29 Phase 5/7 — the impact graph (finished work → the goals it served) and the verifiable timeline.
+    val settings by vm.settings.collectAsState()
+    var showImpact by remember { mutableStateOf(false) }
+    val impact = remember(rangedFeed, tasks) { com.todocompanion.app.domain.done.Impact.build(rangedFeed, tasks) }
+    val integrity = remember(feed, settings.integritySeal) {
+        com.todocompanion.app.domain.done.Integrity.status(feed, com.todocompanion.app.domain.done.Integrity.Seal.decode(settings.integritySeal))
+    }
+    if (showImpact) {
+        ImpactScreen(impact, rangeLabel(range), listNameById, onOpenTask = onOpenTask, onBack = { showImpact = false })
+        return
+    }
+
     val shown = remember(rangedFeed, query, winsOnly, listNameById) {
         val q = query.trim().lowercase()
         rangedFeed.filter { a ->
@@ -168,6 +185,10 @@ fun DoneScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> Uni
             }
             // Totals + personal bests, over the chosen range.
             item(key = "stats") { LifetimeCard(stats, rangeLabel(range)) }
+            // Impact graph entry — what the finished work added up to.
+            if (impact.goalsServed > 0) item(key = "impact") { ImpactTeaser(impact) { showImpact = true } }
+            // Verifiable timeline — seal the record so back-dating is detectable.
+            item(key = "integrity") { IntegrityCard(integrity, onSeal = { vm.sealRecord() }, onClear = { vm.clearSeal() }) }
             // Momentum — kind, evidence-based (recovery + standout effort), not just streaks.
             if (comeback.isNotEmpty()) item(key = "comeback") { ComebackCard(comeback) }
             // The honesty ledger — estimate vs. the time actually invested.
@@ -199,7 +220,8 @@ fun DoneScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> Uni
                 item(key = "day-$epochDay") { DayHeader(LocalDate.ofEpochDay(epochDay), today, dayItems) }
                 items(dayItems, key = { it.kind.name + it.refId + it.whenMillis }) { a ->
                     AccomplishmentRow(a, listNameById[a.listId], onOpen = { if (a.isTaskLike) onOpenTask(a.refId) },
-                        onToggleWin = if (a.isTaskLike) { { tasks.firstOrNull { t -> t.id == a.refId }?.let { vm.toggleWin(it) } } } else null)
+                        onToggleWin = if (a.isTaskLike) { { tasks.firstOrNull { t -> t.id == a.refId }?.let { vm.toggleWin(it) } } } else null,
+                        onShareReceipt = if (a.isTaskLike) { { vm.shareReceipt(a, listNameById[a.listId]) } } else null)
                 }
             }
             item(key = "footer") {
@@ -366,7 +388,7 @@ private fun DayHeader(day: LocalDate, today: LocalDate, items: List<Accomplishme
 }
 
 @Composable
-private fun AccomplishmentRow(a: Accomplishment, listName: String?, onOpen: () -> Unit, onToggleWin: (() -> Unit)?) {
+private fun AccomplishmentRow(a: Accomplishment, listName: String?, onOpen: () -> Unit, onToggleWin: (() -> Unit)?, onShareReceipt: (() -> Unit)? = null) {
     Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth().clickable(enabled = a.isTaskLike) { onOpen() }) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(28.dp).clip(CircleShape), contentAlignment = Alignment.Center) {
@@ -384,6 +406,10 @@ private fun AccomplishmentRow(a: Accomplishment, listName: String?, onOpen: () -
                 if (meta.isNotBlank()) Text(meta, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 a.outcome?.let { Text("→ $it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, maxLines = 2, overflow = TextOverflow.Ellipsis) }
                 a.praise?.let { Text("“$it”", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+            }
+            // Proof-of-work receipt — mint a shareable image of this finished item (task-like only).
+            if (onShareReceipt != null) IconButton(onClick = onShareReceipt) {
+                Icon(Icons.Filled.Share, "Share proof of work", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
             }
             if (onToggleWin != null) IconButton(onClick = onToggleWin) {
                 Icon(if (a.isWin) Icons.Filled.Star else Icons.Filled.StarBorder, "Mark as a win",
@@ -500,4 +526,152 @@ private fun buildBrag(items: List<Accomplishment>, listNameById: Map<String, Str
     sb.appendLine()
     sb.appendLine("_Generated on ${today} from ToDo Companion — The Done Record. Private, on-device._")
     return sb.toString()
+}
+
+// ---------- R29 Phase 5/7 — impact map & verifiable timeline ----------
+
+@Composable
+private fun ImpactTeaser(g: com.todocompanion.app.domain.done.Impact.Graph, onOpen: () -> Unit) {
+    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
+        modifier = Modifier.fillMaxWidth().clickable { onOpen() }) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.Hub, null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Impact map", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text("${g.finished} finished · ${g.goalsServed} goal${if (g.goalsServed == 1) "" else "s"} served · ${g.outcomes} outcome${if (g.outcomes == 1) "" else "s"}",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Text("View →", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        }
+    }
+}
+
+@Composable
+private fun IntegrityCard(status: com.todocompanion.app.domain.done.Integrity.Status, onSeal: () -> Unit, onClear: () -> Unit) {
+    val unsealed = status.state == com.todocompanion.app.domain.done.Integrity.State.UNSEALED
+    val (tint, label) = when (status.state) {
+        com.todocompanion.app.domain.done.Integrity.State.VERIFIED -> MaterialTheme.colorScheme.primary to "Verified — untouched since you sealed it"
+        com.todocompanion.app.domain.done.Integrity.State.TAMPERED -> MaterialTheme.colorScheme.error to "Changed since sealing — a sealed entry was edited, removed or back-dated"
+        else -> MaterialTheme.colorScheme.onSurfaceVariant to "Not sealed yet"
+    }
+    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Verified, null, tint = tint)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Verifiable timeline", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text(label, style = MaterialTheme.typography.bodySmall, color = tint)
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            Text("A local hash-chain over your completions. Sealing records the current head, so any later back-dating of a sealed entry is caught — no server, no account, nothing leaves the device.",
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(8.dp))
+            Text("Chain head  " + status.head.take(16).uppercase().chunked(4).joinToString("-"),
+                style = MaterialTheme.typography.labelSmall, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            status.sealedAt?.let {
+                val d = java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                Text("Sealed $d · ${status.sealedCount} entries" + (if (status.newSinceSeal > 0) " · ${status.newSinceSeal} new since" else ""),
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                androidx.compose.material3.FilledTonalButton(onClick = onSeal) {
+                    Text(if (unsealed) "Seal the record" else "Re-seal")
+                }
+                if (!unsealed) androidx.compose.material3.TextButton(onClick = onClear) { Text("Clear seal") }
+            }
+        }
+    }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun ImpactScreen(
+    g: com.todocompanion.app.domain.done.Impact.Graph, rangeLabel: String,
+    listNameById: Map<String, String>, onOpenTask: (String) -> Unit, onBack: () -> Unit,
+) {
+    BackHandler(onBack = onBack)
+    Scaffold(topBar = {
+        TopAppBar(expandedHeight = 52.dp,
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+            title = { Text("Impact map") })
+    }) { padding ->
+        if (g.nodes.isEmpty()) {
+            Column(Modifier.padding(padding).fillMaxSize().padding(32.dp),
+                verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("🕸️", style = MaterialTheme.typography.displaySmall)
+                Spacer(Modifier.height(8.dp))
+                Text("No goal-linked work in this range yet. Finish tasks under a goal or project and they'll web up here.",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            }
+            return@Scaffold
+        }
+        val maxMin = (g.nodes.maxOfOrNull { it.totalMinutes } ?: 0).coerceAtLeast(1)
+        LazyColumn(Modifier.padding(padding).fillMaxSize(),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            item(key = "impact-head") {
+                Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .5f), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(14.dp)) {
+                        Text(rangeLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${g.finished} finished  →  ${g.goalsServed} goals  →  ${g.outcomes} outcomes",
+                            style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Each finished task rolled up to the goal it served — the shape of what your work added up to.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+            items(g.nodes, key = { it.goalId ?: "direct" }) { node -> ImpactNodeCard(node, maxMin, onOpenTask) }
+        }
+    }
+}
+
+@Composable
+private fun ImpactNodeCard(node: com.todocompanion.app.domain.done.Impact.Node, maxMin: Int, onOpenTask: (String) -> Unit) {
+    val accent = if (node.goalId == null) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary
+    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(if (node.isGoalDone) "🎯" else if (node.goalId == null) "•" else "◇")
+                Spacer(Modifier.width(8.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(node.goalTitle, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    val sub = buildString {
+                        append("${node.items.size} finished")
+                        if (node.totalMinutes >= 60) append(" · ${node.totalMinutes / 60}h ${node.totalMinutes % 60}m")
+                        else if (node.totalMinutes > 0) append(" · ${node.totalMinutes}m")
+                        if (node.isGoalDone) append(" · goal reached")
+                    }
+                    Text(sub, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                val frac = (node.totalMinutes.toFloat() / maxMin).coerceIn(0.02f, 1f)
+                Box(Modifier.fillMaxWidth(frac).height(6.dp).clip(RoundedCornerShape(3.dp)).background(accent))
+            }
+            Spacer(Modifier.height(8.dp))
+            node.items.take(12).forEach { a ->
+                Row(Modifier.fillMaxWidth().clickable { onOpenTask(a.refId) }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("└─", color = accent.copy(alpha = .6f), style = MaterialTheme.typography.labelSmall)
+                    Spacer(Modifier.width(8.dp))
+                    Text(a.title, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (a.durationMin > 0) Text("${a.durationMin}m", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            if (node.items.size > 12) Text("+${node.items.size - 12} more",
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(start = 24.dp, top = 2.dp))
+            if (node.outcomes.isNotEmpty()) {
+                Spacer(Modifier.height(6.dp))
+                node.outcomes.take(4).forEach { o ->
+                    Text("→ $o", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+    }
 }

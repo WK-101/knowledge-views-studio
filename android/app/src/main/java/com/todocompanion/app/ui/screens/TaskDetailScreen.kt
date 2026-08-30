@@ -520,13 +520,16 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 com.todocompanion.app.domain.EditorField.BLOCKED -> myDeps.isNotEmpty()
                 com.todocompanion.app.domain.EditorField.ACTIVITY -> activityLog.isNotEmpty()
                 com.todocompanion.app.domain.EditorField.ADVANCED -> task.estimateMin != null || task.isGoal || task.isProject || task.reviewEveryDays != null || (task.progressPct ?: 0) > 0
+                com.todocompanion.app.domain.EditorField.REFLECTION -> task.winFlag || !task.outcomeNote.isNullOrBlank() || !task.learnedNote.isNullOrBlank() || !task.praiseQuote.isNullOrBlank() || task.mood != null
             }
             val orderedFields = settings.editorFieldsOrdered()
             var moreExpanded by remember(task.id) { mutableStateOf(false) }
             val anyCollapsed = orderedFields.any { settings.editorTier(it) == com.todocompanion.app.domain.AppSettings.TIER_MORE && !hasFieldValue(it) }
             orderedFields.forEach { f ->
                 val tier = settings.editorTier(f)
-                val visible = tier == com.todocompanion.app.domain.AppSettings.TIER_ALWAYS || hasFieldValue(f) || (tier == com.todocompanion.app.domain.AppSettings.TIER_MORE && moreExpanded)
+                val visible = tier == com.todocompanion.app.domain.AppSettings.TIER_ALWAYS || hasFieldValue(f) || (tier == com.todocompanion.app.domain.AppSettings.TIER_MORE && moreExpanded) ||
+                    // Reflection still auto-appears on a finished task — unless the user hid it.
+                    (f == com.todocompanion.app.domain.EditorField.REFLECTION && task.completed && tier != com.todocompanion.app.domain.AppSettings.TIER_HIDDEN)
                 if (!visible) return@forEach
                 when (f) {
                     // Deadline is set inside the unified Date sheet now (R22) and summarised under the Date row,
@@ -810,6 +813,43 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     }
                 }
             }
+                    com.todocompanion.app.domain.EditorField.REFLECTION -> {
+                        // R27/R29 #5 — reflection on a task: win, mood, outcome, lesson, praise. Now a proper
+                        // reorderable editor field (Settings ▸ Task editor: Always / Under "More" / Hidden), and
+                        // it still auto-appears on a completed task unless you've hidden it. Feeds the record.
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Filled.EmojiEvents, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(12.dp))
+                                Text("Reflection", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                                FilterChip(selected = task.winFlag, onClick = { update { it.copy(winFlag = !it.winFlag) } },
+                                    label = { Text("Win") },
+                                    leadingIcon = { Icon(if (task.winFlag) Icons.Filled.Star else Icons.Filled.StarBorder, null, Modifier.size(16.dp)) })
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                val moods = listOf(1 to "😞", 2 to "😕", 3 to "🙂", 4 to "😀", 5 to "🤩")
+                                moods.forEach { (v, e) ->
+                                    val sel = task.mood == v
+                                    Text(e, style = MaterialTheme.typography.titleLarge,
+                                        modifier = Modifier.clip(CircleShape)
+                                            .background(if (sel) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                                            .clickable { update { it.copy(mood = if (sel) null else v) } }
+                                            .padding(6.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            com.todocompanion.app.ui.components.AppTextField(task.outcomeNote ?: "", { v -> update { it.copy(outcomeNote = v) } },
+                                label = { Text("Outcome / impact") }, modifier = Modifier.fillMaxWidth())
+                            Spacer(Modifier.height(6.dp))
+                            com.todocompanion.app.ui.components.AppTextField(task.learnedNote ?: "", { v -> update { it.copy(learnedNote = v) } },
+                                label = { Text("What I learned") }, modifier = Modifier.fillMaxWidth())
+                            Spacer(Modifier.height(6.dp))
+                            com.todocompanion.app.ui.components.AppTextField(task.praiseQuote ?: "", { v -> update { it.copy(praiseQuote = v) } },
+                                label = { Text("Praise / thank-you to remember") }, modifier = Modifier.fillMaxWidth())
+                        }
+                    }
                 }
             }
             // Progressive-disclosure toggle: reveals the "More" fields that have no value yet.
@@ -818,47 +858,6 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     Icon(if (moreExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(if (moreExpanded) "Show fewer fields" else "More fields")
-                }
-            }
-
-            // R27 The Done Record — reflection on a finished task: mark it a win, note the outcome/impact,
-            // capture a lesson or a compliment, rate how it felt. All optional; it feeds the accomplishment
-            // record, the trophy case and the brag document. Shown once complete, or whenever it holds a note.
-            val hasReflection = task.winFlag || !task.outcomeNote.isNullOrBlank() || !task.learnedNote.isNullOrBlank() || !task.praiseQuote.isNullOrBlank() || task.mood != null
-            if (task.completed || hasReflection) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-                Column(Modifier.padding(top = 8.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.EmojiEvents, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(12.dp))
-                        Text("Reflection", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                        FilterChip(selected = task.winFlag, onClick = { update { it.copy(winFlag = !it.winFlag) } },
-                            label = { Text("Win") },
-                            leadingIcon = { Icon(if (task.winFlag) Icons.Filled.Star else Icons.Filled.StarBorder, null, Modifier.size(16.dp)) })
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    // Mood: how it felt to finish. Tap again to clear.
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        val moods = listOf(1 to "😞", 2 to "😕", 3 to "🙂", 4 to "😀", 5 to "🤩")
-                        moods.forEach { (v, e) ->
-                            val sel = task.mood == v
-                            Text(e, style = MaterialTheme.typography.titleLarge,
-                                modifier = Modifier.clip(CircleShape)
-                                    .background(if (sel) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-                                    .clickable { update { it.copy(mood = if (sel) null else v) } }
-                                    .padding(6.dp))
-                            Spacer(Modifier.width(4.dp))
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    com.todocompanion.app.ui.components.AppTextField(task.outcomeNote ?: "", { v -> update { it.copy(outcomeNote = v) } },
-                        label = { Text("Outcome / impact") }, modifier = Modifier.fillMaxWidth())
-                    Spacer(Modifier.height(6.dp))
-                    com.todocompanion.app.ui.components.AppTextField(task.learnedNote ?: "", { v -> update { it.copy(learnedNote = v) } },
-                        label = { Text("What I learned") }, modifier = Modifier.fillMaxWidth())
-                    Spacer(Modifier.height(6.dp))
-                    com.todocompanion.app.ui.components.AppTextField(task.praiseQuote ?: "", { v -> update { it.copy(praiseQuote = v) } },
-                        label = { Text("Praise / thank-you to remember") }, modifier = Modifier.fillMaxWidth())
                 }
             }
 
@@ -955,7 +954,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
         val existing = allDeps.filter { it.taskId == task.id }.map { it.dependsOnTaskId }.toSet()
         val candidates = allTasks.filter { it.id != task.id && it.id !in existing && !it.trashed && it.parentId != task.id }
         BlockerPickerDialog(candidates, onDismiss = { showBlockPicker = false }) { picked ->
-            vm.addDependency(task.id, picked); showBlockPicker = false
+            picked.forEach { vm.addDependency(task.id, it) }; showBlockPicker = false
         }
     }
     if (saveTemplate && task != null) {
@@ -1009,17 +1008,20 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
 }
 
 @Composable
-private fun BlockerPickerDialog(candidates: List<TaskEntity>, onDismiss: () -> Unit, onPick: (String) -> Unit) {
+private fun BlockerPickerDialog(candidates: List<TaskEntity>, onDismiss: () -> Unit, onConfirm: (Set<String>) -> Unit) {
     // R27 #4: the blocker list can be long, so filter it live by a search box.
+    // R29 #6: multi-select — tick several prerequisites and add them all in one go.
     var query by remember { mutableStateOf("") }
+    var picked by remember { mutableStateOf(setOf<String>()) }
     val shown = remember(candidates, query) {
         val q = query.trim().lowercase()
         if (q.isEmpty()) candidates else candidates.filter { it.title.lowercase().contains(q) }
     }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        title = { Text("Blocked by which task?") },
+        confirmButton = { TextButton(enabled = picked.isNotEmpty(), onClick = { onConfirm(picked) }) { Text(if (picked.isEmpty()) "Add" else "Add ${picked.size}") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Blocked by which tasks?") },
         text = {
             if (candidates.isEmpty()) Text("No other tasks to depend on.")
             else Column {
@@ -1033,7 +1035,16 @@ private fun BlockerPickerDialog(candidates: List<TaskEntity>, onDismiss: () -> U
                 if (shown.isEmpty()) Text("No tasks match “${query.trim()}”.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 else LazyColumn(Modifier.heightIn(max = 340.dp)) {
                     items(shown, key = { it.id }) { t ->
-                        Text(t.title, Modifier.fillMaxWidth().clickable { onPick(t.id) }.padding(vertical = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val sel = t.id in picked
+                        Row(
+                            Modifier.fillMaxWidth().clickable { picked = if (sel) picked - t.id else picked + t.id }.padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(if (sel) Icons.Filled.CheckCircle else Icons.Filled.RadioButtonUnchecked, null,
+                                tint = if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Text(t.title, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
                     }
                 }
             }

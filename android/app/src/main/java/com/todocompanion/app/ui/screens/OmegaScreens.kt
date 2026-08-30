@@ -38,6 +38,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -193,17 +194,32 @@ private fun FlowRowCompat(content: @Composable () -> Unit) {
  * tracked and kept, versus the window before it. Reachable from the palette ("recap last week") and
  * the drawer.
  */
+/** The first day of the week containing [today], honoring the user's weekStart setting
+ *  (1..7 = Mon..Sun; 0/other = the system locale's first day). Shared by the recap ranges. */
+fun weekStartOf(today: LocalDate, weekStartSetting: Int): LocalDate {
+    val firstDow = if (weekStartSetting in 1..7) java.time.DayOfWeek.of(weekStartSetting)
+        else java.time.temporal.WeekFields.of(java.util.Locale.getDefault()).firstDayOfWeek
+    return today.minusDays((((today.dayOfWeek.value - firstDow.value) + 7) % 7).toLong())
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecapScreen(vm: AppViewModel, initialStartDay: Long, initialEndDay: Long, initialTitle: String, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
     data class Preset(val title: String, val start: Long, val end: Long)
+    val settings by vm.settings.collectAsState()
+    // Live, all-workspace task list: collecting it warms the flow AND re-runs the recap when tasks load,
+    // so "Tasks done" can't read an empty snapshot (R29 #4).
+    val liveTasks by vm.allTasksLive.collectAsState()
     val today = remember { LocalDate.now() }
     val td = today.toEpochDay()
-    val presets = remember {
+    // R29 #3 — weeks honor the "week starts on" setting, not a rolling last-7-days window: "This week" runs
+    // from the current week's first day through today; "Last week" is the whole previous week.
+    val weekStart = remember(today, settings.weekStart) { weekStartOf(today, settings.weekStart) }
+    val presets = remember(weekStart, today) {
         listOf(
-            Preset("This week", td - 6, td),
-            Preset("Last week", td - 13, td - 7),
+            Preset("This week", weekStart.toEpochDay(), td),
+            Preset("Last week", weekStart.minusWeeks(1).toEpochDay(), weekStart.minusDays(1).toEpochDay()),
             Preset("This month", today.withDayOfMonth(1).toEpochDay(), td),
             Preset("Last month",
                 today.withDayOfMonth(1).minusMonths(1).toEpochDay(),
@@ -214,7 +230,7 @@ fun RecapScreen(vm: AppViewModel, initialStartDay: Long, initialEndDay: Long, in
     var start by remember { mutableStateOf(initialStartDay) }
     var end by remember { mutableStateOf(initialEndDay) }
     var title by remember { mutableStateOf(initialTitle) }
-    val recap = remember(start, end) { vm.periodRecap(start, end, title) }
+    val recap = remember(start, end, liveTasks) { vm.periodRecap(start, end, title, liveTasks) }
 
     Scaffold(topBar = {
         TopAppBar(expandedHeight = 52.dp, title = { Text("Recap") },

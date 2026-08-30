@@ -115,6 +115,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
 
     val tasks: StateFlow<List<TaskEntity>> = wsTasks.state(emptyList())
+    // R29 #4 — the recap counts what you actually finished, across every workspace (an accomplishment
+    // recap shouldn't vanish when you switch spaces). Exposed as its own flow so the Recap screen can
+    // collect it: that both warms it (WhileSubscribed) and re-runs the recap when tasks load/change, so
+    // "Tasks done" can no longer read a stale/empty snapshot and show zero.
+    val allTasksLive: StateFlow<List<TaskEntity>> = repo.allTasks.state(emptyList())
     val folders = combine(repo.allFolders, activeWs) { f, ws -> f.filter { it.workspaceId == ws } }.state(emptyList())
     val lists = combine(repo.allLists, activeWs) { l, ws -> l.filter { it.workspaceId == ws || it.id == ListEntity.INBOX_ID } }.state(emptyList())
     val tags: StateFlow<List<TagEntity>> = combine(repo.allTags, activeWs) { t, ws -> t.filter { it.workspaceId == ws } }.state(emptyList())
@@ -270,7 +275,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val filters: List<com.todocompanion.app.data.entity.FilterEntity>,
         val lists: List<ListEntity>,
         val folders: List<FolderEntity>,
+        val tags: List<TagEntity>,
     )
+
+    /** All ids in the subtree rooted at [rootId] — the root plus every descendant, following parent
+     *  links. Cycle-safe. Used so a parent tag / context page rolls up its children's tasks (R29 #2). */
+    private fun <T> subtreeIds(rootId: String, entities: List<T>, idOf: (T) -> String, parentOf: (T) -> String?): Set<String> {
+        val children = entities.groupBy { parentOf(it) }
+        val out = LinkedHashSet<String>()
+        val queue = ArrayDeque<String>().apply { add(rootId) }
+        while (queue.isNotEmpty()) {
+            val cur = queue.removeFirst()
+            if (!out.add(cur)) continue
+            children[cur].orEmpty().forEach { queue.add(idOf(it)) }
+        }
+        return out
+    }
 
     /** All list ids inside a folder, including nested folders and nested lists. */
     private fun folderListIds(folderId: String, lists: List<ListEntity>, folders: List<FolderEntity>): Set<String> {
@@ -294,7 +314,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             wsTasks,
             combine(currentView, groupMode, sortMode, settings, combine(repo.allFlags, timeAvailableMin, energyAvailable) { fl, ta, ea -> Triple(fl, ta, ea) }) { v, g, s, set, fte -> Cfg(v, g, s, set.priorityConfig(), fte.first, fte.second, fte.third, set.activeWorkspaceId) },
             repo.taskTagRefs,
-            combine(repo.taskContextRefs, repo.allContexts, repo.allFilters, repo.allLists, repo.allFolders) { r, c, f, l, fo -> ViewCtx(r, c, f, l, fo) },
+            combine(repo.taskContextRefs, repo.allContexts, repo.allFilters, repo.allLists, combine(repo.allFolders, repo.allTags) { fo, tg -> fo to tg }) { r, c, f, l, foTg -> ViewCtx(r, c, f, l, foTg.first, foTg.second) },
             repo.allDependencies,
         ) { all, cfg, ttRefs, vc, deps ->
             val tcRefs = vc.tcRefs; val ctxEntities = vc.contexts; val filterList = vc.filters
@@ -333,11 +353,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     all.filter { !it.trashed && !it.completed && !it.abandoned && (it.listId in listIds || it.folderId == v.folderId) }
                 }
                 is ViewRef.TagView -> {
-                    val ids = ttRefs.filter { it.tagId == v.tagId }.map { it.taskId }.toSet()
+                    // R29 #2 — a parent tag's page rolls up every descendant tag's tasks (matching the
+                    // sidebar count, which already summed the subtree), so opening #work shows #work/errands too.
+                    val tagIds = subtreeIds(v.tagId, vc.tags, { it.id }, { it.parentId })
+                    val ids = ttRefs.filter { it.tagId in tagIds }.map { it.taskId }.toSet()
                     all.filter { it.id in ids && !it.trashed && !it.completed && !it.abandoned }
                 }
                 is ViewRef.ContextView -> {
-                    val ids = tcRefs.filter { it.contextId == v.contextId }.map { it.taskId }.toSet()
+                    // Same subtree rollup for contexts / sub-contexts.
+                    val ctxIds = subtreeIds(v.contextId, ctxEntities, { it.id }, { it.parentId })
+                    val ids = tcRefs.filter { it.contextId in ctxIds }.map { it.taskId }.toSet()
                     all.filter { it.id in ids && !it.trashed && !it.completed && !it.abandoned }
                 }
             }
@@ -410,7 +435,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val hierarchyRows: StateFlow<List<OutlineRow>> =
         combine(
             wsTasks, currentView, filterHierarchy,
-            combine(repo.taskTagRefs, repo.taskContextRefs, repo.allFilters, repo.allLists) { tt, tc, f, ls -> listOf(tt, tc, f, ls) },
+            combine(repo.taskTagRefs, repo.taskContextRefs, repo.allFilters, repo.allLists, combine(repo.allTags, repo.allContexts) { tg, cx -> tg to cx }) { tt, tc, f, ls, tgcx -> listOf(tt, tc, f, ls, tgcx.first, tgcx.second) },
         ) { all, v, on, refs ->
             if (!on) return@combine emptyList()
             @Suppress("UNCHECKED_CAST")
@@ -421,6 +446,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val filters = refs[2] as List<com.todocompanion.app.data.entity.FilterEntity>
             @Suppress("UNCHECKED_CAST")
             val hLists = refs[3] as List<ListEntity>
+            @Suppress("UNCHECKED_CAST")
+            val hTags = refs[4] as List<TagEntity>
+            @Suppress("UNCHECKED_CAST")
+            val hContexts = refs[5] as List<ContextEntity>
             val listFolderById = hLists.associate { it.id to it.folderId }
             val now = System.currentTimeMillis()
             val matched: Set<String> = when (v) {
@@ -431,8 +460,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     val hit = all.filter { com.todocompanion.app.domain.view.Filters.matches(q, it, tagsByTask[it.id].orEmpty(), ctxByTask[it.id].orEmpty(), now, zone, it.folderId ?: listFolderById[it.listId]) }.map { it.id }.toSet()
                     if (q.includeChildren) expandWithDescendants(hit, all) else hit
                 }
-                is ViewRef.TagView -> ttRefs.filter { it.tagId == v.tagId }.map { it.taskId }.toSet()
-                is ViewRef.ContextView -> tcRefs.filter { it.contextId == v.contextId }.map { it.taskId }.toSet()
+                is ViewRef.TagView -> {
+                    val tagIds = subtreeIds(v.tagId, hTags, { it.id }, { it.parentId })
+                    ttRefs.filter { it.tagId in tagIds }.map { it.taskId }.toSet()
+                }
+                is ViewRef.ContextView -> {
+                    val ctxIds = subtreeIds(v.contextId, hContexts, { it.id }, { it.parentId })
+                    tcRefs.filter { it.contextId in ctxIds }.map { it.taskId }.toSet()
+                }
                 else -> return@combine emptyList()
             }
             buildFilteredOutline(all.filter { !it.trashed }, matched)
@@ -2832,8 +2867,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         com.todocompanion.app.domain.OmegaQuery.answer(question, omegaCtx())
 
     /** Ω5 — the cross-module recap for any date range (inclusive epoch-days). */
-    fun periodRecap(startDay: Long, endDay: Long, title: String): com.todocompanion.app.domain.PeriodRecap.Recap =
-        com.todocompanion.app.domain.PeriodRecap.compute(startDay, endDay, title, omegaCtx())
+    fun periodRecap(startDay: Long, endDay: Long, title: String, tasksOverride: List<TaskEntity>? = null): com.todocompanion.app.domain.PeriodRecap.Recap =
+        com.todocompanion.app.domain.PeriodRecap.compute(startDay, endDay, title,
+            omegaCtx().let { if (tasksOverride != null) it.copy(tasks = tasksOverride) else it })
 
     /** Ω3 — adaptive hints suggesting a module the user would benefit from turning on. */
     fun moduleHints(): List<com.todocompanion.app.domain.ModuleHints.Hint> =
@@ -2859,6 +2895,42 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         runCatching { appCtx.startActivity(chooser) }.onFailure { toast("No app to open it with") }
         onDone(true)
     }
+
+    /** R29 Phase 5 — mint a proof-of-work receipt image from a finished item and hand it to the share sheet.
+     *  Rendered locally with android.graphics; nothing leaves the device until the user picks where to send it. */
+    fun shareReceipt(a: com.todocompanion.app.domain.done.Accomplishment, listName: String?, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+        val uri = withContext(Dispatchers.IO) {
+            runCatching {
+                val bmp = com.todocompanion.app.ui.util.ReceiptRenderer.render(a, listName, zone)
+                val dir = java.io.File(appCtx.cacheDir, "shared").apply { mkdirs() }
+                val f = java.io.File(dir, "receipt-${a.refId.take(8)}.png")
+                java.io.FileOutputStream(f).use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+                androidx.core.content.FileProvider.getUriForFile(appCtx, "${appCtx.packageName}.fileprovider", f)
+            }.getOrNull()
+        }
+        if (uri == null) { toast("Couldn't make the receipt"); onDone(false); return@launch }
+        val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "image/png"; putExtra(android.content.Intent.EXTRA_STREAM, uri)
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val chooser = android.content.Intent.createChooser(send, "Proof of work").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { appCtx.startActivity(chooser) }.onFailure { toast("No app to share to") }
+        onDone(true)
+    }
+
+    /** The whole accomplishment feed for the active workspace — the input to the integrity chain & impact graph. */
+    fun doneFeed(): List<com.todocompanion.app.domain.done.Accomplishment> =
+        com.todocompanion.app.domain.done.DoneRecord.build(tasks.value, habits.value, habitCheckins.value, timeEntries.value, zone)
+
+    /** R29 Phase 7 — seal the record: store the current hash-chain head so a later back-date or edit of a
+     *  sealed entry is detectable (the recomputed head no longer matches). Entirely local. */
+    fun sealRecord() = viewModelScope.launch {
+        val seal = com.todocompanion.app.domain.done.Integrity.seal(doneFeed())
+        saveSettings(settings.value.copy(integritySeal = seal.encode()))
+        toast("Record sealed — ${seal.count} entries")
+    }
+    fun clearSeal() = viewModelScope.launch { saveSettings(settings.value.copy(integritySeal = null)) }
+
     // Drag-reorder persistence for the drawer sections.
     fun setTagOrder(ids: List<String>) = viewModelScope.launch { repo.setTagOrder(ids) }
     fun setHabitOrder(ids: List<String>) = viewModelScope.launch { repo.setHabitOrder(ids); refreshHabitWidgets() }

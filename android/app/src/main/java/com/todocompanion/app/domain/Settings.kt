@@ -204,6 +204,8 @@ data class AppSettings(
     // Sidebar: show a live entry count on every list / folder / tag / context / filter (smart lists always
     // show theirs). Off by default — a calmer drawer — and turned on from Settings (R19 #13).
     val showEntryCounts: Boolean = false,
+    // R29 Phase 7 — the verifiable-timeline seal: "count:headHash:sealedAtMillis", or null when unsealed.
+    val integritySeal: String? = null,
 ) {
     /** Effective tier for an optional editor field: user override, else its built-in default. */
     fun editorTier(f: EditorField): Int = editorFieldTiers[f.id] ?: f.defaultTier
@@ -335,6 +337,7 @@ data class AppSettings(
         Keys.DISMISSED_TIPS to dismissedTips.joinToString(","),
         Keys.PINNED_ACTIVITIES to pinnedActivities.joinToString(","),
         Keys.SHOW_ENTRY_COUNTS to showEntryCounts.toString(),
+        Keys.INTEGRITY_SEAL to (integritySeal ?: ""),
     )
 
     object Keys {
@@ -450,6 +453,7 @@ data class AppSettings(
         const val DISMISSED_TIPS = "dismissed_tips"
         const val PINNED_ACTIVITIES = "pinned_activities"
         const val SHOW_ENTRY_COUNTS = "show_entry_counts"
+        const val INTEGRITY_SEAL = "integrity_seal"
     }
 
     companion object {
@@ -558,6 +562,7 @@ data class AppSettings(
             dismissedTips = (m[Keys.DISMISSED_TIPS] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             pinnedActivities = (m[Keys.PINNED_ACTIVITIES] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             showEntryCounts = m[Keys.SHOW_ENTRY_COUNTS]?.toBooleanStrictOrNull() ?: false,
+            integritySeal = m[Keys.INTEGRITY_SEAL]?.takeIf { it.isNotBlank() },
             dailySummaryEnabled = m[Keys.SUMMARY_ON]?.toBooleanStrictOrNull() ?: false,
             appBackground = m[Keys.APP_BG] ?: "none",
             dailyCapacityHours = m[Keys.CAPACITY]?.toIntOrNull()?.coerceIn(1, 16) ?: 8,
@@ -608,7 +613,8 @@ enum class EditorField(val id: String, val label: String, val defaultTier: Int) 
     TAGS("tags", "Tags & contexts", AppSettings.TIER_MORE),
     BLOCKED("blocked", "Blocked by", AppSettings.TIER_MORE),
     ACTIVITY("activity", "Activity log", AppSettings.TIER_MORE),
-    ADVANCED("advanced", "Estimate, goal, project, review", AppSettings.TIER_MORE);
+    ADVANCED("advanced", "Estimate, goal, project, review", AppSettings.TIER_MORE),
+    REFLECTION("reflection", "Reflection (win, mood, notes)", AppSettings.TIER_MORE);
 
     companion object {
         val ALL: List<EditorField> = entries.toList()
