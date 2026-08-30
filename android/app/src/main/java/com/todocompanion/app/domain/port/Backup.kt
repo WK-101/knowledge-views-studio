@@ -47,10 +47,12 @@ data class BackupFile(
     val timeEntries: List<com.todocompanion.app.data.entity.TimeEntryEntity> = emptyList(),
     // R32 — sealed "letter to your future self" notes. Additive; old backups carry an empty list.
     val sealedNotes: List<com.todocompanion.app.data.entity.SealedNoteEntity> = emptyList(),
+    // R33 — habit-builder urge/craving log. Additive; old backups carry an empty list.
+    val cravingEvents: List<com.todocompanion.app.data.entity.CravingEventEntity> = emptyList(),
 ) {
     companion object {
         const val FORMAT = "todo-companion"
-        const val VERSION = 9
+        const val VERSION = 10
     }
 }
 

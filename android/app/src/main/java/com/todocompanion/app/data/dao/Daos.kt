@@ -167,6 +167,27 @@ interface CountdownDao {
 }
 
 @Dao
+interface CravingDao {
+    @Query("SELECT * FROM craving_events ORDER BY atMillis DESC")
+    fun observeAll(): Flow<List<com.todocompanion.app.data.entity.CravingEventEntity>>
+
+    @Query("SELECT * FROM craving_events")
+    suspend fun getAll(): List<com.todocompanion.app.data.entity.CravingEventEntity>
+
+    @Upsert
+    suspend fun upsert(c: com.todocompanion.app.data.entity.CravingEventEntity)
+
+    @Upsert
+    suspend fun upsertAll(c: List<com.todocompanion.app.data.entity.CravingEventEntity>)
+
+    @Query("DELETE FROM craving_events WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM craving_events")
+    suspend fun clear()
+}
+
+@Dao
 interface SealedNoteDao {
     @Query("SELECT * FROM sealed_notes ORDER BY revealEpochDay")
     fun observeAll(): Flow<List<com.todocompanion.app.data.entity.SealedNoteEntity>>

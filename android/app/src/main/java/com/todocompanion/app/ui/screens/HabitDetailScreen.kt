@@ -41,8 +41,13 @@ import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.unit.sp
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -96,6 +101,7 @@ fun HabitDetailScreen(
     androidx.activity.compose.BackHandler { onBack() }
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
+    val cravings by vm.cravings.collectAsState()
     val h = habits.firstOrNull { it.id == habitId }
 
     if (h == null) {
@@ -207,6 +213,10 @@ fun HabitDetailScreen(
                 Text("⏰ You usually do this around ${HabitStats.minuteLabel(typicalMinute)}",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+
+            // R33 — the BUILDER coaching block: automaticity, identity votes, never-miss-twice, coach tips,
+            // and (for quit habits) the quit dashboard + urge button.
+            BuilderSection(vm, h, hc, doneDays, skipDays, current, today, color, cravings.filter { it.habitId == h.id })
 
             // Y2 — keystone badge: the app names (and quietly guards) your highest-leverage habit.
             val isKeystone = remember(habits, checkins) { vm.keystoneHabitId() == h.id }
@@ -881,4 +891,171 @@ private fun heatColor(
     day in skipDays -> empty.copy(alpha = .6f)
     (countsByDay[day] ?: 0) > 0 -> color.copy(alpha = .4f)
     else -> empty.copy(alpha = .5f)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+//  R33 · Habit BUILDER coaching — automaticity, identity votes, never-miss-twice, coach, quit + urge.
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+private typealias HB = com.todocompanion.app.domain.habit.HabitBuilder
+
+@Composable
+private fun BuilderSection(
+    vm: com.todocompanion.app.ui.AppViewModel, h: com.todocompanion.app.data.entity.HabitEntity,
+    hc: List<com.todocompanion.app.data.entity.HabitCheckinEntity>, doneDays: Set<Long>, skipDays: Set<Long>,
+    current: Int, today: Long, color: Color, myCravings: List<com.todocompanion.app.data.entity.CravingEventEntity>,
+) {
+    val isBreak = h.habitType == "break"
+    val tips = remember(hc, today) { HB.coachTips(h, hc, today) }
+
+    if (!isBreak) {
+        // F15 — automaticity meter.
+        val auto = remember(doneDays) { HB.automaticity(doneDays) }
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+            Column(Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Becoming automatic", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text("${auto.pct}%", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = color)
+                }
+                Spacer(Modifier.height(8.dp))
+                Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                    Box(Modifier.fillMaxWidth(auto.pct / 100f).height(8.dp).clip(RoundedCornerShape(4.dp)).background(color))
+                }
+                Spacer(Modifier.height(6.dp))
+                Text("${auto.stage} · ${auto.reps} reps. Habits settle in around 66 days (Lally), not on a perfect streak.",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+
+        // F5 — identity votes.
+        if (h.identity.isNotBlank()) {
+            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .5f)) {
+                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("“${h.identity}”", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        Text("Every check-in is a vote for this identity.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = .8f))
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("${doneDays.size}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        Text("votes", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = .8f))
+                    }
+                }
+            }
+        }
+
+        // F9 — never miss twice.
+        val miss = remember(doneDays, skipDays, today) { HB.missStatus(h, doneDays, skipDays, today, today in doneDays) }
+        if (miss.atRiskToday) {
+            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .8f)) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Don't miss twice", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                    Text("You missed the last one — missing once is an accident, twice starts a new habit. Do the two-minute version today.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer, modifier = Modifier.padding(top = 2.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+                        FilledTonalButton(onClick = { vm.setHabitValue(h, today, h.targetPerDay.coerceAtLeast(1)) }) { Text("Do it now") }
+                        if (h.freezeTokens > 0) miss.lastMissedDay?.let { md ->
+                            TextButton(onClick = { vm.useFreeze(h, md) }) { Text("❄ Use a freeze (${h.freezeTokens})") }
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        // F12 — quit dashboard.
+        val q = remember(hc, today) { HB.quitStats(h, hc, today) }
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .45f)) {
+            Column(Modifier.padding(16.dp)) {
+                Text("Clean time", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Text("${q.cleanDays} day${if (q.cleanDays == 1) "" else "s"}", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                    if (q.moneySaved > 0) Column { Text("Money saved", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .8f)); Text("${"%,.0f".format(q.moneySaved)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer) }
+                    if (q.minutesSaved > 0) Column { Text("Time reclaimed", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .8f)); Text("${q.minutesSaved / 60}h", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer) }
+                }
+                Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val pledgedToday = h.lastPledgeDay == today
+                    FilledTonalButton(onClick = { vm.pledgeToday(h) }, enabled = !pledgedToday) { Text(if (pledgedToday) "Pledged ✓" else "Pledge today") }
+                    if (h.quitSinceMillis == null) TextButton(onClick = { vm.startQuitClock(h) }) { Text("Start clean-time") }
+                }
+                if (q.moneySaved <= 0 && q.minutesSaved <= 0)
+                    Text("Add a per-use cost or time in the editor to see money & time reclaimed.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .75f), modifier = Modifier.padding(top = 6.dp))
+            }
+        }
+
+        // F13 — urge button + urge trigger heatmap.
+        var urge by remember { mutableStateOf(false) }
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+            Column(Modifier.padding(16.dp)) {
+                Text("When an urge hits", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text("Ride it out — urges crest and pass. Log it either way to learn your triggers.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
+                Button(onClick = { urge = true }, modifier = Modifier.padding(top = 10.dp)) { Text("🌊  I have an urge") }
+                if (myCravings.isNotEmpty()) {
+                    val buckets = remember(myCravings) { HB.urgeByTimeBucket(myCravings) }
+                    val maxB = (buckets.maxOrNull() ?: 1).coerceAtLeast(1)
+                    Spacer(Modifier.height(12.dp))
+                    Text("When urges strike", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        val labels = listOf("12a", "3a", "6a", "9a", "12p", "3p", "6p", "9p")
+                        buckets.forEachIndexed { i, b ->
+                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Box(Modifier.fillMaxWidth().height(40.dp), contentAlignment = Alignment.BottomCenter) {
+                                    Box(Modifier.fillMaxWidth().fillMaxHeight(if (b == 0) 0.02f else (b.toFloat() / maxB)).clip(RoundedCornerShape(3.dp)).background(if (b == 0) MaterialTheme.colorScheme.surfaceVariant else color))
+                                }
+                                Text(labels[i], style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp)
+                            }
+                        }
+                    }
+                    val surfed = myCravings.count { it.surfed }
+                    Text("$surfed of ${myCravings.size} urges ridden out. Each one you surf makes the next easier.",
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+                }
+            }
+        }
+        if (urge) UrgeDialog(onDismiss = { urge = false }, onLog = { intensity, trigger, surfed -> vm.logCraving(h, intensity, trigger, surfed); urge = false })
+    }
+
+    // F17 — the insights coach (both kinds).
+    if (tips.isNotEmpty()) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Coach", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = color)
+                tips.forEach { t ->
+                    Row(verticalAlignment = Alignment.Top) {
+                        Text("💡", style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.width(8.dp))
+                        Text(t, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** F13 — the urge-surfing timer: a 90-second breathing countdown, then log intensity + trigger + outcome. */
+@Composable
+private fun UrgeDialog(onDismiss: () -> Unit, onLog: (Int, String, Boolean) -> Unit) {
+    var secs by remember { mutableStateOf(90) }
+    var intensity by remember { mutableStateOf(3) }
+    var trigger by remember { mutableStateOf("") }
+    LaunchedEffect(Unit) { while (secs > 0) { kotlinx.coroutines.delay(1000); secs-- } }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = { onLog(intensity, trigger, true) }) { Text("I rode it out 🌊") } },
+        dismissButton = { TextButton(onClick = { onLog(intensity, trigger, false) }) { Text("I gave in", color = MaterialTheme.colorScheme.error) } },
+        title = { Text(if (secs > 0) "Breathe — this will pass" else "You made it") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(if (secs > 0) "Notice the urge without acting. Watch it rise and fall. ${secs}s" else "The wave passed. Most urges fade within a couple of minutes.",
+                    style = MaterialTheme.typography.bodyMedium)
+                Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                    Box(Modifier.fillMaxWidth(1f - secs / 90f).height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.primary))
+                }
+                Text("How strong is it?", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    (1..5).forEach { n ->
+                        androidx.compose.material3.FilterChip(selected = intensity == n, onClick = { intensity = n }, label = { Text("$n") })
+                    }
+                }
+                com.todocompanion.app.ui.components.AppTextField(trigger, { trigger = it }, singleLine = true, label = { Text("Trigger? (optional)") }, modifier = Modifier.fillMaxWidth())
+            }
+        },
+    )
 }

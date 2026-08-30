@@ -76,6 +76,26 @@ data class HabitEntity(
     val linkMode: String = "minutes",
     // V4: user-written encouragements, one per line; one is shown at random when the habit is checked off.
     val encouragements: String = "",
+    // --- R33 · habit BUILDER layer (all additive; a plain tracker leaves them at their defaults) ---
+    // F1 implementation intention: "I will [habit] at [cueTime] in/after [cueContext]". Anchor covers the
+    // "after <habit>" case via anchorHabitId; these cover a clock time and a place / situation.
+    val cueTime: Int? = null,             // minute-of-day the intention names, e.g. 420 = 7:00
+    val cueContext: String = "",          // free text: "the kitchen", "after lunch"
+    // F10 two-minute rule + auto ramp-up: start tiny, raise targetPerDay toward rampFinalTarget as
+    // consistency holds. Null final = no ramp.
+    val rampFinalTarget: Int? = null,
+    val rampAddPerStep: Int = 1,
+    val rampStepDays: Int = 7,
+    val rampLastStepDay: Long = 0,
+    // F12 quit dashboard (break habits): clean-time anchor + per-slip cost/time for money & time saved,
+    // and the last day a daily pledge was tapped.
+    val quitSinceMillis: Long? = null,
+    val minutesPerUnit: Int = 0,
+    val lastPledgeDay: Long = 0,
+    // F13/F14: an optional replacement habit to run when an urge hits.
+    val replacementHabitId: String? = null,
+    // F16 guided journeys: the journey that created this habit (for grouping + progress). "" = standalone.
+    val journeyKey: String = "",
 ) {
     /** V4: the encouragement lines, trimmed and non-empty. */
     fun encouragementList(): List<String> = encouragements.split("\n").map { it.trim() }.filter { it.isNotEmpty() }

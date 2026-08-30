@@ -47,6 +47,7 @@ class AppRepository(private val db: AppDatabase) {
     private val revisions = db.revisionDao()
     private val timeTrack = db.timeTrackingDao()
     private val sealedNotes = db.sealedNoteDao()
+    private val cravings = db.cravingDao()
     private val templateJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     // ----- task time-travel: sparse revision history (H5) -----
@@ -135,6 +136,9 @@ class AppRepository(private val db: AppDatabase) {
     val allSealedNotes: Flow<List<com.todocompanion.app.data.entity.SealedNoteEntity>> = sealedNotes.observeAll()
     suspend fun upsertSealedNote(n: com.todocompanion.app.data.entity.SealedNoteEntity) = sealedNotes.upsert(n)
     suspend fun deleteSealedNote(id: String) = sealedNotes.deleteById(id)
+    val allCravings: Flow<List<com.todocompanion.app.data.entity.CravingEventEntity>> = cravings.observeAll()
+    suspend fun upsertCraving(c: com.todocompanion.app.data.entity.CravingEventEntity) = cravings.upsert(c)
+    suspend fun deleteCraving(id: String) = cravings.deleteById(id)
     val allSettings: Flow<List<SettingEntity>> = settings.observeAll()
     private val habits = db.habitDao()
     val allHabits: Flow<List<HabitEntity>> = habits.observeAll()
@@ -1014,6 +1018,7 @@ class AppRepository(private val db: AppDatabase) {
             timeActivities = timeTrack.getActivities(),
             timeEntries = timeTrack.getEntries(),
             sealedNotes = sealedNotes.getAll(),
+            cravingEvents = cravings.getAll(),
         )
     )
 
@@ -1064,7 +1069,7 @@ class AppRepository(private val db: AppDatabase) {
         tags.clear(); tags.clearCrossRefs(); contexts.clear(); contexts.clearCrossRefs()
         reminders.clear(); deps.clear(); settings.clear(); workspaces.clear(); filters.clear()
         habits.clear(); habits.clearCheckins(); focus.clear(); attachments.clear(); flags.clear(); templates.clear(); countdowns.clear(); activity.clear(); revisions.clear()
-        timeTrack.clearEntries(); timeTrack.clearActivities(); sealedNotes.clear()
+        timeTrack.clearEntries(); timeTrack.clearActivities(); sealedNotes.clear(); cravings.clear()
         folders.upsertAll(b.folders)
         lists.upsertAll(b.lists)
         tasks.upsertAll(b.tasks)
@@ -1085,6 +1090,7 @@ class AppRepository(private val db: AppDatabase) {
         activity.insertAll(b.activities)
         timeTrack.upsertActivities(b.timeActivities); timeTrack.upsertEntries(b.timeEntries)
         sealedNotes.upsertAll(b.sealedNotes)
+        cravings.upsertAll(b.cravingEvents)
         ensureDefaultWorkspace()
         ensureInbox()
         ensureDefaultFlags()

@@ -236,6 +236,16 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
             vm.rewardCelebration.value = null
         }
     }
+    // R33 F6 — the "shine": a haptic + brief celebratory phrase the moment a habit is completed.
+    val shine by vm.habitShine.collectAsState()
+    val shineHaptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+    LaunchedEffect(shine) {
+        shine?.let { s ->
+            shineHaptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+            android.widget.Toast.makeText(rewardCtx, "${s.emoji ?: "✨"}  ${s.phrase}", android.widget.Toast.LENGTH_SHORT).show()
+            vm.habitShine.value = null
+        }
+    }
 
     Box(modifier.fillMaxSize()) {
       Column(Modifier.fillMaxSize()) {
@@ -328,6 +338,7 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
         onDismiss = { vm.habitPresetOpen.value = false },
         onPick = { p -> vm.createHabit(p.name, p.emoji, p.color, p.target, p.unit, "", ""); vm.habitPresetOpen.value = false },
         onAddRoutine = { r -> vm.addHabits(r.habits.map { it.toEntity(r.name) }) },
+        onStartJourney = { j -> vm.startJourney(j); vm.habitPresetOpen.value = false },
     )
     if (batchOpen) BatchCheckinDialog(vm, habits, checkins, today, onDismiss = { vm.habitBatchOpen.value = false })
     valueFor?.let { h ->
@@ -705,6 +716,10 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
     var category by remember { mutableStateOf(existing?.category ?: "") }
     var startDate by remember { mutableStateOf(existing?.startDate) }
     var showStartPicker by remember { mutableStateOf(false) }
+    // R33 builder fields: implementation-intention cue, two-minute ramp goal, and quit time-per-use.
+    var cueContext by remember { mutableStateOf(existing?.cueContext ?: "") }
+    var rampFinal by remember { mutableStateOf(existing?.rampFinalTarget?.toString() ?: "") }
+    var quitMinutes by remember { mutableStateOf(existing?.minutesPerUnit?.takeIf { it > 0 }?.toString() ?: "") }
     var confirmDelete by remember { mutableStateOf(false) }
     // T3: which time-tracking activity this habit is linked to (tracking it credits the habit).
     var timeActivityId by remember { mutableStateOf(existing?.timeActivityId) }
@@ -739,6 +754,9 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
             category = category.trim(), startDate = startDate,
             encouragements = encouragements.trim(), linkMode = linkMode,
             timeActivityId = timeActivityId,
+            cueContext = cueContext.trim(),
+            rampFinalTarget = rampFinal.trim().toIntOrNull()?.takeIf { it > target },
+            minutesPerUnit = quitMinutes.trim().toIntOrNull()?.coerceAtLeast(0) ?: 0,
         )
     }
     fun save() {
@@ -925,6 +943,16 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
                 com.todocompanion.app.ui.components.AppTextField(description, { description = it }, label = { Text("Why — your motivation (shown when you're about to slip)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
                 // V4: user-written encouragements, one shown at random on each check-off.
                 com.todocompanion.app.ui.components.AppTextField(encouragements, { encouragements = it }, label = { Text("Encouragements (one per line, shown on check-off)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                // R33 builder: implementation-intention context, and (build) a two-minute ramp goal /
+                // (quit) time reclaimed per use. (Identity lives in the "Identity & stacking" card below.)
+                com.todocompanion.app.ui.components.AppTextField(cueContext, { cueContext = it }, singleLine = true,
+                    label = { Text("I'll do it… (place or after what — e.g. “after coffee”)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                if (!isBreak) com.todocompanion.app.ui.components.AppTextField(rampFinal, { rampFinal = it.filter { c -> c.isDigit() }.take(5) }, singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                    label = { Text("Ramp up to (start tiny; grows as you stay consistent)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                if (isBreak) com.todocompanion.app.ui.components.AppTextField(quitMinutes, { quitMinutes = it.filter { c -> c.isDigit() }.take(4) }, singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                    label = { Text("Minutes reclaimed per ${unit.ifBlank { "use" }} (optional)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
                 // T3/V3: link this habit to a time-tracking activity — tracking that activity then credits
                 // the habit. (Fixes: no way to link an activity to a habit from the habit side.)
                 if (timeOn) {
@@ -1107,7 +1135,8 @@ private fun HabitQuickAddDialog(onDismiss: () -> Unit, onAdd: (HabitEntity) -> U
 }
 
 @Composable
-private fun HabitPresetDialog(onDismiss: () -> Unit, onPick: (HabitPreset) -> Unit, onAddRoutine: (HabitRoutine) -> Unit) {
+private fun HabitPresetDialog(onDismiss: () -> Unit, onPick: (HabitPreset) -> Unit, onAddRoutine: (HabitRoutine) -> Unit,
+    onStartJourney: (com.todocompanion.app.domain.habit.HabitJourneys.Journey) -> Unit = {}) {
     var addedRoutine by remember { mutableStateOf<String?>(null) }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1115,6 +1144,24 @@ private fun HabitPresetDialog(onDismiss: () -> Unit, onPick: (HabitPreset) -> Un
         title = { Text("Starter gallery") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
+                // R33 F16 — guided journeys: multi-week programs that unlock a step a day.
+                Text("GUIDED JOURNEYS", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Text("A coach-in-a-box — one tiny step unlocks at a time, taught as you go.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
+                com.todocompanion.app.domain.habit.HabitJourneys.ALL.forEach { j ->
+                    Surface(Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .35f)) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(j.emoji, style = MaterialTheme.typography.headlineSmall)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(j.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                                Text(j.blurb, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("${j.steps.size} steps over ${(j.steps.maxOfOrNull { it.dayOffset } ?: 0) + 1} days", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                            }
+                            FilledTonalButton(onClick = { onStartJourney(j) }, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)) { Text("Start") }
+                        }
+                    }
+                }
+                Spacer(Modifier.size(14.dp))
                 // Themed routines: one tap builds a whole coherent set (M2).
                 Text("ROUTINES", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("Add a whole set at once — each lands in its own section.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))

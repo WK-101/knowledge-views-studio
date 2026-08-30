@@ -130,6 +130,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val templates: StateFlow<List<TemplateEntity>> = repo.allTemplates.state(emptyList())
     val countdowns = repo.allCountdowns.state(emptyList())
     val sealedNotes = repo.allSealedNotes.state(emptyList())
+    val cravings = repo.allCravings.state(emptyList())
     fun saveCountdown(id: String?, title: String, targetMillis: Long, emoji: String?, colorArgb: Long?) = viewModelScope.launch {
         val existing = id?.let { cid -> countdowns.value.firstOrNull { it.id == cid } }
         repo.upsertCountdown(
@@ -2405,15 +2406,81 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val old = repo.getHabitCheckinsOnce().firstOrNull { it.habitId == h.id && it.epochDay == epochDay }?.count ?: 0
         repo.setCheckinValue(h.id, epochDay, count); refreshHabitWidgets(); celebrateIfRewardReached(h); awardIfNewlyDone(h, epochDay, old)
     }
-    /** V4/V12: when a build habit crosses into "done", earn a momentum point and show a random encouragement. */
+    /** R33 F6 — the "shine": a celebratory pulse surfaced to the Habits screen when a habit is completed. */
+    data class HabitShine(val name: String, val emoji: String?, val phrase: String, val colorArgb: Long?)
+    val habitShine = MutableStateFlow<HabitShine?>(null)
+
+    /** V4/V12: when a build habit crosses into "done", earn a momentum point, celebrate, and — R33 F10 —
+     *  ramp the target up if the plan says consistency has held. */
     private suspend fun awardIfNewlyDone(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, oldCount: Int) {
         val hs = com.todocompanion.app.domain.habit.HabitStats
         if (h.habitType == "break") return
         val newCount = repo.getHabitCheckinsOnce().firstOrNull { it.habitId == h.id && it.epochDay == epochDay }?.count ?: 0
         if (hs.meetsGoal(h, newCount) && !hs.meetsGoal(h, oldCount)) {
             repo.awardPoints(1)
-            h.encouragementList().takeIf { it.isNotEmpty() }?.let { toast(it.random()) }
+            val phrase = h.encouragementList().takeIf { it.isNotEmpty() }?.random()
+                ?: listOf("Nice — that's a vote for who you're becoming.", "Done. Small wins compound.", "Kept it going 💪", "That's the one.").random()
+            habitShine.value = HabitShine(h.name, h.emoji, phrase, h.colorArgb)
+            // F10 auto ramp-up — bump the daily target once consistency holds over the step window.
+            if (epochDay == java.time.LocalDate.now(zone).toEpochDay()) {
+                val done = repo.getHabitCheckinsOnce().filter { it.habitId == h.id && it.status == "done" && hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
+                com.todocompanion.app.domain.habit.HabitBuilder.rampNextTarget(h, done, epochDay)?.let { nt ->
+                    repo.upsertHabit(h.copy(targetPerDay = nt, rampLastStepDay = epochDay))
+                    toast("You've been consistent — ${h.name} nudged up to $nt${h.unit?.let { " $it" } ?: ""}/day")
+                }
+            }
         }
+    }
+
+    // ── R33 · habit-builder actions ─────────────────────────────────────────────────────────────
+    /** F9 — spend a streak-freeze token to protect a specific missed day (logged as a neutral skip). */
+    fun useFreeze(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long) = viewModelScope.launch {
+        if (h.freezeTokens <= 0) { toast("No streak freezes left — earn one with an overachieving day."); return@launch }
+        repo.setDay(h.id, epochDay, 0, "skip", "❄ streak freeze")
+        repo.upsertHabit(h.copy(freezeTokens = h.freezeTokens - 1))
+        toast("Streak protected ❄")
+    }
+    /** F12 — tap a daily pledge on a quit habit (a tiny recommitment ritual). */
+    fun pledgeToday(h: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch {
+        val today = java.time.LocalDate.now(zone).toEpochDay()
+        repo.upsertHabit(h.copy(lastPledgeDay = today))
+        toast("Pledged for today. One day at a time.")
+    }
+    /** F12 — (re)start the clean-time clock for a quit habit from now. */
+    fun startQuitClock(h: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch {
+        repo.upsertHabit(h.copy(quitSinceMillis = System.currentTimeMillis()))
+        toast("Clean-time started. Day one.")
+    }
+    /** F13 — log an urge/craving after surfing it (or slipping). A slip also records a relapse day. */
+    fun logCraving(h: com.todocompanion.app.data.entity.HabitEntity, intensity: Int, trigger: String, surfed: Boolean) = viewModelScope.launch {
+        val now = System.currentTimeMillis()
+        val d = java.time.Instant.ofEpochMilli(now).atZone(zone)
+        repo.upsertCraving(com.todocompanion.app.data.entity.CravingEventEntity(
+            id = java.util.UUID.randomUUID().toString(), habitId = h.id, atMillis = now,
+            epochDay = d.toLocalDate().toEpochDay(), minuteOfDay = d.hour * 60 + d.minute,
+            intensity = intensity.coerceIn(1, 5), trigger = trigger.trim(), surfed = surfed,
+        ))
+        if (!surfed) logSlip(h, trigger.ifBlank { "urge" })
+        toast(if (surfed) "You rode it out 🌊 Nicely done." else "Logged. A slip isn't a relapse — back on it.")
+    }
+    fun deleteCraving(id: String) = viewModelScope.launch { repo.deleteCraving(id) }
+    /** F16 — start a guided journey: create its habits with staggered start dates so each unlocks on its day. */
+    fun startJourney(j: com.todocompanion.app.domain.habit.HabitJourneys.Journey) = viewModelScope.launch {
+        if (repo.getHabitsOnce().any { it.journeyKey == j.key && !it.archived }) { toast("You're already on “${j.name}”."); return@launch }
+        val today = java.time.LocalDate.now(zone)
+        var order = (repo.getHabitsOnce().maxOfOrNull { it.sortOrder } ?: 0.0)
+        j.steps.forEach { s ->
+            order += 1.0
+            val start = today.plusDays(s.dayOffset.toLong()).atStartOfDay(zone).toInstant().toEpochMilli()
+            repo.upsertHabit(com.todocompanion.app.data.entity.HabitEntity(
+                id = java.util.UUID.randomUUID().toString(), name = s.name, emoji = s.emoji,
+                targetPerDay = s.target.coerceAtLeast(1), unit = s.unit, createdAt = System.currentTimeMillis(),
+                startDate = start, sortOrder = order, description = s.why, journeyKey = j.key,
+                workspaceId = settings.value.activeWorkspaceId,
+            ))
+        }
+        toast("Started “${j.name}” — step one is ready today.")
+        refreshHabitWidgets()
     }
     fun skipHabitDay(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, reason: String = "") = viewModelScope.launch {
         if (beforeStart(h, epochDay)) return@launch
