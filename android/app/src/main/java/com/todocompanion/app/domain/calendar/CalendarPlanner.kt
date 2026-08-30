@@ -73,7 +73,7 @@ object CalendarPlanner {
     fun autoSchedule(
         tasks: List<TaskEntity>, occurrences: List<CalendarEngine.Occurrence>, day: Long,
         workStart: Int, workEnd: Int, chunkMin: Int = 90, minSlotMin: Int = 15,
-        fromMillis: Long? = null, zone: ZoneId = defaultZone(),
+        fromMillis: Long? = null, biasMultiplier: Double = 1.0, zone: ZoneId = defaultZone(),
     ): List<Placement> {
         val (ws0, we) = window(day, workStart, workEnd, zone)
         val ws = maxOf(ws0, fromMillis ?: ws0)
@@ -85,7 +85,8 @@ object CalendarPlanner {
             .sortedWith(compareBy({ it.dueDate ?: Long.MAX_VALUE }, { -(it.importance + it.urgency) }))
         val out = ArrayList<Placement>()
         for (t in ranked) {
-            var remaining = t.estimateMin ?: continue
+            // Calibration brain: pad the estimate by the personal bias so blocks reflect real durations.
+            var remaining = ((t.estimateMin ?: continue) * biasMultiplier).toInt().coerceAtLeast(minSlotMin)
             val parts = Math.ceil(remaining.toDouble() / chunkMin).toInt().coerceAtLeast(1)
             var partIdx = 0
             var guard = 0
@@ -100,6 +101,62 @@ object CalendarPlanner {
         }
         return out.sortedBy { it.startMillis }
     }
+
+    // ── Reflow + defragment (deterministic, single-block or compaction) ──────────────────────────────
+    data class Move(val id: String, val newStart: Long, val newEnd: Long)
+
+    /** Targeted reflow: for each FLEXIBLE block (id,start,end) that overlaps a FIXED busy interval,
+     *  slide only that block to the nearest free start. Nothing else moves. */
+    fun reflow(flexible: List<Triple<String, Long, Long>>, fixed: List<Pair<Long, Long>>, day: Long,
+               workStart: Int, workEnd: Int, zone: ZoneId = defaultZone()): List<Move> {
+        val (ws, we) = window(day, workStart, workEnd, zone)
+        val occupied = ArrayList(fixed)
+        val out = ArrayList<Move>()
+        for ((id, s, e) in flexible.sortedBy { it.second }) {
+            val dur = e - s
+            val clashes = fixed.any { s < it.second && it.first < e }
+            if (!clashes) { occupied.add(s to e); continue }
+            val pref = ((s - LocalDate.ofEpochDay(day).atStartOfDay(zone).toInstant().toEpochMilli()) / 60000L).toInt()
+            fun free(at: Long) = at >= ws && at + dur <= we && occupied.none { at < it.second && it.first < at + dur }
+            var placed: Long? = null
+            val prefMs = LocalDate.ofEpochDay(day).atStartOfDay(zone).plusMinutes(pref.toLong()).toInstant().toEpochMilli()
+            if (free(prefMs)) placed = prefMs
+            else { val step = 15 * 60000L; for (k in 1..64) { val f = prefMs + k * step; if (f + dur <= we && free(f)) { placed = f; break }; val b = prefMs - k * step; if (b >= ws && free(b)) { placed = b; break } } }
+            if (placed != null) { out += Move(id, placed, placed + dur); occupied.add(placed to placed + dur) } else occupied.add(s to e)
+        }
+        return out
+    }
+
+    /** Defragment: re-pack the flexible blocks back-to-back from the earliest free point, in order,
+     *  flowing around fixed busy intervals — merging scattered gaps into contiguous focus. */
+    fun defragment(flexible: List<Triple<String, Long, Long>>, fixed: List<Pair<Long, Long>>, day: Long,
+                   workStart: Int, workEnd: Int, zone: ZoneId = defaultZone()): List<Move> {
+        val (ws, we) = window(day, workStart, workEnd, zone)
+        val occupied = ArrayList(mergeMs(fixed))
+        val out = ArrayList<Move>()
+        for ((id, s, e) in flexible.sortedBy { it.second }) {
+            val dur = e - s
+            val slot = run {
+                var cursor = ws
+                for ((fs, fe) in mergeMs(occupied)) { if (fs - cursor >= dur) return@run cursor; cursor = maxOf(cursor, fe) }
+                if (we - cursor >= dur) cursor else null
+            } ?: continue
+            out += Move(id, slot, slot + dur); occupied.add(slot to slot + dur); occupied.sortBy { it.first }
+        }
+        return out.filter { m -> flexible.first { it.first == m.id }.second != m.newStart }
+    }
+
+    /** Realistic-day pre-mortem: minutes over the working budget once padding is applied, or null if it fits. */
+    fun realisticOverflowMin(availableMin: Int, plannedMin: Int, biasMultiplier: Double): Int {
+        val padded = (plannedMin * biasMultiplier).toInt()
+        return (padded - availableMin).coerceAtLeast(0)
+    }
+
+    /** Cognitive-load: weight busy blocks by an effort score (1..3) and sum. High-effort ≥ a threshold
+     *  flags a draining day even when the clock-hours fit. Effort read from a caller-supplied map. */
+    fun cognitiveLoad(occurrences: List<CalendarEngine.Occurrence>, effortById: Map<String, Int>): Int =
+        occurrences.filter { it.event.busy && !it.event.allDay }
+            .sumOf { (effortById[it.event.linkedTaskId] ?: 1) * (it.durationMin().toInt() / 30).coerceAtLeast(1) }
 
     private fun firstFreeSlot(busy: List<Pair<Long, Long>>, ws: Long, we: Long, wantMin: Int): Long? {
         val need = wantMin * 60000L

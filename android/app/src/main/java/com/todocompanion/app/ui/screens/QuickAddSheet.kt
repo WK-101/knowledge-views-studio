@@ -102,7 +102,7 @@ fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Bo
     val focus = remember { FocusRequester() }
 
     val qaCtx = androidx.compose.ui.platform.LocalContext.current
-    val attachLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val attachLauncher = rememberLauncherForActivityResult(com.todocompanion.app.util.PickContentSingle("Attach a file")) { uri ->
         if (uri != null) attachments = attachments + uri
     }
     // Voice capture (F3): dictate a task with the platform speech recognizer and append the result.

@@ -1580,7 +1580,7 @@ private fun ManageListDialog(
     var name by remember { mutableStateOf(list.name) }
     var description by remember { mutableStateOf(list.description) }
     var confirmDelete by remember { mutableStateOf(false) }
-    val bgPicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+    val bgPicker = androidx.activity.compose.rememberLauncherForActivityResult(com.todocompanion.app.util.PickContentSingle("Set background")) { uri ->
         if (uri != null) onPickBackground(uri)
     }
     if (confirmDelete) ConfirmDeleteDialog("list", list.name, onCancel = { confirmDelete = false }, onConfirm = { confirmDelete = false; onDelete() })

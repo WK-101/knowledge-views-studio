@@ -64,7 +64,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Button
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
+import androidx.compose.material3.rememberModalBottomSheetState
+import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.AppTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -142,7 +147,7 @@ fun CalendarStudioScreen(vm: AppViewModel, onBack: () -> Unit, onOpenTask: (Stri
     val shownEvents = remember(events, visibleCalIds) { events.filter { it.calendarId in visibleCalIds } }
 
     // ICS launchers — permission-free (SAF), same posture as attachments.
-    val importIcs = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val importIcs = rememberLauncherForActivityResult(com.todocompanion.app.util.PickContentSingle("Import .ics")) { uri ->
         if (uri != null) vm.importIcsEvents(uri)
     }
     val exportIcs = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/calendar")) { uri ->
@@ -204,8 +209,8 @@ fun CalendarStudioScreen(vm: AppViewModel, onBack: () -> Unit, onOpenTask: (Stri
                                 DropdownMenuItem(text = { Text("Calendars…") }, onClick = { overflow = false; calsOpen = true })
                                 DropdownMenuItem(text = { Text("Find a gap…") }, onClick = { overflow = false; gapOpen = true })
                                 DropdownMenuItem(text = { Text("Block time for a task…") }, onClick = { overflow = false; blockOpen = true })
-                                DropdownMenuItem(text = { Text("Import .ics") }, onClick = { overflow = false; importIcs.launch(arrayOf("text/calendar", "text/*", "*/*")) })
-                                DropdownMenuItem(text = { Text("Export .ics (file)") }, onClick = { overflow = false; exportIcs.launch("todocompanion-calendar.ics") })
+                                DropdownMenuItem(text = { Text("Import .ics") }, onClick = { overflow = false; runCatching { importIcs.launch(arrayOf("text/calendar", "application/octet-stream", "*/*")) }.onFailure { vm.toastMsg("Couldn't open a file picker on this device.") } })
+                                DropdownMenuItem(text = { Text("Export .ics (file)") }, onClick = { overflow = false; runCatching { exportIcs.launch("todocompanion-calendar.ics") }.onFailure { vm.exportIcsEventsToDownloads() } })
                                 DropdownMenuItem(text = { Text("Export .ics (Downloads)") }, onClick = { overflow = false; vm.exportIcsEventsToDownloads() })
                             }
                         }
@@ -615,7 +620,7 @@ internal fun GapFinder(events: List<EventEntity>, day: Long, zone: ZoneId, workS
 }
 
 // ── Event editor ──────────────────────────────────────────────────────────────────────────────────
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 internal fun EventEditor(
     vm: AppViewModel, zone: ZoneId, calendars: List<EventCalendarEntity>, existing: EventEntity?,
@@ -638,6 +643,7 @@ internal fun EventEditor(
     var calMenu by remember { mutableStateOf(false) }
     var repeatMenu by remember { mutableStateOf(false) }
     var scopeDelete by remember { mutableStateOf(false) }
+    var paintOpen by remember { mutableStateOf(false) }
     val isRecurring = existing != null && existing.rrule.isNotBlank()
 
     // R41 — templates, remembered travel time, and a pinned secondary time-zone.
@@ -655,52 +661,64 @@ internal fun EventEditor(
     val dfTime = DateTimeFormatter.ofPattern("h:mm a")
     val cal = calendars.firstOrNull { it.id == calId }
 
-    AlertDialog(
-        onDismissRequest = onClose,
-        confirmButton = {
-            TextButton(onClick = {
-                var s = start; var e = end
-                if (allDay) {
-                    val d = Instant.ofEpochMilli(s).atZone(zone).toLocalDate()
-                    s = d.atStartOfDay(zone).toInstant().toEpochMilli()
-                    e = d.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
-                } else if (e <= s) e = s + 3_600_000L
-                vm.saveEvent(existing?.id, calId, title, location, notes, url, s, e, allDay, rrule,
-                    alerts.sorted().joinToString(","), existing?.colorArgb, busy = busy)
-                if (travelOn && travelMin > 0 && !allDay) vm.addTravelBuffer(s, travelMin, location, calId)
-                onClose()
-            }, enabled = title.isNotBlank() && calId.isNotBlank()) { Text("Save") }
-        },
-        dismissButton = {
-            Row {
-                if (existing != null) TextButton(onClick = { if (isRecurring) scopeDelete = true else { vm.deleteEvent(existing.id, "series"); onClose() } }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
-                if (existing != null) TextButton(onClick = { vm.duplicateEvent(existing.id); onClose() }) { Text("Duplicate") }
-                TextButton(onClick = onClose) { Text("Cancel") }
-            }
-        },
-        title = { Text(if (existing == null) "New event" else "Edit event") },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Title") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                // R41 — start from a template (new events only): fills title, duration, colour, alerts.
-                if (existing == null && templates.isNotEmpty()) {
-                    Spacer(Modifier.height(6.dp))
-                    Text("From a template", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        templates.forEach { t ->
-                            FilterChip(selected = false, onClick = {
-                                title = t.title
-                                if (t.calendarId.isNotBlank()) calId = t.calendarId
-                                end = start + t.durationMin.coerceAtLeast(5) * 60000L
-                                busy = t.busy
-                                if (t.location.isNotBlank()) location = t.location
-                                alerts = t.alertsMinutes.split(",").mapNotNull { m -> m.trim().toIntOrNull() }.toSet()
-                            }, label = { Text("${t.emoji} ${t.title}") })
+    // R42 — the event editor is now a ModalBottomSheet built from the app's own components (AppTextField,
+    // AppCard, the shared rows) so it matches the task editor and quick-add rather than a bare AlertDialog.
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var actionMenu by remember { mutableStateOf(false) }
+    fun persist() {
+        var s = start; var e = end
+        if (allDay) {
+            val d = Instant.ofEpochMilli(s).atZone(zone).toLocalDate()
+            s = d.atStartOfDay(zone).toInstant().toEpochMilli()
+            e = d.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
+        } else if (e <= s) e = s + 3_600_000L
+        vm.saveEvent(existing?.id, calId, title, location, notes, url, s, e, allDay, rrule,
+            alerts.sorted().joinToString(","), existing?.colorArgb, busy = busy)
+        if (travelOn && travelMin > 0 && !allDay) vm.addTravelBuffer(s, travelMin, location, calId)
+        onClose()
+    }
+    ModalBottomSheet(onDismissRequest = onClose, sheetState = sheetState) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
+            // Header: title, overflow (edit only), Save.
+            Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(if (existing == null) "New event" else "Edit event", Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                if (existing != null) {
+                    Box {
+                        IconButton(onClick = { actionMenu = true }) { Icon(Icons.Filled.MoreVert, "More") }
+                        DropdownMenu(expanded = actionMenu, onDismissRequest = { actionMenu = false }) {
+                            DropdownMenuItem(text = { Text("Duplicate") }, leadingIcon = { Icon(Icons.Filled.Add, null, Modifier.size(18.dp)) },
+                                onClick = { actionMenu = false; vm.duplicateEvent(existing.id); onClose() })
+                            DropdownMenuItem(text = { Text("Copy to dates…") }, leadingIcon = { Icon(Icons.Filled.CalendarMonth, null, Modifier.size(18.dp)) },
+                                onClick = { actionMenu = false; paintOpen = true })
+                            DropdownMenuItem(text = { Text("Delete", color = MaterialTheme.colorScheme.error) }, leadingIcon = { Icon(Icons.Filled.Delete, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error) },
+                                onClick = { actionMenu = false; if (isRecurring) scopeDelete = true else { vm.deleteEvent(existing.id, "series"); onClose() } })
                         }
                     }
                 }
+                Button(onClick = { persist() }, enabled = title.isNotBlank() && calId.isNotBlank()) { Text("Save") }
+            }
+            AppTextField(value = title, onValueChange = { title = it }, placeholder = { Text("Event title") },
+                singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = MaterialTheme.typography.titleMedium)
+            // Start from a template (new events only): fills title, duration, colour, alerts.
+            if (existing == null && templates.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
-                // Calendar picker
+                Text("From a template", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    templates.forEach { t ->
+                        FilterChip(selected = false, onClick = {
+                            title = t.title
+                            if (t.calendarId.isNotBlank()) calId = t.calendarId
+                            end = start + t.durationMin.coerceAtLeast(5) * 60000L
+                            busy = t.busy
+                            if (t.location.isNotBlank()) location = t.location
+                            alerts = t.alertsMinutes.split(",").mapNotNull { m -> m.trim().toIntOrNull() }.toSet()
+                        }, label = { Text("${t.emoji} ${t.title}") })
+                    }
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            AppCard {
                 Box {
                     EditorRow(Icons.Filled.CalendarMonth, "Calendar", cal?.name ?: "—", accent = cal?.let { Color(it.colorArgb) }) { calMenu = true }
                     DropdownMenu(expanded = calMenu, onDismissRequest = { calMenu = false }) {
@@ -712,13 +730,11 @@ internal fun EventEditor(
                 EditorToggle("All-day", allDay) { allDay = it }
                 EditorRow(Icons.Filled.Schedule, "Starts", if (allDay) Instant.ofEpochMilli(start).atZone(zone).format(dfDate) else "${Instant.ofEpochMilli(start).atZone(zone).format(dfDate)}  ${Instant.ofEpochMilli(start).atZone(zone).format(dfTime)}") { showStart = true }
                 if (!allDay) EditorRow(Icons.Filled.Schedule, "Ends", "${Instant.ofEpochMilli(end).atZone(zone).format(dfDate)}  ${Instant.ofEpochMilli(end).atZone(zone).format(dfTime)}") { showEnd = true }
-                // R41 — pinned secondary time-zone rail: the same start shown in another zone.
                 if (secZone != null && !allDay) {
                     val zLabel = secZone.getDisplayName(java.time.format.TextStyle.SHORT, Locale.getDefault())
                     Text("$zLabel · ${Instant.ofEpochMilli(start).atZone(secZone).format(dfTime)} – ${Instant.ofEpochMilli(end).atZone(secZone).format(dfTime)}",
                         style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 32.dp, bottom = 4.dp))
                 }
-                // Repeat
                 Box {
                     EditorRow(Icons.Filled.Repeat, "Repeat", repeatLabelOf(rrule)) { repeatMenu = true }
                     DropdownMenu(expanded = repeatMenu, onDismissRequest = { repeatMenu = false }) {
@@ -727,8 +743,10 @@ internal fun EventEditor(
                         }
                     }
                 }
-                // Alerts
-                Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            }
+            Spacer(Modifier.height(10.dp))
+            AppCard {
+                Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Filled.Alarm, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.width(12.dp)); Text("Alerts", style = MaterialTheme.typography.bodyLarge)
                 }
@@ -737,40 +755,66 @@ internal fun EventEditor(
                         FilterChip(selected = m in alerts, onClick = { alerts = if (m in alerts) alerts - m else alerts + m }, label = { Text(l) })
                     }
                 }
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(value = location, onValueChange = { location = it }, label = { Text("Location") }, leadingIcon = { Icon(Icons.Filled.LocationOn, null) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                // R41 — auto travel buffer: reserve the trip time before this event; remembered per place.
-                if (location.isNotBlank() && !allDay) {
-                    EditorToggle("Add travel buffer", travelOn) { travelOn = it; if (it && travelMin == 0) travelMin = 15 }
-                    if (travelOn) {
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf(10, 15, 20, 30, 45, 60).forEach { m ->
-                                FilterChip(selected = travelMin == m, onClick = { travelMin = m }, label = { Text("${m}m") })
-                            }
+            }
+            Spacer(Modifier.height(10.dp))
+            AppTextField(value = location, onValueChange = { location = it }, placeholder = { Text("Location") },
+                leadingIcon = { Icon(Icons.Filled.LocationOn, null) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            if (location.isNotBlank() && !allDay) {
+                EditorToggle("Add travel buffer", travelOn) { travelOn = it; if (it && travelMin == 0) travelMin = 15 }
+                if (travelOn) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(10, 15, 20, 30, 45, 60).forEach { m ->
+                            FilterChip(selected = travelMin == m, onClick = { travelMin = m }, label = { Text("${m}m") })
                         }
-                        Text("Reserves ${travelMin}m before the event and remembers it for “${location.trim()}”.",
-                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                }
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text("Notes") }, leadingIcon = { Icon(Icons.Filled.Notes, null) }, modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(value = url, onValueChange = { url = it }, label = { Text("Link (URL)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                EditorToggle("Shows as busy", busy) { busy = it }
-                // R41 — save this event's shape as a reusable template.
-                if (title.isNotBlank()) {
-                    TextButton(onClick = {
-                        val durMin = (((end - start) / 60000L)).toInt().coerceAtLeast(5)
-                        vm.saveEventTemplate(com.todocompanion.app.domain.calendar.EventTemplate(
-                            id = java.util.UUID.randomUUID().toString(), title = title.trim(), durationMin = durMin,
-                            calendarId = calId, colorArgb = existing?.colorArgb, location = location.trim(),
-                            alertsMinutes = alerts.sorted().joinToString(","), busy = busy))
-                    }) { Icon(Icons.Filled.Add, null, Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Save as a template") }
+                    Text("Reserves ${travelMin}m before the event and remembers it for “${location.trim()}”.",
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-        },
-    )
+            Spacer(Modifier.height(8.dp))
+            AppTextField(value = notes, onValueChange = { notes = it }, placeholder = { Text("Notes") },
+                leadingIcon = { Icon(Icons.Filled.Notes, null) }, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(8.dp))
+            AppTextField(value = url, onValueChange = { url = it }, placeholder = { Text("Link (URL)") },
+                singleLine = true, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(10.dp))
+            AppCard { EditorToggle("Shows as busy", busy) { busy = it } }
+            if (title.isNotBlank()) {
+                TextButton(onClick = {
+                    val durMin = (((end - start) / 60000L)).toInt().coerceAtLeast(5)
+                    vm.saveEventTemplate(com.todocompanion.app.domain.calendar.EventTemplate(
+                        id = java.util.UUID.randomUUID().toString(), title = title.trim(), durationMin = durMin,
+                        calendarId = calId, colorArgb = existing?.colorArgb, location = location.trim(),
+                        alertsMinutes = alerts.sorted().joinToString(","), busy = busy))
+                }) { Icon(Icons.Filled.Add, null, Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Save as a template") }
+            }
+        }
+    }
 
+    if (paintOpen && existing != null) {
+        val srcDay = Instant.ofEpochMilli(existing.startMillis).atZone(zone).toLocalDate()
+        AlertDialog(
+            onDismissRequest = { paintOpen = false },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { paintOpen = false }) { Text("Cancel") } },
+            title = { Text("Copy “${existing.title}” to…") },
+            text = {
+                Column {
+                    fun paint(days: List<Long>) { vm.paintEventToDates(existing.id, days); paintOpen = false; onClose() }
+                    DropdownMenuItem(text = { Text("The next 7 days") }, onClick = { paint((1..7).map { srcDay.plusDays(it.toLong()).toEpochDay() }) })
+                    DropdownMenuItem(text = { Text("Every weekday this week") }, onClick = {
+                        val mon = srcDay.minusDays((srcDay.dayOfWeek.value - 1).toLong())
+                        paint((0..4).map { mon.plusDays(it.toLong()).toEpochDay() }.filter { it != srcDay.toEpochDay() })
+                    })
+                    DropdownMenuItem(text = { Text("Mon · Wed · Fri (this week)") }, onClick = {
+                        val mon = srcDay.minusDays((srcDay.dayOfWeek.value - 1).toLong())
+                        paint(listOf(0L, 2L, 4L).map { mon.plusDays(it).toEpochDay() }.filter { it != srcDay.toEpochDay() })
+                    })
+                    DropdownMenuItem(text = { Text("The next 4 weeks (same weekday)") }, onClick = { paint((1..4).map { srcDay.plusWeeks(it.toLong()).toEpochDay() }) })
+                }
+            },
+        )
+    }
     if (showStart) DateTimePickerDialog(initial = start, onDismiss = { showStart = false }) { picked ->
         val delta = end - start; start = picked; if (end <= start) end = start + (if (delta > 0) delta else 3_600_000L); showStart = false
     }

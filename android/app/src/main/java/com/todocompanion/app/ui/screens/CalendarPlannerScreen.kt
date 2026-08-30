@@ -21,8 +21,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Compress
 import androidx.compose.material.icons.filled.Insights
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -169,6 +173,80 @@ private fun PlanTodayTab(vm: AppViewModel, zone: ZoneId, day: Long) {
         }
     }
 
+    // ── Refine the day (plan-lock, reflow, defragment, realistic pre-mortem, load) ──
+    val routines by vm.dayRoutines.collectAsState()
+    val locked = remember(settings.planLockedDaysCsv, day) { settings.planLockedDaysCsv.split(",").mapNotNull { it.trim().toLongOrNull() }.contains(day) }
+    SectionCard {
+        Text("Refine the day", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        // Realistic-day pre-mortem.
+        val placementsTotal = placements.sumOf { it.durationMin() }
+        val bias = remember(tasks, entries) { CalendarPlanner.estimateBias(tasks, entries)?.medianRatio ?: 1.0 }
+        val overflow = CalendarPlanner.realisticOverflowMin(budget.remainingMin, placementsTotal, bias)
+        Text(
+            if (placementsTotal == 0) "Nothing waiting to place — your day fits."
+            else if (overflow > 0) "Placing everything would run ~${fmtMin(overflow)} past your day. Defer or trim before you commit."
+            else "Everything waiting still fits with ~${fmtMin(budget.remainingMin - (placementsTotal * bias).toInt())} to spare.",
+            style = MaterialTheme.typography.bodySmall, color = if (overflow > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp, bottom = 6.dp))
+        // Cognitive-load (effort, not just hours).
+        val effortById = remember(tasks) { tasks.associate { it.id to (it.energy ?: 1).coerceIn(1, 3) } }
+        val load = remember(occ, effortById) { CalendarPlanner.cognitiveLoad(occ, effortById) }
+        if (load >= 24) Text("Heavy day by effort, not just hours — space the high-energy blocks apart.",
+            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 6.dp))
+        if (bias >= 1.15 || bias <= 0.85) Text("Auto-schedule pads to your real pace (×${"%.2f".format(bias)}).",
+            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            FilterChip(selected = false, onClick = { vm.reflowDay(day) }, label = { Text("Heal conflicts") },
+                leadingIcon = { Icon(Icons.Filled.AutoFixHigh, null, Modifier.size(16.dp)) })
+            FilterChip(selected = false, onClick = { vm.defragmentDay(day) }, label = { Text("Defragment") },
+                leadingIcon = { Icon(Icons.Filled.Compress, null, Modifier.size(16.dp)) })
+            FilterChip(selected = locked, onClick = { vm.setPlanLocked(day, !locked) },
+                label = { Text(if (locked) "Plan locked" else "Lock plan") },
+                leadingIcon = { Icon(if (locked) Icons.Filled.Lock else Icons.Filled.LockOpen, null, Modifier.size(16.dp)) })
+        }
+    }
+
+    // ── One-tap actual-logging (past blocks today) ──
+    if (day == today) {
+        val nowMs = System.currentTimeMillis()
+        val pastBlocks = remember(occ, entries, nowMs) {
+            occ.filter { it.event.linkedTaskId != null && !it.event.allDay && it.endMillis <= nowMs }
+                .filter { o -> entries.none { it.taskId == o.event.linkedTaskId && it.endMillis != null && it.startMillis < o.endMillis && it.endMillis!! > o.startMillis } }
+        }
+        if (pastBlocks.isNotEmpty()) SectionCard {
+            Text("Did these happen?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text("One tap turns a finished block into tracked time — the plan becomes the record.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(6.dp))
+            val df = DateTimeFormatter.ofPattern("h:mm").withZone(zone)
+            pastBlocks.take(6).forEach { o ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(df.format(Instant.ofEpochMilli(o.startMillis)), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.width(52.dp))
+                    Text(o.event.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                    TextButton(onClick = { vm.logActualForBlock(o.event.id) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(8.dp, 0.dp)) { Text("Log ${fmtMin(o.durationMin().toInt())}") }
+                }
+            }
+        }
+    }
+
+    // ── Day routines ──
+    SectionCard {
+        Text("Day routines", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text("Lay out a template day in one tap, or save today's shape to reuse.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(8.dp))
+        if (routines.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            routines.forEach { r ->
+                FilterChip(selected = false, onClick = { vm.applyDayRoutine(r.id, day) }, label = { Text("${r.emoji} ${r.name}") })
+            }
+        }
+        var routineName by remember { mutableStateOf("") }
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.OutlinedTextField(routineName, { routineName = it }, singleLine = true,
+                placeholder = { Text("Name today's routine") }, modifier = Modifier.weight(1f))
+            Spacer(Modifier.width(8.dp))
+            TextButton(onClick = { if (routineName.isNotBlank()) { vm.saveDayRoutineFromDay(routineName, day); routineName = "" } }, enabled = routineName.isNotBlank()) { Text("Save") }
+        }
+    }
+
     // ── Templates ──
     if (templates.isNotEmpty()) SectionCard {
         Text("Quick add from a template", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -199,13 +277,18 @@ private fun PlanTodayTab(vm: AppViewModel, zone: ZoneId, day: Long) {
         } else {
             if (risksAll.isEmpty()) Text("Every habit window is clear this week — nothing at risk.",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            risksAll.groupBy { it.habit.id }.entries.take(5).forEach { (_, list) ->
+            // Streak-aware: a habit checked in yesterday has a live streak — flag those first (moat).
+            val checkins by vm.habitCheckins.collectAsState()
+            val streakAlive = remember(checkins, today) {
+                checkins.filter { it.epochDay == today - 1 && it.count >= 1 }.map { it.habitId }.toSet()
+            }
+            risksAll.groupBy { it.habit.id }.entries.sortedByDescending { it.key in streakAlive }.take(5).forEach { (hid, list) ->
                 val h = list.first().habit
                 Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("${h.emoji ?: "🔁"} ${h.name}", style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                        Text("${h.emoji ?: "🔁"} ${h.name}" + if (hid in streakAlive) "  🔥" else "", style = MaterialTheme.typography.bodyMedium, maxLines = 1)
                         val days = list.map { LocalDate.ofEpochDay(it.day).dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()) }.distinct()
-                        Text("An event overlaps this window on ${days.joinToString(", ")}",
+                        Text((if (hid in streakAlive) "Streak alive — " else "") + "an event overlaps this window on ${days.joinToString(", ")}",
                             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                     }
                 }

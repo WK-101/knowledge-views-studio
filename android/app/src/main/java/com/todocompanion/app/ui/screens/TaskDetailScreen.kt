@@ -509,10 +509,10 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             // package-visibility — so it never throws "no file picker" the way GET_CONTENT can on OEM ROMs.
             // This is exactly the path TickTick uses. Photos use the Android Photo Picker (which itself
             // falls back to SAF), and Camera hands a FileProvider URI to the system camera app.
-            val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> if (uris.isNotEmpty()) vm.addAttachments(task.id, uris) }
-            val pickPhotos = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { uris -> if (uris.isNotEmpty()) vm.addAttachments(task.id, uris) }
+            val pickFiles = rememberLauncherForActivityResult(com.todocompanion.app.util.PickContentMultiple("Attach files")) { uris -> if (uris.isNotEmpty()) vm.addAttachments(task.id, uris) }
+            val pickPhotos = rememberLauncherForActivityResult(com.todocompanion.app.util.PickContentMultiple("Add photos")) { uris -> if (uris.isNotEmpty()) vm.addAttachments(task.id, uris) }
             var cameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
-            val takePhoto = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok -> if (ok) cameraUri?.let { vm.addAttachment(task.id, it) } }
+            val takePhoto = rememberLauncherForActivityResult(com.todocompanion.app.util.CaptureImageChooser()) { ok -> if (ok) cameraUri?.let { vm.addAttachment(task.id, it) } }
             // Staged tag/context sets (R21 #2): pending edits if any, else the live DB sets.
             val assignedTags = effTags
             val assignedCtx = effCtx
@@ -663,8 +663,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     // has no photo picker at all, fall back to the SAF document picker filtered to media —
                     // which is always present, so this never dead-ends.
                     TextButton(onClick = {
-                        runCatching { pickPhotos.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) }
-                            .onFailure { runCatching { pickFiles.launch(arrayOf("image/*", "video/*")) } }
+                        runCatching { pickPhotos.launch(arrayOf("image/*", "video/*")) }
+                            .onFailure { android.widget.Toast.makeText(attachCtx, "Couldn't open a photo picker on this device.", android.widget.Toast.LENGTH_LONG).show() }
                     }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.Image, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Photo") }
                     // Camera — capture straight into a FileProvider URI (no CAMERA permission needed by us).
                     TextButton(onClick = {
@@ -673,7 +673,11 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                             val f = java.io.File(dir, "cam_${System.currentTimeMillis()}.jpg")
                             val u = androidx.core.content.FileProvider.getUriForFile(attachCtx, "${attachCtx.packageName}.fileprovider", f)
                             cameraUri = u; takePhoto.launch(u)
-                        }.onFailure { android.widget.Toast.makeText(attachCtx, "No camera app on this device", android.widget.Toast.LENGTH_SHORT).show() }
+                        }.onFailure {
+                            // No camera app resolvable — degrade to picking an existing photo rather than dead-ending.
+                            runCatching { pickPhotos.launch(arrayOf("image/*", "video/*")) }
+                                .onFailure { android.widget.Toast.makeText(attachCtx, "No camera or gallery available on this device.", android.widget.Toast.LENGTH_LONG).show() }
+                        }
                     }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.CameraAlt, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Camera") }
                     // Files — the SAF document picker (ACTION_OPEN_DOCUMENT), multi-select: shows ALL files
                     // from every provider, no storage permission, and is present on every device.

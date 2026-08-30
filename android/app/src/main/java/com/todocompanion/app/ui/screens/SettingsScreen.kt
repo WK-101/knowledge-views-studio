@@ -130,15 +130,15 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     }
     // GetContent (ACTION_GET_CONTENT) is answered by ordinary file managers, not only the system
     // document picker — so imports still work on devices without com.android.documentsui.
-    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val importLauncher = rememberLauncherForActivityResult(com.todocompanion.app.util.PickContentSingle("Restore a backup")) { uri ->
         if (uri != null) vm.importFrom(uri) { ok -> Toast.makeText(context, if (ok) "Imported" else "Import failed", Toast.LENGTH_SHORT).show() }
     }
     // Import from another app (Todoist/TickTick CSV, MLO OPML).
-    val importExternalLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val importExternalLauncher = rememberLauncherForActivityResult(com.todocompanion.app.util.PickContentSingle("Import")) { uri ->
         if (uri != null) vm.importExternal(uri) { ok, msg -> Toast.makeText(context, msg, if (ok) Toast.LENGTH_LONG else Toast.LENGTH_LONG).show() }
     }
     // CU3: import a calendar (.ics) back into tasks — the other half of the 2-way bridge.
-    val importIcsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val importIcsLauncher = rememberLauncherForActivityResult(com.todocompanion.app.util.PickContentSingle("Import .ics")) { uri ->
         if (uri != null) vm.importIcs(uri) { _, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() }
     }
     // Folder pickers for backup & sync — take a persistable grant so alarms can write later.
@@ -164,7 +164,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     val exportHabitsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         if (uri != null) vm.exportHabitsCsvTo(uri) { ok -> Toast.makeText(context, if (ok) "Habits exported" else "Export failed", Toast.LENGTH_SHORT).show() }
     }
-    val importHabitsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val importHabitsLauncher = rememberLauncherForActivityResult(com.todocompanion.app.util.PickContentSingle("Import habits")) { uri ->
         if (uri != null) vm.importHabitsCsv(uri) { _, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() }
     }
     // Opening the system document picker (Storage Access Framework) can throw
@@ -545,10 +545,64 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
 
-        SettingsGroup(Icons.Filled.CalendarMonth, "Calendar", open["calendar"] == true, { open["calendar"] = open["calendar"] != true }) {
+        SettingsGroup(Icons.Filled.CalendarMonth, "Calendar & planner", open["calendar"] == true, { open["calendar"] = open["calendar"] != true }, keywords = "calendar habits blocks lunar moon phase protected window context mode routine planner defragment reflow") {
             Toggle("Show habits on the calendar", s.habitCalendarBlocks) { on -> vm.saveSettings(s.copy(habitCalendarBlocks = on)) }
             Text("Draw timed habits as blocks in the day and week calendar, next to your task time-blocks. Off by default.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Toggle("Moon-phase overlay", s.lunarOverlay) { on -> vm.setLunarOverlay(on) }
+            Text("Marks the new, first-quarter, full and last-quarter moons on the month grid. Computed locally.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            // Protected windows — inviolable life-blocks the auto-scheduler treats as walls.
+            val protectedWindows by vm.protectedWindows.collectAsState()
+            Spacer(Modifier.height(10.dp)); Sub("Protected windows")
+            Text("The planner never schedules into these. e.g. family dinner 19:00–20:00.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+            protectedWindows.forEach { w ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("${w.name} · %02d:00–%02d:00".format(w.startMin / 60, w.endMin / 60), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    IconButton(onClick = { vm.deleteProtectedWindow(w.id) }, modifier = Modifier.size(32.dp)) { Icon(Icons.Filled.Close, "Remove", Modifier.size(18.dp)) }
+                }
+            }
+            var pwName by remember { mutableStateOf("") }
+            var pwStart by remember { mutableStateOf(19) }
+            var pwEnd by remember { mutableStateOf(20) }
+            OutlinedTextField(pwName, { pwName = it }, singleLine = true, placeholder = { Text("Window name") }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("From", Modifier.weight(1f)); TextButton(onClick = { pwStart = (pwStart - 1 + 24) % 24 }) { Text("−") }; Text("%02d:00".format(pwStart)); TextButton(onClick = { pwStart = (pwStart + 1) % 24 }) { Text("+") }
+                Spacer(Modifier.width(10.dp)); Text("To", Modifier.weight(1f)); TextButton(onClick = { pwEnd = (pwEnd - 1).coerceAtLeast(pwStart + 1) }) { Text("−") }; Text("%02d:00".format(pwEnd)); TextButton(onClick = { pwEnd = (pwEnd + 1).coerceAtMost(24) }) { Text("+") }
+            }
+            TextButton(onClick = { if (pwName.isNotBlank()) { vm.saveProtectedWindow(pwName, pwStart * 60, pwEnd * 60, emptyList()); pwName = "" } }, enabled = pwName.isNotBlank()) { Text("Add protected window") }
+
+            // Context modes — a saved set of calendars to show; the rest hide.
+            val contexts by vm.calContexts.collectAsState()
+            val eCals by vm.eventCalendars.collectAsState()
+            Spacer(Modifier.height(10.dp)); Sub("Context modes")
+            Text("Save the calendars currently shown as a mode (Work / Personal). Activating one hides the rest.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+            contexts.forEach { c ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("${c.emoji} ${c.name}", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = if (c.id == s.activeContextId) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                    TextButton(onClick = { vm.activateContext(c.id) }) { Text(if (c.id == s.activeContextId) "Active" else "Activate") }
+                    IconButton(onClick = { vm.deleteContext(c.id) }, modifier = Modifier.size(32.dp)) { Icon(Icons.Filled.Close, "Remove", Modifier.size(18.dp)) }
+                }
+            }
+            if (s.activeContextId.isNotBlank()) TextButton(onClick = { vm.activateContext("") }) { Text("Show all calendars") }
+            var ctxName by remember { mutableStateOf("") }
+            OutlinedTextField(ctxName, { ctxName = it }, singleLine = true, placeholder = { Text("Name this context") }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+            TextButton(onClick = { if (ctxName.isNotBlank()) { vm.saveContext(ctxName, eCals.filter { it.visible }.map { it.id }); ctxName = "" } }, enabled = ctxName.isNotBlank()) { Text("Save shown calendars as “${ctxName.ifBlank { "…" }}”") }
+
+            // Day routines — created in the Planner; managed here.
+            val routines by vm.dayRoutines.collectAsState()
+            if (routines.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp)); Sub("Day routines")
+                routines.forEach { r ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("${r.emoji} ${r.name} · ${r.blocks.size} block${if (r.blocks.size == 1) "" else "s"}", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        IconButton(onClick = { vm.deleteDayRoutine(r.id) }, modifier = Modifier.size(32.dp)) { Icon(Icons.Filled.Close, "Remove", Modifier.size(18.dp)) }
+                    }
+                }
+            }
         }
 
         if (Modules.isEnabled(s, Modules.TIME)) {

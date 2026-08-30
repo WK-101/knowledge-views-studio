@@ -184,6 +184,14 @@ data class AppSettings(
     val eventTemplatesJson: String = "",
     val secondaryZoneId: String = "",
     val travelTimesJson: String = "",
+    // R42 planner: reusable day routines, protected life-windows, context modes, the lunar overlay, and
+    // the set of days whose plan is locked (auto-schedule appends only). All local; round-trip in backup.
+    val dayRoutinesJson: String = "",
+    val protectedWindowsJson: String = "",
+    val calContextsJson: String = "",
+    val activeContextId: String = "",
+    val lunarOverlay: Boolean = false,
+    val planLockedDaysCsv: String = "",
     // W5/W8: reminders suppressed for these habit ids / list ids (per-item mute; also feeds adaptive skip).
     val mutedHabits: Set<String> = emptySet(),
     val mutedLists: Set<String> = emptySet(),
@@ -361,6 +369,12 @@ data class AppSettings(
         Keys.EVENT_TEMPLATES to eventTemplatesJson,
         Keys.SECONDARY_ZONE to secondaryZoneId,
         Keys.TRAVEL_TIMES to travelTimesJson,
+        Keys.DAY_ROUTINES to dayRoutinesJson,
+        Keys.PROTECTED_WINDOWS to protectedWindowsJson,
+        Keys.CAL_CONTEXTS to calContextsJson,
+        Keys.ACTIVE_CONTEXT to activeContextId,
+        Keys.LUNAR_OVERLAY to lunarOverlay.toString(),
+        Keys.PLAN_LOCKED_DAYS to planLockedDaysCsv,
         Keys.MUTED_HABITS to mutedHabits.joinToString(","),
         Keys.MUTED_LISTS to mutedLists.joinToString(","),
         Keys.GOALS to goalsJson,
@@ -493,6 +507,12 @@ data class AppSettings(
         const val EVENT_TEMPLATES = "event_templates"
         const val SECONDARY_ZONE = "secondary_zone"
         const val TRAVEL_TIMES = "travel_times"
+        const val DAY_ROUTINES = "day_routines"
+        const val PROTECTED_WINDOWS = "protected_windows"
+        const val CAL_CONTEXTS = "cal_contexts"
+        const val ACTIVE_CONTEXT = "active_context"
+        const val LUNAR_OVERLAY = "lunar_overlay"
+        const val PLAN_LOCKED_DAYS = "plan_locked_days"
         const val MUTED_HABITS = "muted_habits"
         const val MUTED_LISTS = "muted_lists"
         const val GOALS = "goals"
@@ -617,6 +637,12 @@ data class AppSettings(
             eventTemplatesJson = m[Keys.EVENT_TEMPLATES] ?: "",
             secondaryZoneId = m[Keys.SECONDARY_ZONE] ?: "",
             travelTimesJson = m[Keys.TRAVEL_TIMES] ?: "",
+            dayRoutinesJson = m[Keys.DAY_ROUTINES] ?: "",
+            protectedWindowsJson = m[Keys.PROTECTED_WINDOWS] ?: "",
+            calContextsJson = m[Keys.CAL_CONTEXTS] ?: "",
+            activeContextId = m[Keys.ACTIVE_CONTEXT] ?: "",
+            lunarOverlay = m[Keys.LUNAR_OVERLAY] == "true",
+            planLockedDaysCsv = m[Keys.PLAN_LOCKED_DAYS] ?: "",
             mutedHabits = (m[Keys.MUTED_HABITS] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             mutedLists = (m[Keys.MUTED_LISTS] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             goalsJson = m[Keys.GOALS] ?: "",

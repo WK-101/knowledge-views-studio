@@ -1203,6 +1203,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }.getOrNull()
     private fun toast(msg: String) = android.widget.Toast.makeText(appCtx, msg, android.widget.Toast.LENGTH_SHORT).show()
+    /** R42 — public toast for UI-side fallback messages (e.g. a picker that couldn't open). */
+    fun toastMsg(msg: String) = toast(msg)
 
     // ---------- folders / lists ----------
     fun createFolder(name: String, parentId: String? = null) = viewModelScope.launch { repo.createFolder(name, parentId, settings.value.activeWorkspaceId) }
@@ -2916,11 +2918,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun autoScheduleDay(day: Long, chunkMin: Int = 90, onDone: (Int) -> Unit = {}) = viewModelScope.launch {
         val calId = ensureDefaultCalendar()
         val evs = repo.eventsOnce()
-        val occ = com.todocompanion.app.domain.calendar.CalendarEngine.onDay(evs, day, zone)
+        // Protected windows count as busy walls; the calibration bias pads each block toward its real length.
+        val occ = com.todocompanion.app.domain.calendar.CalendarEngine.onDay(evs, day, zone).toMutableList()
+        protectedIntervalsFor(day).forEach { (s, e) ->
+            occ.add(com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence(
+                com.todocompanion.app.data.entity.EventEntity(id = "protected", calendarId = calId, title = "Protected",
+                    startMillis = s, endMillis = e, busy = true, createdAt = 0, updatedAt = 0), s, e))
+        }
         val tasks = repo.allTasksOnce().filter { it.workspaceId == settings.value.activeWorkspaceId }
         val nowFloor = if (day == java.time.LocalDate.now(zone).toEpochDay()) System.currentTimeMillis() else null
+        val bias = estimateBias.value?.medianRatio ?: 1.0
         val placements = com.todocompanion.app.domain.calendar.CalendarPlanner.autoSchedule(
-            tasks, occ, day, settings.value.workStartHour, settings.value.workEndHour, chunkMin, fromMillis = nowFloor, zone = zone)
+            tasks, occ, day, settings.value.workStartHour, settings.value.workEndHour, chunkMin,
+            fromMillis = nowFloor, biasMultiplier = bias.coerceIn(0.75, 1.5), zone = zone)
         if (placements.isEmpty()) { toast("No free slots today for your unscheduled tasks — try clearing an event or lowering estimates."); onDone(0); return@launch }
         val now = System.currentTimeMillis()
         val newEvents = placements.map { p ->
@@ -3033,8 +3043,177 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
             ((checks * 100f) / (habits.size * 7)).toInt().coerceIn(0, 100)
         }
-        return com.todocompanion.app.domain.calendar.CalendarPlanner.weeklyAudit(
+        val audit = com.todocompanion.app.domain.calendar.CalendarPlanner.weeklyAudit(
             evs, entries, tasks, weekStartDay, settings.value.workStartHour, settings.value.workEndHour, adherence, zone)
+        // Moat — the correlated retrospective: tie habit consistency to meeting-load, a link only a unified
+        // events+habits store can see. Compare habit completions on busy days vs quiet days this week.
+        val checkins = repo.getHabitCheckinsOnce()
+        val busyDays = audit.bookedMinByDay.filter { it.value >= 180 }.keys
+        val quietDays = (weekStartDay until weekStartDay + 7).filter { it !in busyDays }.toSet()
+        val extra = ArrayList(audit.advice)
+        if (habits.isNotEmpty() && busyDays.size >= 2 && quietDays.size >= 2) {
+            fun rate(days: Set<Long>) = if (days.isEmpty()) 0f else checkins.count { it.epochDay in days && it.count >= 1 }.toFloat() / (habits.size * days.size)
+            val busyRate = rate(busyDays); val quietRate = rate(quietDays)
+            if (quietRate > 0 && busyRate < quietRate * 0.7f)
+                extra.add(0, "Your habits slip on busy days — ${(busyRate * 100).toInt()}% done on heavy days vs ${(quietRate * 100).toInt()}% on lighter ones. Defend those windows next week.")
+        }
+        return audit.copy(advice = extra)
+    }
+
+    // ── R42 · next-horizon planner (reflow, defragment, routines, protected windows, contexts, locks) ─
+    /** Protected life-windows materialised as busy intervals on [day] (walls for the scheduler). */
+    private fun protectedIntervalsFor(day: Long): List<Pair<Long, Long>> {
+        val dow = java.time.LocalDate.ofEpochDay(day).dayOfWeek.value
+        val base = java.time.LocalDate.ofEpochDay(day).atStartOfDay(zone).toInstant().toEpochMilli()
+        return com.todocompanion.app.domain.calendar.ProtectedWindows.parse(settings.value.protectedWindowsJson)
+            .filter { it.appliesTo(dow) }.map { (base + it.startMin * 60000L) to (base + it.endMin * 60000L) }
+    }
+
+    /** Targeted reflow ("heal conflicts"): only task-linked blocks that now overlap a fixed event slide. */
+    fun reflowDay(day: Long, onDone: (Int) -> Unit = {}) = viewModelScope.launch {
+        val evs = repo.eventsOnce()
+        val occ = com.todocompanion.app.domain.calendar.CalendarEngine.onDay(evs, day, zone)
+        val fixed = occ.filter { it.event.busy && !it.event.allDay && it.event.linkedTaskId == null }.map { it.startMillis to it.endMillis } + protectedIntervalsFor(day)
+        val flexible = occ.filter { it.event.linkedTaskId != null && !it.event.allDay }.map { Triple(it.event.id, it.startMillis, it.endMillis) }
+        val moves = com.todocompanion.app.domain.calendar.CalendarPlanner.reflow(flexible, fixed, day, settings.value.workStartHour, settings.value.workEndHour, zone)
+        applyMoves(moves); toast(if (moves.isEmpty()) "Nothing to heal — no task block clashes." else "Reflowed ${moves.size} block${if (moves.size == 1) "" else "s"} around your events."); onDone(moves.size)
+    }
+
+    /** Defragment the day: re-pack task blocks back-to-back to merge scattered gaps into focus. */
+    fun defragmentDay(day: Long, onDone: (Int) -> Unit = {}) = viewModelScope.launch {
+        val evs = repo.eventsOnce()
+        val occ = com.todocompanion.app.domain.calendar.CalendarEngine.onDay(evs, day, zone)
+        val fixed = occ.filter { it.event.busy && !it.event.allDay && it.event.linkedTaskId == null }.map { it.startMillis to it.endMillis } + protectedIntervalsFor(day)
+        val nowFloor = if (day == java.time.LocalDate.now(zone).toEpochDay()) System.currentTimeMillis() else null
+        val flexible = occ.filter { it.event.linkedTaskId != null && !it.event.allDay }
+            .filter { nowFloor == null || it.startMillis >= nowFloor }.map { Triple(it.event.id, it.startMillis, it.endMillis) }
+        val moves = com.todocompanion.app.domain.calendar.CalendarPlanner.defragment(flexible, fixed, day, settings.value.workStartHour, settings.value.workEndHour, zone)
+        applyMoves(moves); toast(if (moves.isEmpty()) "Your day is already compact." else "Merged ${moves.size} block${if (moves.size == 1) "" else "s"} into a tighter focus window."); onDone(moves.size)
+    }
+
+    private suspend fun applyMoves(moves: List<com.todocompanion.app.domain.calendar.CalendarPlanner.Move>) {
+        val now = System.currentTimeMillis()
+        moves.forEach { m ->
+            repo.eventById(m.id)?.let { e ->
+                com.todocompanion.app.reminders.AlarmScheduler.cancelEventAlerts(appCtx, e)
+                val ne = e.copy(startMillis = m.newStart, endMillis = m.newEnd, updatedAt = now)
+                repo.upsertEvent(ne); com.todocompanion.app.reminders.AlarmScheduler.scheduleEventAlerts(appCtx, ne)
+            }
+        }
+    }
+
+    /** Paint-to-dates: duplicate an event (as one-offs) onto a set of epoch-days, keeping its time-of-day. */
+    fun paintEventToDates(eventId: String, days: List<Long>) = viewModelScope.launch {
+        val e = repo.eventById(eventId) ?: return@launch
+        val srcDay = java.time.Instant.ofEpochMilli(e.startMillis).atZone(zone).toLocalDate().toEpochDay()
+        val dur = e.endMillis - e.startMillis
+        val now = System.currentTimeMillis(); var n = 0
+        days.filter { it != srcDay }.forEach { d ->
+            val newStart = java.time.Instant.ofEpochMilli(e.startMillis).atZone(zone)
+                .withYear(java.time.LocalDate.ofEpochDay(d).year).withDayOfYear(java.time.LocalDate.ofEpochDay(d).dayOfYear)
+                .toInstant().toEpochMilli()
+            val copy = e.copy(id = java.util.UUID.randomUUID().toString(), startMillis = newStart, endMillis = newStart + dur,
+                rrule = "", recurrenceParentId = null, recurrenceDate = 0, exDates = "", createdAt = now, updatedAt = now)
+            repo.upsertEvent(copy); com.todocompanion.app.reminders.AlarmScheduler.scheduleEventAlerts(appCtx, copy); n++
+        }
+        toast(if (n > 0) "Copied “${e.title}” onto $n date${if (n == 1) "" else "s"}." else "No dates to copy onto.")
+    }
+
+    /** One-tap actual-logging: turn a past time block into a tracked entry (planned → actual). */
+    fun logActualForBlock(eventId: String) = viewModelScope.launch {
+        val e = repo.eventById(eventId) ?: return@launch
+        val task = e.linkedTaskId?.let { repo.getTask(it) }
+        val actId = task?.defaultActivityId?.takeIf { id -> timeActivities.value.any { it.id == id && !it.archived } } ?: repo.ensureTaskActivity()
+        repo.addManualTimeEntry(actId, e.startMillis, minOf(e.endMillis, System.currentTimeMillis()), e.title, taskId = e.linkedTaskId)
+        toast("Logged “${e.title}” as tracked time.")
+    }
+
+    // Day routines (settings JSON) --------------------------------------------------------------------
+    val dayRoutines: StateFlow<List<com.todocompanion.app.domain.calendar.DayRoutine>> =
+        settings.map { com.todocompanion.app.domain.calendar.DayRoutines.parse(it.dayRoutinesJson) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Capture today's timed (non-all-day) events as a reusable routine of offsets from the working start. */
+    fun saveDayRoutineFromDay(name: String, day: Long) = viewModelScope.launch {
+        val n = name.trim(); if (n.isBlank()) return@launch
+        val base = java.time.LocalDate.ofEpochDay(day).atStartOfDay(zone).plusHours(settings.value.workStartHour.toLong()).toInstant().toEpochMilli()
+        val blocks = com.todocompanion.app.domain.calendar.CalendarEngine.onDay(repo.eventsOnce(), day, zone)
+            .filter { !it.event.allDay }.sortedBy { it.startMillis }.map { o ->
+                com.todocompanion.app.domain.calendar.RoutineBlock(
+                    title = o.event.title, startMin = (((o.startMillis - base) / 60000L)).toInt(),
+                    durationMin = o.durationMin().toInt().coerceAtLeast(5), colorArgb = o.event.colorArgb)
+            }
+        if (blocks.isEmpty()) { toast("No timed events today to save as a routine."); return@launch }
+        val list = com.todocompanion.app.domain.calendar.DayRoutines.upsert(dayRoutines.value,
+            com.todocompanion.app.domain.calendar.DayRoutine(java.util.UUID.randomUUID().toString(), n, blocks = blocks))
+        repo.saveSettings(settings.value.copy(dayRoutinesJson = com.todocompanion.app.domain.calendar.DayRoutines.encode(list)))
+        toast("Saved routine “$n”.")
+    }
+    fun applyDayRoutine(routineId: String, day: Long) = viewModelScope.launch {
+        val r = dayRoutines.value.firstOrNull { it.id == routineId } ?: return@launch
+        val calId = ensureDefaultCalendar()
+        val base = java.time.LocalDate.ofEpochDay(day).atStartOfDay(zone).plusHours(settings.value.workStartHour.toLong()).toInstant().toEpochMilli()
+        val now = System.currentTimeMillis()
+        val evs = r.blocks.map { b ->
+            val s = base + b.startMin * 60000L
+            com.todocompanion.app.data.entity.EventEntity(
+                id = java.util.UUID.randomUUID().toString(), calendarId = calId, title = b.title,
+                startMillis = s, endMillis = s + b.durationMin * 60000L, colorArgb = b.colorArgb, createdAt = now, updatedAt = now)
+        }
+        repo.upsertEvents(evs); evs.forEach { com.todocompanion.app.reminders.AlarmScheduler.scheduleEventAlerts(appCtx, it) }
+        toast("Laid out “${r.name}” — ${evs.size} block${if (evs.size == 1) "" else "s"}.")
+    }
+    fun deleteDayRoutine(id: String) = viewModelScope.launch {
+        repo.saveSettings(settings.value.copy(dayRoutinesJson = com.todocompanion.app.domain.calendar.DayRoutines.encode(com.todocompanion.app.domain.calendar.DayRoutines.remove(dayRoutines.value, id))))
+    }
+
+    // Protected windows -------------------------------------------------------------------------------
+    val protectedWindows: StateFlow<List<com.todocompanion.app.domain.calendar.ProtectedWindow>> =
+        settings.map { com.todocompanion.app.domain.calendar.ProtectedWindows.parse(it.protectedWindowsJson) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    fun saveProtectedWindow(name: String, startMin: Int, endMin: Int, days: List<Int>) = viewModelScope.launch {
+        val n = name.trim(); if (n.isBlank() || endMin <= startMin) return@launch
+        val list = com.todocompanion.app.domain.calendar.ProtectedWindows.upsert(protectedWindows.value,
+            com.todocompanion.app.domain.calendar.ProtectedWindow(java.util.UUID.randomUUID().toString(), n, startMin, endMin, days))
+        repo.saveSettings(settings.value.copy(protectedWindowsJson = com.todocompanion.app.domain.calendar.ProtectedWindows.encode(list)))
+    }
+    fun deleteProtectedWindow(id: String) = viewModelScope.launch {
+        repo.saveSettings(settings.value.copy(protectedWindowsJson = com.todocompanion.app.domain.calendar.ProtectedWindows.encode(com.todocompanion.app.domain.calendar.ProtectedWindows.remove(protectedWindows.value, id))))
+    }
+
+    // Plan lock + lunar overlay -----------------------------------------------------------------------
+    fun isPlanLocked(day: Long): Boolean = settings.value.planLockedDaysCsv.split(",").mapNotNull { it.trim().toLongOrNull() }.contains(day)
+    fun setPlanLocked(day: Long, locked: Boolean) = viewModelScope.launch {
+        val cur = settings.value.planLockedDaysCsv.split(",").mapNotNull { it.trim().toLongOrNull() }.toMutableSet()
+        if (locked) cur.add(day) else cur.remove(day)
+        repo.saveSettings(settings.value.copy(planLockedDaysCsv = cur.sorted().joinToString(",")))
+        toast(if (locked) "Plan locked — auto-schedule will only fill gaps now." else "Plan unlocked.")
+    }
+    fun setLunarOverlay(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(lunarOverlay = on)) }
+
+    // Context modes: a saved set of calendars; activating one shows those and hides the rest (Fantastical
+    // Calendar Sets, minus the geofence). Reuses the existing per-calendar visibility — no new filtering.
+    val calContexts: StateFlow<List<com.todocompanion.app.domain.calendar.CalContext>> =
+        settings.map { com.todocompanion.app.domain.calendar.CalContexts.parse(it.calContextsJson) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    fun saveContext(name: String, calendarIds: List<String>) = viewModelScope.launch {
+        val n = name.trim(); if (n.isBlank()) return@launch
+        val list = com.todocompanion.app.domain.calendar.CalContexts.upsert(calContexts.value,
+            com.todocompanion.app.domain.calendar.CalContext(java.util.UUID.randomUUID().toString(), n, calendarIds = calendarIds))
+        repo.saveSettings(settings.value.copy(calContextsJson = com.todocompanion.app.domain.calendar.CalContexts.encode(list)))
+    }
+    fun deleteContext(id: String) = viewModelScope.launch {
+        val next = if (settings.value.activeContextId == id) "" else settings.value.activeContextId
+        repo.saveSettings(settings.value.copy(
+            calContextsJson = com.todocompanion.app.domain.calendar.CalContexts.encode(com.todocompanion.app.domain.calendar.CalContexts.remove(calContexts.value, id)),
+            activeContextId = next))
+    }
+    fun activateContext(id: String) = viewModelScope.launch {
+        val ctx = calContexts.value.firstOrNull { it.id == id }
+        if (ctx == null) { repo.saveSettings(settings.value.copy(activeContextId = "")); repo.eventCalendarsOnce().forEach { repo.upsertEventCalendar(it.copy(visible = true)) }; return@launch }
+        repo.eventCalendarsOnce().forEach { repo.upsertEventCalendar(it.copy(visible = it.id in ctx.calendarIds)) }
+        repo.saveSettings(settings.value.copy(activeContextId = id))
+        toast("Context “${ctx.name}” — showing ${ctx.calendarIds.size} calendar${if (ctx.calendarIds.size == 1) "" else "s"}.")
     }
 
     fun skipHabitDay(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, reason: String = "") = viewModelScope.launch {

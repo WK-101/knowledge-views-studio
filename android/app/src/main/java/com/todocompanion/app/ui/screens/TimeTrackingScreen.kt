@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -246,11 +247,21 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
             },
         )
     }
-    // Themed Compose date picker (replaces the OS DatePickerDialog, which ignored the app's theme/language).
-    if (showDatePicker) ThemedDatePicker(initial = day, zone = zone, onDismiss = { showDatePicker = false }) { picked ->
+    // R42 — the period picker adapts to the selected range: a day grid for Day, a week list for Week,
+    // and a month grid for Month, so it never shows a day picker when you're browsing weeks or months.
+    if (showDatePicker) {
         val t = LocalDate.now(zone)
-        day = if (picked.isAfter(t)) t else picked
-        showDatePicker = false
+        when (rangeUnit) {
+            1 -> ThemedWeekPicker(initial = day, zone = zone, onDismiss = { showDatePicker = false }) { picked ->
+                day = if (picked.isAfter(t)) t else picked; showDatePicker = false
+            }
+            2 -> ThemedMonthPicker(initial = day, zone = zone, onDismiss = { showDatePicker = false }) { picked ->
+                day = if (picked.isAfter(t)) t.withDayOfMonth(1) else picked.withDayOfMonth(1); showDatePicker = false
+            }
+            else -> ThemedDatePicker(initial = day, zone = zone, onDismiss = { showDatePicker = false }) { picked ->
+                day = if (picked.isAfter(t)) t else picked; showDatePicker = false
+            }
+        }
     }
     editEntry?.let { e ->
         EditEntryDialog(e, activities.filter { !it.archived }, zone, onDismiss = { editEntry = null },
@@ -428,7 +439,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                 }
                 IconButton(onClick = { day = when (rangeUnit) { 1 -> day.minusWeeks(1); 2 -> day.minusMonths(1); else -> day.minusDays(1) } }) { Icon(Icons.Filled.ChevronLeft, "Previous") }
                 Text(
-                    "$periodLabel · ${fmtDur(dayTotalMin)}" + (if (rangeUnit == 0) "  ▾" else ""),
+                    "$periodLabel · ${fmtDur(dayTotalMin)}  ▾",
                     Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable { showDatePicker = true }.padding(vertical = 6.dp),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
@@ -962,4 +973,86 @@ private fun ThemedDatePicker(initial: LocalDate, zone: ZoneId, onDismiss: () -> 
     ) {
         DatePicker(state = state, showModeToggle = true, colors = DatePickerDefaults.colors())
     }
+}
+
+/** R42 — a proper month picker for the Time view's Month range: a year stepper + a 12-month grid. */
+@Composable
+private fun ThemedMonthPicker(initial: LocalDate, zone: ZoneId, onDismiss: () -> Unit, onPick: (LocalDate) -> Unit) {
+    val today = LocalDate.now(zone)
+    var year by remember { mutableStateOf(initial.year) }
+    val months = java.time.Month.values()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Pick a month") },
+        text = {
+            Column {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                    IconButton(onClick = { year-- }) { Icon(Icons.Filled.ChevronLeft, "Previous year") }
+                    Text("$year", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    IconButton(onClick = { if (year < today.year) year++ }, enabled = year < today.year) { Icon(Icons.Filled.ChevronRight, "Next year") }
+                }
+                Spacer(Modifier.height(8.dp))
+                for (r in 0 until 4) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        for (c in 0 until 3) {
+                            val m = months[r * 3 + c]
+                            val ym = java.time.YearMonth.of(year, m)
+                            val future = ym.isAfter(java.time.YearMonth.from(today))
+                            val selected = year == initial.year && m == initial.month
+                            Box(
+                                Modifier.weight(1f).height(44.dp).clip(RoundedCornerShape(10.dp))
+                                    .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (future) 0.3f else 0.6f))
+                                    .clickable(enabled = !future) { onPick(ym.atDay(1)) },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(m.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault()),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (selected) MaterialTheme.colorScheme.onPrimary else if (future) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                }
+            }
+        },
+    )
+}
+
+/** R42 — a proper week picker for the Time view's Week range: a scrollable list of recent weeks. */
+@Composable
+private fun ThemedWeekPicker(initial: LocalDate, zone: ZoneId, onDismiss: () -> Unit, onPick: (LocalDate) -> Unit) {
+    val today = LocalDate.now(zone)
+    val thisWeekStart = today.minusDays((today.dayOfWeek.value - 1).toLong())
+    val selStart = initial.minusDays((initial.dayOfWeek.value - 1).toLong())
+    val fmt = DateTimeFormatter.ofPattern("MMM d")
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Pick a week") },
+        text = {
+            Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+                for (i in 0 until 52) {
+                    val ws = thisWeekStart.minusWeeks(i.toLong())
+                    val we = ws.plusDays(6)
+                    val selected = ws == selStart
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                            .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                            .clickable { onPick(ws) }.padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("${ws.format(fmt)} – ${we.format(fmt)}", Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
+                        Text(if (i == 0) "This week" else if (i == 1) "Last week" else "${i}w ago",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (selected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        },
+    )
 }

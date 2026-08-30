@@ -136,7 +136,7 @@ fun HabitDetailScreen(
     val photoByDay = hc.filter { it.photoUri != null }.associate { it.epochDay to it.photoUri!! }
     var editorDay by remember { mutableStateOf<Long?>(null) }
     // K5: pick a photo for the day currently open in the editor.
-    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val photoPicker = rememberLauncherForActivityResult(com.todocompanion.app.util.PickContentSingle("Add photo")) { uri ->
         val day = editorDay
         if (uri != null && day != null) vm.setHabitPhoto(h, day, uri)
     }

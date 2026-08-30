@@ -106,6 +106,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.domain.priority.PriorityLevel
 import com.todocompanion.app.domain.SwipeAction
@@ -190,7 +191,7 @@ fun CalendarScreen(
     var plannerOpen by remember { mutableStateOf(false) }
     var plannerTab by remember { mutableStateOf(0) }
     val openEvent: (String) -> Unit = { id -> eventEditing = eventsAll.firstOrNull { e -> e.id == id }; if (eventEditing != null) eventEditorOpen = true }
-    val eventImport = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) vm.importIcsEvents(uri) }
+    val eventImport = androidx.activity.compose.rememberLauncherForActivityResult(com.todocompanion.app.util.PickContentSingle("Import .ics")) { uri -> if (uri != null) vm.importIcsEvents(uri) }
     val eventExport = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/calendar")) { uri -> if (uri != null) vm.exportIcsEventsTo(uri) }
 
     val firstDow = if (s.weekStart in 1..7) DayOfWeek.of(s.weekStart) else WeekFields.of(Locale.getDefault()).firstDayOfWeek
@@ -342,7 +343,7 @@ fun CalendarScreen(
             "month" -> MonthView(anchor, selected, dueByDate, firstDow, onSelect = { onSelected(it) }, onPrev = prev, onNext = next, onOpenTask = onOpenTask, swipe = swipe, onAdd = { onAddOnDate(selected) },
                 collapsed = monthCollapsed, onCollapsedChange = { monthCollapsed = it },
                 habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, countdownsFor = countdownsFor, trackedDayInfo = trackedDayInfo,
-                eventOccForDay = eventOccForDay, onOpenEvent = openEvent,
+                eventOccForDay = eventOccForDay, onOpenEvent = openEvent, lunar = s.lunarOverlay,
                 onMoveToDay = { d, id ->
                     // Preserve the task's time-of-day when dropping it on another day; default 9am.
                     val min = tasks.firstOrNull { it.id == id }?.dueDate?.let { Instant.ofEpochMilli(it).atZone(zone).let { z -> z.hour * 60 + z.minute } } ?: 540
@@ -387,8 +388,11 @@ fun CalendarScreen(
             "block" -> eventBlockOpen = true
             "plan" -> { plannerTab = 0; plannerOpen = true }
             "review" -> { plannerTab = 1; plannerOpen = true }
-            "import" -> runCatching { eventImport.launch(arrayOf("*/*")) }
+            "import" -> runCatching { eventImport.launch(arrayOf("text/calendar", "application/octet-stream", "*/*")) }
+                .onFailure { vm.toastMsg("Couldn't open a file picker on this device.") }
+            // Export: try the system file-saver; if the device has no DocumentsUI, fall back to Downloads.
             "export" -> runCatching { eventExport.launch("todocompanion-calendar.ics") }
+                .onFailure { vm.exportIcsEventsToDownloads() }
         }
         if (eventAction != null) onEventActionConsumed()
     }
@@ -636,7 +640,7 @@ private fun MonthYearPicker(current: YearMonth, onDismiss: () -> Unit, onPick: (
 }
 
 @Composable
-private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, swipe: CalSwipe, onAdd: () -> Unit, collapsed: Boolean, onCollapsedChange: (Boolean) -> Unit, habitBlocksFor: (LocalDate) -> List<HabitBlock>, onOpenHabit: (String) -> Unit, countdownsFor: (LocalDate) -> List<com.todocompanion.app.data.entity.CountdownEntity>, trackedDayInfo: (LocalDate) -> Pair<Int, androidx.compose.ui.graphics.Color?> = { 0 to null }, eventOccForDay: (LocalDate) -> List<com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence> = { emptyList() }, onOpenEvent: (String) -> Unit = {}, onMoveToDay: (LocalDate, String) -> Unit) {
+private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, swipe: CalSwipe, onAdd: () -> Unit, collapsed: Boolean, onCollapsedChange: (Boolean) -> Unit, habitBlocksFor: (LocalDate) -> List<HabitBlock>, onOpenHabit: (String) -> Unit, countdownsFor: (LocalDate) -> List<com.todocompanion.app.data.entity.CountdownEntity>, trackedDayInfo: (LocalDate) -> Pair<Int, androidx.compose.ui.graphics.Color?> = { 0 to null }, eventOccForDay: (LocalDate) -> List<com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence> = { emptyList() }, onOpenEvent: (String) -> Unit = {}, lunar: Boolean = false, onMoveToDay: (LocalDate, String) -> Unit) {
     val ym = YearMonth.from(anchor)
     val labels = (0..6).map { firstDow.plus(it.toLong()) }
     val first = ym.atDay(1)
@@ -705,15 +709,21 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(
-                                        date.dayOfMonth.toString(),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = when {
-                                            isToday -> MaterialTheme.colorScheme.onPrimary
-                                            !inMonth -> MaterialTheme.colorScheme.outline.copy(alpha = .55f)
-                                            else -> MaterialTheme.colorScheme.onSurface
-                                        },
-                                    )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            date.dayOfMonth.toString(),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = when {
+                                                isToday -> MaterialTheme.colorScheme.onPrimary
+                                                !inMonth -> MaterialTheme.colorScheme.outline.copy(alpha = .55f)
+                                                else -> MaterialTheme.colorScheme.onSurface
+                                            },
+                                        )
+                                        // R42 — the local moon-phase overlay: a tiny glyph on the four principal phases.
+                                        if (lunar && inMonth && com.todocompanion.app.domain.calendar.MoonPhase.isPrincipal(date.toEpochDay()))
+                                            Text(com.todocompanion.app.domain.calendar.MoonPhase.glyph(date.toEpochDay()),
+                                                style = MaterialTheme.typography.labelSmall, fontSize = 9.sp, modifier = Modifier.padding(start = 1.dp))
+                                    }
                                     Spacer(Modifier.size(2.dp))
                                     // A day can carry a task dot (primary) and/or a habit dot (tertiary). Adjacent-month
                                     // days stay clean (no dots) so the current month clearly stands out.
