@@ -136,7 +136,7 @@ fun HabitDetailScreen(
     val photoByDay = hc.filter { it.photoUri != null }.associate { it.epochDay to it.photoUri!! }
     var editorDay by remember { mutableStateOf<Long?>(null) }
     // K5: pick a photo for the day currently open in the editor.
-    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         val day = editorDay
         if (uri != null && day != null) vm.setHabitPhoto(h, day, uri)
     }
@@ -451,7 +451,7 @@ fun HabitDetailScreen(
             photoPath = photoByDay[day],
             canFreeze = h.freezeTokens > 0 && missedPast,
             onFreeze = { vm.spendHabitFreeze(h, day); editorDay = null },
-            onPickPhoto = { runCatching { photoPicker.launch("image/*") } },
+            onPickPhoto = { runCatching { photoPicker.launch(arrayOf("image/*")) } },
             onRemovePhoto = { vm.setHabitPhoto(h, day, null) },
             onDismiss = { editorDay = null },
             onSave = { count, skip, note ->

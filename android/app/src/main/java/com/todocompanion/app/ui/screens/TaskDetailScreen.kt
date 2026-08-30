@@ -503,14 +503,13 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             val attachments by attFlow.collectAsState(initial = emptyList())
             // R38 — the TickTick approach to attachments: every source is permission-free. The system
             // grants access to exactly the file the user picks; we copy its bytes in (openInputStream).
-            // R40 — the whole attachment system is the SYSTEM pickers, TickTick-style. Every source hands
-            // back exactly the file(s) the user selects, scoped to that item, so NO storage/media permission
-            // is ever needed and there is no in-app file browser. All three support what they should:
-            //  • Files: ACTION_GET_CONTENT (GetMultipleContents) — the system document picker + any file
-            //    manager, opening straight onto a list of ALL files; multi-select. We copy the bytes in.
-            //  • Photos/videos: the Android Photo Picker (PickMultipleVisualMedia) — multi-select, no permission.
-            //  • Camera: capture into a FileProvider URI via the system camera app — no CAMERA permission.
-            val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris -> if (uris.isNotEmpty()) vm.addAttachments(task.id, uris) }
+            // R41 — the whole attachment system is the SYSTEM pickers, TickTick-style, no storage permission.
+            // FILES use ACTION_OPEN_DOCUMENT (the Storage Access Framework), NOT ACTION_GET_CONTENT: SAF is
+            // backed by the system DocumentsUI, is present on every device, and is EXEMPT from Android 11+
+            // package-visibility — so it never throws "no file picker" the way GET_CONTENT can on OEM ROMs.
+            // This is exactly the path TickTick uses. Photos use the Android Photo Picker (which itself
+            // falls back to SAF), and Camera hands a FileProvider URI to the system camera app.
+            val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> if (uris.isNotEmpty()) vm.addAttachments(task.id, uris) }
             val pickPhotos = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { uris -> if (uris.isNotEmpty()) vm.addAttachments(task.id, uris) }
             var cameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
             val takePhoto = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok -> if (ok) cameraUri?.let { vm.addAttachment(task.id, it) } }
@@ -660,10 +659,12 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 }
                 val attachCtx = androidx.compose.ui.platform.LocalContext.current
                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(0.dp)) {
-                    // Photos & videos — the Android Photo Picker, multi-select: no permission, ever.
+                    // Photos & videos — the Android Photo Picker (multi-select, no permission). If a device
+                    // has no photo picker at all, fall back to the SAF document picker filtered to media —
+                    // which is always present, so this never dead-ends.
                     TextButton(onClick = {
                         runCatching { pickPhotos.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) }
-                            .onFailure { android.widget.Toast.makeText(attachCtx, "No photo picker on this device", android.widget.Toast.LENGTH_SHORT).show() }
+                            .onFailure { runCatching { pickFiles.launch(arrayOf("image/*", "video/*")) } }
                     }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.Image, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Photo") }
                     // Camera — capture straight into a FileProvider URI (no CAMERA permission needed by us).
                     TextButton(onClick = {
@@ -672,13 +673,13 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                             val f = java.io.File(dir, "cam_${System.currentTimeMillis()}.jpg")
                             val u = androidx.core.content.FileProvider.getUriForFile(attachCtx, "${attachCtx.packageName}.fileprovider", f)
                             cameraUri = u; takePhoto.launch(u)
-                        }.onFailure { android.widget.Toast.makeText(attachCtx, "No camera app available", android.widget.Toast.LENGTH_SHORT).show() }
+                        }.onFailure { android.widget.Toast.makeText(attachCtx, "No camera app on this device", android.widget.Toast.LENGTH_SHORT).show() }
                     }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.CameraAlt, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Camera") }
-                    // Files — the system document picker (ACTION_GET_CONTENT), multi-select: shows ALL files
-                    // from every provider, no storage permission. This is the only "files" path — no in-app browser.
+                    // Files — the SAF document picker (ACTION_OPEN_DOCUMENT), multi-select: shows ALL files
+                    // from every provider, no storage permission, and is present on every device.
                     TextButton(onClick = {
-                        runCatching { pickFiles.launch("*/*") }
-                            .onFailure { android.widget.Toast.makeText(attachCtx, "No file picker on this device — you can still drop a file into the app's import inbox from Settings.", android.widget.Toast.LENGTH_LONG).show() }
+                        runCatching { pickFiles.launch(arrayOf("*/*")) }
+                            .onFailure { android.widget.Toast.makeText(attachCtx, "Couldn't open the file picker — you can drop a file into the app's import inbox from Settings.", android.widget.Toast.LENGTH_LONG).show() }
                     }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.AttachFile, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("File") }
                 }
                 if (attachments.isEmpty()) Text("Photos, camera, or any file up to 25 MB — picked through your phone's own picker, so no storage permission is ever asked. Stored on-device and in your backups.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -779,7 +780,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             }
 
                     com.todocompanion.app.domain.EditorField.ADVANCED ->
-                     DetailSection("More options", null, false) {
+                     DetailSection("Estimate, goals & review", null, false) {
                 if (totalN == 0) {
                     // Leaf manual progress lives here when not already set/shown above.
                     var p by remember(task.id, task.progressPct) { mutableStateOf((task.progressPct ?: 0).toFloat()) }
@@ -795,6 +796,21 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     if (task.estimateMin != null) IconButton(onClick = { update { it.copy(estimateMin = null) } }, modifier = Modifier.size(28.dp)) {
                         Icon(Icons.Filled.Close, "Clear estimate", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                }
+                // R41 — the self-calibrating estimate: your own tracked history, applied here. Tap to adopt.
+                val estBias by vm.estimateBias.collectAsState()
+                estBias?.let { b ->
+                    val est = task.estimateMin
+                    val suggested = est?.let { b.suggestFor(it) }
+                    Text(
+                        buildString {
+                            append(b.sentence())
+                            if (est != null && suggested != null && kotlin.math.abs(suggested - est) >= 5) append("  Tap to set ${fmtDuration(suggested)}.")
+                        },
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
+                            .then(if (est != null && suggested != null && kotlin.math.abs(suggested - est) >= 5)
+                                Modifier.clip(RoundedCornerShape(6.dp)).clickable { update { it.copy(estimateMin = suggested) } } else Modifier))
                 }
                 SwitchRow("Mark as goal", task.isGoal) { v -> update { it.copy(isGoal = v) } }
                 SwitchRow("Mark as project", task.isProject) { v -> update { it.copy(isProject = v) } }

@@ -102,7 +102,7 @@ fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Bo
     val focus = remember { FocusRequester() }
 
     val qaCtx = androidx.compose.ui.platform.LocalContext.current
-    val attachLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    val attachLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) attachments = attachments + uri
     }
     // Voice capture (F3): dictate a task with the platform speech recognizer and append the result.
@@ -219,7 +219,7 @@ fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Bo
                     IconTool(Icons.Filled.AttachFile, "Attach a file", attachments.isNotEmpty()) {
                         // Guard against a device with no picker (would otherwise crash); the task editor's
                         // "Browse device" is the reliable fallback for attaching there instead.
-                        try { attachLauncher.launch("*/*") } catch (e: Exception) {
+                        try { attachLauncher.launch(arrayOf("*/*")) } catch (e: Exception) {
                             android.widget.Toast.makeText(qaCtx, "No file picker here — open the task and use “Browse device” to attach.", android.widget.Toast.LENGTH_LONG).show()
                         }
                     }

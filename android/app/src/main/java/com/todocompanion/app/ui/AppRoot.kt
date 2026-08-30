@@ -976,6 +976,13 @@ fun AppRoot(
                         "weekly review" to { showReview = true }, "review" to { showReview = true },
                         "plan" to { showPlan = true }, "plan my day" to { showPlan = true },
                         "time stats" to { showTimeStats = true }, "time tracking" to { showTimeTracking = true },
+                        // R41 — the calendar's own planner surfaces (auto-schedule, time-audit) from the palette.
+                        "auto-schedule" to { tab = Tab.CALENDAR; calEventAction = "plan" }, "auto schedule" to { tab = Tab.CALENDAR; calEventAction = "plan" },
+                        "calendar plan" to { tab = Tab.CALENDAR; calEventAction = "plan" }, "schedule my day" to { tab = Tab.CALENDAR; calEventAction = "plan" },
+                        "time audit" to { tab = Tab.CALENDAR; calEventAction = "review" }, "calendar review" to { tab = Tab.CALENDAR; calEventAction = "review" },
+                        "new event" to { tab = Tab.CALENDAR; calEventAction = "new" }, "add event" to { tab = Tab.CALENDAR; calEventAction = "new" },
+                        "find a gap" to { tab = Tab.CALENDAR; calEventAction = "gap" }, "gap" to { tab = Tab.CALENDAR; calEventAction = "gap" },
+                        "calendar" to { tab = Tab.CALENDAR },
                     )
                     val listMatch = lists.firstOrNull { !it.archived && it.name.equals(t, true) }
                     val tagMatch = tags.firstOrNull { it.name.equals(t, true) }
@@ -1573,7 +1580,7 @@ private fun ManageListDialog(
     var name by remember { mutableStateOf(list.name) }
     var description by remember { mutableStateOf(list.description) }
     var confirmDelete by remember { mutableStateOf(false) }
-    val bgPicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
+    val bgPicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) onPickBackground(uri)
     }
     if (confirmDelete) ConfirmDeleteDialog("list", list.name, onCancel = { confirmDelete = false }, onConfirm = { confirmDelete = false; onDelete() })
@@ -1602,7 +1609,7 @@ private fun ManageListDialog(
                 Text("Background image", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 val bgCtx = androidx.compose.ui.platform.LocalContext.current
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { try { bgPicker.launch("image/*") } catch (e: Exception) { android.widget.Toast.makeText(bgCtx, "No file manager is available on this device.", android.widget.Toast.LENGTH_LONG).show() } }) { Text(if (list.backgroundBase64 == null) "Set image" else "Change image") }
+                    TextButton(onClick = { try { bgPicker.launch(arrayOf("image/*")) } catch (e: Exception) { android.widget.Toast.makeText(bgCtx, "No file manager is available on this device.", android.widget.Toast.LENGTH_LONG).show() } }) { Text(if (list.backgroundBase64 == null) "Set image" else "Change image") }
                     if (list.backgroundBase64 != null) TextButton(onClick = onClearBackground) { Text("Remove", color = MaterialTheme.colorScheme.error) }
                 }
             }

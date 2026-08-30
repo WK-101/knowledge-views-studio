@@ -363,6 +363,8 @@ class AppRepository(private val db: AppDatabase) {
     }
     /** All currently-running entries (multi-timer aware). */
     suspend fun runningTimeEntries(): List<com.todocompanion.app.data.entity.TimeEntryEntity> = timeTrack.getEntries().filter { it.running }
+    /** Every recorded time entry (R41 planner: planned-vs-actual, estimate calibration, weekly audit). */
+    suspend fun timeEntriesOnce(): List<com.todocompanion.app.data.entity.TimeEntryEntity> = timeTrack.getEntries()
     /** Stop the (first) running entry, if any. With multi-timer on this stops one; callers can loop. */
     suspend fun stopTimeTracking() { timeTrack.runningEntry()?.let { finalizeEntry(it) } }
     /** Stop a specific running entry by id (U15). */

@@ -640,6 +640,17 @@ internal fun EventEditor(
     var scopeDelete by remember { mutableStateOf(false) }
     val isRecurring = existing != null && existing.rrule.isNotBlank()
 
+    // R41 — templates, remembered travel time, and a pinned secondary time-zone.
+    val templates by vm.eventTemplates.collectAsState()
+    val travelMap by vm.travelTimes.collectAsState()
+    val settings by vm.settings.collectAsState()
+    var travelOn by remember { mutableStateOf(false) }
+    var travelMin by remember { mutableStateOf(0) }
+    androidx.compose.runtime.LaunchedEffect(location) {
+        com.todocompanion.app.domain.calendar.TravelTimes.forPlace(travelMap, location)?.let { if (travelMin == 0) travelMin = it }
+    }
+    val secZone = settings.secondaryZoneId.takeIf { it.isNotBlank() }?.let { runCatching { ZoneId.of(it) }.getOrNull() }
+
     val dfDate = DateTimeFormatter.ofPattern("EEE, MMM d")
     val dfTime = DateTimeFormatter.ofPattern("h:mm a")
     val cal = calendars.firstOrNull { it.id == calId }
@@ -656,12 +667,14 @@ internal fun EventEditor(
                 } else if (e <= s) e = s + 3_600_000L
                 vm.saveEvent(existing?.id, calId, title, location, notes, url, s, e, allDay, rrule,
                     alerts.sorted().joinToString(","), existing?.colorArgb, busy = busy)
+                if (travelOn && travelMin > 0 && !allDay) vm.addTravelBuffer(s, travelMin, location, calId)
                 onClose()
             }, enabled = title.isNotBlank() && calId.isNotBlank()) { Text("Save") }
         },
         dismissButton = {
             Row {
                 if (existing != null) TextButton(onClick = { if (isRecurring) scopeDelete = true else { vm.deleteEvent(existing.id, "series"); onClose() } }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+                if (existing != null) TextButton(onClick = { vm.duplicateEvent(existing.id); onClose() }) { Text("Duplicate") }
                 TextButton(onClick = onClose) { Text("Cancel") }
             }
         },
@@ -669,6 +682,23 @@ internal fun EventEditor(
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Title") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                // R41 — start from a template (new events only): fills title, duration, colour, alerts.
+                if (existing == null && templates.isNotEmpty()) {
+                    Spacer(Modifier.height(6.dp))
+                    Text("From a template", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        templates.forEach { t ->
+                            FilterChip(selected = false, onClick = {
+                                title = t.title
+                                if (t.calendarId.isNotBlank()) calId = t.calendarId
+                                end = start + t.durationMin.coerceAtLeast(5) * 60000L
+                                busy = t.busy
+                                if (t.location.isNotBlank()) location = t.location
+                                alerts = t.alertsMinutes.split(",").mapNotNull { m -> m.trim().toIntOrNull() }.toSet()
+                            }, label = { Text("${t.emoji} ${t.title}") })
+                        }
+                    }
+                }
                 Spacer(Modifier.height(8.dp))
                 // Calendar picker
                 Box {
@@ -682,6 +712,12 @@ internal fun EventEditor(
                 EditorToggle("All-day", allDay) { allDay = it }
                 EditorRow(Icons.Filled.Schedule, "Starts", if (allDay) Instant.ofEpochMilli(start).atZone(zone).format(dfDate) else "${Instant.ofEpochMilli(start).atZone(zone).format(dfDate)}  ${Instant.ofEpochMilli(start).atZone(zone).format(dfTime)}") { showStart = true }
                 if (!allDay) EditorRow(Icons.Filled.Schedule, "Ends", "${Instant.ofEpochMilli(end).atZone(zone).format(dfDate)}  ${Instant.ofEpochMilli(end).atZone(zone).format(dfTime)}") { showEnd = true }
+                // R41 — pinned secondary time-zone rail: the same start shown in another zone.
+                if (secZone != null && !allDay) {
+                    val zLabel = secZone.getDisplayName(java.time.format.TextStyle.SHORT, Locale.getDefault())
+                    Text("$zLabel · ${Instant.ofEpochMilli(start).atZone(secZone).format(dfTime)} – ${Instant.ofEpochMilli(end).atZone(secZone).format(dfTime)}",
+                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 32.dp, bottom = 4.dp))
+                }
                 // Repeat
                 Box {
                     EditorRow(Icons.Filled.Repeat, "Repeat", repeatLabelOf(rrule)) { repeatMenu = true }
@@ -703,11 +739,34 @@ internal fun EventEditor(
                 }
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(value = location, onValueChange = { location = it }, label = { Text("Location") }, leadingIcon = { Icon(Icons.Filled.LocationOn, null) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                // R41 — auto travel buffer: reserve the trip time before this event; remembered per place.
+                if (location.isNotBlank() && !allDay) {
+                    EditorToggle("Add travel buffer", travelOn) { travelOn = it; if (it && travelMin == 0) travelMin = 15 }
+                    if (travelOn) {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf(10, 15, 20, 30, 45, 60).forEach { m ->
+                                FilterChip(selected = travelMin == m, onClick = { travelMin = m }, label = { Text("${m}m") })
+                            }
+                        }
+                        Text("Reserves ${travelMin}m before the event and remembers it for “${location.trim()}”.",
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text("Notes") }, leadingIcon = { Icon(Icons.Filled.Notes, null) }, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(value = url, onValueChange = { url = it }, label = { Text("Link (URL)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 EditorToggle("Shows as busy", busy) { busy = it }
+                // R41 — save this event's shape as a reusable template.
+                if (title.isNotBlank()) {
+                    TextButton(onClick = {
+                        val durMin = (((end - start) / 60000L)).toInt().coerceAtLeast(5)
+                        vm.saveEventTemplate(com.todocompanion.app.domain.calendar.EventTemplate(
+                            id = java.util.UUID.randomUUID().toString(), title = title.trim(), durationMin = durMin,
+                            calendarId = calId, colorArgb = existing?.colorArgb, location = location.trim(),
+                            alertsMinutes = alerts.sorted().joinToString(","), busy = busy))
+                    }) { Icon(Icons.Filled.Add, null, Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Save as a template") }
+                }
             }
         },
     )

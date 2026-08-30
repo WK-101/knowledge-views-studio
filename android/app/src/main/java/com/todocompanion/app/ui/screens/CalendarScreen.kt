@@ -60,6 +60,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.EditCalendar
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.CalendarViewMonth
 import androidx.compose.material.icons.filled.CheckBox
@@ -184,8 +187,10 @@ fun CalendarScreen(
     var eventCalsOpen by remember { mutableStateOf(false) }
     var eventGapOpen by remember { mutableStateOf(false) }
     var eventBlockOpen by remember { mutableStateOf(false) }
+    var plannerOpen by remember { mutableStateOf(false) }
+    var plannerTab by remember { mutableStateOf(0) }
     val openEvent: (String) -> Unit = { id -> eventEditing = eventsAll.firstOrNull { e -> e.id == id }; if (eventEditing != null) eventEditorOpen = true }
-    val eventImport = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri -> if (uri != null) vm.importIcsEvents(uri) }
+    val eventImport = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) vm.importIcsEvents(uri) }
     val eventExport = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/calendar")) { uri -> if (uri != null) vm.exportIcsEventsTo(uri) }
 
     val firstDow = if (s.weekStart in 1..7) DayOfWeek.of(s.weekStart) else WeekFields.of(Locale.getDefault()).firstDayOfWeek
@@ -380,11 +385,14 @@ fun CalendarScreen(
             "calendars" -> eventCalsOpen = true
             "gap" -> eventGapOpen = true
             "block" -> eventBlockOpen = true
-            "import" -> runCatching { eventImport.launch("*/*") }
+            "plan" -> { plannerTab = 0; plannerOpen = true }
+            "review" -> { plannerTab = 1; plannerOpen = true }
+            "import" -> runCatching { eventImport.launch(arrayOf("*/*")) }
             "export" -> runCatching { eventExport.launch("todocompanion-calendar.ics") }
         }
         if (eventAction != null) onEventActionConsumed()
     }
+    if (plannerOpen) PlannerSheet(vm, zone, selected.toEpochDay(), plannerTab) { plannerOpen = false }
     if (eventEditorOpen) EventEditor(vm, zone, eventCals, eventEditing, eventSeedStart, eventSeedEnd) { eventEditorOpen = false; eventEditing = null }
     if (eventCalsOpen) CalendarsManager(vm, eventCals) { eventCalsOpen = false }
     if (eventGapOpen) GapFinder(visEvents, selected.toEpochDay(), zone, s.workStartHour, s.workEndHour,
@@ -463,9 +471,12 @@ fun CalHeader(
         // R39 — events live in this one calendar now: add an event, manage calendars, find a gap, block a
         // task, or import/export .ics — all from here, no separate calendar screen.
         Box {
-            IconButton(onClick = { eventMenu = true }) { Icon(Icons.Filled.Event, "Events") }
+            // R41 — a clearly different glyph from the "Today" calendar icon beside it (they read alike).
+            IconButton(onClick = { eventMenu = true }) { Icon(Icons.Filled.EditCalendar, "Events") }
             androidx.compose.material3.DropdownMenu(expanded = eventMenu, onDismissRequest = { eventMenu = false }) {
                 androidx.compose.material3.DropdownMenuItem(text = { Text("New event") }, leadingIcon = { Icon(Icons.Filled.Add, null, Modifier.size(18.dp)) }, onClick = { eventMenu = false; onEventAction("new") })
+                androidx.compose.material3.DropdownMenuItem(text = { Text("Plan my day") }, leadingIcon = { Icon(Icons.Filled.AutoAwesome, null, Modifier.size(18.dp)) }, onClick = { eventMenu = false; onEventAction("plan") })
+                androidx.compose.material3.DropdownMenuItem(text = { Text("Weekly review") }, leadingIcon = { Icon(Icons.Filled.Insights, null, Modifier.size(18.dp)) }, onClick = { eventMenu = false; onEventAction("review") })
                 androidx.compose.material3.DropdownMenuItem(text = { Text("Block time for a task…") }, onClick = { eventMenu = false; onEventAction("block") })
                 androidx.compose.material3.DropdownMenuItem(text = { Text("Find a gap…") }, onClick = { eventMenu = false; onEventAction("gap") })
                 androidx.compose.material3.DropdownMenuItem(text = { Text("Calendars…") }, onClick = { eventMenu = false; onEventAction("calendars") })

@@ -2910,6 +2910,133 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         toast(if (loc != null) "Saved to $loc" else "Export failed."); onDone(loc)
     }
 
+    // ── R41 · the planner (auto-schedule, self-healing habits, templates, audit) ─────────────────────
+    /** Greedy auto-scheduler: place flexible tasks (with estimates, not yet done) into today's free
+     *  slots as linked time blocks. Returns how many blocks were created. */
+    fun autoScheduleDay(day: Long, chunkMin: Int = 90, onDone: (Int) -> Unit = {}) = viewModelScope.launch {
+        val calId = ensureDefaultCalendar()
+        val evs = repo.eventsOnce()
+        val occ = com.todocompanion.app.domain.calendar.CalendarEngine.onDay(evs, day, zone)
+        val tasks = repo.allTasksOnce().filter { it.workspaceId == settings.value.activeWorkspaceId }
+        val nowFloor = if (day == java.time.LocalDate.now(zone).toEpochDay()) System.currentTimeMillis() else null
+        val placements = com.todocompanion.app.domain.calendar.CalendarPlanner.autoSchedule(
+            tasks, occ, day, settings.value.workStartHour, settings.value.workEndHour, chunkMin, fromMillis = nowFloor, zone = zone)
+        if (placements.isEmpty()) { toast("No free slots today for your unscheduled tasks — try clearing an event or lowering estimates."); onDone(0); return@launch }
+        val now = System.currentTimeMillis()
+        val newEvents = placements.map { p ->
+            com.todocompanion.app.data.entity.EventEntity(
+                id = java.util.UUID.randomUUID().toString(), calendarId = calId,
+                title = if (p.parts > 1) "${p.task.title} (${p.part}/${p.parts})" else p.task.title,
+                startMillis = p.startMillis, endMillis = p.endMillis,
+                linkedTaskId = p.task.id, createdAt = now, updatedAt = now)
+        }
+        repo.upsertEvents(newEvents)
+        toast("Scheduled ${newEvents.size} block${if (newEvents.size == 1) "" else "s"} into today's gaps."); onDone(newEvents.size)
+    }
+
+    /** Self-healing habit block: drop a busy block for [habit] near its preferred time, sliding it to the
+     *  nearest free slot so a new event never simply buries the window. */
+    fun placeHabitBlock(habit: com.todocompanion.app.data.entity.HabitEntity, day: Long, durationMin: Int = 30, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+        val calId = ensureDefaultCalendar()
+        val evs = repo.eventsOnce()
+        val prefMin = habit.reminderTimes.split(",").mapNotNull { it.trim().toIntOrNull() }.minOrNull()
+            ?: (settings.value.workStartHour * 60)
+        val start = com.todocompanion.app.domain.calendar.CalendarPlanner.slideToFree(
+            day, prefMin, durationMin, evs, settings.value.workStartHour, settings.value.workEndHour, zone)
+        if (start == null) { toast("No free time to defend “${habit.name}” today."); onDone(false); return@launch }
+        val now = System.currentTimeMillis()
+        val e = com.todocompanion.app.data.entity.EventEntity(
+            id = java.util.UUID.randomUUID().toString(), calendarId = calId,
+            title = "${habit.emoji ?: "🔁"} ${habit.name}".trim(),
+            startMillis = start, endMillis = start + durationMin * 60000L,
+            colorArgb = habit.colorArgb, createdAt = now, updatedAt = now)
+        repo.upsertEvent(e); com.todocompanion.app.reminders.AlarmScheduler.scheduleEventAlerts(appCtx, e)
+        val hm = java.time.Instant.ofEpochMilli(start).atZone(zone).let { "%02d:%02d".format(it.hour, it.minute) }
+        toast("Protected “${habit.name}” at $hm."); onDone(true)
+    }
+
+    /** Duplicate an event (a fresh one-off copy, one day later if it recurs — the fast "again" action). */
+    fun duplicateEvent(id: String) = viewModelScope.launch {
+        val e = repo.eventById(id) ?: return@launch
+        val now = System.currentTimeMillis()
+        val copy = e.copy(id = java.util.UUID.randomUUID().toString(), rrule = "", recurrenceParentId = null,
+            recurrenceDate = 0, exDates = "", createdAt = now, updatedAt = now)
+        repo.upsertEvent(copy); com.todocompanion.app.reminders.AlarmScheduler.scheduleEventAlerts(appCtx, copy)
+        toast("Duplicated “${e.title}”.")
+    }
+
+    // Event templates (stored in settings JSON) ------------------------------------------------------
+    val eventTemplates: StateFlow<List<com.todocompanion.app.domain.calendar.EventTemplate>> =
+        settings.map { com.todocompanion.app.domain.calendar.EventTemplates.parse(it.eventTemplatesJson) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    fun saveEventTemplate(t: com.todocompanion.app.domain.calendar.EventTemplate) = viewModelScope.launch {
+        val list = com.todocompanion.app.domain.calendar.EventTemplates.upsert(eventTemplates.value, t)
+        repo.saveSettings(settings.value.copy(eventTemplatesJson = com.todocompanion.app.domain.calendar.EventTemplates.encode(list)))
+    }
+    fun deleteEventTemplate(id: String) = viewModelScope.launch {
+        val list = com.todocompanion.app.domain.calendar.EventTemplates.remove(eventTemplates.value, id)
+        repo.saveSettings(settings.value.copy(eventTemplatesJson = com.todocompanion.app.domain.calendar.EventTemplates.encode(list)))
+    }
+    /** Drop a template onto the calendar at [startMillis]. */
+    fun applyEventTemplate(t: com.todocompanion.app.domain.calendar.EventTemplate, startMillis: Long) = viewModelScope.launch {
+        val calId = t.calendarId.ifBlank { ensureDefaultCalendar() }
+        val now = System.currentTimeMillis()
+        val e = com.todocompanion.app.data.entity.EventEntity(
+            id = java.util.UUID.randomUUID().toString(), calendarId = calId, title = t.title,
+            location = t.location, startMillis = startMillis, endMillis = startMillis + t.durationMin.coerceAtLeast(5) * 60000L,
+            colorArgb = t.colorArgb, alertsMinutes = t.alertsMinutes, busy = t.busy, createdAt = now, updatedAt = now)
+        repo.upsertEvent(e); com.todocompanion.app.reminders.AlarmScheduler.scheduleEventAlerts(appCtx, e)
+        toast("Added “${t.title}”.")
+    }
+
+    fun setSecondaryZone(zoneId: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(secondaryZoneId = zoneId.trim())) }
+
+    /** Self-calibrating estimate signal: median actual/planned ratio across tasks you both estimated and
+     *  tracked. Null until there are ≥3 samples. Surfaced in the task editor's estimate field. */
+    val estimateBias: StateFlow<com.todocompanion.app.domain.calendar.CalendarPlanner.EstimateBias?> =
+        combine(tasks, timeEntries) { t, e -> com.todocompanion.app.domain.calendar.CalendarPlanner.estimateBias(t, e) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Remembered travel minutes per place (for the auto travel buffer). */
+    val travelTimes: StateFlow<Map<String, Int>> =
+        settings.map { com.todocompanion.app.domain.calendar.TravelTimes.parse(it.travelTimesJson) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+    /** Reserve a "leave by" travel block ending when [eventStart] begins, and remember the figure for [place]. */
+    fun addTravelBuffer(eventStart: Long, minutes: Int, place: String, calendarId: String) = viewModelScope.launch {
+        if (minutes <= 0) return@launch
+        val calId = calendarId.ifBlank { ensureDefaultCalendar() }
+        val now = System.currentTimeMillis()
+        val e = com.todocompanion.app.data.entity.EventEntity(
+            id = java.util.UUID.randomUUID().toString(), calendarId = calId,
+            title = "🚗 Travel${if (place.isNotBlank()) " to ${place.trim()}" else ""}",
+            startMillis = eventStart - minutes * 60000L, endMillis = eventStart,
+            alertsMinutes = "0", busy = true, createdAt = now, updatedAt = now)
+        repo.upsertEvent(e); com.todocompanion.app.reminders.AlarmScheduler.scheduleEventAlerts(appCtx, e)
+        val map = com.todocompanion.app.domain.calendar.TravelTimes.remember(travelTimes.value, place, minutes)
+        repo.saveSettings(settings.value.copy(travelTimesJson = com.todocompanion.app.domain.calendar.TravelTimes.encode(map)))
+    }
+
+    /** The weekly time-audit / retrospective — assembled off the four local data types. */
+    suspend fun buildWeeklyAudit(weekStartDay: Long): com.todocompanion.app.domain.calendar.CalendarPlanner.Audit {
+        val evs = repo.eventsOnce()
+        val entries = repo.timeEntriesOnce()
+        val tasks = repo.allTasksOnce()
+        // Habit adherence over the week: checked habit-days meeting target ÷ (habits × 7).
+        val ws = settings.value.activeWorkspaceId
+        val habits = repo.getHabitsOnce().filter { it.workspaceId == ws && !it.archived }
+        val targetById = habits.associate { it.id to it.targetPerDay.coerceAtLeast(1) }
+        val adherence = if (habits.isEmpty()) null else {
+            val checks = repo.getHabitCheckinsOnce().count { c ->
+                c.epochDay in weekStartDay until weekStartDay + 7 && targetById.containsKey(c.habitId) && c.count >= (targetById[c.habitId] ?: 1)
+            }
+            ((checks * 100f) / (habits.size * 7)).toInt().coerceIn(0, 100)
+        }
+        return com.todocompanion.app.domain.calendar.CalendarPlanner.weeklyAudit(
+            evs, entries, tasks, weekStartDay, settings.value.workStartHour, settings.value.workEndHour, adherence, zone)
+    }
+
     fun skipHabitDay(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, reason: String = "") = viewModelScope.launch {
         if (beforeStart(h, epochDay)) return@launch
         repo.skipDay(h.id, epochDay, reason); refreshHabitWidgets()

@@ -130,15 +130,15 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     }
     // GetContent (ACTION_GET_CONTENT) is answered by ordinary file managers, not only the system
     // document picker — so imports still work on devices without com.android.documentsui.
-    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) vm.importFrom(uri) { ok -> Toast.makeText(context, if (ok) "Imported" else "Import failed", Toast.LENGTH_SHORT).show() }
     }
     // Import from another app (Todoist/TickTick CSV, MLO OPML).
-    val importExternalLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    val importExternalLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) vm.importExternal(uri) { ok, msg -> Toast.makeText(context, msg, if (ok) Toast.LENGTH_LONG else Toast.LENGTH_LONG).show() }
     }
     // CU3: import a calendar (.ics) back into tasks — the other half of the 2-way bridge.
-    val importIcsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    val importIcsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) vm.importIcs(uri) { _, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() }
     }
     // Folder pickers for backup & sync — take a persistable grant so alarms can write later.
@@ -164,7 +164,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     val exportHabitsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         if (uri != null) vm.exportHabitsCsvTo(uri) { ok -> Toast.makeText(context, if (ok) "Habits exported" else "Export failed", Toast.LENGTH_SHORT).show() }
     }
-    val importHabitsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    val importHabitsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) vm.importHabitsCsv(uri) { _, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() }
     }
     // Opening the system document picker (Storage Access Framework) can throw
@@ -523,6 +523,17 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 TextButton(onClick = { vm.saveSettings(s.copy(workEndHour = (s.workEndHour - 1).coerceAtLeast(s.workStartHour + 1))) }) { Text("−") }
                 Text("%02d:00".format(s.workEndHour), style = MaterialTheme.typography.titleSmall)
                 TextButton(onClick = { vm.saveSettings(s.copy(workEndHour = (s.workEndHour + 1).coerceAtMost(24))) }) { Text("+") }
+            }
+            // R41 — a pinned secondary time-zone shown beside event times (a floating event keeps its wall clock).
+            Spacer(Modifier.height(10.dp)); Sub("Second time-zone (calendar rail)")
+            Text("Shown alongside event times in the editor. Off uses only your device zone.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                val zones = listOf("" to "Off", "UTC" to "UTC", "America/New_York" to "New York", "America/Los_Angeles" to "LA",
+                    "Europe/London" to "London", "Asia/Dubai" to "Dubai", "Asia/Kolkata" to "India", "Asia/Tokyo" to "Tokyo")
+                zones.forEach { (id, label) ->
+                    FilterChip(selected = s.secondaryZoneId == id, onClick = { vm.setSecondaryZone(id) }, label = { Text(label) })
+                }
             }
             Spacer(Modifier.height(10.dp)); Sub("Deep-work goal")
             Text("Minutes of focused time you aim for each day. Powers the Focus coach's progress and streak.",
@@ -883,7 +894,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             // Restore uses the SYSTEM file picker (ACTION_GET_CONTENT) first — no storage permission, and it
             // shows your files straight away. The in-app browser is only the fallback (offered below, and
             // reached automatically if the device has no system picker at all).
-            Action("Restore a backup…") { safeImport { importLauncher.launch("*/*") } }
+            Action("Restore a backup…") { safeImport { importLauncher.launch(arrayOf("*/*")) } }
             Action("Send a copy to another device") { vm.shareBackupCopy() }
             // A permissionless alternative: a list of backups the app can already reach (its own saved
             // copies in Downloads + anything dropped into the import inbox). No picker, no permission.
@@ -1089,9 +1100,9 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         title = { Text("Import from another app…") },
         text = {
             Column {
-                ChooserRow("Todoist / TickTick / MLO", "Their CSV export, or MLO's OPML") { showImportChooser = false; safeImport { importExternalLauncher.launch("*/*") } }
-                ChooserRow("Calendar (.ics) → tasks", "Turn a calendar export into tasks") { showImportChooser = false; safeImport { importIcsLauncher.launch("*/*") } }
-                ChooserRow("Habits (Loop / CSV)", "Loop Habit Tracker's Checkmarks, or our CSV") { showImportChooser = false; safeImport { importHabitsLauncher.launch("*/*") } }
+                ChooserRow("Todoist / TickTick / MLO", "Their CSV export, or MLO's OPML") { showImportChooser = false; safeImport { importExternalLauncher.launch(arrayOf("*/*")) } }
+                ChooserRow("Calendar (.ics) → tasks", "Turn a calendar export into tasks") { showImportChooser = false; safeImport { importIcsLauncher.launch(arrayOf("*/*")) } }
+                ChooserRow("Habits (Loop / CSV)", "Loop Habit Tracker's Checkmarks, or our CSV") { showImportChooser = false; safeImport { importHabitsLauncher.launch(arrayOf("*/*")) } }
             }
         },
     )

@@ -103,7 +103,8 @@ class AgendaWidgetService : RemoteViewsService() {
 }
 
 private class AgendaFactory(private val context: Context, private val widgetId: Int) : RemoteViewsService.RemoteViewsFactory {
-    private data class Row(val id: String, val title: String, val sub: String, val overdue: Boolean)
+    private data class Row(val id: String, val title: String, val sub: String, val overdue: Boolean,
+                           val isEvent: Boolean = false, val sortKey: Long = Long.MAX_VALUE)
     private var rows: List<Row> = emptyList()
 
     override fun onCreate() {}
@@ -133,7 +134,7 @@ private class AgendaFactory(private val context: Context, private val widgetId: 
         val listId = if (scope.startsWith("list:")) scope.removePrefix("list:") else null
 
         val tasks = runBlocking { app.repository.allTasksOnce() }
-        rows = tasks.asSequence()
+        val taskRows = tasks.asSequence()
             .filter { !it.completed && !it.trashed && !it.abandoned }
             .filter { t ->
                 when {
@@ -143,7 +144,6 @@ private class AgendaFactory(private val context: Context, private val widgetId: 
                     else -> t.dueDate != null && t.dueDate!! < endToday   // "today" = today + overdue
                 }
             }
-            .sortedBy { it.dueDate ?: Long.MAX_VALUE }
             .map { t ->
                 val due = t.dueDate
                 val overdue = due != null && due < startToday
@@ -161,9 +161,28 @@ private class AgendaFactory(private val context: Context, private val widgetId: 
                         }
                     }
                 }
-                Row(t.id, t.title.ifBlank { "Untitled" }, sub, overdue)
-            }
-            .take(50).toList()
+                Row(t.id, t.title.ifBlank { "Untitled" }, sub, overdue, isEvent = false, sortKey = due ?: Long.MAX_VALUE)
+            }.toList()
+
+        // R41 — the agenda reads the dedicated calendar too: today's / this-week's EVENT occurrences,
+        // interleaved by start time. Only for the time-based scopes; a list-scoped widget stays tasks-only.
+        val eventRows = if (listId != null || scope == "scheduled") emptyList() else runBlocking {
+            val winEnd = if (scope == "next7") endWeek else endToday
+            com.todocompanion.app.domain.calendar.CalendarEngine.expand(app.repository.eventsOnce(), startToday, winEnd, zone)
+                .filter { it.endMillis >= System.currentTimeMillis() && it.startMillis < winEnd }
+                .map { o ->
+                    val st = Instant.ofEpochMilli(o.startMillis).atZone(zone)
+                    val d = st.toLocalDate()
+                    val sub = when {
+                        o.event.allDay -> if (d == today) "All day" else "${d.dayOfMonth}/${d.monthValue} · all day"
+                        d == today -> "%02d:%02d".format(st.hour, st.minute)
+                        else -> "${d.dayOfMonth}/${d.monthValue} %02d:%02d".format(st.hour, st.minute)
+                    }
+                    Row("evt:${o.event.id}", o.event.title.ifBlank { "Event" }, sub, overdue = false, isEvent = true, sortKey = o.startMillis)
+                }
+        }
+
+        rows = (taskRows + eventRows).sortedBy { it.sortKey }.take(50)
     }
 
     override fun getViewAt(position: Int): RemoteViews {
@@ -172,9 +191,15 @@ private class AgendaFactory(private val context: Context, private val widgetId: 
             setTextViewText(R.id.item_title, r.title)
             setTextViewText(R.id.item_sub, r.sub)
             setTextColor(R.id.item_title, if (light) 0xFF1B1B2F.toInt() else 0xFFFFFFFF.toInt())
-            setTextColor(R.id.item_sub, if (r.overdue) 0xFFE5484D.toInt() else if (light) 0xFF6B6880.toInt() else 0xFFB9B4D0.toInt())
-            // Fill-in intent carries the task id back through the template.
-            val fill = Intent().putExtra(MainActivity.EXTRA_ACTION, "open_task:${r.id}")
+            setTextColor(R.id.item_sub, when {
+                r.isEvent -> 0xFF4F46E5.toInt()
+                r.overdue -> 0xFFE5484D.toInt()
+                light -> 0xFF6B6880.toInt()
+                else -> 0xFFB9B4D0.toInt()
+            })
+            // Fill-in intent: a task opens that task; a calendar event opens the app to the calendar.
+            val action = if (r.isEvent) "open_calendar" else "open_task:${r.id}"
+            val fill = Intent().putExtra(MainActivity.EXTRA_ACTION, action)
             setOnClickFillInIntent(R.id.item_root, fill)
         }
     }

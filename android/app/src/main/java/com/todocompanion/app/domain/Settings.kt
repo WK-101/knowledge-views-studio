@@ -179,6 +179,11 @@ data class AppSettings(
     val pointsBalance: Int = 0,
     // W6: routine tags — named bundles (activity + habit group) launched by one NFC/QR tap or shortcut.
     val routinesJson: String = "",
+    // R41 calendar: reusable event templates (JSON), a pinned secondary time-zone rail, and remembered
+    // per-place travel minutes (JSON map) for auto travel buffers. All local; round-trip in the backup.
+    val eventTemplatesJson: String = "",
+    val secondaryZoneId: String = "",
+    val travelTimesJson: String = "",
     // W5/W8: reminders suppressed for these habit ids / list ids (per-item mute; also feeds adaptive skip).
     val mutedHabits: Set<String> = emptySet(),
     val mutedLists: Set<String> = emptySet(),
@@ -353,6 +358,9 @@ data class AppSettings(
         Keys.REWARDS to rewardsJson,
         Keys.POINTS to pointsBalance.toString(),
         Keys.ROUTINES to routinesJson,
+        Keys.EVENT_TEMPLATES to eventTemplatesJson,
+        Keys.SECONDARY_ZONE to secondaryZoneId,
+        Keys.TRAVEL_TIMES to travelTimesJson,
         Keys.MUTED_HABITS to mutedHabits.joinToString(","),
         Keys.MUTED_LISTS to mutedLists.joinToString(","),
         Keys.GOALS to goalsJson,
@@ -482,6 +490,9 @@ data class AppSettings(
         const val REWARDS = "rewards"
         const val POINTS = "points_balance"
         const val ROUTINES = "routines"
+        const val EVENT_TEMPLATES = "event_templates"
+        const val SECONDARY_ZONE = "secondary_zone"
+        const val TRAVEL_TIMES = "travel_times"
         const val MUTED_HABITS = "muted_habits"
         const val MUTED_LISTS = "muted_lists"
         const val GOALS = "goals"
@@ -603,6 +614,9 @@ data class AppSettings(
             rewardsJson = m[Keys.REWARDS] ?: "",
             pointsBalance = m[Keys.POINTS]?.toIntOrNull() ?: 0,
             routinesJson = m[Keys.ROUTINES] ?: "",
+            eventTemplatesJson = m[Keys.EVENT_TEMPLATES] ?: "",
+            secondaryZoneId = m[Keys.SECONDARY_ZONE] ?: "",
+            travelTimesJson = m[Keys.TRAVEL_TIMES] ?: "",
             mutedHabits = (m[Keys.MUTED_HABITS] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             mutedLists = (m[Keys.MUTED_LISTS] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             goalsJson = m[Keys.GOALS] ?: "",

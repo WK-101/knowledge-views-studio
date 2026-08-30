@@ -124,7 +124,10 @@ fun DateReminderSheet(
     }
 
     fun confirm() {
-        val effectiveAllDay = allDay || (hasDate && time == null)
+        // R41 — a date with no time is all-day ONLY when no duration is set either. Time and Duration are
+        // independent: a length picked without a clock time (e.g. "this will take 90m, no fixed time") must
+        // survive as a duration, not silently become an all-day entry that drops the length.
+        val effectiveAllDay = allDay || (hasDate && time == null && durationMin == null)
         val due = if (!hasDate) null else java.time.LocalDateTime.of(date, time ?: LocalTime.MIDNIGHT).atZone(zone).toInstant().toEpochMilli()
         onConfirm(DateChoice(
             dueMillis = due,

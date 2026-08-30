@@ -46,6 +46,20 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:mimeType="*/*" />
         </intent>
+        <!-- R41: camera + gallery + the system Photo Picker. On Android 11+ package visibility, launching
+             ACTION_IMAGE_CAPTURE / ACTION_PICK throws "no activity found" unless the app can SEE the
+             handling packages — this is exactly what Todoist declares. SAF (OPEN_DOCUMENT above) is
+             visibility-exempt, but these third-party-handled intents are not. All local; no network. -->
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.PICK" />
+            <data android:mimeType="image/*" />
+        </intent>
+        <intent>
+            <action android:name="android.provider.action.PICK_IMAGES" />
+        </intent>
     </queries>
 
     <application
