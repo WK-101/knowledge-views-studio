@@ -23,6 +23,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.SwapVert
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Verified
@@ -47,6 +50,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -112,6 +116,13 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
     var winsOnly by remember { mutableStateOf(false) }
     var showBrag by remember { mutableStateOf(false) }
     var exportMenu by remember { mutableStateOf(false) }
+    // R31 #7 — extensive filters over the record: by type, by list, and a newest/oldest sort.
+    val typeFilter = remember { mutableStateListOf<com.todocompanion.app.domain.done.DoneKind>() } // empty = every type
+    var listFilter by remember { mutableStateOf<String?>(null) }                                    // null = every list
+    var oldestFirst by remember { mutableStateOf(false) }
+    // Day groups are FOLDED by default (the history gets long); this holds the days the user opened.
+    val expandedDays = remember { mutableStateListOf<Long>() }
+    var listMenu by remember { mutableStateOf(false) }
 
     // R28 Phase 3 — minutes actually tracked per task (for the honesty ledger: estimate vs. real).
     val trackedByTask = remember(timeEntries) {
@@ -149,16 +160,25 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
         return
     }
 
-    val shown = remember(rangedFeed, query, winsOnly, listNameById) {
+    val shown = remember(rangedFeed, query, winsOnly, listNameById, typeFilter.toList(), listFilter) {
         val q = query.trim().lowercase()
+        val types = typeFilter.toSet()
         rangedFeed.filter { a ->
             (!winsOnly || a.isWin) &&
+                (types.isEmpty() || a.kind in types) &&
+                (listFilter == null || a.listId == listFilter) &&
                 (q.isEmpty() || a.title.lowercase().contains(q) ||
                     (a.outcome?.lowercase()?.contains(q) == true) ||
                     (a.listId?.let { listNameById[it] }?.lowercase()?.contains(q) == true))
         }
     }
-    val byDay = remember(shown) { shown.groupBy { it.epochDay }.toSortedMap(compareByDescending { it }) }
+    val byDay = remember(shown, oldestFirst) {
+        val cmp = if (oldestFirst) compareBy<Long> { it } else compareByDescending<Long> { it }
+        shown.groupBy { it.epochDay }.toSortedMap(cmp)
+    }
+    // Lists that actually appear in the (ranged) record, for the list filter menu.
+    val feedListIds = remember(rangedFeed) { rangedFeed.mapNotNull { it.listId }.distinct() }
+    val anyFilterActive = query.isNotBlank() || winsOnly || typeFilter.isNotEmpty() || listFilter != null
 
     Scaffold(topBar = {
         TopAppBar(
@@ -234,7 +254,7 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
             if (onThisDay.isNotEmpty()) item(key = "onthisday") { OnThisDayCard(onThisDay, listNameById) }
             // Trophy case — the wins, front and centre.
             if (wins.isNotEmpty()) item(key = "trophies") { TrophyCase(wins.take(12)) { onOpenTask(it) } }
-            // Search + wins filter.
+            // R31 #7 — extensive filters: search, type, list, wins, and a sort toggle.
             item(key = "filter") {
                 Column {
                     com.todocompanion.app.ui.components.AppTextField(
@@ -244,18 +264,66 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.size(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Type filters — toggle any subset; none selected = every type.
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        val types = listOf(
+                            com.todocompanion.app.domain.done.DoneKind.TASK to "Tasks",
+                            com.todocompanion.app.domain.done.DoneKind.GOAL to "Goals",
+                            com.todocompanion.app.domain.done.DoneKind.PROJECT to "Projects",
+                            com.todocompanion.app.domain.done.DoneKind.HABIT to "Habits",
+                            com.todocompanion.app.domain.done.DoneKind.FOCUS to "Focus",
+                        )
+                        types.forEach { (k, lbl) ->
+                            val on = k in typeFilter
+                            FilterChip(selected = on, onClick = { if (on) typeFilter.remove(k) else typeFilter.add(k) }, label = { Text(lbl) })
+                        }
+                    }
+                    Spacer(Modifier.size(8.dp))
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                         FilterChip(selected = winsOnly, onClick = { winsOnly = !winsOnly }, label = { Text("Wins only") },
                             leadingIcon = { Icon(if (winsOnly) Icons.Filled.Star else Icons.Filled.StarBorder, null, Modifier.size(16.dp)) })
-                        Text("${shown.size} of ${rangedFeed.size}", style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.CenterVertically))
+                        // List filter — pick one of the lists that appears in the record.
+                        if (feedListIds.isNotEmpty()) Box {
+                            FilterChip(selected = listFilter != null, onClick = { listMenu = true },
+                                label = { Text(listFilter?.let { listNameById[it] ?: "List" } ?: "Any list") },
+                                trailingIcon = { Icon(Icons.Filled.KeyboardArrowDown, null, Modifier.size(16.dp)) })
+                            androidx.compose.material3.DropdownMenu(expanded = listMenu, onDismissRequest = { listMenu = false }) {
+                                androidx.compose.material3.DropdownMenuItem(text = { Text("Any list") }, onClick = { listFilter = null; listMenu = false })
+                                feedListIds.forEach { id ->
+                                    androidx.compose.material3.DropdownMenuItem(text = { Text(listNameById[id] ?: "List") }, onClick = { listFilter = id; listMenu = false })
+                                }
+                            }
+                        }
+                        // Sort order.
+                        FilterChip(selected = oldestFirst, onClick = { oldestFirst = !oldestFirst },
+                            label = { Text(if (oldestFirst) "Oldest first" else "Newest first") },
+                            leadingIcon = { Icon(Icons.Filled.SwapVert, null, Modifier.size(16.dp)) })
+                        if (anyFilterActive) androidx.compose.material3.TextButton(onClick = {
+                            query = ""; winsOnly = false; typeFilter.clear(); listFilter = null
+                        }) { Text("Clear") }
+                    }
+                    Spacer(Modifier.size(6.dp))
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("${shown.size} of ${rangedFeed.size} shown", style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.weight(1f))
+                        val allDays = byDay.keys.toList()
+                        val allOpen = allDays.isNotEmpty() && allDays.all { it in expandedDays }
+                        androidx.compose.material3.TextButton(onClick = {
+                            if (allOpen) expandedDays.clear() else { expandedDays.clear(); expandedDays.addAll(allDays) }
+                        }) { Text(if (allOpen) "Collapse all" else "Expand all") }
                     }
                 }
             }
-            // The feed, grouped by day.
+            // The feed, grouped by day — each day FOLDED by default (tap the header to open it).
             byDay.forEach { (epochDay, dayItems) ->
-                item(key = "day-$epochDay") { DayHeader(LocalDate.ofEpochDay(epochDay), today, dayItems) }
-                items(dayItems, key = { it.kind.name + it.refId + it.whenMillis }) { a ->
+                val open = epochDay in expandedDays
+                val ordered = if (oldestFirst) dayItems.sortedBy { it.whenMillis } else dayItems.sortedByDescending { it.whenMillis }
+                item(key = "day-$epochDay") {
+                    DayHeader(LocalDate.ofEpochDay(epochDay), today, dayItems, expanded = open,
+                        onToggle = { if (open) expandedDays.remove(epochDay) else expandedDays.add(epochDay) })
+                }
+                if (open) items(ordered, key = { it.kind.name + it.refId + it.whenMillis }) { a ->
                     AccomplishmentRow(a, listNameById[a.listId], onOpen = { if (a.isTaskLike) onOpenTask(a.refId) },
                         onToggleWin = if (a.isTaskLike) { { tasks.firstOrNull { t -> t.id == a.refId }?.let { vm.toggleWin(it) } } } else null,
                         onShareReceipt = if (a.isTaskLike) { { vm.shareReceipt(a, listNameById[a.listId]) } } else null)
@@ -406,7 +474,7 @@ private fun TrophyCase(wins: List<Accomplishment>, onOpen: (String) -> Unit) {
 }
 
 @Composable
-private fun DayHeader(day: LocalDate, today: LocalDate, items: List<Accomplishment>) {
+private fun DayHeader(day: LocalDate, today: LocalDate, items: List<Accomplishment>, expanded: Boolean = true, onToggle: (() -> Unit)? = null) {
     val label = when (day) {
         today -> "Today"
         today.minusDays(1) -> "Yesterday"
@@ -414,11 +482,20 @@ private fun DayHeader(day: LocalDate, today: LocalDate, items: List<Accomplishme
             (if (day.year != today.year) " ${day.year}" else "")
     }
     val focusMin = items.filter { it.kind == DoneKind.FOCUS }.sumOf { it.durationMin }
-    Row(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+    // R31 #7 — the whole header is a fold toggle so a long history collapses to a scannable list of days.
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).let { if (onToggle != null) it.clickable { onToggle() } else it }
+        .padding(top = 6.dp, bottom = 4.dp, start = 2.dp, end = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (onToggle != null) {
+            Icon(if (expanded) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight, null,
+                tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.size(4.dp))
+        }
         Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.weight(1f))
         Text(buildString {
             append("${items.count { it.isTaskLike }} done")
+            val h = items.count { it.kind == DoneKind.HABIT }
+            if (h > 0) append(" · $h habit${if (h > 1) "s" else ""}")
             if (focusMin > 0) append(" · ${focusMin}m focus")
         }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }

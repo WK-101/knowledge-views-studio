@@ -898,6 +898,9 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         Spacer(Modifier.height(20.dp))
         Text("ToDo Companion · Phase 1a · offline & private by construction (no network permission).",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // R31 #2 — the same maker's mark that closes the sidebar.
+        com.todocompanion.app.ui.components.AppSignature()
+        Spacer(Modifier.height(8.dp))
     }
     }
 

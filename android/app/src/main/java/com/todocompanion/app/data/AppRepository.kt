@@ -704,8 +704,15 @@ class AppRepository(private val db: AppDatabase) {
     }
 
     suspend fun moveListToFolder(listId: String, folderId: String?) {
+        val all = lists.getAll()
+        val list = all.firstOrNull { it.id == listId } ?: return
         // Moving into a folder makes the list top-level there (clears any list nesting).
-        lists.getById(listId)?.let { lists.upsert(it.copy(folderId = folderId, parentListId = null, sortOrder = now().toDouble())) }
+        lists.upsert(list.copy(folderId = folderId, parentListId = null, sortOrder = now().toDouble()))
+        // R31 #3 — carry the whole sub-list subtree into the new folder too, so folder counts, folder
+        // views and folder-scoped filters/calendar/matrix stay consistent with the sidebar's visual
+        // nesting. Without this, a moved parent's children keep a stale folderId and silently vanish
+        // from the target folder's totals while lingering in the old folder's.
+        cascadeSublistFolder(listId, folderId, all)
     }
 
     /** Nest a list under another list (or pass null to un-nest to folder root). Cycle-safe;
@@ -724,6 +731,24 @@ class AppRepository(private val db: AppDatabase) {
         if (parentListId != null && parentListId in descendants) return
         val newFolder = if (parentListId != null) all.firstOrNull { it.id == parentListId }?.folderId else list.folderId
         lists.upsert(list.copy(parentListId = parentListId, folderId = newFolder, sortOrder = now().toDouble()))
+        // R31 #3 — descendants follow the moved list into its new folder (see moveListToFolder).
+        cascadeSublistFolder(listId, newFolder, all)
+    }
+
+    /** Push [folderId] onto every list nested (directly or transitively) under [rootListId] via
+     *  parentListId. The [snapshot] is the list of all lists read before the root was re-parented, so
+     *  the descendant edges are still intact. The root itself is assumed already updated by the caller. */
+    private suspend fun cascadeSublistFolder(rootListId: String, folderId: String?, snapshot: List<ListEntity>) {
+        val descendants = mutableSetOf(rootListId)
+        var changed = true
+        while (changed) {
+            changed = false
+            snapshot.forEach { if (it.parentListId in descendants && it.id !in descendants) { descendants.add(it.id); changed = true } }
+        }
+        descendants.remove(rootListId)
+        descendants.forEach { id ->
+            snapshot.firstOrNull { it.id == id }?.let { if (it.folderId != folderId) lists.upsert(it.copy(folderId = folderId)) }
+        }
     }
 
     suspend fun moveFolderToParent(folderId: String, parentId: String?) {

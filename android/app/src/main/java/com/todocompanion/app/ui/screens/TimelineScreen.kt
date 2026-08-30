@@ -81,7 +81,7 @@ fun TimelineScreen(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(Icons.Filled.ViewTimeline, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(48.dp))
                 Spacer(Modifier.height(10.dp))
-                Text("Nothing to schedule yet", style = MaterialTheme.typography.titleMedium)
+                Text("Nothing to schedule yet", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                 Text("Give a task a start or due date to see it on the timeline.",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -163,6 +163,9 @@ fun TimelineScreen(
                     Text(
                         task.title,
                         Modifier.width(titleWidth).clickable { onOpenTask(task.id) }.padding(horizontal = 10.dp),
+                        // R31 #6 — explicit colour so the frozen label column stays legible on the raw
+                        // background (esp. AMOLED), not the inherited default black.
+                        color = MaterialTheme.colorScheme.onSurface,
                         style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     )
                     Box(Modifier.fillMaxWidth().horizontalScroll(hScroll)) {

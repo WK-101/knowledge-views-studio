@@ -68,7 +68,9 @@ enum class UndoKind { COMPLETED, ABANDONED, TRASHED }
 
 /** What the full-screen habit editor is editing. A null [habit] means "create a new habit". */
 data class HabitEditRequest(val habit: com.todocompanion.app.data.entity.HabitEntity? = null)
-data class UndoEvent(val kind: UndoKind, val taskId: String, val message: String)
+/** [restore], when set, is the exact pre-action task snapshot to write back on Undo — used for a
+ *  recurring task's roll-forward, where "uncomplete" isn't enough (the due date & rule advanced). */
+data class UndoEvent(val kind: UndoKind, val taskId: String, val message: String, val restore: TaskEntity? = null)
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -890,6 +892,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 repo.upsertReminder(nr)
                 updated?.let { AlarmScheduler.schedule(appCtx, nr, it) }
             }
+            // R31 #4 — a repeating task rolls forward silently; offer Undo too, restoring the exact
+            // occurrence (due date + rule) so completing a repeat is as reversible as any other finish.
+            undoEvents.tryEmit(UndoEvent(UndoKind.COMPLETED, t.id, "Completed “${t.title.take(30)}” — rolled to next occurrence", restore = t))
         } else {
             repo.setCompleted(t, !t.completed)
             if (!t.completed) {
@@ -971,6 +976,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         undoEvents.tryEmit(UndoEvent(UndoKind.TRASHED, t.id, "Moved to Trash"))
     }
     fun undo(e: UndoEvent) = viewModelScope.launch {
+        // A recurring roll-forward carries the exact pre-completion snapshot; restore it wholesale so the
+        // due date and rule return to where they were, not just the completed flag.
+        if (e.restore != null) { repo.saveTask(e.restore); return@launch }
         when (e.kind) {
             UndoKind.COMPLETED -> repo.getTask(e.taskId)?.let { repo.setCompleted(it, false) }
             UndoKind.ABANDONED -> repo.getTask(e.taskId)?.let { repo.setAbandoned(it, false) }

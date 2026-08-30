@@ -367,7 +367,32 @@ fun AppDrawer(
                 if ("annual" !in hidden) DrawerRow(Icons.Filled.EmojiEvents, "Year in review", pinned = vm.isPinned("more:annual"), onLongClick = { vm.togglePinnedRef("more:annual") }, onClick = onOpenAnnual)
             }
             }
+
+            // R31 #2 — a quiet signature at the foot of the drawer.
+            AppSignature()
         }
+    }
+}
+
+/** A tasteful maker's mark shown at the bottom of the sidebar and Settings. Centred, low-emphasis,
+ *  with a hairline above so it reads as a footer rather than another row. */
+@Composable
+fun AppSignature(modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxWidth().padding(top = 14.dp, bottom = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        androidx.compose.material3.HorizontalDivider(Modifier.padding(horizontal = 40.dp).padding(bottom = 10.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .6f))
+        Text(
+            "Created by W A Khan",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            letterSpacing = 0.6.sp,
+        )
+        Text(
+            "Crafted with care · fully offline",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .7f),
+            modifier = Modifier.padding(top = 2.dp),
+        )
     }
 }
 

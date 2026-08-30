@@ -74,9 +74,12 @@ import com.todocompanion.app.domain.habit.HabitStats
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
 import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.PointerEventTimeoutCancellationException
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.Composable
@@ -677,32 +680,59 @@ private fun ManualReorderList(
                     enabled = draggingId == null && !selectionMode, isTrashRestore = false,
                     onAct = { a -> onSwipe(vm, a, task, false, {}, { onOpenTask(task.id) }, { onOpenTask(task.id) }) },
                 ) {
-                    // R30 #1 (fixed) — one deterministic gesture on this inner Box. A quick tap falls through
-                    // to the row's clickable (open/toggle). A HELD press (long-press) grabs the row, and we
-                    // CONSUME the release so the tap can't also fire: release-in-place selects, drag reorders/
-                    // nests. A pre-hold move is left unconsumed, so the outer swipe and the list scroll still
-                    // work. This replaces the racy clickable-vs-drag split the review flagged.
+                    // R31 #1 (fixed) — ONE gesture arbiter on this inner Box, so a long-press can never ALSO
+                    // register as a tap (the bug: hold selected AND opened). We race the long-press timeout
+                    // against an early release (=tap → open) and a slop-exceeding move (=scroll/swipe → hand
+                    // it back to the parent). Only a genuine hold grabs the row; then release-in-place selects
+                    // and drag reorders/nests. The child completion-circle still wins its own taps because we
+                    // bail the instant its change is consumed. There is no row-level clickable anymore — this
+                    // is the sole tap/long-press authority, with matching a11y semantics below.
+                    val openRow: () -> Unit = { if (selectionMode) onToggleSel(task.id) else onOpenTask(task.id) }
                     Box(
-                        Modifier.pointerInput(task.id) {
-                            awaitEachGesture {
-                                val down = awaitFirstDown(requireUnconsumed = false)
-                                val lp = awaitLongPressOrCancellation(down.id) ?: return@awaitEachGesture
-                                startRowDrag(task.id)
-                                lp.consume()
-                                while (true) {
-                                    val event = awaitPointerEvent()
-                                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                                    if (!change.pressed) { change.consume(); break }
-                                    val d = change.positionChange()
-                                    if (d != Offset.Zero) { onRowDrag(d.y, d.x); change.consume() }
+                        Modifier
+                            .pointerInput(task.id, selectionMode) {
+                                awaitEachGesture {
+                                    val down = awaitFirstDown(requireUnconsumed = false)
+                                    var longPress = false
+                                    var tap = false
+                                    try {
+                                        withTimeout(viewConfiguration.longPressTimeoutMillis) {
+                                            var travel = Offset.Zero
+                                            while (true) {
+                                                val e = awaitPointerEvent()
+                                                val c = e.changes.firstOrNull { it.id == down.id }
+                                                if (c == null || c.isConsumed) return@withTimeout   // taken by a child (checkbox) or scroll
+                                                if (!c.pressed) { tap = true; return@withTimeout }   // released in place → tap
+                                                travel += c.positionChange()
+                                                if (travel.getDistance() > viewConfiguration.touchSlop) return@withTimeout // moved → scroll/swipe
+                                            }
+                                        }
+                                    } catch (_: PointerEventTimeoutCancellationException) {
+                                        longPress = true                                           // held past the timeout → grab
+                                    }
+                                    if (longPress) {
+                                        startRowDrag(task.id)
+                                        currentEvent.changes.forEach { it.consume() }              // claim the stream so scroll/tap can't react
+                                        while (true) {
+                                            val event = awaitPointerEvent()
+                                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                            if (!change.pressed) { change.consume(); break }
+                                            val d = change.positionChange()
+                                            if (d != Offset.Zero) { onRowDrag(d.y, d.x); change.consume() }
+                                        }
+                                        endRowDrag()
+                                    } else if (tap) {
+                                        openRow()
+                                    }
                                 }
-                                endRowDrag()
                             }
-                        }
+                            .semantics {
+                                onClick(label = "Open") { openRow(); true }
+                                onLongClick(label = if (selectionMode) "Toggle selection" else "Select") { onToggleSel(task.id); true }
+                            }
                     ) {
                         ReorderRow(task, density, ctxByTask[task.id].orEmpty(), tagsByTask[task.id].orEmpty(), listNameOf(task.listId), labelNav,
                             selectionMode = selectionMode, selected = isSel,
-                            onOpen = { if (selectionMode) onToggleSel(task.id) else onOpenTask(task.id) },
                             onToggle = { vm.toggleComplete(task) },
                             onCycleFlag = { vm.cycleFlag(task) }, onToggleStar = { vm.toggleStar(task) },
                             onSetPriority = { vm.setPriority(task, it) })
@@ -719,17 +749,16 @@ private fun ReorderRow(
     task: TaskEntity, density: Density, contexts: List<Pair<String, Long?>>, tags: List<Pair<String, Long?>>, listName: String?,
     labelNav: TaskLabelNav? = null,
     selectionMode: Boolean = false, selected: Boolean = false,
-    onOpen: () -> Unit, onToggle: () -> Unit, onCycleFlag: () -> Unit, onToggleStar: () -> Unit,
+    onToggle: () -> Unit, onCycleFlag: () -> Unit, onToggleStar: () -> Unit,
     onSetPriority: ((PriorityLevel) -> Unit)? = null,
 ) {
     val level = PriorityLevel.from(task.importance, task.urgency)
     val done = task.completed || task.abandoned
     Row(
-        // Tap opens (toggles in selection mode). Long-press is handled by the drag detector wrapping this row
-        // (no onLongClick here, so the hold falls through to it): hold lifts the row, release-in-place selects,
-        // drag reorders/nests. No handle — the whole row is the grab target.
+        // Tap/long-press/drag are all owned by the single gesture arbiter on the wrapping Box (R31 #1),
+        // so this row carries NO clickable of its own — that split is exactly what let a hold both select
+        // and open. The completion circle keeps its own tap target; the rest of the row is the grab area.
         Modifier.fillMaxWidth()
-            .clickable(onClick = onOpen)
             .padding(start = 8.dp, end = 8.dp, top = rowVerticalPadding(density), bottom = rowVerticalPadding(density)),
         verticalAlignment = Alignment.Top,
     ) {

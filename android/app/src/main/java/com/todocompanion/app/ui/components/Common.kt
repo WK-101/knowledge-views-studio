@@ -472,7 +472,7 @@ fun EmptyState(
             contentAlignment = Alignment.Center,
         ) { Text(emoji, style = MaterialTheme.typography.displaySmall) }
         Spacer(Modifier.height(18.dp))
-        Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+        Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurface)
         Spacer(Modifier.height(6.dp))
         Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
         if (actionLabel != null && onAction != null) {

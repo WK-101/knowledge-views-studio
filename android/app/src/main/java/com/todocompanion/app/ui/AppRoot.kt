@@ -581,6 +581,12 @@ fun AppRoot(
           Box(Modifier.fillMaxSize().then(if (appBg != null) Modifier.background(appBg) else Modifier)) {
             Scaffold(
                 containerColor = if (appBg != null) Color.Transparent else MaterialTheme.colorScheme.background,
+                // R31 #6 — when an app-background gradient makes the container transparent, Material can't
+                // derive a content colour and LocalContentColor collapses to black, blacking out every
+                // uncoloured Text/Icon in the tab body (worst on AMOLED). Pin it to onBackground so the
+                // whole app stays legible under any theme + background combination.
+                contentColor = if (appBg != null) MaterialTheme.colorScheme.onBackground
+                    else androidx.compose.material3.contentColorFor(MaterialTheme.colorScheme.background),
                 topBar = {
                     // The calendar's combined header (menu · period ▾ · today · type · filter) is
                     // rendered right here in the app-bar slot, so its insets, height and button

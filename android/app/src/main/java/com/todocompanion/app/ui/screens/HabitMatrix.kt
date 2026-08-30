@@ -20,12 +20,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -95,6 +97,11 @@ fun HabitMatrix(vm: AppViewModel, density: Int, onOpenHabit: (HabitEntity) -> Un
     // Index check-ins by (habit, day) once so each cell is an O(1) lookup.
     val byKey = remember(checkins) { checkins.associateBy { it.habitId to it.epochDay } }
 
+    // R31 #6 — the matrix isn't wrapped in a Surface, so any Text without an explicit color would
+    // inherit the default LocalContentColor (Color.Black) and vanish on the AMOLED pure-black
+    // background. Pin the whole grid's content colour to the theme's onSurface so labels, day numbers
+    // and cell glyphs stay legible in light, dark AND amoled.
+    CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
     Column(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
             Row(Modifier.fillMaxWidth()) {
@@ -133,6 +140,7 @@ fun HabitMatrix(vm: AppViewModel, density: Int, onOpenHabit: (HabitEntity) -> Un
             }
             Spacer(Modifier.height(24.dp))
         }
+    }
     }
 }
 

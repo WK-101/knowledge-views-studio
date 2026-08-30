@@ -251,7 +251,7 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
                     Text("🌱", style = MaterialTheme.typography.headlineLarge)
                 }
                 Spacer(Modifier.size(14.dp))
-                Text("Build a habit", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("Build a habit", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                 Text("Track daily habits and keep your streak going.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.size(14.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
