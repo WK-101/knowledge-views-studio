@@ -806,6 +806,24 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
             Text("Every notification's Snooze button uses this.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
             HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+            // R59 (Wave 2) — quiet hours: hold overnight reminders and deliver them together in the morning.
+            Toggle("Quiet hours", s.quietHoursEnabled) { vm.saveSettings(s.copy(quietHoursEnabled = it)) }
+            if (s.quietHoursEnabled) {
+                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("From", Modifier.weight(1f))
+                    TextButton(onClick = { vm.saveSettings(s.copy(quietStartHour = (s.quietStartHour + 23) % 24)) }) { Text("−") }
+                    Text("%02d:00".format(s.quietStartHour), Modifier.widthIn(min = 52.dp), textAlign = TextAlign.Center)
+                    TextButton(onClick = { vm.saveSettings(s.copy(quietStartHour = (s.quietStartHour + 1) % 24)) }) { Text("+") }
+                    Spacer(Modifier.width(12.dp))
+                    Text("to", Modifier.weight(1f))
+                    TextButton(onClick = { vm.saveSettings(s.copy(quietEndHour = (s.quietEndHour + 23) % 24)) }) { Text("−") }
+                    Text("%02d:00".format(s.quietEndHour), Modifier.widthIn(min = 52.dp), textAlign = TextAlign.Center)
+                    TextButton(onClick = { vm.saveSettings(s.copy(quietEndHour = (s.quietEndHour + 1) % 24)) }) { Text("+") }
+                }
+                Text("Reminders due in this window are held and arrive together when it ends — a calm morning digest.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             Toggle("Daily summary notification", s.dailySummaryEnabled) { vm.saveSettings(s.copy(dailySummaryEnabled = it)) }
             // W8: per-list mute — silence reminders for chosen lists.
             val lists by vm.lists.collectAsState()

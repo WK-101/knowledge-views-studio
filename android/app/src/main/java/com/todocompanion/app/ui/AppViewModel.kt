@@ -4128,6 +4128,35 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.upsertReminder(r)
         AlarmScheduler.schedule(appCtx, r, task)
     }
+    /** R59 (Wave 2) — an expert reminder on the unified model: relativeToDeadline / dueDayAt (offsetMin =
+     *  minute-of-day) / whenOverdue / random, optionally recurring-with-count. Inherits the default tier. */
+    fun addExpertReminder(task: TaskEntity, type: String, offsetMin: Int = 0, repeatEveryMin: Int? = null, repeatCount: Int? = null) = viewModelScope.launch {
+        val (ann, esc) = defaultTierFlags(false)
+        val r = ReminderEntity(UUID.randomUUID().toString(), taskId = task.id, type = type, offsetMin = offsetMin,
+            annoying = ann, escalate = esc, repeatEveryMin = repeatEveryMin, repeatCount = repeatCount)
+        repo.upsertReminder(r)
+        AlarmScheduler.schedule(appCtx, r, task)
+    }
+    /** R59 (Wave 2) — a permission-free place reminder: armed against a named place, fired when you tell the
+     *  app you've arrived (NFC tag / QR / shortcut → todocompanion://arrive?place=…). No location tracking. */
+    fun addPlaceReminder(task: TaskEntity, placeName: String, onEnter: Boolean = true) = viewModelScope.launch {
+        val r = ReminderEntity(UUID.randomUUID().toString(), taskId = task.id, type = "location",
+            placeName = placeName.trim().ifBlank { "here" }, onEnter = onEnter)
+        repo.upsertReminder(r)
+    }
+    /** Fire every place reminder matching [place] (blank = all) — the arrival trigger. */
+    fun fireArrivalReminders(place: String) = viewModelScope.launch {
+        val target = place.trim().lowercase()
+        repo.allRemindersOnce().filter { it.type == "location" }.forEach { r ->
+            val pn = (r.placeName ?: "").trim().lowercase()
+            val match = target.isBlank() || pn.isBlank() || pn == target || pn.contains(target) || target.contains(pn)
+            if (!match) return@forEach
+            val t = repo.getTask(r.taskId) ?: return@forEach
+            if (!t.completed && !t.trashed && !t.abandoned)
+                com.todocompanion.app.reminders.Notifications.show(appCtx, t.id, t.title, r.id, r.annoying, r.escalate, 0,
+                    (if (r.onEnter) "📍 Arrived" else "📍 Leaving") + (r.placeName?.let { ": $it" } ?: ""))
+        }
+    }
     /** Toggle a reminder's persistent ("annoying") alarm — re-fires until the task is done. */
     fun setReminderAnnoying(reminder: ReminderEntity, task: TaskEntity, on: Boolean) = viewModelScope.launch {
         val nr = reminder.copy(annoying = on)

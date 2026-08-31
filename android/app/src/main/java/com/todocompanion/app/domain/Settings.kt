@@ -112,6 +112,11 @@ data class AppSettings(
     // newly created reminders, and the snooze duration (minutes) every notification's Snooze action uses.
     val defaultReminderTier: Int = 0,
     val defaultSnoozeMin: Int = 10,
+    // R59 (Wave 2) — quiet hours: reminders that would fire inside [quietStartHour, quietEndHour) are held
+    // and delivered together when quiet hours end (a morning digest of what you missed). Off by default.
+    val quietHoursEnabled: Boolean = false,
+    val quietStartHour: Int = 22,
+    val quietEndHour: Int = 7,
     // R46 Occasions — an ongoing notification pinning the next occasion (refreshed on app open / save), and
     // a daily reflective nudge (a finite-time reflection + today-in-history). Both default off, no new perm.
     val occasionLiveNotif: Boolean = false,
@@ -358,6 +363,9 @@ data class AppSettings(
         Keys.EVENING_H to eveningReviewHour.toString(),
         Keys.REMINDER_TIER to defaultReminderTier.toString(),
         Keys.SNOOZE_MIN to defaultSnoozeMin.toString(),
+        Keys.QUIET_ON to quietHoursEnabled.toString(),
+        Keys.QUIET_START to quietStartHour.toString(),
+        Keys.QUIET_END to quietEndHour.toString(),
         Keys.RELIABILITY to reliabilityOnboarded.toString(),
         Keys.COMPLETION_SOUND to completionSound.toString(),
         Keys.APP_LOCK to appLockEnabled.toString(),
@@ -509,6 +517,9 @@ data class AppSettings(
         const val EVENING_H = "evening_h"
         const val REMINDER_TIER = "reminder_tier"
         const val SNOOZE_MIN = "snooze_min"
+        const val QUIET_ON = "quiet_on"
+        const val QUIET_START = "quiet_start"
+        const val QUIET_END = "quiet_end"
         const val RELIABILITY = "reliability_onboarded"
         const val COMPLETION_SOUND = "completion_sound"
         const val APP_LOCK = "app_lock"
@@ -728,6 +739,9 @@ data class AppSettings(
             eveningReviewHour = m[Keys.EVENING_H]?.toIntOrNull()?.coerceIn(0, 23) ?: 20,
             defaultReminderTier = m[Keys.REMINDER_TIER]?.toIntOrNull()?.coerceIn(0, 2) ?: 0,
             defaultSnoozeMin = m[Keys.SNOOZE_MIN]?.toIntOrNull()?.coerceIn(1, 720) ?: 10,
+            quietHoursEnabled = m[Keys.QUIET_ON]?.toBooleanStrictOrNull() ?: false,
+            quietStartHour = m[Keys.QUIET_START]?.toIntOrNull()?.coerceIn(0, 23) ?: 22,
+            quietEndHour = m[Keys.QUIET_END]?.toIntOrNull()?.coerceIn(0, 23) ?: 7,
             reliabilityOnboarded = m[Keys.RELIABILITY]?.toBooleanStrictOrNull() ?: false,
             completionSound = m[Keys.COMPLETION_SOUND]?.toBooleanStrictOrNull() ?: false,
             appLockEnabled = m[Keys.APP_LOCK]?.toBooleanStrictOrNull() ?: false,

@@ -164,6 +164,9 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="todocompanion" android:host="track" />
                 <data android:scheme="todocompanion" android:host="routine" />
+                <!-- R59: permission-free place reminders — an NFC tag / QR encoding
+                     todocompanion://arrive?place=<name> fires the reminders armed for that place. -->
+                <data android:scheme="todocompanion" android:host="arrive" />
             </intent-filter>
         </activity>
 

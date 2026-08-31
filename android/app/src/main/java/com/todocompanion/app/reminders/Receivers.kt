@@ -20,6 +20,8 @@ class ReminderReceiver : BroadcastReceiver() {
         val annoying = intent.getBooleanExtra(AlarmScheduler.EXTRA_ANNOYING, false)
         val escalate = intent.getBooleanExtra(AlarmScheduler.EXTRA_ESCALATE, false)
         val step = intent.getIntExtra(AlarmScheduler.EXTRA_STEP, 0)
+        val repeatEvery = intent.getIntExtra(AlarmScheduler.EXTRA_REPEAT_EVERY, -1).takeIf { it > 0 }
+        val repeatCount = intent.getIntExtra(AlarmScheduler.EXTRA_REPEAT_COUNT, -1).takeIf { it > 0 }
 
         when (intent.action) {
             AlarmScheduler.ACTION_FIRE -> {
@@ -30,6 +32,14 @@ class ReminderReceiver : BroadcastReceiver() {
                         val task = app.repository.getTask(taskId)
                         // W8: suppress reminders for a task whose list the user has muted.
                         val listMuted = task?.listId != null && app.repository.settingsSnapshot().mutedLists.contains(task.listId)
+                        // R59 (Wave 2) — quiet hours: hold this reminder and re-arm it for when quiet hours end.
+                        val deferUntil = if (task != null && !task.completed && !task.trashed && !task.abandoned && !listMuted)
+                            AlarmScheduler.quietDeferUntil(System.currentTimeMillis()) else null
+                        if (deferUntil != null) {
+                            val delay = ((deferUntil - System.currentTimeMillis()) / 60_000L).coerceAtLeast(1)
+                            AlarmScheduler.scheduleFireIn(context, taskId, title, reminderId, annoying, delay, escalate, step, repeatEvery, repeatCount)
+                            return@launch
+                        }
                         if (task != null && !task.completed && !task.trashed && !task.abandoned && !listMuted) {
                             // R37 · Port 4 — reminder-wording MRT: on the first (non-escalation) fire, micro-
                             // randomise the motivational line and log the impression so the Nudge Lab can read
@@ -52,6 +62,10 @@ class ReminderReceiver : BroadcastReceiver() {
                                 escalate -> AlarmScheduler.scheduleFireIn(
                                     context, taskId, title, reminderId, annoying = true,
                                     delayMin = (6 - step).coerceIn(2, 5).toLong(), escalate = true, step = step + 1)
+                                // R59 (Wave 2) — recurring reminder with a count: re-fire every N min, up to the count.
+                                repeatCount != null && repeatCount >= 2 && repeatEvery != null && step + 1 < repeatCount ->
+                                    AlarmScheduler.scheduleFireIn(context, taskId, title, reminderId, annoying, repeatEvery.toLong(),
+                                        step = step + 1, repeatEvery = repeatEvery, repeatCount = repeatCount)
                                 annoying -> AlarmScheduler.scheduleFireIn(context, taskId, title, reminderId, true, 15)
                             }
                         }
@@ -236,7 +250,10 @@ class ReminderReceiver : BroadcastReceiver() {
                             val doneDays = checkins.filter { it.habitId == habitId && it.status == "done" && stats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
                             val todayCount = checkins.firstOrNull { it.habitId == habitId && it.epochDay == todayEpoch }?.count ?: 0
                             val stillDue = stats.dueToday(h, todayEpoch, doneDays, todayCount)
-                            if (scheduledToday && stillDue) Notifications.showHabit(context, habitId, name, min, why = h.description)
+                            // R59 (Wave 2) — honour quiet hours: skip the nudge when we're in the quiet window
+                            // (the habit re-arms for its next day regardless).
+                            if (scheduledToday && stillDue && AlarmScheduler.quietDeferUntil(System.currentTimeMillis()) == null)
+                                Notifications.showHabit(context, habitId, name, min, why = h.description)
                             AlarmScheduler.rescheduleHabit(context, habitId, name, min)
                         }
                     } finally { pending.finish() }

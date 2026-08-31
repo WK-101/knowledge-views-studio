@@ -63,9 +63,14 @@ data class TaskContextCrossRef(
 data class ReminderEntity(
     @PrimaryKey val id: String,
     val taskId: String,
-    val type: String = "absolute", // absolute | relativeToDue | relativeToStart | location
+    // R59 (Wave 2) — the unified reminder abstraction. type ∈
+    //   absolute | relativeToDue | relativeToStart | relativeToDeadline | dueDayAt | whenOverdue | random | location
+    val type: String = "absolute",
     val atTime: Long? = null,       // for absolute reminders (epoch millis)
-    val offsetMin: Int? = null,     // for relative reminders (minutes before)
+    val offsetMin: Int? = null,     // relative: minutes before · dueDayAt: minute-of-day · random: max lead window
+    // R59 (Wave 2) — recurring-reminder-with-count: re-fire every [repeatEveryMin] minutes, [repeatCount] times.
+    val repeatEveryMin: Int? = null,
+    val repeatCount: Int? = null,
     val contextId: String? = null,  // optional context this location reminder borrows coords from
     // Location reminders: fire on entering/leaving a radius around a point. All local (framework
     // proximity alerts) — no Play Services, no INTERNET.

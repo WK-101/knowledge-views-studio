@@ -49,6 +49,10 @@ class MainActivity : FragmentActivity() {
                 // R59 — keep the notification Snooze duration in sync with the setting.
                 rows.firstOrNull { it.key == com.todocompanion.app.domain.AppSettings.Keys.SNOOZE_MIN }?.value?.toIntOrNull()
                     ?.let { com.todocompanion.app.reminders.Notifications.snoozeMinutes = it.coerceIn(1, 720) }
+                // R59 (Wave 2) — keep quiet hours in sync.
+                com.todocompanion.app.reminders.AlarmScheduler.quietEnabled = flag(com.todocompanion.app.domain.AppSettings.Keys.QUIET_ON)
+                rows.firstOrNull { it.key == com.todocompanion.app.domain.AppSettings.Keys.QUIET_START }?.value?.toIntOrNull()?.let { com.todocompanion.app.reminders.AlarmScheduler.quietStartHour = it.coerceIn(0, 23) }
+                rows.firstOrNull { it.key == com.todocompanion.app.domain.AppSettings.Keys.QUIET_END }?.value?.toIntOrNull()?.let { com.todocompanion.app.reminders.AlarmScheduler.quietEndHour = it.coerceIn(0, 23) }
             }
         }
         // R45 — route every file/photo/document pick through the classic Activity result API.
@@ -222,6 +226,12 @@ class MainActivity : FragmentActivity() {
             // W6: a routine tag launches a whole ritual.
             if (d?.scheme == "todocompanion" && d.host == "routine") {
                 d.getQueryParameter("name")?.let { return ACTION_RUN_ROUTINE + it }
+            }
+            // R59 (Wave 2) — permission-free place reminders: an NFC tag / QR at a location encoding
+            // todocompanion://arrive?place=<name> fires the reminders you armed for that place. No location
+            // permission, no Play Services — you tell the app you've arrived, it never tracks you.
+            if (d?.scheme == "todocompanion" && d.host == "arrive") {
+                return "arrive:" + (d.getQueryParameter("place") ?: "")
             }
             // R17: static launcher shortcuts route through deep links so they carry reliably.
             if (d?.scheme == "todocompanion") when (d.host) {

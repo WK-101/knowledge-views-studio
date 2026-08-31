@@ -30,6 +30,10 @@ class App : Application() {
             Notifications.lockscreenPrivate = s0.lockscreenPrivacy
             // R59 — seed the snooze duration every notification's Snooze action uses.
             Notifications.snoozeMinutes = s0.defaultSnoozeMin
+            // R59 (Wave 2) — seed quiet hours so background reminders defer to morning even before any UI.
+            com.todocompanion.app.reminders.AlarmScheduler.quietEnabled = s0.quietHoursEnabled
+            com.todocompanion.app.reminders.AlarmScheduler.quietStartHour = s0.quietStartHour
+            com.todocompanion.app.reminders.AlarmScheduler.quietEndHour = s0.quietEndHour
             // (Re)arm per-habit reminder alarms for this device's current day. Cheap; self-healing.
             runCatching { com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(this@App, repository) }
             // R38 — (re)arm dedicated-calendar event alerts for the next upcoming occurrence of each event.

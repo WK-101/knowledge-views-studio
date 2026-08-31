@@ -1310,9 +1310,12 @@ private fun TaskReminderManager(vm: AppViewModel, task: TaskEntity, myReminders:
         }
         Box {
             var addMenu by remember { mutableStateOf(false) }
+            var placeDialog by remember { mutableStateOf(false) }
             TextButton(onClick = { addMenu = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Icon(Icons.Filled.Add, null); Spacer(Modifier.width(4.dp)); Text("Add reminder") }
             DropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
                 DropdownMenuItem(text = { Text("Pick a time…") }, onClick = { addMenu = false; onPickTime() })
+                // R59 (Wave 2) — permission-free place reminder (fired on arrival via NFC/QR/shortcut).
+                DropdownMenuItem(text = { Text("📍 At a place (arrival)…") }, onClick = { addMenu = false; placeDialog = true })
                 if (task.dueDate != null) {
                     HorizontalDivider()
                     com.todocompanion.app.domain.reminders.ReminderPresets.OFFSETS.forEach { off ->
@@ -1327,16 +1330,65 @@ private fun TaskReminderManager(vm: AppViewModel, task: TaskEntity, myReminders:
                         DropdownMenuItem(text = { Text(label) }, onClick = { vm.addRelativeReminder(task, "relativeToStart", off); addMenu = false })
                     }
                 }
+                // R59 (Wave 2) — expert reminder types on the unified model.
+                if (task.deadlineDate != null) {
+                    HorizontalDivider()
+                    DropdownMenuItem(enabled = false, text = { Text("Before deadline", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }, onClick = {})
+                    listOf(0, 60, 1440, 4320).forEach { off ->
+                        val label = if (off == 0) "At deadline" else "${com.todocompanion.app.domain.reminders.ReminderPresets.beforeLabel(off)} deadline"
+                        DropdownMenuItem(text = { Text(label) }, onClick = { vm.addExpertReminder(task, "relativeToDeadline", off); addMenu = false })
+                    }
+                }
+                if (task.dueDate != null) {
+                    HorizontalDivider()
+                    DropdownMenuItem(enabled = false, text = { Text("Expert", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }, onClick = {})
+                    DropdownMenuItem(text = { Text("When it becomes overdue") }, onClick = { vm.addExpertReminder(task, "whenOverdue"); addMenu = false })
+                    listOf(480 to "On the day at 08:00", 540 to "On the day at 09:00", 1080 to "On the day at 18:00").forEach { (m, l) ->
+                        DropdownMenuItem(text = { Text(l) }, onClick = { vm.addExpertReminder(task, "dueDayAt", m); addMenu = false })
+                    }
+                    DropdownMenuItem(text = { Text("Surprise me (random, before due)") }, onClick = { vm.addExpertReminder(task, "random", 120); addMenu = false })
+                    DropdownMenuItem(text = { Text("When due, then nag every 30m ×4") }, onClick = { vm.addExpertReminder(task, "relativeToDue", 0, 30, 4); addMenu = false })
+                    DropdownMenuItem(text = { Text("When overdue, nag every 1h ×3") }, onClick = { vm.addExpertReminder(task, "whenOverdue", 0, 60, 3); addMenu = false })
+                }
+            }
+            if (placeDialog) {
+                var place by remember { mutableStateOf("") }
+                AlertDialog(
+                    onDismissRequest = { placeDialog = false },
+                    confirmButton = { TextButton(onClick = { if (place.isNotBlank()) vm.addPlaceReminder(task, place.trim()); placeDialog = false }) { Text("Arm reminder") } },
+                    dismissButton = { TextButton(onClick = { placeDialog = false }) { Text("Cancel") } },
+                    title = { Text("Remind me at a place") },
+                    text = {
+                        Column {
+                            com.todocompanion.app.ui.components.AppTextField(place, { place = it }, singleLine = true, label = { Text("Place name (e.g. Office, Home)") }, modifier = Modifier.fillMaxWidth())
+                            Spacer(Modifier.height(10.dp))
+                            Text("Fully offline — the app never tracks your location. Trigger it when you arrive by scanning an NFC tag or QR code you place there, encoding:",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("todocompanion://arrive?place=${place.trim().ifBlank { "Office" }}",
+                                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))
+                        }
+                    },
+                )
             }
         }
     }
 }
 
-private fun reminderLabel(r: ReminderEntity): String = when (r.type) {
-    "absolute" -> r.atTime?.let { formatDue(it) } ?: "Reminder"
-    "relativeToDue" -> if ((r.offsetMin ?: 0) == 0) "When due" else "${offsetLabel(r.offsetMin)} before due"
-    "relativeToStart" -> if ((r.offsetMin ?: 0) == 0) "When it starts" else "${offsetLabel(r.offsetMin)} before start"
-    else -> r.type
+private fun reminderLabel(r: ReminderEntity): String {
+    val base = when (r.type) {
+        "absolute" -> r.atTime?.let { formatDue(it) } ?: "Reminder"
+        "relativeToDue" -> if ((r.offsetMin ?: 0) == 0) "When due" else "${offsetLabel(r.offsetMin)} before due"
+        "relativeToStart" -> if ((r.offsetMin ?: 0) == 0) "When it starts" else "${offsetLabel(r.offsetMin)} before start"
+        // R59 (Wave 2) — expert types.
+        "relativeToDeadline" -> if ((r.offsetMin ?: 0) == 0) "At deadline" else "${offsetLabel(r.offsetMin)} before deadline"
+        "dueDayAt" -> "On the day at %02d:%02d".format((r.offsetMin ?: 540) / 60, (r.offsetMin ?: 540) % 60)
+        "whenOverdue" -> "When overdue"
+        "random" -> "Surprise (within ${offsetLabel(r.offsetMin)} of due)"
+        "location" -> (if (r.onEnter) "📍 At " else "📍 Leaving ") + (r.placeName ?: "a place")
+        else -> r.type
+    }
+    return if ((r.repeatCount ?: 0) >= 2 && r.repeatEveryMin != null)
+        "$base · ×${r.repeatCount} every ${offsetLabel(r.repeatEveryMin)}" else base
 }
 
 /** A compact, unboxed property row (Todoist-style): icon · label · value · chevron. Tapping edits;

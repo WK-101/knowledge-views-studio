@@ -38,6 +38,8 @@ object AlarmScheduler {
     const val EXTRA_ANNOYING = "annoying"
     const val EXTRA_ESCALATE = "escalate"
     const val EXTRA_STEP = "step"
+    const val EXTRA_REPEAT_EVERY = "repeatEvery"   // R59 — recurring-reminder-with-count: interval (min)
+    const val EXTRA_REPEAT_COUNT = "repeatCount"   // ...total times to fire (>=2 to repeat)
     const val EXTRA_HABIT_ID = "habitId"
     const val EXTRA_HABIT_NAME = "habitName"
     const val EXTRA_HABIT_MIN = "habitMin"
@@ -53,14 +55,58 @@ object AlarmScheduler {
     private const val MORNING_REQ = 918_278
     private const val OCCASION_NUDGE_REQ = 918_279
 
-    fun triggerTimeFor(reminder: ReminderEntity, task: TaskEntity): Long? {
+    fun triggerTimeFor(reminder: ReminderEntity, task: TaskEntity, zone: ZoneId = ZoneId.systemDefault()): Long? {
         val offset = (reminder.offsetMin ?: 0) * 60_000L
         return when (reminder.type) {
             "absolute" -> reminder.atTime
             "relativeToDue" -> task.dueDate?.minus(offset)
             "relativeToStart" -> task.startDate?.minus(offset)
+            // R59 (Wave 2) — expert reminder types, all on the one abstraction.
+            "relativeToDeadline" -> task.deadlineDate?.minus(offset)
+            // All-day reminder at a chosen clock time (offsetMin = minute-of-day) on the due day.
+            "dueDayAt" -> task.dueDate?.let { dayAt(it, reminder.offsetMin ?: 540, zone) }
+            // Fire the moment it becomes overdue (timed → the due instant; all-day → end of the due day).
+            "whenOverdue" -> task.dueDate?.let { overdueMoment(it, zone) }
+            // A surprise nudge at a stable-random point within [offsetMin] minutes before due.
+            "random" -> task.dueDate?.let { it - randomLeadMs(reminder.id, reminder.offsetMin ?: 120) }
             else -> null
         }
+    }
+
+    private fun dayAt(dueMillis: Long, minuteOfDay: Int, zone: ZoneId): Long {
+        val day = Instant.ofEpochMilli(dueMillis).atZone(zone).toLocalDate()
+        return day.atStartOfDay(zone).toInstant().toEpochMilli() + minuteOfDay.coerceIn(0, 1439).toLong() * 60_000L
+    }
+
+    private fun overdueMoment(dueMillis: Long, zone: ZoneId): Long {
+        val dt = Instant.ofEpochMilli(dueMillis).atZone(zone)
+        return if (dt.hour == 0 && dt.minute == 0)
+            dt.toLocalDate().plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 60_000L
+        else dueMillis
+    }
+
+    private fun randomLeadMs(seed: String, maxLeadMin: Int): Long =
+        kotlin.random.Random(seed.hashCode().toLong()).nextInt(0, maxLeadMin.coerceAtLeast(1) + 1).toLong() * 60_000L
+
+    // ── R59 (Wave 2) · quiet hours ──────────────────────────────────────────────────────────────────
+    // Mirrored from the settings flow (reminders fire from background receivers). A reminder that would
+    // land inside [quietStartHour, quietEndHour) is deferred to when quiet hours end, so overnight alerts
+    // arrive together in the morning instead of waking you.
+    @Volatile var quietEnabled = false
+    @Volatile var quietStartHour = 22
+    @Volatile var quietEndHour = 7
+
+    /** If [nowMillis] is inside quiet hours, the epoch-millis when quiet hours next end; else null. */
+    fun quietDeferUntil(nowMillis: Long, zone: ZoneId = ZoneId.systemDefault()): Long? {
+        if (!quietEnabled || quietStartHour == quietEndHour) return null
+        val h = Instant.ofEpochMilli(nowMillis).atZone(zone).hour
+        val inQuiet = if (quietStartHour < quietEndHour) h in quietStartHour until quietEndHour
+        else (h >= quietStartHour || h < quietEndHour)
+        if (!inQuiet) return null
+        val today0 = Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate().atStartOfDay(zone)
+        var end = today0.plusHours(quietEndHour.toLong())
+        if (end.toInstant().toEpochMilli() <= nowMillis) end = end.plusDays(1)
+        return end.toInstant().toEpochMilli()
     }
 
     private fun broadcast(context: Context, action: String, requestCode: Int, extras: Map<String, Any?>): PendingIntent {
@@ -86,26 +132,27 @@ object AlarmScheduler {
         else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, pi)
     }
 
-    private fun fireExtras(taskId: String, title: String, reminderId: String, annoying: Boolean, escalate: Boolean = false, step: Int = 0) =
-        mapOf(EXTRA_TASK_ID to taskId, EXTRA_TITLE to title, EXTRA_REMINDER_ID to reminderId,
-            EXTRA_ANNOYING to annoying, EXTRA_ESCALATE to escalate, EXTRA_STEP to step)
+    private fun fireExtras(taskId: String, title: String, reminderId: String, annoying: Boolean, escalate: Boolean = false, step: Int = 0, repeatEvery: Int? = null, repeatCount: Int? = null) =
+        mapOf<String, Any?>(EXTRA_TASK_ID to taskId, EXTRA_TITLE to title, EXTRA_REMINDER_ID to reminderId,
+            EXTRA_ANNOYING to annoying, EXTRA_ESCALATE to escalate, EXTRA_STEP to step,
+            EXTRA_REPEAT_EVERY to repeatEvery, EXTRA_REPEAT_COUNT to repeatCount)
 
     fun schedule(context: Context, reminder: ReminderEntity, task: TaskEntity) {
         if (task.completed || task.trashed || task.abandoned) return
         val at = triggerTimeFor(reminder, task) ?: return
         if (at <= System.currentTimeMillis()) return
-        val pi = broadcast(context, ACTION_FIRE, reminder.id.hashCode(), fireExtras(task.id, task.title, reminder.id, reminder.annoying, reminder.escalate))
+        val pi = broadcast(context, ACTION_FIRE, reminder.id.hashCode(), fireExtras(task.id, task.title, reminder.id, reminder.annoying, reminder.escalate, 0, reminder.repeatEveryMin, reminder.repeatCount))
         setAlarm(context, at, pi)
     }
 
     fun cancel(context: Context, reminder: ReminderEntity, task: TaskEntity) {
         val am = context.getSystemService(AlarmManager::class.java) ?: return
-        am.cancel(broadcast(context, ACTION_FIRE, reminder.id.hashCode(), fireExtras(task.id, task.title, reminder.id, reminder.annoying, reminder.escalate)))
+        am.cancel(broadcast(context, ACTION_FIRE, reminder.id.hashCode(), fireExtras(task.id, task.title, reminder.id, reminder.annoying, reminder.escalate, 0, reminder.repeatEveryMin, reminder.repeatCount)))
     }
 
-    /** Re-fire a reminder after [delayMin] minutes (snooze / annoying repeat / escalation). */
-    fun scheduleFireIn(context: Context, taskId: String, title: String, reminderId: String, annoying: Boolean, delayMin: Long, escalate: Boolean = false, step: Int = 0) {
-        val pi = broadcast(context, ACTION_FIRE, reminderId.hashCode(), fireExtras(taskId, title, reminderId, annoying, escalate, step))
+    /** Re-fire a reminder after [delayMin] minutes (snooze / annoying repeat / escalation / recurring / quiet-defer). */
+    fun scheduleFireIn(context: Context, taskId: String, title: String, reminderId: String, annoying: Boolean, delayMin: Long, escalate: Boolean = false, step: Int = 0, repeatEvery: Int? = null, repeatCount: Int? = null) {
+        val pi = broadcast(context, ACTION_FIRE, reminderId.hashCode(), fireExtras(taskId, title, reminderId, annoying, escalate, step, repeatEvery, repeatCount))
         setAlarm(context, System.currentTimeMillis() + delayMin * 60_000L, pi)
     }
 
