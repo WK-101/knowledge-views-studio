@@ -827,13 +827,13 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Toggle("Pin next occasion to notifications", s.occasionLiveNotif) { vm.saveSettings(s.copy(occasionLiveNotif = it)); vm.refreshOccasionNotification() }
             Text("A quiet, ongoing note showing the soonest birthday, anniversary or countdown.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Toggle("Daily reflection", s.occasionNudge) { vm.saveSettings(s.copy(occasionNudge = it)) }
+            Toggle("Daily reflection", s.occasionNudge) { vm.saveSettings(s.copy(occasionNudge = it)); vm.applyOccasionNudge() }
             if (s.occasionNudge) {
                 Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Reflection time", Modifier.weight(1f))
-                    TextButton(onClick = { vm.saveSettings(s.copy(occasionNudgeHour = (s.occasionNudgeHour - 1).coerceAtLeast(0))) }) { Text("−") }
+                    TextButton(onClick = { vm.saveSettings(s.copy(occasionNudgeHour = (s.occasionNudgeHour - 1).coerceAtLeast(0))); vm.applyOccasionNudge() }) { Text("−") }
                     Text("%02d:00".format(s.occasionNudgeHour), Modifier.widthIn(min = 52.dp), textAlign = TextAlign.Center)
-                    TextButton(onClick = { vm.saveSettings(s.copy(occasionNudgeHour = (s.occasionNudgeHour + 1).coerceAtMost(23))) }) { Text("+") }
+                    TextButton(onClick = { vm.saveSettings(s.copy(occasionNudgeHour = (s.occasionNudgeHour + 1).coerceAtMost(23))); vm.applyOccasionNudge() }) { Text("+") }
                 }
                 Text("One gentle, finite-time thought a day, paired with a this-day-in-history note. No cloud.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

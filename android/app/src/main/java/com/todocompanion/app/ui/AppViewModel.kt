@@ -239,6 +239,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val on = settings.value.occasionLiveNotif
         com.todocompanion.app.reminders.Notifications.refreshOccasion(appCtx, if (on) countdowns.value else emptyList())
     }
+    /** R55 — (re)schedule or cancel the daily-reflection nudge to match the current setting + hour. Call
+     *  it whenever the Daily-reflection toggle or its hour changes (the toggle previously did neither). */
+    fun applyOccasionNudge() = viewModelScope.launch {
+        val s = settings.value
+        if (s.occasionNudge) com.todocompanion.app.reminders.AlarmScheduler.scheduleOccasionNudge(appCtx, s.occasionNudgeHour)
+        else com.todocompanion.app.reminders.AlarmScheduler.cancelOccasionNudge(appCtx)
+    }
 
     // ---- R47 "next frontier" read models (all computed from data we already hold) -----------------
     /** #13 — total tracked hours in the current calendar year, for the honest "life spent" line. */

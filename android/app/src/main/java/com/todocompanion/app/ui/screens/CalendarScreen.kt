@@ -61,7 +61,9 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.EditCalendar
+import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.VideoCall
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Event
@@ -330,6 +332,8 @@ fun CalendarScreen(
     var importIcsUri by remember { mutableStateOf<android.net.Uri?>(null) }   // R52 — pick file, then ASK which calendar
     var exportChooserOpen by remember { mutableStateOf(false) }               // R52 — per-calendar or combined export
     var addInviteOpen by remember { mutableStateOf(false) }                   // R53 — paste a link / .ics → a meeting
+    var entriesOpen by remember { mutableStateOf(false) }                     // R55 — manage all entries per calendar
+    var availabilityOpen by remember { mutableStateOf(false) }                // R55 — "when am I free?"
     Column(modifier.fillMaxSize()) {
         // Smooth transitions when moving between periods (swipe) and between modes (R19 #8): slide +
         // fade in the swipe direction, matching the calm feel of the month collapse. Honours reduce-motion.
@@ -397,6 +401,8 @@ fun CalendarScreen(
                 eventSeedStart = s0; eventSeedEnd = s0 + 3_600_000L; eventEditorOpen = true
             }
             "invite" -> addInviteOpen = true
+            "entries" -> entriesOpen = true
+            "availability" -> availabilityOpen = true
             "calendars" -> eventCalsOpen = true
             "gap" -> eventGapOpen = true
             "block" -> eventBlockOpen = true
@@ -437,6 +443,12 @@ fun CalendarScreen(
             eventSeedStart = start; eventSeedEnd = start + 30 * 60_000L; eventEditorOpen = true
         },
         onPickIcs = { addInviteOpen = false; com.todocompanion.app.util.SystemPicker.openFile(arrayOf("text/calendar", "application/octet-stream", "*/*"), onError = { vm.toastMsg(it) }) { importIcsUri = it } })
+    // R55 — manage every entry of a calendar (or all combined): search, sort, edit, bulk-delete.
+    if (entriesOpen) CalendarEntriesSheet(vm, eventCals, initialCalId = null,
+        onEdit = { e -> entriesOpen = false; eventEditing = e; eventSeedStart = e.startMillis; eventSeedEnd = e.endMillis; eventEditorOpen = true },
+        onDismiss = { entriesOpen = false })
+    // R55 — "When am I free?" — the private free-time dashboard.
+    if (availabilityOpen) AvailabilitySheet(vm, anchorDay = selected.toEpochDay(), onDismiss = { availabilityOpen = false })
     if (exportChooserOpen) IcsExportTargetDialog(eventCals,
         onDismiss = { exportChooserOpen = false },
         onPick = { calId ->
@@ -529,6 +541,8 @@ fun CalHeader(
                 androidx.compose.material3.DropdownMenuItem(text = { Text("Weekly review") }, leadingIcon = { Icon(Icons.Filled.Insights, null, Modifier.size(18.dp)) }, onClick = { eventMenu = false; onEventAction("review") })
                 androidx.compose.material3.DropdownMenuItem(text = { Text("Block time for a task…") }, onClick = { eventMenu = false; onEventAction("block") })
                 androidx.compose.material3.DropdownMenuItem(text = { Text("Find a gap…") }, onClick = { eventMenu = false; onEventAction("gap") })
+                androidx.compose.material3.DropdownMenuItem(text = { Text("All entries…") }, leadingIcon = { Icon(Icons.AutoMirrored.Filled.List, null, Modifier.size(18.dp)) }, onClick = { eventMenu = false; onEventAction("entries") })
+                androidx.compose.material3.DropdownMenuItem(text = { Text("When am I free?") }, leadingIcon = { Icon(Icons.Filled.EventAvailable, null, Modifier.size(18.dp)) }, onClick = { eventMenu = false; onEventAction("availability") })
                 androidx.compose.material3.DropdownMenuItem(text = { Text("Calendars…") }, onClick = { eventMenu = false; onEventAction("calendars") })
                 androidx.compose.material3.HorizontalDivider()
                 androidx.compose.material3.DropdownMenuItem(text = { Text("Import .ics") }, onClick = { eventMenu = false; onEventAction("import") })

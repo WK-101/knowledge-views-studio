@@ -44,6 +44,9 @@ data class HabitEntity(
     val startDate: Long? = null,
     // A free-text reason / note, shown on the detail page (Markdown-friendly).
     val description: String = "",
+    // R55 — a general free-form notes field (like a task's note): details, links, references. Distinct
+    // from [description], which is the motivational "why".
+    val notes: String = "",
     // Vacation: a paused habit is hidden from "due today" and never breaks its streak while paused.
     val paused: Boolean = false,
     // Optional per-unit money figure for break habits ("$0.50 per cigarette") → money-saved stat.

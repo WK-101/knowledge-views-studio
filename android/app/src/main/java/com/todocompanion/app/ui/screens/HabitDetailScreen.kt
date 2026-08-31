@@ -625,6 +625,10 @@ private fun Header(h: com.todocompanion.app.data.entity.HabitEntity, color: Colo
             if (h.description.isNotBlank()) {
                 Text(h.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
+            // R55 — the general notes field (like a task note), shown under the "why".
+            if (h.notes.isNotBlank()) {
+                Text("📝 ${h.notes}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            }
         }
         if (h.paused) {
             Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.tertiaryContainer) {

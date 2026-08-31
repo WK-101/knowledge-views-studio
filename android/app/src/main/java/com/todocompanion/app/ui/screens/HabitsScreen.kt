@@ -735,6 +735,7 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
     var increment by remember { mutableStateOf(existing?.clickIncrement ?: 1) }
     var extra by remember { mutableStateOf(existing?.extraTarget) }
     var description by remember { mutableStateOf(existing?.description ?: "") }
+    var notes by remember { mutableStateOf(existing?.notes ?: "") }
     var money by remember { mutableStateOf(existing?.moneyPerUnit?.toString() ?: "") }
     // Tier K editor fields.
     var identity by remember { mutableStateOf(existing?.identity ?: "") }
@@ -798,7 +799,7 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
             habitType = habitType, targetComparison = if (isBreak) "atmost" else "atleast",
             freqType = freqType, freqParam = freqParam,
             clickIncrement = increment.coerceAtLeast(1), extraTarget = extra?.takeIf { it > target },
-            description = description.trim(), moneyPerUnit = money.trim().toDoubleOrNull(),
+            description = description.trim(), notes = notes.trim(), moneyPerUnit = money.trim().toDoubleOrNull(),
             identity = identity.trim(), anchorHabitId = anchorId,
             rewardText = rewardText.trim(), rewardAtStreak = rewardAt,
             category = category.trim(), startDate = startDate,
@@ -996,6 +997,8 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
                     StepperRow("Stretch goal", extra?.toString() ?: "—", onMinus = { extra = ((extra ?: target) - 1).takeIf { it > target } }, onPlus = { extra = (extra ?: target) + 1 })
                 }
                 com.todocompanion.app.ui.components.AppTextField(description, { description = it }, label = { Text("Why — your motivation (shown when you're about to slip)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                // R55 — a general free-form notes field, like a task's note (details, links, references).
+                com.todocompanion.app.ui.components.AppTextField(notes, { notes = it }, label = { Text("Notes (details, links, references)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
                 // V4: user-written encouragements, one shown at random on each check-off.
                 com.todocompanion.app.ui.components.AppTextField(encouragements, { encouragements = it }, label = { Text("Encouragements (one per line, shown on check-off)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
                 // R33 builder: implementation-intention context, and (build) a two-minute ramp goal /

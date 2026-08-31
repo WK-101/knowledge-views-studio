@@ -87,6 +87,12 @@ data class AppSettings(
     val deepWorkGoalMin: Int = 60,
     val workStartHour: Int = 9,
     val workEndHour: Int = 18,
+    // R55 — the "when am I free" availability model: which weekdays you accept commitments on
+    // (1=Mon..7=Sun), the minimum useful gap, and a buffer kept clear around each meeting. The daily
+    // window itself is your working hours [workStartHour, workEndHour).
+    val availDays: String = "1,2,3,4,5",
+    val availMinSlotMin: Int = 30,
+    val availBufferMin: Int = 0,
     // The hour a new "day" begins (0–6). Tasks before this hour still count as the previous day,
     // so late-night work stays under "Today". 0 = midnight (standard).
     val dayStartHour: Int = 0,
@@ -330,6 +336,9 @@ data class AppSettings(
         Keys.DEEPWORK_GOAL to deepWorkGoalMin.toString(),
         Keys.WORK_START to workStartHour.toString(),
         Keys.WORK_END to workEndHour.toString(),
+        Keys.AVAIL_DAYS to availDays,
+        Keys.AVAIL_MIN_SLOT to availMinSlotMin.toString(),
+        Keys.AVAIL_BUFFER to availBufferMin.toString(),
         Keys.DAY_START to dayStartHour.toString(),
         Keys.SUMMARY_ON to dailySummaryEnabled.toString(),
         Keys.SUMMARY_H to dailySummaryHour.toString(),
@@ -405,6 +414,10 @@ data class AppSettings(
         Keys.CALM_MODE to calmMode.toString(),
         Keys.REWARD_MENU to rewardMenu.joinToString("\n"),
         Keys.BOOKENDS to bookendsEnabled.toString(),
+        // R55 — these three were never serialized, so the Settings toggles never stuck (bug fix).
+        Keys.OCCASION_LIVE_NOTIF to occasionLiveNotif.toString(),
+        Keys.OCCASION_NUDGE to occasionNudge.toString(),
+        Keys.OCCASION_NUDGE_HOUR to occasionNudgeHour.toString(),
         Keys.COMPANION to companionEnabled.toString(),
         Keys.STRENGTH_METER to strengthMeter.toString(),
         Keys.DAYLIGHT_LAT to daylightLatitude.toString(),
@@ -471,6 +484,9 @@ data class AppSettings(
         const val DEEPWORK_GOAL = "deepwork_goal_min"
         const val WORK_START = "work_start_h"
         const val WORK_END = "work_end_h"
+        const val AVAIL_DAYS = "avail_days"
+        const val AVAIL_MIN_SLOT = "avail_min_slot"
+        const val AVAIL_BUFFER = "avail_buffer"
         const val DAY_START = "day_start"
         const val SUMMARY_H = "summary_h"
         const val SUMMARY_M = "summary_m"
@@ -545,6 +561,9 @@ data class AppSettings(
         const val CALM_MODE = "calm_mode"
         const val REWARD_MENU = "reward_menu"
         const val BOOKENDS = "bookends_enabled"
+        const val OCCASION_LIVE_NOTIF = "occasion_live_notif"
+        const val OCCASION_NUDGE = "occasion_nudge"
+        const val OCCASION_NUDGE_HOUR = "occasion_nudge_hour"
         const val COMPANION = "companion_enabled"
         const val DAYLIGHT_LAT = "daylight_latitude"
         const val NORTH_STAR = "north_star_targets"
@@ -680,6 +699,9 @@ data class AppSettings(
             deepWorkGoalMin = m[Keys.DEEPWORK_GOAL]?.toIntOrNull()?.coerceIn(15, 600) ?: 60,
             workStartHour = m[Keys.WORK_START]?.toIntOrNull()?.coerceIn(0, 23) ?: 9,
             workEndHour = m[Keys.WORK_END]?.toIntOrNull()?.coerceIn(1, 24) ?: 18,
+            availDays = m[Keys.AVAIL_DAYS] ?: "1,2,3,4,5",
+            availMinSlotMin = m[Keys.AVAIL_MIN_SLOT]?.toIntOrNull()?.coerceIn(5, 480) ?: 30,
+            availBufferMin = m[Keys.AVAIL_BUFFER]?.toIntOrNull()?.coerceIn(0, 120) ?: 0,
             dayStartHour = m[Keys.DAY_START]?.toIntOrNull()?.coerceIn(0, 6) ?: 0,
             dailySummaryHour = m[Keys.SUMMARY_H]?.toIntOrNull() ?: 8,
             dailySummaryMinute = m[Keys.SUMMARY_M]?.toIntOrNull() ?: 0,
@@ -707,6 +729,9 @@ data class AppSettings(
             calmMode = m[Keys.CALM_MODE]?.toBooleanStrictOrNull() ?: false,
             rewardMenu = (m[Keys.REWARD_MENU] ?: "").split("\n").map { it.trim() }.filter { it.isNotEmpty() },
             bookendsEnabled = m[Keys.BOOKENDS]?.toBooleanStrictOrNull() ?: false,
+            occasionLiveNotif = m[Keys.OCCASION_LIVE_NOTIF]?.toBooleanStrictOrNull() ?: false,
+            occasionNudge = m[Keys.OCCASION_NUDGE]?.toBooleanStrictOrNull() ?: false,
+            occasionNudgeHour = m[Keys.OCCASION_NUDGE_HOUR]?.toIntOrNull()?.coerceIn(0, 23) ?: 9,
             companionEnabled = m[Keys.COMPANION]?.toBooleanStrictOrNull() ?: false,
             strengthMeter = m[Keys.STRENGTH_METER]?.toBooleanStrictOrNull() ?: false,
             daylightLatitude = m[Keys.DAYLIGHT_LAT]?.toDoubleOrNull() ?: 999.0,
