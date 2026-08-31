@@ -9,6 +9,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.automirrored.filled.FormatIndentIncrease
@@ -288,9 +289,10 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
             onPriority = { lvl -> vm.setPriorityMany(selected, lvl); selected = emptySet() },
             onMoveClick = { pendingMove = selected },
             onSubtask = { pendingSubtaskOf = selected },
+            onSomeday = { vm.setSomedayMany(selected); selected = emptySet() },
             onSelectAll = { selected = if (selected.size == allVisibleIds.size) emptySet() else allVisibleIds },
             onClear = { selected = emptySet() },
-            canSubtask = !isTrash,
+            canSubtask = !isTrash, canSomeday = !isTrash,
             modifier = Modifier.align(Alignment.BottomCenter),
         )
         pendingPermanentDelete?.let { t ->
@@ -365,6 +367,7 @@ private fun SelectionBar(
     count: Int, allSelected: Boolean,
     onComplete: () -> Unit, onDelete: () -> Unit, onPriority: (PriorityLevel) -> Unit,
     onMoveClick: () -> Unit, onSubtask: () -> Unit, onSelectAll: () -> Unit, onClear: () -> Unit,
+    onSomeday: () -> Unit = {}, canSomeday: Boolean = true,
     dangerousDelete: Boolean = false, canSubtask: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
@@ -389,6 +392,7 @@ private fun SelectionBar(
             }
             // Nest the selection under a chosen parent task (multi-select "make subtask of…").
             if (canSubtask) androidx.compose.material3.IconButton(onClick = onSubtask) { Icon(Icons.AutoMirrored.Filled.FormatIndentIncrease, "Make subtask of…") }
+            if (canSomeday) androidx.compose.material3.IconButton(onClick = onSomeday) { Icon(Icons.Filled.Cloud, "Someday / Maybe") }
             androidx.compose.material3.IconButton(onClick = onMoveClick) { Icon(Icons.AutoMirrored.Filled.DriveFileMove, "Move to list or folder") }
             androidx.compose.material3.IconButton(onClick = onDelete) { Icon(if (dangerousDelete) Icons.Filled.DeleteForever else Icons.Filled.Delete, if (dangerousDelete) "Delete forever" else "Delete", tint = MaterialTheme.colorScheme.error) }
         }
@@ -1378,6 +1382,7 @@ private fun swipeVisual(action: SwipeAction, isTrashRestore: Boolean): Pair<Colo
     action == SwipeAction.SCHEDULE_TOMORROW -> Color(0xFF8B5CF6) to Icons.Filled.Event
     action == SwipeAction.EDIT -> Color(0xFF5B57D9) to Icons.Filled.Edit
     action == SwipeAction.MOVE -> Color(0xFF0EA5A0) to Icons.AutoMirrored.Filled.DriveFileMove
+    action == SwipeAction.SOMEDAY -> Color(0xFF7C8DB0) to Icons.Filled.Cloud
     else -> Color.Transparent to Icons.Filled.Check
 }
 

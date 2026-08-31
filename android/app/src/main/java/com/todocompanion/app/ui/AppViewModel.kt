@@ -1192,6 +1192,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- batch actions (multi-select) ----------
     fun completeMany(ids: Set<String>) = viewModelScope.launch { ids.mapNotNull { repo.getTask(it) }.filter { !it.completed }.forEach { repo.setCompleted(it, true) } }
     fun trashMany(ids: Set<String>) = viewModelScope.launch { val ws = settings.value.activeWorkspaceId; ids.forEach { repo.setTrashed(it, true, ws) } }
+    /** R53 — batch-park the selection in Someday/Maybe (clears their dates so they leave the active lists). */
+    fun setSomedayMany(ids: Set<String>) = viewModelScope.launch {
+        ids.mapNotNull { repo.getTask(it) }.forEach { repo.saveTask(it.copy(someday = true, dueDate = null, startDate = null, updatedAt = System.currentTimeMillis())) }
+        toast("Parked ${ids.size} in Someday / Maybe.")
+    }
     fun setPriorityMany(ids: Set<String>, level: PriorityLevel) = viewModelScope.launch {
         ids.mapNotNull { repo.getTask(it) }.forEach { repo.saveTask(it.copy(importance = level.importance, urgency = level.urgency)) }
     }
@@ -3262,9 +3267,41 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val calId = calendarId ?: ensureDefaultCalendar()
         val text = withContext(Dispatchers.IO) { runCatching { appCtx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull() }
         if (text == null) { toast("Couldn't read that file."); onDone(0); return@launch }
+        val method = com.todocompanion.app.domain.calendar.EventIcs.methodOf(text)
         val evs = com.todocompanion.app.domain.calendar.EventIcs.import(text, calId, zone)
-        repo.upsertEvents(evs); evs.forEach { com.todocompanion.app.reminders.AlarmScheduler.scheduleEventAlerts(appCtx, it) }
-        toast("Imported ${evs.size} event${if (evs.size == 1) "" else "s"}."); onDone(evs.size)
+        val existing = repo.eventsOnce()
+        // R53 — a cancellation removes the matching invite(s) rather than adding anything.
+        if (method == "CANCEL") {
+            val uids = evs.mapNotNull { it.uid.takeIf { u -> u.isNotBlank() } }.toSet()
+            val cancelled = existing.filter { it.uid.isNotBlank() && it.uid in uids }
+            cancelled.forEach { com.todocompanion.app.reminders.AlarmScheduler.cancelEventAlerts(appCtx, it); repo.deleteEvent(it.id) }
+            toast(if (cancelled.isEmpty()) "Nothing to cancel." else "Cancelled ${cancelled.size} event${if (cancelled.size == 1) "" else "s"}.")
+            onDone(cancelled.size); return@launch
+        }
+        // R53 — de-dupe by UID: a re-imported invite UPDATES its event in place; a higher SEQUENCE supersedes,
+        // a lower/equal-but-older one is ignored. Events without a UID always add (our own exports use ids).
+        val byUid = existing.filter { it.uid.isNotBlank() }.associateBy { it.uid }
+        val toSave = ArrayList<com.todocompanion.app.data.entity.EventEntity>()
+        var added = 0; var updated = 0
+        evs.forEach { inc ->
+            val prev = inc.uid.takeIf { it.isNotBlank() }?.let { byUid[it] }
+            when {
+                prev == null -> { toSave += inc; added++ }
+                inc.sequence >= prev.sequence -> {
+                    com.todocompanion.app.reminders.AlarmScheduler.cancelEventAlerts(appCtx, prev)
+                    toSave += inc.copy(id = prev.id, calendarId = prev.calendarId, rsvp = prev.rsvp, createdAt = prev.createdAt)
+                    updated++
+                }
+                // else: an older revision than we already hold — leave ours alone.
+            }
+        }
+        repo.upsertEvents(toSave); toSave.forEach { com.todocompanion.app.reminders.AlarmScheduler.scheduleEventAlerts(appCtx, it) }
+        toast(buildString {
+            if (added > 0) append("Imported $added")
+            if (updated > 0) { if (added > 0) append(" · "); append("updated $updated") }
+            if (added == 0 && updated == 0) append("Nothing new to import") else append(" event${if (added + updated == 1) "" else "s"}")
+        } + ".")
+        onDone(added + updated)
     }
     /** R52 — make a new calendar named [name] and import the .ics into it. */
     fun importIcsIntoNewCalendar(uri: android.net.Uri, name: String) = viewModelScope.launch {
@@ -3326,6 +3363,33 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             else -> "Imported $added birthday${if (added == 1) "" else "s"}."
         })
         onDone(added)
+    }
+
+    /** R53 (Wave A) — user-triggered storage maintenance: compact + defragment the DB, refresh stats. */
+    fun optimizeStorage(onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+        toast("Optimising storage…")
+        val ok = repo.optimizeStorage()
+        toast(if (ok) "Storage optimised." else "Couldn't optimise storage right now.")
+        onDone(ok)
+    }
+
+    /** R53 — build a METHOD:REPLY .ics carrying the event's RSVP and hand it to the OS share sheet, so a
+     *  fully-offline app can still let the user reply to the organizer by whatever channel they choose. */
+    fun shareRsvpReply(eventId: String) = viewModelScope.launch {
+        val e = repo.eventById(eventId) ?: run { toast("Event not found."); return@launch }
+        val ics = com.todocompanion.app.domain.calendar.EventIcs.exportReply(e, e.rsvp.ifBlank { "yes" }, zone = zone)
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val dir = java.io.File(appCtx.cacheDir, "shared").apply { mkdirs() }
+                val f = java.io.File(dir, "rsvp-reply.ics"); f.writeText(ics)
+                val uri = androidx.core.content.FileProvider.getUriForFile(appCtx, "${appCtx.packageName}.fileprovider", f)
+                val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                    type = "text/calendar"; putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                appCtx.startActivity(android.content.Intent.createChooser(send, "Send RSVP").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+            }
+        }
     }
 
     // ── R41 · the planner (auto-schedule, self-healing habits, templates, audit) ─────────────────────
@@ -3954,6 +4018,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 val ms = java.time.LocalDate.now(zone).plusDays(1).atStartOfDay(zone).plusHours(9).toInstant().toEpochMilli()
                 save(t.copy(dueDate = ms))
             }
+            com.todocompanion.app.domain.SwipeAction.SOMEDAY -> { setSomeday(t, !t.someday); toast(if (t.someday) "Back in your lists." else "Parked in Someday / Maybe.") }
             com.todocompanion.app.domain.SwipeAction.EDIT -> return false
             com.todocompanion.app.domain.SwipeAction.MOVE -> return false   // needs the move picker; caller handles
             com.todocompanion.app.domain.SwipeAction.NONE -> {}

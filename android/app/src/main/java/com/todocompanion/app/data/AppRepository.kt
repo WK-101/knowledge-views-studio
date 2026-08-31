@@ -30,6 +30,21 @@ import java.util.UUID
 /** Single source of truth over Room. Reads are reactive Flows; writes are suspend. */
 class AppRepository(private val db: AppDatabase) {
 
+    /**
+     * R53 — user-triggered storage maintenance for a DB kept over years: checkpoint the WAL, VACUUM to
+     * compact + defragment the file (deletes only free-list pages otherwise), and refresh the query
+     * planner's stats. All offline; safe to run occasionally from Settings.
+     */
+    suspend fun optimizeStorage(): Boolean = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        runCatching {
+            val sdb = db.openHelper.writableDatabase
+            runCatching { sdb.execSQL("PRAGMA wal_checkpoint(TRUNCATE)") }
+            runCatching { sdb.execSQL("VACUUM") }
+            runCatching { sdb.execSQL("PRAGMA optimize") }
+            true
+        }.getOrDefault(false)
+    }
+
     private val tasks = db.taskDao()
     private val folders = db.folderDao()
     private val lists = db.listDao()

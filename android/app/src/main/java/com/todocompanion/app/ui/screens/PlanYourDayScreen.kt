@@ -365,7 +365,7 @@ fun PlanYourDayScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: ()
                 FilledTonalButton(onClick = { vm.save(current.copy(dueDate = at9(today))) }) { Text("Today") }
                 FilledTonalButton(onClick = { vm.save(current.copy(dueDate = at9(today.plusDays(1)))) }) { Text("Tomorrow") }
                 FilledTonalButton(onClick = { vm.save(current.copy(dueDate = at9(today.plusDays(7)))) }) { Text("Next week") }
-                FilledTonalButton(onClick = { vm.save(current.copy(dueDate = null)) }) { Text("Someday") }
+                FilledTonalButton(onClick = { vm.setSomeday(current, true) }) { Text("Someday") }
             }
 
             Spacer(Modifier.size(20.dp))

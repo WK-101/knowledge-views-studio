@@ -62,6 +62,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.EditCalendar
+import androidx.compose.material.icons.filled.VideoCall
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.CalendarViewMonth
@@ -312,6 +313,7 @@ fun CalendarScreen(
             }
             SwipeAction.EDIT -> onOpenTask(t.id)
             SwipeAction.MOVE -> onOpenTask(t.id)   // move picker lives in the task; open it here
+            SwipeAction.SOMEDAY -> vm.setSomeday(t, !t.someday)
             SwipeAction.NONE -> {}
         }
     }
@@ -327,6 +329,7 @@ fun CalendarScreen(
     var detailsOccasion by remember { mutableStateOf<com.todocompanion.app.data.entity.CountdownEntity?>(null) }   // R52 — occasion details IN-PLACE
     var importIcsUri by remember { mutableStateOf<android.net.Uri?>(null) }   // R52 — pick file, then ASK which calendar
     var exportChooserOpen by remember { mutableStateOf(false) }               // R52 — per-calendar or combined export
+    var addInviteOpen by remember { mutableStateOf(false) }                   // R53 — paste a link / .ics → a meeting
     Column(modifier.fillMaxSize()) {
         // Smooth transitions when moving between periods (swipe) and between modes (R19 #8): slide +
         // fade in the swipe direction, matching the calm feel of the month collapse. Honours reduce-motion.
@@ -393,6 +396,7 @@ fun CalendarScreen(
                 val s0 = selected.atTime(9, 0).atZone(zone).toInstant().toEpochMilli()
                 eventSeedStart = s0; eventSeedEnd = s0 + 3_600_000L; eventEditorOpen = true
             }
+            "invite" -> addInviteOpen = true
             "calendars" -> eventCalsOpen = true
             "gap" -> eventGapOpen = true
             "block" -> eventBlockOpen = true
@@ -414,6 +418,25 @@ fun CalendarScreen(
             onExisting = { calId -> vm.importIcsEvents(uri, calId); importIcsUri = null },
             onNew = { name -> vm.importIcsIntoNewCalendar(uri, name); importIcsUri = null })
     }
+    // R53 — "Add invitation": paste a Teams/Meet/Zoom link (→ opens a pre-filled meeting to set the time)
+    // or import an .ics invite (→ the usual import, which already lands meetings joinable).
+    if (addInviteOpen) AddInvitationDialog(
+        onDismiss = { addInviteOpen = false },
+        onLink = { link ->
+            addInviteOpen = false
+            val provider = com.todocompanion.app.domain.calendar.MeetingLink.provider(link)
+            val now = System.currentTimeMillis()
+            val startZ = Instant.ofEpochMilli(now).atZone(zone).withMinute(0).withSecond(0).withNano(0).plusHours(1)
+            val start = startZ.toInstant().toEpochMilli()
+            eventEditing = com.todocompanion.app.data.entity.EventEntity(
+                id = java.util.UUID.randomUUID().toString(),
+                calendarId = eventCals.firstOrNull { it.isDefault }?.id ?: eventCals.firstOrNull()?.id ?: "",
+                title = provider ?: "Meeting", url = link.trim(),
+                startMillis = start, endMillis = start + 30 * 60_000L,
+                createdAt = now, updatedAt = now)
+            eventSeedStart = start; eventSeedEnd = start + 30 * 60_000L; eventEditorOpen = true
+        },
+        onPickIcs = { addInviteOpen = false; com.todocompanion.app.util.SystemPicker.openFile(arrayOf("text/calendar", "application/octet-stream", "*/*"), onError = { vm.toastMsg(it) }) { importIcsUri = it } })
     if (exportChooserOpen) IcsExportTargetDialog(eventCals,
         onDismiss = { exportChooserOpen = false },
         onPick = { calId ->
@@ -501,6 +524,7 @@ fun CalHeader(
             IconButton(onClick = { eventMenu = true }) { Icon(Icons.Filled.EditCalendar, "Events") }
             androidx.compose.material3.DropdownMenu(expanded = eventMenu, onDismissRequest = { eventMenu = false }) {
                 androidx.compose.material3.DropdownMenuItem(text = { Text("New event") }, leadingIcon = { Icon(Icons.Filled.Add, null, Modifier.size(18.dp)) }, onClick = { eventMenu = false; onEventAction("new") })
+                androidx.compose.material3.DropdownMenuItem(text = { Text("Add invitation…") }, leadingIcon = { Icon(Icons.Filled.VideoCall, null, Modifier.size(18.dp)) }, onClick = { eventMenu = false; onEventAction("invite") })
                 androidx.compose.material3.DropdownMenuItem(text = { Text("Plan my day") }, leadingIcon = { Icon(Icons.Filled.AutoAwesome, null, Modifier.size(18.dp)) }, onClick = { eventMenu = false; onEventAction("plan") })
                 androidx.compose.material3.DropdownMenuItem(text = { Text("Weekly review") }, leadingIcon = { Icon(Icons.Filled.Insights, null, Modifier.size(18.dp)) }, onClick = { eventMenu = false; onEventAction("review") })
                 androidx.compose.material3.DropdownMenuItem(text = { Text("Block time for a task…") }, onClick = { eventMenu = false; onEventAction("block") })
@@ -1626,6 +1650,38 @@ private fun IcsExportTargetDialog(
                         Box(Modifier.size(12.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(c.colorArgb)))
                         Spacer(Modifier.width(10.dp)); Text(c.name, style = MaterialTheme.typography.bodyLarge)
                     }
+                }
+            }
+        },
+    )
+}
+
+// R53 — turn a pasted meeting link (or an .ics invite) directly into a joinable meeting, rather than
+// making a plain event first and adding the link afterwards.
+@Composable
+private fun AddInvitationDialog(onDismiss: () -> Unit, onLink: (String) -> Unit, onPickIcs: () -> Unit) {
+    var link by remember { mutableStateOf("") }
+    val provider = com.todocompanion.app.domain.calendar.MeetingLink.provider(link.trim())
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { androidx.compose.material3.TextButton(onClick = { if (link.isNotBlank()) onLink(link.trim()) }, enabled = link.isNotBlank()) { Text("Add meeting") } },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Add an invitation") },
+        text = {
+            Column {
+                Text("Paste a Teams, Meet, Zoom (or any) meeting link and it becomes a joinable meeting — you just set the time.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(10.dp))
+                com.todocompanion.app.ui.components.AppTextField(link, { link = it }, singleLine = true, modifier = Modifier.fillMaxWidth(), label = { Text("Meeting link") })
+                if (provider != null) {
+                    Spacer(Modifier.height(6.dp))
+                    Text("${com.todocompanion.app.domain.calendar.MeetingLink.emoji(provider)} $provider detected",
+                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                }
+                androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 12.dp))
+                Row(Modifier.fillMaxWidth().clickable { onPickIcs() }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.EditCalendar, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(10.dp)); Text("…or import an .ics invitation file", style = MaterialTheme.typography.bodyMedium)
                 }
             }
         },

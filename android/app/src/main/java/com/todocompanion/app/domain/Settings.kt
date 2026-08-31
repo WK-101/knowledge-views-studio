@@ -14,7 +14,7 @@ enum class SmartVis(val label: String) { SHOW("Show"), AUTO("Show if not empty")
 enum class SwipeAction(val label: String) {
     NONE("None"), COMPLETE("Complete"), TRASH("Trash"), STAR("Star"),
     WONT_DO("Won't Do"), EDIT("Edit"), CYCLE_PRIORITY("Cycle priority"), SCHEDULE_TOMORROW("Tomorrow"),
-    MOVE("Move")
+    MOVE("Move"), SOMEDAY("Someday")
 }
 
 /** The display name for a smart list — the user's custom name if set, else the built-in title. */

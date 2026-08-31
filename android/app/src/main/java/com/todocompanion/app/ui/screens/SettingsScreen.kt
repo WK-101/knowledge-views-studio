@@ -955,6 +955,11 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Action("Paste backup text…") { showPaste = true }
             Text("Export a copy as Markdown, a spreadsheet (CSV), a calendar (.ics) or a habits CSV — or import from Todoist, TickTick, MLO, a calendar, or a habits CSV. Everything on-device.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+            HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+            Sub("Maintenance")
+            Action("Optimise storage now") { vm.optimizeStorage() }
+            Text("Compacts and defragments the on-device database and refreshes its search indexes. Built for years of data — run this occasionally to keep the app snappy and the file small. Safe and offline.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
         }
 
         SettingsGroup(Icons.Filled.Sync, "Backup & sync (folder)", open["sync"] == true, { open["sync"] = open["sync"] != true }, keywords = "automatic backup folder sync across devices shared folder passphrase encryption schedule") {

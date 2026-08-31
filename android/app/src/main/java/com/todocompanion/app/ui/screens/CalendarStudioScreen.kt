@@ -53,6 +53,7 @@ import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -824,7 +825,15 @@ internal fun EventEditor(
                                 FilterChip(selected = rsvp == k, onClick = { rsvp = if (rsvp == k) "" else k }, label = { Text(l) })
                             }
                         }
-                        Text("Paste an invite link above; RSVP stays on your device — nothing is sent.",
+                        // R53 — a fully-offline app can't email a reply, but it can hand you a METHOD:REPLY
+                        // .ics to forward yourself. Available once the event exists and has an organizer.
+                        if (existing != null && organizer.isNotBlank() && rsvp.isNotBlank()) {
+                            Spacer(Modifier.height(6.dp))
+                            TextButton(onClick = { vm.shareRsvpReply(existing.id) }) {
+                                Icon(Icons.Filled.Send, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Send my RSVP (.ics)")
+                            }
+                        }
+                        Text("Your RSVP stays on your device. “Send” exports a reply file you forward yourself — nothing leaves the app on its own.",
                             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }

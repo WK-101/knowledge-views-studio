@@ -59,6 +59,11 @@ data class EventEntity(
     val organizer: String = "",           // "Name" or "Name <email>"
     val attendees: String = "",           // newline- or comma-separated names/emails
     val rsvp: String = "",                // "" | "yes" | "maybe" | "no"
+    // R53 — invite lifecycle. [uid] is the iCalendar UID (stable across updates); [sequence] is the
+    // revision. A re-imported invite with a matching uid UPDATES in place; a higher sequence supersedes;
+    // METHOD:CANCEL removes it. Our own events leave uid blank (their [id] is identity enough).
+    val uid: String = "",
+    val sequence: Int = 0,
     val createdAt: Long,
     val updatedAt: Long,
 ) {

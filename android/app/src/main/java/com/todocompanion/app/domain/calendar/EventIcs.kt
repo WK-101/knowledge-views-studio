@@ -50,7 +50,8 @@ object EventIcs {
         append("BEGIN:VCALENDAR\r\n").append("VERSION:2.0\r\n").append("PRODID:-//ToDoCompanion//Calendar//EN\r\n").append("CALSCALE:GREGORIAN\r\n")
         events.filter { it.recurrenceParentId == null }.forEach { e ->
             append("BEGIN:VEVENT\r\n")
-            append("UID:").append(e.id).append("\r\n")
+            append("UID:").append(e.uid.ifBlank { e.id }).append("\r\n")
+            if (e.sequence > 0) append("SEQUENCE:").append(e.sequence).append("\r\n")
             append("SUMMARY:").append(esc(e.title)).append("\r\n")
             if (e.location.isNotBlank()) append("LOCATION:").append(esc(e.location)).append("\r\n")
             if (e.notes.isNotBlank()) append("DESCRIPTION:").append(esc(e.notes)).append("\r\n")
@@ -99,8 +100,9 @@ object EventIcs {
         var start: LocalDateTime? = null; var end: LocalDateTime? = null; var allDay = false; var rrule = ""
         // R52 — invitation fields.
         var organizer = ""; var confUrl = ""; val attendees = ArrayList<String>()
+        var sequence = 0   // R53 — revision number for invite updates
         val ex = ArrayList<Long>()
-        fun reset() { uid = null; summary = ""; location = ""; notes = ""; url = ""; start = null; end = null; allDay = false; rrule = ""; organizer = ""; confUrl = ""; attendees.clear(); ex.clear() }
+        fun reset() { uid = null; summary = ""; location = ""; notes = ""; url = ""; start = null; end = null; allDay = false; rrule = ""; organizer = ""; confUrl = ""; attendees.clear(); sequence = 0; ex.clear() }
         for (raw in lines) {
             val line = raw.trim()
             when {
@@ -117,6 +119,7 @@ object EventIcs {
                             location = location, notes = notes, url = joinUrl, startMillis = s, endMillis = if (allDay) s else e,
                             allDay = allDay, rrule = rrule, exDates = ex.joinToString(","),
                             organizer = organizer, attendees = attendees.joinToString("\n"),
+                            uid = uid ?: "", sequence = sequence,
                             createdAt = System.currentTimeMillis(), updatedAt = System.currentTimeMillis())
                     }
                     inEvent = false
@@ -126,7 +129,8 @@ object EventIcs {
                     val nameAndParams = line.substring(0, colon); val value = line.substring(colon + 1)
                     val name = nameAndParams.substringBefore(';').uppercase()
                     when (name) {
-                        "UID" -> uid = value
+                        "UID" -> uid = value.trim()
+                        "SEQUENCE" -> sequence = value.trim().toIntOrNull() ?: 0
                         "SUMMARY" -> summary = unesc(value)
                         "LOCATION" -> location = unesc(value)
                         "DESCRIPTION" -> notes = unesc(value)
@@ -180,6 +184,29 @@ object EventIcs {
     }
     /** First http(s) URL inside a blob (LOCATION/DESCRIPTION often embed the join link in prose). */
     fun detectUrl(s: String): String = Regex("""https?://[^\s<>"']+""").find(s)?.value?.trimEnd('.', ',', ')', '>') ?: ""
+
+    /** R53 — the calendar-level METHOD (REQUEST / CANCEL / REPLY / PUBLISH), upper-cased, or null. */
+    fun methodOf(text: String): String? = unfold(text).firstNotNullOfOrNull { raw ->
+        val line = raw.trim()
+        if (line.uppercase().startsWith("METHOD:")) line.substringAfter(':').trim().uppercase() else null
+    }
+
+    /** R53 — build a METHOD:REPLY .ics carrying the user's RSVP as PARTSTAT, for them to send by hand
+     *  (a purely-local app has no transport to reply to the organizer directly). [rsvp] is yes/maybe/no. */
+    fun exportReply(e: EventEntity, rsvp: String, attendeeName: String = "Me", zone: ZoneId = ZoneId.systemDefault()): String {
+        val partstat = when (rsvp.lowercase()) { "yes" -> "ACCEPTED"; "maybe" -> "TENTATIVE"; "no" -> "DECLINED"; else -> "NEEDS-ACTION" }
+        return buildString {
+            append("BEGIN:VCALENDAR\r\n").append("VERSION:2.0\r\n").append("PRODID:-//ToDoCompanion//Calendar//EN\r\n")
+            append("METHOD:REPLY\r\n").append("BEGIN:VEVENT\r\n")
+            append("UID:").append(e.uid.ifBlank { e.id }).append("\r\n")
+            if (e.sequence > 0) append("SEQUENCE:").append(e.sequence).append("\r\n")
+            append("SUMMARY:").append(esc(e.title)).append("\r\n")
+            if (e.organizer.isNotBlank()) append("ORGANIZER;CN=").append(esc(e.organizer)).append(":mailto:unknown@local\r\n")
+            append("ATTENDEE;CN=").append(esc(attendeeName)).append(";PARTSTAT=").append(partstat).append(":mailto:me@local\r\n")
+            append("DTSTART:").append(Instant.ofEpochMilli(e.startMillis).atZone(zone).toLocalDateTime().format(DT)).append("\r\n")
+            append("END:VEVENT\r\n").append("END:VCALENDAR\r\n")
+        }
+    }
 
     private fun esc(s: String) = s.replace("\\", "\\\\").replace("\n", "\\n").replace(",", "\\,").replace(";", "\\;")
     private fun unesc(s: String) = s.replace("\\n", "\n").replace("\\,", ",").replace("\\;", ";").replace("\\\\", "\\")
