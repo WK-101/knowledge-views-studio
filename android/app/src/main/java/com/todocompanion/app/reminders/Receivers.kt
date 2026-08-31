@@ -225,7 +225,7 @@ class ReminderReceiver : BroadcastReceiver() {
                 }
             }
 
-            AlarmScheduler.ACTION_FOCUS_DONE -> Notifications.showFocusDone(context)
+            AlarmScheduler.ACTION_FOCUS_DONE -> { FocusDnd.exit(context); Notifications.showFocusDone(context) }
 
             AlarmScheduler.ACTION_HABIT -> {
                 if (app == null) return

@@ -117,6 +117,9 @@ data class AppSettings(
     val quietHoursEnabled: Boolean = false,
     val quietStartHour: Int = 22,
     val quietEndHour: Int = 7,
+    // R59 (Wave 3) — silence notifications (system Do-Not-Disturb) while a Focus session runs. Needs the
+    // user to grant DND access; a no-op until they do. Off by default.
+    val focusDnd: Boolean = false,
     // R46 Occasions — an ongoing notification pinning the next occasion (refreshed on app open / save), and
     // a daily reflective nudge (a finite-time reflection + today-in-history). Both default off, no new perm.
     val occasionLiveNotif: Boolean = false,
@@ -366,6 +369,7 @@ data class AppSettings(
         Keys.QUIET_ON to quietHoursEnabled.toString(),
         Keys.QUIET_START to quietStartHour.toString(),
         Keys.QUIET_END to quietEndHour.toString(),
+        Keys.FOCUS_DND to focusDnd.toString(),
         Keys.RELIABILITY to reliabilityOnboarded.toString(),
         Keys.COMPLETION_SOUND to completionSound.toString(),
         Keys.APP_LOCK to appLockEnabled.toString(),
@@ -520,6 +524,7 @@ data class AppSettings(
         const val QUIET_ON = "quiet_on"
         const val QUIET_START = "quiet_start"
         const val QUIET_END = "quiet_end"
+        const val FOCUS_DND = "focus_dnd"
         const val RELIABILITY = "reliability_onboarded"
         const val COMPLETION_SOUND = "completion_sound"
         const val APP_LOCK = "app_lock"
@@ -742,6 +747,7 @@ data class AppSettings(
             quietHoursEnabled = m[Keys.QUIET_ON]?.toBooleanStrictOrNull() ?: false,
             quietStartHour = m[Keys.QUIET_START]?.toIntOrNull()?.coerceIn(0, 23) ?: 22,
             quietEndHour = m[Keys.QUIET_END]?.toIntOrNull()?.coerceIn(0, 23) ?: 7,
+            focusDnd = m[Keys.FOCUS_DND]?.toBooleanStrictOrNull() ?: false,
             reliabilityOnboarded = m[Keys.RELIABILITY]?.toBooleanStrictOrNull() ?: false,
             completionSound = m[Keys.COMPLETION_SOUND]?.toBooleanStrictOrNull() ?: false,
             appLockEnabled = m[Keys.APP_LOCK]?.toBooleanStrictOrNull() ?: false,

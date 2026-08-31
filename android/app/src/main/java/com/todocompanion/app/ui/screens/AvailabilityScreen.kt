@@ -32,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -87,7 +88,15 @@ fun AvailabilitySheet(vm: AppViewModel, anchorDay: Long, onDismiss: () -> Unit) 
         minSlotMin = s.availMinSlotMin, bufferMin = s.availBufferMin,
     )
     val firstDow = if (s.weekStart in 1..7) DayOfWeek.of(s.weekStart) else WeekFields.of(Locale.getDefault()).firstDayOfWeek
-    val protectedList = remember(s.protectedBlocks) { Availability.parseProtected(s.protectedBlocks) }
+    // R59 (Wave 3) — the two protected-time systems are now ONE: the availability engine and the planner
+    // both read the canonical ProtectedWindow list (edited here and in Settings). Legacy protectedBlocks are
+    // migrated into windows the first time this screen opens, then honoured as a union until they're gone.
+    val protectedWindows by vm.protectedWindows.collectAsState()
+    LaunchedEffect(Unit) { if (s.protectedBlocks.isNotBlank()) vm.migrateProtectedBlocksToWindows() }
+    val protectedList = remember(protectedWindows, s.protectedBlocks) {
+        protectedWindows.map { Availability.Protected(it.days.toSet().ifEmpty { (1..7).toSet() }, it.startMin, it.endMin) } +
+            Availability.parseProtected(s.protectedBlocks)
+    }
     val days: List<LocalDate> = when (range) {
         "Day" -> listOf(anchor)
         "Month" -> { val first = anchor.withDayOfMonth(1); (0 until anchor.lengthOfMonth()).map { first.plusDays(it.toLong()) } }
@@ -321,15 +330,12 @@ fun AvailabilitySheet(vm: AppViewModel, anchorDay: Long, onDismiss: () -> Unit) 
             Text("Protected time", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Text("Reserved for you (deep work, breaks) — shown amber and never counted as free.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            protectedList.forEachIndexed { idx, p ->
+            protectedWindows.forEach { w ->
                 Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    val dl = p.days.sorted().joinToString(" ") { n -> dowLabels.firstOrNull { it.first == n }?.second ?: "?" }
-                    Text("🛡 $dl · ${"%02d:%02d".format(p.startMin / 60, p.startMin % 60)}–${"%02d:%02d".format(p.endMin / 60, p.endMin % 60)}",
+                    val dl = if (w.days.isEmpty()) "Every day" else w.days.sorted().joinToString(" ") { n -> dowLabels.firstOrNull { it.first == n }?.second ?: "?" }
+                    Text("🛡 ${w.name} · $dl · ${"%02d:%02d".format(w.startMin / 60, w.startMin % 60)}–${"%02d:%02d".format(w.endMin / 60, w.endMin % 60)}",
                         Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                    TextButton(onClick = {
-                        val next = protectedList.toMutableList().also { it.removeAt(idx) }
-                        vm.saveSettings(s.copy(protectedBlocks = Availability.encodeProtected(next)))
-                    }) { Text("Remove", color = MaterialTheme.colorScheme.error) }
+                    TextButton(onClick = { vm.deleteProtectedWindow(w.id) }) { Text("Remove", color = MaterialTheme.colorScheme.error) }
                 }
             }
             var pDays by remember { mutableStateOf(setOf(1, 2, 3, 4, 5)) }
@@ -352,8 +358,7 @@ fun AvailabilitySheet(vm: AppViewModel, anchorDay: Long, onDismiss: () -> Unit) 
                 TextButton(onClick = { pEnd = (pEnd + 1).coerceAtMost(24) }) { Text("+") }
             }
             TextButton(enabled = pDays.isNotEmpty() && pEnd > pStart, onClick = {
-                val next = protectedList + Availability.Protected(pDays, pStart * 60, pEnd * 60)
-                vm.saveSettings(s.copy(protectedBlocks = Availability.encodeProtected(next)))
+                vm.saveProtectedWindow("Protected %02d:00–%02d:00".format(pStart, pEnd), pStart * 60, pEnd * 60, pDays.sorted())
             }) { Text("＋ Protect this block") }
 
             Spacer(Modifier.height(12.dp))

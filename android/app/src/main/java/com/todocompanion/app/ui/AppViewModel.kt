@@ -3680,6 +3680,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteProtectedWindow(id: String) = viewModelScope.launch {
         repo.saveSettings(settings.value.copy(protectedWindowsJson = com.todocompanion.app.domain.calendar.ProtectedWindows.encode(com.todocompanion.app.domain.calendar.ProtectedWindows.remove(protectedWindows.value, id))))
     }
+    /** R59 (Wave 3) — merge the two protected-time systems: fold any legacy availability protectedBlocks
+     *  into the canonical ProtectedWindow list (which the planner also respects), atomically, then clear
+     *  the legacy field. A one-time no-op once done. */
+    fun migrateProtectedBlocksToWindows() = viewModelScope.launch {
+        val s = settings.value
+        if (s.protectedBlocks.isBlank()) return@launch
+        var list = com.todocompanion.app.domain.calendar.ProtectedWindows.parse(s.protectedWindowsJson)
+        com.todocompanion.app.domain.calendar.Availability.parseProtected(s.protectedBlocks).forEach { p ->
+            list = com.todocompanion.app.domain.calendar.ProtectedWindows.upsert(list,
+                com.todocompanion.app.domain.calendar.ProtectedWindow(java.util.UUID.randomUUID().toString(),
+                    "Protected %02d:00–%02d:00".format(p.startMin / 60, p.endMin / 60), p.startMin, p.endMin, p.days.sorted()))
+        }
+        repo.saveSettings(s.copy(protectedWindowsJson = com.todocompanion.app.domain.calendar.ProtectedWindows.encode(list), protectedBlocks = ""))
+    }
 
     // Plan lock + lunar overlay -----------------------------------------------------------------------
     fun isPlanLocked(day: Long): Boolean = settings.value.planLockedDaysCsv.split(",").mapNotNull { it.trim().toLongOrNull() }.contains(day)
@@ -3844,6 +3858,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             ?: habitId?.let { hid -> habits.value.firstOrNull { it.id == hid }?.timeActivityId }
             ?: repo.ensureFocusActivity()
         repo.startTimeTracking(actId, taskId, habitId, stopFirst = !settings.value.multiTimer, kind = "focus")
+        // R59 (Wave 3) — focus-block DND: silence notifications for the duration if the user opted in.
+        if (settings.value.focusDnd) com.todocompanion.app.reminders.FocusDnd.enter(appCtx)
         com.todocompanion.app.reminders.AutomationRunner.onStart(appCtx, repo, actId)
         if (targetMin > 0 && remainingSec > 0)
             com.todocompanion.app.reminders.AlarmScheduler.scheduleFocusDone(appCtx, System.currentTimeMillis() + remainingSec * 1000L)
@@ -3855,6 +3871,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val id = timeEntries.value.firstOrNull { it.running && it.kind == "focus" }?.id
         if (id != null) { repo.stopTimeEntry(id); refreshHabitWidgets(); refreshTimeWidget() }
         com.todocompanion.app.reminders.AlarmScheduler.cancelFocusDone(appCtx)
+        // R59 (Wave 3) — lift focus-block DND (no-op if it was never engaged / access not granted).
+        com.todocompanion.app.reminders.FocusDnd.exit(appCtx)
     }
 
     // ---------- saved filters ----------

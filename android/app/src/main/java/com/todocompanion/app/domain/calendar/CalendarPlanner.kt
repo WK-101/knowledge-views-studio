@@ -80,13 +80,15 @@ object CalendarPlanner {
         if (we - ws < minSlotMin * 60000L) return emptyList()
         val busy = ArrayList(occurrences.filter { it.event.busy && !it.event.allDay }
             .map { maxOf(it.startMillis, ws) to minOf(it.endMillis, we) }.filter { it.second > it.first })
+        // R59 (Wave 3) — a task's block length is its explicit duration if set, else its estimate.
         val ranked = tasks
-            .filter { !it.completed && !it.trashed && !it.abandoned && (it.estimateMin ?: 0) >= minSlotMin }
+            .filter { !it.completed && !it.trashed && !it.abandoned && ((it.durationMin ?: it.estimateMin) ?: 0) >= minSlotMin }
             .sortedWith(compareBy({ it.dueDate ?: Long.MAX_VALUE }, { -(it.importance + it.urgency) }))
         val out = ArrayList<Placement>()
         for (t in ranked) {
-            // Calibration brain: pad the estimate by the personal bias so blocks reflect real durations.
-            var remaining = ((t.estimateMin ?: continue) * biasMultiplier).toInt().coerceAtLeast(minSlotMin)
+            // An explicit duration is used exactly; only an effort estimate is padded by the personal bias.
+            val base = (t.durationMin ?: t.estimateMin) ?: continue
+            var remaining = (if (t.durationMin != null) base else (base * biasMultiplier).toInt()).coerceAtLeast(minSlotMin)
             val parts = Math.ceil(remaining.toDouble() / chunkMin).toInt().coerceAtLeast(1)
             var partIdx = 0
             var guard = 0

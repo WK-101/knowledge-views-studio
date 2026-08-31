@@ -16,6 +16,9 @@
          a local UI capability only (no network, no location) — it lets the escalation take over the screen
          like a clock alarm. Without it, Android 14+ silently degrades the alarm to a heads-up notification. -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <!-- R59 (Wave 3): silence notifications (Do Not Disturb) during a Focus session. A local capability only
+         (no network, no location); it takes effect only after the user grants DND access in system settings. -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!--
       NO storage or media permission is declared. Attaching files, restoring backups and importing all

@@ -824,6 +824,16 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+            // R59 (Wave 3) — focus-block DND: silence notifications while a Focus session runs.
+            val dndCtx = androidx.compose.ui.platform.LocalContext.current
+            Toggle("Silence notifications during Focus", s.focusDnd) { on ->
+                vm.saveSettings(s.copy(focusDnd = on))
+                if (on && !com.todocompanion.app.reminders.FocusDnd.hasAccess(dndCtx))
+                    runCatching { dndCtx.startActivity(android.content.Intent(android.provider.Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            }
+            Text("Puts your phone on Do Not Disturb while a Focus session runs. Needs a one-time Do-Not-Disturb access grant (tap the toggle to open it).",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             Toggle("Daily summary notification", s.dailySummaryEnabled) { vm.saveSettings(s.copy(dailySummaryEnabled = it)) }
             // W8: per-list mute — silence reminders for chosen lists.
             val lists by vm.lists.collectAsState()
