@@ -683,15 +683,9 @@ private fun ActivityDialog(
                 // T4: an optional daily time goal (minutes). Progress is computed from tracked intervals.
                 com.todocompanion.app.ui.components.AppTextField(goal, { v -> goal = v.filter { it.isDigit() }.take(4) }, label = { Text("Daily goal (minutes, optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(12.dp))
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PALETTE.forEach { swatch ->
-                        Box(
-                            Modifier.size(30.dp).clip(CircleShape).background(Color(swatch))
-                                .clickable { color = swatch }
-                                .then(if (color == swatch) Modifier.padding(2.dp) else Modifier),
-                            contentAlignment = Alignment.Center,
-                        ) { if (color == swatch) Text("✓", color = Color.White) }
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Colour", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    com.todocompanion.app.ui.components.AppColorPicker(current = color, onPick = { color = it ?: color })
                 }
                 // Nested activities: put this activity under a parent (e.g. "Standup" under "Work").
                 if (existing != null && parentCandidates.isNotEmpty()) {

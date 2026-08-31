@@ -1263,15 +1263,7 @@ private fun FlagEditDialog(initial: FlagEntity?, onDismiss: () -> Unit, onSave: 
             Column {
                 com.todocompanion.app.ui.components.AppTextField(name, { name = it }, singleLine = true, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(12.dp)); Sub("Colour")
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    FLAG_COLORS.forEach { c ->
-                        Box(
-                            Modifier.size(30.dp).clip(CircleShape).background(Color(c))
-                                .border(width = if (c == color) 3.dp else 0.dp, color = MaterialTheme.colorScheme.primary, shape = CircleShape)
-                                .clickable { color = c },
-                        )
-                    }
-                }
+                com.todocompanion.app.ui.components.AppColorPicker(current = color, onPick = { color = it ?: color })
                 Spacer(Modifier.height(12.dp)); Sub("Icon")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FlagIcons.keys.forEach { key ->

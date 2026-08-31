@@ -914,16 +914,10 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
                     }
                 }
                 Spacer(Modifier.size(12.dp))
-                // Compact colour picker: one swatch shown; tap it to reveal the palette (space-optimised).
-                var colorsOpen by remember { mutableStateOf(false) }
+                // R58 — the one unified colour picker (rich palette + recents + custom HSV/hex).
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Colour", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Box(Modifier.size(30.dp).clip(CircleShape).background(Color(color)).border(2.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape).clickable { colorsOpen = !colorsOpen })
-                }
-                if (colorsOpen) androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 10.dp)) {
-                    HABIT_COLORS.forEach { c ->
-                        Box(Modifier.size(30.dp).clip(CircleShape).background(Color(c)).border(if (c == color) 3.dp else 0.dp, MaterialTheme.colorScheme.onSurface, CircleShape).clickable { color = c; colorsOpen = false })
-                    }
+                    com.todocompanion.app.ui.components.AppColorPicker(current = color, onPick = { color = it ?: color })
                 }
             }
 

@@ -638,9 +638,10 @@ private fun OccasionEditorSheet(vm: AppViewModel, existing: CountdownEntity?, on
                 }
             }
             Spacer(Modifier.height(8.dp))
-            // Colour
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                CD_COLORS.forEach { cc -> Box(Modifier.size(28.dp).clip(CircleShape).background(Color(cc)).clickable { color = cc }, contentAlignment = Alignment.Center) { if (cc == color) Box(Modifier.size(10.dp).clip(CircleShape).background(Color.White)) } }
+            // Colour — unified picker (R58).
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Colour", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                com.todocompanion.app.ui.components.AppColorPicker(current = color, onPick = { color = it ?: color })
             }
             Spacer(Modifier.height(10.dp))
             com.todocompanion.app.ui.components.AppTextField(notes, { notes = it }, label = { Text("Notes (optional)") }, modifier = Modifier.fillMaxWidth())

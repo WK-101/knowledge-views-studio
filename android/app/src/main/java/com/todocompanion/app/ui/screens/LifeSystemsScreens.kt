@@ -219,12 +219,9 @@ private fun ValueEditor(v: CoreValueEntity?, onDismiss: () -> Unit, onSave: (Str
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(statement, { statement = it }, label = { Text("“I am someone who…”") }, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    LS_COLORS.forEach { c ->
-                        Box(Modifier.size(28.dp).clip(CircleShape).background(Color(c))
-                            .border(if (c == color) 3.dp else 0.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
-                            .clickable { color = c })
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Colour", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    com.todocompanion.app.ui.components.AppColorPicker(current = color, onPick = { color = it ?: color })
                 }
             }
         },

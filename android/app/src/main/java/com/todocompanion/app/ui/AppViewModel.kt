@@ -4132,6 +4132,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- settings ----------
     fun saveSettings(s: AppSettings) = viewModelScope.launch { repo.saveSettings(s) }
+
+    /** R58 — record a colour into the shared recent-colours list (most-recent first, deduped, capped at 12),
+     * so every unified colour picker across the app remembers what you last used. */
+    fun rememberRecentColor(argb: Long) = viewModelScope.launch {
+        val cur = settings.value.recentColors.split(",").mapNotNull { it.trim().toLongOrNull() }
+        val next = (listOf(argb) + cur).distinct().take(12)
+        repo.saveSettings(settings.value.copy(recentColors = next.joinToString(",")))
+    }
     /** Rename a smart list (null/blank clears the custom name → reverts to the built-in title). */
     fun setSmartListName(kindName: String, name: String?) = viewModelScope.launch {
         val s = settings.value

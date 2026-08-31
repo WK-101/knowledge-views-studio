@@ -303,6 +303,11 @@ fun AppRoot(
     val settings by vm.settings.collectAsState()
 
     AppTheme(themeMode = settings.themeMode, dynamicColor = settings.dynamicColor, accentArgb = settings.accentArgb) {
+      // R58 — provide the app-wide recent-colours host so every unified colour picker shares recents.
+      val colorRecents = remember(settings.recentColors) { settings.recentColors.split(",").mapNotNull { it.trim().toLongOrNull() } }
+      androidx.compose.runtime.CompositionLocalProvider(
+        com.todocompanion.app.ui.components.LocalColorPickerHost provides com.todocompanion.app.ui.components.ColorPickerHost(colorRecents, vm::rememberRecentColor)
+      ) {
       AppLockGate(enabled = settings.appLockEnabled) {
         val scope = rememberCoroutineScope()
         val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -1241,6 +1246,7 @@ fun AppRoot(
         // First-run tour (F1) — drawn last so it overlays everything until dismissed.
         if (!settings.onboarded) Onboarding(onDone = { vm.markOnboarded() })
       }
+      }  // CompositionLocalProvider (colour-picker host)
     }
 }
 
@@ -1616,8 +1622,9 @@ private fun ManageListDialog(
                 Spacer(Modifier.size(8.dp))
                 com.todocompanion.app.ui.components.AppTextField(description, { description = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Description (optional)") }, minLines = 2)
                 Spacer(Modifier.size(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SWATCHES.forEach { c -> Box(Modifier.size(26.dp).clip(CircleShape).background(Color(c)).clickable { onColor(c) }) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Colour", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    com.todocompanion.app.ui.components.AppColorPicker(current = list.colorArgb, onPick = { it?.let(onColor) }, allowNone = false)
                 }
                 Spacer(Modifier.size(12.dp))
                 Text("Icon", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1732,11 +1739,9 @@ private fun ManageTagDialog(tag: com.todocompanion.app.data.entity.TagEntity, on
             Column {
                 com.todocompanion.app.ui.components.AppTextField(name, { name = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.size(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Box(Modifier.size(26.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant).clickable { onColor(null) }, contentAlignment = Alignment.Center) {
-                        Text("–", style = MaterialTheme.typography.labelMedium)
-                    }
-                    SWATCHES.forEach { c -> Box(Modifier.size(26.dp).clip(CircleShape).background(Color(c)).clickable { onColor(c) }) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Colour", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    com.todocompanion.app.ui.components.AppColorPicker(current = tag.colorArgb, onPick = { onColor(it) }, allowNone = true)
                 }
             }
         },
@@ -1785,11 +1790,9 @@ private fun ManageContextDialog(
             Column {
                 com.todocompanion.app.ui.components.AppTextField(name, { name = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.size(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Box(Modifier.size(26.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant).clickable { onColor(null) }, contentAlignment = Alignment.Center) {
-                        Text("–", style = MaterialTheme.typography.labelMedium)
-                    }
-                    SWATCHES.forEach { c -> Box(Modifier.size(26.dp).clip(CircleShape).background(Color(c)).clickable { onColor(c) }) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Colour", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    com.todocompanion.app.ui.components.AppColorPicker(current = ctx.colorArgb, onPick = { onColor(it) }, allowNone = true)
                 }
                 Spacer(Modifier.size(14.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {

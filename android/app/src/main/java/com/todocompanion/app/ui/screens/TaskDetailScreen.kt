@@ -1260,11 +1260,9 @@ private fun ActivityEditDialog(
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 com.todocompanion.app.ui.components.AppTextField(name, { name = it }, singleLine = true, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(10.dp))
-                Text("Colour", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(Modifier.padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    palette.forEach { c ->
-                        Box(Modifier.size(28.dp).clip(CircleShape).background(Color(c)).border(if (color == c) 3.dp else 0.dp, MaterialTheme.colorScheme.onSurface, CircleShape).clickable { color = c })
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Colour", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    com.todocompanion.app.ui.components.AppColorPicker(current = color, onPick = { color = it ?: color })
                 }
                 Spacer(Modifier.height(8.dp))
                 Text("Icon", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -572,18 +572,10 @@ private fun CalendarEditDialog(existing: EventCalendarEntity?, onDismiss: () -> 
     )
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ColorRow(selected: Long, onPick: (Long) -> Unit) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        CAL_COLORS.forEach { c ->
-            Box(Modifier.size(30.dp).clip(CircleShape).background(Color(c))
-                .then(if (c == selected) Modifier.border(2.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier)
-                .clickable { onPick(c) }, contentAlignment = Alignment.Center) {
-                if (c == selected) Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
-            }
-        }
-    }
+    // R58 — unified colour picker (rich palette + recents + custom HSV/hex).
+    com.todocompanion.app.ui.components.AppColorPicker(current = selected, onPick = { onPick(it ?: selected) })
 }
 
 // ── Gap finder ──────────────────────────────────────────────────────────────────────────────────
