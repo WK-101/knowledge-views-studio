@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material3.AlertDialog
@@ -92,6 +93,7 @@ fun CalendarEntriesSheet(
     var confirmBulk by remember { mutableStateOf(false) }
     var moveTarget by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<EventEntity?>(null) }
+    var seriesFor by remember { mutableStateOf<String?>(null) }   // R57 per-instance cleanup: series event id
 
     val q = query.trim().lowercase()
     // Base set: one row per series (overrides hidden), calendar + search filtered.
@@ -217,6 +219,7 @@ fun CalendarEntriesSheet(
                                 (cal?.let { " · " + it.name } ?: ""),
                                 style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
+                        if (!selectMode && e.rrule.isNotBlank()) IconButton(onClick = { seriesFor = e.id }) { Icon(Icons.Filled.DateRange, "Occurrences", tint = MaterialTheme.colorScheme.primary) }
                         if (!selectMode) IconButton(onClick = { pendingDelete = e }) { Icon(Icons.Filled.Delete, "Delete", tint = MaterialTheme.colorScheme.error) }
                     }
                 }
@@ -260,6 +263,39 @@ fun CalendarEntriesSheet(
                             Box(Modifier.size(12.dp).clip(CircleShape).background(Color(c.colorArgb)))
                             Spacer(Modifier.width(12.dp))
                             Text(c.name, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            },
+        )
+    }
+    // R57 — per-instance recurring-series cleanup: expand the series and delete individual occurrences.
+    seriesFor?.let { sid ->
+        val series = allEvents.firstOrNull { it.id == sid }
+        if (series == null) { seriesFor = null; return@let }
+        val now = System.currentTimeMillis()
+        val occs = remember(series, allEvents) {
+            com.todocompanion.app.domain.calendar.CalendarEngine
+                .expand(listOf(series), now, now + 365L * 24 * 3600 * 1000, zone)
+                .sortedBy { it.startMillis }.take(60)
+        }
+        val odf = DateTimeFormatter.ofPattern("EEE d MMM · h:mm a")
+        AlertDialog(
+            onDismissRequest = { seriesFor = null },
+            confirmButton = { TextButton(onClick = { seriesFor = null }) { Text("Done") } },
+            title = { Text("Occurrences of “${series.title.ifBlank { "(untitled)" }}”") },
+            text = {
+                Column {
+                    Text("Delete individual dates without ending the whole series.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(8.dp))
+                    if (occs.isEmpty()) Text("No upcoming occurrences.", style = MaterialTheme.typography.bodyMedium)
+                    else LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                        items(occs, key = { it.startMillis }) { o ->
+                            val day = Instant.ofEpochMilli(o.startMillis).atZone(zone).toLocalDate().toEpochDay()
+                            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(Instant.ofEpochMilli(o.startMillis).atZone(zone).format(odf), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                                IconButton(onClick = { vm.deleteEvent(series.id, "this", day) }) { Icon(Icons.Filled.Delete, "Delete this date", tint = MaterialTheme.colorScheme.error) }
+                            }
                         }
                     }
                 }

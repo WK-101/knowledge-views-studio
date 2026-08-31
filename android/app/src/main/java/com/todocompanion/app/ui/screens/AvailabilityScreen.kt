@@ -87,14 +87,15 @@ fun AvailabilitySheet(vm: AppViewModel, anchorDay: Long, onDismiss: () -> Unit) 
         minSlotMin = s.availMinSlotMin, bufferMin = s.availBufferMin,
     )
     val firstDow = if (s.weekStart in 1..7) DayOfWeek.of(s.weekStart) else WeekFields.of(Locale.getDefault()).firstDayOfWeek
+    val protectedList = remember(s.protectedBlocks) { Availability.parseProtected(s.protectedBlocks) }
     val days: List<LocalDate> = when (range) {
         "Day" -> listOf(anchor)
         "Month" -> { val first = anchor.withDayOfMonth(1); (0 until anchor.lengthOfMonth()).map { first.plusDays(it.toLong()) } }
         else -> { val start = startOfWk(anchor, firstDow); (0..6).map { start.plusDays(it.toLong()) } }
     }
     // Don't count days already in the past for a fair "free time left".
-    val free = Availability.forDays(events, days, cfg, zone).map { d ->
-        if (d.date.isBefore(today)) d.copy(available = false, slots = emptyList(), busy = emptyList(), freeMin = 0, busyMin = 0) else d
+    val free = Availability.forDays(events, days, cfg, zone, protectedList).map { d ->
+        if (d.date.isBefore(today)) d.copy(available = false, slots = emptyList(), busy = emptyList(), reserved = emptyList(), freeMin = 0, busyMin = 0) else d
     }
     val totalFree = Availability.totalFreeMin(free)
     val totalWindow = Availability.totalWindowMin(free)
@@ -308,6 +309,46 @@ fun AvailabilitySheet(vm: AppViewModel, anchorDay: Long, onDismiss: () -> Unit) 
                 }
             }
 
+            Spacer(Modifier.height(14.dp))
+            // R57 — Protected openings: recurring blocks reserved for you, never offered as free (amber above).
+            Text("Protected time", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text("Reserved for you (deep work, breaks) — shown amber and never counted as free.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            protectedList.forEachIndexed { idx, p ->
+                Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    val dl = p.days.sorted().joinToString(" ") { n -> dowLabels.firstOrNull { it.first == n }?.second ?: "?" }
+                    Text("🛡 $dl · ${"%02d:%02d".format(p.startMin / 60, p.startMin % 60)}–${"%02d:%02d".format(p.endMin / 60, p.endMin % 60)}",
+                        Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    TextButton(onClick = {
+                        val next = protectedList.toMutableList().also { it.removeAt(idx) }
+                        vm.saveSettings(s.copy(protectedBlocks = Availability.encodeProtected(next)))
+                    }) { Text("Remove", color = MaterialTheme.colorScheme.error) }
+                }
+            }
+            var pDays by remember { mutableStateOf(setOf(1, 2, 3, 4, 5)) }
+            var pStart by remember { mutableStateOf(9) }
+            var pEnd by remember { mutableStateOf(11) }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
+                dowLabels.forEach { (n, l) ->
+                    FilterChip(selected = n in pDays, onClick = { pDays = if (n in pDays) pDays - n else pDays + n }, label = { Text(l) })
+                }
+            }
+            Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("From", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TextButton(onClick = { pStart = (pStart - 1).coerceAtLeast(0) }) { Text("−") }
+                Text("%02d:00".format(pStart), style = MaterialTheme.typography.bodyMedium)
+                TextButton(onClick = { pStart = (pStart + 1).coerceAtMost(23) }) { Text("+") }
+                Spacer(Modifier.width(6.dp))
+                Text("to", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TextButton(onClick = { pEnd = (pEnd - 1).coerceAtLeast(1) }) { Text("−") }
+                Text("%02d:00".format(pEnd), style = MaterialTheme.typography.bodyMedium)
+                TextButton(onClick = { pEnd = (pEnd + 1).coerceAtMost(24) }) { Text("+") }
+            }
+            TextButton(enabled = pDays.isNotEmpty() && pEnd > pStart, onClick = {
+                val next = protectedList + Availability.Protected(pDays, pStart * 60, pEnd * 60)
+                vm.saveSettings(s.copy(protectedBlocks = Availability.encodeProtected(next)))
+            }) { Text("＋ Protect this block") }
+
             Spacer(Modifier.height(12.dp))
             TextButton(onClick = {
                 val txt = buildString {
@@ -336,28 +377,31 @@ fun AvailabilitySheet(vm: AppViewModel, anchorDay: Long, onDismiss: () -> Unit) 
 private fun DayTimelineBar(d: Availability.DayFree, minDur: Int, zone: ZoneId) {
     val winStart = d.windowStartMillis; val winEnd = d.windowEndMillis
     val span = (winEnd - winStart).coerceAtLeast(1L)
-    // Build an ordered sequence of segments (busy / free) covering the whole window.
-    data class Seg(val minutes: Float, val busy: Boolean, val fits: Boolean)
+    // Kind: 0 = free, 1 = busy (event), 2 = reserved (protected). Walk the window filling occupied ranges.
+    data class Seg(val minutes: Float, val kind: Int, val fits: Boolean)
+    val occupied = (d.busy.map { Triple(it.startMillis, it.endMillis, 1) } + d.reserved.map { Triple(it.startMillis, it.endMillis, 2) })
+        .map { Triple(it.first.coerceIn(winStart, winEnd), it.second.coerceIn(winStart, winEnd), it.third) }
+        .filter { it.second > it.first }
+        .sortedBy { it.first }
     val segs = ArrayList<Seg>()
     var pos = winStart
-    val busy = d.busy.sortedBy { it.startMillis }
-    for (b in busy) {
-        val bs = b.startMillis.coerceIn(winStart, winEnd); val be = b.endMillis.coerceIn(winStart, winEnd)
-        if (bs > pos) { val mins = (bs - pos) / 60000f; segs.add(Seg(mins, false, mins >= minDur)) }
-        if (be > bs) segs.add(Seg((be - bs) / 60000f, true, false))
+    for ((bs, be, kind) in occupied) {
+        if (bs > pos) { val mins = (bs - pos) / 60000f; segs.add(Seg(mins, 0, mins >= minDur)) }
+        if (be > pos) segs.add(Seg((be - maxOf(bs, pos)) / 60000f, kind, false))
         pos = maxOf(pos, be)
     }
-    if (pos < winEnd) { val mins = (winEnd - pos) / 60000f; segs.add(Seg(mins, false, mins >= minDur)) }
+    if (pos < winEnd) { val mins = (winEnd - pos) / 60000f; segs.add(Seg(mins, 0, mins >= minDur)) }
     if (segs.isEmpty()) return
     val freeSoft = MaterialTheme.colorScheme.primary.copy(alpha = .30f)
     val freeFit = MaterialTheme.colorScheme.primary
     val busyCol = MaterialTheme.colorScheme.error.copy(alpha = .38f)
+    val reservedCol = MaterialTheme.colorScheme.tertiary.copy(alpha = .55f)
     val totalMin = span / 60000f
     Row(Modifier.fillMaxWidth().padding(top = 6.dp).height(14.dp).clip(RoundedCornerShape(5.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
         segs.forEach { seg ->
             Box(
                 Modifier.weight((seg.minutes / totalMin).coerceAtLeast(0.001f)).fillMaxHeight()
-                    .background(if (seg.busy) busyCol else if (seg.fits) freeFit else freeSoft)
+                    .background(when (seg.kind) { 1 -> busyCol; 2 -> reservedCol; else -> if (seg.fits) freeFit else freeSoft })
             )
         }
     }

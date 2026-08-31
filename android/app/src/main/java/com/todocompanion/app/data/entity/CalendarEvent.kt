@@ -33,7 +33,7 @@ data class EventCalendarEntity(
  * instances (comma of epoch-days) and a per-instance edit is a separate event carrying [recurrenceParentId].
  */
 @Serializable
-@Entity(tableName = "events", indices = [Index("calendarId"), Index("startMillis"), Index("recurrenceParentId")])
+@Entity(tableName = "events", indices = [Index("calendarId"), Index("startMillis"), Index("recurrenceParentId"), Index("calendarId", "startMillis")])
 data class EventEntity(
     @PrimaryKey val id: String,
     val calendarId: String,

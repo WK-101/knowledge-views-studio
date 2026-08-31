@@ -19,6 +19,9 @@ import kotlinx.serialization.Serializable
     indices = [
         Index("parentId"), Index("listId"), Index("folderId"), Index("workspaceId"),
         Index("completed"), Index("trashed"), Index("someday"), Index("dueDate"),
+        // R57 (Wave B / index audit) — composites for the hottest WHERE combinations (workspace scoping,
+        // completed/trash counts). Additive; SQLite picks them for the DB-side aggregates.
+        Index("workspaceId", "trashed"), Index("completed", "trashed"),
     ],
 )
 @androidx.compose.runtime.Immutable

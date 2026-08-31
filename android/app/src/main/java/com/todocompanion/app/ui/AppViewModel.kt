@@ -4420,6 +4420,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         return allAttachments.value.filter { it.fileName.lowercase().contains(q) }
     }
 
+    /** R57 — calendar events matching the query (title/place/notes), one row per series, newest first. */
+    fun searchEvents(query: String): List<com.todocompanion.app.data.entity.EventEntity> {
+        val q = query.trim().lowercase(); if (q.isBlank()) return emptyList()
+        return events.value.filter {
+            it.recurrenceParentId == null &&
+                (it.title.lowercase().contains(q) || it.location.lowercase().contains(q) || it.notes.lowercase().contains(q))
+        }.sortedByDescending { it.startMillis }
+    }
+
+    /** R57 — occasions/countdowns matching the query (title/notes). */
+    fun searchOccasions(query: String): List<com.todocompanion.app.data.entity.CountdownEntity> {
+        val q = query.trim().lowercase(); if (q.isBlank()) return emptyList()
+        return countdowns.value.filter { it.title.lowercase().contains(q) || it.notes.lowercase().contains(q) }
+            .sortedBy { it.title.lowercase() }
+    }
+
     /**
      * E1/R56: search across all habits too — name, description/"why", identity, category, unit and now
      * the free-form notes. Archived habits are INCLUDED (the UI labels them) so a habit is never unfindable.

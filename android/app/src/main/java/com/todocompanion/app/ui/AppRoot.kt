@@ -871,7 +871,10 @@ fun AppRoot(
                                     if (boardMode) com.todocompanion.app.ui.screens.KanbanScreen(vm, ::openTask) else TasksScreen(vm, ::openTask, onOpenOccasion = openOccasion)
                                 }
                             }
-                            Tab.SEARCH -> SearchScreen(vm, ::openTask, searchQuery, onOpenHabit = { hid -> vm.habitDetailId.value = hid; tab = Tab.HABITS })
+                            Tab.SEARCH -> SearchScreen(vm, ::openTask, searchQuery,
+                                onOpenHabit = { hid -> vm.habitDetailId.value = hid; tab = Tab.HABITS },
+                                onOpenEvent = { eid -> calEventAction = "open:$eid"; tab = Tab.CALENDAR },
+                                onOpenOccasion = openOccasion)
                             Tab.SETTINGS -> SettingsScreen(vm)
                             Tab.CALENDAR -> CalendarScreen(vm, ::openTask, calMode, { calMode = it },
                                 calAnchor, calSelected, { calAnchor = it }, { calSelected = it },

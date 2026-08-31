@@ -28,7 +28,8 @@ object Availability {
         val date: LocalDate,
         val available: Boolean,
         val slots: List<CalendarEngine.Slot>,       // free openings within the window (>= minSlot)
-        val busy: List<CalendarEngine.Slot>,         // busy blocks clipped/merged to the window (R56)
+        val busy: List<CalendarEngine.Slot>,         // busy event blocks clipped/merged to the window (R56)
+        val reserved: List<CalendarEngine.Slot>,     // protected self-reserved blocks (R57)
         val freeMin: Int,
         val busyMin: Int,
         val windowMin: Int,
@@ -39,6 +40,20 @@ object Availability {
         val longestSlot: CalendarEngine.Slot? get() = slots.maxByOrNull { it.minutes }
     }
 
+    /** A protected opening: on weekdays [days] (1=Mon..7=Sun), minutes-of-day [startMin, endMin). */
+    data class Protected(val days: Set<Int>, val startMin: Int, val endMin: Int)
+
+    fun parseProtected(csv: String): List<Protected> =
+        csv.split(";").mapNotNull { part ->
+            val f = part.split("|"); if (f.size != 3) return@mapNotNull null
+            val days = f[0].split(",").mapNotNull { it.trim().toIntOrNull() }.filter { it in 1..7 }.toSet()
+            val s = f[1].trim().toIntOrNull(); val e = f[2].trim().toIntOrNull()
+            if (days.isEmpty() || s == null || e == null || e <= s) null else Protected(days, s, e)
+        }
+
+    fun encodeProtected(list: List<Protected>): String =
+        list.joinToString(";") { "${it.days.sorted().joinToString(",")}|${it.startMin}|${it.endMin}" }
+
     /** One opening located in the range — used for the "best openings" list (date + slot). */
     data class Opening(val date: LocalDate, val slot: CalendarEngine.Slot) {
         val minutes: Long get() = slot.minutes
@@ -47,7 +62,13 @@ object Availability {
     fun parseDays(csv: String): Set<Int> =
         csv.split(",").mapNotNull { it.trim().toIntOrNull() }.filter { it in 1..7 }.toSet().ifEmpty { setOf(1, 2, 3, 4, 5) }
 
-    fun forDays(events: List<EventEntity>, days: List<LocalDate>, cfg: Config, zone: ZoneId = ZoneId.systemDefault()): List<DayFree> {
+    fun forDays(
+        events: List<EventEntity>,
+        days: List<LocalDate>,
+        cfg: Config,
+        zone: ZoneId = ZoneId.systemDefault(),
+        protected: List<Protected> = emptyList(),
+    ): List<DayFree> {
         val busyEvents = events.filter { it.busy }
         val windowMin = ((cfg.endHour - cfg.startHour).coerceAtLeast(0)) * 60
         val bufferMs = cfg.bufferMin.toLong() * 60_000L
@@ -57,16 +78,20 @@ object Availability {
             val winStart = dayStart + cfg.startHour.toLong() * 3_600_000L
             val winEnd = dayStart + cfg.endHour.toLong() * 3_600_000L
             if (dow !in cfg.days || windowMin <= 0) {
-                return@map DayFree(d, false, emptyList(), emptyList(), 0, 0, windowMin, winStart, winEnd)
+                return@map DayFree(d, false, emptyList(), emptyList(), emptyList(), 0, 0, windowMin, winStart, winEnd)
             }
-            val rawBusy = CalendarEngine.onDay(busyEvents, d.toEpochDay(), zone)
+            val eventBusy = CalendarEngine.onDay(busyEvents, d.toEpochDay(), zone)
                 .map { (it.startMillis - bufferMs) to (it.endMillis + bufferMs) }
-            val slots = CalendarEngine.freeSlots(rawBusy, d.toEpochDay(), cfg.startHour, cfg.endHour, cfg.minSlotMin, zone)
-            // Busy blocks clipped to the window and merged, for the timeline. (Buffer folded in.)
-            val busyBlocks = mergeToWindow(rawBusy, winStart, winEnd)
+            // Protected self-reserved blocks that fall on this weekday, as raw intervals.
+            val reservedRaw = protected.filter { dow in it.days }
+                .map { (dayStart + it.startMin.toLong() * 60_000L) to (dayStart + it.endMin.toLong() * 60_000L) }
+            // Free = window minus BOTH events and protected blocks (protected time is never offered).
+            val slots = CalendarEngine.freeSlots(eventBusy + reservedRaw, d.toEpochDay(), cfg.startHour, cfg.endHour, cfg.minSlotMin, zone)
+            val busyBlocks = mergeToWindow(eventBusy, winStart, winEnd)
+            val reservedBlocks = mergeToWindow(reservedRaw, winStart, winEnd)
             val freeMin = slots.sumOf { it.minutes.toInt() }
             val busyMin = busyBlocks.sumOf { it.minutes.toInt() }
-            DayFree(d, true, slots, busyBlocks, freeMin, busyMin.coerceAtMost(windowMin), windowMin, winStart, winEnd)
+            DayFree(d, true, slots, busyBlocks, reservedBlocks, freeMin, busyMin.coerceAtMost(windowMin), windowMin, winStart, winEnd)
         }
     }
 

@@ -412,6 +412,8 @@ fun CalendarScreen(
             "import" -> com.todocompanion.app.util.SystemPicker.openFile(arrayOf("text/calendar", "application/octet-stream", "*/*"), onError = { vm.toastMsg(it) }) { importIcsUri = it }
             // R52 — choose one calendar or "everything combined", then save.
             "export" -> exportChooserOpen = true
+            // R57 — deep link from global search: "open:<eventId>" opens that event's editor.
+            else -> if (eventAction?.startsWith("open:") == true) openEvent(eventAction.removePrefix("open:"))
         }
         if (eventAction != null) onEventActionConsumed()
     }

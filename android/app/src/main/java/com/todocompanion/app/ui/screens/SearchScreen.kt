@@ -47,15 +47,23 @@ private enum class SF(val label: String) { ALL("All"), TODAY("Today"), OVERDUE("
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-fun SearchScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, query: String, modifier: Modifier = Modifier, onOpenHabit: (String) -> Unit = {}) {
+fun SearchScreen(
+    vm: AppViewModel, onOpenTask: (String) -> Unit, query: String, modifier: Modifier = Modifier,
+    onOpenHabit: (String) -> Unit = {}, onOpenEvent: (String) -> Unit = {}, onOpenOccasion: (String) -> Unit = {},
+) {
     val tasks by vm.tasks.collectAsState()
     val habits by vm.habits.collectAsState()
+    val eventsState by vm.events.collectAsState()
+    val occasionsState by vm.countdowns.collectAsState()
     // R54 — FTS-accelerated for large histories, instant in-memory for small sets (see vm.searchAsync).
     val results by androidx.compose.runtime.produceState(initialValue = emptyList<com.todocompanion.app.data.entity.TaskEntity>(), query, tasks) {
         value = vm.searchAsync(query)
     }
     // E1: habits are searchable too — shown only under the "All" filter (task filters don't apply).
     val habitResults = remember(query, habits) { vm.searchHabits(query) }
+    // R57 — events & occasions are searchable too, so "Search everything" truly covers the calendar.
+    val eventResults = remember(query, eventsState) { vm.searchEvents(query) }
+    val occasionResults = remember(query, occasionsState) { vm.searchOccasions(query) }
     // R56 — attachment names are searchable; map taskId → the matched file name for the "📎 …" hint.
     val attachHits = remember(query) { vm.searchAttachmentNames(query).associate { it.taskId to it.fileName } }
     val lists by vm.lists.collectAsState()
@@ -92,11 +100,13 @@ fun SearchScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, query: String, 
             }
         }
         val showHabits = filter == SF.ALL && habitResults.isNotEmpty()
+        val showEvents = filter == SF.ALL && eventResults.isNotEmpty()
+        val showOccasions = filter == SF.ALL && occasionResults.isNotEmpty()
         when {
-            query.isBlank() -> SearchHint("Search everything", "Find any task or habit by title, note, #tag, @context or 📎 attachment name — completed, someday and archived included; tap Trashed to search the bin")
-            shown.isEmpty() && !showHabits -> SearchHint("No matches", "Nothing found for “$query”", off = true)
+            query.isBlank() -> SearchHint("Search everything", "Find any task, habit, event, occasion, note, #tag, @context or 📎 attachment name — completed, someday and archived included; tap Trashed to search the bin")
+            shown.isEmpty() && !showHabits && !showEvents && !showOccasions -> SearchHint("No matches", "Nothing found for “$query”", off = true)
             else -> {
-                val totalN = shown.size + (if (showHabits) habitResults.size else 0)
+                val totalN = shown.size + (if (showHabits) habitResults.size else 0) + (if (showEvents) eventResults.size else 0) + (if (showOccasions) occasionResults.size else 0)
                 Text("$totalN result${if (totalN == 1) "" else "s"}",
                     Modifier.padding(start = 18.dp, top = 2.dp, bottom = 4.dp),
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -171,6 +181,48 @@ fun SearchScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, query: String, 
                                     Text(loc + state, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 task.dueDate?.let { Spacer(Modifier.width(6.dp)); DueChip(it) }
+                            }
+                        }
+                    }
+                    // R57 — EVENTS section (calendar), tap opens the event editor.
+                    if (showEvents) {
+                        item(key = "events-header") {
+                            Text("EVENTS", Modifier.padding(start = 18.dp, top = 10.dp, bottom = 2.dp),
+                                style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                        }
+                        items(eventResults, key = { "e:" + it.id }) { e ->
+                            val df = java.time.format.DateTimeFormatter.ofPattern("EEE d MMM yyyy")
+                            Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+                                Row(Modifier.fillMaxWidth().clickable { onOpenEvent(e.id) }.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text("🗓️", style = MaterialTheme.typography.bodyMedium)
+                                    Spacer(Modifier.width(10.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(e.title.ifBlank { "(untitled)" }, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
+                                        val sub = (if (e.allDay) "All day" else java.time.Instant.ofEpochMilli(e.startMillis).atZone(zone).format(df)) +
+                                            (if (e.location.isNotBlank()) " · " + e.location else "") + (if (e.rrule.isNotBlank()) " · repeats" else "")
+                                        Text(sub, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // R57 — OCCASIONS section (birthdays / countdowns), tap opens the occasion.
+                    if (showOccasions) {
+                        item(key = "occasions-header") {
+                            Text("OCCASIONS", Modifier.padding(start = 18.dp, top = 10.dp, bottom = 2.dp),
+                                style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                        }
+                        items(occasionResults, key = { "o:" + it.id }) { o ->
+                            Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+                                Row(Modifier.fillMaxWidth().clickable { onOpenOccasion(o.id) }.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(o.emoji?.ifBlank { null } ?: "🎉", style = MaterialTheme.typography.bodyMedium)
+                                    Spacer(Modifier.width(10.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(o.title.ifBlank { "(untitled)" }, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
+                                        val sub = o.notes.trim().lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty().ifBlank { "Occasion" }
+                                        Text(sub, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
                             }
                         }
                     }

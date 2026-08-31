@@ -93,6 +93,9 @@ data class AppSettings(
     val availDays: String = "1,2,3,4,5",
     val availMinSlotMin: Int = 30,
     val availBufferMin: Int = 0,
+    // R57 — protected openings: recurring self-reserved blocks the availability engine defends (never
+    // offered as free). Encoded as "days|startMin|endMin" entries joined by ';', e.g. "1,3,5|540|660".
+    val protectedBlocks: String = "",
     // The hour a new "day" begins (0–6). Tasks before this hour still count as the previous day,
     // so late-night work stays under "Today". 0 = midnight (standard).
     val dayStartHour: Int = 0,
@@ -339,6 +342,7 @@ data class AppSettings(
         Keys.AVAIL_DAYS to availDays,
         Keys.AVAIL_MIN_SLOT to availMinSlotMin.toString(),
         Keys.AVAIL_BUFFER to availBufferMin.toString(),
+        Keys.PROTECTED_BLOCKS to protectedBlocks,
         Keys.DAY_START to dayStartHour.toString(),
         Keys.SUMMARY_ON to dailySummaryEnabled.toString(),
         Keys.SUMMARY_H to dailySummaryHour.toString(),
@@ -487,6 +491,7 @@ data class AppSettings(
         const val AVAIL_DAYS = "avail_days"
         const val AVAIL_MIN_SLOT = "avail_min_slot"
         const val AVAIL_BUFFER = "avail_buffer"
+        const val PROTECTED_BLOCKS = "protected_blocks"
         const val DAY_START = "day_start"
         const val SUMMARY_H = "summary_h"
         const val SUMMARY_M = "summary_m"
@@ -702,6 +707,7 @@ data class AppSettings(
             availDays = m[Keys.AVAIL_DAYS] ?: "1,2,3,4,5",
             availMinSlotMin = m[Keys.AVAIL_MIN_SLOT]?.toIntOrNull()?.coerceIn(5, 480) ?: 30,
             availBufferMin = m[Keys.AVAIL_BUFFER]?.toIntOrNull()?.coerceIn(0, 120) ?: 0,
+            protectedBlocks = m[Keys.PROTECTED_BLOCKS] ?: "",
             dayStartHour = m[Keys.DAY_START]?.toIntOrNull()?.coerceIn(0, 6) ?: 0,
             dailySummaryHour = m[Keys.SUMMARY_H]?.toIntOrNull() ?: 8,
             dailySummaryMinute = m[Keys.SUMMARY_M]?.toIntOrNull() ?: 0,
