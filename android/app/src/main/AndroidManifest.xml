@@ -12,6 +12,10 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- R59: the "Insistent" reminder tier presents a full-screen alarm once ignored a few rounds. This is
+         a local UI capability only (no network, no location) — it lets the escalation take over the screen
+         like a clock alarm. Without it, Android 14+ silently degrades the alarm to a heads-up notification. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!--
       NO storage or media permission is declared. Attaching files, restoring backups and importing all

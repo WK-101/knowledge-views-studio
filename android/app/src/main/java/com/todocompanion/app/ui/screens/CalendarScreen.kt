@@ -355,6 +355,7 @@ fun CalendarScreen(
                 collapsed = monthCollapsed, onCollapsedChange = { monthCollapsed = it },
                 habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, countdownsFor = countdownsFor, trackedDayInfo = trackedDayInfo,
                 eventOccForDay = eventOccForDay, onOpenEvent = openEvent, onOpenOccasion = onOpenOccasion, onOccasionDetails = { detailsOccasion = it }, lunar = s.lunarOverlay,
+                eventColorOf = { colorOf(it.event, eventCalById) },
                 onMoveToDay = { d, id ->
                     // Preserve the task's time-of-day when dropping it on another day; default 9am.
                     val min = tasks.firstOrNull { it.id == id }?.dueDate?.let { Instant.ofEpochMilli(it).atZone(zone).let { z -> z.hour * 60 + z.minute } } ?: 540
@@ -702,7 +703,7 @@ private fun MonthYearPicker(current: YearMonth, onDismiss: () -> Unit, onPick: (
 }
 
 @Composable
-private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, swipe: CalSwipe, onAdd: () -> Unit, collapsed: Boolean, onCollapsedChange: (Boolean) -> Unit, habitBlocksFor: (LocalDate) -> List<HabitBlock>, onOpenHabit: (String) -> Unit, countdownsFor: (LocalDate) -> List<com.todocompanion.app.data.entity.CountdownEntity>, trackedDayInfo: (LocalDate) -> Pair<Int, androidx.compose.ui.graphics.Color?> = { 0 to null }, eventOccForDay: (LocalDate) -> List<com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence> = { emptyList() }, onOpenEvent: (String) -> Unit = {}, onOpenOccasion: (String?) -> Unit = {}, onOccasionDetails: (com.todocompanion.app.data.entity.CountdownEntity) -> Unit = {}, lunar: Boolean = false, onMoveToDay: (LocalDate, String) -> Unit) {
+private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, swipe: CalSwipe, onAdd: () -> Unit, collapsed: Boolean, onCollapsedChange: (Boolean) -> Unit, habitBlocksFor: (LocalDate) -> List<HabitBlock>, onOpenHabit: (String) -> Unit, countdownsFor: (LocalDate) -> List<com.todocompanion.app.data.entity.CountdownEntity>, trackedDayInfo: (LocalDate) -> Pair<Int, androidx.compose.ui.graphics.Color?> = { 0 to null }, eventOccForDay: (LocalDate) -> List<com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence> = { emptyList() }, onOpenEvent: (String) -> Unit = {}, onOpenOccasion: (String?) -> Unit = {}, onOccasionDetails: (com.todocompanion.app.data.entity.CountdownEntity) -> Unit = {}, lunar: Boolean = false, eventColorOf: (com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence) -> Color = { Color(it.event.colorArgb ?: 0xFF7C3AED) }, onMoveToDay: (LocalDate, String) -> Unit) {
     val ym = YearMonth.from(anchor)
     val labels = (0..6).map { firstDow.plus(it.toLong()) }
     val first = ym.atDay(1)
@@ -873,7 +874,7 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
             val hm = java.time.format.DateTimeFormatter.ofPattern("h:mm a")
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 dayEvents.forEach { o ->
-                    val c = Color(o.event.colorArgb ?: 0xFF7C3AED)
+                    val c = eventColorOf(o)
                     Row(
                         Modifier.clip(RoundedCornerShape(20.dp)).background(c.copy(alpha = .14f))
                             .border(1.dp, c.copy(alpha = .45f), RoundedCornerShape(20.dp))

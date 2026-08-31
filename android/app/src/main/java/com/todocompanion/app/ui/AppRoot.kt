@@ -1122,6 +1122,7 @@ fun AppRoot(
             ManageFolderDialog(f, onDismiss = { manageFolder = null },
                 onSave = { n, d -> vm.saveFolder((folders.firstOrNull { it.id == f.id } ?: f).copy(name = n.trim(), description = d)); manageFolder = null },
                 onIcon = { vm.setFolderIcon(f, it) },
+                onColor = { vm.saveFolder((folders.firstOrNull { it.id == f.id } ?: f).copy(colorArgb = it)) },
                 onArchive = { a -> vm.setFolderArchived(folders.firstOrNull { it.id == f.id } ?: f, a); if (a && currentView == ViewRef.FolderView(f.id)) vm.select(ViewRef.Smart(SmartKind.TODAY)); manageFolder = null },
                 onDelete = { vm.deleteFolder(f.id); manageFolder = null })
         }
@@ -1669,7 +1670,7 @@ private fun ConfirmDeleteDialog(kind: String, name: String, onCancel: () -> Unit
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun ManageFolderDialog(folder: FolderEntity, onDismiss: () -> Unit, onSave: (String, String) -> Unit, onIcon: (String?) -> Unit, onDelete: () -> Unit, onArchive: (Boolean) -> Unit = {}) {
+private fun ManageFolderDialog(folder: FolderEntity, onDismiss: () -> Unit, onSave: (String, String) -> Unit, onIcon: (String?) -> Unit, onColor: (Long?) -> Unit, onDelete: () -> Unit, onArchive: (Boolean) -> Unit = {}) {
     var name by remember { mutableStateOf(folder.name) }
     var description by remember { mutableStateOf(folder.description) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -1688,6 +1689,12 @@ private fun ManageFolderDialog(folder: FolderEntity, onDismiss: () -> Unit, onSa
                 Text("Icon", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.size(6.dp))
                 EmojiPicker(current = folder.icon, onPick = onIcon)
+                Spacer(Modifier.size(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Colour", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.size(10.dp))
+                    com.todocompanion.app.ui.components.AppColorPicker(current = folder.colorArgb, onPick = onColor, allowNone = true)
+                }
                 Spacer(Modifier.size(4.dp))
                 TextButton(onClick = { onArchive(!folder.archived) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
                     Icon(if (folder.archived) Icons.Filled.Unarchive else Icons.Filled.Archive, null, Modifier.size(18.dp)); Spacer(Modifier.size(6.dp))

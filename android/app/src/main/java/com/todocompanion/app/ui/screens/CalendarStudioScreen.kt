@@ -117,7 +117,9 @@ private enum class CalView(val label: String) { MONTH("Month"), WEEK("Week"), DA
 private val CAL_COLORS = listOf(
     0xFF4F46E5, 0xFFE5484D, 0xFFF59E0B, 0xFF12A594, 0xFF3E7BFA, 0xFFEC4899, 0xFF16A34A, 0xFF7C3AED,
 )
-private val ALERT_CHOICES = listOf(0 to "At start", 10 to "10 min", 30 to "30 min", 60 to "1 hour", 1440 to "1 day")
+// R59 (Wave 1) — event alert offsets come from the one shared preset set, so a "30 min" alert here means
+// the same as a "30 min before" task reminder.
+private val ALERT_CHOICES = com.todocompanion.app.domain.reminders.ReminderPresets.OFFSETS.map { it to com.todocompanion.app.domain.reminders.ReminderPresets.shortLabel(it) }
 
 /**
  * R38 — the DEDICATED CALENDAR. Its own local event store (no calendar-provider, no network): month /
@@ -633,6 +635,8 @@ internal fun EventEditor(
     var rsvp by remember { mutableStateOf(existing?.rsvp ?: "") }
     var busy by remember { mutableStateOf(existing?.busy ?: true) }
     var rrule by remember { mutableStateOf(existing?.rrule ?: "") }
+    // R59 (Wave 1) — a per-event colour override (null = inherit the calendar's colour), via the unified picker.
+    var color by remember { mutableStateOf(existing?.colorArgb) }
     var alerts by remember { mutableStateOf((existing?.alertsMinutes ?: "").split(",").mapNotNull { it.trim().toIntOrNull() }.toSet()) }
     var showStart by remember { mutableStateOf(false) }
     var showEnd by remember { mutableStateOf(false) }
@@ -669,7 +673,7 @@ internal fun EventEditor(
             e = d.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
         } else if (e <= s) e = s + 3_600_000L
         vm.saveEvent(existing?.id, calId, title, location, notes, url, s, e, allDay, rrule,
-            alerts.sorted().joinToString(","), existing?.colorArgb, busy = busy,
+            alerts.sorted().joinToString(","), color, busy = busy,
             organizer = organizer, attendees = attendees, rsvp = rsvp)
         if (travelOn && travelMin > 0 && !allDay) vm.addTravelBuffer(s, travelMin, location, calId)
         onClose()
@@ -751,6 +755,18 @@ internal fun EventEditor(
                     ALERT_CHOICES.forEach { (m, l) ->
                         FilterChip(selected = m in alerts, onClick = { alerts = if (m in alerts) alerts - m else alerts + m }, label = { Text(l) })
                     }
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            // R59 (Wave 1) — a per-event colour, overriding the calendar's colour just for this event.
+            AppCard {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Colour", style = MaterialTheme.typography.bodyLarge)
+                        Text(if (color == null) "Using ${cal?.name ?: "calendar"} colour" else "Custom colour",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    com.todocompanion.app.ui.components.AppColorPicker(current = color ?: cal?.colorArgb, onPick = { color = it }, allowNone = true)
                 }
             }
             Spacer(Modifier.height(10.dp))

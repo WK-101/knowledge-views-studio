@@ -108,6 +108,10 @@ data class AppSettings(
     // Evening review: an end-of-day nudge to plan tomorrow (opens Plan-your-day).
     val eveningReviewEnabled: Boolean = false,
     val eveningReviewHour: Int = 20,
+    // R59 (Wave 1) — reminder intensity default (0 Gentle · 1 Persistent · 2 Insistent-alarm), applied to
+    // newly created reminders, and the snooze duration (minutes) every notification's Snooze action uses.
+    val defaultReminderTier: Int = 0,
+    val defaultSnoozeMin: Int = 10,
     // R46 Occasions — an ongoing notification pinning the next occasion (refreshed on app open / save), and
     // a daily reflective nudge (a finite-time reflection + today-in-history). Both default off, no new perm.
     val occasionLiveNotif: Boolean = false,
@@ -352,6 +356,8 @@ data class AppSettings(
         Keys.SUMMARY_M to dailySummaryMinute.toString(),
         Keys.EVENING_ON to eveningReviewEnabled.toString(),
         Keys.EVENING_H to eveningReviewHour.toString(),
+        Keys.REMINDER_TIER to defaultReminderTier.toString(),
+        Keys.SNOOZE_MIN to defaultSnoozeMin.toString(),
         Keys.RELIABILITY to reliabilityOnboarded.toString(),
         Keys.COMPLETION_SOUND to completionSound.toString(),
         Keys.APP_LOCK to appLockEnabled.toString(),
@@ -501,6 +507,8 @@ data class AppSettings(
         const val SUMMARY_M = "summary_m"
         const val EVENING_ON = "evening_on"
         const val EVENING_H = "evening_h"
+        const val REMINDER_TIER = "reminder_tier"
+        const val SNOOZE_MIN = "snooze_min"
         const val RELIABILITY = "reliability_onboarded"
         const val COMPLETION_SOUND = "completion_sound"
         const val APP_LOCK = "app_lock"
@@ -718,6 +726,8 @@ data class AppSettings(
             dailySummaryMinute = m[Keys.SUMMARY_M]?.toIntOrNull() ?: 0,
             eveningReviewEnabled = m[Keys.EVENING_ON]?.toBooleanStrictOrNull() ?: false,
             eveningReviewHour = m[Keys.EVENING_H]?.toIntOrNull()?.coerceIn(0, 23) ?: 20,
+            defaultReminderTier = m[Keys.REMINDER_TIER]?.toIntOrNull()?.coerceIn(0, 2) ?: 0,
+            defaultSnoozeMin = m[Keys.SNOOZE_MIN]?.toIntOrNull()?.coerceIn(1, 720) ?: 10,
             reliabilityOnboarded = m[Keys.RELIABILITY]?.toBooleanStrictOrNull() ?: false,
             completionSound = m[Keys.COMPLETION_SOUND]?.toBooleanStrictOrNull() ?: false,
             appLockEnabled = m[Keys.APP_LOCK]?.toBooleanStrictOrNull() ?: false,

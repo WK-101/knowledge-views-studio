@@ -1292,8 +1292,18 @@ private fun TaskReminderManager(vm: AppViewModel, task: TaskEntity, myReminders:
         myReminders.forEach { r ->
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(reminderLabel(r), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                IconButton(onClick = { vm.setReminderAnnoying(r, task, !r.annoying) }) {
-                    Icon(if (r.annoying) Icons.Filled.NotificationsActive else Icons.Filled.NotificationsNone, "Persistent alarm", tint = if (r.annoying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                // R59 — one control cycles the reminder's intensity tier (Gentle → Persistent → Insistent),
+                // surfacing the escalation the alarm engine already supports.
+                val tier = com.todocompanion.app.domain.reminders.ReminderPresets.tierOf(r.annoying, r.escalate)
+                val tint = when (tier) {
+                    0 -> MaterialTheme.colorScheme.onSurfaceVariant
+                    1 -> MaterialTheme.colorScheme.primary
+                    else -> MaterialTheme.colorScheme.error
+                }
+                TextButton(onClick = { vm.setReminderTier(r, task, (tier + 1) % 3) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)) {
+                    Icon(if (tier == 0) Icons.Filled.NotificationsNone else Icons.Filled.NotificationsActive, "Reminder intensity", tint = tint, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(com.todocompanion.app.domain.reminders.ReminderPresets.TIER_LABELS[tier], style = MaterialTheme.typography.labelMedium, color = tint)
                 }
                 IconButton(onClick = { vm.deleteReminder(r, task) }) { Icon(Icons.Filled.Close, "Remove") }
             }
@@ -1305,13 +1315,15 @@ private fun TaskReminderManager(vm: AppViewModel, task: TaskEntity, myReminders:
                 DropdownMenuItem(text = { Text("Pick a time…") }, onClick = { addMenu = false; onPickTime() })
                 if (task.dueDate != null) {
                     HorizontalDivider()
-                    listOf(0 to "When due", 10 to "10 min before", 30 to "30 min before", 60 to "1 hour before", 1440 to "1 day before").forEach { (off, label) ->
+                    com.todocompanion.app.domain.reminders.ReminderPresets.OFFSETS.forEach { off ->
+                        val label = if (off == 0) "When due" else "${com.todocompanion.app.domain.reminders.ReminderPresets.beforeLabel(off)} due"
                         DropdownMenuItem(text = { Text(label) }, onClick = { vm.addRelativeReminder(task, "relativeToDue", off); addMenu = false })
                     }
                 }
                 if (task.startDate != null) {
                     HorizontalDivider()
-                    listOf(0 to "When it starts", 60 to "1 hour before start", 1440 to "1 day before start").forEach { (off, label) ->
+                    com.todocompanion.app.domain.reminders.ReminderPresets.OFFSETS.forEach { off ->
+                        val label = if (off == 0) "When it starts" else "${com.todocompanion.app.domain.reminders.ReminderPresets.beforeLabel(off)} start"
                         DropdownMenuItem(text = { Text(label) }, onClick = { vm.addRelativeReminder(task, "relativeToStart", off); addMenu = false })
                     }
                 }

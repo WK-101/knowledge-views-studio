@@ -62,7 +62,7 @@ class ReminderReceiver : BroadcastReceiver() {
             AlarmScheduler.ACTION_SNOOZE -> {
                 if (taskId != null) {
                     Notifications.cancel(context, taskId)
-                    AlarmScheduler.scheduleFireIn(context, taskId, title, reminderId, annoying, 10)
+                    AlarmScheduler.scheduleFireIn(context, taskId, title, reminderId, annoying, Notifications.snoozeMinutes.toLong())
                 }
             }
 
@@ -285,7 +285,7 @@ class ReminderReceiver : BroadcastReceiver() {
                 val name = intent.getStringExtra(AlarmScheduler.EXTRA_HABIT_NAME) ?: "your habit"
                 val min = intent.getStringExtra(AlarmScheduler.EXTRA_HABIT_MIN)?.toIntOrNull() ?: 0
                 androidx.core.app.NotificationManagerCompat.from(context).cancel(("habit:$habitId").hashCode())
-                AlarmScheduler.snoozeHabit(context, habitId, name, min, 60)
+                AlarmScheduler.snoozeHabit(context, habitId, name, min, Notifications.snoozeMinutes)
             }
         }
     }

@@ -447,7 +447,8 @@ private fun FolderNode(
             tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp).clip(CircleShape).clickable { vm.toggleFolder(folder) })
         Spacer(Modifier.width(3.dp))
         if (folder.icon != null) Text(folder.icon!!, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.size(20.dp).wrapContentSize(Alignment.Center))
-        else Icon(Icons.Filled.Folder, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(19.dp))
+        // R59 (Wave 1) — tint the default folder glyph with the folder's colour when one is set.
+        else Icon(Icons.Filled.Folder, null, tint = folder.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(19.dp))
         Spacer(Modifier.width(10.dp))
         Text(folder.name, Modifier.weight(1f).clip(RoundedCornerShape(6.dp)).clickable { onSelect(ViewRef.FolderView(folder.id)) },
             maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,

@@ -27,6 +27,7 @@ data class FolderEntity(
     val parentId: String? = null,
     val name: String,
     val icon: String? = null,   // optional emoji
+    val colorArgb: Long? = null,   // R59 — optional folder colour (tints the sidebar icon), via the unified picker
     val sortOrder: Double = 0.0,
     val collapsed: Boolean = false,
     val workspaceId: String = WorkspaceEntity.DEFAULT_ID,

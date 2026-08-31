@@ -20,6 +20,12 @@ object Notifications {
     // platform default. Fully local.
     @Volatile var lockscreenPrivate: Boolean = false
 
+    // R59 (Wave 1) — the snooze duration (minutes) every notification's Snooze action uses, mirrored from
+    // the settings flow (notifications fire from background receivers). One shared value across tasks and
+    // habits so "Snooze" means the same everywhere. Default 10 min.
+    @Volatile var snoozeMinutes: Int = 10
+    private fun snoozeLabel(): String { val m = snoozeMinutes; return if (m % 60 == 0 && m >= 60) "${m / 60}h" else "${m}m" }
+
     /** Builder that applies the lock-screen-privacy setting centrally (the `id` local keeps this one call
      *  from being caught by the project-wide swap onto this helper). */
     private fun builder(context: Context): NotificationCompat.Builder {
@@ -163,7 +169,7 @@ object Notifications {
             .setAutoCancel(true)
             .setContentIntent(openApp(context))
             .addAction(0, "Done", done)
-            .addAction(0, "Snooze 10m", snooze)
+            .addAction(0, "Snooze ${snoozeLabel()}", snooze)
         if (escalate) {
             b.setCategory(NotificationCompat.CATEGORY_ALARM)
             b.setVibrate(longArrayOf(0, 400, 200, 400))
@@ -244,7 +250,7 @@ object Notifications {
             .setAutoCancel(true)
             .setContentIntent(openApp(context))
             .addAction(0, "Done", broadcast(context, AlarmScheduler.ACTION_HABIT_DONE, reqBase + 1, doneExtras))
-            .addAction(0, "Snooze 1h", broadcast(context, AlarmScheduler.ACTION_HABIT_SNOOZE, reqBase + 2, doneExtras))
+            .addAction(0, "Snooze ${snoozeLabel()}", broadcast(context, AlarmScheduler.ACTION_HABIT_SNOOZE, reqBase + 2, doneExtras))
         runCatching { NotificationManagerCompat.from(context).notify(("habit:$habitId").hashCode(), b.build()) }
     }
 

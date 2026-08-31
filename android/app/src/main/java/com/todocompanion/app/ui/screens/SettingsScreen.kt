@@ -242,9 +242,16 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Toggle("Reduce motion", s.reduceMotion) { vm.setReduceMotion(it) }
 
             Spacer(Modifier.height(10.dp)); Sub("Accent colour")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                AccentSwatch(0L, s.accentArgb) { vm.saveSettings(s.copy(accentArgb = 0L)) }
-                ACCENTS.forEach { c -> AccentSwatch(c, s.accentArgb) { vm.saveSettings(s.copy(accentArgb = c)) } }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                AccentSwatch(0L, s.accentArgb) { vm.saveSettings(s.copy(accentArgb = 0L, themePack = "")) }
+                ACCENTS.forEach { c -> AccentSwatch(c, s.accentArgb) { vm.saveSettings(s.copy(accentArgb = c, themePack = "")) } }
+                // R59 (Wave 1) — fold a fully custom accent into the app's unified colour picker (palette +
+                // recents + HSV/hex), sitting right beside the curated presets. Clears any curated theme pack.
+                com.todocompanion.app.ui.components.AppColorPicker(
+                    current = s.accentArgb.takeIf { it != 0L },
+                    onPick = { vm.saveSettings(s.copy(accentArgb = it ?: 0L, themePack = "")) },
+                    allowNone = true,
+                )
             }
 
             Spacer(Modifier.height(12.dp)); Sub("Theme pack")
@@ -780,7 +787,25 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
 
-        SettingsGroup(Icons.Filled.Notifications, "Reminders", open["reminders"] == true, { open["reminders"] = open["reminders"] != true }, keywords = "notification daily summary evening review morning brief exact alarm battery optimization") {
+        SettingsGroup(Icons.Filled.Notifications, "Reminders", open["reminders"] == true, { open["reminders"] = open["reminders"] != true }, keywords = "notification daily summary evening review morning brief exact alarm battery optimization intensity gentle persistent insistent snooze duration escalate") {
+            // R59 (Wave 1) — the default intensity for new task reminders + the snooze duration every
+            // notification's Snooze action uses.
+            Text("Default reminder intensity", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) {
+                com.todocompanion.app.domain.reminders.ReminderPresets.TIER_LABELS.forEachIndexed { i, label ->
+                    FilterChip(selected = s.defaultReminderTier == i, onClick = { vm.saveSettings(s.copy(defaultReminderTier = i)) }, label = { Text(label) })
+                }
+            }
+            Text(com.todocompanion.app.domain.reminders.ReminderPresets.TIER_BLURBS[s.defaultReminderTier.coerceIn(0, 2)],
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp, bottom = 8.dp))
+            Text("Snooze duration", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) {
+                com.todocompanion.app.domain.reminders.ReminderPresets.SNOOZE.forEach { m ->
+                    FilterChip(selected = s.defaultSnoozeMin == m, onClick = { vm.saveSettings(s.copy(defaultSnoozeMin = m)) }, label = { Text(com.todocompanion.app.domain.reminders.ReminderPresets.snoozeLabel(m)) })
+                }
+            }
+            Text("Every notification's Snooze button uses this.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
+            HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             Toggle("Daily summary notification", s.dailySummaryEnabled) { vm.saveSettings(s.copy(dailySummaryEnabled = it)) }
             // W8: per-list mute — silence reminders for chosen lists.
             val lists by vm.lists.collectAsState()

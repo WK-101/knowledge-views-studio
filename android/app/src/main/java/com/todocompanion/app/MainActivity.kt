@@ -46,6 +46,9 @@ class MainActivity : FragmentActivity() {
                 if (flag(com.todocompanion.app.domain.AppSettings.Keys.SECURE_SCREEN)) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
                 else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
                 com.todocompanion.app.reminders.Notifications.lockscreenPrivate = flag(com.todocompanion.app.domain.AppSettings.Keys.LOCKSCREEN_PRIVACY)
+                // R59 — keep the notification Snooze duration in sync with the setting.
+                rows.firstOrNull { it.key == com.todocompanion.app.domain.AppSettings.Keys.SNOOZE_MIN }?.value?.toIntOrNull()
+                    ?.let { com.todocompanion.app.reminders.Notifications.snoozeMinutes = it.coerceIn(1, 720) }
             }
         }
         // R45 — route every file/photo/document pick through the classic Activity result API.

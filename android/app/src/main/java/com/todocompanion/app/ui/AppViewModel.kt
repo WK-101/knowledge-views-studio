@@ -4108,20 +4108,39 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun markReviewed(t: TaskEntity) = viewModelScope.launch { repo.saveTask(t.copy(reviewedAt = System.currentTimeMillis())) }
 
     // ---------- reminders ----------
+    // R59 (Wave 1) — new reminders inherit the user's default intensity tier (Gentle/Persistent/Insistent);
+    // an explicit annoying=true from a caller still forces at least Persistent.
+    private fun defaultTierFlags(annoying: Boolean): Pair<Boolean, Boolean> {
+        val tier = settings.value.defaultReminderTier
+        return Pair(annoying || com.todocompanion.app.domain.reminders.ReminderPresets.tierAnnoying(tier),
+            com.todocompanion.app.domain.reminders.ReminderPresets.tierEscalate(tier))
+    }
     fun addAbsoluteReminder(task: TaskEntity, atMillis: Long, annoying: Boolean = false) = viewModelScope.launch {
-        val r = ReminderEntity(UUID.randomUUID().toString(), taskId = task.id, type = "absolute", atTime = atMillis, annoying = annoying)
+        val (ann, esc) = defaultTierFlags(annoying)
+        val r = ReminderEntity(UUID.randomUUID().toString(), taskId = task.id, type = "absolute", atTime = atMillis, annoying = ann, escalate = esc)
         repo.upsertReminder(r)
         AlarmScheduler.schedule(appCtx, r, task)
     }
     /** A reminder relative to the task's due or start ([type] = relativeToDue / relativeToStart). */
     fun addRelativeReminder(task: TaskEntity, type: String, offsetMin: Int, annoying: Boolean = false) = viewModelScope.launch {
-        val r = ReminderEntity(UUID.randomUUID().toString(), taskId = task.id, type = type, offsetMin = offsetMin, annoying = annoying)
+        val (ann, esc) = defaultTierFlags(annoying)
+        val r = ReminderEntity(UUID.randomUUID().toString(), taskId = task.id, type = type, offsetMin = offsetMin, annoying = ann, escalate = esc)
         repo.upsertReminder(r)
         AlarmScheduler.schedule(appCtx, r, task)
     }
     /** Toggle a reminder's persistent ("annoying") alarm — re-fires until the task is done. */
     fun setReminderAnnoying(reminder: ReminderEntity, task: TaskEntity, on: Boolean) = viewModelScope.launch {
         val nr = reminder.copy(annoying = on)
+        repo.upsertReminder(nr)
+        AlarmScheduler.cancel(appCtx, reminder, task); AlarmScheduler.schedule(appCtx, nr, task)
+    }
+    /** R59 — set a reminder's intensity tier (0 Gentle · 1 Persistent · 2 Insistent), surfacing the
+     *  engine's existing annoying/escalate behaviour behind one control. */
+    fun setReminderTier(reminder: ReminderEntity, task: TaskEntity, tier: Int) = viewModelScope.launch {
+        val nr = reminder.copy(
+            annoying = com.todocompanion.app.domain.reminders.ReminderPresets.tierAnnoying(tier),
+            escalate = com.todocompanion.app.domain.reminders.ReminderPresets.tierEscalate(tier),
+        )
         repo.upsertReminder(nr)
         AlarmScheduler.cancel(appCtx, reminder, task); AlarmScheduler.schedule(appCtx, nr, task)
     }

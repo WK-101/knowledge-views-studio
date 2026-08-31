@@ -267,7 +267,7 @@ fun DateReminderSheet(
             }
         }
     }
-    if (showReminder) PickListDialog("Reminder", listOf<Pair<Int?, String>>(null to "None", 0 to "On time", 5 to "5 min before", 15 to "15 min before", 30 to "30 min before", 60 to "1 hour before", 1440 to "1 day before"), onDismiss = { showReminder = false }) { reminder = it; showReminder = false }
+    if (showReminder) PickListDialog("Reminder", listOf<Pair<Int?, String>>(null to "None") + com.todocompanion.app.domain.reminders.ReminderPresets.OFFSETS.map { m -> m to (if (m == 0) "On time" else com.todocompanion.app.domain.reminders.ReminderPresets.beforeLabel(m)) }, onDismiss = { showReminder = false }) { reminder = it; showReminder = false }
     // Expert recurrence — the full builder (interval, weekdays, monthly nth-weekday, from-completion,
     // end after N / until a date), producing the app's own rich rrule the engine actually understands
     // (the previous basic RRULE strings weren't parsed by the recurrence engine) — R21.
