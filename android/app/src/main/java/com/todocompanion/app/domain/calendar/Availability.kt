@@ -1,6 +1,7 @@
 package com.todocompanion.app.domain.calendar
 
 import com.todocompanion.app.data.entity.EventEntity
+import com.todocompanion.app.data.entity.TaskEntity
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -62,12 +63,30 @@ object Availability {
     fun parseDays(csv: String): Set<Int> =
         csv.split(",").mapNotNull { it.trim().toIntOrNull() }.filter { it in 1..7 }.toSet().ifEmpty { setOf(1, 2, 3, 4, 5) }
 
+    /**
+     * R59 — scheduled tasks as busy time. A timed, still-open task occupies [due, due + duration], where
+     * duration falls back estimate → 30 min. Midnight-dated (all-day) tasks have no fixed slot and are
+     * skipped. This is what makes "When am I free?" reflect your task workload, not only calendar events.
+     */
+    fun taskBusyIntervals(tasks: List<TaskEntity>, zone: ZoneId = ZoneId.systemDefault()): List<Pair<Long, Long>> =
+        tasks.asSequence()
+            .filter { !it.completed && !it.trashed && !it.abandoned && !it.isAllDay }
+            .mapNotNull { t ->
+                val due = t.dueDate ?: return@mapNotNull null
+                val dt = java.time.Instant.ofEpochMilli(due).atZone(zone)
+                if (dt.hour == 0 && dt.minute == 0) return@mapNotNull null   // midnight = all-day sentinel: no fixed slot
+                val dur = (t.durationMin ?: t.estimateMin ?: 30).coerceAtLeast(15)
+                due to (due + dur.toLong() * 60_000L)
+            }.toList()
+
     fun forDays(
         events: List<EventEntity>,
         days: List<LocalDate>,
         cfg: Config,
         zone: ZoneId = ZoneId.systemDefault(),
         protected: List<Protected> = emptyList(),
+        // R59 — additional busy intervals (scheduled tasks, time blocks, …) subtracted alongside events.
+        extraBusy: List<Pair<Long, Long>> = emptyList(),
     ): List<DayFree> {
         val busyEvents = events.filter { it.busy }
         val windowMin = ((cfg.endHour - cfg.startHour).coerceAtLeast(0)) * 60
@@ -82,12 +101,15 @@ object Availability {
             }
             val eventBusy = CalendarEngine.onDay(busyEvents, d.toEpochDay(), zone)
                 .map { (it.startMillis - bufferMs) to (it.endMillis + bufferMs) }
+            // Scheduled tasks (and any other extra commitments) overlapping this day's window.
+            val taskBusy = extraBusy.filter { it.second > winStart && it.first < winEnd }
+            val commitBusy = eventBusy + taskBusy
             // Protected self-reserved blocks that fall on this weekday, as raw intervals.
             val reservedRaw = protected.filter { dow in it.days }
                 .map { (dayStart + it.startMin.toLong() * 60_000L) to (dayStart + it.endMin.toLong() * 60_000L) }
-            // Free = window minus BOTH events and protected blocks (protected time is never offered).
-            val slots = CalendarEngine.freeSlots(eventBusy + reservedRaw, d.toEpochDay(), cfg.startHour, cfg.endHour, cfg.minSlotMin, zone)
-            val busyBlocks = mergeToWindow(eventBusy, winStart, winEnd)
+            // Free = window minus events, tasks AND protected blocks (protected time is never offered).
+            val slots = CalendarEngine.freeSlots(commitBusy + reservedRaw, d.toEpochDay(), cfg.startHour, cfg.endHour, cfg.minSlotMin, zone)
+            val busyBlocks = mergeToWindow(commitBusy, winStart, winEnd)
             val reservedBlocks = mergeToWindow(reservedRaw, winStart, winEnd)
             val freeMin = slots.sumOf { it.minutes.toInt() }
             val busyMin = busyBlocks.sumOf { it.minutes.toInt() }

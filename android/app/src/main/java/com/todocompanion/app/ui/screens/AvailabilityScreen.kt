@@ -93,8 +93,11 @@ fun AvailabilitySheet(vm: AppViewModel, anchorDay: Long, onDismiss: () -> Unit) 
         "Month" -> { val first = anchor.withDayOfMonth(1); (0 until anchor.lengthOfMonth()).map { first.plusDays(it.toLong()) } }
         else -> { val start = startOfWk(anchor, firstDow); (0..6).map { start.plusDays(it.toLong()) } }
     }
+    // R59 — scheduled tasks (timed, with a duration) are busy time too, so "When am I free?" reflects your
+    // whole plan, not only calendar events.
+    val taskBusy = remember(tasks, zone) { Availability.taskBusyIntervals(tasks, zone) }
     // Don't count days already in the past for a fair "free time left".
-    val free = Availability.forDays(events, days, cfg, zone, protectedList).map { d ->
+    val free = Availability.forDays(events, days, cfg, zone, protectedList, extraBusy = taskBusy).map { d ->
         if (d.date.isBefore(today)) d.copy(available = false, slots = emptyList(), busy = emptyList(), reserved = emptyList(), freeMin = 0, busyMin = 0) else d
     }
     val totalFree = Availability.totalFreeMin(free)
@@ -122,12 +125,16 @@ fun AvailabilitySheet(vm: AppViewModel, anchorDay: Long, onDismiss: () -> Unit) 
     // Wave A — over-commitment: task workload due within the range (future, available days) vs. free time.
     val rangeStart = free.firstOrNull()?.date ?: today
     val rangeEnd = free.lastOrNull()?.date ?: today
+    // R59 — timed tasks now occupy real slots (subtracted from free time), so this over-commit figure
+    // counts only UNSCHEDULED work: the estimated hours of untimed due tasks that still need a slot.
     val committedMin = remember(tasks, rangeStart, rangeEnd, today) {
         tasks.filter { t ->
             !t.completed && !t.trashed && !t.someday && t.dueDate != null
         }.sumOf { t ->
-            val d = Instant.ofEpochMilli(t.dueDate!!).atZone(zone).toLocalDate()
-            if (!d.isBefore(today) && !d.isBefore(rangeStart) && !d.isAfter(rangeEnd))
+            val zdt = Instant.ofEpochMilli(t.dueDate!!).atZone(zone)
+            val d = zdt.toLocalDate()
+            val timed = !t.isAllDay && !(zdt.hour == 0 && zdt.minute == 0)   // already has a fixed slot
+            if (!timed && !d.isBefore(today) && !d.isBefore(rangeStart) && !d.isAfter(rangeEnd))
                 (t.durationMin ?: t.estimateMin ?: t.estimateMax ?: 0) else 0
         }
     }
@@ -193,7 +200,7 @@ fun AvailabilitySheet(vm: AppViewModel, anchorDay: Long, onDismiss: () -> Unit) 
                 AppCard {
                     Text(if (over) "⚠️ Over-committed" else "✅ It fits", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
                         color = if (over) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
-                    Text("${Availability.fmtMinutes(committedMin)} of estimated task work is due in this ${range.lowercase()} vs ${Availability.fmtMinutes(totalFree)} free.",
+                    Text("${Availability.fmtMinutes(committedMin)} of unscheduled task work is due in this ${range.lowercase()} vs ${Availability.fmtMinutes(totalFree)} free (after events and timed tasks).",
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(6.dp))
                     // A committed-vs-free bar.
