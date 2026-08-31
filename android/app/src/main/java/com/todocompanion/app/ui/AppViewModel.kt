@@ -3667,6 +3667,31 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.saveSettings(settings.value.copy(dayRoutinesJson = com.todocompanion.app.domain.calendar.DayRoutines.encode(com.todocompanion.app.domain.calendar.DayRoutines.remove(dayRoutines.value, id))))
     }
 
+    /** R59 (Wave 4) — import a local holiday pack for a year range as all-day events, into a dedicated
+     *  "Holidays" calendar (reused if it exists). Fully offline; de-dupes by title+day. */
+    fun importHolidayPack(packId: String, fromYear: Int, toYear: Int, onDone: (Int) -> Unit = {}) = viewModelScope.launch {
+        val pack = com.todocompanion.app.domain.calendar.Holidays.PACKS.firstOrNull { it.id == packId }
+        val calName = "${pack?.emoji ?: "🎌"} Holidays"
+        val calId = repo.eventCalendarsOnce().firstOrNull { it.name == calName }?.id ?: run {
+            val id = java.util.UUID.randomUUID().toString()
+            repo.upsertEventCalendar(com.todocompanion.app.data.entity.EventCalendarEntity(
+                id = id, name = calName, colorArgb = 0xFFEF4444, workspaceId = settings.value.activeWorkspaceId, createdAt = System.currentTimeMillis()))
+            id
+        }
+        val now = System.currentTimeMillis()
+        val existingKeys = repo.eventsOnce().filter { it.calendarId == calId }.map { it.title to it.startMillis }.toSet()
+        val newEvents = com.todocompanion.app.domain.calendar.Holidays.forRange(packId, fromYear, toYear).mapNotNull { h ->
+            val start = h.date.atStartOfDay(zone).toInstant().toEpochMilli()
+            val end = h.date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
+            if ((h.name to start) in existingKeys) null
+            else com.todocompanion.app.data.entity.EventEntity(id = java.util.UUID.randomUUID().toString(), calendarId = calId,
+                title = h.name, startMillis = start, endMillis = end, allDay = true, busy = false, createdAt = now, updatedAt = now)
+        }
+        if (newEvents.isNotEmpty()) repo.upsertEvents(newEvents)
+        toast(if (newEvents.isEmpty()) "Those holidays are already imported." else "Added ${newEvents.size} holidays.")
+        onDone(newEvents.size)
+    }
+
     // Protected windows -------------------------------------------------------------------------------
     val protectedWindows: StateFlow<List<com.todocompanion.app.domain.calendar.ProtectedWindow>> =
         settings.map { com.todocompanion.app.domain.calendar.ProtectedWindows.parse(it.protectedWindowsJson) }

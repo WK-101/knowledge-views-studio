@@ -82,7 +82,16 @@ object EventIcs {
             Freq.DAILY -> sb.append("FREQ=DAILY")
             Freq.WEEKLY -> { sb.append("FREQ=WEEKLY"); if (r.byDays.isNotEmpty()) sb.append(";BYDAY=").append(r.byDays.sorted().joinToString(",") { ISO_BYDAY.getValue(it) }) }
             Freq.WEEKDAYS -> sb.append("FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR")
-            Freq.MONTHLY -> sb.append("FREQ=MONTHLY")
+            // R59 (Wave 4) — round-trip the exotic monthly modes: nth-weekday (BYDAY=3TU / -1FR) and the
+            // "first working day" (weekdays + BYSETPOS=1), instead of collapsing to a plain monthly.
+            Freq.MONTHLY -> {
+                sb.append("FREQ=MONTHLY")
+                when {
+                    r.firstWorkday -> sb.append(";BYDAY=MO,TU,WE,TH,FR;BYSETPOS=1")
+                    r.bySetPos != null && r.byWeekday != null ->
+                        sb.append(";BYDAY=").append(if (r.bySetPos == -1) "-1" else r.bySetPos.toString()).append(ISO_BYDAY.getValue(r.byWeekday))
+                }
+            }
             Freq.YEARLY -> sb.append("FREQ=YEARLY")
         }
         if (r.interval > 1) sb.append(";INTERVAL=").append(r.interval)
@@ -153,19 +162,36 @@ object EventIcs {
     private fun rfcToRule(value: String): String {
         val parts = value.split(";").mapNotNull { val kv = it.split("="); if (kv.size == 2) kv[0].uppercase() to kv[1] else null }.toMap()
         val freqRaw = parts["FREQ"]?.uppercase() ?: return ""
-        val byday = parts["BYDAY"]?.split(",")?.mapNotNull { BYDAY_ISO[it.takeLast(2).uppercase()] }?.toSet() ?: emptySet()
         val interval = parts["INTERVAL"]?.toIntOrNull() ?: 1
         val count = parts["COUNT"]?.toIntOrNull()
         val until = parts["UNTIL"]?.take(8)?.let { runCatching { LocalDate.parse(it, DATE).toEpochDay() }.getOrNull() }
+        val bydayTokens = parts["BYDAY"]?.split(",")?.map { it.trim().uppercase() }?.filter { it.isNotBlank() } ?: emptyList()
+        val plainDays = bydayTokens.mapNotNull { BYDAY_ISO[it.takeLast(2)] }.toSet()
+        val setpos = parts["BYSETPOS"]?.toIntOrNull()
         val weekdaySet = setOf(1, 2, 3, 4, 5)
-        val freq = when (freqRaw) {
-            "DAILY" -> Freq.DAILY
-            "WEEKLY" -> if (byday == weekdaySet) Freq.WEEKDAYS else Freq.WEEKLY
-            "MONTHLY" -> Freq.MONTHLY
-            "YEARLY" -> Freq.YEARLY
-            else -> Freq.WEEKLY
+        // R59 (Wave 4) — parse exotic RRULEs into the model that can hold them, so an imported "3rd Tuesday"
+        // or "first working day" survives the round-trip instead of degrading to a plain monthly.
+        return when (freqRaw) {
+            "DAILY" -> Recurrence.encode(Recur(Freq.DAILY, interval, untilEpochDay = until, count = count))
+            "WEEKLY" -> if (plainDays == weekdaySet) Recurrence.encode(Recur(Freq.WEEKDAYS, interval, untilEpochDay = until, count = count))
+                else Recurrence.encode(Recur(Freq.WEEKLY, interval, plainDays, until, count))
+            "MONTHLY" -> {
+                val ordinal = bydayTokens.firstOrNull { it.length > 2 && (it.first().isDigit() || it.first() == '-') }
+                val ordWd = ordinal?.let { BYDAY_ISO[it.takeLast(2)] }
+                val ordPos = ordinal?.dropLast(2)?.toIntOrNull()
+                when {
+                    // "first working day" — every weekday, first position.
+                    plainDays == weekdaySet && setpos == 1 -> Recurrence.encode(Recur(Freq.MONTHLY, interval, firstWorkday = true, untilEpochDay = until, count = count))
+                    // Ordinal weekday, e.g. BYDAY=3TU or BYDAY=-1FR.
+                    ordWd != null && ordPos != null -> Recurrence.encode(Recur(Freq.MONTHLY, interval, bySetPos = ordPos, byWeekday = ordWd, untilEpochDay = until, count = count))
+                    // Single weekday plus a set position, e.g. BYDAY=FR;BYSETPOS=-1 (last Friday).
+                    plainDays.size == 1 && setpos != null -> Recurrence.encode(Recur(Freq.MONTHLY, interval, bySetPos = setpos, byWeekday = plainDays.first(), untilEpochDay = until, count = count))
+                    else -> Recurrence.encode(Recur(Freq.MONTHLY, interval, untilEpochDay = until, count = count))
+                }
+            }
+            "YEARLY" -> Recurrence.encode(Recur(Freq.YEARLY, interval, untilEpochDay = until, count = count))
+            else -> Recurrence.encode(Recur(Freq.WEEKLY, interval, untilEpochDay = until, count = count))
         }
-        return Recurrence.encode(Recur(freq, interval, if (freq == Freq.WEEKLY) byday else emptySet(), until, count))
     }
 
     private fun parseDt(nameAndParams: String, value: String): Pair<LocalDateTime, Boolean>? {

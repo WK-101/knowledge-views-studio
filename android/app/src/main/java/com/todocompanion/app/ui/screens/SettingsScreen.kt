@@ -558,6 +558,19 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
             TextButton(onClick = { if (pwName.isNotBlank()) { vm.saveProtectedWindow(pwName, pwStart * 60, pwEnd * 60, emptyList()); pwName = "" } }, enabled = pwName.isNotBlank()) { Text("Add protected window") }
 
+            // R59 (Wave 4) — local holiday packs: add a region's public holidays as all-day events, offline.
+            Spacer(Modifier.height(10.dp)); Sub("Holiday packs")
+            Text("Add a region's public holidays to your calendar — generated on-device, no network.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+            var holPack by remember { mutableStateOf("us") }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                com.todocompanion.app.domain.calendar.Holidays.PACKS.forEach { p ->
+                    FilterChip(selected = holPack == p.id, onClick = { holPack = p.id }, label = { Text("${p.emoji} ${p.name}") })
+                }
+            }
+            val holYear = remember { java.time.LocalDate.now().year }
+            TextButton(onClick = { vm.importHolidayPack(holPack, holYear, holYear + 1) }) { Text("＋ Import $holYear–${holYear + 1}") }
+
             // Context modes — a saved set of calendars to show; the rest hide.
             val contexts by vm.calContexts.collectAsState()
             val eCals by vm.eventCalendars.collectAsState()
