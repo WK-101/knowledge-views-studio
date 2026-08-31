@@ -3372,6 +3372,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         toast(if (ok) "Storage optimised." else "Couldn't optimise storage right now.")
         onDone(ok)
     }
+    /** R54 — on-disk database size (bytes) for the storage-insight panel. */
+    fun databaseSizeBytes(): Long = repo.databaseSizeBytes()
 
     /** R53 — build a METHOD:REPLY .ics carrying the event's RSVP and hand it to the OS share sheet, so a
      *  fully-offline app can still let the user reply to the organizer by whatever channel they choose. */
@@ -4360,6 +4362,33 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         return tasks.value.filter {
             !it.trashed && (it.title.lowercase().contains(q) || it.note.lowercase().contains(q) || it.id in byTag || it.id in byCtx)
         }
+    }
+
+    /**
+     * R54 — scale-aware search. Small task sets use the instant in-memory scan (identical to [search]);
+     * large histories use the FTS4 index (indexed title/note MATCH) so search stays fast into the
+     * hundred-thousands. Tag/context matches always come from the in-memory join (those tables are small).
+     * If FTS is unavailable it transparently falls back to the in-memory scan — search never fails.
+     */
+    suspend fun searchAsync(query: String): List<TaskEntity> {
+        val q = query.trim(); if (q.isBlank()) return emptyList()
+        val ql = q.lowercase(); val q2 = ql.removePrefix("#").removePrefix("@")
+        val all = tasks.value
+        val tagIds = tags.value.filter { it.name.lowercase().contains(q2) }.map { it.id }.toSet()
+        val ctxIds = contexts.value.filter { it.name.lowercase().contains(q2) }.map { it.id }.toSet()
+        val byTag = taskTags.value.filter { it.tagId in tagIds }.map { it.taskId }.toSet()
+        val byCtx = taskContexts.value.filter { it.contextId in ctxIds }.map { it.taskId }.toSet()
+        fun inMemoryText() = all.filter { !it.trashed && (it.title.lowercase().contains(ql) || it.note.lowercase().contains(ql)) }
+        val textMatches = if (all.size <= 4000) inMemoryText() else {
+            val ids = repo.searchTaskIds(q).toSet()
+            if (ids.isEmpty()) inMemoryText() else {
+                val byId = all.associateBy { it.id }
+                ids.mapNotNull { byId[it] }.filter { !it.trashed }
+            }
+        }
+        val out = LinkedHashSet<TaskEntity>(textMatches)
+        if (byTag.isNotEmpty() || byCtx.isNotEmpty()) all.forEach { if (!it.trashed && (it.id in byTag || it.id in byCtx)) out += it }
+        return out.toList()
     }
 
     /** E1: search across all habits too — name, description, identity/"why", category and unit. */

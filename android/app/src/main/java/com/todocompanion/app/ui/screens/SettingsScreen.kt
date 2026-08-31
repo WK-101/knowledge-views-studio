@@ -957,8 +957,20 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
             HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             Sub("Maintenance")
-            Action("Optimise storage now") { vm.optimizeStorage() }
-            Text("Compacts and defragments the on-device database and refreshes its search indexes. Built for years of data — run this occasionally to keep the app snappy and the file small. Safe and offline.",
+            // R54 — live storage footprint, so "built for a decade" is visible (and the optimise is measurable).
+            val allTasks by vm.tasks.collectAsState()
+            val allEvents by vm.events.collectAsState()
+            val allOccasions by vm.countdowns.collectAsState()
+            var dbBytes by remember { mutableStateOf(vm.databaseSizeBytes()) }
+            fun humanBytes(b: Long): String = when {
+                b >= 1_048_576 -> "%.1f MB".format(b / 1_048_576.0)
+                b >= 1024 -> "%.0f KB".format(b / 1024.0)
+                else -> "$b B"
+            }
+            Text("${allTasks.size} tasks · ${allEvents.size} events · ${allOccasions.size} occasions · database ${humanBytes(dbBytes)}",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 2.dp))
+            Action("Optimise storage now") { vm.optimizeStorage { dbBytes = vm.databaseSizeBytes() } }
+            Text("Compacts and defragments the on-device database and rebuilds the full-text search index. Built for years of data — search stays fast into the hundred-thousands, and this keeps the file small. Safe and offline.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
         }
 

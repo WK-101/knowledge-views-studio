@@ -38,11 +38,66 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun optimizeStorage(): Boolean = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         runCatching {
             val sdb = db.openHelper.writableDatabase
+            runCatching { rebuildTaskFtsBlocking(sdb) }   // R54 — recover a stale/missing search index too
             runCatching { sdb.execSQL("PRAGMA wal_checkpoint(TRUNCATE)") }
             runCatching { sdb.execSQL("VACUUM") }
             runCatching { sdb.execSQL("PRAGMA optimize") }
             true
         }.getOrDefault(false)
+    }
+
+    /** R54 — total on-disk size of the database (main file + WAL + shared-memory), for the storage panel. */
+    fun databaseSizeBytes(): Long = runCatching {
+        val base = db.openHelper.writableDatabase.path ?: return 0L
+        listOf(base, "$base-wal", "$base-shm").sumOf { p -> runCatching { java.io.File(p).length() }.getOrDefault(0L) }
+    }.getOrDefault(0L)
+
+    // ── R54 · full-text search (FTS4) ───────────────────────────────────────────────────────────────
+    // A best-effort acceleration for large task histories. The virtual table is invisible to Room's own
+    // schema (created with raw SQL, IF NOT EXISTS, all guarded by runCatching), so it can never fail a
+    // migration or lose data — search always has an in-memory fallback. Kept fresh by an incremental
+    // upsert on the two content-authoring paths (create/save) plus a cheap count-mismatch rebuild.
+    private fun ftsDb() = db.openHelper.writableDatabase
+    private fun ftsCreate(sdb: androidx.sqlite.db.SupportSQLiteDatabase) {
+        sdb.execSQL("CREATE VIRTUAL TABLE IF NOT EXISTS task_fts USING fts4(taskId, title, note, tokenize=unicode61)")
+    }
+    private fun rebuildTaskFtsBlocking(sdb: androidx.sqlite.db.SupportSQLiteDatabase) {
+        ftsCreate(sdb)
+        sdb.execSQL("DELETE FROM task_fts")
+        sdb.execSQL("INSERT INTO task_fts(taskId, title, note) SELECT id, title, note FROM tasks")
+    }
+    /** Incremental index update for one task's searchable content. Off the main thread, fully guarded. */
+    suspend fun syncTaskFts(id: String, title: String, note: String) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        runCatching {
+            val sdb = ftsDb(); ftsCreate(sdb)
+            sdb.execSQL("DELETE FROM task_fts WHERE taskId = ?", arrayOf<Any?>(id))
+            sdb.execSQL("INSERT INTO task_fts(taskId, title, note) VALUES(?, ?, ?)", arrayOf<Any?>(id, title, note))
+        }
+        Unit
+    }
+    private fun deleteTaskFts(sdb: androidx.sqlite.db.SupportSQLiteDatabase, id: String) {
+        runCatching { sdb.execSQL("DELETE FROM task_fts WHERE taskId = ?", arrayOf<Any?>(id)) }
+    }
+    /** Create the index if missing; rebuild only when it's clearly stale (row-count mismatch — cheap). */
+    private fun ensureFtsFresh(sdb: androidx.sqlite.db.SupportSQLiteDatabase) {
+        ftsCreate(sdb)
+        val ftsCount = runCatching { sdb.query("SELECT count(*) FROM task_fts").use { if (it.moveToFirst()) it.getLong(0) else -1L } }.getOrDefault(-1L)
+        val taskCount = runCatching { sdb.query("SELECT count(*) FROM tasks").use { if (it.moveToFirst()) it.getLong(0) else -2L } }.getOrDefault(-2L)
+        if (ftsCount != taskCount) rebuildTaskFtsBlocking(sdb)
+    }
+    /** Task ids whose title/note match [query] (prefix, all-terms). Empty on any failure → caller falls back. */
+    suspend fun searchTaskIds(query: String): List<String> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        runCatching {
+            val match = query.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+                .joinToString(" ") { it.replace(Regex("[\"*^:()]"), "") + "*" }
+            if (match.isBlank()) return@runCatching emptyList<String>()
+            val sdb = ftsDb(); ensureFtsFresh(sdb)
+            val ids = ArrayList<String>()
+            sdb.query("SELECT taskId FROM task_fts WHERE task_fts MATCH ?", arrayOf<Any?>(match)).use { c ->
+                while (c.moveToNext()) ids += c.getString(0)
+            }
+            ids
+        }.getOrDefault(emptyList())
     }
 
     private val tasks = db.taskDao()
@@ -503,6 +558,7 @@ class AppRepository(private val db: AppDatabase) {
                 updatedAt = now(),
             )
         )
+        syncTaskFts(id, title.ifBlank { "Untitled" }, "")
         logActivity(id, "created")
         return id
     }
@@ -555,6 +611,7 @@ class AppRepository(private val db: AppDatabase) {
             }
         }
         tasks.upsert(saved)
+        syncTaskFts(saved.id, saved.title, saved.note)
         if (old != null && old.dueDate != task.dueDate) logActivity(task.id, "rescheduled", task.dueDate?.toString())
         maybeRecordRevision(saved)
     }
@@ -638,6 +695,7 @@ class AppRepository(private val db: AppDatabase) {
             checklist.deleteForTask(id)
             activity.clearForTask(id)
             tasks.deleteById(id)
+            runCatching { deleteTaskFts(ftsDb(), id) }   // R54 — keep the search index aligned
         }
     }
 

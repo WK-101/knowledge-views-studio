@@ -50,7 +50,10 @@ private enum class SF(val label: String) { ALL("All"), TODAY("Today"), OVERDUE("
 fun SearchScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, query: String, modifier: Modifier = Modifier, onOpenHabit: (String) -> Unit = {}) {
     val tasks by vm.tasks.collectAsState()
     val habits by vm.habits.collectAsState()
-    val results = remember(query, tasks) { vm.search(query) }
+    // R54 — FTS-accelerated for large histories, instant in-memory for small sets (see vm.searchAsync).
+    val results by androidx.compose.runtime.produceState(initialValue = emptyList<com.todocompanion.app.data.entity.TaskEntity>(), query, tasks) {
+        value = vm.searchAsync(query)
+    }
     // E1: habits are searchable too — shown only under the "All" filter (task filters don't apply).
     val habitResults = remember(query, habits) { vm.searchHabits(query) }
     val lists by vm.lists.collectAsState()
