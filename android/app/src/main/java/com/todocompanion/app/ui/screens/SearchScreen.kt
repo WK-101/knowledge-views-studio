@@ -218,9 +218,12 @@ fun SearchScreen(
                                     Text(o.emoji?.ifBlank { null } ?: "🎉", style = MaterialTheme.typography.bodyMedium)
                                     Spacer(Modifier.width(10.dp))
                                     Column(Modifier.weight(1f)) {
-                                        Text(o.title.ifBlank { "(untitled)" }, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
-                                        val sub = o.notes.trim().lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty().ifBlank { "Occasion" }
-                                        Text(sub, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        // The real name is the person ("Sara"); title ("Birthday") is the type/subtitle.
+                                        val name = com.todocompanion.app.domain.LifeEvent.displayName(o).ifBlank { "(untitled)" }
+                                        Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
+                                        val typeLabel = if (o.personName.isNotBlank() && o.title.isNotBlank() && !o.title.equals(o.personName, true)) o.title
+                                            else o.notes.trim().lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty().ifBlank { "Occasion" }
+                                        Text(typeLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
                             }

@@ -4429,11 +4429,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }.sortedByDescending { it.startMillis }
     }
 
-    /** R57 — occasions/countdowns matching the query (title/notes). */
+    /**
+     * R57/R58 — occasions/countdowns matching the query. The real name of an occasion is its personName
+     * ("Sara"), falling back to title ("Birthday") only when there's no person — so search must match
+     * personName first (plus title, category and notes), and results sort by that display name.
+     */
     fun searchOccasions(query: String): List<com.todocompanion.app.data.entity.CountdownEntity> {
         val q = query.trim().lowercase(); if (q.isBlank()) return emptyList()
-        return countdowns.value.filter { it.title.lowercase().contains(q) || it.notes.lowercase().contains(q) }
-            .sortedBy { it.title.lowercase() }
+        return countdowns.value.filter {
+            it.personName.lowercase().contains(q) || it.title.lowercase().contains(q) ||
+                it.category.lowercase().contains(q) || it.notes.lowercase().contains(q)
+        }.sortedBy { it.personName.ifBlank { it.title }.lowercase() }
     }
 
     /**
