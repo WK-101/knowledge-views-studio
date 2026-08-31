@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Star
@@ -110,23 +111,40 @@ fun CountdownScreen(vm: AppViewModel, onBack: () -> Unit, initialOpenId: String?
     var showInsights by remember { mutableStateOf(false) }                   // reflective cards, folded by default
     var filter by remember { mutableStateOf(OccasionFilter()) }
     var filterOpen by remember { mutableStateOf(false) }
+    var searchOpen by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
     val today = LocalDate.now()
 
-    // R48 — deep-link: open a specific occasion's editor once when arriving from the calendar / a list.
-    // Consume the id so closing the editor (or any later items change) doesn't re-open it.
+    // R48/R51 — deep-link: open a specific occasion's DETAILS card once when arriving from the calendar
+    // or a list (not the editor). Consume the id so dismissing it (or any later items change) doesn't
+    // re-open it; the details sheet offers an Edit button for those who want to change the entry.
     var consumedOpenId by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(initialOpenId, items) {
-        if (initialOpenId != null && initialOpenId != consumedOpenId && editing == null) {
-            items.firstOrNull { it.id == initialOpenId }?.let { editing = it; consumedOpenId = initialOpenId }
+        if (initialOpenId != null && initialOpenId != consumedOpenId && detailsFor == null && editing == null) {
+            items.firstOrNull { it.id == initialOpenId }?.let { detailsFor = it; consumedOpenId = initialOpenId }
         }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(expandedHeight = 52.dp,
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-                title = { Text("Occasions") },
+                navigationIcon = { IconButton(onClick = if (searchOpen) ({ searchOpen = false; query = "" }) else onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                title = {
+                    if (searchOpen) androidx.compose.material3.TextField(
+                        value = query, onValueChange = { query = it }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Search occasions") },
+                        colors = androidx.compose.material3.TextFieldDefaults.colors(
+                            focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+                            unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+                            focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                            unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent),
+                    ) else Text("Occasions")
+                },
                 actions = {
+                    IconButton(onClick = { if (searchOpen) { searchOpen = false; query = "" } else searchOpen = true }) {
+                        Icon(if (searchOpen) Icons.Filled.Close else Icons.Filled.Search, "Search")
+                    }
                     IconButton(onClick = { filterOpen = true }) {
                         Icon(Icons.Filled.FilterList, "Filter", tint = if (filter.active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -148,7 +166,11 @@ fun CountdownScreen(vm: AppViewModel, onBack: () -> Unit, initialOpenId: String?
                 TextButton(onClick = { addOpen = true }) { Text("＋ New occasion") }
             }
         } else {
-            val visible = items.filter { showArchived == it.archived && filter.matches(it, today) }
+            val q = query.trim()
+            val visible = items.filter {
+                showArchived == it.archived && filter.matches(it, today) &&
+                    (q.isBlank() || it.title.contains(q, true) || it.personName.contains(q, true) || it.category.contains(q, true))
+            }
             val sorted = visible.sortedWith(compareByDescending<CountdownEntity> { it.favorite }.thenBy { LifeEvent.sortKey(it, today) })
             val radar = remember(items, today) { LifeEvent.radar(items, today) }
             val onThisDay = remember(items) { vm.onThisDay() }

@@ -1074,17 +1074,20 @@ private fun CountdownDueStrip(vm: AppViewModel, kind: SmartKind, onOpenOccasion:
     // the tighter windows (Today / Next-7) already self-limit, so they show all that fall inside them.
     val cap = if (kind == SmartKind.SCHEDULED) 2 else relevant.size
     val shown = relevant.take(cap)
+    // R51 — the Scheduled strip is collapsible (open by default) so a long Scheduled list can hide it.
+    var expanded by remember(kind) { mutableStateOf(true) }
     Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
         Column(Modifier.padding(12.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("Occasions", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            Row(Modifier.fillMaxWidth().clickable { expanded = !expanded }, verticalAlignment = Alignment.CenterVertically) {
+                Text(if (expanded) "▾ Occasions" else "▸ Occasions", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                if (!expanded) Text("  (${relevant.size})", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.weight(1f))
-                if (relevant.size > shown.size) TextButton(onClick = { onOpenOccasion(null) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(4.dp, 0.dp)) {
+                if (expanded && relevant.size > shown.size) TextButton(onClick = { onOpenOccasion(null) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(4.dp, 0.dp)) {
                     Text("View all (${relevant.size})", style = MaterialTheme.typography.labelMedium)
                 }
             }
-            Spacer(Modifier.size(6.dp))
-            shown.forEachIndexed { i, (cd, days) ->
+            if (expanded) Spacer(Modifier.size(6.dp))
+            if (expanded) shown.forEachIndexed { i, (cd, days) ->
                 if (i > 0) HorizontalDivider(Modifier.padding(vertical = 2.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
                 val color = cd.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.secondary
                 Row(Modifier.fillMaxWidth().clickable { onOpenOccasion(cd.id) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {

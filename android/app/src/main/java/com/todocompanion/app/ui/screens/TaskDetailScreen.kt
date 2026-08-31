@@ -204,6 +204,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     // "there's no way to save." attachBump lights the Save button so the change is acknowledged; because the
     // bytes are already committed, Back needs no discard prompt for an attachment-only change.
     var attachBump by remember(taskId) { mutableStateOf(0) }
+    var pendingDeleteAtt by remember(taskId) { mutableStateOf<com.todocompanion.app.data.entity.AttachmentMeta?>(null) }
     val contentDirty = (draft != null && savedSnapshot != null && draft != savedSnapshot) || tagsDirty || ctxDirty
     val dirty = contentDirty || attachBump > 0
 
@@ -657,7 +658,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                             Text(a.fileName, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text("${attachmentKind(a.mime, a.fileName)} · ${formatBytes(a.sizeBytes)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                         }
-                        IconButton(onClick = { vm.removeAttachment(a.id) }) { Icon(Icons.Filled.Close, "Remove attachment") }
+                        IconButton(onClick = { pendingDeleteAtt = a }) { Icon(Icons.Filled.Close, "Remove attachment") }
                     }
                 }
                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(0.dp)) {
@@ -669,6 +670,14 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     TextButton(onClick = { com.todocompanion.app.util.SystemPicker.openFiles(arrayOf("*/*"), onError = onPickerError) { uris -> vm.addAttachments(taskId, uris) { n -> if (n > 0) attachBump++ } } }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.AttachFile, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("File") }
                 }
                 if (attachments.isEmpty()) Text("Photos, camera, or any file type, up to 50 MB — picked through your phone's own picker, so no storage permission is ever asked. Stored on-device and in your backups.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                pendingDeleteAtt?.let { a ->
+                    AlertDialog(onDismissRequest = { pendingDeleteAtt = null },
+                        icon = { Icon(Icons.Filled.Close, null, tint = MaterialTheme.colorScheme.error) },
+                        confirmButton = { TextButton(onClick = { vm.removeAttachment(a.id); pendingDeleteAtt = null }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
+                        dismissButton = { TextButton(onClick = { pendingDeleteAtt = null }) { Text("Cancel") } },
+                        title = { Text("Delete attachment?") },
+                        text = { Text("“${a.fileName}” will be permanently removed from this task and your backups. This can't be undone.") })
+                }
             }
 
                     com.todocompanion.app.domain.EditorField.TAGS ->

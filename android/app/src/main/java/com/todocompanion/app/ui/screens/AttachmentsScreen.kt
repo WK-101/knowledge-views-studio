@@ -134,6 +134,7 @@ fun AttachmentsScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: ()
     var query by remember { mutableStateOf("") }
     var sortMenu by remember { mutableStateOf(false) }
     var filterOpen by remember { mutableStateOf(false) }
+    var pendingDelete by remember { mutableStateOf<AttachmentMeta?>(null) }   // confirm before a permanent delete
     val now = remember { System.currentTimeMillis() }
 
     val items = remember(all, filter, query, doneIds, now) {
@@ -219,7 +220,7 @@ fun AttachmentsScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: ()
             } else when (view) {
                 AttView.LIST -> LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp)) {
                     items(items, key = { it.id }) { a ->
-                        AttachmentRow(vm, a, titleById[a.taskId], onOpenTask)
+                        AttachmentRow(vm, a, titleById[a.taskId], onOpenTask, onDelete = { pendingDelete = a })
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
                     }
                 }
@@ -233,7 +234,7 @@ fun AttachmentsScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: ()
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         gridItems(items, key = { it.id }) { a ->
-                            AttachmentTile(vm, a, titleById[a.taskId], large = view == AttView.GRID_L, onOpenTask)
+                            AttachmentTile(vm, a, titleById[a.taskId], large = view == AttView.GRID_L, onOpenTask, onDelete = { pendingDelete = a })
                         }
                     }
                 }
@@ -242,10 +243,21 @@ fun AttachmentsScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: ()
     }
 
     if (filterOpen) AttachmentFilterSheet(filter, all, doneIds, now, onApply = { filter = it }, onDismiss = { filterOpen = false })
+
+    pendingDelete?.let { a ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            icon = { Icon(Icons.Filled.Delete, null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Delete attachment?") },
+            text = { Text("“${a.fileName}” will be permanently removed from this task and your backups. This can't be undone.") },
+            confirmButton = { TextButton(onClick = { vm.removeAttachment(a.id); pendingDelete = null }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Cancel") } },
+        )
+    }
 }
 
 @Composable
-private fun AttachmentRow(vm: AppViewModel, a: AttachmentMeta, taskTitle: String?, onOpenTask: (String) -> Unit) {
+private fun AttachmentRow(vm: AppViewModel, a: AttachmentMeta, taskTitle: String?, onOpenTask: (String) -> Unit, onDelete: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable { vm.openAttachment(a.id, a.fileName, a.mime) }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(40.dp).clip(RoundedCornerShape(9.dp)), contentAlignment = Alignment.Center) {
             val thumb = rememberThumb(vm, a)
@@ -269,12 +281,12 @@ private fun AttachmentRow(vm: AppViewModel, a: AttachmentMeta, taskTitle: String
             }
         }
         IconButton(onClick = { vm.openAttachment(a.id, a.fileName, a.mime) }) { Icon(Icons.AutoMirrored.Filled.OpenInNew, "Open") }
-        IconButton(onClick = { vm.removeAttachment(a.id) }) { Icon(Icons.Filled.Delete, "Delete", tint = MaterialTheme.colorScheme.error) }
+        IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, "Delete", tint = MaterialTheme.colorScheme.error) }
     }
 }
 
 @Composable
-private fun AttachmentTile(vm: AppViewModel, a: AttachmentMeta, taskTitle: String?, large: Boolean, onOpenTask: (String) -> Unit) {
+private fun AttachmentTile(vm: AppViewModel, a: AttachmentMeta, taskTitle: String?, large: Boolean, onOpenTask: (String) -> Unit, onDelete: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     Column(Modifier.clickable { vm.openAttachment(a.id, a.fileName, a.mime) }) {
         Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
@@ -294,7 +306,7 @@ private fun AttachmentTile(vm: AppViewModel, a: AttachmentMeta, taskTitle: Strin
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(text = { Text("Open") }, onClick = { menu = false; vm.openAttachment(a.id, a.fileName, a.mime) })
                     DropdownMenuItem(text = { Text("Go to task") }, onClick = { menu = false; onOpenTask(a.taskId) })
-                    DropdownMenuItem(text = { Text("Delete") }, onClick = { menu = false; vm.removeAttachment(a.id) })
+                    DropdownMenuItem(text = { Text("Delete") }, onClick = { menu = false; onDelete() })
                 }
             }
         }
