@@ -38,6 +38,8 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.Unarchive
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -1104,6 +1106,7 @@ fun AppRoot(
                 onDelete = { vm.deleteList(l.id); if (currentView == ViewRef.ListView(l.id)) vm.select(ViewRef.Smart(SmartKind.TODAY)); manageList = null },
                 onPickBackground = { vm.setListBackgroundFromUri(l.id, it) },
                 onClearBackground = { vm.clearListBackground(l.id) },
+                onArchive = { a -> vm.setListArchived(lists.firstOrNull { it.id == l.id } ?: l, a); if (a && currentView == ViewRef.ListView(l.id)) vm.select(ViewRef.Smart(SmartKind.TODAY)); manageList = null },
                 onEmoji = { vm.saveList((lists.firstOrNull { it.id == l.id } ?: l).copy(emoji = it)) })
         }
         manageFolder?.let { stale ->
@@ -1111,6 +1114,7 @@ fun AppRoot(
             ManageFolderDialog(f, onDismiss = { manageFolder = null },
                 onSave = { n, d -> vm.saveFolder((folders.firstOrNull { it.id == f.id } ?: f).copy(name = n.trim(), description = d)); manageFolder = null },
                 onIcon = { vm.setFolderIcon(f, it) },
+                onArchive = { a -> vm.setFolderArchived(folders.firstOrNull { it.id == f.id } ?: f, a); if (a && currentView == ViewRef.FolderView(f.id)) vm.select(ViewRef.Smart(SmartKind.TODAY)); manageFolder = null },
                 onDelete = { vm.deleteFolder(f.id); manageFolder = null })
         }
         moveList?.let { l ->
@@ -1587,7 +1591,7 @@ private val SWATCHES = listOf(0xFFE5484D, 0xFFF59E0B, 0xFF12A594, 0xFF3E7BFA, 0x
 @Composable
 private fun ManageListDialog(
     list: ListEntity, onDismiss: () -> Unit, onSave: (String, String) -> Unit, onColor: (Long) -> Unit, onDelete: () -> Unit,
-    onPickBackground: (android.net.Uri) -> Unit, onClearBackground: () -> Unit, onEmoji: (String?) -> Unit,
+    onPickBackground: (android.net.Uri) -> Unit, onClearBackground: () -> Unit, onEmoji: (String?) -> Unit, onArchive: (Boolean) -> Unit = {},
 ) {
     var name by remember { mutableStateOf(list.name) }
     var description by remember { mutableStateOf(list.description) }
@@ -1623,6 +1627,13 @@ private fun ManageListDialog(
                     TextButton(onClick = { com.todocompanion.app.util.SystemPicker.galleryOne(onError = { android.widget.Toast.makeText(bgCtxTop, it, android.widget.Toast.LENGTH_LONG).show() }) { onPickBackground(it) } }) { Text(if (list.backgroundBase64 == null) "Set image" else "Change image") }
                     if (list.backgroundBase64 != null) TextButton(onClick = onClearBackground) { Text("Remove", color = MaterialTheme.colorScheme.error) }
                 }
+                if (list.id != ListEntity.INBOX_ID) {
+                    Spacer(Modifier.size(4.dp))
+                    TextButton(onClick = { onArchive(!list.archived) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
+                        Icon(if (list.archived) Icons.Filled.Unarchive else Icons.Filled.Archive, null, Modifier.size(18.dp)); Spacer(Modifier.size(6.dp))
+                        Text(if (list.archived) "Restore from archive" else "Archive this list")
+                    }
+                }
             }
         },
     )
@@ -1648,7 +1659,7 @@ private fun ConfirmDeleteDialog(kind: String, name: String, onCancel: () -> Unit
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun ManageFolderDialog(folder: FolderEntity, onDismiss: () -> Unit, onSave: (String, String) -> Unit, onIcon: (String?) -> Unit, onDelete: () -> Unit) {
+private fun ManageFolderDialog(folder: FolderEntity, onDismiss: () -> Unit, onSave: (String, String) -> Unit, onIcon: (String?) -> Unit, onDelete: () -> Unit, onArchive: (Boolean) -> Unit = {}) {
     var name by remember { mutableStateOf(folder.name) }
     var description by remember { mutableStateOf(folder.description) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -1667,6 +1678,11 @@ private fun ManageFolderDialog(folder: FolderEntity, onDismiss: () -> Unit, onSa
                 Text("Icon", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.size(6.dp))
                 EmojiPicker(current = folder.icon, onPick = onIcon)
+                Spacer(Modifier.size(4.dp))
+                TextButton(onClick = { onArchive(!folder.archived) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
+                    Icon(if (folder.archived) Icons.Filled.Unarchive else Icons.Filled.Archive, null, Modifier.size(18.dp)); Spacer(Modifier.size(6.dp))
+                    Text(if (folder.archived) "Restore from archive" else "Archive this folder (and its lists)")
+                }
             }
         },
     )

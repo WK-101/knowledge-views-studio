@@ -28,9 +28,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PushPin
@@ -42,6 +44,8 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -113,6 +117,8 @@ fun CountdownScreen(vm: AppViewModel, onBack: () -> Unit, initialOpenId: String?
     var filterOpen by remember { mutableStateOf(false) }
     var searchOpen by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
+    var overflowOpen by remember { mutableStateOf(false) }
+    val screenCtx = LocalContext.current
     val today = LocalDate.now()
 
     // R48/R51 — deep-link: open a specific occasion's DETAILS card once when arriving from the calendar
@@ -150,6 +156,21 @@ fun CountdownScreen(vm: AppViewModel, onBack: () -> Unit, initialOpenId: String?
                     }
                     if (items.any { it.archived }) IconButton(onClick = { showArchived = !showArchived }) {
                         Icon(if (showArchived) Icons.Filled.Unarchive else Icons.Filled.Archive, "Archived", tint = if (showArchived) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Box {
+                        IconButton(onClick = { overflowOpen = true }) { Icon(Icons.Filled.MoreVert, "More") }
+                        DropdownMenu(expanded = overflowOpen, onDismissRequest = { overflowOpen = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Import birthdays (.vcf)") },
+                                leadingIcon = { Icon(Icons.Filled.Cake, null, Modifier.size(18.dp)) },
+                                onClick = {
+                                    overflowOpen = false
+                                    com.todocompanion.app.util.SystemPicker.openFile(
+                                        arrayOf("text/vcard", "text/x-vcard", "text/directory", "application/octet-stream", "*/*"),
+                                        onError = { android.widget.Toast.makeText(screenCtx, it, android.widget.Toast.LENGTH_LONG).show() }
+                                    ) { uri -> vm.importVcardBirthdays(uri) }
+                                })
+                        }
                     }
                 },
             )
@@ -816,7 +837,7 @@ private fun OccasionFilterSheet(current: OccasionFilter, items: List<CountdownEn
  *  moments and milestones — moved off the top of the list so the list itself stays occasion-first. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun OccasionDetailsSheet(c: CountdownEntity, today: LocalDate, onDismiss: () -> Unit, onEdit: () -> Unit) {
+internal fun OccasionDetailsSheet(c: CountdownEntity, today: LocalDate, onDismiss: () -> Unit, onEdit: () -> Unit) {
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val next = LifeEvent.nextOccurrence(c, today)
     val (count, unitLabel) = LifeEvent.displayCount(c, today)
@@ -892,11 +913,30 @@ private fun OccasionDetailsSheet(c: CountdownEntity, today: LocalDate, onDismiss
             Spacer(Modifier.height(12.dp))
             Text(com.todocompanion.app.domain.Almanac.reflection(today), style = MaterialTheme.typography.bodySmall,
                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .8f))
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(onClick = onEdit) { Text("Open in editor", fontWeight = FontWeight.SemiBold) }
+            Spacer(Modifier.height(16.dp))
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.Button(onClick = { shareOccasionCard(ctx, c, today) }, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Filled.Share, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Share card")
+                }
+                TextButton(onClick = { shareOccasion(ctx, c) }) { Text("As text") }
+                TextButton(onClick = onEdit) { Text("Edit", fontWeight = FontWeight.SemiBold) }
             }
         }
+    }
+}
+
+/** R52 — render a personalised occasion card (PNG) on-device and offer it via the OS share sheet. */
+private fun shareOccasionCard(ctx: android.content.Context, c: CountdownEntity, today: LocalDate) {
+    runCatching {
+        val bmp = com.todocompanion.app.util.OccasionCardRenderer.render(c, today)
+        val safeName = (c.personName.ifBlank { c.title }).ifBlank { "occasion" }.filter { it.isLetterOrDigit() || it == ' ' }.trim().replace(' ', '-').take(40).ifBlank { "occasion" }
+        val res = com.todocompanion.app.util.ProgressCard.saveAndShareUri(ctx, bmp, "$safeName-card.png")
+        val uri = res.shareUri
+        if (uri != null) com.todocompanion.app.util.ProgressCard.share(ctx, uri)
+        else android.widget.Toast.makeText(ctx, "Couldn't build the card.", android.widget.Toast.LENGTH_SHORT).show()
+    }.onFailure {
+        android.widget.Toast.makeText(ctx, "Couldn't build the card.", android.widget.Toast.LENGTH_SHORT).show()
     }
 }
 

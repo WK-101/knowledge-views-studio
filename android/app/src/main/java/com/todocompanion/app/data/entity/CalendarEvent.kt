@@ -54,6 +54,11 @@ data class EventEntity(
     val alertsMinutes: String = "",       // comma of minutes-before for alerts (e.g. "10,1440")
     val busy: Boolean = true,             // counts toward busy/free (an "available" event is transparent)
     val linkedTaskId: String? = null,     // a time block created from a task
+    // R52 — invitations. A meeting invite (Teams/Meet/Zoom…) is just an event with a join link (in [url]),
+    // an organizer and attendees, plus your RSVP. The conferencing provider is derived from the URL host.
+    val organizer: String = "",           // "Name" or "Name <email>"
+    val attendees: String = "",           // newline- or comma-separated names/emails
+    val rsvp: String = "",                // "" | "yes" | "maybe" | "no"
     val createdAt: Long,
     val updatedAt: Long,
 ) {

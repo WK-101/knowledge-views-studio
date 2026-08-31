@@ -16,6 +16,28 @@ import java.time.format.DateTimeFormatter
  * LOCATION, DESCRIPTION and RRULE. No network, no calendar-provider — the only way events cross the app
  * boundary. Recurrence maps to/from the app's compact rule (domain/recurrence/Recurrence.kt).
  */
+/** R52 — recognise the conferencing provider from a join URL, purely by host (offline, no network). */
+object MeetingLink {
+    fun provider(url: String): String? {
+        val u = url.lowercase()
+        return when {
+            "zoom.us" in u || "zoom.com" in u -> "Zoom"
+            "meet.google" in u || "g.co/meet" in u -> "Google Meet"
+            "teams.microsoft" in u || "teams.live" in u -> "Microsoft Teams"
+            "webex.com" in u -> "Webex"
+            "meet.jit.si" in u || "jitsi" in u -> "Jitsi"
+            "whereby.com" in u -> "Whereby"
+            "skype.com" in u -> "Skype"
+            "gotomeet" in u || "gotomeeting" in u -> "GoTo Meeting"
+            url.startsWith("http", true) -> "Meeting link"
+            else -> null
+        }
+    }
+    fun emoji(provider: String?): String = when (provider) {
+        "Zoom" -> "🎥"; "Google Meet" -> "📹"; "Microsoft Teams" -> "👥"; "Webex" -> "🟢"; else -> "🔗"
+    }
+}
+
 object EventIcs {
 
     private val DATE = DateTimeFormatter.ofPattern("yyyyMMdd")
@@ -32,7 +54,9 @@ object EventIcs {
             append("SUMMARY:").append(esc(e.title)).append("\r\n")
             if (e.location.isNotBlank()) append("LOCATION:").append(esc(e.location)).append("\r\n")
             if (e.notes.isNotBlank()) append("DESCRIPTION:").append(esc(e.notes)).append("\r\n")
-            if (e.url.isNotBlank()) append("URL:").append(e.url).append("\r\n")
+            if (e.url.isNotBlank()) { append("URL:").append(e.url).append("\r\n"); append("CONFERENCE;VALUE=URI;FEATURE=VIDEO:").append(e.url).append("\r\n") }
+            if (e.organizer.isNotBlank()) append("ORGANIZER;CN=").append(esc(e.organizer)).append(":mailto:unknown@local\r\n")
+            e.attendees.split("\n", ",").map { it.trim() }.filter { it.isNotBlank() }.forEach { append("ATTENDEE;CN=").append(esc(it)).append(":mailto:unknown@local\r\n") }
             if (e.allDay) {
                 val d = Instant.ofEpochMilli(e.startMillis).atZone(zone).toLocalDate()
                 append("DTSTART;VALUE=DATE:").append(d.format(DATE)).append("\r\n")
@@ -73,8 +97,10 @@ object EventIcs {
         var inEvent = false
         var uid: String? = null; var summary = ""; var location = ""; var notes = ""; var url = ""
         var start: LocalDateTime? = null; var end: LocalDateTime? = null; var allDay = false; var rrule = ""
+        // R52 — invitation fields.
+        var organizer = ""; var confUrl = ""; val attendees = ArrayList<String>()
         val ex = ArrayList<Long>()
-        fun reset() { uid = null; summary = ""; location = ""; notes = ""; url = ""; start = null; end = null; allDay = false; rrule = ""; ex.clear() }
+        fun reset() { uid = null; summary = ""; location = ""; notes = ""; url = ""; start = null; end = null; allDay = false; rrule = ""; organizer = ""; confUrl = ""; attendees.clear(); ex.clear() }
         for (raw in lines) {
             val line = raw.trim()
             when {
@@ -83,10 +109,14 @@ object EventIcs {
                     if (inEvent && summary.isNotBlank() && start != null) {
                         val s = start!!.atZone(zone).toInstant().toEpochMilli()
                         val e = (end ?: start!!.plusHours(1)).atZone(zone).toInstant().toEpochMilli()
+                        // A meeting invite scatters its join link across URL / CONFERENCE / X-props / LOCATION /
+                        // DESCRIPTION; take the first that looks like one so the event gets a working "Join".
+                        val joinUrl = url.ifBlank { confUrl }.ifBlank { detectUrl(location) }.ifBlank { detectUrl(notes) }
                         out += EventEntity(
                             id = java.util.UUID.randomUUID().toString(), calendarId = calendarId, title = summary,
-                            location = location, notes = notes, url = url, startMillis = s, endMillis = if (allDay) s else e,
+                            location = location, notes = notes, url = joinUrl, startMillis = s, endMillis = if (allDay) s else e,
                             allDay = allDay, rrule = rrule, exDates = ex.joinToString(","),
+                            organizer = organizer, attendees = attendees.joinToString("\n"),
                             createdAt = System.currentTimeMillis(), updatedAt = System.currentTimeMillis())
                     }
                     inEvent = false
@@ -101,6 +131,10 @@ object EventIcs {
                         "LOCATION" -> location = unesc(value)
                         "DESCRIPTION" -> notes = unesc(value)
                         "URL" -> url = value.trim()
+                        "ORGANIZER" -> organizer = cnOrValue(nameAndParams, value)
+                        "ATTENDEE" -> cnOrValue(nameAndParams, value).takeIf { it.isNotBlank() }?.let { attendees += it }
+                        "CONFERENCE", "X-GOOGLE-CONFERENCE", "X-MICROSOFT-SKYPETEAMSMEETINGURL",
+                        "X-MICROSOFT-ONLINEMEETINGCONFLINK" -> if (confUrl.isBlank()) confUrl = detectUrl(value).ifBlank { value.trim() }
                         "DTSTART" -> parseDt(nameAndParams, value)?.let { (dt, ad) -> start = dt; if (ad) allDay = true }
                         "DTEND" -> parseDt(nameAndParams, value)?.let { (dt, _) -> end = dt }
                         "RRULE" -> rrule = rfcToRule(value)
@@ -138,6 +172,14 @@ object EventIcs {
             else LocalDateTime.parse(v.take(15), DT) to false
         }.getOrNull()
     }
+
+    /** ORGANIZER;CN=Jane Doe:mailto:jane@x.com → "Jane Doe"; else the mailto address. */
+    private fun cnOrValue(nameAndParams: String, value: String): String {
+        val cn = nameAndParams.split(';').firstOrNull { it.startsWith("CN=", true) }?.substringAfter('=')?.trim('"', ' ')
+        return (cn?.takeIf { it.isNotBlank() } ?: value.removePrefix("mailto:").removePrefix("MAILTO:")).trim()
+    }
+    /** First http(s) URL inside a blob (LOCATION/DESCRIPTION often embed the join link in prose). */
+    fun detectUrl(s: String): String = Regex("""https?://[^\s<>"']+""").find(s)?.value?.trimEnd('.', ',', ')', '>') ?: ""
 
     private fun esc(s: String) = s.replace("\\", "\\\\").replace("\n", "\\n").replace(",", "\\,").replace(";", "\\;")
     private fun unesc(s: String) = s.replace("\\n", "\n").replace("\\,", ",").replace("\\;", ";").replace("\\\\", "\\")

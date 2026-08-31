@@ -791,6 +791,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 }
                 SwitchRow("Mark as goal", task.isGoal) { v -> update { it.copy(isGoal = v) } }
                 SwitchRow("Mark as project", task.isProject) { v -> update { it.copy(isProject = v) } }
+                // R52 — GTD Someday/Maybe: park it out of the active lists; it resurfaces in the weekly review.
+                SwitchRow("Someday / Maybe (park it)", task.someday) { v -> update { it.copy(someday = v, dueDate = if (v) null else it.dueDate, startDate = if (v) null else it.startDate) } }
                 // Q2: goals & projects get the habit "why" + reward vocabulary.
                 if (task.isGoal || task.isProject) {
                     com.todocompanion.app.ui.components.AppTextField(task.whyText, { v -> update { it.copy(whyText = v.take(140)) } }, singleLine = false,

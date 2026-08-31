@@ -31,6 +31,7 @@ data class FolderEntity(
     val collapsed: Boolean = false,
     val workspaceId: String = WorkspaceEntity.DEFAULT_ID,
     val description: String = "",   // optional free-text note, shown atop the folder's tasks
+    val archived: Boolean = false,  // R52 — stow an inactive folder (and its lists) without deleting
 )
 
 /** A list / project: the primary container that holds a task outline.

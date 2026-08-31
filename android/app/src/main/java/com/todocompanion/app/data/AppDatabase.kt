@@ -83,7 +83,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         com.todocompanion.app.data.entity.EventCalendarEntity::class,
         com.todocompanion.app.data.entity.EventEntity::class,
     ],
-    version = 51,
+    version = 52,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -616,6 +616,24 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // R52 — GTD Someday (tasks), archive folders, calendar invitations (events), and scale indices on
+        // the tasks table. All additive; index names match Room's generated `index_<table>_<column>`.
+        private val MIGRATION_51_52 = object : Migration(51, 52) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `someday` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `folders` ADD COLUMN `archived` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `events` ADD COLUMN `organizer` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `events` ADD COLUMN `attendees` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `events` ADD COLUMN `rsvp` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_folderId` ON `tasks` (`folderId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_workspaceId` ON `tasks` (`workspaceId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_completed` ON `tasks` (`completed`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_trashed` ON `tasks` (`trashed`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_someday` ON `tasks` (`someday`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_dueDate` ON `tasks` (`dueDate`)")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: run {
@@ -628,7 +646,18 @@ abstract class AppDatabase : RoomDatabase() {
                     val factory = runCatching { com.todocompanion.app.data.security.SecureDb.openFactory(app) }.getOrNull()
                     Room.databaseBuilder(app, AppDatabase::class.java, "todocompanion.db")
                         .apply { if (factory != null) openHelperFactory(factory) }
-                        .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30, MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35, MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39, MIGRATION_39_40, MIGRATION_40_41, MIGRATION_41_42, MIGRATION_42_43, MIGRATION_43_44, MIGRATION_44_45, MIGRATION_45_46, MIGRATION_46_47, MIGRATION_47_48, MIGRATION_48_49, MIGRATION_49_50, MIGRATION_50_51)
+                        // R52 — scale foundations for a DB used over years/decades. WAL gives one writer +
+                        // many concurrent readers; on each open we ask SQLite to refresh its query-planner
+                        // stats (PRAGMA optimize) so it keeps choosing the R52 indices as the tables grow.
+                        .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
+                        .addCallback(object : RoomDatabase.Callback() {
+                            override fun onOpen(db: SupportSQLiteDatabase) {
+                                super.onOpen(db)
+                                runCatching { db.execSQL("PRAGMA synchronous=NORMAL") }
+                                runCatching { db.execSQL("PRAGMA optimize") }
+                            }
+                        })
+                        .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30, MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35, MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39, MIGRATION_39_40, MIGRATION_40_41, MIGRATION_41_42, MIGRATION_42_43, MIGRATION_43_44, MIGRATION_44_45, MIGRATION_45_46, MIGRATION_46_47, MIGRATION_47_48, MIGRATION_48_49, MIGRATION_49_50, MIGRATION_50_51, MIGRATION_51_52)
                         .fallbackToDestructiveMigration()
                         .build()
                         .also { INSTANCE = it }

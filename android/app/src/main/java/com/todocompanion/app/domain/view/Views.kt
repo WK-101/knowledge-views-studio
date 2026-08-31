@@ -26,6 +26,7 @@ enum class SmartKind(val title: String) {
     GOALS("Goals"),
     WAITING("Waiting On"),
     NEEDS_ATTENTION("Needs Attention"),
+    SOMEDAY("Someday"),
     ALL("All"),
     COMPLETED("Completed"),
     WONT_DO("Won't Do"),
@@ -88,8 +89,9 @@ object TaskViews {
         }
     }
 
-    /** Non-trashed, non-completed, non-abandoned "open" tasks. */
-    private fun isOpen(t: TaskEntity) = !t.trashed && !t.completed && !t.abandoned
+    /** Non-trashed, non-completed, non-abandoned "open" tasks. Someday/Maybe items are parked, so they
+     *  are NOT "open" — they stay out of every active view and surface only in the Someday list. */
+    private fun isOpen(t: TaskEntity) = !t.trashed && !t.completed && !t.abandoned && !t.someday
 
     /**
      * Filter tasks for a smart-list view. Tag/context/list views are resolved in the
@@ -114,6 +116,8 @@ object TaskViews {
                 val parents = all.asSequence().filter { !it.trashed }.mapNotNull { it.parentId }.toSet()
                 all.filter { isOpen(it) && !it.isNote && it.dueDate == null && it.id !in parents && (now - it.updatedAt) >= STALE_MS }
             }
+            // GTD Someday/Maybe — parked, uncommitted work; the only view that surfaces it.
+            SmartKind.SOMEDAY -> all.filter { !it.trashed && !it.completed && !it.abandoned && it.someday }
             SmartKind.ALL -> all.filter { isOpen(it) }
             SmartKind.DO_NEXT -> all.filter { isOpen(it) }   // ranking applied separately by the engine
             SmartKind.COMPLETED -> all.filter { it.completed && !it.trashed }

@@ -260,7 +260,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             .count { val d = com.todocompanion.app.domain.LifeEvent.daysUntil(it, today); d in 0..7 }
         val endMs = weekEnd.atStartOfDay(zone).toInstant().toEpochMilli()
         val nowMs = today.atStartOfDay(zone).toInstant().toEpochMilli()
-        val due = allTasksLive.value.count { !it.completed && !it.trashed && !it.abandoned && !it.isNote && it.dueDate != null && it.dueDate!! in nowMs until endMs }
+        val due = allTasksLive.value.count { !it.completed && !it.trashed && !it.abandoned && !it.someday && !it.isNote && it.dueDate != null && it.dueDate!! in nowMs until endMs }
         val habitsActive = habits.value.count { !it.archived }
         val nextOcc = countdowns.value.filter { !it.archived && !it.countUp }
             .minByOrNull { com.todocompanion.app.domain.LifeEvent.daysUntil(it, today).let { d -> if (d < 0) Long.MAX_VALUE else d } }
@@ -389,7 +389,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     SmartKind.WAITING -> {
                         val byId = t.associateBy { it.id }
                         val blocked = PriorityEngine.computeBlocked(deps, byId, now)
-                        t.count { !it.trashed && !it.completed && !it.abandoned && it.id in blocked }
+                        t.count { !it.trashed && !it.completed && !it.abandoned && !it.someday && it.id in blocked }
                     }
                     // Do-Next uses the SAME focus filter as the rendered list, so the badge matches the list.
                     // (The transient "I have N min / energy" planners aren't applied to the badge.)
@@ -427,7 +427,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val (ttRefs, tcRefs) = refs
             val (lists, folders) = lf
             val (allTagsL, _, filtersL) = tcf
-            val active = all.filter { !it.trashed && !it.completed && !it.abandoned }
+            val active = all.filter { !it.trashed && !it.completed && !it.abandoned && !it.someday }
             val activeIds = active.mapTo(HashSet()) { it.id }
             val listCounts = active.groupingBy { it.listId }.eachCount()
             val folderCounts = folders.associate { fo ->
@@ -530,7 +530,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         ) { all, cfg, ttRefs, vc, deps ->
             val tcRefs = vc.tcRefs; val ctxEntities = vc.contexts; val filterList = vc.filters
             val now = System.currentTimeMillis()
-            val filtered = when (val v = cfg.view) {
+            val filteredRaw = when (val v = cfg.view) {
                 is ViewRef.Smart -> {
                     when (v.kind) {
                         SmartKind.DO_NEXT -> doNextFocused(all, now, cfg.prio, deps, tcRefs, ctxEntities, cfg.timeAvail, cfg.energyAvail)
@@ -538,7 +538,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         SmartKind.WAITING -> {
                             val byId = all.associateBy { it.id }
                             val blocked = PriorityEngine.computeBlocked(deps, byId, now)
-                            all.filter { !it.trashed && !it.completed && !it.abandoned && it.id in blocked }
+                            all.filter { !it.trashed && !it.completed && !it.abandoned && !it.someday && it.id in blocked }
                         }
                         // R28 #3: Trash is per-workspace — the shared Inbox otherwise leaked trashed tasks
                         // into every workspace. A trashed task is stamped with the workspace it was deleted in.
@@ -557,26 +557,39 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         all.filter { it.id in keep && !it.trashed }
                     } else hit
                 }
-                is ViewRef.ListView -> all.filter { !it.trashed && !it.completed && !it.abandoned && it.listId == v.listId }
+                is ViewRef.ListView -> all.filter { !it.trashed && !it.completed && !it.abandoned && !it.someday && it.listId == v.listId }
                 is ViewRef.FolderView -> {
                     val listIds = folderListIds(v.folderId, vc.lists, vc.folders)
                     // Tasks in the folder's lists, plus tasks captured directly into the folder.
-                    all.filter { !it.trashed && !it.completed && !it.abandoned && (it.listId in listIds || it.folderId == v.folderId) }
+                    all.filter { !it.trashed && !it.completed && !it.abandoned && !it.someday && (it.listId in listIds || it.folderId == v.folderId) }
                 }
                 is ViewRef.TagView -> {
                     // R29 #2 — a parent tag's page rolls up every descendant tag's tasks (matching the
                     // sidebar count, which already summed the subtree), so opening #work shows #work/errands too.
                     val tagIds = subtreeIds(v.tagId, vc.tags, { it.id }, { it.parentId })
                     val ids = ttRefs.filter { it.tagId in tagIds }.map { it.taskId }.toSet()
-                    all.filter { it.id in ids && !it.trashed && !it.completed && !it.abandoned }
+                    all.filter { it.id in ids && !it.trashed && !it.completed && !it.abandoned && !it.someday }
                 }
                 is ViewRef.ContextView -> {
                     // Same subtree rollup for contexts / sub-contexts.
                     val ctxIds = subtreeIds(v.contextId, ctxEntities, { it.id }, { it.parentId })
                     val ids = tcRefs.filter { it.contextId in ctxIds }.map { it.taskId }.toSet()
-                    all.filter { it.id in ids && !it.trashed && !it.completed && !it.abandoned }
+                    all.filter { it.id in ids && !it.trashed && !it.completed && !it.abandoned && !it.someday }
                 }
             }
+            // R52 — tasks in an archived list or folder drop out of every active view (Todoist-style),
+            // but stay visible in Trash / Completed / Won't-Do so nothing is silently lost.
+            val archivedFolderIds = run {
+                val ids = vc.folders.filter { it.archived }.map { it.id }.toMutableSet()
+                var changed = true
+                while (changed) { changed = false; vc.folders.forEach { if (it.parentId in ids && it.id !in ids) { ids.add(it.id); changed = true } } }
+                ids
+            }
+            val archivedListIds = vc.lists.filter { it.archived || it.folderId in archivedFolderIds }.map { it.id }.toSet()
+            val kindNow = (cfg.view as? ViewRef.Smart)?.kind
+            val keepArchived = kindNow == SmartKind.TRASH || kindNow == SmartKind.COMPLETED || kindNow == SmartKind.WONT_DO
+            val filtered = if (keepArchived || archivedListIds.isEmpty()) filteredRaw
+                else filteredRaw.filter { it.listId !in archivedListIds }
             val flagRank = cfg.flags.sortedBy { it.sortOrder }.mapIndexed { i, f -> f.id to i }.toMap()
             val sorted = if ((cfg.view as? ViewRef.Smart)?.kind == SmartKind.DO_NEXT) filtered
             else TaskViews.sort(filtered, cfg.sort, flagRank)
@@ -736,7 +749,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             all = base,
             now = now,
             blocked = blocked,
-            hasIncompleteChild = { id -> byParent[id].orEmpty().any { !it.completed && !it.trashed && !it.abandoned } },
+            hasIncompleteChild = { id -> byParent[id].orEmpty().any { !it.completed && !it.trashed && !it.abandoned && !it.someday } },
             contextAvailable = { id ->
                 val ids = ctxByTask[id].orEmpty().map { it.contextId }
                 ids.isEmpty() || ids.any { availById[it] == true }
@@ -795,7 +808,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val now = System.currentTimeMillis()
         val end = java.time.LocalDate.now(zone).plusDays(days.toLong()).atStartOfDay(zone).toInstant().toEpochMilli()
         fun est(t: TaskEntity) = (t.estimateMin ?: t.estimateMax ?: t.durationMin ?: 30)
-        val open = tasks.value.filter { !it.trashed && !it.completed && !it.abandoned && !it.isNote }
+        val open = tasks.value.filter { !it.trashed && !it.completed && !it.abandoned && !it.someday && !it.isNote }
         // A task "has a deadline in the window" if its hard deadline OR its due date falls inside it.
         fun deadlineIn(t: TaskEntity): Boolean {
             val d = listOfNotNull(t.deadlineDate, t.dueDate).minOrNull() ?: return false
@@ -874,7 +887,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** P2: open tasks whose due date has already passed — the recovery-mode signal. */
     fun overdueOpenTasks(): List<TaskEntity> {
         val startToday = java.time.LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
-        return tasks.value.filter { !it.completed && !it.trashed && !it.abandoned && it.dueDate != null && it.dueDate!! < startToday }
+        return tasks.value.filter { !it.completed && !it.trashed && !it.abandoned && !it.someday && it.dueDate != null && it.dueDate!! < startToday }
     }
 
     /**
@@ -1475,6 +1488,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setFolderIcon(f: FolderEntity, icon: String?) = viewModelScope.launch { repo.saveFolder(f.copy(icon = icon)) }
     fun toggleFolder(f: FolderEntity) = viewModelScope.launch { repo.saveFolder(f.copy(collapsed = !f.collapsed)) }
     fun deleteFolder(id: String) = viewModelScope.launch { repo.deleteFolder(id) }
+    // R52 — archive/restore a folder (and, by extension, its lists' tasks drop out of active views).
+    fun setFolderArchived(f: FolderEntity, archived: Boolean) = viewModelScope.launch { repo.saveFolder(f.copy(archived = archived)) }
     fun createList(name: String, folderId: String?, colorArgb: Long?) = viewModelScope.launch { repo.createList(name, folderId, colorArgb, workspaceId = settings.value.activeWorkspaceId) }
     /** Create a nested list under [parent]. */
     fun createSubList(parent: ListEntity, name: String = "New list") = viewModelScope.launch {
@@ -2387,7 +2402,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val now = System.currentTimeMillis()
         val end = java.time.LocalDate.now(zone).plusDays(days.toLong()).atStartOfDay(zone).toInstant().toEpochMilli()
         fun est(t: TaskEntity) = (t.estimateMin ?: t.estimateMax ?: t.durationMin ?: 30)
-        val committed = tasks.value.filter { !it.trashed && !it.completed && !it.abandoned && !it.isNote && it.dueDate != null && it.dueDate!! in (now + 1)..end }.sumOf { est(it) }
+        val committed = tasks.value.filter { !it.trashed && !it.completed && !it.abandoned && !it.someday && !it.isNote && it.dueDate != null && it.dueDate!! in (now + 1)..end }.sumOf { est(it) }
         val trackedCapH = if (settings.value.honestCapacity) trackedCapacityHours() else null
         val today = java.time.LocalDate.now(zone)
         val capMin = if (trackedCapH != null) trackedCapH * 60 * days
@@ -3086,7 +3101,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Create or update an event, then (re)schedule its alerts. */
     fun saveEvent(existingId: String?, calendarId: String, title: String, location: String, notes: String, url: String,
                   startMillis: Long, endMillis: Long, allDay: Boolean, rrule: String, alertsMinutes: String,
-                  colorArgb: Long?, floating: Boolean = false, busy: Boolean = true) = viewModelScope.launch {
+                  colorArgb: Long?, floating: Boolean = false, busy: Boolean = true,
+                  organizer: String = "", attendees: String = "", rsvp: String = "") = viewModelScope.launch {
         val t = title.trim().ifBlank { "Event" }
         val old = existingId?.let { repo.eventById(it) }
         old?.let { com.todocompanion.app.reminders.AlarmScheduler.cancelEventAlerts(appCtx, it) }
@@ -3095,7 +3111,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             startMillis = startMillis, endMillis = endMillis, createdAt = System.currentTimeMillis(), updatedAt = System.currentTimeMillis()))
             .copy(calendarId = calendarId, title = t, location = location.trim(), notes = notes.trim(), url = url.trim(),
                 startMillis = startMillis, endMillis = endMillis, allDay = allDay, rrule = rrule, alertsMinutes = alertsMinutes,
-                colorArgb = colorArgb, floating = floating, busy = busy, updatedAt = System.currentTimeMillis())
+                colorArgb = colorArgb, floating = floating, busy = busy,
+                organizer = organizer.trim(), attendees = attendees.trim(), rsvp = rsvp.trim(),
+                updatedAt = System.currentTimeMillis())
         repo.upsertEvent(e)
         com.todocompanion.app.reminders.AlarmScheduler.scheduleEventAlerts(appCtx, e)
     }
@@ -3230,23 +3248,84 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.upsertEvent(e); com.todocompanion.app.reminders.AlarmScheduler.scheduleEventAlerts(appCtx, e)
     }
 
-    fun importIcsEvents(uri: android.net.Uri, onDone: (Int) -> Unit = {}) = viewModelScope.launch {
-        val calId = ensureDefaultCalendar()
+    /** R52 — create a new event calendar and return its id (used by "import to a new calendar"). */
+    suspend fun createEventCalendarReturningId(name: String): String {
+        val id = java.util.UUID.randomUUID().toString()
+        val colors = listOf(0xFF5B57D6, 0xFF12A594, 0xFFE5484D, 0xFFF76B15, 0xFF0EA371, 0xFFB569F5)
+        val n = eventCalendars.value.size
+        repo.upsertEventCalendar(com.todocompanion.app.data.entity.EventCalendarEntity(id = id, name = name.trim().ifBlank { "Calendar" },
+            colorArgb = colors[n % colors.size], orderIndex = n, createdAt = System.currentTimeMillis()))
+        return id
+    }
+    /** R52 — import into a CHOSEN calendar (null = the default). */
+    fun importIcsEvents(uri: android.net.Uri, calendarId: String? = null, onDone: (Int) -> Unit = {}) = viewModelScope.launch {
+        val calId = calendarId ?: ensureDefaultCalendar()
         val text = withContext(Dispatchers.IO) { runCatching { appCtx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull() }
         if (text == null) { toast("Couldn't read that file."); onDone(0); return@launch }
         val evs = com.todocompanion.app.domain.calendar.EventIcs.import(text, calId, zone)
         repo.upsertEvents(evs); evs.forEach { com.todocompanion.app.reminders.AlarmScheduler.scheduleEventAlerts(appCtx, it) }
         toast("Imported ${evs.size} event${if (evs.size == 1) "" else "s"}."); onDone(evs.size)
     }
-    fun exportIcsEventsTo(uri: android.net.Uri, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
-        val ics = com.todocompanion.app.domain.calendar.EventIcs.export(repo.eventsOnce(), zone)
-        val ok = withContext(Dispatchers.IO) { runCatching { appCtx.contentResolver.openOutputStream(uri)?.use { it.write(ics.toByteArray()) }; true }.getOrDefault(false) }
-        toast(if (ok) "Calendar exported (.ics)." else "Export failed."); onDone(ok)
+    /** R52 — make a new calendar named [name] and import the .ics into it. */
+    fun importIcsIntoNewCalendar(uri: android.net.Uri, name: String) = viewModelScope.launch {
+        val id = createEventCalendarReturningId(name); importIcsEvents(uri, id)
     }
-    fun exportIcsEventsToDownloads(onDone: (String?) -> Unit = {}) = viewModelScope.launch {
-        val ics = com.todocompanion.app.domain.calendar.EventIcs.export(repo.eventsOnce(), zone)
+    /** R52 — export ONE calendar (calendarId) or, when null, every calendar combined into a single file. */
+    fun exportIcsEventsTo(uri: android.net.Uri, calendarId: String? = null, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+        val all = repo.eventsOnce()
+        val evs = if (calendarId == null) all else all.filter { it.calendarId == calendarId }
+        val ics = com.todocompanion.app.domain.calendar.EventIcs.export(evs, zone)
+        val ok = withContext(Dispatchers.IO) { runCatching { appCtx.contentResolver.openOutputStream(uri)?.use { it.write(ics.toByteArray()) }; true }.getOrDefault(false) }
+        toast(if (ok) "Exported ${evs.size} event${if (evs.size == 1) "" else "s"} (.ics)." else "Export failed."); onDone(ok)
+    }
+    fun exportIcsEventsToDownloads(calendarId: String? = null, onDone: (String?) -> Unit = {}) = viewModelScope.launch {
+        val all = repo.eventsOnce()
+        val evs = if (calendarId == null) all else all.filter { it.calendarId == calendarId }
+        val ics = com.todocompanion.app.domain.calendar.EventIcs.export(evs, zone)
         val loc = withContext(Dispatchers.IO) { com.todocompanion.app.util.FileExport.saveToDownloads(appCtx, "todocompanion-calendar.ics", "text/calendar", ics.toByteArray()) }
         toast(if (loc != null) "Saved to $loc" else "Export failed."); onDone(loc)
+    }
+
+    /**
+     * R52 — import birthdays from a phone-book vCard (.vcf) as yearly Occasions. Offline and
+     * permission-free: the user exports contacts to a file and hands us that file (no Contacts access).
+     * De-dupes against occasions that already have the same person + month/day so re-importing is safe.
+     */
+    fun importVcardBirthdays(uri: android.net.Uri, onDone: (Int) -> Unit = {}) = viewModelScope.launch {
+        val text = withContext(Dispatchers.IO) { runCatching { appCtx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull() }
+        if (text == null) { toast("Couldn't read that file."); onDone(0); return@launch }
+        val parsed = com.todocompanion.app.domain.VCard.parse(text)
+        if (parsed.isEmpty()) { toast("No birthdays found in that file."); onDone(0); return@launch }
+        val existing = countdowns.value
+        fun already(name: String, m: Int, d: Int): Boolean = existing.any { c ->
+            com.todocompanion.app.domain.LifeEvent.type(c) == com.todocompanion.app.domain.LifeEvent.EventType.BIRTHDAY &&
+                c.personName.equals(name, ignoreCase = true) &&
+                run {
+                    val od = java.time.Instant.ofEpochMilli(c.targetMillis).atZone(zone).toLocalDate()
+                    od.monthValue == m && od.dayOfMonth == d
+                }
+        }
+        var added = 0
+        parsed.forEach { b ->
+            if (already(b.name, b.month, b.day)) return@forEach
+            val year = b.year ?: 2000 // a neutral leap year; hidden because yearKnown = false
+            val date = runCatching { java.time.LocalDate.of(year, b.month, minOf(b.day, java.time.YearMonth.of(year, b.month).lengthOfMonth())) }.getOrNull() ?: return@forEach
+            val millis = date.atStartOfDay(zone).toInstant().toEpochMilli()
+            repo.upsertCountdown(com.todocompanion.app.data.entity.CountdownEntity(
+                id = java.util.UUID.randomUUID().toString(),
+                title = b.name, personName = b.name,
+                targetMillis = millis, emoji = "🎂", createdAt = System.currentTimeMillis(),
+                eventType = com.todocompanion.app.domain.LifeEvent.EventType.BIRTHDAY.name,
+                yearly = true, yearKnown = b.year != null, category = "Contacts",
+            ))
+            added++
+        }
+        com.todocompanion.app.widget.CountdownWidget.refresh(appCtx)
+        toast(when {
+            added == 0 -> "All ${parsed.size} birthday${if (parsed.size == 1) "" else "s"} were already added."
+            else -> "Imported $added birthday${if (added == 1) "" else "s"}."
+        })
+        onDone(added)
     }
 
     // ── R41 · the planner (auto-schedule, self-healing habits, templates, audit) ─────────────────────
@@ -3706,6 +3785,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun saveList(l: ListEntity) = viewModelScope.launch { repo.saveList(l) }
     fun deleteList(id: String) = viewModelScope.launch { repo.deleteList(id) }
+    // R52 — archive/restore a list; its tasks drop out of active views but are kept and restorable.
+    fun setListArchived(l: ListEntity, archived: Boolean) = viewModelScope.launch { repo.saveList(l.copy(archived = archived)) }
 
     /** Convert a list into a folder, preserving its tasks in a same-named list inside it. */
     fun convertListToFolder(list: ListEntity) = viewModelScope.launch {
@@ -3744,6 +3825,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- row actions (flag / star / priority / swipes) ----------
     fun toggleStar(t: TaskEntity) = viewModelScope.launch { repo.saveTask(t.copy(star = !t.star)) }
+    /** R52 — park/un-park a task in the GTD Someday/Maybe list. Parking clears its date so it stops being
+     *  "scheduled"; promoting it back just drops the flag (the user re-dates it in the review). */
+    fun setSomeday(t: TaskEntity, someday: Boolean) = viewModelScope.launch {
+        repo.saveTask(t.copy(someday = someday, dueDate = if (someday) null else t.dueDate, startDate = if (someday) null else t.startDate, updatedAt = System.currentTimeMillis()))
+    }
     fun setPriority(t: TaskEntity, level: PriorityLevel) = viewModelScope.launch { repo.saveTask(t.copy(importance = level.importance, urgency = level.urgency)) }
     /** Drag-to-move in the Eisenhower matrix: set importance/urgency so [t] lands in quadrant [q]
      *  (0 UI, 1 NI, 2 UN, 3 NN) under the current thresholds. */

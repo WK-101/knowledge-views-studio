@@ -42,6 +42,8 @@ import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Timelapse
 import androidx.compose.material.icons.filled.ViewTimeline
 import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Unarchive
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.DriveFileMove
@@ -112,6 +114,7 @@ private fun smartIcon(k: SmartKind): ImageVector = when (k) {
     SmartKind.GOALS -> Icons.Filled.EmojiEvents
     SmartKind.WAITING -> Icons.Filled.HourglassEmpty
     SmartKind.NEEDS_ATTENTION -> Icons.Filled.NotificationImportant
+    SmartKind.SOMEDAY -> Icons.Filled.Cloud
     SmartKind.ALL -> Icons.Filled.AllInbox
     SmartKind.COMPLETED -> Icons.Filled.CheckCircle
     SmartKind.WONT_DO -> Icons.Filled.Cancel
@@ -237,7 +240,7 @@ fun AppDrawer(
             if (open("smart")) {
                 val defaultSmart = listOf(
                     SmartKind.INBOX, SmartKind.TODAY, SmartKind.TOMORROW, SmartKind.NEXT7, SmartKind.DO_NEXT,
-                    SmartKind.SCHEDULED, SmartKind.FLAGGED, SmartKind.GOALS, SmartKind.WAITING, SmartKind.NEEDS_ATTENTION, SmartKind.ALL, SmartKind.COMPLETED, SmartKind.WONT_DO, SmartKind.TRASH,
+                    SmartKind.SCHEDULED, SmartKind.FLAGGED, SmartKind.GOALS, SmartKind.WAITING, SmartKind.NEEDS_ATTENTION, SmartKind.SOMEDAY, SmartKind.ALL, SmartKind.COMPLETED, SmartKind.WONT_DO, SmartKind.TRASH,
                 )
                 // Apply the user's saved drag order, appending any not-yet-ordered kinds.
                 val savedSmart = settings.smartOrder.mapNotNull { runCatching { SmartKind.valueOf(it) }.getOrNull() }
@@ -263,12 +266,33 @@ fun AppDrawer(
             if ("lists" !in hidden) {
             SectionHeader("Folders & lists", open = open("lists"), onToggle = { toggle("lists") }, onAdd = { onNewList(null) })
             if (open("lists")) {
-                folders.filter { it.parentId == null }.sortedBy { it.sortOrder }.forEach { f ->
+                folders.filter { it.parentId == null && !it.archived }.sortedBy { it.sortOrder }.forEach { f ->
                     FolderNode(f, 0, folders, lists, listExpand, current, vm, onSelect, onNewList, onNewFolder, onNewTaskInFolder, onManageList, onManageFolder, onMoveList, onMoveFolder)
                 }
                 ReorderableListGroup(lists.filter { it.folderId == null && it.parentListId == null && it.id != ListEntity.INBOX_ID && !it.archived }.sortedBy { it.sortOrder },
                     lists, listExpand, 0, current, vm, onSelect, onManageList, onMoveList)
             }
+            }
+
+            // R52 — Archived: stowed folders & lists, restorable in one tap. Hidden when nothing is archived.
+            val archivedFolders = folders.filter { it.archived }
+            val archivedLists = lists.filter { it.archived }
+            if (archivedFolders.isNotEmpty() || archivedLists.isNotEmpty()) {
+                SectionHeader("Archived", open = open("archived"), onToggle = { toggle("archived") })
+                if (open("archived")) {
+                    archivedFolders.sortedBy { it.name }.forEach { f ->
+                        Row(Modifier.fillMaxWidth().clickable { onManageFolder(f) }.padding(start = 26.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text((f.icon ?: "📁") + "  " + f.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            IconButton(onClick = { vm.setFolderArchived(f, false) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.Unarchive, "Restore", modifier = Modifier.size(18.dp)) }
+                        }
+                    }
+                    archivedLists.sortedBy { it.name }.forEach { l ->
+                        Row(Modifier.fillMaxWidth().clickable { onManageList(l) }.padding(start = 26.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text((l.emoji ?: "🗒️") + "  " + l.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            IconButton(onClick = { vm.setListArchived(l, false) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.Unarchive, "Restore", modifier = Modifier.size(18.dp)) }
+                        }
+                    }
+                }
             }
 
             if ("tags" !in hidden) {
@@ -448,7 +472,7 @@ private fun FolderNode(
         }
     }
     if (!folder.collapsed) {
-        folders.filter { it.parentId == folder.id }.sortedBy { it.sortOrder }.forEach { child ->
+        folders.filter { it.parentId == folder.id && !it.archived }.sortedBy { it.sortOrder }.forEach { child ->
             FolderNode(child, depth + 1, folders, lists, listExpand, current, vm, onSelect, onNewList, onNewFolder, onNewTaskInFolder, onManageList, onManageFolder, onMoveList, onMoveFolder)
         }
         ReorderableListGroup(lists.filter { it.folderId == folder.id && it.parentListId == null && !it.archived }.sortedBy { it.sortOrder },

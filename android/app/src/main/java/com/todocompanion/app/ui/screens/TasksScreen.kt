@@ -58,6 +58,7 @@ import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Notes
@@ -1194,6 +1195,7 @@ private fun EmptyState(view: ViewRef? = null) {
         SmartKind.SCHEDULED -> Triple(Icons.Outlined.Schedule, "Nothing scheduled", "Tasks with a date will appear here")
         SmartKind.NEEDS_ATTENTION -> Triple(Icons.Outlined.Notifications, "Nothing neglected", "Undated tasks you haven't touched in a while show up here")
         SmartKind.WAITING -> Triple(Icons.Outlined.HourglassEmpty, "Nothing on hold", "Tasks blocked by an unfinished prerequisite show up here")
+        SmartKind.SOMEDAY -> Triple(Icons.Outlined.Cloud, "Nothing parked", "Someday/Maybe holds ideas you're not committed to yet — they stay out of your active lists and resurface in the weekly review")
         else -> Triple(Icons.Outlined.CheckCircle, "All clear", "Tap + to add a task")
     }
     Column(Modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {

@@ -14,7 +14,12 @@ import kotlinx.serialization.Serializable
 @Serializable
 @Entity(
     tableName = "tasks",
-    indices = [Index("parentId"), Index("listId")],
+    // R52 — indices on the columns the app filters/sorts by most, so queries stay fast as the table grows
+    // into the tens of thousands over years of use (see the scale plan). All additive.
+    indices = [
+        Index("parentId"), Index("listId"), Index("folderId"), Index("workspaceId"),
+        Index("completed"), Index("trashed"), Index("someday"), Index("dueDate"),
+    ],
 )
 @androidx.compose.runtime.Immutable
 data class TaskEntity(
@@ -35,6 +40,9 @@ data class TaskEntity(
     val abandoned: Boolean = false,   // "Won't Do"
     val trashed: Boolean = false,
     val trashedAt: Long? = null,
+    // R52 — GTD Someday/Maybe: parked, uncommitted work. Kept OUT of Today/Do-Next/Next-7/Scheduled,
+    // overdue and workload; surfaced only in its own Someday list and the weekly review.
+    val someday: Boolean = false,
 
     // Priority (importance + urgency are the stored source of truth)
     val importance: Int = 3,

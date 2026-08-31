@@ -324,6 +324,9 @@ fun CalendarScreen(
     // The combined header lives in the app-bar slot (see AppRoot), so switching tabs never shifts
     // the content and the buttons line up with every other screen.
     var editTrackedId by remember { mutableStateOf<String?>(null) }   // a tracked interval tapped in the calendar
+    var detailsOccasion by remember { mutableStateOf<com.todocompanion.app.data.entity.CountdownEntity?>(null) }   // R52 — occasion details IN-PLACE
+    var importIcsUri by remember { mutableStateOf<android.net.Uri?>(null) }   // R52 — pick file, then ASK which calendar
+    var exportChooserOpen by remember { mutableStateOf(false) }               // R52 — per-calendar or combined export
     Column(modifier.fillMaxSize()) {
         // Smooth transitions when moving between periods (swipe) and between modes (R19 #8): slide +
         // fade in the swipe direction, matching the calm feel of the month collapse. Honours reduce-motion.
@@ -344,7 +347,7 @@ fun CalendarScreen(
             "month" -> MonthView(anchor, selected, dueByDate, firstDow, onSelect = { onSelected(it) }, onPrev = prev, onNext = next, onOpenTask = onOpenTask, swipe = swipe, onAdd = { onAddOnDate(selected) },
                 collapsed = monthCollapsed, onCollapsedChange = { monthCollapsed = it },
                 habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, countdownsFor = countdownsFor, trackedDayInfo = trackedDayInfo,
-                eventOccForDay = eventOccForDay, onOpenEvent = openEvent, onOpenOccasion = onOpenOccasion, lunar = s.lunarOverlay,
+                eventOccForDay = eventOccForDay, onOpenEvent = openEvent, onOpenOccasion = onOpenOccasion, onOccasionDetails = { detailsOccasion = it }, lunar = s.lunarOverlay,
                 onMoveToDay = { d, id ->
                     // Preserve the task's time-of-day when dropping it on another day; default 9am.
                     val min = tasks.firstOrNull { it.id == id }?.dueDate?.let { Instant.ofEpochMilli(it).atZone(zone).let { z -> z.hour * 60 + z.minute } } ?: 540
@@ -372,6 +375,12 @@ fun CalendarScreen(
             onSave = { vm.updateTimeEntry(it); editTrackedId = null })
         else editTrackedId = null
     }
+    // R52 — tapping an occasion in the calendar opens its details card RIGHT HERE, without leaving the
+    // calendar. "Edit" jumps to the Occasions hub for full editing.
+    detailsOccasion?.let { c ->
+        OccasionDetailsSheet(c, LocalDate.now(), onDismiss = { detailsOccasion = null },
+            onEdit = { detailsOccasion = null; onOpenOccasion(c.id) })
+    }
 
     // R39 — ensure there's a colour-coded calendar to hang events on the first time this screen opens,
     // so "New event" can always save (a fresh install has no event calendars yet).
@@ -389,15 +398,29 @@ fun CalendarScreen(
             "block" -> eventBlockOpen = true
             "plan" -> { plannerTab = 0; plannerOpen = true }
             "review" -> { plannerTab = 1; plannerOpen = true }
-            "import" -> com.todocompanion.app.util.SystemPicker.openFile(arrayOf("text/calendar", "application/octet-stream", "*/*"), onError = { vm.toastMsg(it) }) { vm.importIcsEvents(it) }
-            // Export: try the system file-saver; if the device has no DocumentsUI, fall back to Downloads.
-            "export" -> com.todocompanion.app.util.SystemPicker.createFile("text/calendar", "todocompanion-calendar.ics", onError = { vm.exportIcsEventsToDownloads() }) { vm.exportIcsEventsTo(it) }
+            // R52 — pick the .ics, then ASK which calendar it should land in (or make a new one).
+            "import" -> com.todocompanion.app.util.SystemPicker.openFile(arrayOf("text/calendar", "application/octet-stream", "*/*"), onError = { vm.toastMsg(it) }) { importIcsUri = it }
+            // R52 — choose one calendar or "everything combined", then save.
+            "export" -> exportChooserOpen = true
         }
         if (eventAction != null) onEventActionConsumed()
     }
     if (plannerOpen) PlannerSheet(vm, zone, selected.toEpochDay(), plannerTab) { plannerOpen = false }
     if (eventEditorOpen) EventEditor(vm, zone, eventCals, eventEditing, eventSeedStart, eventSeedEnd) { eventEditorOpen = false; eventEditing = null }
     if (eventCalsOpen) CalendarsManager(vm, eventCals) { eventCalsOpen = false }
+    importIcsUri?.let { uri ->
+        IcsImportTargetDialog(eventCals,
+            onDismiss = { importIcsUri = null },
+            onExisting = { calId -> vm.importIcsEvents(uri, calId); importIcsUri = null },
+            onNew = { name -> vm.importIcsIntoNewCalendar(uri, name); importIcsUri = null })
+    }
+    if (exportChooserOpen) IcsExportTargetDialog(eventCals,
+        onDismiss = { exportChooserOpen = false },
+        onPick = { calId ->
+            exportChooserOpen = false
+            val nm = if (calId == null) "todocompanion-calendars.ics" else "todocompanion-${eventCals.firstOrNull { it.id == calId }?.name?.replace(" ", "-") ?: "calendar"}.ics"
+            com.todocompanion.app.util.SystemPicker.createFile("text/calendar", nm, onError = { vm.exportIcsEventsToDownloads(calId) }) { vm.exportIcsEventsTo(it, calId) }
+        })
     if (eventGapOpen) GapFinder(visEvents, selected.toEpochDay(), zone, s.workStartHour, s.workEndHour,
         onDismiss = { eventGapOpen = false },
         onPick = { st, en -> eventGapOpen = false; eventEditing = null; eventSeedStart = st; eventSeedEnd = en; eventEditorOpen = true })
@@ -639,7 +662,7 @@ private fun MonthYearPicker(current: YearMonth, onDismiss: () -> Unit, onPick: (
 }
 
 @Composable
-private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, swipe: CalSwipe, onAdd: () -> Unit, collapsed: Boolean, onCollapsedChange: (Boolean) -> Unit, habitBlocksFor: (LocalDate) -> List<HabitBlock>, onOpenHabit: (String) -> Unit, countdownsFor: (LocalDate) -> List<com.todocompanion.app.data.entity.CountdownEntity>, trackedDayInfo: (LocalDate) -> Pair<Int, androidx.compose.ui.graphics.Color?> = { 0 to null }, eventOccForDay: (LocalDate) -> List<com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence> = { emptyList() }, onOpenEvent: (String) -> Unit = {}, onOpenOccasion: (String?) -> Unit = {}, lunar: Boolean = false, onMoveToDay: (LocalDate, String) -> Unit) {
+private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, swipe: CalSwipe, onAdd: () -> Unit, collapsed: Boolean, onCollapsedChange: (Boolean) -> Unit, habitBlocksFor: (LocalDate) -> List<HabitBlock>, onOpenHabit: (String) -> Unit, countdownsFor: (LocalDate) -> List<com.todocompanion.app.data.entity.CountdownEntity>, trackedDayInfo: (LocalDate) -> Pair<Int, androidx.compose.ui.graphics.Color?> = { 0 to null }, eventOccForDay: (LocalDate) -> List<com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence> = { emptyList() }, onOpenEvent: (String) -> Unit = {}, onOpenOccasion: (String?) -> Unit = {}, onOccasionDetails: (com.todocompanion.app.data.entity.CountdownEntity) -> Unit = {}, lunar: Boolean = false, onMoveToDay: (LocalDate, String) -> Unit) {
     val ym = YearMonth.from(anchor)
     val labels = (0..6).map { firstDow.plus(it.toLong()) }
     val first = ym.atDay(1)
@@ -808,11 +831,11 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
                     Row(
                         Modifier.clip(RoundedCornerShape(20.dp)).background(c.copy(alpha = .14f))
                             .border(1.dp, c.copy(alpha = .45f), RoundedCornerShape(20.dp))
-                            .clickable { onOpenOccasion(cd.id) }
+                            .clickable { onOccasionDetails(cd) }
                             .padding(horizontal = 11.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        // R48 — show the person's name (+ type), not the bare word "Birthday"; tap → Occasions.
+                        // R48/R52 — show the person's name (+ type), not the bare "Birthday"; tap → details IN-PLACE.
                         Text((cd.emoji?.plus(" ") ?: (com.todocompanion.app.domain.LifeEvent.type(cd).emoji + " ")) + com.todocompanion.app.domain.LifeEvent.calendarLabel(cd), style = MaterialTheme.typography.labelMedium, maxLines = 1, color = MaterialTheme.colorScheme.onSurface)
                     }
                 }
@@ -1553,3 +1576,58 @@ private fun timeLabel(millis: Long, zone: ZoneId): String {
 }
 
 private fun minLabel(min: Int): String = "%02d:%02d".format(min / 60, min % 60)
+
+// R52 — ask which calendar an imported .ics should land in (or make a new one).
+@Composable
+private fun IcsImportTargetDialog(
+    calendars: List<com.todocompanion.app.data.entity.EventCalendarEntity>,
+    onDismiss: () -> Unit, onExisting: (String) -> Unit, onNew: (String) -> Unit,
+) {
+    var newName by remember { mutableStateOf("") }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { androidx.compose.material3.TextButton(onClick = { if (newName.isNotBlank()) onNew(newName.trim()) }, enabled = newName.isNotBlank()) { Text("New calendar") } },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Import into which calendar?") },
+        text = {
+            Column {
+                calendars.sortedBy { it.orderIndex }.forEach { c ->
+                    Row(Modifier.fillMaxWidth().clickable { onExisting(c.id) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(12.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(c.colorArgb)))
+                        Spacer(Modifier.width(10.dp)); Text(c.name, style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+                androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                com.todocompanion.app.ui.components.AppTextField(newName, { newName = it }, singleLine = true, modifier = Modifier.fillMaxWidth(), label = { Text("…or a new calendar's name") })
+            }
+        },
+    )
+}
+
+// R52 — choose ONE calendar to export, or everything combined into one file.
+@Composable
+private fun IcsExportTargetDialog(
+    calendars: List<com.todocompanion.app.data.entity.EventCalendarEntity>,
+    onDismiss: () -> Unit, onPick: (String?) -> Unit,
+) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {},
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Export which calendar?") },
+        text = {
+            Column {
+                Row(Modifier.fillMaxWidth().clickable { onPick(null) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("🗂️  Everything (one file)", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                }
+                androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                calendars.sortedBy { it.orderIndex }.forEach { c ->
+                    Row(Modifier.fillMaxWidth().clickable { onPick(c.id) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(12.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(c.colorArgb)))
+                        Spacer(Modifier.width(10.dp)); Text(c.name, style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+            }
+        },
+    )
+}

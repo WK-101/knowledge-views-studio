@@ -39,6 +39,12 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.VideoCall
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.LocationOn
@@ -629,6 +635,9 @@ internal fun EventEditor(
     var location by remember { mutableStateOf(existing?.location ?: "") }
     var notes by remember { mutableStateOf(existing?.notes ?: "") }
     var url by remember { mutableStateOf(existing?.url ?: "") }
+    var organizer by remember { mutableStateOf(existing?.organizer ?: "") }
+    var attendees by remember { mutableStateOf(existing?.attendees ?: "") }
+    var rsvp by remember { mutableStateOf(existing?.rsvp ?: "") }
     var busy by remember { mutableStateOf(existing?.busy ?: true) }
     var rrule by remember { mutableStateOf(existing?.rrule ?: "") }
     var alerts by remember { mutableStateOf((existing?.alertsMinutes ?: "").split(",").mapNotNull { it.trim().toIntOrNull() }.toSet()) }
@@ -667,7 +676,8 @@ internal fun EventEditor(
             e = d.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
         } else if (e <= s) e = s + 3_600_000L
         vm.saveEvent(existing?.id, calId, title, location, notes, url, s, e, allDay, rrule,
-            alerts.sorted().joinToString(","), existing?.colorArgb, busy = busy)
+            alerts.sorted().joinToString(","), existing?.colorArgb, busy = busy,
+            organizer = organizer, attendees = attendees, rsvp = rsvp)
         if (travelOn && travelMin > 0 && !allDay) vm.addTravelBuffer(s, travelMin, location, calId)
         onClose()
     }
@@ -772,6 +782,54 @@ internal fun EventEditor(
             AppTextField(value = url, onValueChange = { url = it }, placeholder = { Text("Link (URL)") },
                 singleLine = true, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(10.dp))
+            // R52 — invitations. Paste a Teams/Meet/Zoom invite (or its link) and it becomes a
+            // joinable, RSVP-able meeting in your own calendar. All offline — no accounts, no sync.
+            run {
+                val ctx = androidx.compose.ui.platform.LocalContext.current
+                val joinUrl = url.trim().ifBlank { com.todocompanion.app.domain.calendar.EventIcs.detectUrl(notes) }
+                    .ifBlank { com.todocompanion.app.domain.calendar.EventIcs.detectUrl(location) }
+                val provider = com.todocompanion.app.domain.calendar.MeetingLink.provider(joinUrl)
+                var inviteOpen by remember { mutableStateOf(existing?.let { it.organizer.isNotBlank() || it.attendees.isNotBlank() || it.rsvp.isNotBlank() } ?: false) }
+                AppCard {
+                    Row(Modifier.fillMaxWidth().clickable { inviteOpen = !inviteOpen }, verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.Groups, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Meeting / invitation", style = MaterialTheme.typography.bodyLarge)
+                            if (provider != null) Text("${com.todocompanion.app.domain.calendar.MeetingLink.emoji(provider)} $provider link detected",
+                                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        }
+                        Icon(if (inviteOpen) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    if (joinUrl.isNotBlank()) {
+                        Spacer(Modifier.height(6.dp))
+                        Button(onClick = {
+                            runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(joinUrl)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                        }, modifier = Modifier.fillMaxWidth()) {
+                            Icon(Icons.Filled.VideoCall, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
+                            Text(if (provider != null) "Join ${com.todocompanion.app.domain.calendar.MeetingLink.emoji(provider)} $provider" else "Join meeting")
+                        }
+                    }
+                    if (inviteOpen) {
+                        Spacer(Modifier.height(8.dp))
+                        AppTextField(value = organizer, onValueChange = { organizer = it }, placeholder = { Text("Organizer (name / email)") },
+                            leadingIcon = { Icon(Icons.Filled.Person, null) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        Spacer(Modifier.height(8.dp))
+                        AppTextField(value = attendees, onValueChange = { attendees = it }, placeholder = { Text("Attendees (comma-separated)") },
+                            leadingIcon = { Icon(Icons.Filled.Group, null) }, modifier = Modifier.fillMaxWidth())
+                        Spacer(Modifier.height(8.dp))
+                        Text("Your RSVP", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf("ACCEPTED" to "✅ Going", "TENTATIVE" to "🤔 Maybe", "DECLINED" to "🚫 Not going").forEach { (k, l) ->
+                                FilterChip(selected = rsvp == k, onClick = { rsvp = if (rsvp == k) "" else k }, label = { Text(l) })
+                            }
+                        }
+                        Text("Paste an invite link above; RSVP stays on your device — nothing is sent.",
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+            }
             AppCard { EditorToggle("Shows as busy", busy) { busy = it } }
             if (title.isNotBlank()) {
                 TextButton(onClick = {
