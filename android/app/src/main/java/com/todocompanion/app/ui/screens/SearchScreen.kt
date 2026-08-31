@@ -43,7 +43,7 @@ import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.DueChip
 
 /** Search result filters. */
-private enum class SF(val label: String) { ALL("All"), TODAY("Today"), OVERDUE("Overdue"), FLAGGED("Flagged"), HIGH("High priority"), DONE("Completed") }
+private enum class SF(val label: String) { ALL("All"), TODAY("Today"), OVERDUE("Overdue"), FLAGGED("Flagged"), HIGH("High priority"), DONE("Completed"), TRASH("Trashed") }
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
@@ -56,6 +56,8 @@ fun SearchScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, query: String, 
     }
     // E1: habits are searchable too — shown only under the "All" filter (task filters don't apply).
     val habitResults = remember(query, habits) { vm.searchHabits(query) }
+    // R56 — attachment names are searchable; map taskId → the matched file name for the "📎 …" hint.
+    val attachHits = remember(query) { vm.searchAttachmentNames(query).associate { it.taskId to it.fileName } }
     val lists by vm.lists.collectAsState()
     val folders by vm.folders.collectAsState()
     var filter by remember { mutableStateOf(SF.ALL) }
@@ -63,13 +65,16 @@ fun SearchScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, query: String, 
     val shown = remember(results, filter) {
         val today = java.time.LocalDate.now(); val nowMs = System.currentTimeMillis()
         results.filter { t ->
+            // Trashed tasks appear ONLY under the Trashed filter — every other filter hides them so the
+            // default results stay clean, while nothing is unfindable (R56).
             when (filter) {
-                SF.ALL -> true
-                SF.TODAY -> t.dueDate?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate() == today } == true
-                SF.OVERDUE -> t.dueDate?.let { it < nowMs && !t.completed } == true
-                SF.FLAGGED -> t.flagId != null
-                SF.HIGH -> com.todocompanion.app.domain.priority.PriorityLevel.from(t.importance, t.urgency) == com.todocompanion.app.domain.priority.PriorityLevel.HIGH
-                SF.DONE -> t.completed
+                SF.TRASH -> t.trashed
+                SF.ALL -> !t.trashed
+                SF.TODAY -> !t.trashed && t.dueDate?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate() == today } == true
+                SF.OVERDUE -> !t.trashed && t.dueDate?.let { it < nowMs && !t.completed } == true
+                SF.FLAGGED -> !t.trashed && t.flagId != null
+                SF.HIGH -> !t.trashed && com.todocompanion.app.domain.priority.PriorityLevel.from(t.importance, t.urgency) == com.todocompanion.app.domain.priority.PriorityLevel.HIGH
+                SF.DONE -> !t.trashed && t.completed
             }
         }
     }
@@ -88,7 +93,7 @@ fun SearchScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, query: String, 
         }
         val showHabits = filter == SF.ALL && habitResults.isNotEmpty()
         when {
-            query.isBlank() -> SearchHint("Search everything", "Find any task or habit by title, note, #tag or @context")
+            query.isBlank() -> SearchHint("Search everything", "Find any task or habit by title, note, #tag, @context or 📎 attachment name — completed, someday and archived included; tap Trashed to search the bin")
             shown.isEmpty() && !showHabits -> SearchHint("No matches", "Nothing found for “$query”", off = true)
             else -> {
                 val totalN = shown.size + (if (showHabits) habitResults.size else 0)
@@ -118,7 +123,7 @@ fun SearchScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, query: String, 
                                         Text(h.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
                                         val sub = listOfNotNull(h.category.ifBlank { null }, h.identity.ifBlank { null }, h.description.ifBlank { null }).firstOrNull()
                                         if (sub != null) Text(sub, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        Text("Habit" + (if (h.paused) " · paused" else ""), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("Habit" + (if (h.paused) " · paused" else "") + (if (h.archived) " · archived" else ""), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
                             }
@@ -147,12 +152,23 @@ fun SearchScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, query: String, 
                                 Column(Modifier.weight(1f)) {
                                     Text(task.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
                                     if (task.note.isNotBlank()) Text(task.note.trim().lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    // R56 — when the match came from an attachment name, show which file, so an
+                                    // expert instantly sees why a task surfaced.
+                                    attachHits[task.id]?.let { fn ->
+                                        Text("📎 $fn", maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                    }
                                     // Location: the task's list, or — for a task captured straight into a
                                     // folder (empty listId) — the folder name, rather than a wrong "Inbox".
                                     val loc = lists.firstOrNull { it.id == task.listId }?.name
                                         ?: task.folderId?.let { fid -> folders.firstOrNull { it.id == fid }?.let { "📁 " + it.name } }
                                         ?: "Inbox"
-                                    Text(loc + (if (task.completed) " · done" else ""), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    val state = when {
+                                        task.trashed -> " · 🗑 Trash"
+                                        task.completed -> " · done"
+                                        task.someday -> " · someday"
+                                        else -> ""
+                                    }
+                                    Text(loc + state, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 task.dueDate?.let { Spacer(Modifier.width(6.dp)); DueChip(it) }
                             }

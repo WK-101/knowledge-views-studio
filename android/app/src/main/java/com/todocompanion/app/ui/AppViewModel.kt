@@ -3130,6 +3130,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         com.todocompanion.app.reminders.AlarmScheduler.scheduleEventAlerts(appCtx, e)
     }
 
+    /** R56 — move an event (its whole series) to another calendar; used by the entries manager's bulk edit. */
+    fun moveEventToCalendar(id: String, calendarId: String) = viewModelScope.launch {
+        val e = repo.eventById(id) ?: return@launch
+        if (e.calendarId == calendarId) return@launch
+        repo.upsertEvent(e.copy(calendarId = calendarId, updatedAt = System.currentTimeMillis()))
+    }
+
     /** Delete an event. scope: "series" (all), "this" (add an exdate), "following" (end the series before this day). */
     fun deleteEvent(id: String, scope: String = "series", instanceDay: Long = 0) = viewModelScope.launch {
         val e = repo.eventById(id) ?: return@launch
@@ -3381,6 +3388,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
     /** R54 — on-disk database size (bytes) for the storage-insight panel. */
     fun databaseSizeBytes(): Long = repo.databaseSizeBytes()
+
+    /** R56 (Wave B / R1) — row counts computed by the database itself (COUNT aggregates), not by scanning
+     * in-memory lists. Powers the maintenance "database health" readout. */
+    suspend fun databaseRowCounts(): Map<String, Long> = repo.databaseRowCounts()
 
     /** R53 — build a METHOD:REPLY .ics carrying the event's RSVP and hand it to the OS share sheet, so a
      *  fully-offline app can still let the user reply to the organizer by whatever channel they choose. */
@@ -4385,27 +4396,41 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val ctxIds = contexts.value.filter { it.name.lowercase().contains(q2) }.map { it.id }.toSet()
         val byTag = taskTags.value.filter { it.tagId in tagIds }.map { it.taskId }.toSet()
         val byCtx = taskContexts.value.filter { it.contextId in ctxIds }.map { it.taskId }.toSet()
-        fun inMemoryText() = all.filter { !it.trashed && (it.title.lowercase().contains(ql) || it.note.lowercase().contains(ql)) }
+        // R56 — attachment filenames are searchable: a task matches if any of its attachments' names match.
+        val byAttach = allAttachments.value.filter { it.fileName.lowercase().contains(ql) }.map { it.taskId }.toSet()
+        // R56 — trashed tasks are INCLUDED so nothing is unfindable; the UI labels them and offers a
+        // Trashed-only filter (the default "All" filter still hides them to keep results clean).
+        fun inMemoryText() = all.filter { it.title.lowercase().contains(ql) || it.note.lowercase().contains(ql) }
         val textMatches = if (all.size <= 4000) inMemoryText() else {
             val ids = repo.searchTaskIds(q).toSet()
             if (ids.isEmpty()) inMemoryText() else {
                 val byId = all.associateBy { it.id }
-                ids.mapNotNull { byId[it] }.filter { !it.trashed }
+                ids.mapNotNull { byId[it] }
             }
         }
         val out = LinkedHashSet<TaskEntity>(textMatches)
-        if (byTag.isNotEmpty() || byCtx.isNotEmpty()) all.forEach { if (!it.trashed && (it.id in byTag || it.id in byCtx)) out += it }
+        if (byTag.isNotEmpty() || byCtx.isNotEmpty() || byAttach.isNotEmpty())
+            all.forEach { if (it.id in byTag || it.id in byCtx || it.id in byAttach) out += it }
         return out.toList()
     }
 
-    /** E1: search across all habits too — name, description, identity/"why", category and unit. */
+    /** Attachment file names matching the query, for the search UI's "📎 matched-file" hint (R56). */
+    fun searchAttachmentNames(query: String): List<com.todocompanion.app.data.entity.AttachmentMeta> {
+        val q = query.trim().lowercase(); if (q.isBlank()) return emptyList()
+        return allAttachments.value.filter { it.fileName.lowercase().contains(q) }
+    }
+
+    /**
+     * E1/R56: search across all habits too — name, description/"why", identity, category, unit and now
+     * the free-form notes. Archived habits are INCLUDED (the UI labels them) so a habit is never unfindable.
+     */
     fun searchHabits(query: String): List<com.todocompanion.app.data.entity.HabitEntity> {
         val q = query.trim().lowercase().removePrefix("#").removePrefix("@")
         if (q.isBlank()) return emptyList()
         return habits.value.filter { h ->
-            !h.archived && (h.name.lowercase().contains(q) || h.description.lowercase().contains(q) ||
+            h.name.lowercase().contains(q) || h.description.lowercase().contains(q) ||
                 h.identity.lowercase().contains(q) || h.category.lowercase().contains(q) ||
-                (h.unit?.lowercase()?.contains(q) == true))
+                h.notes.lowercase().contains(q) || (h.unit?.lowercase()?.contains(q) == true)
         }.sortedBy { it.sortOrder }
     }
 

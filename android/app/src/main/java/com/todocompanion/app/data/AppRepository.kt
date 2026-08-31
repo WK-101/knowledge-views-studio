@@ -100,6 +100,27 @@ class AppRepository(private val db: AppDatabase) {
         }.getOrDefault(emptyList())
     }
 
+    /**
+     * R56 (Wave B / robustness R1) — DB-side COUNT(*) aggregates. A `SELECT count(*)` is orders of
+     * magnitude cheaper than materialising rows into memory just to count them, and it stays fast as the
+     * store grows. Read-only, fully guarded, off the hot path; powers the maintenance "database health"
+     * readout and demonstrates the aggregate-in-SQL pattern the heavier counters will move onto.
+     */
+    suspend fun databaseRowCounts(): Map<String, Long> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val sdb = db.openHelper.writableDatabase
+        fun cnt(sql: String): Long = runCatching { sdb.query(sql).use { if (it.moveToFirst()) it.getLong(0) else 0L } }.getOrDefault(0L)
+        linkedMapOf(
+            "Active tasks" to cnt("SELECT count(*) FROM tasks WHERE trashed = 0"),
+            "Completed" to cnt("SELECT count(*) FROM tasks WHERE completed = 1 AND trashed = 0"),
+            "In Trash" to cnt("SELECT count(*) FROM tasks WHERE trashed = 1"),
+            "Events" to cnt("SELECT count(*) FROM events"),
+            "Habit check-ins" to cnt("SELECT count(*) FROM habit_checkins"),
+            "Time entries" to cnt("SELECT count(*) FROM time_entries"),
+            "Attachments" to cnt("SELECT count(*) FROM attachments"),
+            "Occasions" to cnt("SELECT count(*) FROM countdowns"),
+        )
+    }
+
     private val tasks = db.taskDao()
     private val folders = db.folderDao()
     private val lists = db.listDao()

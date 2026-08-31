@@ -203,9 +203,11 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
     val quickAddOpen by vm.habitQuickAddOpen.collectAsState()
     val tasks by vm.tasks.collectAsState()
     var valueFor by remember { mutableStateOf<HabitEntity?>(null) }
-    // K1: on-device insights over the shared habit/task store.
-    val insights = remember(habits, checkins, tasks, today) {
-        com.todocompanion.app.domain.habit.HabitInsights.compute(habits, checkins, tasks, today)
+    var skipReasonFor by remember { mutableStateOf<HabitEntity?>(null) }   // R56 skip-with-reason
+    // K1/R56: on-device insights over the shared habit/task/calendar store (incl. the habit × meeting-load edge).
+    val calEvents by vm.events.collectAsState()
+    val insights = remember(habits, checkins, tasks, today, calEvents) {
+        com.todocompanion.app.domain.habit.HabitInsights.compute(habits, checkins, tasks, today, events = calEvents)
     }
 
     // Perfect-day: every habit that was scheduled today is now done. Celebrate on the rising edge.
@@ -336,7 +338,7 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
                                     } else vm.cycleHabit(h, today, cur)
                                 },
                                 onOpen = { vm.habitDetailId.value = h.id },
-                                onSkip = { vm.skipHabitDay(h, today) },
+                                onSkip = { skipReasonFor = h },
                                 onClear = { vm.clearHabitDay(h, today) },
                                 onSetValue = { valueFor = h },
                                 onPause = { vm.setHabitPaused(h, !h.paused) },
@@ -375,6 +377,42 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
             vm.setHabitValue(h, today, v); valueFor = null
         }
     }
+    skipReasonFor?.let { h ->
+        SkipReasonDialog(h.name, onDismiss = { skipReasonFor = null }) { reason ->
+            vm.skipHabitDay(h, today, reason); skipReasonFor = null
+        }
+    }
+}
+
+/**
+ * R56 — skip-with-reason. A skip protects the streak (it never counts as a miss); noting WHY builds a
+ * structured reason log (surfaced on the habit's detail) so patterns like "always travel" become visible.
+ */
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun SkipReasonDialog(habitName: String, onDismiss: () -> Unit, onSkip: (String) -> Unit) {
+    var custom by remember { mutableStateOf("") }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = { onSkip(custom.trim()) }) { Text("Skip") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Skip ‘$habitName’ today") },
+        text = {
+            Column {
+                Text("Skipping keeps your streak. Why are you skipping? (optional)",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.size(10.dp))
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("Travel", "Sick", "No time", "Rest day", "Busy", "Away").forEach { r ->
+                        FilterChip(selected = custom.equals(r, true), onClick = { custom = if (custom.equals(r, true)) "" else r }, label = { Text(r) })
+                    }
+                }
+                Spacer(Modifier.size(8.dp))
+                com.todocompanion.app.ui.components.AppTextField(custom, { custom = it }, singleLine = true,
+                    label = { Text("Reason") }, modifier = Modifier.fillMaxWidth())
+            }
+        },
+    )
 }
 
 /**
@@ -889,6 +927,17 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
                 }
             }
 
+            // 1b. Notes — a general free-form note (details, links, references), kept up top like a task's
+            // note rather than buried in Advanced. Distinct from the motivational "Why" (which lives below).
+            EditorCard {
+                com.todocompanion.app.ui.components.AppTextField(
+                    notes, { notes = it },
+                    label = { Text("Notes (details, links, references)") },
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
             // 2. Target — typed, so a 10000-step goal doesn't take 10000 taps to set. +/- kept as nudges.
             EditorCard {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -997,8 +1046,6 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
                     StepperRow("Stretch goal", extra?.toString() ?: "—", onMinus = { extra = ((extra ?: target) - 1).takeIf { it > target } }, onPlus = { extra = (extra ?: target) + 1 })
                 }
                 com.todocompanion.app.ui.components.AppTextField(description, { description = it }, label = { Text("Why — your motivation (shown when you're about to slip)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
-                // R55 — a general free-form notes field, like a task's note (details, links, references).
-                com.todocompanion.app.ui.components.AppTextField(notes, { notes = it }, label = { Text("Notes (details, links, references)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
                 // V4: user-written encouragements, one shown at random on each check-off.
                 com.todocompanion.app.ui.components.AppTextField(encouragements, { encouragements = it }, label = { Text("Encouragements (one per line, shown on check-off)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
                 // R33 builder: implementation-intention context, and (build) a two-minute ramp goal /

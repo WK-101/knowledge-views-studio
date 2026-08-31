@@ -969,6 +969,18 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
             Text("${allTasks.size} tasks · ${allEvents.size} events · ${allOccasions.size} occasions · database ${humanBytes(dbBytes)}",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 2.dp))
+            // R56 (Wave B / R1) — a database-health breakdown computed by COUNT aggregates in the database
+            // itself (not by scanning in-memory lists), so it stays instant as the store grows.
+            val rowCounts by androidx.compose.runtime.produceState(initialValue = emptyMap<String, Long>(), dbBytes) { value = vm.databaseRowCounts() }
+            if (rowCounts.isNotEmpty()) {
+                Text("Database health", style = MaterialTheme.typography.labelMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
+                rowCounts.forEach { (label, n) ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
+                        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("%,d".format(n), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+            }
             Action("Optimise storage now") { vm.optimizeStorage { dbBytes = vm.databaseSizeBytes() } }
             Text("Compacts and defragments the on-device database and rebuilds the full-text search index. Built for years of data — search stays fast into the hundred-thousands, and this keeps the file small. Safe and offline.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))

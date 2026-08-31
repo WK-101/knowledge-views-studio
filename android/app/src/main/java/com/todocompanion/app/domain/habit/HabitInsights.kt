@@ -1,8 +1,10 @@
 package com.todocompanion.app.domain.habit
 
+import com.todocompanion.app.data.entity.EventEntity
 import com.todocompanion.app.data.entity.HabitCheckinEntity
 import com.todocompanion.app.data.entity.HabitEntity
 import com.todocompanion.app.data.entity.TaskEntity
+import com.todocompanion.app.domain.calendar.CalendarEngine
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -38,6 +40,7 @@ object HabitInsights {
         today: Long,
         zone: ZoneId = ZoneId.systemDefault(),
         max: Int = 5,
+        events: List<EventEntity> = emptyList(),
     ): List<Insight> {
         val active = habits.filter { !it.archived && !it.paused }
         if (active.isEmpty()) return emptyList()
@@ -164,6 +167,37 @@ object HabitInsights {
                         "You usually do ‘${h.name}’ around ${HabitStats.minuteLabel(actual)}, not$tl — move the reminder to match?"
                     else "‘${h.name}’ gets missed a lot at its reminder$tl — try a time that better fits your day."
                     out += Insight("⏰", text, 50, InsightAction.Open(h.id))
+                }
+            }
+        }
+
+        // 8. R56 — habit × CALENDAR: the truly cross-domain edge only a unified, on-device app can compute.
+        //    Does a heavy-meeting day cost you a habit? Compares completion on busy vs. light days.
+        if (events.isNotEmpty()) {
+            val winStart = LocalDate.ofEpochDay(today - 90).atStartOfDay(zone).toInstant().toEpochMilli()
+            val winEnd = LocalDate.ofEpochDay(today + 1).atStartOfDay(zone).toInstant().toEpochMilli()
+            val meetMin = HashMap<Long, Int>()
+            runCatching {
+                CalendarEngine.expand(events.filter { it.busy && !it.allDay }, winStart, winEnd, zone).forEach { occ ->
+                    val day = Instant.ofEpochMilli(occ.startMillis).atZone(zone).toLocalDate().toEpochDay()
+                    meetMin[day] = (meetMin[day] ?: 0) + ((occ.endMillis - occ.startMillis) / 60000L).toInt()
+                }
+            }
+            if (meetMin.isNotEmpty()) {
+                active.forEach { h ->
+                    if (h.habitType == "break") return@forEach
+                    val done = doneByHabit.getValue(h)
+                    val window = (0 until 90).map { today - it }.filter { HabitStats.isExpectedDay(h, it) }
+                    val heavy = window.filter { (meetMin[it] ?: 0) >= 180 }   // ≥ 3h of meetings = a heavy day
+                    val light = window.filter { (meetMin[it] ?: 0) < 180 }
+                    if (heavy.size >= 6 && light.size >= 6) {
+                        val heavyRate = heavy.count { it in done }.toFloat() / heavy.size
+                        val lightRate = light.count { it in done }.toFloat() / light.size
+                        if (lightRate >= 0.4f && heavyRate <= lightRate * 0.7f) {
+                            val pct = ((1 - heavyRate / lightRate) * 100).toInt().coerceIn(1, 99)
+                            out += Insight("📅", "You keep ‘${h.name}’ $pct% less on heavy-meeting days. Protect a slot on busy days.", 84, InsightAction.Open(h.id))
+                        }
+                    }
                 }
             }
         }

@@ -218,6 +218,28 @@ fun HabitDetailScreen(
             // and (for quit habits) the quit dashboard + urge button.
             BuilderSection(vm, h, hc, doneDays, skipDays, current, today, color, cravings.filter { it.habitId == h.id })
 
+            // R56 — skip-with-reason log: why this habit gets skipped, most common first, so the pattern
+            // ("always travel") is visible. Only skips carry a reason; a skip never breaks the streak.
+            val skipReasons = remember(hc) {
+                hc.filter { it.status == "skip" && it.reason.isNotBlank() }
+                    .groupingBy { it.reason.trim() }.eachCount()
+                    .entries.sortedByDescending { it.value }.take(6)
+            }
+            if (skipReasons.isNotEmpty()) {
+                Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .4f)) {
+                    Column(Modifier.padding(14.dp)) {
+                        Text("⏭️ Why you skip", style = MaterialTheme.typography.labelLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                        Spacer(Modifier.size(6.dp))
+                        skipReasons.forEach { (reason, count) ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(reason, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                                Text("×$count", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+                }
+            }
+
             // Y2 — keystone badge: the app names (and quietly guards) your highest-leverage habit.
             val isKeystone = remember(habits, checkins) { vm.keystoneHabitId() == h.id }
             if (isKeystone) Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primaryContainer) {

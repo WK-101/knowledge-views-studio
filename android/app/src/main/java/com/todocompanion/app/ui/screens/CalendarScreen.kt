@@ -837,23 +837,8 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 dayHabits.forEach { hb ->
-                    val c = hb.color ?: MaterialTheme.colorScheme.tertiary
-                    // Done reads as a solid, saturated pill (filled = done); pending is a soft outline.
-                    // No checkmark — the fill itself is the signal.
-                    Row(
-                        Modifier.clip(RoundedCornerShape(20.dp))
-                            .background(if (hb.done) c else c.copy(alpha = .12f))
-                            .then(if (hb.done) Modifier else Modifier.border(1.dp, c.copy(alpha = .45f), RoundedCornerShape(20.dp)))
-                            .clickable { onOpenHabit(hb.id) }
-                            .padding(horizontal = 11.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(Modifier.size(7.dp).clip(CircleShape).background(if (hb.done) Color.White else c))
-                        Spacer(Modifier.size(7.dp))
-                        Text(hb.label, style = MaterialTheme.typography.labelMedium, maxLines = 1,
-                            fontWeight = if (hb.done) FontWeight.SemiBold else FontWeight.Normal,
-                            color = if (hb.done) Color.White else MaterialTheme.colorScheme.onSurface)
-                    }
+                    // Shared HabitPill — identical style in month, week, 3-day and day (R56).
+                    HabitPill(hb, onOpenHabit)
                 }
             }
         }
@@ -1145,7 +1130,6 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hou
         val auxCount = (if (hasHabitLane) 1 else 0) + (if (hasEventLane) 1 else 0)
         val taskAreaW = when (auxCount) { 0 -> contentW; 1 -> contentW * 0.6f; else -> contentW * 0.5f }
         val auxSliceW = if (auxCount >= 2) (contentW - taskAreaW) / 2 else (contentW - taskAreaW)
-        val habitColor = MaterialTheme.colorScheme.tertiary
         // Hour gridlines
         (0..24).forEach { h ->
             Box(Modifier.fillMaxWidth().height(1.dp).offset(y = (hourDp * h).dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = .35f)))
@@ -1226,20 +1210,8 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hou
             val timedH = habitBlocks.filter { !it.untimed }.sortedBy { it.startMin }
             @Composable
             fun habitChip(hb: HabitBlock, mod: Modifier) {
-                val col = hb.color ?: habitColor
-                Row(
-                    mod.clip(RoundedCornerShape(6.dp))
-                        .background(col.copy(alpha = if (hb.done) 0.26f else if (hb.partial) 0.16f else 0.09f))
-                        .then(if (hb.done) Modifier else Modifier.border(1.dp, col.copy(alpha = .35f), RoundedCornerShape(6.dp)))
-                        .clickable { onOpenHabit(hb.id) },
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(Modifier.width(3.dp).fillMaxHeight().background(if (hb.done) col else col.copy(alpha = .45f)))
-                    Text((if (hb.done) "✓ " else if (hb.partial) "◑ " else "") + hb.label, Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
-                        style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        fontWeight = if (hb.done) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (hb.done) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                // Same HabitPill as month view, dense to fit the timed lane (R56) — filled = done, no checkmark.
+                HabitPill(hb, onOpenHabit, modifier = mod, dense = true)
             }
             // Timed habits sit at their reminder time; lane-split so simultaneous ones never overlap.
             if (timedH.isNotEmpty()) {
@@ -1328,20 +1300,8 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hou
 /** R27 #3: one untimed habit as a compact chip in the header band above the hour grid (tap opens it). */
 @Composable
 private fun UntimedHabitChip(hb: HabitBlock, onOpenHabit: (String) -> Unit) {
-    val col = hb.color ?: MaterialTheme.colorScheme.tertiary
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 1.dp).clip(RoundedCornerShape(6.dp))
-            .background(col.copy(alpha = if (hb.done) 0.26f else if (hb.partial) 0.16f else 0.09f))
-            .then(if (hb.done) Modifier else Modifier.border(1.dp, col.copy(alpha = .35f), RoundedCornerShape(6.dp)))
-            .clickable { onOpenHabit(hb.id) },
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.width(3.dp).height(18.dp).background(if (hb.done) col else col.copy(alpha = .45f)))
-        Text((if (hb.done) "✓ " else if (hb.partial) "◑ " else "") + hb.label, Modifier.padding(horizontal = 5.dp, vertical = 3.dp),
-            style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            fontWeight = if (hb.done) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (hb.done) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
-    }
+    // R56 — the shared HabitPill (dense, full width) so the header band matches month view exactly.
+    HabitPill(hb, onOpenHabit, modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp), dense = true)
 }
 
 /** M1: a timed habit drawn as a read-only block in the calendar's day/week grid. */
@@ -1350,6 +1310,41 @@ private data class HabitBlock(
     val startMin: Int, val durMin: Int, val done: Boolean,
     val partial: Boolean = false, val untimed: Boolean = false,
 )
+
+/**
+ * R56 — the single habit-pill style shared by EVERY calendar view (month, week, 3-day, day) so habits
+ * render identically everywhere. "Filled = done" is the whole signal — no checkmark; pending is a soft
+ * tinted outline, a partly-met numeric goal reads as a medium fill. `dense` shrinks it to sit inside the
+ * timed day/week lane (where the caller fixes width/height via `modifier`).
+ */
+@Composable
+private fun HabitPill(
+    hb: HabitBlock,
+    onOpen: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    dense: Boolean = false,
+) {
+    val c = hb.color ?: MaterialTheme.colorScheme.tertiary
+    val shape = RoundedCornerShape(if (dense) 8.dp else 20.dp)
+    val bg = when { hb.done -> c; hb.partial -> c.copy(alpha = .34f); else -> c.copy(alpha = .12f) }
+    Row(
+        modifier.clip(shape).background(bg)
+            .then(if (hb.done) Modifier else Modifier.border(1.dp, c.copy(alpha = .45f), shape))
+            .clickable { onOpen(hb.id) }
+            .padding(horizontal = if (dense) 7.dp else 11.dp, vertical = if (dense) 2.dp else 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(if (dense) 6.dp else 7.dp).clip(CircleShape).background(if (hb.done) Color.White else c))
+        Spacer(Modifier.size(if (dense) 5.dp else 7.dp))
+        Text(
+            hb.label,
+            style = if (dense) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium,
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+            fontWeight = if (hb.done) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (hb.done) Color.White else MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
 
 /** Round 14: one segment of the "actual" spine — a tracked time interval clamped to the day. */
 private data class TrackedBlock(
