@@ -106,6 +106,8 @@ import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
 import com.todocompanion.app.ui.components.FLAG_COLORS
 import com.todocompanion.app.ui.components.FlagIcons
+import com.todocompanion.app.ui.components.HourStepper
+import com.todocompanion.app.ui.components.OptionChips
 import java.time.ZoneId
 
 /** R28 #7 — the live settings-search query, read by every [SettingsGroup] so it can hide/expand itself. */
@@ -240,15 +242,21 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Toggle("Reduce motion", s.reduceMotion) { vm.setReduceMotion(it) }
 
             Spacer(Modifier.height(10.dp)); Sub("Accent colour")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                AccentSwatch(0L, s.accentArgb) { vm.saveSettings(s.copy(accentArgb = 0L, themePack = "")) }
-                ACCENTS.forEach { c -> AccentSwatch(c, s.accentArgb) { vm.saveSettings(s.copy(accentArgb = c, themePack = "")) } }
-                // R59 (Wave 1) — fold a fully custom accent into the app's unified colour picker (palette +
-                // recents + HSV/hex), sitting right beside the curated presets. Clears any curated theme pack.
+            // R61 — the accent is chosen through the one unified colour picker like every other colour in the
+            // app: the curated accents surface as its "Suggested" row, "Dynamic" is the no-colour option, and
+            // the full palette + recents + custom HSV/hex sit behind the same swatch. Clears any theme pack.
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 com.todocompanion.app.ui.components.AppColorPicker(
                     current = s.accentArgb.takeIf { it != 0L },
                     onPick = { vm.saveSettings(s.copy(accentArgb = it ?: 0L, themePack = "")) },
                     allowNone = true,
+                    presets = ACCENTS,
+                    noneLabel = "Dynamic (Material You)",
+                )
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    if (s.accentArgb == 0L) "Dynamic (Material You)" else "Custom accent",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
@@ -497,33 +505,23 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Spacer(Modifier.height(10.dp)); Sub("Working hours (auto-schedule)")
             Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Start", Modifier.weight(1f))
-                TextButton(onClick = { vm.saveSettings(s.copy(workStartHour = ((s.workStartHour - 1 + 24) % 24))) }) { Text("−") }
-                Text("%02d:00".format(s.workStartHour), style = MaterialTheme.typography.titleSmall)
-                TextButton(onClick = { vm.saveSettings(s.copy(workStartHour = ((s.workStartHour + 1) % 24))) }) { Text("+") }
+                HourStepper(s.workStartHour) { vm.saveSettings(s.copy(workStartHour = (it + 24) % 24)) }
                 Spacer(Modifier.width(16.dp))
                 Text("End", Modifier.weight(1f))
-                TextButton(onClick = { vm.saveSettings(s.copy(workEndHour = (s.workEndHour - 1).coerceAtLeast(s.workStartHour + 1))) }) { Text("−") }
-                Text("%02d:00".format(s.workEndHour), style = MaterialTheme.typography.titleSmall)
-                TextButton(onClick = { vm.saveSettings(s.copy(workEndHour = (s.workEndHour + 1).coerceAtMost(24))) }) { Text("+") }
+                HourStepper(s.workEndHour) { vm.saveSettings(s.copy(workEndHour = it.coerceIn(s.workStartHour + 1, 24))) }
             }
             // R41 — a pinned secondary time-zone shown beside event times (a floating event keeps its wall clock).
             Spacer(Modifier.height(10.dp)); Sub("Second time-zone (calendar rail)")
             Text("Shown alongside event times in the editor. Off uses only your device zone.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                val zones = listOf("" to "Off", "UTC" to "UTC", "America/New_York" to "New York", "America/Los_Angeles" to "LA",
-                    "Europe/London" to "London", "Asia/Dubai" to "Dubai", "Asia/Kolkata" to "India", "Asia/Tokyo" to "Tokyo")
-                zones.forEach { (id, label) ->
-                    FilterChip(selected = s.secondaryZoneId == id, onClick = { vm.setSecondaryZone(id) }, label = { Text(label) })
-                }
-            }
+            val zones = listOf("" to "Off", "UTC" to "UTC", "America/New_York" to "New York", "America/Los_Angeles" to "LA",
+                "Europe/London" to "London", "Asia/Dubai" to "Dubai", "Asia/Kolkata" to "India", "Asia/Tokyo" to "Tokyo")
+            OptionChips(zones, zones.firstOrNull { it.first == s.secondaryZoneId }, { vm.setSecondaryZone(it.first) }, spacing = 6) { it.second }
             Spacer(Modifier.height(10.dp)); Sub("Deep-work goal")
             Text("Minutes of focused time you aim for each day. Powers the Focus coach's progress and streak.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf(30, 60, 90, 120, 180).forEach { m ->
-                    FilterChip(selected = s.deepWorkGoalMin == m, onClick = { vm.saveSettings(s.copy(deepWorkGoalMin = m)) }, label = { Text(if (m >= 60) "${m / 60}h${if (m % 60 != 0) " ${m % 60}m" else ""}" else "${m}m") })
-                }
+            OptionChips(listOf(30, 60, 90, 120, 180), s.deepWorkGoalMin, { vm.saveSettings(s.copy(deepWorkGoalMin = it)) }, spacing = 6) { m ->
+                if (m >= 60) "${m / 60}h${if (m % 60 != 0) " ${m % 60}m" else ""}" else "${m}m"
             }
         }
 
@@ -551,8 +549,8 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             var pwEnd by remember { mutableStateOf(20) }
             OutlinedTextField(pwName, { pwName = it }, singleLine = true, placeholder = { Text("Window name") }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
             Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("From", Modifier.weight(1f)); TextButton(onClick = { pwStart = (pwStart - 1 + 24) % 24 }) { Text("−") }; Text("%02d:00".format(pwStart)); TextButton(onClick = { pwStart = (pwStart + 1) % 24 }) { Text("+") }
-                Spacer(Modifier.width(10.dp)); Text("To", Modifier.weight(1f)); TextButton(onClick = { pwEnd = (pwEnd - 1).coerceAtLeast(pwStart + 1) }) { Text("−") }; Text("%02d:00".format(pwEnd)); TextButton(onClick = { pwEnd = (pwEnd + 1).coerceAtMost(24) }) { Text("+") }
+                Text("From", Modifier.weight(1f)); HourStepper(pwStart) { pwStart = (it + 24) % 24 }
+                Spacer(Modifier.width(10.dp)); Text("To", Modifier.weight(1f)); HourStepper(pwEnd) { pwEnd = it.coerceIn(pwStart + 1, 24) }
             }
             TextButton(onClick = { if (pwName.isNotBlank()) { vm.saveProtectedWindow(pwName, pwStart * 60, pwEnd * 60, emptyList()); pwName = "" } }, enabled = pwName.isNotBlank()) { Text("Add protected window") }
 
@@ -561,11 +559,8 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Text("Add a region's public holidays to your calendar — generated on-device, no network.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
             var holPack by remember { mutableStateOf("us") }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                com.todocompanion.app.domain.calendar.Holidays.PACKS.forEach { p ->
-                    FilterChip(selected = holPack == p.id, onClick = { holPack = p.id }, label = { Text("${p.emoji} ${p.name}") })
-                }
-            }
+            val holPacks = com.todocompanion.app.domain.calendar.Holidays.PACKS
+            OptionChips(holPacks, holPacks.firstOrNull { it.id == holPack }, { holPack = it.id }, spacing = 6) { "${it.emoji} ${it.name}" }
             val holYear = remember { java.time.LocalDate.now().year }
             TextButton(onClick = { vm.importHolidayPack(holPack, holYear, holYear + 1) }) { Text("＋ Import $holYear–${holYear + 1}") }
 
@@ -822,14 +817,10 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             if (s.quietHoursEnabled) {
                 Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("From", Modifier.weight(1f))
-                    TextButton(onClick = { vm.saveSettings(s.copy(quietStartHour = (s.quietStartHour + 23) % 24)) }) { Text("−") }
-                    Text("%02d:00".format(s.quietStartHour), Modifier.widthIn(min = 52.dp), textAlign = TextAlign.Center)
-                    TextButton(onClick = { vm.saveSettings(s.copy(quietStartHour = (s.quietStartHour + 1) % 24)) }) { Text("+") }
+                    HourStepper(s.quietStartHour) { vm.saveSettings(s.copy(quietStartHour = (it + 24) % 24)) }
                     Spacer(Modifier.width(12.dp))
                     Text("to", Modifier.weight(1f))
-                    TextButton(onClick = { vm.saveSettings(s.copy(quietEndHour = (s.quietEndHour + 23) % 24)) }) { Text("−") }
-                    Text("%02d:00".format(s.quietEndHour), Modifier.widthIn(min = 52.dp), textAlign = TextAlign.Center)
-                    TextButton(onClick = { vm.saveSettings(s.copy(quietEndHour = (s.quietEndHour + 1) % 24)) }) { Text("+") }
+                    HourStepper(s.quietEndHour) { vm.saveSettings(s.copy(quietEndHour = (it + 24) % 24)) }
                 }
                 Text("Reminders due in this window are held and arrive together when it ends — a calm morning digest.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -879,9 +870,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             if (s.morningBriefEnabled) {
                 Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Brief time", Modifier.weight(1f))
-                    TextButton(onClick = { vm.setMorningBrief(true, (s.morningBriefHour - 1).coerceAtLeast(0)) }) { Text("−") }
-                    Text("%02d:00".format(s.morningBriefHour), Modifier.widthIn(min = 52.dp), textAlign = TextAlign.Center)
-                    TextButton(onClick = { vm.setMorningBrief(true, (s.morningBriefHour + 1).coerceAtMost(23)) }) { Text("+") }
+                    HourStepper(s.morningBriefHour) { vm.setMorningBrief(true, it.coerceIn(0, 23)) }
                 }
                 Text("One note each morning: your next action, today's honest forecast, and one insight.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -895,9 +884,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             if (s.occasionNudge) {
                 Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Reflection time", Modifier.weight(1f))
-                    TextButton(onClick = { vm.saveSettings(s.copy(occasionNudgeHour = (s.occasionNudgeHour - 1).coerceAtLeast(0))); vm.applyOccasionNudge() }) { Text("−") }
-                    Text("%02d:00".format(s.occasionNudgeHour), Modifier.widthIn(min = 52.dp), textAlign = TextAlign.Center)
-                    TextButton(onClick = { vm.saveSettings(s.copy(occasionNudgeHour = (s.occasionNudgeHour + 1).coerceAtMost(23))); vm.applyOccasionNudge() }) { Text("+") }
+                    HourStepper(s.occasionNudgeHour) { vm.saveSettings(s.copy(occasionNudgeHour = it.coerceIn(0, 23))); vm.applyOccasionNudge() }
                 }
                 Text("One gentle, finite-time thought a day, paired with a this-day-in-history note. No cloud.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1429,18 +1416,6 @@ private val THEME_PACKS = listOf(
     ThemePack("midnight", "Midnight", 0xFF2F6BFF, "none", ThemeMode.AMOLED),
     ThemePack("slate", "Slate", 0xFF64748B, "cool"),
 )
-
-@Composable
-private fun AccentSwatch(color: Long, current: Long, onClick: () -> Unit) {
-    val selected = color == current
-    Box(
-        Modifier.size(30.dp).clip(CircleShape)
-            .background(if (color == 0L) MaterialTheme.colorScheme.surfaceVariant else Color(color))
-            .border(if (selected) 3.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, CircleShape)
-            .clickable { onClick() },
-        contentAlignment = Alignment.Center,
-    ) { if (color == 0L) Text("A", style = MaterialTheme.typography.labelMedium) }
-}
 
 @Composable
 private fun SwipeRow(label: String, action: SwipeAction, onChange: (SwipeAction) -> Unit) {

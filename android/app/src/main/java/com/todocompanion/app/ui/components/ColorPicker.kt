@@ -96,9 +96,11 @@ fun AppColorPicker(
     allowNone: Boolean = false,
     size: Int = 30,
     modifier: Modifier = Modifier,
+    presets: List<Long> = emptyList(),
+    noneLabel: String = "No colour (use default)",
 ) {
     val host = LocalColorPickerHost.current
-    ColorPickerButton(current, onPick, host.recents, host.record, allowNone, size, modifier)
+    ColorPickerButton(current, onPick, host.recents, host.record, allowNone, size, modifier, presets, noneLabel)
 }
 
 /** A single circular swatch that opens the unified picker. Drop-in for every old swatch row. */
@@ -111,6 +113,8 @@ fun ColorPickerButton(
     allowNone: Boolean = false,
     size: Int = 30,
     modifier: Modifier = Modifier,
+    presets: List<Long> = emptyList(),
+    noneLabel: String = "No colour (use default)",
 ) {
     var open by remember { mutableStateOf(false) }
     Box(
@@ -129,6 +133,7 @@ fun ColorPickerButton(
             initial = current, allowNone = allowNone, recents = recents,
             onDismiss = { open = false },
             onPick = { c -> if (c != null) onRecent(c); onPick(c); open = false },
+            presets = presets, noneLabel = noneLabel,
         )
     }
 }
@@ -141,6 +146,8 @@ fun ColorPickerSheet(
     recents: List<Long>,
     onDismiss: () -> Unit,
     onPick: (Long?) -> Unit,
+    presets: List<Long> = emptyList(),
+    noneLabel: String = "No colour (use default)",
 ) {
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var tab by remember { mutableStateOf(0) }   // 0 = palette, 1 = custom
@@ -171,8 +178,17 @@ fun ColorPickerSheet(
                             Text("–", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Spacer(Modifier.width(10.dp))
-                        Text("No colour (use default)", style = MaterialTheme.typography.bodyMedium)
+                        Text(noneLabel, style = MaterialTheme.typography.bodyMedium)
                     }
+                }
+                // R61 — a screen's curated presets (e.g. the app's accent set) surface as a "Suggested" row at
+                // the top of the palette, so those one-tap picks live inside the one unified picker too.
+                if (presets.isNotEmpty()) {
+                    Text("Suggested", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 6.dp)) {
+                        presets.forEach { c -> Swatch(c, c == initial, Modifier.width(40.dp)) { onPick(c) } }
+                    }
+                    Spacer(Modifier.height(6.dp))
                 }
                 if (recents.isNotEmpty()) {
                     Text("Recent", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

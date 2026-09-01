@@ -610,11 +610,7 @@ internal fun GapFinder(events: List<EventEntity>, day: Long, zone: ZoneId, workS
         text = {
             Column {
                 Text("Need", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row {
-                    listOf(30, 60, 90, 120).forEach { m ->
-                        FilterChip(selected = dur == m, onClick = { dur = m }, label = { Text(fmtDur(m)) }, modifier = Modifier.padding(end = 6.dp))
-                    }
-                }
+                com.todocompanion.app.ui.components.OptionChips(listOf(30, 60, 90, 120), dur, { dur = it }, spacing = 6) { fmtDur(it) }
                 Spacer(Modifier.height(10.dp))
                 if (slots.isEmpty()) Text("No free ${fmtDur(dur)} block in your working hours today.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 else slots.forEach { s ->

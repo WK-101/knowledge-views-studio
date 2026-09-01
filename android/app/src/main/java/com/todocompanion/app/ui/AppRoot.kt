@@ -123,6 +123,7 @@ import com.todocompanion.app.domain.view.SortMode
 import com.todocompanion.app.domain.view.ViewRef
 import com.todocompanion.app.reminders.AlarmScheduler
 import com.todocompanion.app.ui.components.AppDrawer
+import com.todocompanion.app.ui.components.HourStepper
 import com.todocompanion.app.domain.OmegaCommand
 import com.todocompanion.app.ui.screens.CalendarScreen
 import com.todocompanion.app.ui.screens.CommandPaletteDialog
@@ -1832,15 +1833,6 @@ private fun ManageContextDialog(
             }
         },
     )
-}
-
-@Composable
-private fun HourStepper(hour: Int, onChange: (Int) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        TextButton(onClick = { onChange(hour - 1) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp)) { Text("−") }
-        Text("%02d:00".format(hour), style = MaterialTheme.typography.bodyMedium)
-        TextButton(onClick = { onChange(hour + 1) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp)) { Text("+") }
-    }
 }
 
 @Composable

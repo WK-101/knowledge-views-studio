@@ -516,12 +516,20 @@ fun DateTimePickerDialog(
 /**
  * R45 — a DATE-ONLY picker (no forced time step). Occasions are all-day by nature (a birthday is a
  * date, not a time), so their editor uses this instead of DateTimePickerDialog. Returns the local
- * start-of-day millis for the chosen date.
+ * start-of-day millis for the chosen date. R61 — [allowFuture] = false disables days after today (the
+ * Time view's day navigator uses this, since you can't have tracked time in the future), so this one
+ * component is the single source for every calendar in the app.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DateOnlyPickerDialog(initial: Long?, onDismiss: () -> Unit, onConfirm: (Long) -> Unit) {
-    val dateState = rememberDatePickerState(initialSelectedDateMillis = initial)
+fun DateOnlyPickerDialog(initial: Long?, onDismiss: () -> Unit, allowFuture: Boolean = true, onConfirm: (Long) -> Unit) {
+    val today = java.time.LocalDate.now(ZoneId.systemDefault())
+    val endExclusive = today.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+    val selectable = if (allowFuture) androidx.compose.material3.DatePickerDefaults.AllDates else object : androidx.compose.material3.SelectableDates {
+        override fun isSelectableDate(utcTimeMillis: Long): Boolean = utcTimeMillis < endExclusive
+        override fun isSelectableYear(year: Int): Boolean = year <= today.year
+    }
+    val dateState = rememberDatePickerState(initialSelectedDateMillis = initial, selectableDates = selectable)
     DatePickerDialog(
         onDismissRequest = onDismiss,
         confirmButton = {

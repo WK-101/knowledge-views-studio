@@ -50,6 +50,8 @@ import com.todocompanion.app.domain.calendar.Availability
 import com.todocompanion.app.domain.calendar.CalendarEngine
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.HourStepper
+import com.todocompanion.app.ui.components.OptionChips
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -177,11 +179,7 @@ fun AvailabilitySheet(vm: AppViewModel, anchorDay: Long, onDismiss: () -> Unit) 
             Text("Your open blocks, at a glance — private, on-device.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(12.dp))
             // Range selector
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Day", "Week", "Month").forEach { r ->
-                    FilterChip(selected = range == r, onClick = { range = r }, label = { Text(r) })
-                }
-            }
+            OptionChips(listOf("Day", "Week", "Month"), range, { range = it }) { it }
             Spacer(Modifier.height(6.dp))
             // Date navigation: ‹ period › with a Today reset.
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -231,11 +229,7 @@ fun AvailabilitySheet(vm: AppViewModel, anchorDay: Long, onDismiss: () -> Unit) 
             Spacer(Modifier.height(12.dp))
             // Duration-aware "can I fit it?" + next opening (fit-this-here).
             Text("Openings of at least", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf(15, 30, 60, 90, 120).forEach { m ->
-                    FilterChip(selected = minDur == m, onClick = { minDur = m }, label = { Text(Availability.fmtMinutes(m)) })
-                }
-            }
+            OptionChips(listOf(15, 30, 60, 90, 120), minDur, { minDur = it }, spacing = 6) { Availability.fmtMinutes(it) }
             Text("$openingsCount gap${if (openingsCount == 1) "" else "s"} of ${Availability.fmtMinutes(minDur)} or more in this ${range.lowercase()}.",
                 style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 4.dp))
             nextFit?.let {
@@ -354,14 +348,10 @@ fun AvailabilitySheet(vm: AppViewModel, anchorDay: Long, onDismiss: () -> Unit) 
             }
             Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("From", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = { pStart = (pStart - 1).coerceAtLeast(0) }) { Text("−") }
-                Text("%02d:00".format(pStart), style = MaterialTheme.typography.bodyMedium)
-                TextButton(onClick = { pStart = (pStart + 1).coerceAtMost(23) }) { Text("+") }
+                HourStepper(pStart) { pStart = it.coerceIn(0, 23) }
                 Spacer(Modifier.width(6.dp))
                 Text("to", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = { pEnd = (pEnd - 1).coerceAtLeast(1) }) { Text("−") }
-                Text("%02d:00".format(pEnd), style = MaterialTheme.typography.bodyMedium)
-                TextButton(onClick = { pEnd = (pEnd + 1).coerceAtMost(24) }) { Text("+") }
+                HourStepper(pEnd) { pEnd = it.coerceIn(1, 24) }
             }
             TextButton(enabled = pDays.isNotEmpty() && pEnd > pStart, onClick = {
                 vm.saveProtectedWindow("Protected %02d:00–%02d:00".format(pStart, pEnd), pStart * 60, pEnd * 60, pDays.sorted())

@@ -258,7 +258,11 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
             2 -> ThemedMonthPicker(initial = day, zone = zone, onDismiss = { showDatePicker = false }) { picked ->
                 day = if (picked.isAfter(t)) t.withDayOfMonth(1) else picked.withDayOfMonth(1); showDatePicker = false
             }
-            else -> ThemedDatePicker(initial = day, zone = zone, onDismiss = { showDatePicker = false }) { picked ->
+            else -> com.todocompanion.app.ui.components.DateOnlyPickerDialog(
+                initial = day.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli(),
+                onDismiss = { showDatePicker = false }, allowFuture = false,
+            ) { millis ->
+                val picked = java.time.Instant.ofEpochMilli(millis).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
                 day = if (picked.isAfter(t)) t else picked; showDatePicker = false
             }
         }
@@ -935,38 +939,6 @@ internal fun EditEntryDialog(entry: TimeEntryEntity, activities: List<TimeActivi
             }
         },
     )
-}
-
-/**
- * A Material 3, fully theme-aware date picker for the Time view's day/week/month navigator — it inherits
- * the app's colours, shape and locale, unlike the OS DatePickerDialog it replaces (which the user rightly
- * flagged as looking "completely different"). Future days are non-selectable since you can't have tracked
- * time in the future. Dates are handled in UTC millis (the DatePicker contract) and converted back to a
- * LocalDate on confirm.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ThemedDatePicker(initial: LocalDate, zone: ZoneId, onDismiss: () -> Unit, onPick: (LocalDate) -> Unit) {
-    val today = LocalDate.now(zone)
-    val endExclusive = today.plusDays(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
-    val state = rememberDatePickerState(
-        initialSelectedDateMillis = initial.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli(),
-        selectableDates = object : SelectableDates {
-            override fun isSelectableDate(utcTimeMillis: Long): Boolean = utcTimeMillis < endExclusive
-            override fun isSelectableYear(year: Int): Boolean = year <= today.year
-        },
-    )
-    androidx.compose.material3.DatePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = {
-                state.selectedDateMillis?.let { onPick(java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneOffset.UTC).toLocalDate()) } ?: onDismiss()
-            }) { Text("Select") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    ) {
-        DatePicker(state = state, showModeToggle = true, colors = DatePickerDefaults.colors())
-    }
 }
 
 /** R42 — a proper month picker for the Time view's Month range: a year stepper + a 12-month grid. */
