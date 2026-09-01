@@ -39,7 +39,7 @@ class TodayWidget : AppWidgetProvider() {
                 val today = LocalDate.now(zone)
                 val startOfDay = today.atStartOfDay(zone).toInstant().toEpochMilli()
                 val startOfTomorrow = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-                val tasks = app.repository.allTasksOnce()
+                val tasks = app.repository.wsTasksOnce()
                 val active = tasks.filter { !it.completed && !it.abandoned }
                 val dueToday = active.count { it.dueDate != null && it.dueDate in startOfDay until startOfTomorrow }
                 val overdue = active.count { it.dueDate != null && it.dueDate < startOfDay }

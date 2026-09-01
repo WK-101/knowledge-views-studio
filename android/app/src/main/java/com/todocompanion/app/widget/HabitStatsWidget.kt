@@ -26,7 +26,7 @@ class HabitStatsWidget : AppWidgetProvider() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val today = LocalDate.now(ZoneId.systemDefault()).toEpochDay()
-                val habits = app.repository.getHabitsOnce().filter { !it.archived && !it.paused }
+                val habits = app.repository.wsHabitsOnce().filter { !it.archived && !it.paused }
                 val checkins = app.repository.getHabitCheckinsOnce()
                 var due = 0; var done = 0; var bestStreak = 0
                 habits.forEach { h ->
@@ -41,9 +41,9 @@ class HabitStatsWidget : AppWidgetProvider() {
                 }
                 // N5: the coach brief on the home screen — top move for the day.
                 val brief = runCatching {
-                    val tasks = app.repository.allTasksOnce()
+                    val tasks = app.repository.wsTasksOnce()
                     com.todocompanion.app.domain.habit.HabitInsights.dailyBrief(
-                        app.repository.getHabitsOnce(), checkins, tasks, today, ZoneId.systemDefault()
+                        app.repository.wsHabitsOnce(), checkins, tasks, today, ZoneId.systemDefault()
                     )?.moves?.firstOrNull()?.let { "${it.emoji} ${it.text}" }
                 }.getOrNull()
                 val views = RemoteViews(context.packageName, R.layout.widget_habitstats)

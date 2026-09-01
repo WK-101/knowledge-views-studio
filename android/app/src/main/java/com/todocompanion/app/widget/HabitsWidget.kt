@@ -111,7 +111,7 @@ private class HabitsFactory(private val context: Context) : RemoteViewsService.R
     override fun onDataSetChanged() {
         val app = context.applicationContext as App
         val today = LocalDate.now(ZoneId.systemDefault()).toEpochDay()
-        val habits = runBlocking { app.repository.getHabitsOnce() }.filter { !it.archived }
+        val habits = runBlocking { app.repository.wsHabitsOnce() }.filter { !it.archived }
         val checkins = runBlocking { app.repository.getHabitCheckinsOnce() }
         // Respect the full frequency model (interval / times-per-week/month), skip paused habits, and
         // omit break habits (a tap here would mislog a relapse). "Done" uses meetsGoal so a target of 0

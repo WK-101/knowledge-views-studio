@@ -38,7 +38,7 @@ class Next7Widget : AppWidgetProvider() {
             try {
                 val zone = ZoneId.systemDefault()
                 val today = LocalDate.now(zone)
-                val tasks = app.repository.allTasksOnce()
+                val tasks = app.repository.wsTasksOnce()
                 val settings = app.repository.settingsSnapshot()
 
                 val views = RemoteViews(context.packageName, R.layout.widget_next7)

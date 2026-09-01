@@ -28,7 +28,7 @@ class StatsWidget : AppWidgetProvider() {
                 val today = LocalDate.now(zone)
                 val start = today.atStartOfDay(zone).toInstant().toEpochMilli()
                 val end = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-                val tasks = app.repository.allTasksOnce()
+                val tasks = app.repository.wsTasksOnce()
                 val done = tasks.count { it.completed && !it.trashed && (it.completedAt ?: 0) in start until end }
                 val due = tasks.count { !it.completed && !it.trashed && !it.abandoned && it.dueDate != null && it.dueDate!! < end }
                 val views = RemoteViews(context.packageName, R.layout.widget_stats)

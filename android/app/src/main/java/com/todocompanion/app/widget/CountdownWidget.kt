@@ -27,7 +27,7 @@ class CountdownWidget : AppWidgetProvider() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val today = LocalDate.now(ZoneId.systemDefault())
-                val all = app.repository.allCountdownsOnce()
+                val all = app.repository.wsCountdownsOnce()
                 // R43 — occasions honour the NEXT occurrence (a yearly birthday rolls forward), not the raw
                 // origin date. Prefer a pinned upcoming one; otherwise the soonest upcoming; else latest past.
                 fun until(c: com.todocompanion.app.data.entity.CountdownEntity) = com.todocompanion.app.domain.LifeEvent.daysUntil(c, today)

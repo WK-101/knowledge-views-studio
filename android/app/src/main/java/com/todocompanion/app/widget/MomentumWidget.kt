@@ -31,7 +31,7 @@ class MomentumWidget : AppWidgetProvider() {
             try {
                 val zone = ZoneId.systemDefault()
                 val today = LocalDate.now(zone).toEpochDay()
-                val habits = app.repository.getHabitsOnce().filter { !it.archived }
+                val habits = app.repository.wsHabitsOnce().filter { !it.archived }
                 val checkins = app.repository.getHabitCheckinsOnce()
                 val strengths = habits.map { h ->
                     val d = checkins.filter { it.habitId == h.id && it.status == "done" && HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
@@ -41,12 +41,12 @@ class MomentumWidget : AppWidgetProvider() {
                 }
                 val habitStrength = if (strengths.isEmpty()) null else strengths.average().toInt()
                 val now = System.currentTimeMillis()
-                val activities = app.repository.getActivitiesOnce()
-                val relVals = app.repository.allTasksOnce().filter { !it.rrule.isNullOrBlank() && !it.trashed }
+                val activities = app.repository.wsActivitiesOnce()
+                val relVals = app.repository.wsTasksOnce().filter { !it.rrule.isNullOrBlank() && !it.trashed }
                     .mapNotNull { TaskReliability.score(it, activities, now, zone)?.score }
                 val taskRel = if (relVals.isEmpty()) null else relVals.average().toInt()
                 val weekDays = (0 until 7).map { today - it }.toSet()
-                val focusWeek = app.repository.getFocusSessionsOnce().filter { it.epochDay in weekDays }.sumOf { it.minutes }
+                val focusWeek = app.repository.wsFocusSessionsOnce().filter { it.epochDay in weekDays }.sumOf { it.minutes }
                 val parts = buildList {
                     habitStrength?.let { add(it.toDouble() to 0.5) }
                     taskRel?.let { add(it.toDouble() to 0.35) }

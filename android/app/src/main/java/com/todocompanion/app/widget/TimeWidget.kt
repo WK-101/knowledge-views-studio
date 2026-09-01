@@ -30,7 +30,7 @@ class TimeWidget : AppWidgetProvider() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val running = app.repository.runningTimeEntry()
-                val activities = app.repository.getTimeActivitiesOnce().filter { !it.archived }
+                val activities = app.repository.wsTimeActivitiesOnce().filter { !it.archived }
                     .sortedBy { it.sortOrder }
                 val byId = activities.associateBy { it.id }
                 val views = RemoteViews(context.packageName, R.layout.widget_time)

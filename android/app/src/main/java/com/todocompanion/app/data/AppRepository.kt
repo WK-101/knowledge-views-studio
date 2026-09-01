@@ -266,7 +266,7 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun upsertActivationItem(a: com.todocompanion.app.data.entity.ActivationItemEntity) = activation.upsert(a)
     suspend fun deleteActivationItem(id: String) = activation.deleteById(id)
     val allDayLogs: Flow<List<com.todocompanion.app.data.entity.DayLogEntity>> = dayLogs.observeAll()
-    suspend fun dayLogFor(day: Long): com.todocompanion.app.data.entity.DayLogEntity? = dayLogs.forDay(day)
+    suspend fun dayLogFor(day: Long): com.todocompanion.app.data.entity.DayLogEntity? = dayLogs.forDay(day, activeWs())
     suspend fun upsertDayLog(d: com.todocompanion.app.data.entity.DayLogEntity) = dayLogs.upsert(d)
     // R36 — fourth-wave accessors.
     val allEscrows: Flow<List<com.todocompanion.app.data.entity.EscrowEntity>> = escrows.observeAll()
@@ -1190,6 +1190,31 @@ class AppRepository(private val db: AppDatabase) {
         AppSettings.fromMap(settings.getAll().associate { it.key to it.value })
     /** R62 — the active workspace, read synchronously, so repo-side creates stamp the right isolation. */
     suspend fun activeWs(): String = settingsSnapshot().activeWorkspaceId
+
+    // R62 — workspace-scoped one-shot reads for home-screen widgets and background notifications, so those
+    // surfaces show ONLY the active workspace's data. The scoping logic lives here once, mirroring the flows.
+    /** Tasks in the active workspace — by list/folder membership (+ the shared Inbox), exactly like the app. */
+    suspend fun wsTasksOnce(): List<TaskEntity> {
+        val ws = activeWs()
+        val listIds = lists.getAll().filter { it.workspaceId == ws }.map { it.id }.toSet() + ListEntity.INBOX_ID
+        val folderIds = folders.getAll().filter { it.workspaceId == ws }.map { it.id }.toSet()
+        return tasks.getAll().filter { it.listId in listIds || (it.folderId != null && it.folderId in folderIds) }
+    }
+    suspend fun wsCountdownsOnce(): List<com.todocompanion.app.data.entity.CountdownEntity> =
+        countdowns.getAll().filter { it.workspaceId == activeWs() }
+    suspend fun wsHabitsOnce(): List<HabitEntity> = habits.getAll().filter { it.workspaceId == activeWs() }
+    suspend fun wsTimeActivitiesOnce(): List<com.todocompanion.app.data.entity.TimeActivityEntity> =
+        timeTrack.getActivities().filter { it.workspaceId == activeWs() }
+    suspend fun wsFocusSessionsOnce(): List<com.todocompanion.app.data.entity.FocusSessionEntity> =
+        focus.getAll().filter { it.workspaceId == activeWs() }
+    suspend fun wsActivitiesOnce(): List<com.todocompanion.app.data.entity.ActivityEntity> {
+        val taskIds = wsTasksOnce().map { it.id }.toSet()
+        return activity.getAll().filter { it.taskId in taskIds }
+    }
+    suspend fun wsEventsOnce(): List<com.todocompanion.app.data.entity.EventEntity> {
+        val calIds = eventCalendars.getAll().filter { it.workspaceId == activeWs() }.map { it.id }.toSet()
+        return events.getAll().filter { it.calendarId in calIds }
+    }
     suspend fun saveSettings(s: AppSettings) =
         settings.putAll(s.toMap().map { SettingEntity(it.key, it.value) })
 
@@ -1357,7 +1382,7 @@ class AppRepository(private val db: AppDatabase) {
         integrityReviews.upsertAll(missing(integrityReviews.getAll(), b.integrityReviews) { it.id })
         experiments.upsertAll(missing(experiments.getAll(), b.experiments) { it.id })
         activation.upsertAll(missing(activation.getAll(), b.activationItems) { it.id })
-        dayLogs.upsertAll(missing(dayLogs.getAll(), b.dayLogs) { it.epochDay })
+        dayLogs.upsertAll(missing(dayLogs.getAll(), b.dayLogs) { it.epochDay to it.workspaceId })
         escrows.upsertAll(missing(escrows.getAll(), b.escrows) { it.id })
         nudgeEvents.upsertAll(missing(nudgeEvents.getAll(), b.nudgeEvents) { it.id })
         revisions.upsertAll(missing(revisions.getAll(), b.revisions) { it.id })

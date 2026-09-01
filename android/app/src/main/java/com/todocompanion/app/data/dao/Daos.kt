@@ -271,7 +271,7 @@ interface DayLogDao {
     @Query("SELECT * FROM day_logs ORDER BY epochDay DESC")
     fun observeAll(): Flow<List<com.todocompanion.app.data.entity.DayLogEntity>>
     @Query("SELECT * FROM day_logs") suspend fun getAll(): List<com.todocompanion.app.data.entity.DayLogEntity>
-    @Query("SELECT * FROM day_logs WHERE epochDay = :day LIMIT 1") suspend fun forDay(day: Long): com.todocompanion.app.data.entity.DayLogEntity?
+    @Query("SELECT * FROM day_logs WHERE epochDay = :day AND workspaceId = :ws LIMIT 1") suspend fun forDay(day: Long, ws: String): com.todocompanion.app.data.entity.DayLogEntity?
     @Upsert suspend fun upsert(d: com.todocompanion.app.data.entity.DayLogEntity)
     @Upsert suspend fun upsertAll(d: List<com.todocompanion.app.data.entity.DayLogEntity>)
     @Query("DELETE FROM day_logs") suspend fun clear()

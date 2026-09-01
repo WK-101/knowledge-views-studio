@@ -25,7 +25,7 @@ class MatrixWidget : AppWidgetProvider() {
                 val s = app.repository.settingsSnapshot()
                 val impT = s.matrixImportanceThreshold
                 val urgT = s.matrixUrgencyThreshold
-                val openTasks = app.repository.allTasksOnce().filter { !it.completed && !it.trashed && !it.abandoned }
+                val openTasks = app.repository.wsTasksOnce().filter { !it.completed && !it.trashed && !it.abandoned }
                 // q0 = urgent+important, q1 = important, q2 = urgent, q3 = neither.
                 val counts = IntArray(4)
                 openTasks.forEach { t ->

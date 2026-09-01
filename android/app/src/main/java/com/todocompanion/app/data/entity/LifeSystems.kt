@@ -121,16 +121,18 @@ data class ActivationItemEntity(
 )
 
 /** R35 · TW-E — one day's morning-intention / evening-review bookend, plus the day's mood (a clean daily
- *  signal for the correlation engine). One row per day. */
+ *  signal for the correlation engine). R62 — one row per (day, workspace): the bookend is per-workspace like
+ *  every other feature, so the natural key is the pair. */
 @Serializable
-@Entity(tableName = "day_logs")
+@Entity(tableName = "day_logs", primaryKeys = ["epochDay", "workspaceId"])
 data class DayLogEntity(
-    @PrimaryKey val epochDay: Long,
+    val epochDay: Long,
     val amIntention: String = "",
     val pmReflection: String = "",
     val amMood: Int = 0,          // 0 unset, 1–5
     val pmMood: Int = 0,
     val updatedAt: Long = 0,
+    val workspaceId: String = "default",
 )
 
 /** R36 · FW-F — a self-escrow contingency reward/stake: pre-committed now, released only at a verified

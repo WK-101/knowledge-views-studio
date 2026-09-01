@@ -50,7 +50,7 @@ class HabitTileService : TileService() {
     private suspend fun dueHabits(app: App): List<com.todocompanion.app.data.entity.HabitEntity> {
         val today = LocalDate.now(ZoneId.systemDefault()).toEpochDay()
         val checkins = app.repository.getHabitCheckinsOnce()
-        return app.repository.getHabitsOnce()
+        return app.repository.wsHabitsOnce()   // R62 — the tile follows the active workspace
             .filter { !it.archived && !it.paused && it.habitType != "break" && HabitStats.isExpectedDay(it, today) && today >= it.startEpochDay() }
             .filter { h ->
                 val count = checkins.firstOrNull { it.habitId == h.id && it.epochDay == today }?.count ?: 0

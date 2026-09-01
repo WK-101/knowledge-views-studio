@@ -147,9 +147,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // R35 — third-wave flows.
     val experiments = repo.allExperiments.scopedBy { it.workspaceId }
     val activationItems = repo.allActivationItems.scopedBy { it.workspaceId }
-    // Day logs are a single per-calendar-day bookend (PK = epochDay); global by design (a composite-key
-    // change would be a non-additive migration), so this one stays device-wide, like app settings.
-    val dayLogs = repo.allDayLogs.state(emptyList())
+    // R62 — day-log bookends are now per-workspace too (composite key epochDay + workspaceId).
+    val dayLogs = repo.allDayLogs.scopedBy { it.workspaceId }
     // R36 — fourth-wave flows.
     val escrows = repo.allEscrows.scopedBy { it.workspaceId }
     val nudgeEvents = repo.allNudgeEvents.scopedBy { it.workspaceId }
@@ -2972,11 +2971,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // TW-E daily AM/PM bookends.
     fun saveMorningIntention(day: Long, text: String, mood: Int) = viewModelScope.launch {
-        val cur = repo.dayLogFor(day) ?: com.todocompanion.app.data.entity.DayLogEntity(day)
+        val cur = repo.dayLogFor(day) ?: com.todocompanion.app.data.entity.DayLogEntity(day, workspaceId = activeWorkspace())
         repo.upsertDayLog(cur.copy(amIntention = text.trim(), amMood = mood.coerceIn(0, 5), updatedAt = System.currentTimeMillis()))
     }
     fun saveEveningReflection(day: Long, text: String, mood: Int) = viewModelScope.launch {
-        val cur = repo.dayLogFor(day) ?: com.todocompanion.app.data.entity.DayLogEntity(day)
+        val cur = repo.dayLogFor(day) ?: com.todocompanion.app.data.entity.DayLogEntity(day, workspaceId = activeWorkspace())
         repo.upsertDayLog(cur.copy(pmReflection = text.trim(), pmMood = mood.coerceIn(0, 5), updatedAt = System.currentTimeMillis()))
     }
 

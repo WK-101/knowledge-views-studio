@@ -96,7 +96,7 @@ class ReminderReceiver : BroadcastReceiver() {
                     try {
                         val zone = ZoneId.systemDefault()
                         val today = Instant.now().atZone(zone).toLocalDate()
-                        val tasksOnce = app.repository.allTasksOnce()
+                        val tasksOnce = app.repository.wsTasksOnce()   // R62 — digest follows the active workspace
                         val count = tasksOnce.count {
                             !it.completed && !it.trashed && !it.abandoned && it.dueDate != null &&
                                 !Instant.ofEpochMilli(it.dueDate!!).atZone(zone).toLocalDate().isAfter(today)
@@ -104,7 +104,7 @@ class ReminderReceiver : BroadcastReceiver() {
                         // N1: the daily coach brief — keystone + at-risk streak — in the morning notification.
                         val brief = runCatching {
                             com.todocompanion.app.domain.habit.HabitInsights.dailyBrief(
-                                app.repository.getHabitsOnce(), app.repository.getHabitCheckinsOnce(), tasksOnce, today.toEpochDay(), zone
+                                app.repository.wsHabitsOnce(), app.repository.getHabitCheckinsOnce(), tasksOnce, today.toEpochDay(), zone
                             )?.let { b -> (listOf(b.headline) + b.moves.take(1).map { "${it.emoji} ${it.text}" }).joinToString(" · ") }
                         }.getOrNull()
                         // O1: find the top still-due build habit so the brief can be checked off in place.
@@ -112,7 +112,7 @@ class ReminderReceiver : BroadcastReceiver() {
                             val hs = com.todocompanion.app.domain.habit.HabitStats
                             val checkins = app.repository.getHabitCheckinsOnce()
                             val epoch = today.toEpochDay()
-                            app.repository.getHabitsOnce().filter { !it.archived && !it.paused && it.habitType != "break" }.firstOrNull { h ->
+                            app.repository.wsHabitsOnce().filter { !it.archived && !it.paused && it.habitType != "break" }.firstOrNull { h ->
                                 val hc = checkins.filter { it.habitId == h.id }
                                 val doneDays = hc.filter { it.status == "done" && hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
                                 hs.dueToday(h, epoch, doneDays, hc.firstOrNull { it.epochDay == epoch }?.count ?: 0)
@@ -133,7 +133,7 @@ class ReminderReceiver : BroadcastReceiver() {
                         val zone = ZoneId.systemDefault()
                         val today = Instant.now().atZone(zone).toLocalDate()
                         // Count today's open tasks left unfinished — the reason to sit down and plan tomorrow.
-                        val leftover = app.repository.allTasksOnce().count {
+                        val leftover = app.repository.wsTasksOnce().count {
                             !it.completed && !it.trashed && !it.abandoned && it.dueDate != null &&
                                 !Instant.ofEpochMilli(it.dueDate!!).atZone(zone).toLocalDate().isAfter(today)
                         }
@@ -152,7 +152,7 @@ class ReminderReceiver : BroadcastReceiver() {
                         val zone = ZoneId.systemDefault()
                         val today = Instant.now().atZone(zone).toLocalDate()
                         val endToday = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-                        val open = app.repository.allTasksOnce().filter { !it.completed && !it.trashed && !it.abandoned && !it.isNote }
+                        val open = app.repository.wsTasksOnce().filter { !it.completed && !it.trashed && !it.abandoned && !it.isNote }
                         val dueToday = open.filter { it.dueDate != null && it.dueDate!! < endToday }
                         // The single most pressing task: highest importance+urgency, then earliest due.
                         val top = dueToday.minWithOrNull(

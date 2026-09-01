@@ -133,7 +133,7 @@ private class AgendaFactory(private val context: Context, private val widgetId: 
         }
         val listId = if (scope.startsWith("list:")) scope.removePrefix("list:") else null
 
-        val tasks = runBlocking { app.repository.allTasksOnce() }
+        val tasks = runBlocking { app.repository.wsTasksOnce() }
         val taskRows = tasks.asSequence()
             .filter { !it.completed && !it.trashed && !it.abandoned }
             .filter { t ->
@@ -168,7 +168,7 @@ private class AgendaFactory(private val context: Context, private val widgetId: 
         // interleaved by start time. Only for the time-based scopes; a list-scoped widget stays tasks-only.
         val eventRows = if (listId != null || scope == "scheduled") emptyList() else runBlocking {
             val winEnd = if (scope == "next7") endWeek else endToday
-            com.todocompanion.app.domain.calendar.CalendarEngine.expand(app.repository.eventsOnce(), startToday, winEnd, zone)
+            com.todocompanion.app.domain.calendar.CalendarEngine.expand(app.repository.wsEventsOnce(), startToday, winEnd, zone)
                 .filter { it.endMillis >= System.currentTimeMillis() && it.startMillis < winEnd }
                 .map { o ->
                     val st = Instant.ofEpochMilli(o.startMillis).atZone(zone)

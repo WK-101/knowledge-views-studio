@@ -146,7 +146,7 @@ private class DoNextFactory(private val context: Context, private val widgetId: 
         val energy = WidgetPrefs.energy(context, widgetId)   // 0 any, 1..3
         val timeCap = WidgetPrefs.time(context, widgetId)     // 0 any, else minutes
 
-        val tasks = runBlocking { app.repository.allTasksOnce() }
+        val tasks = runBlocking { app.repository.wsTasksOnce() }
         val settings = runBlocking { app.repository.settingsSnapshot() }
         val cfg = PriorityEngine.Config(
             mode = when (settings.priorityMode) { "importance" -> PriorityEngine.Mode.IMPORTANCE; "urgency" -> PriorityEngine.Mode.URGENCY; else -> PriorityEngine.Mode.BOTH },
