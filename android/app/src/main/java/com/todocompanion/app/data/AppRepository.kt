@@ -564,6 +564,16 @@ class AppRepository(private val db: AppDatabase) {
     ): String {
         val id = uid()
         val order = tasks.maxSortOrder(listId, parentId) + 1.0
+        // R64 — stamp the owning workspace so isolation holds even in the SHARED Inbox. Derive it from the
+        // task's container (its list's / folder's workspace); a bare Inbox capture belongs to the workspace
+        // you captured it from. This is what keeps a workspace's Inbox tasks out of OTHER workspaces'
+        // smart lists (Someday/Today/…), while the Inbox list itself stays the one shared surface.
+        val ws = when {
+            listId == ListEntity.INBOX_ID -> activeWs()
+            listId.isNotBlank() -> lists.getById(listId)?.workspaceId ?: activeWs()
+            folderId != null -> folders.getById(folderId)?.workspaceId ?: activeWs()
+            else -> activeWs()
+        }
         tasks.upsert(
             TaskEntity(
                 id = id,
@@ -576,6 +586,7 @@ class AppRepository(private val db: AppDatabase) {
                 urgency = urgency,
                 dueDate = dueDate,
                 startDate = startDate,
+                workspaceId = ws,
                 createdAt = now(),
                 updatedAt = now(),
             )
@@ -769,13 +780,18 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun moveToList(rootId: String, newListId: String) {
         val ids = subtreeIds(rootId)
         val rootOrder = tasks.maxSortOrder(newListId, null) + 1.0
+        // R64 — re-home the workspace stamp with the task. A real destination list owns the task in its
+        // workspace; moving into the SHARED Inbox keeps the task's origin ownership (null → keep) so it
+        // still surfaces only in the workspace it came from, never leaking into others' smart lists.
+        val destWs = if (newListId == ListEntity.INBOX_ID) null else lists.getById(newListId)?.workspaceId
         for (id in ids) {
             val t = tasks.getById(id) ?: continue
+            val ws = destWs ?: t.workspaceId
             // Moving into a real list clears any folder-direct association so it lives in one place.
             if (id == rootId) {
-                tasks.upsert(t.copy(listId = newListId, folderId = null, parentId = null, sortOrder = rootOrder, updatedAt = now()))
+                tasks.upsert(t.copy(listId = newListId, folderId = null, parentId = null, sortOrder = rootOrder, workspaceId = ws, updatedAt = now()))
             } else {
-                tasks.upsert(t.copy(listId = newListId, folderId = null, updatedAt = now()))
+                tasks.upsert(t.copy(listId = newListId, folderId = null, workspaceId = ws, updatedAt = now()))
             }
         }
         logActivity(rootId, "moved", lists.getById(newListId)?.name)
@@ -785,12 +801,15 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun moveToFolder(rootId: String, folderId: String) {
         val ids = subtreeIds(rootId)
         val rootOrder = tasks.maxSortOrder("", null) + 1.0
+        // R64 — the folder's workspace owns the task now (keeps isolation consistent on a move).
+        val destWs = folders.getById(folderId)?.workspaceId
         for (id in ids) {
             val t = tasks.getById(id) ?: continue
-            if (id == rootId) tasks.upsert(t.copy(listId = "", folderId = folderId, parentId = null, sortOrder = rootOrder, updatedAt = now()))
-            else tasks.upsert(t.copy(listId = "", folderId = folderId, updatedAt = now()))
+            val ws = destWs ?: t.workspaceId
+            if (id == rootId) tasks.upsert(t.copy(listId = "", folderId = folderId, parentId = null, sortOrder = rootOrder, workspaceId = ws, updatedAt = now()))
+            else tasks.upsert(t.copy(listId = "", folderId = folderId, workspaceId = ws, updatedAt = now()))
         }
-        logActivity(rootId, "moved", folders.getAll().firstOrNull { it.id == folderId }?.name)
+        logActivity(rootId, "moved", folders.getById(folderId)?.name)
     }
 
     // ============ workspaces ============
@@ -1193,12 +1212,17 @@ class AppRepository(private val db: AppDatabase) {
 
     // R62 — workspace-scoped one-shot reads for home-screen widgets and background notifications, so those
     // surfaces show ONLY the active workspace's data. The scoping logic lives here once, mirroring the flows.
-    /** Tasks in the active workspace — by list/folder membership (+ the shared Inbox), exactly like the app. */
+    /** Tasks in the active workspace — by list/folder membership, exactly like the app's [wsTasks]. An Inbox
+     *  task belongs to the workspace it was captured in ([workspaceId]), so widgets/notifications show only
+     *  the active workspace's Inbox items, never every workspace's (R64). */
     suspend fun wsTasksOnce(): List<TaskEntity> {
         val ws = activeWs()
-        val listIds = lists.getAll().filter { it.workspaceId == ws }.map { it.id }.toSet() + ListEntity.INBOX_ID
+        val listIds = lists.getAll().filter { it.workspaceId == ws }.map { it.id }.toSet()
         val folderIds = folders.getAll().filter { it.workspaceId == ws }.map { it.id }.toSet()
-        return tasks.getAll().filter { it.listId in listIds || (it.folderId != null && it.folderId in folderIds) }
+        return tasks.getAll().filter {
+            if (it.listId == ListEntity.INBOX_ID) it.workspaceId == ws
+            else it.listId in listIds || (it.folderId != null && it.folderId in folderIds)
+        }
     }
     suspend fun wsCountdownsOnce(): List<com.todocompanion.app.data.entity.CountdownEntity> =
         countdowns.getAll().filter { it.workspaceId == activeWs() }

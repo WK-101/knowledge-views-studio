@@ -158,7 +158,7 @@ private fun ValuesScreen(vm: AppViewModel, onBack: () -> Unit) {
     val values by vm.coreValues.collectAsState()
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
-    val tasks by vm.allTasksLive.collectAsState()   // R37 · Port 9 — real work counts toward values too
+    val tasks by vm.tasks.collectAsState()   // R37 · Port 9 — real work counts toward values (R64: this workspace's work only)
     val zone = java.time.ZoneId.systemDefault()
     val today = LocalDate.now().toEpochDay()
     val weekStart = today - 6
@@ -571,7 +571,7 @@ private fun LoadBalancerScreen(vm: AppViewModel, onBack: () -> Unit) {
 private fun CausalGraphScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit: (String) -> Unit) {
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
-    val tasks by vm.allTasksLive.collectAsState()
+    val tasks by vm.tasks.collectAsState()   // R64 — this workspace's task output only
     val today = LocalDate.now().toEpochDay()
     val edges = remember(habits, checkins) { FourthWave.causalPrecursors(habits, checkins, today) }
     val outEdges = remember(habits, checkins, tasks) { FourthWave.causalOutput(habits, checkins, tasks, today) }
@@ -629,7 +629,7 @@ private fun CausalGraphScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit:
 @Composable
 private fun ReceptivityScreen(vm: AppViewModel, onBack: () -> Unit) {
     val checkins by vm.habitCheckins.collectAsState()
-    val tasks by vm.allTasksLive.collectAsState()
+    val tasks by vm.tasks.collectAsState()   // R64 — this workspace's task rhythm only
     val rec = remember(checkins, tasks) { FourthWave.receptivity(checkins, tasks) }
     LSScaffold("Receptivity model", onBack) { pad ->
         if (rec == null) {

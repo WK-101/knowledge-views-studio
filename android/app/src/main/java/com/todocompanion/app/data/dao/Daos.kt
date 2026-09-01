@@ -459,6 +459,9 @@ interface FolderDao {
     @Query("SELECT * FROM folders")
     suspend fun getAll(): List<FolderEntity>
 
+    @Query("SELECT * FROM folders WHERE id = :id")
+    suspend fun getById(id: String): FolderEntity?
+
     @Upsert
     suspend fun upsert(folder: FolderEntity)
 

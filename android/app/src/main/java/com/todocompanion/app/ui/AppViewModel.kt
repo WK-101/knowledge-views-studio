@@ -118,9 +118,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val activeFolderIds: Flow<Set<String>> =
         combine(repo.allFolders, activeWs) { all, ws -> all.filter { it.workspaceId == ws }.map { it.id }.toSet() }
     private val wsTasks: Flow<List<TaskEntity>> =
-        combine(repo.allTasks, activeListIds, activeFolderIds) { all, listIds, folderIds ->
-            all.filter { it.listId in listIds || (it.folderId != null && it.folderId in folderIds) }
+        combine(repo.allTasks, activeListIds, activeFolderIds, activeWs) { all, listIds, folderIds, ws ->
+            all.filter {
+                // R64 — the shared Inbox is workspace-owned per task: an Inbox task belongs to the workspace
+                // it was captured in (its [workspaceId]), so it appears in THAT workspace's smart lists only,
+                // not every workspace's. This closes the leak where Someday/Today/… showed shared-Inbox tasks
+                // in every space. Non-Inbox tasks stay scoped by list/folder membership as before. The Inbox
+                // LIST view itself is the single shared surface — it reads [inboxTasksAll], not this flow.
+                if (it.listId == ListEntity.INBOX_ID) it.workspaceId == ws
+                else it.listId in listIds || (it.folderId != null && it.folderId in folderIds)
+            }
         }
+
+    /** The one shared surface: every Inbox task across all workspaces. The Inbox list view (and its count)
+     *  read this so the Inbox stays the single cross-workspace zone; nothing else does. */
+    private val inboxTasksAll: Flow<List<TaskEntity>> =
+        repo.allTasks.map { all -> all.filter { it.listId == ListEntity.INBOX_ID } }
 
     val tasks: StateFlow<List<TaskEntity>> = wsTasks.state(emptyList())
     // R29 #4 — the recap counts what you actually finished, across every workspace (an accomplishment
@@ -362,7 +375,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val focusSessions = repo.allFocusSessions.scopedBy { it.workspaceId }
     // R37 · Port 5 — the receptive hour (0..23) learned from when you actually finish habits & tasks, or
     // null when there isn't enough signal / the setting is off. Feeds the daily-brief scheduler.
-    val receptiveHour: StateFlow<Int?> = combine(habitCheckins, allTasksLive, settings) { c, t, s ->
+    // R64 — reads the active workspace's habits & tasks (habitCheckins/tasks are scoped), not every space's.
+    val receptiveHour: StateFlow<Int?> = combine(habitCheckins, tasks, settings) { c, t, s ->
         if (!s.receptivityTiming) null
         else com.todocompanion.app.domain.habit.FourthWave.receptivity(c, t, zone)?.let { (it.bestBucket * 3 + 1).coerceIn(0, 23) }
     }.state(null)
@@ -398,12 +412,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Live task count per smart list, for the drawer. */
     val smartCounts: StateFlow<Map<SmartKind, Int>> =
         combine(
-            wsTasks, repo.allDependencies, settings,
+            combine(wsTasks, inboxTasksAll) { ws, inbox -> ws to inbox }, repo.allDependencies, settings,
             combine(repo.taskContextRefs, repo.allContexts) { r, c -> r to c },
-        ) { t, deps, set, rc ->
+        ) { tPair, deps, set, rc ->
+            val t = tPair.first          // workspace-clean tasks — every badge except Inbox
+            val inbox = tPair.second     // the shared Inbox set — the one cross-workspace surface
             val now = System.currentTimeMillis()
             SmartKind.entries.associateWith { k ->
                 when (k) {
+                    // The shared Inbox badge counts every workspace's Inbox tasks (matches the shared view).
+                    SmartKind.INBOX -> TaskViews.filterSmart(inbox, SmartKind.INBOX, now, zone, dayStartMin).size
                     // Dependency-aware, so it can't go through the pure filterSmart path.
                     SmartKind.WAITING -> {
                         val byId = t.associateBy { it.id }
@@ -541,14 +559,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     val groups: StateFlow<List<TaskGroup>> =
         combine(
-            wsTasks,
+            combine(wsTasks, inboxTasksAll) { ws, inbox -> ws to inbox },
             combine(currentView, groupMode, sortMode, settings, combine(repo.allFlags, timeAvailableMin, energyAvailable) { fl, ta, ea -> Triple(fl, ta, ea) }) { v, g, s, set, fte -> Cfg(v, g, s, set.priorityConfig(), fte.first, fte.second, fte.third, set.activeWorkspaceId) },
             repo.taskTagRefs,
             combine(repo.taskContextRefs, repo.allContexts, repo.allFilters, repo.allLists, combine(repo.allFolders, repo.allTags) { fo, tg -> fo to tg }) { r, c, f, l, foTg -> ViewCtx(r, c, f, l, foTg.first, foTg.second) },
             repo.allDependencies,
-        ) { all, cfg, ttRefs, vc, deps ->
+        ) { wsPair, cfg, ttRefs, vc, deps ->
             val tcRefs = vc.tcRefs; val ctxEntities = vc.contexts; val filterList = vc.filters
             val now = System.currentTimeMillis()
+            // The base task set is the workspace-clean [wsTasks]; ONLY when viewing the Inbox do we swap in
+            // the shared, cross-workspace Inbox set (deduped so a current-workspace Inbox task isn't doubled).
+            val viewingInbox = (cfg.view as? ViewRef.Smart)?.kind == SmartKind.INBOX ||
+                (cfg.view as? ViewRef.ListView)?.listId == ListEntity.INBOX_ID
+            val all = if (viewingInbox) {
+                val ids = wsPair.first.mapTo(HashSet()) { it.id }
+                wsPair.first + wsPair.second.filter { it.id !in ids }
+            } else wsPair.first
             val filteredRaw = when (val v = cfg.view) {
                 is ViewRef.Smart -> {
                     when (v.kind) {
