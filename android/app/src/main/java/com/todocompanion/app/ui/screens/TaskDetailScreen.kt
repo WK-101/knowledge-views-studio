@@ -1250,7 +1250,6 @@ private fun ActivityEditDialog(
     var emoji by remember { mutableStateOf(activity.emoji) }
     var color by remember { mutableStateOf(activity.colorArgb) }
     var confirmDelete by remember { mutableStateOf(false) }
-    val palette = listOf(0xFF3E7BFAL, 0xFFE5484DL, 0xFFF59E0BL, 0xFF16A34AL, 0xFF8B5CF6L, 0xFF0EA5E9L, 0xFFEC4899L, 0xFF64748BL)
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onSave(activity.copy(name = name.trim(), emoji = emoji, colorArgb = color)) }, enabled = name.isNotBlank()) { Text("Save") } },

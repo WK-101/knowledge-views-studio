@@ -93,7 +93,7 @@ fun KanbanScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modif
     val byKey = tasks.groupBy(keyOf)
 
     Column(modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Group:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.CenterVertically))
             KanbanBy.entries.forEach { m -> FilterChip(selected = by == m, onClick = { by = m }, label = { Text(m.label) }) }
         }
