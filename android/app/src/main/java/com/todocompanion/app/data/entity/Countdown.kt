@@ -50,4 +50,6 @@ data class CountdownEntity(
     val chainNextId: String? = null,      // #32 countdown chains: the id of the occasion that follows this one
     val sealedLetter: String = "",        // #31 a letter to the future, revealed on/after sealedUntil
     val sealedUntil: Long = 0L,           // epoch-millis the letter unlocks (0 = no letter)
+    // R62 — the workspace this occasion belongs to; occasions are fully isolated per workspace.
+    val workspaceId: String = "default",
 )

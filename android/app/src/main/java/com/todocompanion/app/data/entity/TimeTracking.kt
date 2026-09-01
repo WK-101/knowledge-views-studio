@@ -31,6 +31,8 @@ data class TimeActivityEntity(
     // "" = every day. Progress is summed minutes tracked to this activity on a goal day.
     val goalMinutesPerDay: Int = 0,
     val goalDays: String = "",
+    // R62 — the workspace this activity belongs to; time tracking is fully isolated per workspace.
+    val workspaceId: String = "default",
 )
 
 @Serializable
@@ -57,6 +59,8 @@ data class TimeEntryEntity(
     // Tier U11: free-form tags on the interval (comma-separated labels), for per-tag reporting.
     // Kept as a simple string so it round-trips through the lossless JSON backup with no extra table.
     val tags: String = "",
+    // R62 — the workspace this interval belongs to (mirrors its activity's workspace).
+    val workspaceId: String = "default",
 ) {
     val running: Boolean get() = endMillis == null
     /** Elapsed minutes, clamped to a floor of 0. For a running entry, pass [nowMillis]. */

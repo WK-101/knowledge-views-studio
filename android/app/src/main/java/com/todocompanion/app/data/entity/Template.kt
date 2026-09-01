@@ -18,6 +18,8 @@ data class TemplateEntity(
     val name: String,
     val payloadJson: String,
     val createdAt: Long,
+    // R62 — the workspace this template belongs to; templates are fully isolated per workspace.
+    val workspaceId: String = "default",
 )
 
 /** One node of a template subtree. Tags/contexts are stored by name so they re-resolve on use. */

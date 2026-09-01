@@ -21,6 +21,8 @@ data class FlagEntity(
     val icon: String = "bookmark",   // an icon key resolved by FlagIcons
     val sortOrder: Double,           // user-defined order → group/sort rank
     val createdAt: Long = 0L,
+    // R62 — the workspace this flag belongs to; flags are fully isolated per workspace.
+    val workspaceId: String = "default",
 ) {
     companion object {
         /**

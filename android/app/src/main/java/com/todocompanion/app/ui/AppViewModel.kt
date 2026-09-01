@@ -104,6 +104,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- workspaces ----------
     val workspaces = repo.allWorkspaces.state(emptyList())
     private val activeWs: Flow<String> = settings.map { it.activeWorkspaceId }
+    /** The current workspace id, read synchronously — used to STAMP new rows so every feature is isolated. */
+    private fun activeWorkspace(): String = settings.value.activeWorkspaceId
+    /** R62 — the one scoping helper: keep only rows whose [wsOf] equals the active workspace. Every
+     *  per-workspace feature flow funnels through this, so isolation is uniform and auditable. */
+    private fun <T> Flow<List<T>>.scopedBy(wsOf: (T) -> String): StateFlow<List<T>> =
+        combine(this, activeWs) { list, w -> list.filter { wsOf(it) == w } }.state(emptyList())
     /** The single isolation choke point: list ids belonging to the active workspace (+ the shared Inbox). */
     private val activeListIds: Flow<Set<String>> =
         combine(repo.allLists, activeWs) { all, ws -> all.filter { it.workspaceId == ws }.map { it.id }.toSet() + ListEntity.INBOX_ID }
@@ -126,35 +132,42 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val lists = combine(repo.allLists, activeWs) { l, ws -> l.filter { it.workspaceId == ws || it.id == ListEntity.INBOX_ID } }.state(emptyList())
     val tags: StateFlow<List<TagEntity>> = combine(repo.allTags, activeWs) { t, ws -> t.filter { it.workspaceId == ws } }.state(emptyList())
     val contexts: StateFlow<List<ContextEntity>> = combine(repo.allContexts, activeWs) { c, ws -> c.filter { it.workspaceId == ws } }.state(emptyList())
-    val flags: StateFlow<List<FlagEntity>> = repo.allFlags.state(emptyList())
-    val templates: StateFlow<List<TemplateEntity>> = repo.allTemplates.state(emptyList())
-    val countdowns = repo.allCountdowns.state(emptyList())
-    val sealedNotes = repo.allSealedNotes.state(emptyList())
-    val cravings = repo.allCravings.state(emptyList())
+    // R62 — every one of these is now workspace-isolated (scopedBy filters to the active workspace).
+    val flags: StateFlow<List<FlagEntity>> = repo.allFlags.scopedBy { it.workspaceId }
+    val templates: StateFlow<List<TemplateEntity>> = repo.allTemplates.scopedBy { it.workspaceId }
+    val countdowns = repo.allCountdowns.scopedBy { it.workspaceId }
+    val sealedNotes = repo.allSealedNotes.scopedBy { it.workspaceId }
+    val cravings = repo.allCravings.scopedBy { it.workspaceId }
     // R34 — life-systems layer flows.
-    val coreValues = repo.allCoreValues.state(emptyList())
-    val witnessEvents = repo.allWitnessEvents.state(emptyList())
-    val scorecardItems = repo.allScorecardItems.state(emptyList())
-    val buddies = repo.allBuddies.state(emptyList())
-    val integrityReviews = repo.allIntegrityReviews.state(emptyList())
+    val coreValues = repo.allCoreValues.scopedBy { it.workspaceId }
+    val witnessEvents = repo.allWitnessEvents.scopedBy { it.workspaceId }
+    val scorecardItems = repo.allScorecardItems.scopedBy { it.workspaceId }
+    val buddies = repo.allBuddies.scopedBy { it.workspaceId }
+    val integrityReviews = repo.allIntegrityReviews.scopedBy { it.workspaceId }
     // R35 — third-wave flows.
-    val experiments = repo.allExperiments.state(emptyList())
-    val activationItems = repo.allActivationItems.state(emptyList())
+    val experiments = repo.allExperiments.scopedBy { it.workspaceId }
+    val activationItems = repo.allActivationItems.scopedBy { it.workspaceId }
+    // Day logs are a single per-calendar-day bookend (PK = epochDay); global by design (a composite-key
+    // change would be a non-additive migration), so this one stays device-wide, like app settings.
     val dayLogs = repo.allDayLogs.state(emptyList())
     // R36 — fourth-wave flows.
-    val escrows = repo.allEscrows.state(emptyList())
-    val nudgeEvents = repo.allNudgeEvents.state(emptyList())
+    val escrows = repo.allEscrows.scopedBy { it.workspaceId }
+    val nudgeEvents = repo.allNudgeEvents.scopedBy { it.workspaceId }
     // R38 — dedicated-calendar flows. calendarRoute overlays the Events surface (agenda|editor:<id>|
     // calendars|gaps|heatmap|worldclock|import). eventEditorId holds the event being edited (or "new").
-    val eventCalendars = repo.allEventCalendars.state(emptyList())
-    val events = repo.allEvents.state(emptyList())
+    val eventCalendars = repo.allEventCalendars.scopedBy { it.workspaceId }
+    // Events are scoped transitively through their calendar (an event's workspace IS its calendar's), so
+    // moving/removing a calendar can never leave an event stranded in the wrong space.
+    private val activeCalendarIds: Flow<Set<String>> =
+        combine(repo.allEventCalendars, activeWs) { all, w -> all.filter { it.workspaceId == w }.map { it.id }.toSet() }
+    val events = combine(repo.allEvents, activeCalendarIds) { evs, ids -> evs.filter { it.calendarId in ids } }.state(emptyList())
     val calendarRoute = MutableStateFlow<String?>(null)
     // Non-null → the Life-Systems hub/screen overlays the tab (route key: hub|values|scorecard|correlations|reviews|ledger|buddies|friction|experiments|activation|forecast|heatmap|valuestime|runner|companion).
     val lifeSystemsRoute = MutableStateFlow<String?>(null)
     fun saveCountdown(id: String?, title: String, targetMillis: Long, emoji: String?, colorArgb: Long?) = viewModelScope.launch {
         val existing = id?.let { cid -> countdowns.value.firstOrNull { it.id == cid } }
         repo.upsertCountdown(
-            (existing ?: com.todocompanion.app.data.entity.CountdownEntity(id = UUID.randomUUID().toString(), title = title, targetMillis = targetMillis, createdAt = System.currentTimeMillis()))
+            (existing ?: com.todocompanion.app.data.entity.CountdownEntity(id = UUID.randomUUID().toString(), title = title, targetMillis = targetMillis, createdAt = System.currentTimeMillis(), workspaceId = activeWorkspace()))
                 .copy(title = title.trim().ifBlank { "Countdown" }, targetMillis = targetMillis, emoji = emoji, colorArgb = colorArgb)
         )
         com.todocompanion.app.widget.CountdownWidget.refresh(appCtx)
@@ -347,7 +360,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val filters = combine(repo.allFilters, activeWs) { f, ws -> f.filter { it.workspaceId == ws } }.state(emptyList())
     val habits = combine(repo.allHabits, activeWs) { h, ws -> h.filter { it.workspaceId == ws && !it.archived } }.state(emptyList())
     val habitCheckins = repo.allCheckins.state(emptyList())
-    val focusSessions = repo.allFocusSessions.state(emptyList())
+    val focusSessions = repo.allFocusSessions.scopedBy { it.workspaceId }
     // R37 · Port 5 — the receptive hour (0..23) learned from when you actually finish habits & tasks, or
     // null when there isn't enough signal / the setting is off. Feeds the daily-brief scheduler.
     val receptiveHour: StateFlow<Int?> = combine(habitCheckins, allTasksLive, settings) { c, t, s ->
@@ -355,8 +368,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         else com.todocompanion.app.domain.habit.FourthWave.receptivity(c, t, zone)?.let { (it.bestBucket * 3 + 1).coerceIn(0, 23) }
     }.state(null)
     // Tier S: time tracking.
-    val timeActivities = repo.allTimeActivities.state(emptyList())
-    val timeEntries = repo.allTimeEntries.state(emptyList())
+    val timeActivities = repo.allTimeActivities.scopedBy { it.workspaceId }
+    val timeEntries = repo.allTimeEntries.scopedBy { it.workspaceId }
     val taskTags = repo.taskTagRefs.state(emptyList())
     val taskContexts = repo.taskContextRefs.state(emptyList())
     val checklist = repo.allChecklist.state(emptyList())
@@ -2352,7 +2365,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val end = start + b.durMin * 60_000L
         val act = activityId ?: repo.ensureTaskActivity()
         val id = java.util.UUID.randomUUID().toString()
-        repo.upsertTimeEntry(com.todocompanion.app.data.entity.TimeEntryEntity(id, act, start, end, "", b.taskId, null, System.currentTimeMillis()))
+        repo.upsertTimeEntry(com.todocompanion.app.data.entity.TimeEntryEntity(id, act, start, end, "", b.taskId, null, System.currentTimeMillis(), workspaceId = activeWorkspace()))
         refreshTimeWidget()
         appendAction("backfill", "Logged ${b.durMin}m to ‘${b.title}’", "{\"entry\":\"$id\"}")   // Z6: undoable
         toast("Logged ${b.durMin}m to ‘${b.title}’")
@@ -2775,7 +2788,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             id = java.util.UUID.randomUUID().toString(), habitId = h.id, atMillis = now,
             epochDay = d.toLocalDate().toEpochDay(), minuteOfDay = d.hour * 60 + d.minute,
             intensity = intensity.coerceIn(1, 5), trigger = trigger.trim(), surfed = surfed,
-            halt = halt, durationSec = durationSec.coerceAtLeast(0),
+            halt = halt, durationSec = durationSec.coerceAtLeast(0), workspaceId = activeWorkspace(),
         ))
         if (!surfed) logSlip(h, trigger.ifBlank { "urge" })
         toast(if (surfed) "You rode it out 🌊 Nicely done." else "Logged. A slip isn't a relapse — back on it.")
@@ -2814,7 +2827,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val existing = id?.let { vid -> coreValues.value.firstOrNull { it.id == vid } }
         val order = existing?.orderIndex ?: ((coreValues.value.maxOfOrNull { it.orderIndex } ?: 0) + 1)
         repo.upsertCoreValue(
-            (existing ?: com.todocompanion.app.data.entity.CoreValueEntity(id = java.util.UUID.randomUUID().toString(), name = name, orderIndex = order, createdAt = System.currentTimeMillis()))
+            (existing ?: com.todocompanion.app.data.entity.CoreValueEntity(id = java.util.UUID.randomUUID().toString(), name = name, orderIndex = order, createdAt = System.currentTimeMillis(), workspaceId = activeWorkspace()))
                 .copy(name = name.trim().ifBlank { "Value" }, emoji = emoji, colorArgb = colorArgb, statement = statement.trim())
         )
     }
@@ -2829,7 +2842,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun addScorecardItem(text: String, sign: Int) = viewModelScope.launch {
         val t = text.trim(); if (t.isBlank()) return@launch
         val order = (scorecardItems.value.maxOfOrNull { it.orderIndex } ?: 0) + 1
-        repo.upsertScorecardItem(com.todocompanion.app.data.entity.ScorecardItemEntity(java.util.UUID.randomUUID().toString(), t, sign.coerceIn(-1, 1), order, System.currentTimeMillis()))
+        repo.upsertScorecardItem(com.todocompanion.app.data.entity.ScorecardItemEntity(java.util.UUID.randomUUID().toString(), t, sign.coerceIn(-1, 1), order, System.currentTimeMillis(), workspaceId = activeWorkspace()))
     }
     fun setScorecardSign(item: com.todocompanion.app.data.entity.ScorecardItemEntity, sign: Int) = viewModelScope.launch { repo.upsertScorecardItem(item.copy(sign = sign.coerceIn(-1, 1))) }
     fun deleteScorecardItem(id: String) = viewModelScope.launch { repo.deleteScorecardItem(id) }
@@ -2852,7 +2865,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun addWitness(h: com.todocompanion.app.data.entity.HabitEntity, milestoneLabel: String, note: String) = viewModelScope.launch {
         val ref = h.refereeName.trim(); if (ref.isBlank()) { toast("Name a referee in the habit's editor first."); return@launch }
         repo.upsertWitness(com.todocompanion.app.data.entity.WitnessEventEntity(
-            java.util.UUID.randomUUID().toString(), h.id, ref, milestoneLabel.trim().ifBlank { "Milestone" }, System.currentTimeMillis(), note.trim()))
+            java.util.UUID.randomUUID().toString(), h.id, ref, milestoneLabel.trim().ifBlank { "Milestone" }, System.currentTimeMillis(), note.trim(), workspaceId = activeWorkspace()))
         toast("$ref witnessed it ✍️")
     }
     fun deleteWitness(id: String) = viewModelScope.launch { repo.deleteWitness(id) }
@@ -2891,7 +2904,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun importBuddyDigest(json: String) = viewModelScope.launch {
         val digest = runCatching { kotlinx.serialization.json.Json { ignoreUnknownKeys = true }.decodeFromString(com.todocompanion.app.domain.habit.LifeSystems.BuddyDigest.serializer(), json) }.getOrNull()
         if (digest == null) { toast("That doesn't look like a buddy digest."); return@launch }
-        repo.upsertBuddy(com.todocompanion.app.data.entity.BuddySnapshotEntity(java.util.UUID.randomUUID().toString(), digest.name, System.currentTimeMillis(), json))
+        repo.upsertBuddy(com.todocompanion.app.data.entity.BuddySnapshotEntity(java.util.UUID.randomUUID().toString(), digest.name, System.currentTimeMillis(), json, workspaceId = activeWorkspace()))
         toast("Imported ${digest.name}'s progress 🤝")
     }
     fun deleteBuddy(id: String) = viewModelScope.launch { repo.deleteBuddy(id) }
@@ -2899,7 +2912,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // LS6 save an integrity-review reflection
     fun saveIntegrityReview(kind: String, periodKey: String, note: String, statsJson: String) = viewModelScope.launch {
         repo.upsertIntegrityReview(com.todocompanion.app.data.entity.IntegrityReviewEntity(
-            java.util.UUID.randomUUID().toString(), kind, periodKey, System.currentTimeMillis(), note.trim(), statsJson))
+            java.util.UUID.randomUUID().toString(), kind, periodKey, System.currentTimeMillis(), note.trim(), statsJson, workspaceId = activeWorkspace()))
         toast("Review saved to your ledger.")
     }
     fun deleteIntegrityReview(id: String) = viewModelScope.launch { repo.deleteIntegrityReview(id) }
@@ -2940,7 +2953,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val today = java.time.LocalDate.now(zone).toEpochDay()
         repo.upsertExperiment(com.todocompanion.app.data.entity.ExperimentEntity(
             id = java.util.UUID.randomUUID().toString(), habitId = habitId, outcome = outcome,
-            startDay = today, blockLenDays = blockLen.coerceIn(1, 14), blocks = blocks.coerceIn(2, 12), createdAt = System.currentTimeMillis()))
+            startDay = today, blockLenDays = blockLen.coerceIn(1, 14), blocks = blocks.coerceIn(2, 12), createdAt = System.currentTimeMillis(), workspaceId = activeWorkspace()))
         toast("Experiment started. Follow the on/off blocks and log your ${outcome}.")
     }
     fun endExperiment(e: com.todocompanion.app.data.entity.ExperimentEntity) = viewModelScope.launch { repo.upsertExperiment(e.copy(active = false)) }
@@ -2950,7 +2963,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun addActivation(text: String, valueId: String?, day: Long) = viewModelScope.launch {
         val t = text.trim(); if (t.isBlank()) return@launch
         repo.upsertActivationItem(com.todocompanion.app.data.entity.ActivationItemEntity(
-            id = java.util.UUID.randomUUID().toString(), text = t, valueId = valueId, plannedDay = day, createdAt = System.currentTimeMillis()))
+            id = java.util.UUID.randomUUID().toString(), text = t, valueId = valueId, plannedDay = day, createdAt = System.currentTimeMillis(), workspaceId = activeWorkspace()))
     }
     fun rateActivation(item: com.todocompanion.app.data.entity.ActivationItemEntity, pleasure: Int, mastery: Int) = viewModelScope.launch {
         repo.upsertActivationItem(item.copy(done = true, pleasure = pleasure.coerceIn(0, 5), mastery = mastery.coerceIn(0, 5)))
@@ -2995,7 +3008,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val d = description.trim(); if (d.isBlank()) return@launch
         repo.upsertEscrow(com.todocompanion.app.data.entity.EscrowEntity(
             id = java.util.UUID.randomUUID().toString(), habitId = habitId, description = d, kind = kind,
-            milestoneKind = milestoneKind, milestoneValue = milestoneValue.coerceAtLeast(1), createdAt = System.currentTimeMillis()))
+            milestoneKind = milestoneKind, milestoneValue = milestoneValue.coerceAtLeast(1), createdAt = System.currentTimeMillis(), workspaceId = activeWorkspace()))
         toast(if (kind == "stake") "Stake locked. It's real now — reach the milestone or it's forfeit." else "Reward escrowed. Earn it at the milestone.")
     }
     fun releaseEscrow(e: com.todocompanion.app.data.entity.EscrowEntity, redeem: Boolean) = viewModelScope.launch {
@@ -3015,7 +3028,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (repo.nudgeForHabitDay(habitId, day) != null) return@launch   // one impression per habit per day
         repo.upsertNudgeEvent(com.todocompanion.app.data.entity.NudgeEventEntity(
             id = java.util.UUID.randomUUID().toString(), habitId = habitId, variant = variant, epochDay = day,
-            createdAt = System.currentTimeMillis()))
+            createdAt = System.currentTimeMillis(), workspaceId = activeWorkspace()))
     }
     /** Mark open nudge impressions from the last two weeks as acted/not, by whether the target (habit or
      *  task) was completed that day. R37: extended to task-reminder impressions (targetKind = "task"). */
@@ -3052,7 +3065,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val d = description.trim(); if (d.isBlank()) return@launch
         repo.upsertEscrow(com.todocompanion.app.data.entity.EscrowEntity(
             id = java.util.UUID.randomUUID().toString(), habitId = null, taskId = taskId, description = d, kind = kind,
-            milestoneKind = "taskdone", milestoneValue = 1, createdAt = System.currentTimeMillis()))
+            milestoneKind = "taskdone", milestoneValue = 1, createdAt = System.currentTimeMillis(), workspaceId = activeWorkspace()))
         toast(if (kind == "stake") "Stake locked on shipping this. It's real now." else "Reward escrowed — earn it by finishing this.")
     }
 
@@ -3061,7 +3074,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (repo.nudgeForHabitDay(taskId, day) != null) return@launch
         repo.upsertNudgeEvent(com.todocompanion.app.data.entity.NudgeEventEntity(
             id = java.util.UUID.randomUUID().toString(), habitId = taskId, variant = variant, epochDay = day,
-            targetKind = "task", createdAt = System.currentTimeMillis()))
+            targetKind = "task", createdAt = System.currentTimeMillis(), workspaceId = activeWorkspace()))
     }
 
     /** Port 8 — fresh-start task planning: pull every stale overdue task onto today, so the week's plan
@@ -3377,6 +3390,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 targetMillis = millis, emoji = "🎂", createdAt = System.currentTimeMillis(),
                 eventType = com.todocompanion.app.domain.LifeEvent.EventType.BIRTHDAY.name,
                 yearly = true, yearKnown = b.year != null, category = "Contacts",
+                workspaceId = activeWorkspace(),
             ))
             added++
         }
@@ -3881,6 +3895,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 minutes = (((it.endMillis ?: now) - it.startMillis) / 60_000L).toInt().coerceAtLeast(0),
                 kind = "focus",
                 taskId = it.taskId,
+                workspaceId = it.workspaceId,
             )
         }.toList()
         // Days that already have a timeline focus interval are fully represented there; only fold in legacy
@@ -4379,7 +4394,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.upsertSealedNote(com.todocompanion.app.data.entity.SealedNoteEntity(
             id = java.util.UUID.randomUUID().toString(), createdEpochDay = today,
             revealEpochDay = revealEpochDay.coerceAtLeast(today + 1), title = title.trim().ifBlank { "A letter to future me" },
-            body = body.trim(), anchorHash = hash, sealedCount = doneFeed().size,
+            body = body.trim(), anchorHash = hash, sealedCount = doneFeed().size, workspaceId = activeWorkspace(),
         ))
         toast("Sealed — opens ${java.time.LocalDate.ofEpochDay(revealEpochDay)}")
     }

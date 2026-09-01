@@ -395,7 +395,7 @@ class AppRepository(private val db: AppDatabase) {
     private val focus = db.focusDao()
     val allFocusSessions: Flow<List<FocusSessionEntity>> = focus.observeAll()
     suspend fun addFocusSession(epochDay: Long, startMillis: Long, minutes: Int, kind: String, taskId: String? = null) =
-        focus.upsert(FocusSessionEntity(uid(), epochDay, startMillis, minutes, kind, taskId))
+        focus.upsert(FocusSessionEntity(uid(), epochDay, startMillis, minutes, kind, taskId, activeWs()))
 
     // ----- Tier S: time tracking -----
     val allTimeActivities: Flow<List<com.todocompanion.app.data.entity.TimeActivityEntity>> = timeTrack.observeActivities()
@@ -404,7 +404,7 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun createTimeActivity(name: String, emoji: String?, colorArgb: Long?, goalMinutesPerDay: Int = 0): String {
         val id = uid()
         val order = (timeTrack.getActivities().maxOfOrNull { it.sortOrder } ?: 0.0) + 1.0
-        timeTrack.upsertActivity(com.todocompanion.app.data.entity.TimeActivityEntity(id, name.trim().ifBlank { "Activity" }, emoji, colorArgb, false, order, now(), goalMinutesPerDay, ""))
+        timeTrack.upsertActivity(com.todocompanion.app.data.entity.TimeActivityEntity(id, name.trim().ifBlank { "Activity" }, emoji, colorArgb, false, order, now(), goalMinutesPerDay, "", activeWs()))
         return id
     }
     suspend fun upsertTimeActivity(a: com.todocompanion.app.data.entity.TimeActivityEntity) = timeTrack.upsertActivity(a)
@@ -449,7 +449,7 @@ class AppRepository(private val db: AppDatabase) {
         if (stopFirst) stopTimeTracking()
         val id = uid()
         val start = startMillis ?: now()
-        timeTrack.upsertEntry(com.todocompanion.app.data.entity.TimeEntryEntity(id, activityId, start, null, "", taskId, habitId, now(), kind = kind))
+        timeTrack.upsertEntry(com.todocompanion.app.data.entity.TimeEntryEntity(id, activityId, start, null, "", taskId, habitId, now(), kind = kind, workspaceId = activeWs()))
         return id
     }
     /** All currently-running entries (multi-timer aware). */
@@ -486,7 +486,7 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun automationRulesOnce(): List<com.todocompanion.app.domain.AutomationRule> =
         com.todocompanion.app.domain.AutomationRules.parse(settingsSnapshot().automationRulesJson)
     suspend fun addManualTimeEntry(activityId: String, startMillis: Long, endMillis: Long, note: String = "", taskId: String? = null, habitId: String? = null) =
-        timeTrack.upsertEntry(com.todocompanion.app.data.entity.TimeEntryEntity(uid(), activityId, startMillis, endMillis, note, taskId, habitId, now()))
+        timeTrack.upsertEntry(com.todocompanion.app.data.entity.TimeEntryEntity(uid(), activityId, startMillis, endMillis, note, taskId, habitId, now(), workspaceId = activeWs()))
     suspend fun upsertTimeEntry(e: com.todocompanion.app.data.entity.TimeEntryEntity) = timeTrack.upsertEntry(e)
     suspend fun deleteTimeEntry(id: String) = timeTrack.deleteEntry(id)
     /** U4: split a completed interval in two at [atMillis], keeping both halves' links and tags. */
@@ -513,6 +513,7 @@ class AppRepository(private val db: AppDatabase) {
             com.todocompanion.app.data.entity.TimeEntryEntity(
                 id = uid(), activityId = activityId, startMillis = startMillis, endMillis = endMillis,
                 note = "", taskId = taskId, habitId = habitId, createdAt = now(), kind = "focus",
+                workspaceId = activeWs(),
             )
         )
     }
@@ -810,10 +811,35 @@ class AppRepository(private val db: AppDatabase) {
      *  space so nothing is left stranded on a workspaceId that no longer exists (which would hide it). */
     suspend fun deleteWorkspace(id: String) {
         if (id == WorkspaceEntity.DEFAULT_ID) return
-        folders.getAll().filter { it.workspaceId == id }.forEach { folders.upsert(it.copy(workspaceId = WorkspaceEntity.DEFAULT_ID)) }
-        lists.getAll().filter { it.workspaceId == id }.forEach { lists.upsert(it.copy(workspaceId = WorkspaceEntity.DEFAULT_ID)) }
-        tags.getAll().filter { it.workspaceId == id }.forEach { tags.upsert(it.copy(workspaceId = WorkspaceEntity.DEFAULT_ID)) }
-        contexts.getAll().filter { it.workspaceId == id }.forEach { contexts.upsert(it.copy(workspaceId = WorkspaceEntity.DEFAULT_ID)) }
+        val def = WorkspaceEntity.DEFAULT_ID
+        // R62 — deleting a workspace never loses data: EVERY workspace-scoped row it owns is reassigned to
+        // the default space (matching how folders/lists always behaved), across the whole feature set.
+        folders.getAll().filter { it.workspaceId == id }.forEach { folders.upsert(it.copy(workspaceId = def)) }
+        lists.getAll().filter { it.workspaceId == id }.forEach { lists.upsert(it.copy(workspaceId = def)) }
+        tags.getAll().filter { it.workspaceId == id }.forEach { tags.upsert(it.copy(workspaceId = def)) }
+        contexts.getAll().filter { it.workspaceId == id }.forEach { contexts.upsert(it.copy(workspaceId = def)) }
+        tasks.upsertAll(tasks.getAll().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
+        habits.upsertAll(habits.getAll().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
+        filters.upsertAll(filters.getAll().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
+        flags.upsertAll(flags.getAll().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
+        templates.upsertAll(templates.getAll().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
+        countdowns.upsertAll(countdowns.getAll().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
+        focus.upsertAll(focus.getAll().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
+        timeTrack.upsertActivities(timeTrack.getActivities().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
+        timeTrack.upsertEntries(timeTrack.getEntries().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
+        sealedNotes.upsertAll(sealedNotes.getAll().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
+        cravings.upsertAll(cravings.getAll().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
+        coreValues.upsertAll(coreValues.getAll().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
+        witnesses.upsertAll(witnesses.getAll().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
+        scorecard.upsertAll(scorecard.getAll().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
+        buddies.upsertAll(buddies.getAll().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
+        integrityReviews.upsertAll(integrityReviews.getAll().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
+        experiments.upsertAll(experiments.getAll().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
+        activation.upsertAll(activation.getAll().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
+        escrows.upsertAll(escrows.getAll().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
+        nudgeEvents.upsertAll(nudgeEvents.getAll().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
+        // Events follow their calendar, so reassigning the calendars carries the events with them.
+        eventCalendars.upsertAll(eventCalendars.getAll().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
         workspaces.deleteById(id)
     }
 
@@ -1039,7 +1065,7 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun upsertFlag(f: FlagEntity) = flags.upsert(f)
     suspend fun createFlag(name: String, colorArgb: Long, icon: String = "bookmark"): String {
         val id = uid()
-        flags.upsert(FlagEntity(id = id, name = name.ifBlank { "Flag" }, colorArgb = colorArgb, icon = icon, sortOrder = flags.maxSortOrder() + 1.0, createdAt = now()))
+        flags.upsert(FlagEntity(id = id, name = name.ifBlank { "Flag" }, colorArgb = colorArgb, icon = icon, sortOrder = flags.maxSortOrder() + 1.0, createdAt = now(), workspaceId = activeWs()))
         return id
     }
     /** Delete a flag and clear it (id + colour cache) from every task that wore it. */
@@ -1104,7 +1130,7 @@ class AppRepository(private val db: AppDatabase) {
 
         val payload = node(root)
         val id = uid()
-        templates.upsert(TemplateEntity(id, name.ifBlank { root.title }, templateJson.encodeToString(TemplateTask.serializer(), payload), now()))
+        templates.upsert(TemplateEntity(id, name.ifBlank { root.title }, templateJson.encodeToString(TemplateTask.serializer(), payload), now(), workspaceId = activeWs()))
         return id
     }
 
@@ -1162,6 +1188,8 @@ class AppRepository(private val db: AppDatabase) {
     // ============ settings ============
     suspend fun settingsSnapshot(): AppSettings =
         AppSettings.fromMap(settings.getAll().associate { it.key to it.value })
+    /** R62 — the active workspace, read synchronously, so repo-side creates stamp the right isolation. */
+    suspend fun activeWs(): String = settingsSnapshot().activeWorkspaceId
     suspend fun saveSettings(s: AppSettings) =
         settings.putAll(s.toMap().map { SettingEntity(it.key, it.value) })
 
@@ -1305,7 +1333,37 @@ class AppRepository(private val db: AppDatabase) {
         val incoming = Backup.decode(text)
         val merged = com.todocompanion.app.data.sync.SyncEngine.merge(snapshot(), incoming)
         applyMerged(merged)
+        // R62 — the sync snapshot only reconciles the core 19 tables. Union the remaining tables additively
+        // (insert only rows this device doesn't already have, by id) so a merge-import NEVER drops the other
+        // device's time tracking, calendar, occasions, life-systems, sealed notes, revisions or attachments.
+        mergeNewerTables(incoming)
         ensureDefaultWorkspace(); ensureInbox(); ensureDefaultFlags()
+    }
+
+    /** Additive, lossless union of the tables outside the sync snapshot: keep every local row, add any
+     *  incoming row whose id (or natural key) isn't already present. Used only by merge-import. */
+    private suspend fun mergeNewerTables(b: com.todocompanion.app.domain.port.BackupFile) {
+        fun <T> missing(local: List<T>, incoming: List<T>, key: (T) -> Any?): List<T> {
+            val have = local.map(key).toHashSet(); return incoming.filter { key(it) !in have }
+        }
+        timeTrack.upsertActivities(missing(timeTrack.getActivities(), b.timeActivities) { it.id })
+        timeTrack.upsertEntries(missing(timeTrack.getEntries(), b.timeEntries) { it.id })
+        sealedNotes.upsertAll(missing(sealedNotes.getAll(), b.sealedNotes) { it.id })
+        cravings.upsertAll(missing(cravings.getAll(), b.cravingEvents) { it.id })
+        coreValues.upsertAll(missing(coreValues.getAll(), b.coreValues) { it.id })
+        witnesses.upsertAll(missing(witnesses.getAll(), b.witnessEvents) { it.id })
+        scorecard.upsertAll(missing(scorecard.getAll(), b.scorecardItems) { it.id })
+        buddies.upsertAll(missing(buddies.getAll(), b.buddySnapshots) { it.id })
+        integrityReviews.upsertAll(missing(integrityReviews.getAll(), b.integrityReviews) { it.id })
+        experiments.upsertAll(missing(experiments.getAll(), b.experiments) { it.id })
+        activation.upsertAll(missing(activation.getAll(), b.activationItems) { it.id })
+        dayLogs.upsertAll(missing(dayLogs.getAll(), b.dayLogs) { it.epochDay })
+        escrows.upsertAll(missing(escrows.getAll(), b.escrows) { it.id })
+        nudgeEvents.upsertAll(missing(nudgeEvents.getAll(), b.nudgeEvents) { it.id })
+        revisions.upsertAll(missing(revisions.getAll(), b.revisions) { it.id })
+        eventCalendars.upsertAll(missing(eventCalendars.getAll(), b.eventCalendars) { it.id })
+        events.upsertAll(missing(events.getAll(), b.events) { it.id })
+        attachments.upsertAll(missing(attachments.getAll(), b.attachments) { it.id })
     }
 
     /** Full snapshot of the current data as a BackupFile (for sync merges). */

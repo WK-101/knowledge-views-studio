@@ -26,4 +26,6 @@ data class CravingEventEntity(
     // urge lasted before it passed — the data behind the "urges crest at ~N min and fall" duration curve.
     val halt: String = "",
     val durationSec: Int = 0,
+    // R62 — the workspace this urge log belongs to (mirrors its habit's workspace).
+    val workspaceId: String = "default",
 )

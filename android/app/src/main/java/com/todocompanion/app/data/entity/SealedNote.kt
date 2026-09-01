@@ -20,4 +20,6 @@ data class SealedNoteEntity(
     val anchorHash: String,          // sha-256 of "body|createdEpochDay" — proves it wasn't edited after sealing
     val sealedCount: Int,            // number of accomplishments at seal time, for the since-then delta
     val acknowledged: Boolean = false, // the user has opened it after reveal (so it stops nagging)
+    // R62 — the workspace this sealed note belongs to; fully isolated per workspace.
+    val workspaceId: String = "default",
 )

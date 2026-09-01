@@ -173,4 +173,6 @@ data class FocusSessionEntity(
     val minutes: Int,
     val kind: String = "pomo",
     val taskId: String? = null,   // the task this focus session was spent on, if any
+    // R62 — the workspace this focus session belongs to; fully isolated per workspace.
+    val workspaceId: String = "default",
 )

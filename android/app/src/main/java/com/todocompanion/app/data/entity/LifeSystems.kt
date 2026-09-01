@@ -23,6 +23,7 @@ data class CoreValueEntity(
     val statement: String = "",   // "I am someone who…" — the identity this value expresses
     val orderIndex: Int = 0,
     val createdAt: Long,
+    val workspaceId: String = "default",   // R62 — fully isolated per workspace
 )
 
 /** LS7 — a witness sign-off: a named real-world referee confirmed a milestone on-device. Append-only,
@@ -36,6 +37,7 @@ data class WitnessEventEntity(
     val milestoneLabel: String,   // "7-day streak", "Day 30", …
     val atMillis: Long,
     val note: String = "",
+    val workspaceId: String = "default",   // R62 — mirrors its habit's workspace
 )
 
 /** LS · habit scorecard — one behaviour of a typical day, tagged good (+1), neutral (0) or bad (−1).
@@ -49,6 +51,7 @@ data class ScorecardItemEntity(
     val sign: Int = 0,            // +1 good · 0 neutral · −1 bad
     val orderIndex: Int = 0,
     val createdAt: Long,
+    val workspaceId: String = "default",   // R62 — fully isolated per workspace
 )
 
 /** LS · a buddy's imported progress digest — SDT relatedness / social proof, peer-to-peer, nothing on a
@@ -60,6 +63,7 @@ data class BuddySnapshotEntity(
     val name: String,
     val importedAtMillis: Long,
     val payloadJson: String,      // the buddy's exported BuddyDigest, verbatim
+    val workspaceId: String = "default",   // R62 — fully isolated per workspace
 )
 
 /** LS · a saved weekly / annual integrity-review reflection, anchored to a period + fresh-start date.
@@ -73,6 +77,7 @@ data class IntegrityReviewEntity(
     val createdAt: Long,
     val note: String = "",        // the user's written reflection
     val statsJson: String = "",   // a snapshot of the period's computed figures, for the record
+    val workspaceId: String = "default",   // R62 — fully isolated per workspace
 )
 
 /** R35 · TW-C — a personal n-of-1 experiment: toggle one habit ON/OFF in alternating blocks and measure
@@ -89,6 +94,7 @@ data class ExperimentEntity(
     val active: Boolean = true,
     val note: String = "",
     val createdAt: Long,
+    val workspaceId: String = "default",   // R62 — mirrors its habit's workspace
 ) {
     /** The plan: block index → whether the habit should be ON that block (odd blocks OFF). */
     fun onForDay(day: Long): Boolean {
@@ -111,6 +117,7 @@ data class ActivationItemEntity(
     val pleasure: Int = 0,        // 0 unset, 1–5 after doing
     val mastery: Int = 0,         // 0 unset, 1–5 after doing
     val createdAt: Long,
+    val workspaceId: String = "default",   // R62 — fully isolated per workspace
 )
 
 /** R35 · TW-E — one day's morning-intention / evening-review bookend, plus the day's mood (a clean daily
@@ -142,6 +149,7 @@ data class EscrowEntity(
     val createdAt: Long,
     // R37 — an escrow may instead ride on shipping a specific task/project (milestoneKind = "taskdone").
     val taskId: String? = null,
+    val workspaceId: String = "default",   // R62 — fully isolated per workspace
 )
 
 /** R36 · FW-M2 — Personal Nudge MRT: each time the app shows an opportunity nudge it micro-randomizes the
@@ -158,4 +166,5 @@ data class NudgeEventEntity(
     val createdAt: Long,
     // R37 — the nudge MRT also covers task reminders; "habit" (default) or "task".
     val targetKind: String = "habit",
+    val workspaceId: String = "default",   // R62 — fully isolated per workspace
 )
