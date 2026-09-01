@@ -462,7 +462,7 @@ fun CalendarScreen(
             com.todocompanion.app.util.SystemPicker.createFile("text/calendar", nm, onError = { vm.exportIcsEventsToDownloads(calId) }) { vm.exportIcsEventsTo(it, calId) }
         })
     if (eventGapOpen) GapFinder(visEvents, selected.toEpochDay(), zone, s.workStartHour, s.workEndHour,
-        onDismiss = { eventGapOpen = false },
+        onDismiss = { eventGapOpen = false }, tasks = tasks,
         onPick = { st, en -> eventGapOpen = false; eventEditing = null; eventSeedStart = st; eventSeedEnd = en; eventEditorOpen = true })
     if (eventBlockOpen) BlockTaskDialog(vm, selected.toEpochDay(), zone, s.workStartHour, visEvents) { eventBlockOpen = false }
 }

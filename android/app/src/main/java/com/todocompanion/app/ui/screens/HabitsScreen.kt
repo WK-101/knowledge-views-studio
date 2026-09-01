@@ -1196,12 +1196,7 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
     )
     if (showStartPicker) {
         val initial = startDate ?: existing?.createdAt ?: System.currentTimeMillis()
-        val pickerState = androidx.compose.material3.rememberDatePickerState(initialSelectedDateMillis = initial)
-        androidx.compose.material3.DatePickerDialog(
-            onDismissRequest = { showStartPicker = false },
-            confirmButton = { TextButton(onClick = { startDate = pickerState.selectedDateMillis; showStartPicker = false }) { Text("Set") } },
-            dismissButton = { TextButton(onClick = { showStartPicker = false }) { Text("Cancel") } },
-        ) { androidx.compose.material3.DatePicker(state = pickerState) }
+        com.todocompanion.app.ui.components.DateOnlyPickerDialog(initial, onDismiss = { showStartPicker = false }) { m -> startDate = m; showStartPicker = false }
     }
 }
 

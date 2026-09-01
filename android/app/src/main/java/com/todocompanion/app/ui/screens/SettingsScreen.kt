@@ -85,8 +85,6 @@ import androidx.compose.material3.Switch
 import com.todocompanion.app.domain.Modules
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TimePicker
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
@@ -1134,24 +1132,16 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         vm.saveSettings(s.copy(timeZone = z)); showZone = false
     }
     if (showTime) {
-        val ts = rememberTimePickerState(initialHour = s.dailySummaryHour, initialMinute = s.dailySummaryMinute)
-        AlertDialog(
-            onDismissRequest = { showTime = false },
-            confirmButton = { TextButton(onClick = { vm.saveSettings(s.copy(dailySummaryHour = ts.hour, dailySummaryMinute = ts.minute)); showTime = false }) { Text("OK") } },
-            dismissButton = { TextButton(onClick = { showTime = false }) { Text("Cancel") } },
-            title = { Text("Summary time") },
-            text = { TimePicker(state = ts) },
-        )
+        com.todocompanion.app.ui.components.TimeFieldDialog(
+            initialMinuteOfDay = s.dailySummaryHour * 60 + s.dailySummaryMinute,
+            onDismiss = { showTime = false },
+        ) { m -> vm.saveSettings(s.copy(dailySummaryHour = m / 60, dailySummaryMinute = m % 60)); showTime = false }
     }
     if (showEveningTime) {
-        val ts = rememberTimePickerState(initialHour = s.eveningReviewHour, initialMinute = 0)
-        AlertDialog(
-            onDismissRequest = { showEveningTime = false },
-            confirmButton = { TextButton(onClick = { vm.saveSettings(s.copy(eveningReviewHour = ts.hour)); showEveningTime = false }) { Text("OK") } },
-            dismissButton = { TextButton(onClick = { showEveningTime = false }) { Text("Cancel") } },
-            title = { Text("Evening review time") },
-            text = { TimePicker(state = ts) },
-        )
+        com.todocompanion.app.ui.components.TimeFieldDialog(
+            initialMinuteOfDay = s.eveningReviewHour * 60,
+            onDismiss = { showEveningTime = false },
+        ) { m -> vm.saveSettings(s.copy(eveningReviewHour = m / 60)); showEveningTime = false }
     }
     if (restoreOpen) {
         var confirming by remember { mutableStateOf<com.todocompanion.app.util.FileExport.SavedFile?>(null) }

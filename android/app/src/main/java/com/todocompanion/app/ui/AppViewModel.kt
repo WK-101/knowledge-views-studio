@@ -3181,11 +3181,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Booked (event) minutes per epoch-day across a range — feeds the ghost week and recovery-buffer reads. */
     suspend fun bookedMinutesByDay(startDay: Long, endDay: Long): Map<Long, Long> {
         val evs = events.value
+        // R60 — count scheduled tasks as booked too (unless already blocked as a linked event).
+        val linked = evs.mapNotNull { it.linkedTaskId }.toSet()
+        val taskBusy = com.todocompanion.app.domain.calendar.Availability.taskBusyIntervals(tasks.value, zone, linked)
         val out = HashMap<Long, Long>()
         var d = startDay
         while (d <= endDay) {
             val occ = com.todocompanion.app.domain.calendar.CalendarEngine.onDay(evs, d, zone)
-            out[d] = occ.filter { !it.event.allDay }.sumOf { it.durationMin() }
+            val dayStart = java.time.LocalDate.ofEpochDay(d).atStartOfDay(zone).toInstant().toEpochMilli()
+            val dayEnd = java.time.LocalDate.ofEpochDay(d + 1).atStartOfDay(zone).toInstant().toEpochMilli()
+            val taskMin = taskBusy.filter { it.second > dayStart && it.first < dayEnd }
+                .sumOf { ((minOf(it.second, dayEnd) - maxOf(it.first, dayStart)) / 60000L).coerceAtLeast(0) }
+            out[d] = occ.filter { !it.event.allDay }.sumOf { it.durationMin() } + taskMin
             d++
         }
         return out
@@ -3201,12 +3208,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val fromDay = java.time.LocalDate.now(zone).toEpochDay()
         val deadlineDay = java.time.Instant.ofEpochMilli(deadlineMs).atZone(zone).toLocalDate().toEpochDay()
         val evs = events.value
+        // R60 — scheduled tasks count as busy too, so deadline chunking doesn't overpromise free time.
+        val taskBusy = com.todocompanion.app.domain.calendar.Availability.taskBusyIntervals(tasks.value, zone, evs.mapNotNull { it.linkedTaskId }.toSet() + taskId)
         // Free minutes per day = working-window length minus what's already booked.
         val freeByDay = HashMap<Long, Int>()
         var d = fromDay
         while (d <= deadlineDay) {
             val occ = com.todocompanion.app.domain.calendar.CalendarEngine.onDay(evs, d, zone)
-            val budget = com.todocompanion.app.domain.calendar.CalendarPlanner.dayBudget(occ, d, s.workStartHour, s.workEndHour, zone)
+            val budget = com.todocompanion.app.domain.calendar.CalendarPlanner.dayBudget(occ, d, s.workStartHour, s.workEndHour, zone, taskBusy)
             freeByDay[d] = budget.remainingMin.coerceAtLeast(0)
             d++
         }
@@ -3425,7 +3434,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 com.todocompanion.app.data.entity.EventEntity(id = "protected", calendarId = calId, title = "Protected",
                     startMillis = s, endMillis = e, busy = true, createdAt = 0, updatedAt = 0), s, e))
         }
-        val tasks = repo.allTasksOnce().filter { it.workspaceId == settings.value.activeWorkspaceId }
+        val wsTasks = repo.allTasksOnce().filter { it.workspaceId == settings.value.activeWorkspaceId }
+        // R60 — a task that already has a timed slot is a wall for the auto-scheduler, and is NOT re-placed.
+        val linkedIds = evs.mapNotNull { it.linkedTaskId }.toSet()
+        val timedTaskBusy = com.todocompanion.app.domain.calendar.Availability.taskBusyIntervals(wsTasks, zone, linkedIds)
+        val timedTaskIds = wsTasks.filter { t ->
+            !t.completed && !t.trashed && !t.abandoned && !t.isAllDay && t.dueDate != null && t.id !in linkedIds &&
+                java.time.Instant.ofEpochMilli(t.dueDate!!).atZone(zone).let { it.hour != 0 || it.minute != 0 }
+        }.map { it.id }.toSet()
+        timedTaskBusy.forEach { (s, e) ->
+            occ.add(com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence(
+                com.todocompanion.app.data.entity.EventEntity(id = "scheduled-task", calendarId = calId, title = "",
+                    startMillis = s, endMillis = e, busy = true, createdAt = 0, updatedAt = 0), s, e))
+        }
+        val tasks = wsTasks.filter { it.id !in timedTaskIds }
         val nowFloor = if (day == java.time.LocalDate.now(zone).toEpochDay()) System.currentTimeMillis() else null
         val bias = estimateBias.value?.medianRatio ?: 1.0
         val placements = com.todocompanion.app.domain.calendar.CalendarPlanner.autoSchedule(

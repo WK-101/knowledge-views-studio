@@ -98,6 +98,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.todocompanion.app.data.entity.EventCalendarEntity
 import com.todocompanion.app.data.entity.EventEntity
+import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.domain.calendar.CalendarEngine
 import com.todocompanion.app.domain.recurrence.Freq
 import com.todocompanion.app.domain.recurrence.Recur
@@ -135,6 +136,7 @@ fun CalendarStudioScreen(vm: AppViewModel, onBack: () -> Unit, onOpenTask: (Stri
     val events by vm.events.collectAsState()
     val calendars by vm.eventCalendars.collectAsState()
     val settings by vm.settings.collectAsState()
+    val tasks by vm.tasks.collectAsState()   // R60 — so the agenda "booked" figure counts scheduled tasks too
 
     var view by remember { mutableStateOf(CalView.MONTH) }
     var monthAnchor by remember { mutableStateOf(YearMonth.now(zone)) }
@@ -252,7 +254,7 @@ fun CalendarStudioScreen(vm: AppViewModel, onBack: () -> Unit, onOpenTask: (Stri
                 when (view) {
                     CalView.AGENDA -> AgendaList(shownEvents, calById, selectedDay, zone, onOpenTask) { editing = it; editorOpen = true }
                     else -> DayAgenda(shownEvents, calById, selectedDay, zone, settings.workStartHour, settings.workEndHour, onOpenTask,
-                        onOpen = { editing = it; editorOpen = true }, onNew = { s, e -> openNew(s, e) })
+                        onOpen = { editing = it; editorOpen = true }, onNew = { s, e -> openNew(s, e) }, tasks = tasks)
                 }
             }
         }
@@ -268,7 +270,7 @@ fun CalendarStudioScreen(vm: AppViewModel, onBack: () -> Unit, onOpenTask: (Stri
     if (quickOpen) QuickAddDialog(onDismiss = { quickOpen = false }) { text -> vm.quickAddCalendar(text, selectedDay); quickOpen = false }
     if (calsOpen) CalendarsManager(vm, calendars, onDismiss = { calsOpen = false })
     if (gapOpen) GapFinder(shownEvents, selectedDay, zone, settings.workStartHour, settings.workEndHour,
-        onDismiss = { gapOpen = false }, onPick = { s, e -> gapOpen = false; openNew(s, e) })
+        onDismiss = { gapOpen = false }, tasks = tasks, onPick = { s, e -> gapOpen = false; openNew(s, e) })
     if (blockOpen) BlockTaskDialog(vm, selectedDay, zone, settings.workStartHour, shownEvents, onDismiss = { blockOpen = false })
 }
 
@@ -277,8 +279,12 @@ fun CalendarStudioScreen(vm: AppViewModel, onBack: () -> Unit, onOpenTask: (Stri
 internal fun BlockTaskDialog(vm: AppViewModel, day: Long, zone: ZoneId, workStart: Int, events: List<EventEntity>, onDismiss: () -> Unit) {
     val tasks by vm.tasks.collectAsState()
     val open = remember(tasks) { tasks.filter { !it.completed && !it.trashed && !it.abandoned && !it.isNote }.take(60) }
-    // Default to the first free slot in working hours, else 9am.
-    val busy = remember(events, day) { CalendarEngine.onDay(events, day, zone).filter { it.event.busy && !it.event.allDay }.map { it.startMillis to it.endMillis } }
+    // Default to the first free slot in working hours, else 9am. R60 — scheduled tasks are busy too, so
+    // "block time for a task" never suggests a slot that already holds another timed task.
+    val busy = remember(events, tasks, day) {
+        CalendarEngine.onDay(events, day, zone).filter { it.event.busy && !it.event.allDay }.map { it.startMillis to it.endMillis } +
+            com.todocompanion.app.domain.calendar.Availability.taskBusyIntervals(tasks, zone, events.mapNotNull { it.linkedTaskId }.toSet())
+    }
     fun startFor(durMin: Int): Long {
         val slot = CalendarEngine.freeSlots(busy, day, workStart, 22, durMin, zone).firstOrNull()
         return slot?.startMillis ?: LocalDate.ofEpochDay(day).atTime(workStart.coerceIn(0, 22), 0).atZone(zone).toInstant().toEpochMilli()
@@ -410,7 +416,7 @@ private fun WeekStrip(selectedDay: Long, weekStart: Int, zone: ZoneId, events: L
 private fun DayAgenda(
     events: List<EventEntity>, calById: Map<String, EventCalendarEntity>, day: Long, zone: ZoneId,
     workStart: Int, workEnd: Int, onOpenTask: (String) -> Unit,
-    onOpen: (EventEntity) -> Unit, onNew: (Long, Long) -> Unit,
+    onOpen: (EventEntity) -> Unit, onNew: (Long, Long) -> Unit, tasks: List<TaskEntity> = emptyList(),
 ) {
     val occ = remember(events, day) { CalendarEngine.onDay(events, day, zone) }
     val conflicts = remember(occ) { CalendarEngine.conflicts(occ) }
@@ -420,7 +426,13 @@ private fun DayAgenda(
         item {
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d")), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                val busy = occ.filter { it.event.busy && !it.event.allDay }.sumOf { it.durationMin() }
+                val eventMin = occ.filter { it.event.busy && !it.event.allDay }.sumOf { it.durationMin() }
+                // R60 — scheduled tasks count as booked too (excluding those already blocked as an event).
+                val dayStart0 = date.atStartOfDay(zone).toInstant().toEpochMilli(); val dayEnd0 = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+                val taskMin = com.todocompanion.app.domain.calendar.Availability.taskBusyIntervals(tasks, zone, events.mapNotNull { it.linkedTaskId }.toSet())
+                    .filter { it.second > dayStart0 && it.first < dayEnd0 }
+                    .sumOf { ((minOf(it.second, dayEnd0) - maxOf(it.first, dayStart0)) / 60000L).coerceAtLeast(0) }
+                val busy = eventMin + taskMin
                 if (busy > 0) Text(fmtDur(busy.toInt()) + " booked", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -582,10 +594,14 @@ private fun ColorRow(selected: Long, onPick: (Long) -> Unit) {
 
 // ── Gap finder ──────────────────────────────────────────────────────────────────────────────────
 @Composable
-internal fun GapFinder(events: List<EventEntity>, day: Long, zone: ZoneId, workStart: Int, workEnd: Int, onDismiss: () -> Unit, onPick: (Long, Long) -> Unit) {
+internal fun GapFinder(events: List<EventEntity>, day: Long, zone: ZoneId, workStart: Int, workEnd: Int, onDismiss: () -> Unit, tasks: List<TaskEntity> = emptyList(), onPick: (Long, Long) -> Unit) {
     var dur by remember { mutableStateOf(60) }
     val hm = DateTimeFormatter.ofPattern("h:mm a")
-    val busy = remember(events, day) { CalendarEngine.onDay(events, day, zone).filter { it.event.busy && !it.event.allDay }.map { it.startMillis to it.endMillis } }
+    // R60 — scheduled tasks block the day too, so a "gap" never lands on top of an already-timed task.
+    val busy = remember(events, tasks, day) {
+        CalendarEngine.onDay(events, day, zone).filter { it.event.busy && !it.event.allDay }.map { it.startMillis to it.endMillis } +
+            com.todocompanion.app.domain.calendar.Availability.taskBusyIntervals(tasks, zone, events.mapNotNull { it.linkedTaskId }.toSet())
+    }
     val slots = remember(busy, dur) { CalendarEngine.freeSlots(busy, day, workStart, workEnd.coerceAtLeast(workStart + 1), dur, zone) }
     AlertDialog(
         onDismissRequest = onDismiss,

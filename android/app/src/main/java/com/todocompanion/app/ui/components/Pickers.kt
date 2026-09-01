@@ -274,46 +274,83 @@ fun DateReminderSheet(
     if (showRepeat) com.todocompanion.app.ui.screens.RepeatDialog(rrule, repeatHasChildren, onDismiss = { showRepeat = false }) { rrule = it; showRepeat = false }
     if (showDuration) com.todocompanion.app.ui.screens.DurationPickerDialog(durationMin ?: 30, onDismiss = { showDuration = false }) { durationMin = it.takeIf { m -> m > 0 }; showDuration = false }
     if (showEstimatePicker) com.todocompanion.app.ui.screens.DurationPickerDialog(estimateMin ?: 30, onDismiss = { showEstimatePicker = false }) { estimateMin = it.takeIf { m -> m > 0 }; showEstimatePicker = false }
-    if (showStartPicker) DateTimeOptionalDialog(startMillis, startHasTime, onDismiss = { showStartPicker = false }) { m, ht -> startMillis = m; startHasTime = ht; showStartPicker = false }
+    if (showStartPicker) DateTimeOptionalDialog(startMillis, startHasTime, onDismiss = { showStartPicker = false }, title = "Starts") { m, ht -> startMillis = m; startHasTime = ht; showStartPicker = false }
     if (showDeadlinePicker) {
         val dlTimed = deadlineMillis?.let { Instant.ofEpochMilli(it).atZone(zone).let { z -> z.hour != 0 || z.minute != 0 } } ?: false
-        DateTimeOptionalDialog(deadlineMillis, dlTimed, onDismiss = { showDeadlinePicker = false }) { m, _ -> deadlineMillis = m; showDeadlinePicker = false }
+        DateTimeOptionalDialog(deadlineMillis, dlTimed, onDismiss = { showDeadlinePicker = false }, title = "Deadline") { m, _ -> deadlineMillis = m; showDeadlinePicker = false }
     }
 }
 
 /**
- * A compact date + OPTIONAL time picker (R21): an M3 calendar plus a time row you can leave unset.
- * Returns the chosen instant (date at the time, or midnight when no time) and whether a time was set.
+ * The unified date + OPTIONAL time panel (R60). A roomy, themed dialog that mirrors the Date & Reminder
+ * sheet exactly: a header, the same quick-date chips, a full month calendar, and a Time row you can leave
+ * unset. Used everywhere a single date/time is chosen (Starts, Deadline, …) so every date panel in the app
+ * looks and behaves identically. Returns the chosen instant (date at the time, or midnight when no time)
+ * and whether a time was set.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DateTimeOptionalDialog(initial: Long?, initialHasTime: Boolean, onDismiss: () -> Unit, onConfirm: (Long, Boolean) -> Unit) {
+fun DateTimeOptionalDialog(
+    initial: Long?,
+    initialHasTime: Boolean,
+    onDismiss: () -> Unit,
+    title: String = "Select date",
+    onConfirm: (Long, Boolean) -> Unit,
+) {
     val zone = ZoneId.systemDefault()
     val initDt = initial?.let { Instant.ofEpochMilli(it).atZone(zone) }
     var date by remember { mutableStateOf(initDt?.toLocalDate() ?: java.time.LocalDate.now(zone)) }
     var time by remember { mutableStateOf(if (initialHasTime && initDt != null) LocalTime.of(initDt.hour, initDt.minute) else null) }
     var showTime by remember { mutableStateOf(false) }
     val hm = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
-    androidx.compose.material3.AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = { onConfirm(java.time.LocalDateTime.of(date, time ?: LocalTime.MIDNIGHT).atZone(zone).toInstant().toEpochMilli(), time != null) }) { Text("Set") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        text = {
-            androidx.compose.foundation.layout.Column(Modifier.verticalScroll(rememberScrollState())) {
-                val dateState = rememberDatePickerState(initialSelectedDateMillis = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
-                DatePicker(state = dateState, showModeToggle = false, title = null, headline = null)
-                androidx.compose.runtime.LaunchedEffect(dateState.selectedDateMillis) {
-                    dateState.selectedDateMillis?.let { date = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
+    val today = java.time.LocalDate.now(zone)
+    fun utcOf(d: java.time.LocalDate) = d.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+    val dateState = rememberDatePickerState(initialSelectedDateMillis = initial ?: utcOf(date))
+    fun pick(d: java.time.LocalDate) { dateState.selectedDateMillis = utcOf(d); date = d }
+    androidx.compose.runtime.LaunchedEffect(dateState.selectedDateMillis) {
+        dateState.selectedDateMillis?.let { date = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
+    }
+    Dialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 4.dp,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        ) {
+            androidx.compose.foundation.layout.Column(
+                Modifier.padding(horizontal = 20.dp, vertical = 16.dp).verticalScroll(rememberScrollState()),
+            ) {
+                // Header: cancel · title · confirm — identical to the schedule sheet.
+                androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    androidx.compose.material3.IconButton(onClick = onDismiss) { androidx.compose.material3.Icon(Icons.Filled.Close, "Cancel") }
+                    Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                    androidx.compose.material3.FilledTonalButton(onClick = {
+                        onConfirm(java.time.LocalDateTime.of(date, time ?: LocalTime.MIDNIGHT).atZone(zone).toInstant().toEpochMilli(), time != null)
+                    }) {
+                        androidx.compose.material3.Icon(Icons.Filled.Check, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Done")
+                    }
                 }
+                // Quick-date chips — the same common picks as the Due sheet.
+                val sat = today.with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.SATURDAY))
+                androidx.compose.foundation.layout.Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 6.dp, bottom = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(selected = date == today, onClick = { pick(today) }, label = { Text("Today") })
+                    FilterChip(selected = date == today.plusDays(1), onClick = { pick(today.plusDays(1)) }, label = { Text("Tomorrow") })
+                    FilterChip(selected = date == today.plusDays(3), onClick = { pick(today.plusDays(3)) }, label = { Text("In 3 days") })
+                    FilterChip(selected = date == today.plusWeeks(1), onClick = { pick(today.plusWeeks(1)) }, label = { Text("Next week") })
+                    FilterChip(selected = date == sat, onClick = { pick(sat) }, label = { Text("Weekend") })
+                }
+                DatePicker(state = dateState, showModeToggle = false, title = null, headline = null)
+                androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
                 SheetRow(icon = Icons.Filled.Schedule, label = "Time",
                     value = time?.format(hm) ?: "None",
                     onClear = if (time != null) ({ time = null }) else null,
                     onClick = { showTime = true })
             }
-        },
-    )
+        }
+    }
     if (showTime) {
         val ts = rememberTimePickerState(initialHour = time?.hour ?: 9, initialMinute = time?.minute ?: 0)
         Dialog(onDismissRequest = { showTime = false }) {

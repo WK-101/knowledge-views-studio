@@ -48,12 +48,15 @@ object CalendarPlanner {
         val fractionUsed get() = if (availableMin <= 0) 1f else (bookedMin.toFloat() / availableMin).coerceIn(0f, 1f)
     }
 
-    /** available = working-window minutes; booked = busy occurrences clipped into the window, merged. */
-    fun dayBudget(occurrences: List<CalendarEngine.Occurrence>, day: Long, workStart: Int, workEnd: Int, zone: ZoneId = defaultZone()): Budget {
+    /** available = working-window minutes; booked = busy occurrences clipped into the window, merged.
+     *  R60 — [taskBusy] adds scheduled-task intervals (from Availability.taskBusyIntervals) so a day full of
+     *  timed tasks no longer reads "0 min booked". */
+    fun dayBudget(occurrences: List<CalendarEngine.Occurrence>, day: Long, workStart: Int, workEnd: Int, zone: ZoneId = defaultZone(),
+                  taskBusy: List<Pair<Long, Long>> = emptyList()): Budget {
         val (ws, we) = window(day, workStart, workEnd, zone)
         val avail = ((we - ws) / 60000L).toInt().coerceAtLeast(0)
-        val busy = occurrences.filter { it.event.busy && !it.event.allDay }
-            .map { maxOf(it.startMillis, ws) to minOf(it.endMillis, we) }
+        val busy = (occurrences.filter { it.event.busy && !it.event.allDay }.map { it.startMillis to it.endMillis } + taskBusy)
+            .map { maxOf(it.first, ws) to minOf(it.second, we) }
             .filter { it.second > it.first }
         val booked = mergeMs(busy).sumOf { ((it.second - it.first) / 60000L).toInt() }
         return Budget(avail, booked)
@@ -310,6 +313,14 @@ object CalendarPlanner {
             byDay[d] = (byDay[d] ?: 0) + m
             byCal[it.event.calendarId] = (byCal[it.event.calendarId] ?: 0) + m
         }
+        // R60 — scheduled tasks (timed + duration) are booked time too, unless already blocked as an event.
+        val linkedIds = events.mapNotNull { it.linkedTaskId }.toSet()
+        Availability.taskBusyIntervals(tasks, zone, linkedIds)
+            .filter { it.second > winStart && it.first < winEnd }
+            .forEach { (s, e) ->
+                val d = Instant.ofEpochMilli(s).atZone(zone).toLocalDate().toEpochDay()
+                byDay[d] = (byDay[d] ?: 0) + ((minOf(e, winEnd) - maxOf(s, winStart)) / 60000L).toInt().coerceAtLeast(0)
+            }
         val tracked = entries.filter { it.endMillis != null && it.startMillis in winStart until winEnd }
             .sumOf { (((it.endMillis!! - it.startMillis) / 60000L)).toInt().coerceAtLeast(0) }
         val total = byDay.values.sum()

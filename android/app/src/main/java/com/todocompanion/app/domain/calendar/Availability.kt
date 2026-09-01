@@ -68,9 +68,9 @@ object Availability {
      * duration falls back estimate → 30 min. Midnight-dated (all-day) tasks have no fixed slot and are
      * skipped. This is what makes "When am I free?" reflect your task workload, not only calendar events.
      */
-    fun taskBusyIntervals(tasks: List<TaskEntity>, zone: ZoneId = ZoneId.systemDefault()): List<Pair<Long, Long>> =
+    fun taskBusyIntervals(tasks: List<TaskEntity>, zone: ZoneId = ZoneId.systemDefault(), excludeIds: Set<String> = emptySet()): List<Pair<Long, Long>> =
         tasks.asSequence()
-            .filter { !it.completed && !it.trashed && !it.abandoned && !it.isAllDay }
+            .filter { !it.completed && !it.trashed && !it.abandoned && !it.isAllDay && it.id !in excludeIds }
             .mapNotNull { t ->
                 val due = t.dueDate ?: return@mapNotNull null
                 val dt = java.time.Instant.ofEpochMilli(due).atZone(zone)

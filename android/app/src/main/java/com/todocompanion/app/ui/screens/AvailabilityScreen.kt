@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -104,9 +105,13 @@ fun AvailabilitySheet(vm: AppViewModel, anchorDay: Long, onDismiss: () -> Unit) 
     }
     // R59 — scheduled tasks (timed, with a duration) are busy time too, so "When am I free?" reflects your
     // whole plan, not only calendar events.
-    val taskBusy = remember(tasks, zone) { Availability.taskBusyIntervals(tasks, zone) }
+    val taskBusy = remember(tasks, events, zone) { Availability.taskBusyIntervals(tasks, zone, events.mapNotNull { it.linkedTaskId }.toSet()) }
+    // R59 fix — the part of TODAY that has already elapsed is never "free": mask [start-of-today, now] so
+    // today's openings begin at the current time, not this morning. forDays clips it to today's window only.
+    val nowMs = System.currentTimeMillis()
+    val elapsedTodayMask = listOf(today.atStartOfDay(zone).toInstant().toEpochMilli() to nowMs)
     // Don't count days already in the past for a fair "free time left".
-    val free = Availability.forDays(events, days, cfg, zone, protectedList, extraBusy = taskBusy).map { d ->
+    val free = Availability.forDays(events, days, cfg, zone, protectedList, extraBusy = taskBusy + elapsedTodayMask).map { d ->
         if (d.date.isBefore(today)) d.copy(available = false, slots = emptyList(), busy = emptyList(), reserved = emptyList(), freeMin = 0, busyMin = 0) else d
     }
     val totalFree = Availability.totalFreeMin(free)
@@ -247,10 +252,11 @@ fun AvailabilitySheet(vm: AppViewModel, anchorDay: Long, onDismiss: () -> Unit) 
                         Text(if (openingsSort == "Longest") "Longest first" else "Soonest first")
                     }
                 }
-                // Ranked slots: prefer a time of day (SavvyCal's "best times", turned inward).
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                // Ranked slots: prefer a time of day (SavvyCal's "best times", turned inward). One line —
+                // horizontally scrollable so the four choices never wrap onto a second row.
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf("Any", "Morning", "Afternoon", "Evening").forEach { p ->
-                        FilterChip(selected = timePref == p, onClick = { timePref = p }, label = { Text(if (p == "Any") p else bucketEmoji(p) + " " + p) })
+                        FilterChip(selected = timePref == p, onClick = { timePref = p }, label = { Text(if (p == "Any") p else bucketEmoji(p) + " " + p, maxLines = 1) })
                     }
                 }
                 bestOpenings.forEach { o ->

@@ -109,7 +109,9 @@ private fun PlanTodayTab(vm: AppViewModel, zone: ZoneId, day: Long) {
     val today = LocalDate.now(zone).toEpochDay()
 
     val occ = remember(events, day) { CalendarEngine.onDay(events, day, zone) }
-    val budget = remember(occ, ws, we) { CalendarPlanner.dayBudget(occ, day, ws, we, zone) }
+    // R60 — scheduled tasks are booked time too (not just events), so the budget reflects real load.
+    val taskBusy = remember(tasks, events, zone) { com.todocompanion.app.domain.calendar.Availability.taskBusyIntervals(tasks, zone, events.mapNotNull { it.linkedTaskId }.toSet()) }
+    val budget = remember(occ, taskBusy, ws, we) { CalendarPlanner.dayBudget(occ, day, ws, we, zone, taskBusy) }
     val nowFloor = if (day == today) System.currentTimeMillis() else null
     val placements = remember(tasks, occ, day, ws, we) {
         CalendarPlanner.autoSchedule(tasks.filter { it.workspaceId == settings.activeWorkspaceId }, occ, day, ws, we, fromMillis = nowFloor, zone = zone)
@@ -346,7 +348,7 @@ private fun WeeklyReviewTab(vm: AppViewModel, zone: ZoneId, day: Long) {
             }
         }
         Spacer(Modifier.height(8.dp))
-        StatRow("Booked (events)", fmtMin(a.totalBookedMin))
+        StatRow("Booked", fmtMin(a.totalBookedMin))
         StatRow("Tracked (actual)", fmtMin(a.trackedMin))
         a.habitAdherencePct?.let { StatRow("Habit adherence", "$it%") }
     }
@@ -407,7 +409,9 @@ private fun HorizonTab(vm: AppViewModel, zone: ZoneId, day: Long) {
     val today = LocalDate.now(zone).toEpochDay()
 
     val occ = remember(events, day) { CalendarEngine.onDay(events, day, zone) }
-    val budget = remember(occ, ws, we) { CalendarPlanner.dayBudget(occ, day, ws, we, zone) }
+    // R60 — scheduled tasks are booked time too (not just events), so the budget reflects real load.
+    val taskBusy = remember(tasks, events, zone) { com.todocompanion.app.domain.calendar.Availability.taskBusyIntervals(tasks, zone, events.mapNotNull { it.linkedTaskId }.toSet()) }
+    val budget = remember(occ, taskBusy, ws, we) { CalendarPlanner.dayBudget(occ, day, ws, we, zone, taskBusy) }
     val nowFloor = if (day == today) System.currentTimeMillis() else null
     val placements = remember(tasks, occ, day) {
         CalendarPlanner.autoSchedule(tasks.filter { it.workspaceId == settings.activeWorkspaceId }, occ, day, ws, we, fromMillis = nowFloor, zone = zone)
