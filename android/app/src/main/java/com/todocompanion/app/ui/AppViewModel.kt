@@ -4640,67 +4640,30 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---------- export / import ----------
-    fun exportTo(uri: Uri, onDone: (Boolean) -> Unit) = viewModelScope.launch {
-        val ok = runCatching {
-            val json = repo.exportJson()
-            appCtx.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
-        }.isSuccess
-        onDone(ok)
-    }
-    fun exportMarkdownTo(uri: Uri, includeCompleted: Boolean, onDone: (Boolean) -> Unit) = viewModelScope.launch {
-        val ok = runCatching {
-            val md = repo.exportMarkdown(includeCompleted)
-            appCtx.contentResolver.openOutputStream(uri)?.use { it.write(md.toByteArray()) }
-        }.isSuccess
-        onDone(ok)
-    }
-    fun exportCsvTo(uri: Uri, includeCompleted: Boolean, onDone: (Boolean) -> Unit) = viewModelScope.launch {
-        val ok = runCatching {
-            val csv = repo.exportCsv(includeCompleted)
-            appCtx.contentResolver.openOutputStream(uri)?.use { it.write(csv.toByteArray()) }
-        }.isSuccess
-        onDone(ok)
-    }
-    fun exportIcsTo(uri: Uri, includeCompleted: Boolean, onDone: (Boolean) -> Unit) = viewModelScope.launch {
-        val ok = runCatching {
-            val ics = repo.exportIcs(includeCompleted)
-            appCtx.contentResolver.openOutputStream(uri)?.use { it.write(ics.toByteArray()) }
-        }.isSuccess
-        onDone(ok)
-    }
-    fun exportHabitsCsvTo(uri: Uri, onDone: (Boolean) -> Unit) = viewModelScope.launch {
-        val ok = runCatching {
-            val csv = repo.exportHabitsCsv()
-            appCtx.contentResolver.openOutputStream(uri)?.use { it.write(csv.toByteArray()) }
-        }.isSuccess
-        onDone(ok)
-    }
+    // R75 — the file I/O lives in a standalone, unit-testable BackupExporter (context + repo + zone,
+    // no UI state). These wrappers keep only the threading and the UI glue (settings stamp, widget
+    // refreshes, user-facing messages), so behaviour is unchanged.
+    private val backup by lazy { com.todocompanion.app.data.backup.BackupExporter(appCtx, repo) { zone } }
+
+    fun exportTo(uri: Uri, onDone: (Boolean) -> Unit) = viewModelScope.launch { onDone(backup.exportJson(uri)) }
+    fun exportMarkdownTo(uri: Uri, includeCompleted: Boolean, onDone: (Boolean) -> Unit) = viewModelScope.launch { onDone(backup.exportMarkdown(uri, includeCompleted)) }
+    fun exportCsvTo(uri: Uri, includeCompleted: Boolean, onDone: (Boolean) -> Unit) = viewModelScope.launch { onDone(backup.exportCsv(uri, includeCompleted)) }
+    fun exportIcsTo(uri: Uri, includeCompleted: Boolean, onDone: (Boolean) -> Unit) = viewModelScope.launch { onDone(backup.exportIcs(uri, includeCompleted)) }
+    fun exportHabitsCsvTo(uri: Uri, onDone: (Boolean) -> Unit) = viewModelScope.launch { onDone(backup.exportHabitsCsv(uri)) }
+
     /**
      * SAF-free export fallback: write the chosen export straight into the public Downloads folder
      * (or the app's files dir on older devices). Used when the device has no system document picker.
      * [onDone] receives a user-facing location like "Downloads/todo-companion-backup.json", or null.
      */
     fun exportToDownloads(kind: String, onDone: (String?) -> Unit) = viewModelScope.launch {
-        val loc = runCatching {
-            val (content, name, mime) = when (kind) {
-                "json" -> Triple(repo.exportJson(), "todo-companion-backup.json", "application/json")
-                "md" -> Triple(repo.exportMarkdown(true), "todo-companion.md", "text/markdown")
-                "csv" -> Triple(repo.exportCsv(true), "todo-companion.csv", "text/csv")
-                "ics" -> Triple(repo.exportIcs(false), "todo-companion.ics", "text/calendar")
-                "habits" -> Triple(repo.exportHabitsCsv(), "todo-companion-habits.csv", "text/csv")
-                else -> return@runCatching null
-            }
-            com.todocompanion.app.util.FileExport.saveToDownloads(appCtx, name, mime, content.toByteArray())
-        }.getOrNull()
+        val loc = backup.downloadExport(kind)
         // U10: a successful full backup stamps the "last backup" time the Momentum data-safety card reads.
         if (kind == "json" && loc != null) repo.saveSettings(settings.value.copy(lastSyncAt = System.currentTimeMillis()))
         onDone(loc)
     }
     fun importHabitsCsv(uri: Uri, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
-        val n = runCatching {
-            val text = appCtx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: return@runCatching -1
-            repo.importHabitsCsv(text)
-        }.getOrDefault(-1)
+        val n = backup.importHabitsCsv(uri)
         com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
         com.todocompanion.app.widget.HabitsWidget.refresh(appCtx)
         when { n < 0 -> onDone(false, "Couldn't read that CSV — export from Loop, or our habit CSV"); n == 0 -> onDone(false, "No check-ins found in that file"); else -> onDone(true, "Imported $n habit check-ins") }
@@ -4708,19 +4671,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ── CU3 · import an .ics calendar into tasks (the other half of the 2-way bridge) ──────────────
     fun importIcs(uri: Uri, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
-        val text = runCatching { appCtx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull()
-        if (text == null) { onDone(false, "Couldn't read that file"); return@launch }
-        val events = com.todocompanion.app.domain.port.Ics.parse(text)
-        if (events.isEmpty()) { onDone(false, "No events found in that .ics"); return@launch }
-        var n = 0
-        events.forEach { e ->
-            val due = e.start.atZone(zone).toInstant().toEpochMilli()
-            val id = repo.createTask(com.todocompanion.app.data.entity.ListEntity.INBOX_ID, e.summary.ifBlank { "Event" }, dueDate = due)
-            val durMin = if (!e.allDay && e.end != null) java.time.Duration.between(e.start, e.end).toMinutes().toInt().coerceIn(0, 1440) else null
-            if (e.allDay || durMin != null) repo.getTask(id)?.let { repo.saveTask(it.copy(isAllDay = e.allDay, durationMin = durMin)) }
-            n++
-        }
-        onDone(true, "Imported $n event${if (n == 1) "" else "s"} as tasks")
+        val n = backup.importIcsAsTasks(uri)
+        when { n < 0 -> onDone(false, "Couldn't read that file"); n == 0 -> onDone(false, "No events found in that .ics"); else -> onDone(true, "Imported $n event${if (n == 1) "" else "s"} as tasks") }
     }
 
     // ── CU4 · one-tap handoff — share a full copy through the system share sheet (0 permission) ────
