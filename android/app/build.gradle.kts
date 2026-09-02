@@ -91,6 +91,12 @@ dependencies {
 
     // Biometric / device-credential app lock (local only, no network)
     implementation("androidx.biometric:biometric:1.1.0")
+    // R71 — FORCE a modern androidx.fragment. biometric:1.1.0 transitively pulls fragment 1.2.x, whose
+    // FragmentActivity.checkForValidRequestCode() rejects the >16-bit request codes that the modern
+    // activity-compose ActivityResultRegistry generates for a runtime-permission prompt. On a FRESH
+    // install that mismatch crashed the app the instant it asked for the notifications permission
+    // ("Can only use lower 16 bits for requestCode"). Fragment 1.6+ removed that legacy validator.
+    implementation("androidx.fragment:fragment-ktx:1.8.4")
 
     // Storage Access Framework helper for folder-based backup & sync (local files only)
     implementation("androidx.documentfile:documentfile:1.0.1")

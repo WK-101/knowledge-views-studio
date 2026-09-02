@@ -412,7 +412,9 @@ fun AppRoot(
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val perm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
-            LaunchedEffect(Unit) { perm.launch(android.Manifest.permission.POST_NOTIFICATIONS) }
+            // R71 — asking for a permission must NEVER take the app down: guard the launch so any
+            // launcher/registry hiccup degrades to "no prompt" instead of a startup crash.
+            LaunchedEffect(Unit) { runCatching { perm.launch(android.Manifest.permission.POST_NOTIFICATIONS) } }
         }
         val context = LocalContext.current
         // R37 · Port 5 — when "time reminders to my peak" is on, aim the daily brief at the learned
