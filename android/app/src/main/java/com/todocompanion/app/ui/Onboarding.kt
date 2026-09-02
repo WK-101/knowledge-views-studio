@@ -1,15 +1,12 @@
 package com.todocompanion.app.ui
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.togetherWith
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,15 +27,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 
 /**
  * First-run tour (F1) — a calm, skippable walkthrough that actually shows off the breadth: the three
@@ -122,24 +118,30 @@ fun Onboarding(onDone: () -> Unit) {
             "Fully offline — no account, no cloud, no ads, and no internet or location permission at all. Back up or sync through a folder you choose, whenever you like.",
             listOf("0 network · 0 location permissions", "Lossless JSON export — your data stays portable", "Folder backup & account-free sync")),
     )
-    var i by remember { mutableIntStateOf(0) }
+    val pagerState = rememberPagerState(pageCount = { pages.size })
+    val scope = rememberCoroutineScope()
+    val onLastPage = pagerState.currentPage == pages.lastIndex
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+            // Skip is always available in the corner — it doubles as the dismiss on the final page.
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp, end = 8.dp), horizontalArrangement = Arrangement.End) {
                 TextButton(onClick = onDone) { Text("Skip") }
             }
-            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                AnimatedContent(
-                    targetState = i,
-                    transitionSpec = {
-                        if (targetState > initialState)
-                            (slideInHorizontally { it / 3 } + fadeIn()) togetherWith (slideOutHorizontally { -it / 3 } + fadeOut())
-                        else (slideInHorizontally { -it / 3 } + fadeIn()) togetherWith (slideOutHorizontally { it / 3 } + fadeOut())
-                    },
-                    label = "page",
-                ) { idx ->
-                    val p = pages[idx]
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+            // Swipe between pages — no Next/Back buttons. Each page is laid out so the icon and title
+            // sit in a FIXED top zone (identical vertical position on every page, so the mark never
+            // drifts as text length changes); the variable body + bullets scroll independently below.
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 24.dp),
+                pageSpacing = 12.dp,
+                verticalAlignment = Alignment.Top,
+            ) { idx ->
+                val p = pages[idx]
+                Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    // Fixed-height header: the icon is vertically centred inside a constant-height box, so
+                    // its centre lands at the same Y on every page regardless of what follows.
+                    Box(Modifier.fillMaxWidth().height(172.dp), contentAlignment = Alignment.Center) {
                         if (p.brand) {
                             // Render the Kairo mark (The Reveal) on its gradient tile by DRAWING it with a
                             // Compose Canvas — no resource is loaded at all, so this page can never crash on a
@@ -159,9 +161,14 @@ fun Onboarding(onDone: () -> Unit) {
                                 Text(p.emoji, style = MaterialTheme.typography.displaySmall)
                             }
                         }
-                        Spacer(Modifier.height(22.dp))
-                        Text(p.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-                        Spacer(Modifier.height(10.dp))
+                    }
+                    Text(p.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(12.dp))
+                    // Everything below the title scrolls, so a long page never pushes the header around.
+                    Column(
+                        Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
                         Text(p.body, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 4.dp))
                         Spacer(Modifier.height(18.dp))
@@ -177,20 +184,28 @@ fun Onboarding(onDone: () -> Unit) {
                                 }
                             }
                         }
+                        Spacer(Modifier.height(8.dp))
                     }
                 }
             }
-            Row(Modifier.padding(bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            // Page indicator — reflects the pager; tap a dot to jump to that page.
+            Row(Modifier.padding(vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 pages.indices.forEach { idx ->
-                    Box(Modifier.size(if (idx == i) 9.dp else 6.dp).background(
-                        if (idx == i) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, CircleShape))
+                    val active = idx == pagerState.currentPage
+                    Box(
+                        Modifier.size(if (active) 9.dp else 6.dp)
+                            .background(if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                            .clickable { scope.launch { pagerState.animateScrollToPage(idx) } },
+                    )
                 }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (i > 0) TextButton(onClick = { i-- }) { Text("Back") }
-                Button(onClick = { if (i < pages.lastIndex) i++ else onDone() },
-                    modifier = Modifier.weight(1f), contentPadding = PaddingValues(vertical = 14.dp)) {
-                    Text(if (i < pages.lastIndex) "Next" else "Get started")
+            // Only a finish CTA, and only on the last page — reserve its height so the signature below
+            // never shifts as you swipe. Everything else is driven by swiping, not buttons.
+            Box(Modifier.fillMaxWidth().padding(horizontal = 24.dp).height(52.dp), contentAlignment = Alignment.Center) {
+                if (onLastPage) {
+                    Button(onClick = onDone, modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(vertical = 14.dp)) {
+                        Text("Get started")
+                    }
                 }
             }
             // The same maker's mark that closes the sidebar & Settings, so the tour signs off in kind.
