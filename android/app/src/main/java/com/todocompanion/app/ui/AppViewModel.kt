@@ -153,6 +153,28 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val cravings = repo.allCravings.scopedBy { it.workspaceId }
     // R34 — life-systems layer flows.
     val coreValues = repo.allCoreValues.scopedBy { it.workspaceId }
+    // R67 — temptation-bundling + implementation-intention micro-plans (settings-JSON, no schema).
+    val microPlans: StateFlow<List<com.todocompanion.app.domain.MicroPlan>> =
+        settings.map { com.todocompanion.app.domain.MicroPlans.parse(it.microPlansJson) }.state(emptyList())
+    fun addMicroPlan(kind: String, a: String, b: String) = viewModelScope.launch {
+        if (a.isBlank() || b.isBlank()) return@launch
+        val list = com.todocompanion.app.domain.MicroPlans.parse(settings.value.microPlansJson) +
+            com.todocompanion.app.domain.MicroPlan(UUID.randomUUID().toString(), kind, a.trim(), b.trim(), System.currentTimeMillis())
+        repo.saveSettings(settings.value.copy(microPlansJson = com.todocompanion.app.domain.MicroPlans.encode(list)))
+    }
+    fun deleteMicroPlan(id: String) = viewModelScope.launch {
+        val list = com.todocompanion.app.domain.MicroPlans.parse(settings.value.microPlansJson).filterNot { it.id == id }
+        repo.saveSettings(settings.value.copy(microPlansJson = com.todocompanion.app.domain.MicroPlans.encode(list)))
+    }
+    // R67 — values card-sort: move a value up/down, normalising orderIndex to positions.
+    fun moveCoreValue(id: String, up: Boolean) = viewModelScope.launch {
+        val list = coreValues.value.sortedBy { it.orderIndex }.toMutableList()
+        val idx = list.indexOfFirst { it.id == id }
+        val swap = if (up) idx - 1 else idx + 1
+        if (idx < 0 || swap !in list.indices) return@launch
+        val tmp = list[idx]; list[idx] = list[swap]; list[swap] = tmp
+        list.forEachIndexed { i, v -> if (v.orderIndex != i) repo.upsertCoreValue(v.copy(orderIndex = i)) }
+    }
     val witnessEvents = repo.allWitnessEvents.scopedBy { it.workspaceId }
     val scorecardItems = repo.allScorecardItems.scopedBy { it.workspaceId }
     val buddies = repo.allBuddies.scopedBy { it.workspaceId }

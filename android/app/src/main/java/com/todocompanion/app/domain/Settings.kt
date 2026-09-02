@@ -216,6 +216,8 @@ data class AppSettings(
     // the set of days whose plan is locked (auto-schedule appends only). All local; round-trip in backup.
     val dayRoutinesJson: String = "",
     val protectedWindowsJson: String = "",
+    // R67 — temptation-bundling + implementation-intention plans (kind-tagged, one JSON list). No schema.
+    val microPlansJson: String = "",
     val calContextsJson: String = "",
     val activeContextId: String = "",
     val lunarOverlay: Boolean = false,
@@ -415,6 +417,7 @@ data class AppSettings(
         Keys.TRAVEL_TIMES to travelTimesJson,
         Keys.DAY_ROUTINES to dayRoutinesJson,
         Keys.PROTECTED_WINDOWS to protectedWindowsJson,
+        Keys.MICRO_PLANS to microPlansJson,
         Keys.CAL_CONTEXTS to calContextsJson,
         Keys.ACTIVE_CONTEXT to activeContextId,
         Keys.LUNAR_OVERLAY to lunarOverlay.toString(),
@@ -570,6 +573,7 @@ data class AppSettings(
         const val TRAVEL_TIMES = "travel_times"
         const val DAY_ROUTINES = "day_routines"
         const val PROTECTED_WINDOWS = "protected_windows"
+        const val MICRO_PLANS = "micro_plans"
         const val CAL_CONTEXTS = "cal_contexts"
         const val ACTIVE_CONTEXT = "active_context"
         const val LUNAR_OVERLAY = "lunar_overlay"
@@ -705,6 +709,7 @@ data class AppSettings(
             travelTimesJson = m[Keys.TRAVEL_TIMES] ?: "",
             dayRoutinesJson = m[Keys.DAY_ROUTINES] ?: "",
             protectedWindowsJson = m[Keys.PROTECTED_WINDOWS] ?: "",
+            microPlansJson = m[Keys.MICRO_PLANS] ?: "",
             calContextsJson = m[Keys.CAL_CONTEXTS] ?: "",
             activeContextId = m[Keys.ACTIVE_CONTEXT] ?: "",
             lunarOverlay = m[Keys.LUNAR_OVERLAY] == "true",

@@ -88,6 +88,9 @@ fun LifeSystemsScreen(vm: AppViewModel, route: String, onBack: () -> Unit, onOpe
         "escrow" -> EscrowScreen(vm, onBack)
         "grounding" -> GroundingScreen(vm, onBack)
         "freshstart" -> FreshStartScreen(vm, onBack)
+        "bundling" -> MicroPlanScreen(vm, onBack, kind = com.todocompanion.app.domain.MicroPlans.BUNDLE)
+        "ifthen" -> MicroPlanScreen(vm, onBack, kind = com.todocompanion.app.domain.MicroPlans.IF_THEN)
+        "valuesort" -> ValuesSortScreen(vm, onBack)
         else -> HubScreen(vm, onBack)
     }
 }
@@ -129,6 +132,10 @@ private fun HubScreen(vm: AppViewModel, onBack: () -> Unit) {
         Entry("escrow", "🔐", "Self-escrow", "Pre-commit a reward or a stake, released only when you hit a real milestone. Contingency contracts, offline."),
         Entry("grounding", "🧯", "Grounding library", "A calm, offline toolkit for panic and hard urges — 5-4-3-2-1, box breathing, and more."),
         Entry("freshstart", "🌅", "Fresh-start windows", "Temporal landmarks and life transitions — the moments a reset actually sticks."),
+        // R67 — new systems.
+        Entry("bundling", "🎁", "Temptation bundling", "Pair a want with a should, so the pull of the treat tows the task along (Milkman)."),
+        Entry("ifthen", "🎯", "If-then plans", "“When X happens, I will do Y.” Pre-deciding the moment roughly doubles follow-through (Gollwitzer)."),
+        Entry("valuesort", "📊", "Rank your values", "A forced card-sort of what matters most — clarity you can't get from a flat list (ACT)."),
     )
     LSScaffold("Life systems", onBack) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -924,6 +931,92 @@ private fun CountdownCircle(totalSecs: Int) {
     }
     Text(if (remaining == 0) "Done — notice how you feel now." else "Breathe slowly and let it pass.",
         style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 18.dp))
+}
+
+// R67 · new system — Temptation bundling ("bundle") and Implementation intentions ("ifthen"), both
+// small paired-text plans stored together in settings (MicroPlans). One screen, parameterised by kind.
+@Composable
+private fun MicroPlanScreen(vm: AppViewModel, onBack: () -> Unit, kind: String) {
+    val bundle = kind == com.todocompanion.app.domain.MicroPlans.BUNDLE
+    val plans by vm.microPlans.collectAsState()
+    val mine = plans.filter { it.kind == kind }
+    var a by remember { mutableStateOf("") }
+    var b by remember { mutableStateOf("") }
+    val title = if (bundle) "Temptation bundling" else "If-then plans"
+    LSScaffold(title, onBack) { pad ->
+        LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            item {
+                Text(
+                    if (bundle) "Pair something you WANT with something you SHOULD do — only allow the want during the should. The pleasure tows the task along (Katherine Milkman)."
+                    else "Pre-decide the moment: “WHEN this situation happens, THEN I will do that.” Naming the trigger and the action roughly doubles follow-through (Peter Gollwitzer).",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp),
+                )
+            }
+            item {
+                FWCard {
+                    androidx.compose.material3.OutlinedTextField(a, { a = it }, modifier = Modifier.fillMaxWidth(), singleLine = false,
+                        label = { Text(if (bundle) "The want — a treat (e.g. “my favourite podcast”)" else "When… (a cue: “I pour my morning coffee”)") })
+                    Spacer(Modifier.size(8.dp))
+                    androidx.compose.material3.OutlinedTextField(b, { b = it }, modifier = Modifier.fillMaxWidth(), singleLine = false,
+                        label = { Text(if (bundle) "…only while I (the should: “walk on the treadmill”)" else "…then I will (the action: “write for 10 minutes”)") })
+                    Spacer(Modifier.size(10.dp))
+                    Button(onClick = { vm.addMicroPlan(kind, a, b); a = ""; b = "" }, enabled = a.isNotBlank() && b.isNotBlank()) { Text("Add") }
+                }
+            }
+            if (mine.isEmpty()) item {
+                Text("No plans yet. Add your first above.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+            }
+            items(mine.size) { i ->
+                val p = mine[i]
+                FWCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            if (bundle) {
+                                Text("🎁 ${p.a}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                Text("only while: ${p.b}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            } else {
+                                Text("When ${p.a}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                Text("→ I will ${p.b}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                        Text("✕", modifier = Modifier.clickable { vm.deleteMicroPlan(p.id) }.padding(8.dp), color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// R67 · new system — Values card-sort: a forced ranking of your core values (ACT). Reorders the same
+// CoreValue rows the Values screen uses; the order persists (orderIndex) and feeds nothing but clarity.
+@Composable
+private fun ValuesSortScreen(vm: AppViewModel, onBack: () -> Unit) {
+    val values by vm.coreValues.collectAsState()
+    val ordered = values.sortedBy { it.orderIndex }
+    LSScaffold("Rank your values", onBack) { pad ->
+        LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+                Text("Drag the most important to the top. Forcing a ranking — not a flat list — is what surfaces what you'd actually trade off (Acceptance & Commitment Therapy).",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
+            }
+            if (ordered.isEmpty()) item {
+                Text("No values yet — add a few in “Values → systems → habits”, then come back to rank them.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+            }
+            items(ordered.size) { i ->
+                val v = ordered[i]
+                val color = v.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
+                FWCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("${i + 1}", Modifier.size(26.dp).clip(CircleShape).background(color.copy(alpha = .18f)).padding(top = 3.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = color)
+                        Text((v.emoji?.plus(" ") ?: "") + v.name, Modifier.weight(1f).padding(start = 12.dp), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        Text("▲", modifier = Modifier.clickable(enabled = i > 0) { vm.moveCoreValue(v.id, up = true) }.padding(6.dp), color = if (i > 0) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline)
+                        Text("▼", modifier = Modifier.clickable(enabled = i < ordered.size - 1) { vm.moveCoreValue(v.id, up = false) }.padding(6.dp), color = if (i < ordered.size - 1) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline)
+                    }
+                }
+            }
+        }
+    }
 }
 
 // FW-11/FW-12 · Fresh-start windows (temporal landmarks + transition detector).
