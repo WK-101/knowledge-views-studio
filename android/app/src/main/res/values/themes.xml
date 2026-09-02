@@ -13,11 +13,10 @@
         <item name="android:windowBackground">@drawable/splash_bg</item>
     </style>
 
-    <!-- R17/R64: a full-screen TRANSLUCENT (not floating) window for the quick-capture popup. The Compose
-         ModalBottomSheet paints its own scrim + card, so the launcher shows through, dimmed, and a tap
-         outside the sheet dismisses it. This MUST NOT be a Dialog / windowIsFloating theme: a floating
-         window can't host a ModalBottomSheet (the sheet adds its own full-screen scrim window), which
-         crashed the Quick-Add widget and the "Quick add" launcher shortcut the moment they opened. -->
+    <!-- R17/R64/R68: a full-screen TRANSLUCENT (not floating) window for the quick-capture popup. The
+         Compose QuickCapturePanel paints its own scrim + bottom card directly into THIS window (no
+         ModalBottomSheet, so no second Dialog window), and a tap on the dimmed launcher dismisses it.
+         This MUST NOT be a Dialog / windowIsFloating theme. -->
     <style name="Theme.ToDoCompanion.QuickCapture" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>

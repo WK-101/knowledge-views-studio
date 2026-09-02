@@ -8,14 +8,16 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.todocompanion.app.App
 import com.todocompanion.app.ui.AppViewModel
-import com.todocompanion.app.ui.screens.QuickAddSheet
+import com.todocompanion.app.ui.screens.QuickCapturePanel
 import com.todocompanion.app.ui.theme.AppTheme
 
 /**
  * The "add a task without opening the whole app" popup the Quick-add widget (and shared/voice/deep-link
  * captures) fire into. It floats over the launcher in its own task (excludeFromRecents + taskAffinity=""
- * in the manifest) and — rather than a bespoke, cruder mini-form — renders the SAME [QuickAddSheet] used
- * inside the app (R19 #2). So the widget capture has the identical calm, borderless design and the full
+ * in the manifest) and renders [QuickCapturePanel] — the SAME calm quick-add body used in-app, but drawn
+ * straight into this window's own Surface rather than a ModalBottomSheet. (R68: a ModalBottomSheet opens
+ * a second Dialog window, and inside this transient, translucent activity that second window crashed the
+ * widget/shortcut the instant it opened — so the popup is painted directly instead.) It has the identical
  * option row (date · priority · tag · list · reminder · voice), understands the same quick-add grammar
  * ("tomorrow 3pm p1 ~Home #bills"), and writes straight to Room. Fully offline; no network, no account.
  */
@@ -34,9 +36,9 @@ class QuickCaptureActivity : ComponentActivity() {
             }
             AppTheme(themeMode = settings.themeMode, dynamicColor = settings.dynamicColor, accentArgb = settings.accentArgb) {
                 val vm: AppViewModel = viewModel()
-                // Dismissing the sheet (tap-away or after adding) keeps the task widgets current, then
+                // Dismissing the panel (tap-away or after adding) keeps the task widgets current, then
                 // closes the floating window — the app itself never comes forward.
-                QuickAddSheet(vm, initialText = prefill, onDismiss = {
+                QuickCapturePanel(vm, initialText = prefill, onDismiss = {
                     AgendaWidget.refresh(this@QuickCaptureActivity)
                     TodayWidget.refresh(this@QuickCaptureActivity)
                     DoNextWidget.refresh(this@QuickCaptureActivity)

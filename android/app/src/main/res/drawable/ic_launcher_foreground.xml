@@ -3,8 +3,29 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- A simple white check mark centred in the adaptive-icon safe zone. -->
+    <!-- Kairo — "The Reveal": a hexagonal aperture opening onto a guiding star (a lodestar).
+         The aperture is the OPENING that kairos literally names; the star is the moment it reveals.
+         Drawn large within the adaptive-icon safe circle (all vertices at r=35 < r=36 crop), with the
+         iris facet lines kept clearly visible so it never reads as merely "a hexagon and a star". -->
+
+    <!-- Aperture rim -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M48.5,66.8 L37.4,55.7 L31.7,61.4 L48.5,78.2 L82.3,44.4 L76.6,38.7 Z" />
+        android:pathData="M54,19 L84.3,36.5 L84.3,71.5 L54,89 L23.7,71.5 L23.7,36.5 Z"
+        android:strokeColor="#A892DE"
+        android:strokeWidth="3.4"
+        android:strokeLineJoin="round"
+        android:strokeLineCap="round" />
+
+    <!-- Six iris facet lines — the critical internal structure that makes it an APERTURE. -->
+    <path android:pathData="M54,19 L54,28"       android:strokeColor="#CBBDF4" android:strokeWidth="2.6" android:strokeLineCap="round" />
+    <path android:pathData="M84.3,36.5 L76.5,41" android:strokeColor="#CBBDF4" android:strokeWidth="2.6" android:strokeLineCap="round" />
+    <path android:pathData="M84.3,71.5 L76.5,67" android:strokeColor="#CBBDF4" android:strokeWidth="2.6" android:strokeLineCap="round" />
+    <path android:pathData="M54,89 L54,80"       android:strokeColor="#CBBDF4" android:strokeWidth="2.6" android:strokeLineCap="round" />
+    <path android:pathData="M23.7,71.5 L31.5,67" android:strokeColor="#CBBDF4" android:strokeWidth="2.6" android:strokeLineCap="round" />
+    <path android:pathData="M23.7,36.5 L31.5,41" android:strokeColor="#CBBDF4" android:strokeWidth="2.6" android:strokeLineCap="round" />
+
+    <!-- The guiding star (the moment revealed) -->
+    <path
+        android:pathData="M54,32 Q57,51 76,54 Q57,57 54,76 Q51,57 32,54 Q51,51 54,32 Z"
+        android:fillColor="#F5B01E" />
 </vector>

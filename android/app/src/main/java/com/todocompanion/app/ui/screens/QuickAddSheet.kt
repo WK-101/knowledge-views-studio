@@ -3,10 +3,12 @@ package com.todocompanion.app.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,6 +43,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -65,15 +68,61 @@ import com.todocompanion.app.ui.components.formatDue
 import com.todocompanion.app.ui.components.priorityColor
 
 /**
- * TickTick-style quick capture: a borderless title + description, then one calm icon row that now
- * offers the SAME first-class options as the editor — date/time/duration/repeat/reminder (the unified
- * Date sheet), priority, tags, contexts, the shared folders+lists selector, and attachments. No
- * drag-handle pill, no chip row: compact yet calm. The title still runs through the NL parser.
+ * TickTick-style quick capture: a borderless title + description, then one calm icon row that offers the
+ * SAME first-class options as the editor — date/time/duration/repeat/reminder (the unified Date sheet),
+ * priority, tags, contexts, the shared folders+lists selector, and attachments. No drag-handle pill, no
+ * chip row: compact yet calm. The title runs through the NL parser.
+ *
+ * Two hosts share ONE body ([QuickAddBody]):
+ *  • [QuickAddSheet]     — in-app, wrapped in a Material [ModalBottomSheet].
+ *  • [QuickCapturePanel] — the widget / launcher-shortcut popup, rendered directly in a bottom Surface.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Boolean = false, initialText: String = "", onDismiss: () -> Unit) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, dragHandle = null) {
+        QuickAddBody(vm, initialDue, initialHasTime, initialText, onDismiss)
+    }
+}
+
+/**
+ * R68 — the home-screen add-a-task popup that the Quick-add widget and the "Quick add" launcher shortcut
+ * fire into (via QuickCaptureActivity), and the same panel used for shared/voice/deep-link captures.
+ *
+ * It renders the identical [QuickAddBody] but in a plain bottom-anchored [Surface] with its own scrim —
+ * NOT a [ModalBottomSheet]. A ModalBottomSheet spins up a SECOND Dialog window; inside the transient,
+ * translucent QuickCaptureActivity that second window is what crashed the widget/shortcut the instant it
+ * opened. Painting the panel straight into the activity's own window is crash-proof and keeps the whole
+ * app from ever coming forward. Tap the dimmed launcher behind it (or Back) to dismiss.
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun QuickCapturePanel(vm: AppViewModel, initialText: String = "", onDismiss: () -> Unit) {
+    Box(
+        Modifier.fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.38f))
+            // Tap-away on the scrim closes the popup (no ripple).
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onDismiss() },
+        contentAlignment = Alignment.BottomCenter,
+    ) {
+        Surface(
+            color = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            tonalElevation = 2.dp,
+            shadowElevation = 16.dp,
+            modifier = Modifier.fillMaxWidth()
+                // Swallow taps on the card so they don't fall through to the scrim's dismiss.
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
+        ) {
+            QuickAddBody(vm, initialText = initialText, onDismiss = onDismiss)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Boolean = false, initialText: String = "", onDismiss: () -> Unit) {
     val lists by vm.lists.collectAsState()
     val folders by vm.folders.collectAsState()
     val tags by vm.tags.collectAsState()
@@ -128,101 +177,99 @@ fun QuickAddSheet(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Bo
         onDismiss()
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, dragHandle = null) {
-        Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 20.dp, vertical = 6.dp)) {
-            // Title — borderless, with live token highlighting.
-            Box(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 2.dp)) {
-                if (text.isEmpty()) Text("What would you like to do?",
-                    color = MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.titleLarge, maxLines = 2)
-                BasicTextField(
-                    value = text, onValueChange = { text = it },
-                    modifier = Modifier.fillMaxWidth().focusRequester(focus),
-                    textStyle = MaterialTheme.typography.titleLarge.copy(color = MaterialTheme.colorScheme.onSurface),
-                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { submit() }),
-                    visualTransformation = QuickAddTransformation,
-                )
-            }
-            // Description — borderless, muted.
-            Box(Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 2.dp)) {
-                if (note.isEmpty()) Text("Description",
-                    color = MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.bodyMedium)
-                BasicTextField(
-                    value = note, onValueChange = { note = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
-                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                )
-            }
+    Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 20.dp, vertical = 6.dp)) {
+        // Title — borderless, with live token highlighting.
+        Box(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 2.dp)) {
+            if (text.isEmpty()) Text("What would you like to do?",
+                color = MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.titleLarge, maxLines = 2)
+            BasicTextField(
+                value = text, onValueChange = { text = it },
+                modifier = Modifier.fillMaxWidth().focusRequester(focus),
+                textStyle = MaterialTheme.typography.titleLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { submit() }),
+                visualTransformation = QuickAddTransformation,
+            )
+        }
+        // Description — borderless, muted.
+        Box(Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 2.dp)) {
+            if (note.isEmpty()) Text("Description",
+                color = MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.bodyMedium)
+            BasicTextField(
+                value = note, onValueChange = { note = it },
+                modifier = Modifier.fillMaxWidth(),
+                textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            )
+        }
 
-            // Destination cue + (when set) the chosen date / recurrence — one calm, light line.
-            val destView by vm.currentView.collectAsState()
-            val destText = when {
-                folderId != null -> "📁 " + (folders.firstOrNull { it.id == folderId }?.name ?: "Folder")
-                listId != null -> lists.firstOrNull { it.id == listId }?.name ?: "List"
-                destView is com.todocompanion.app.domain.view.ViewRef.FolderView ->
-                    "📁 " + (folders.firstOrNull { it.id == (destView as com.todocompanion.app.domain.view.ViewRef.FolderView).folderId }?.name ?: "Folder")
-                destView is com.todocompanion.app.domain.view.ViewRef.ListView ->
-                    lists.firstOrNull { it.id == (destView as com.todocompanion.app.domain.view.ViewRef.ListView).listId }?.name ?: "List"
-                else -> "Inbox"
+        // Destination cue + (when set) the chosen date / recurrence — one calm, light line.
+        val destView by vm.currentView.collectAsState()
+        val destText = when {
+            folderId != null -> "📁 " + (folders.firstOrNull { it.id == folderId }?.name ?: "Folder")
+            listId != null -> lists.firstOrNull { it.id == listId }?.name ?: "List"
+            destView is com.todocompanion.app.domain.view.ViewRef.FolderView ->
+                "📁 " + (folders.firstOrNull { it.id == (destView as com.todocompanion.app.domain.view.ViewRef.FolderView).folderId }?.name ?: "Folder")
+            destView is com.todocompanion.app.domain.view.ViewRef.ListView ->
+                lists.firstOrNull { it.id == (destView as com.todocompanion.app.domain.view.ViewRef.ListView).listId }?.name ?: "List"
+            else -> "Inbox"
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 2.dp, start = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Adding to $destText", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (due != null) {
+                Text("  ·  ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.Filled.CalendarMonth, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(13.dp))
+                Spacer(Modifier.width(3.dp))
+                Text(formatDue(due!!) + (if (rrule != null) " ⟳" else ""), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                Icon(Icons.Filled.Close, "Clear date", tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 3.dp).size(14.dp).clip(CircleShape).clickable { due = null; hasTime = false; durationMin = null; rrule = null; reminderOffset = null })
             }
-            Row(Modifier.fillMaxWidth().padding(top = 2.dp, start = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Adding to $destText", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (due != null) {
-                    Text("  ·  ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Icon(Icons.Filled.CalendarMonth, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(13.dp))
-                    Spacer(Modifier.width(3.dp))
-                    Text(formatDue(due!!) + (if (rrule != null) " ⟳" else ""), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                    Icon(Icons.Filled.Close, "Clear date", tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(start = 3.dp).size(14.dp).clip(CircleShape).clickable { due = null; hasTime = false; durationMin = null; rrule = null; reminderOffset = null })
-                }
-            }
+        }
 
-            // One calm icon row — tools scroll if the screen is narrow; Send stays pinned right.
-            Row(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
-                    IconTool(Icons.Filled.CalendarMonth, "Date, time, repeat & reminder", due != null || rrule != null) { showDue = true }
-                    // Tap to cycle priority (High → Medium → Low → None) — no popup over Send.
-                    IconTool(Icons.Filled.Flag, "Priority", priority != null && priority != PriorityLevel.NONE,
-                        tint = priority?.takeIf { it != PriorityLevel.NONE }?.let { priorityColor(it) }) {
-                        priority = when (priority) {
-                            null, PriorityLevel.NONE -> PriorityLevel.HIGH
-                            PriorityLevel.HIGH -> PriorityLevel.MEDIUM
-                            PriorityLevel.MEDIUM -> PriorityLevel.LOW
-                            PriorityLevel.LOW -> PriorityLevel.NONE
-                        }
+        // One calm icon row — tools scroll if the screen is narrow; Send stays pinned right.
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+                IconTool(Icons.Filled.CalendarMonth, "Date, time, repeat & reminder", due != null || rrule != null) { showDue = true }
+                // Tap to cycle priority (High → Medium → Low → None) — no popup over Send.
+                IconTool(Icons.Filled.Flag, "Priority", priority != null && priority != PriorityLevel.NONE,
+                    tint = priority?.takeIf { it != PriorityLevel.NONE }?.let { priorityColor(it) }) {
+                    priority = when (priority) {
+                        null, PriorityLevel.NONE -> PriorityLevel.HIGH
+                        PriorityLevel.HIGH -> PriorityLevel.MEDIUM
+                        PriorityLevel.MEDIUM -> PriorityLevel.LOW
+                        PriorityLevel.LOW -> PriorityLevel.NONE
                     }
-                    Box {
-                        IconTool(Icons.Filled.Label, "Tags", tagIds.isNotEmpty()) { tagMenu = true }
-                        DropdownMenu(expanded = tagMenu, onDismissRequest = { tagMenu = false }) {
-                            if (tags.isEmpty()) DropdownMenuItem(text = { Text("No tags yet — type #tag in the title") }, onClick = { tagMenu = false })
-                            tags.forEach { t ->
-                                DropdownMenuItem(text = { Text((if (t.id in tagIds) "✓ " else "") + "#" + t.name) },
-                                    onClick = { tagIds = if (t.id in tagIds) tagIds - t.id else tagIds + t.id })
-                            }
-                        }
-                    }
-                    Box {
-                        IconTool(Icons.Filled.Place, "Contexts", ctxIds.isNotEmpty()) { ctxMenu = true }
-                        DropdownMenu(expanded = ctxMenu, onDismissRequest = { ctxMenu = false }) {
-                            if (contexts.isEmpty()) DropdownMenuItem(text = { Text("No contexts yet — type @context in the title") }, onClick = { ctxMenu = false })
-                            contexts.forEach { c ->
-                                DropdownMenuItem(text = { Text((if (c.id in ctxIds) "✓ " else "") + "@" + c.name) },
-                                    onClick = { ctxIds = if (c.id in ctxIds) ctxIds - c.id else ctxIds + c.id })
-                            }
-                        }
-                    }
-                    IconTool(Icons.AutoMirrored.Filled.FormatListBulleted, "List or folder", listId != null || folderId != null) { listPicker = true }
-                    IconTool(Icons.Filled.AttachFile, "Attach a file", attachments.isNotEmpty()) {
-                        com.todocompanion.app.util.SystemPicker.openFiles(arrayOf("*/*"), onError = { android.widget.Toast.makeText(qaCtx, it, android.widget.Toast.LENGTH_LONG).show() }) { uris -> attachments = attachments + uris }
-                    }
-                    IconTool(Icons.Filled.Mic, "Dictate task", false) { startVoice() }
                 }
-                Spacer(Modifier.width(6.dp))
-                Box(Modifier.size(40.dp).clip(CircleShape).background(if (text.isBlank()) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primary).clickable { submit() }, contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.Send, "Add", tint = if (text.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp))
+                Box {
+                    IconTool(Icons.Filled.Label, "Tags", tagIds.isNotEmpty()) { tagMenu = true }
+                    DropdownMenu(expanded = tagMenu, onDismissRequest = { tagMenu = false }) {
+                        if (tags.isEmpty()) DropdownMenuItem(text = { Text("No tags yet — type #tag in the title") }, onClick = { tagMenu = false })
+                        tags.forEach { t ->
+                            DropdownMenuItem(text = { Text((if (t.id in tagIds) "✓ " else "") + "#" + t.name) },
+                                onClick = { tagIds = if (t.id in tagIds) tagIds - t.id else tagIds + t.id })
+                        }
+                    }
                 }
+                Box {
+                    IconTool(Icons.Filled.Place, "Contexts", ctxIds.isNotEmpty()) { ctxMenu = true }
+                    DropdownMenu(expanded = ctxMenu, onDismissRequest = { ctxMenu = false }) {
+                        if (contexts.isEmpty()) DropdownMenuItem(text = { Text("No contexts yet — type @context in the title") }, onClick = { ctxMenu = false })
+                        contexts.forEach { c ->
+                            DropdownMenuItem(text = { Text((if (c.id in ctxIds) "✓ " else "") + "@" + c.name) },
+                                onClick = { ctxIds = if (c.id in ctxIds) ctxIds - c.id else ctxIds + c.id })
+                        }
+                    }
+                }
+                IconTool(Icons.AutoMirrored.Filled.FormatListBulleted, "List or folder", listId != null || folderId != null) { listPicker = true }
+                IconTool(Icons.Filled.AttachFile, "Attach a file", attachments.isNotEmpty()) {
+                    com.todocompanion.app.util.SystemPicker.openFiles(arrayOf("*/*"), onError = { android.widget.Toast.makeText(qaCtx, it, android.widget.Toast.LENGTH_LONG).show() }) { uris -> attachments = attachments + uris }
+                }
+                IconTool(Icons.Filled.Mic, "Dictate task", false) { startVoice() }
+            }
+            Spacer(Modifier.width(6.dp))
+            Box(Modifier.size(40.dp).clip(CircleShape).background(if (text.isBlank()) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primary).clickable { submit() }, contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.Send, "Add", tint = if (text.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp))
             }
         }
     }

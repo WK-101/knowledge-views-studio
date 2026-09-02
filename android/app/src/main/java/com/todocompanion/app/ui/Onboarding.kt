@@ -6,7 +6,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,8 +47,16 @@ import androidx.compose.ui.unit.dp
  */
 @Composable
 fun Onboarding(onDone: () -> Unit) {
-    data class Page(val emoji: String, val title: String, val body: String, val bullets: List<String>)
+    data class Page(val emoji: String, val title: String, val body: String, val bullets: List<String>, val brand: Boolean = false)
     val pages = listOf(
+        // R68 — the brand story: where the name and the mark come from, and why they were chosen.
+        Page("✦", "Meet Kairo",
+            "The name is Greek — kairos, the opportune moment to act, as opposed to chronos, mere clock-time. It fits an app that has grown well past a to-do list: tasks, a calendar, habits, time tracking, occasions and a private life-systems engine — all to help you do the right thing at the right time.",
+            listOf(
+                "🏛️  Kairos — the ancient word for the perfect moment",
+                "✦  The icon is an aperture opening onto a guiding star: the opening is the moment, the star is what it reveals",
+                "🎯  Name and mark chosen to say one thing — act at the right time"),
+            brand = true),
         Page("🌱", "Three tools, one calm app",
             "Tasks, habits and time tracking live together in one private place — turn on only what you need, add the rest later.",
             listOf("✓  To-dos with dates, priority & subtasks", "↻  Habits with streaks & strength", "⧗  Time tracking with rich statistics")),
@@ -70,6 +81,43 @@ fun Onboarding(onDone: () -> Unit) {
         Page("🧭", "It reasons across all three",
             "Only a unified, on-device store can do this: keystone habits, honest capacity, unified goals, momentum, weekly recaps and a private annual review.",
             listOf("Momentum across tasks, habits & time", "Any-period recap & “year in review”", "Cross-module goals & honest forecasting")),
+        // R68 — new since the last tour: the calendar moat, occasions, the record, the life-systems
+        // gallery, and the home-screen surface. Each names screens you can actually open.
+        Page("📅", "A calendar that plans your day",
+            "A full calendar lives inside Kairo — events with recurrence and alerts, protected time-blocks, and a planner that fits your tasks into the gaps of your day. No Google account, no sync.",
+            listOf(
+                "Time-blocking with durations & focus-protected blocks",
+                "“When am I free?” availability + an auto-schedule planner",
+                "Holiday packs, moon phases & event templates — all offline",
+                "Import & export .ics; a dual-timezone day ruler")),
+        Page("🎂", "The people & dates that matter",
+            "Birthdays, anniversaries and memorials — with age, zodiac and the next occurrence — plus a gentle keep-in-touch guardian so a friendship never quietly lapses.",
+            listOf(
+                "Countdowns to any date (and a home-screen widget)",
+                "Keep-in-touch cadence + an “on this day” almanac",
+                "Import birthdays straight from a .vcf contact card",
+                "Share a occasion card; attach photos & files")),
+        Page("🏆", "A record of everything you finish",
+            "Every completed task becomes an achievement you can look back on — a living record with a heatmap, milestones and skills — and each day ends with a one-glance review.",
+            listOf(
+                "The Record: trophy case, “on this day”, a brag / résumé doc",
+                "Day Review — an end-of-day digest of tasks, habits, time & mood",
+                "Impact map, milestone ledger & pattern insights",
+                "Wrapped — your private year in review")),
+        Page("🧰", "A workshop of life-systems tools",
+            "Beyond habits, Kairo carries a gallery of on-device, science-backed tools for building a life on purpose. Open the Life Systems hub and pick one when you need it.",
+            listOf(
+                "Grounding library — 5-4-3-2-1 & box breathing for hard moments",
+                "Temptation bundling & if-then plans, fired at the right cue",
+                "Rank your values (a card-sort) & self-escrow commitments",
+                "Fresh-start windows, a causal graph & your own correlations")),
+        Page("🧩", "Home-screen widgets & one-tap capture",
+            "Put Kairo on your home screen — a shelf of widgets for every module, plus a tiny add-task button that pops a capture panel without ever opening the app. Keep areas of life apart with workspaces.",
+            listOf(
+                "14 widgets: Do-Next, Habits, Agenda, Matrix, Time, The Record, Momentum…",
+                "A 1×1 Quick-add button → a popup task panel, straight from home",
+                "Long-press the icon: Quick add · Today · Do-Next · Focus",
+                "Workspaces keep Work and Personal fully separate")),
         Page("🔒", "Yours, and only yours",
             "Fully offline — no account, no cloud, no ads, and no internet or location permission at all. Back up or sync through a folder you choose, whenever you like.",
             listOf("0 network · 0 location permissions", "Lossless JSON export — your data stays portable", "Folder backup & account-free sync")),
@@ -92,8 +140,17 @@ fun Onboarding(onDone: () -> Unit) {
                 ) { idx ->
                     val p = pages[idx]
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                        Box(Modifier.size(104.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape), contentAlignment = Alignment.Center) {
-                            Text(p.emoji, style = MaterialTheme.typography.displaySmall)
+                        if (p.brand) {
+                            // Show the real Kairo launcher icon (The Reveal), so the tour opens with the mark itself.
+                            Image(
+                                painter = painterResource(id = com.todocompanion.app.R.mipmap.ic_launcher),
+                                contentDescription = "Kairo app icon",
+                                modifier = Modifier.size(116.dp).clip(RoundedCornerShape(28.dp)),
+                            )
+                        } else {
+                            Box(Modifier.size(104.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape), contentAlignment = Alignment.Center) {
+                                Text(p.emoji, style = MaterialTheme.typography.displaySmall)
+                            }
                         }
                         Spacer(Modifier.height(22.dp))
                         Text(p.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)

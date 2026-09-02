@@ -72,6 +72,9 @@ private val LS_COLORS = listOf(0xFF46618C, 0xFFC15B4A, 0xFF5E8C6A, 0xFF6C4FE0, 0
 @Composable
 fun LifeSystemsScreen(vm: AppViewModel, route: String, onBack: () -> Unit, onOpenHabit: (String) -> Unit) {
     BackHandler(onBack = onBack)
+    // R68 — hoist the hub's scroll position here, where this composable STAYS in composition across
+    // route changes, so opening a system and coming back restores your place instead of jumping to top.
+    val hubListState = androidx.compose.foundation.lazy.rememberLazyListState()
     when (route) {
         "values" -> ValuesScreen(vm, onBack)
         "scorecard" -> ScorecardScreen(vm, onBack)
@@ -91,7 +94,7 @@ fun LifeSystemsScreen(vm: AppViewModel, route: String, onBack: () -> Unit, onOpe
         "bundling" -> MicroPlanScreen(vm, onBack, kind = com.todocompanion.app.domain.MicroPlans.BUNDLE)
         "ifthen" -> MicroPlanScreen(vm, onBack, kind = com.todocompanion.app.domain.MicroPlans.IF_THEN)
         "valuesort" -> ValuesSortScreen(vm, onBack)
-        else -> HubScreen(vm, onBack)
+        else -> HubScreen(vm, onBack, hubListState)
     }
 }
 
@@ -108,7 +111,7 @@ private fun LSScaffold(title: String, onBack: () -> Unit, actions: @Composable (
 
 // ── Hub ───────────────────────────────────────────────────────────────────────────────────────────
 @Composable
-private fun HubScreen(vm: AppViewModel, onBack: () -> Unit) {
+private fun HubScreen(vm: AppViewModel, onBack: () -> Unit, listState: androidx.compose.foundation.lazy.LazyListState) {
     data class Entry(val route: String, val emoji: String, val title: String, val blurb: String)
     val entries = listOf(
         Entry("values", "🧭", "Values → systems → habits", "Name what you stand for; see how the week's actions cash out each value."),
@@ -138,7 +141,7 @@ private fun HubScreen(vm: AppViewModel, onBack: () -> Unit) {
         Entry("valuesort", "📊", "Rank your values", "A forced card-sort of what matters most — clarity you can't get from a flat list (ACT)."),
     )
     LSScaffold("Life systems", onBack) { pad ->
-        LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        LazyColumn(Modifier.padding(pad).fillMaxSize(), state = listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item {
                 Text("From tracking habits to engineering a life — private, permanent, and entirely on your device.",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))

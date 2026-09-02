@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">ToDo Companion</string>
+    <string name="app_name">Kairo</string>
     <string name="widget_today_desc">Today\'s task count with a quick-add button</string>
     <string name="widget_agenda_desc">A scrolling list of today\'s and overdue tasks</string>
     <string name="widget_record_desc">A scrolling list of what you\'ve recently finished</string>
