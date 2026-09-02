@@ -65,6 +65,13 @@ jobs:
             echo "The APK is still installable; add the secrets for stable update-in-place."
           fi
 
+      - name: Unit tests
+        # R77 — gate the APK on the JVM unit suite (domain engines, recurrence, priority, quick-add,
+        # backup round-trip, the achievement/coach engines, and the migration-chain assertions). A red
+        # test now fails the build instead of shipping. (Instrumented tests that need a device — the
+        # Room MigrationTest — run in a separate emulator job when one is configured.)
+        run: ./gradlew testReleaseUnitTest --stacktrace
+
       - name: Build release APK
         run: ./gradlew assembleRelease --stacktrace
 

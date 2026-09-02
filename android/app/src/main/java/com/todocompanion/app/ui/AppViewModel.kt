@@ -4235,75 +4235,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun markReviewed(t: TaskEntity) = viewModelScope.launch { repo.saveTask(t.copy(reviewedAt = System.currentTimeMillis())) }
 
     // ---------- reminders ----------
-    // R59 (Wave 1) — new reminders inherit the user's default intensity tier (Gentle/Persistent/Insistent);
-    // an explicit annoying=true from a caller still forces at least Persistent.
-    private fun defaultTierFlags(annoying: Boolean): Pair<Boolean, Boolean> {
-        val tier = settings.value.defaultReminderTier
-        return Pair(annoying || com.todocompanion.app.domain.reminders.ReminderPresets.tierAnnoying(tier),
-            com.todocompanion.app.domain.reminders.ReminderPresets.tierEscalate(tier))
+    // R77 — reminder creation/retune/cancel lives in ReminderController (context + repo + default-tier
+    // provider). These wrappers keep only the viewModelScope threading, so behaviour is unchanged.
+    private val reminderCtl by lazy {
+        com.todocompanion.app.reminders.ReminderController(appCtx, repo) { settings.value.defaultReminderTier }
     }
-    fun addAbsoluteReminder(task: TaskEntity, atMillis: Long, annoying: Boolean = false) = viewModelScope.launch {
-        val (ann, esc) = defaultTierFlags(annoying)
-        val r = ReminderEntity(UUID.randomUUID().toString(), taskId = task.id, type = "absolute", atTime = atMillis, annoying = ann, escalate = esc)
-        repo.upsertReminder(r)
-        AlarmScheduler.schedule(appCtx, r, task)
-    }
-    /** A reminder relative to the task's due or start ([type] = relativeToDue / relativeToStart). */
-    fun addRelativeReminder(task: TaskEntity, type: String, offsetMin: Int, annoying: Boolean = false) = viewModelScope.launch {
-        val (ann, esc) = defaultTierFlags(annoying)
-        val r = ReminderEntity(UUID.randomUUID().toString(), taskId = task.id, type = type, offsetMin = offsetMin, annoying = ann, escalate = esc)
-        repo.upsertReminder(r)
-        AlarmScheduler.schedule(appCtx, r, task)
-    }
-    /** R59 (Wave 2) — an expert reminder on the unified model: relativeToDeadline / dueDayAt (offsetMin =
-     *  minute-of-day) / whenOverdue / random, optionally recurring-with-count. Inherits the default tier. */
-    fun addExpertReminder(task: TaskEntity, type: String, offsetMin: Int = 0, repeatEveryMin: Int? = null, repeatCount: Int? = null) = viewModelScope.launch {
-        val (ann, esc) = defaultTierFlags(false)
-        val r = ReminderEntity(UUID.randomUUID().toString(), taskId = task.id, type = type, offsetMin = offsetMin,
-            annoying = ann, escalate = esc, repeatEveryMin = repeatEveryMin, repeatCount = repeatCount)
-        repo.upsertReminder(r)
-        AlarmScheduler.schedule(appCtx, r, task)
-    }
-    /** R59 (Wave 2) — a permission-free place reminder: armed against a named place, fired when you tell the
-     *  app you've arrived (NFC tag / QR / shortcut → todocompanion://arrive?place=…). No location tracking. */
-    fun addPlaceReminder(task: TaskEntity, placeName: String, onEnter: Boolean = true) = viewModelScope.launch {
-        val r = ReminderEntity(UUID.randomUUID().toString(), taskId = task.id, type = "location",
-            placeName = placeName.trim().ifBlank { "here" }, onEnter = onEnter)
-        repo.upsertReminder(r)
-    }
-    /** Fire every place reminder matching [place] (blank = all) — the arrival trigger. */
-    fun fireArrivalReminders(place: String) = viewModelScope.launch {
-        val target = place.trim().lowercase()
-        repo.allRemindersOnce().filter { it.type == "location" }.forEach { r ->
-            val pn = (r.placeName ?: "").trim().lowercase()
-            val match = target.isBlank() || pn.isBlank() || pn == target || pn.contains(target) || target.contains(pn)
-            if (!match) return@forEach
-            val t = repo.getTask(r.taskId) ?: return@forEach
-            if (!t.completed && !t.trashed && !t.abandoned)
-                com.todocompanion.app.reminders.Notifications.show(appCtx, t.id, t.title, r.id, r.annoying, r.escalate, 0,
-                    (if (r.onEnter) "📍 Arrived" else "📍 Leaving") + (r.placeName?.let { ": $it" } ?: ""))
-        }
-    }
-    /** Toggle a reminder's persistent ("annoying") alarm — re-fires until the task is done. */
-    fun setReminderAnnoying(reminder: ReminderEntity, task: TaskEntity, on: Boolean) = viewModelScope.launch {
-        val nr = reminder.copy(annoying = on)
-        repo.upsertReminder(nr)
-        AlarmScheduler.cancel(appCtx, reminder, task); AlarmScheduler.schedule(appCtx, nr, task)
-    }
-    /** R59 — set a reminder's intensity tier (0 Gentle · 1 Persistent · 2 Insistent), surfacing the
-     *  engine's existing annoying/escalate behaviour behind one control. */
-    fun setReminderTier(reminder: ReminderEntity, task: TaskEntity, tier: Int) = viewModelScope.launch {
-        val nr = reminder.copy(
-            annoying = com.todocompanion.app.domain.reminders.ReminderPresets.tierAnnoying(tier),
-            escalate = com.todocompanion.app.domain.reminders.ReminderPresets.tierEscalate(tier),
-        )
-        repo.upsertReminder(nr)
-        AlarmScheduler.cancel(appCtx, reminder, task); AlarmScheduler.schedule(appCtx, nr, task)
-    }
-    fun deleteReminder(reminder: ReminderEntity, task: TaskEntity) = viewModelScope.launch {
-        repo.deleteReminder(reminder.id)
-        AlarmScheduler.cancel(appCtx, reminder, task)
-    }
+
+    fun addAbsoluteReminder(task: TaskEntity, atMillis: Long, annoying: Boolean = false) = viewModelScope.launch { reminderCtl.addAbsolute(task, atMillis, annoying) }
+    fun addRelativeReminder(task: TaskEntity, type: String, offsetMin: Int, annoying: Boolean = false) = viewModelScope.launch { reminderCtl.addRelative(task, type, offsetMin, annoying) }
+    fun addExpertReminder(task: TaskEntity, type: String, offsetMin: Int = 0, repeatEveryMin: Int? = null, repeatCount: Int? = null) = viewModelScope.launch { reminderCtl.addExpert(task, type, offsetMin, repeatEveryMin, repeatCount) }
+    fun addPlaceReminder(task: TaskEntity, placeName: String, onEnter: Boolean = true) = viewModelScope.launch { reminderCtl.addPlace(task, placeName, onEnter) }
+    fun fireArrivalReminders(place: String) = viewModelScope.launch { reminderCtl.fireArrivals(place) }
+    fun setReminderAnnoying(reminder: ReminderEntity, task: TaskEntity, on: Boolean) = viewModelScope.launch { reminderCtl.setAnnoying(reminder, task, on) }
+    fun setReminderTier(reminder: ReminderEntity, task: TaskEntity, tier: Int) = viewModelScope.launch { reminderCtl.setTier(reminder, task, tier) }
+    fun deleteReminder(reminder: ReminderEntity, task: TaskEntity) = viewModelScope.launch { reminderCtl.delete(reminder, task) }
 
     // ---------- settings ----------
     fun saveSettings(s: AppSettings) = viewModelScope.launch { repo.saveSettings(s) }
