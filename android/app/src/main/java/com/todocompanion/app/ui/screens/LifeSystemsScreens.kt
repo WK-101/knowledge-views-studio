@@ -39,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -821,28 +822,108 @@ private fun EscrowAddDialog(vm: AppViewModel, habits: List<com.todocompanion.app
         dismissButton = { TextButton(onClick = onClose) { Text("Cancel") } })
 }
 
-// FW-10 · Grounding library.
+// FW-10 · Grounding library — R66: expandable cards with the mechanism ("why"), plus guided
+// breathing pacers and countdown exercises for the techniques that benefit.
 @Composable
 private fun GroundingScreen(vm: AppViewModel, onBack: () -> Unit) {
     val techniques = remember { FourthWave.groundingTechniques() }
+    var expanded by remember { mutableStateOf<Int?>(null) }
+    var active by remember { mutableStateOf<FourthWave.Grounding?>(null) }
     LSScaffold("Grounding library", onBack) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item {
-                Text("For the hard moments — panic, a spike of craving, overwhelm. Pick any one and take it slowly. All offline, always here.",
+                Text("For the hard moments — panic, a spike of craving, overwhelm. Tap one to see why it works and, where it helps, to run it guided. All offline, always here.",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
             }
             items(techniques.size) { i ->
                 val g = techniques[i]
+                val open = expanded == i
                 FWCard {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().clickable { expanded = if (open) null else i }, verticalAlignment = Alignment.CenterVertically) {
                         Text(g.emoji, fontSize = 24.sp, modifier = Modifier.padding(end = 12.dp))
-                        Text(g.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        Text(g.title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        Text(if (open) "▾" else "▸", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Text(g.steps, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+                    if (open) {
+                        if (g.why.isNotBlank()) {
+                            Text("Why it works", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 10.dp))
+                            Text(g.why, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
+                        }
+                        if (g.breath.isNotEmpty() || g.timerSeconds > 0) {
+                            Button(onClick = { active = g }, modifier = Modifier.padding(top = 12.dp)) {
+                                Text(if (g.breath.isNotEmpty()) "Start breathing" else "Start guided")
+                            }
+                        }
+                    }
                 }
             }
         }
     }
+    active?.let { GroundingExercise(it, onClose = { active = null }) }
+}
+
+// A full-screen guided exercise: an animated breathing pacer, or a calm shrinking-circle countdown.
+@Composable
+private fun GroundingExercise(g: FourthWave.Grounding, onClose: () -> Unit) {
+    androidx.activity.compose.BackHandler { onClose() }
+    androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+        Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(g.emoji + "  " + g.title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                androidx.compose.material3.TextButton(onClick = onClose) { Text("Done") }
+            }
+            Spacer(Modifier.weight(1f))
+            if (g.breath.isNotEmpty()) BreathingPacer(g.breath) else CountdownCircle(g.timerSeconds)
+            Spacer(Modifier.weight(1f))
+            Text(g.steps, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        }
+    }
+}
+
+@Composable
+private fun BreathingPacer(phases: List<Pair<String, Int>>) {
+    var idx by remember { mutableStateOf(0) }
+    var round by remember { mutableStateOf(1) }
+    var target by remember { mutableStateOf(0.35f) }
+    val secs = phases[idx].second
+    val label = phases[idx].first
+    val scale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = target,
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = secs * 1000, easing = androidx.compose.animation.core.LinearEasing),
+        label = "breath",
+    )
+    LaunchedEffect(Unit) {
+        while (true) {
+            phases.forEachIndexed { i, (lab, sec) ->
+                idx = i
+                if (lab.contains("in", true)) target = 1f else if (lab.contains("out", true)) target = 0.35f
+                kotlinx.coroutines.delay(sec * 1000L)
+            }
+            round += 1
+        }
+    }
+    val size = androidx.compose.ui.unit.lerp(120.dp, 264.dp, scale)
+    Box(Modifier.size(264.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(size).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+            Text(label, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+        }
+    }
+    Text("Round $round", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 18.dp))
+}
+
+@Composable
+private fun CountdownCircle(totalSecs: Int) {
+    var remaining by remember { mutableStateOf(totalSecs) }
+    LaunchedEffect(Unit) { while (remaining > 0) { kotlinx.coroutines.delay(1000); remaining -= 1 } }
+    val frac = if (totalSecs > 0) remaining / totalSecs.toFloat() else 0f
+    val size = androidx.compose.ui.unit.lerp(96.dp, 264.dp, frac)
+    Box(Modifier.size(264.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(size).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)))
+        Text("%d:%02d".format(remaining / 60, remaining % 60), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+    }
+    Text(if (remaining == 0) "Done — notice how you feel now." else "Breathe slowly and let it pass.",
+        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 18.dp))
 }
 
 // FW-11/FW-12 · Fresh-start windows (temporal landmarks + transition detector).

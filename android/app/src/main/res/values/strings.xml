@@ -3,6 +3,7 @@
     <string name="app_name">ToDo Companion</string>
     <string name="widget_today_desc">Today\'s task count with a quick-add button</string>
     <string name="widget_agenda_desc">A scrolling list of today\'s and overdue tasks</string>
+    <string name="widget_record_desc">A scrolling list of what you\'ve recently finished</string>
     <string name="widget_countdown_desc">Days remaining until your pinned countdown</string>
     <string name="widget_quickadd_desc">A one-tap button to add a task</string>
     <string name="widget_stats_desc">Tasks completed today and how many are still due</string>

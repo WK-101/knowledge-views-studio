@@ -214,18 +214,57 @@ object FourthWave {
         return EscrowStatus(escrow, current, escrow.milestoneValue, current >= escrow.milestoneValue)
     }
 
-    // ── FW-10 · grounding / panic library ─────────────────────────────────────────────────────────
-    /** A static, offline toolkit for the hard moments — grounding + de-escalation techniques. */
-    data class Grounding(val emoji: String, val title: String, val steps: String)
+    // ── FW-10 · grounding / panic / distress-tolerance library ────────────────────────────────────
+    /** An offline toolkit for the hard moments — grounding, paced breathing, distress-tolerance and
+     *  self-compassion techniques. [why] is the mechanism (psychoeducation). [timerSeconds] > 0 shows a
+     *  guided countdown; [breath] (phase label → seconds) drives an animated breathing pacer. R66. */
+    data class Grounding(
+        val emoji: String, val title: String, val steps: String,
+        val why: String = "",
+        val timerSeconds: Int = 0,
+        val breath: List<Pair<String, Int>> = emptyList(),
+    )
 
     fun groundingTechniques(): List<Grounding> = listOf(
-        Grounding("🖐️", "5-4-3-2-1 senses", "Name 5 things you can see, 4 you can hear, 3 you can touch, 2 you can smell, 1 you can taste. Slow down on each — it pulls you out of the spiral and back into the room."),
-        Grounding("🌬️", "Box breathing", "Breathe in for 4, hold for 4, out for 4, hold for 4. Repeat four rounds. Longer exhales tell your nervous system the danger has passed."),
-        Grounding("❄️", "Cold reset", "Hold something cold, splash cold water on your face, or step outside. A sharp temperature change interrupts a panic loop and buys you a clear minute."),
-        Grounding("🦶", "Feet on the floor", "Press both feet flat and feel the ground hold you up. Push down gently. You are here, now, supported — the feeling is real but temporary."),
-        Grounding("💭", "Name it to tame it", "Say to yourself: \"This is anxiety. It peaks and it passes.\" Labelling the feeling engages the thinking brain and quiets the alarm."),
-        Grounding("📞", "Reach out", "Message one person you trust, even just \"having a rough moment\". Connection is a nervous-system regulator — you don't have to ride it out alone."),
-        Grounding("🕰️", "Ten-minute rule", "Promise yourself you'll only wait ten minutes before deciding anything. Urges and panic almost always drop within that window — decide on the other side of it."),
+        Grounding("🖐️", "5-4-3-2-1 senses",
+            "Name 5 things you can see, 4 you can hear, 3 you can touch, 2 you can smell, 1 you can taste. Slow down on each.",
+            why = "Sensory grounding shifts attention from the threat-driven inner spiral to concrete outside detail — it interrupts rumination and re-anchors you in the present."),
+        Grounding("🌬️", "Box breathing",
+            "Breathe in for 4, hold for 4, out for 4, hold for 4. Follow the circle for four rounds.",
+            why = "Slow, even breathing with an extended hold raises vagal tone and lowers heart rate — a physiological \"the danger has passed\" signal used by Navy divers and clinicians.",
+            breath = listOf("Breathe in" to 4, "Hold" to 4, "Breathe out" to 4, "Hold" to 4)),
+        Grounding("🫁", "4-7-8 breath",
+            "Breathe in for 4, hold for 7, and exhale slowly for 8. Follow the circle for four rounds.",
+            why = "A long exhale relative to the inhale strongly engages the parasympathetic (rest-and-digest) system — the fastest paced-breathing route to calm.",
+            breath = listOf("Breathe in" to 4, "Hold" to 7, "Breathe out" to 8)),
+        Grounding("🌊", "Urge surfing",
+            "Don't fight the urge and don't feed it — watch it. Notice where you feel it, rate it 0–10, and breathe as it rises, peaks, and falls like a wave.",
+            why = "Urges are self-limiting: mindfulness-based relapse prevention shows that observing a craving without acting lets it crest and subside, usually within a few minutes.",
+            timerSeconds = 120),
+        Grounding("❄️", "Cold reset (TIPP)",
+            "Hold something cold, splash cold water on your face, or step outside. A sharp temperature change resets you.",
+            why = "The dive reflex — cold on the face — abruptly lowers heart rate. DBT's TIPP skill uses it to break a panic or rage spike when you're too flooded to think."),
+        Grounding("💪", "Muscle release",
+            "Tense your fists, shoulders and jaw hard for 5 seconds, then let go completely. Work down the body, one group at a time.",
+            why = "Progressive muscle relaxation discharges the physical tension anxiety stores in the body; the deliberate release teaches the nervous system what \"calm\" feels like.",
+            timerSeconds = 90),
+        Grounding("🦶", "Feet on the floor",
+            "Press both feet flat and feel the ground hold you up. Push down gently. You are here, now, supported.",
+            why = "Somatic anchoring uses proprioception (your body's felt sense of position) to signal safety — steadier and harder to argue with than a thought."),
+        Grounding("💭", "Name it to tame it",
+            "Say to yourself: \"This is anxiety. It peaks and it passes.\" Put the feeling into words.",
+            why = "Affect labelling — naming an emotion — measurably dampens amygdala activity and engages the prefrontal cortex. Naming the alarm quiets it."),
+        Grounding("💗", "Self-compassion break",
+            "Three lines, hand on heart: \"This is a moment of struggle.\" · \"Struggle is part of being human.\" · \"May I be kind to myself right now.\"",
+            why = "Kristin Neff's three moves — mindfulness, common humanity, self-kindness — replace the self-attack that deepens distress with the tone you'd use for a friend.",
+            timerSeconds = 60),
+        Grounding("📞", "Reach out",
+            "Message one person you trust, even just \"having a rough moment\". You don't have to ride it out alone.",
+            why = "Co-regulation is real: a calm, trusted presence settles your nervous system through the social-engagement system faster than white-knuckling it solo."),
+        Grounding("🕰️", "Ten-minute rule",
+            "Promise yourself you'll only wait ten minutes before deciding or acting on anything. Decide on the other side.",
+            why = "Delay defeats impulsivity: the emotional peak is brief, so a short, bounded wait almost always changes the decision you'd have made at the crest.",
+            timerSeconds = 600),
     )
 
     // ── FW-11 · transition detector + reset window ────────────────────────────────────────────────

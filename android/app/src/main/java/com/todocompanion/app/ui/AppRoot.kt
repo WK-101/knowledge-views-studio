@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Unarchive
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CalendarViewMonth
 import androidx.compose.material.icons.filled.Check
@@ -371,6 +372,7 @@ fun AppRoot(
         val openOccasion: (String?) -> Unit = { id -> countdownOpenId = id; showCountdowns = true }
         var showDone by remember { mutableStateOf(false) }   // R27 The Done Record
         var showPlan by remember { mutableStateOf(false) }
+        var showDayReview by remember { mutableStateOf<Long?>(null) }   // R66 end-of-day review (holds the epoch-day, null = closed)
         // Tier Ω: the command palette, the any-period recap overlay, and the annual-report picker.
         var showPalette by remember { mutableStateOf(false) }
         var recapRange by remember { mutableStateOf<Triple<Long, Long, String>?>(null) }
@@ -483,6 +485,8 @@ fun AppRoot(
                 a == "open_next7" -> { vm.select(ViewRef.Smart(SmartKind.NEXT7)); tab = Tab.TASKS; launchAction.value = null }
                 a == "open_plan" -> { showPlan = true; launchAction.value = null }
                 a == "open_momentum" -> { showMomentum = true; launchAction.value = null }
+                a == "open_record" -> { showDone = true; launchAction.value = null }
+                a == "open_dayreview" -> { showDayReview = java.time.LocalDate.now().toEpochDay(); launchAction.value = null }
                 a == "open_time" -> { showTimeTracking = true; launchAction.value = null }
                 a == "open_calendar" -> { tab = Tab.CALENDAR; launchAction.value = null }
                 a != null && a.startsWith(com.todocompanion.app.MainActivity.ACTION_TRACK_ACTIVITY) -> {
@@ -839,6 +843,7 @@ fun AppRoot(
                                 DropdownMenuItem(text = { Text("Plan my day") }, leadingIcon = { Icon(Icons.Filled.Bolt, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; showPlan = true })
                                 DropdownMenuItem(text = { Text("Focus") }, leadingIcon = { Icon(Icons.Filled.Timer, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; tab = Tab.FOCUS })
                                 DropdownMenuItem(text = { Text("Weekly review") }, leadingIcon = { Icon(Icons.Filled.EventRepeat, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; showReview = true })
+                                DropdownMenuItem(text = { Text("Day review") }, leadingIcon = { Icon(Icons.Filled.WbSunny, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; showDayReview = java.time.LocalDate.now().toEpochDay() })
                             }
                         }
                     } else if (tab == Tab.HABITS) {
@@ -946,6 +951,7 @@ fun AppRoot(
         if (showDone) com.todocompanion.app.ui.screens.DoneScreen(vm, onOpenTask = { showDone = false; openTask(it) }, onBack = { showDone = false })
         if (showPlan) com.todocompanion.app.ui.screens.PlanYourDayScreen(vm, onOpenTask = { showPlan = false; openTask(it) }, onBack = { showPlan = false })
         if (showReview) com.todocompanion.app.ui.screens.ReviewScreen(vm, onOpenTask = { showReview = false; openTask(it) }, onBack = { showReview = false })
+        showDayReview?.let { d -> com.todocompanion.app.ui.screens.DayReviewScreen(vm, d, onOpenTask = { showDayReview = null; openTask(it) }, onBack = { showDayReview = null }) }
         if (showMomentum) com.todocompanion.app.ui.screens.MomentumScreen(vm, onBack = { showMomentum = false })
         if (showTimeTracking) com.todocompanion.app.ui.screens.TimeTrackingScreen(vm, onBack = { showTimeTracking = false })
         if (showTimeStats) com.todocompanion.app.ui.screens.TimeStatsScreen(vm, onBack = { showTimeStats = false })
@@ -999,6 +1005,7 @@ fun AppRoot(
                         "attachments" to { showAttachments = true }, "files" to { showAttachments = true },
                         "momentum" to { showMomentum = true }, "statistics" to { showStats = true }, "stats" to { showStats = true },
                         "weekly review" to { showReview = true }, "review" to { showReview = true },
+                        "day review" to { showDayReview = java.time.LocalDate.now().toEpochDay() }, "day" to { showDayReview = java.time.LocalDate.now().toEpochDay() }, "today review" to { showDayReview = java.time.LocalDate.now().toEpochDay() },
                         "plan" to { showPlan = true }, "plan my day" to { showPlan = true },
                         "time stats" to { showTimeStats = true }, "time tracking" to { showTimeTracking = true },
                         // R41 — the calendar's own planner surfaces (auto-schedule, time-audit) from the palette.
