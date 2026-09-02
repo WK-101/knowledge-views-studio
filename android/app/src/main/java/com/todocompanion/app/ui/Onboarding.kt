@@ -141,21 +141,18 @@ fun Onboarding(onDone: () -> Unit) {
                     val p = pages[idx]
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                         if (p.brand) {
-                            // Render the Kairo mark (The Reveal) on its gradient tile. IMPORTANT: load the
-                            // FOREGROUND VECTOR, never @mipmap/ic_launcher — painterResource can only parse a
-                            // <vector>, and handing it the <adaptive-icon> XML throws and crashes the whole
-                            // first-run tour the instant the app launches (the R68 startup-crash regression).
+                            // Render the Kairo mark (The Reveal) on its gradient tile by DRAWING it with a
+                            // Compose Canvas — no resource is loaded at all, so this page can never crash on a
+                            // drawable parse. (The R68 startup crash was painterResource() being handed the
+                            // @mipmap/ic_launcher <adaptive-icon>, which it cannot parse; this removes the whole
+                            // risk class from the first-run path.)
                             Box(
                                 Modifier.size(120.dp).clip(RoundedCornerShape(28.dp))
                                     .background(androidx.compose.ui.graphics.Brush.linearGradient(
                                         listOf(androidx.compose.ui.graphics.Color(0xFF2B2050), androidx.compose.ui.graphics.Color(0xFF3C2668)))),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Image(
-                                    painter = painterResource(id = com.todocompanion.app.R.drawable.ic_launcher_foreground),
-                                    contentDescription = "Kairo app icon",
-                                    modifier = Modifier.size(120.dp),
-                                )
+                                KairoMark(Modifier.size(120.dp))
                             }
                         } else {
                             Box(Modifier.size(104.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape), contentAlignment = Alignment.Center) {
@@ -199,5 +196,51 @@ fun Onboarding(onDone: () -> Unit) {
             // The same maker's mark that closes the sidebar & Settings, so the tour signs off in kind.
             com.todocompanion.app.ui.components.AppSignature()
         }
+    }
+}
+
+/**
+ * The Kairo mark ("The Reveal") drawn as a 3D box with the guiding star in front — rendered purely with
+ * Canvas primitives so the first-run tour never depends on inflating a drawable resource. Mirrors the
+ * launcher icon's foreground (108-unit design space, scaled to the given size).
+ */
+@Composable
+private fun KairoMark(modifier: Modifier = Modifier) {
+    androidx.compose.foundation.Canvas(modifier) {
+        val s = size.minDimension / 108f
+        fun o(x: Float, y: Float) = androidx.compose.ui.geometry.Offset(x * s, y * s)
+        fun path(vararg pts: Pair<Float, Float>) = androidx.compose.ui.graphics.Path().apply {
+            moveTo(pts[0].first * s, pts[0].second * s)
+            for (i in 1 until pts.size) lineTo(pts[i].first * s, pts[i].second * s)
+            close()
+        }
+        // Three cube faces (top lightest → sides step darker).
+        drawPath(path(54f to 19f, 84.3f to 36.5f, 54f to 54f, 23.7f to 36.5f), androidx.compose.ui.graphics.Color(0xFF8C7BC6))
+        drawPath(path(84.3f to 36.5f, 84.3f to 71.5f, 54f to 89f, 54f to 54f), androidx.compose.ui.graphics.Color(0xFF5E5099))
+        drawPath(path(23.7f to 36.5f, 54f to 54f, 54f to 89f, 23.7f to 71.5f), androidx.compose.ui.graphics.Color(0xFF473A74))
+        // Cube outline + the three inner edges (drawn before the star, so they vanish behind it).
+        val edge = androidx.compose.ui.graphics.Color(0xFFC6B8EE)
+        drawPath(
+            path(54f to 19f, 84.3f to 36.5f, 84.3f to 71.5f, 54f to 89f, 23.7f to 71.5f, 23.7f to 36.5f),
+            edge, style = androidx.compose.ui.graphics.drawscope.Stroke(
+                width = 2.4f * s,
+                join = androidx.compose.ui.graphics.StrokeJoin.Round,
+                cap = androidx.compose.ui.graphics.StrokeCap.Round,
+            ),
+        )
+        val cap = androidx.compose.ui.graphics.StrokeCap.Round
+        drawLine(edge, o(54f, 54f), o(84.3f, 36.5f), strokeWidth = 2.4f * s, cap = cap)
+        drawLine(edge, o(54f, 54f), o(23.7f, 36.5f), strokeWidth = 2.4f * s, cap = cap)
+        drawLine(edge, o(54f, 54f), o(54f, 89f), strokeWidth = 2.4f * s, cap = cap)
+        // The guiding star, in front.
+        val star = androidx.compose.ui.graphics.Path().apply {
+            moveTo(54f * s, 31f * s)
+            quadraticBezierTo(57.2f * s, 50.8f * s, 77f * s, 54f * s)
+            quadraticBezierTo(57.2f * s, 57.2f * s, 54f * s, 77f * s)
+            quadraticBezierTo(50.8f * s, 57.2f * s, 31f * s, 54f * s)
+            quadraticBezierTo(50.8f * s, 50.8f * s, 54f * s, 31f * s)
+            close()
+        }
+        drawPath(star, androidx.compose.ui.graphics.Color(0xFFF5B01E))
     }
 }
