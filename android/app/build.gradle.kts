@@ -36,6 +36,7 @@ android {
         versionCode = runNumber?.toIntOrNull() ?: 1
         versionName = "0.1.${runNumber ?: "0"}"
         vectorDrawables { useSupportLibrary = true }
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
@@ -72,11 +73,24 @@ android {
     buildFeatures {
         compose = true
     }
+    // R73 — expose the exported Room schema (app/schemas/) to instrumented tests as an asset, so a
+    // MigrationTestHelper can load it and validate the migration chain against the real DB.
+    sourceSets {
+        getByName("androidTest") {
+            assets.srcDir("$projectDir/schemas")
+        }
+    }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+}
+
+// R73 — tell Room's KSP processor where to write the exported schema JSON (consumed by the
+// instrumented MigrationTest, and committed so schema drift shows up in code review).
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
@@ -129,4 +143,9 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+
+    // R73 — instrumented tests: replay the whole Room migration chain against a real SQLite DB.
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.room:room-testing:2.6.1")
 }
