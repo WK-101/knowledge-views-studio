@@ -361,6 +361,18 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                     out
                 }
                 val childIds = remember(ordered, parents) { ordered.filter { parents[it.id]?.let { p -> ordered.any { a -> a.id == p } } == true }.map { it.id }.toSet() }
+                // R64 — nested activities now ROLL UP: a parent tile shows its own tracked minutes plus every
+                // descendant's, so a folder-style parent no longer reads 0 while its children hold hours.
+                val rolledMin = remember(totals, parents, liveActs) {
+                    val flat = totals.associate { it.activityId to it.minutes }
+                    val kids = HashMap<String, MutableList<String>>()
+                    liveActs.forEach { a -> parents[a.id]?.let { p -> kids.getOrPut(p) { mutableListOf() }.add(a.id) } }
+                    fun subtree(id: String, seen: HashSet<String>): Int {
+                        if (!seen.add(id)) return 0
+                        return (flat[id] ?: 0) + (kids[id]?.sumOf { subtree(it, seen) } ?: 0)
+                    }
+                    liveActs.associate { it.id to subtree(it.id, HashSet()) }
+                }
                 // A plain N-column grid (not lazy — we're inside a vertical scroll). `null` = the New tile.
                 // Tiles are square-ish and centred so they read cleanly from 2 up to 5 per row.
                 val tileHeight = if (cols >= 4) 84.dp else 72.dp
@@ -378,7 +390,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                             } else {
                                 val isRun = runningList.any { it.activityId == a.id }
                                 val c = a.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
-                                val todayMin = totals.firstOrNull { it.activityId == a.id }?.minutes ?: 0
+                                val todayMin = rolledMin[a.id] ?: (totals.firstOrNull { it.activityId == a.id }?.minutes ?: 0)
                                 val pinned = a.id in settings.pinnedActivities
                                 Box(Modifier.weight(1f)) {
                                     Column(

@@ -132,7 +132,9 @@ fun HabitMatrix(vm: AppViewModel, density: Int, onOpenHabit: (HabitEntity) -> Un
                     habits.forEach { h ->
                         val color = h.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
                         Row(
-                            Modifier.height(rowHeight),
+                            // R64 — trailing gutter so today's raised border ring isn't shaved by the
+                            // horizontal-scroll clip edge (scrollTo(maxValue) pins today flush right).
+                            Modifier.height(rowHeight).padding(end = 6.dp),
                             horizontalArrangement = Arrangement.spacedBy(2.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -187,7 +189,7 @@ private fun HabitLabel(h: HabitEntity, rowHeight: Dp, labelWidth: Dp, fontSp: In
 @Composable
 private fun DayHeader(days: List<Long>, cell: Dp, fontSp: Int, today: Long) {
     Row(
-        Modifier.height(HEADER_HEIGHT),
+        Modifier.height(HEADER_HEIGHT).padding(end = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.Bottom,
     ) {

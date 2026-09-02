@@ -473,12 +473,23 @@ class AppRepository(private val db: AppDatabase) {
             val all = habits.getAll()
             val h = running.habitId?.let { id -> all.firstOrNull { it.id == id } }
                 ?: all.firstOrNull { it.timeActivityId == running.activityId && !it.archived }
-            // V3: credit by the habit's link mode — minutes (default), one session, or off.
+            // V3 / R64: credit by the habit's link mode —
+            //   minutes  (default) : add the interval's minutes to the count (a "meditate 20 min" habit
+            //                        auto-completes once tracked minutes reach the target).
+            //   sessions           : each timed interval adds one clickIncrement (Streaks-style).
+            //   complete           : any tracked session marks the habit DONE for the day (fills the count
+            //                        up to the target) — the right choice for a habit whose unit isn't
+            //                        minutes (e.g. "8000 steps"), which time alone can't measure.
+            //   off                : tracking never auto-logs.
             if (h != null && h.linkMode != "off") {
-                val add = if (h.linkMode == "sessions") h.clickIncrement.coerceAtLeast(1) else mins
                 val day = java.time.Instant.ofEpochMilli(end).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toEpochDay()
                 val cur = habits.getCheckins().firstOrNull { it.habitId == h.id && it.epochDay == day }?.count ?: 0
-                setCheckinValue(h.id, day, cur + add)
+                val newCount = when (h.linkMode) {
+                    "complete" -> maxOf(cur, h.targetPerDay.coerceAtLeast(1))
+                    "sessions" -> cur + h.clickIncrement.coerceAtLeast(1)
+                    else -> cur + mins
+                }
+                setCheckinValue(h.id, day, newCount)
             }
         }
     }

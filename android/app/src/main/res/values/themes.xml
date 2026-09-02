@@ -13,15 +13,16 @@
         <item name="android:windowBackground">@drawable/splash_bg</item>
     </style>
 
-    <!-- R17: floating, translucent window for the quick-capture popup, so adding a task from a widget
-         feels like a small dialog over the launcher rather than the whole app opening. Compose paints the
-         card; the window itself is transparent and dims what's behind it. -->
-    <style name="Theme.ToDoCompanion.QuickCapture" parent="android:Theme.Material.Light.Dialog.NoActionBar">
+    <!-- R17/R64: a full-screen TRANSLUCENT (not floating) window for the quick-capture popup. The Compose
+         ModalBottomSheet paints its own scrim + card, so the launcher shows through, dimmed, and a tap
+         outside the sheet dismisses it. This MUST NOT be a Dialog / windowIsFloating theme: a floating
+         window can't host a ModalBottomSheet (the sheet adds its own full-screen scrim window), which
+         crashed the Quick-Add widget and the "Quick add" launcher shortcut the moment they opened. -->
+    <style name="Theme.ToDoCompanion.QuickCapture" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowIsTranslucent">true</item>
-        <item name="android:windowIsFloating">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
-        <item name="android:windowCloseOnTouchOutside">true</item>
-        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowAnimationStyle">@null</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>

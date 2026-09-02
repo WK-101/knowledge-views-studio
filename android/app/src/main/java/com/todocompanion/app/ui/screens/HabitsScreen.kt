@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -869,6 +870,8 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
             title = { Text(if (existing == null) "New habit" else "Edit habit", maxLines = 1) },
             navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
             actions = {
+                // R64 — the colour selector lives up here with delete/save, freeing the form for content.
+                com.todocompanion.app.ui.components.AppColorPicker(current = color, onPick = { color = it ?: color })
                 if (existing != null) IconButton(onClick = { confirmDelete = true }) {
                     Icon(Icons.Filled.Delete, "Delete", tint = MaterialTheme.colorScheme.error)
                 }
@@ -880,81 +883,61 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
             Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // 1. Identity
+            // 1. Identity — R64 compact re-layout: [emoji · name] · notes · [target · unit] · group.
+            // Colour moved to the top bar; the Morning/Afternoon/Evening suggestion chips removed.
             EditorCard {
-                com.todocompanion.app.ui.components.AppTextField(name, { name = it }, singleLine = true, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.size(10.dp))
                 var emojiOpen by remember { mutableStateOf(false) }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    // Emoji chooser — tap the swatch to open the full category grid (no typing needed).
+                // Row 1 — a small emoji swatch inline, then the name fills the rest of the line.
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(
-                        Modifier.weight(1f).height(56.dp).clip(RoundedCornerShape(12.dp))
+                        Modifier.size(56.dp).clip(RoundedCornerShape(12.dp))
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .4f))
                             .clickable { emojiOpen = !emojiOpen },
                         contentAlignment = Alignment.Center,
                     ) {
-                        if (emoji.isBlank()) Text("＋ Emoji", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (emoji.isBlank()) Text("＋", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         else Text(emoji, style = MaterialTheme.typography.headlineSmall)
                     }
-                    com.todocompanion.app.ui.components.AppTextField(unit, { unit = it.take(12) }, singleLine = true, label = { Text("Unit") }, modifier = Modifier.weight(1.4f))
+                    com.todocompanion.app.ui.components.AppTextField(name, { name = it }, singleLine = true, label = { Text("Name") }, modifier = Modifier.weight(1f))
                 }
                 if (emojiOpen) {
                     Spacer(Modifier.size(8.dp))
                     com.todocompanion.app.ui.components.EmojiGridPicker(current = emoji.ifBlank { null }, onPick = { emoji = it ?: "" })
                 }
+                // Row 2 — Notes: one line that grows with content (no fixed multi-line block).
                 Spacer(Modifier.size(10.dp))
-                // F2: group habits into named sections (e.g. "Morning", "Fitness"). Front-and-centre now,
-                // not buried in Advanced, with quick suggestions so a stack is one tap to create.
-                com.todocompanion.app.ui.components.AppTextField(category, { category = it.take(30) }, singleLine = true,
-                    label = { Text("Group (e.g. Morning, Fitness) — optional") }, modifier = Modifier.fillMaxWidth())
-                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
-                    val existingGroups = allHabits.mapNotNull { it.category.trim().ifBlank { null } }.distinct().take(6)
-                    (existingGroups + listOf("Morning", "Afternoon", "Evening").filter { it !in existingGroups }).take(6).forEach { g ->
-                        FilterChip(selected = category.trim().equals(g, true), onClick = { category = if (category.trim().equals(g, true)) "" else g }, label = { Text(g) })
-                    }
-                }
-                Spacer(Modifier.size(12.dp))
-                // R58 — the one unified colour picker (rich palette + recents + custom HSV/hex).
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Colour", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    com.todocompanion.app.ui.components.AppColorPicker(current = color, onPick = { color = it ?: color })
-                }
-            }
-
-            // 1b. Notes — a general free-form note (details, links, references), kept up top like a task's
-            // note rather than buried in Advanced. Distinct from the motivational "Why" (which lives below).
-            EditorCard {
                 com.todocompanion.app.ui.components.AppTextField(
-                    notes, { notes = it },
-                    label = { Text("Notes (details, links, references)") },
-                    minLines = 2,
-                    modifier = Modifier.fillMaxWidth(),
+                    notes, { notes = it }, label = { Text("Notes") }, modifier = Modifier.fillMaxWidth(),
                 )
-            }
-
-            // 2. Target — typed, so a 10000-step goal doesn't take 10000 taps to set. +/- kept as nudges.
-            EditorCard {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                // Row 3 — target per day (with ± nudges) on the left, unit on the right.
+                Spacer(Modifier.size(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     com.todocompanion.app.ui.components.AppTextField(
                         value = target.toString(),
                         onValueChange = { v -> target = (v.filter { it.isDigit() }.take(7).toIntOrNull() ?: 0).coerceIn(if (isBreak) 0 else 1, 9_999_999) },
                         singleLine = true,
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-                        label = { Text((if (isBreak) "Daily limit" else "Target per day") + (unit.trim().ifBlank { null }?.let { " ($it)" } ?: "")) },
-                        modifier = Modifier.weight(1f),
+                        label = { Text(if (isBreak) "Daily limit" else "Target per day") },
+                        modifier = Modifier.weight(1.2f),
                     )
                     IconButton(onClick = { target = (target - 1).coerceAtLeast(if (isBreak) 0 else 1) }) { Icon(Icons.Filled.Remove, "Less") }
                     IconButton(onClick = { target = (target + 1).coerceAtMost(9_999_999) }) { Icon(Icons.Filled.Add, "More") }
+                    com.todocompanion.app.ui.components.AppTextField(unit, { unit = it.take(12) }, singleLine = true, label = { Text("Unit") }, modifier = Modifier.weight(1f))
                 }
+                // Row 4 — group only (no suggestion chips).
+                Spacer(Modifier.size(10.dp))
+                com.todocompanion.app.ui.components.AppTextField(category, { category = it.take(30) }, singleLine = true,
+                    label = { Text("Group — optional") }, modifier = Modifier.fillMaxWidth())
             }
 
             // 3. Repeat
             EditorCard {
                 Text("Repeat", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
+                // R64 — one compact line (scrolls on very narrow screens) instead of a two-row wrap.
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf(
-                        HabitStats.FREQ_WEEKLY to "Weekly", HabitStats.FREQ_TIMES_WEEK to "× / week",
-                        HabitStats.FREQ_TIMES_MONTH to "× / month", HabitStats.FREQ_INTERVAL to "Every N days",
+                        HabitStats.FREQ_WEEKLY to "Weekly", HabitStats.FREQ_TIMES_WEEK to "×/wk",
+                        HabitStats.FREQ_TIMES_MONTH to "×/mo", HabitStats.FREQ_INTERVAL to "Every N",
                     ).forEach { (ft, label) -> FilterChip(selected = freqType == ft, onClick = { freqType = ft }, label = { Text(label) }) }
                 }
                 when (freqType) {
@@ -1127,11 +1110,23 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
                 // V3: how tracked time on a linked activity credits this habit.
                 if (timeOn && timeActivityId != null) {
                     Text("When timed, count", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf("minutes" to "Minutes", "sessions" to "Sessions", "off" to "Off").forEach { (v, lbl) ->
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        // R64 — "Complete" marks the habit done once any session is tracked (for non-minute
+                        // units like steps, which time can't measure); "Minutes" auto-completes when tracked
+                        // minutes reach the target.
+                        listOf("minutes" to "Minutes", "sessions" to "Sessions", "complete" to "Complete", "off" to "Off").forEach { (v, lbl) ->
                             FilterChip(selected = linkMode == v, onClick = { linkMode = v }, label = { Text(lbl) })
                         }
                     }
+                    Text(
+                        when (linkMode) {
+                            "minutes" -> "Tracked minutes add to today's count — it completes when they reach the target."
+                            "sessions" -> "Each timed session adds one to the count."
+                            "complete" -> "Any timed session marks it done for the day."
+                            else -> "Timing this activity won't change the habit."
+                        },
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(top = 4.dp),
+                    )
                 }
             }
 
