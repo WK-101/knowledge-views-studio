@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Instant branded launch window shown before Compose draws its first frame. -->
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@color/ic_launcher_background" />
-    <item android:gravity="center" android:width="180dp" android:height="180dp" android:drawable="@drawable/ic_launcher_foreground" />
-</layer-list>
+<!-- R71 — a plain solid-colour launch window. Deliberately NO vector here: the system's starting
+     window inflates this before the app draws, and we keep it to a single colour so nothing on the
+     cold-start path can fail to inflate. Compose paints the real branded UI immediately after. -->
+<color xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/ic_launcher_background" />

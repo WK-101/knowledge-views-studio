@@ -21,6 +21,24 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // R71 — capture ANY uncaught crash to a file you can retrieve without a PC, then defer to the
+        // normal handler. If the app ever fails to start, open a file manager and read:
+        //   Android/data/com.wkhan.kairo/files/last_crash.txt
+        // and send it over — it contains the exact stack trace and line. Also mirrored to logcat (tag "KairoCrash").
+        run {
+            val prev = Thread.getDefaultUncaughtExceptionHandler()
+            Thread.setDefaultUncaughtExceptionHandler { thread, err ->
+                runCatching {
+                    val trace = android.util.Log.getStackTraceString(err)
+                    android.util.Log.e("KairoCrash", "Uncaught on ${thread.name}", err)
+                    val dir = getExternalFilesDir(null) ?: filesDir
+                    java.io.File(dir, "last_crash.txt").writeText(
+                        "Kairo crash @ ${java.util.Date()}\nthread=${thread.name}\n\n$trace"
+                    )
+                }
+                prev?.uncaughtException(thread, err)
+            }
+        }
         Notifications.ensureChannel(this)
         // Warm the DB + settings on a background thread at process start so the first UI frame's
         // queries are already cached (opening happens off the main thread, before Compose asks).
