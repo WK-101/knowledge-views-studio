@@ -141,12 +141,22 @@ fun Onboarding(onDone: () -> Unit) {
                     val p = pages[idx]
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                         if (p.brand) {
-                            // Show the real Kairo launcher icon (The Reveal), so the tour opens with the mark itself.
-                            Image(
-                                painter = painterResource(id = com.todocompanion.app.R.mipmap.ic_launcher),
-                                contentDescription = "Kairo app icon",
-                                modifier = Modifier.size(116.dp).clip(RoundedCornerShape(28.dp)),
-                            )
+                            // Render the Kairo mark (The Reveal) on its gradient tile. IMPORTANT: load the
+                            // FOREGROUND VECTOR, never @mipmap/ic_launcher — painterResource can only parse a
+                            // <vector>, and handing it the <adaptive-icon> XML throws and crashes the whole
+                            // first-run tour the instant the app launches (the R68 startup-crash regression).
+                            Box(
+                                Modifier.size(120.dp).clip(RoundedCornerShape(28.dp))
+                                    .background(androidx.compose.ui.graphics.Brush.linearGradient(
+                                        listOf(androidx.compose.ui.graphics.Color(0xFF2B2050), androidx.compose.ui.graphics.Color(0xFF3C2668)))),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Image(
+                                    painter = painterResource(id = com.todocompanion.app.R.drawable.ic_launcher_foreground),
+                                    contentDescription = "Kairo app icon",
+                                    modifier = Modifier.size(120.dp),
+                                )
+                            }
                         } else {
                             Box(Modifier.size(104.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape), contentAlignment = Alignment.Center) {
                                 Text(p.emoji, style = MaterialTheme.typography.displaySmall)

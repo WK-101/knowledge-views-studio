@@ -3,29 +3,25 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Kairo — "The Reveal": a hexagonal aperture opening onto a guiding star (a lodestar).
-         The aperture is the OPENING that kairos literally names; the star is the moment it reveals.
-         Drawn large within the adaptive-icon safe circle (all vertices at r=35 < r=36 crop), with the
-         iris facet lines kept clearly visible so it never reads as merely "a hexagon and a star". -->
+    <!-- Kairo — "The Reveal" as a 3D box: an isometric cube (a hexagon split into three shaded faces),
+         with the guiding gold star floating IN FRONT of it. The cube's inner edges run from each corner
+         back to the centre, disappearing BEHIND the star — so the star reads as hovering before an open
+         box: the opening (the moment) and the star it reveals, in one depth-cued mark. -->
 
-    <!-- Aperture rim -->
+    <!-- Three cube faces (top lightest → catching light; sides step darker for depth). -->
+    <path android:pathData="M54,19 L84.3,36.5 L54,54 L23.7,36.5 Z" android:fillColor="#8C7BC6" />
+    <path android:pathData="M84.3,36.5 L84.3,71.5 L54,89 L54,54 Z" android:fillColor="#5E5099" />
+    <path android:pathData="M23.7,36.5 L54,54 L54,89 L23.7,71.5 Z" android:fillColor="#473A74" />
+
+    <!-- Cube outline + the three inner edges to the centre (drawn before the star, so they vanish behind it). -->
+    <path android:pathData="M54,19 L84.3,36.5 L84.3,71.5 L54,89 L23.7,71.5 L23.7,36.5 Z"
+        android:strokeColor="#C6B8EE" android:strokeWidth="2.4" android:strokeLineJoin="round" android:strokeLineCap="round" />
+    <path android:pathData="M54,54 L84.3,36.5" android:strokeColor="#C6B8EE" android:strokeWidth="2.4" android:strokeLineCap="round" />
+    <path android:pathData="M54,54 L23.7,36.5" android:strokeColor="#C6B8EE" android:strokeWidth="2.4" android:strokeLineCap="round" />
+    <path android:pathData="M54,54 L54,89"     android:strokeColor="#C6B8EE" android:strokeWidth="2.4" android:strokeLineCap="round" />
+
+    <!-- The guiding star, in front. -->
     <path
-        android:pathData="M54,19 L84.3,36.5 L84.3,71.5 L54,89 L23.7,71.5 L23.7,36.5 Z"
-        android:strokeColor="#A892DE"
-        android:strokeWidth="3.4"
-        android:strokeLineJoin="round"
-        android:strokeLineCap="round" />
-
-    <!-- Six iris facet lines — the critical internal structure that makes it an APERTURE. -->
-    <path android:pathData="M54,19 L54,28"       android:strokeColor="#CBBDF4" android:strokeWidth="2.6" android:strokeLineCap="round" />
-    <path android:pathData="M84.3,36.5 L76.5,41" android:strokeColor="#CBBDF4" android:strokeWidth="2.6" android:strokeLineCap="round" />
-    <path android:pathData="M84.3,71.5 L76.5,67" android:strokeColor="#CBBDF4" android:strokeWidth="2.6" android:strokeLineCap="round" />
-    <path android:pathData="M54,89 L54,80"       android:strokeColor="#CBBDF4" android:strokeWidth="2.6" android:strokeLineCap="round" />
-    <path android:pathData="M23.7,71.5 L31.5,67" android:strokeColor="#CBBDF4" android:strokeWidth="2.6" android:strokeLineCap="round" />
-    <path android:pathData="M23.7,36.5 L31.5,41" android:strokeColor="#CBBDF4" android:strokeWidth="2.6" android:strokeLineCap="round" />
-
-    <!-- The guiding star (the moment revealed) -->
-    <path
-        android:pathData="M54,32 Q57,51 76,54 Q57,57 54,76 Q51,57 32,54 Q51,51 54,32 Z"
+        android:pathData="M54,31 Q57.2,50.8 77,54 Q57.2,57.2 54,77 Q50.8,57.2 31,54 Q50.8,50.8 54,31 Z"
         android:fillColor="#F5B01E" />
 </vector>

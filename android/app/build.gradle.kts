@@ -27,7 +27,10 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.todocompanion.app"
+        // R69 — the installed package id now carries the Kairo brand. (The code `namespace` stays
+        // com.todocompanion.app so the R class / imports / class names are untouched; FileProvider
+        // authorities are all built from the runtime packageName, so they follow this automatically.)
+        applicationId = "com.wkhan.kairo"
         minSdk = 26
         targetSdk = 34
         versionCode = runNumber?.toIntOrNull() ?: 1
