@@ -3,6 +3,10 @@ package com.todocompanion.app.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -257,7 +261,14 @@ private fun DayCell(
     // tappable target, not just another history square. Skip keeps its own hollow outline.
     if (skip) m = m.border(1.5.dp, outline, RoundedCornerShape(4.dp))
     else if (isToday && !preStart) m = m.border(2.dp, color, RoundedCornerShape(7.dp))
-    if (!future && !preStart) m = m.clickable { onToggle() }
+    if (!future && !preStart) {
+        // Accessibility: the whole day cell is the tap target, so announce the habit, the date, the current
+        // state, and a clear action label. The visible check/ring inside is decorative (Icon stays null).
+        val stateLabel = when { skip -> "skipped"; done -> "done"; cnt > 0 -> "logged"; else -> "not done" }
+        val cellDesc = "${h.name}, ${java.time.LocalDate.ofEpochDay(day)}, $stateLabel"
+        m = m.semantics { contentDescription = cellDesc; role = Role.Button }
+            .clickable(onClickLabel = if (done) "Mark not done" else "Mark done") { onToggle() }
+    }
     Box(m, contentAlignment = Alignment.Center) {
         // A visible check the moment today is done; an empty ring while it's still open — so the grid
         // reads like a row of checkboxes for the current day.

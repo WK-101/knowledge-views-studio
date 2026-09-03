@@ -12,6 +12,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.todocompanion.app.ui.components.ColorPickerButton
 import com.todocompanion.app.ui.components.EmptyState
 import com.todocompanion.app.ui.components.SmallCheck
 import com.todocompanion.app.ui.components.TipBanner
@@ -94,5 +95,15 @@ class ComponentSemanticsTest {
         compose.onNodeWithText("Got it").assertIsDisplayed().performClick()
         assertEquals(1, acted)
         assertEquals(1, dismissed)
+    }
+
+    @Test fun colorPickerButton_isLabelledAndTappable() {
+        // R103 a11y fix: the colour chip used to read only its "+" glyph (or nothing once a colour was set).
+        compose.setContent {
+            MaterialTheme { ColorPickerButton(current = null, onPick = {}) }
+        }
+        compose.onNodeWithContentDescription("Pick a colour")
+            .assertIsDisplayed()
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
     }
 }

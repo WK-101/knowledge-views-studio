@@ -3,6 +3,10 @@ package com.todocompanion.app.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -125,6 +129,9 @@ fun ColorPickerButton(
             .clip(CircleShape)
             .background(current?.let { Color(it) } ?: MaterialTheme.colorScheme.surfaceVariant)
             .border(2.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+            // Accessibility: this circular chip opens the colour picker; give TalkBack a name and role
+            // (otherwise it reads only the "+" glyph in the no-colour case, and nothing once a colour is set).
+            .semantics(mergeDescendants = true) { contentDescription = "Pick a colour"; role = Role.Button }
             .clickable { open = true },
         contentAlignment = Alignment.Center,
     ) {
@@ -246,6 +253,9 @@ private fun Swatch(color: Long, selected: Boolean, modifier: Modifier = Modifier
     Box(
         modifier.height(34.dp).clip(RoundedCornerShape(9.dp)).background(Color(color))
             .border(if (selected) 3.dp else 1.dp, if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f), RoundedCornerShape(9.dp))
+            // Accessibility: each swatch is a selectable cell; the tick inside is decorative (null), so the
+            // name + selected-state live on the clickable itself.
+            .semantics { contentDescription = "Colour" + if (selected) ", selected" else ""; role = Role.RadioButton }
             .clickable { onClick() },
         contentAlignment = Alignment.Center,
     ) {
