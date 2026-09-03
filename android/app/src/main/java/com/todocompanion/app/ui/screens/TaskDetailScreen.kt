@@ -134,6 +134,7 @@ import com.todocompanion.app.domain.priority.PriorityLevel
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
 import com.todocompanion.app.ui.components.CardLabel
+import com.todocompanion.app.ui.components.OptionChips
 import com.todocompanion.app.ui.components.DateTimePickerDialog
 import com.todocompanion.app.ui.components.formatDue
 import com.todocompanion.app.ui.components.formatDueSpan
@@ -721,19 +722,16 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 }
                 if (myDeps.size >= 2) {
                     val mode = myDeps.first().mode
-                    Row(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        FilterChip(selected = mode == "AND", onClick = { vm.setDependencyMode(task.id, "AND") }, label = { Text("All must finish") })
-                        FilterChip(selected = mode == "OR", onClick = { vm.setDependencyMode(task.id, "OR") }, label = { Text("Any one unblocks") })
+                    OptionChips(listOf("AND", "OR"), mode, { vm.setDependencyMode(task.id, it) }, modifier = Modifier.padding(top = 2.dp), spacing = 6) {
+                        if (it == "AND") "All must finish" else "Any one unblocks"
                     }
                 }
                 if (myDeps.isNotEmpty()) {
                     val delay = myDeps.first().delayDays
                     Spacer(Modifier.height(4.dp))
                     Text("Start after", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf(0 to "No delay", 1 to "1 day", 3 to "3 days", 7 to "1 week").forEach { (d, l) ->
-                            FilterChip(selected = delay == d, onClick = { vm.setDependencyDelay(task.id, d) }, label = { Text(l) })
-                        }
+                    OptionChips(listOf(0, 1, 3, 7), delay, { vm.setDependencyDelay(task.id, it) }, spacing = 6) {
+                        when (it) { 0 -> "No delay"; 1 -> "1 day"; 3 -> "3 days"; else -> "1 week" }
                     }
                 }
                 TextButton(onClick = { showBlockPicker = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text("＋ Add a blocker") }
@@ -805,10 +803,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 }
                 if (hasChildren) SwitchRow("Complete subtasks in order", task.completeInOrder) { v -> update { it.copy(completeInOrder = v) } }
                 Spacer(Modifier.height(6.dp)); CardLabel("Review cadence")
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf(null to "Off", 1 to "Daily", 7 to "Weekly", 30 to "Monthly", 90 to "Quarterly").forEach { (days, label) ->
-                        FilterChip(selected = task.reviewEveryDays == days, onClick = { update { it.copy(reviewEveryDays = days) } }, label = { Text(label) })
-                    }
+                OptionChips(listOf(null, 1, 7, 30, 90), task.reviewEveryDays, { d -> update { it.copy(reviewEveryDays = d) } }, spacing = 6) {
+                    when (it) { null -> "Off"; 1 -> "Daily"; 7 -> "Weekly"; 30 -> "Monthly"; else -> "Quarterly" }
                 }
                 if (task.reviewEveryDays != null) Text("When due, this task appears in the Weekly review (FAB ▸ Weekly review) under “Due for review”.",
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
@@ -1147,9 +1143,7 @@ internal fun RepeatDialog(rule: String?, hasChildren: Boolean, onDismiss: () -> 
                     com.todocompanion.app.domain.recurrence.Freq.MONTHLY to "Monthly",
                     com.todocompanion.app.domain.recurrence.Freq.YEARLY to "Yearly",
                 )
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    freqs.forEach { (f, l) -> FilterChip(selected = freq == f, onClick = { freq = f }, label = { Text(l) }) }
-                }
+                OptionChips(freqs.map { it.first }, freq, { freq = it }, spacing = 6) { f -> freqs.first { it.first == f }.second }
                 if (freq != null && freq != com.todocompanion.app.domain.recurrence.Freq.WEEKDAYS) {
                     Spacer(Modifier.size(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1167,23 +1161,17 @@ internal fun RepeatDialog(rule: String?, hasChildren: Boolean, onDismiss: () -> 
                 }
                 if (freq == com.todocompanion.app.domain.recurrence.Freq.MONTHLY) {
                     Spacer(Modifier.size(8.dp))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        FilterChip(selected = monthMode == 0, onClick = { monthMode = 0 }, label = { Text("On day of month") })
-                        FilterChip(selected = monthMode == 1, onClick = { monthMode = 1 }, label = { Text("On a weekday") })
-                        FilterChip(selected = monthMode == 2, onClick = { monthMode = 2 }, label = { Text("First working day") })
+                    OptionChips(listOf(0, 1, 2), monthMode, { monthMode = it }, spacing = 6) {
+                        when (it) { 0 -> "On day of month"; 1 -> "On a weekday"; else -> "First working day" }
                     }
                     if (monthMode == 1) {
                         Spacer(Modifier.size(6.dp))
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            listOf(1 to "1st", 2 to "2nd", 3 to "3rd", 4 to "4th", -1 to "Last").forEach { (p, l) ->
-                                FilterChip(selected = pos == p, onClick = { pos = p }, label = { Text(l) })
-                            }
+                        OptionChips(listOf(1, 2, 3, 4, -1), pos, { pos = it }, spacing = 4) {
+                            when (it) { 1 -> "1st"; 2 -> "2nd"; 3 -> "3rd"; 4 -> "4th"; else -> "Last" }
                         }
                         Spacer(Modifier.size(4.dp))
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            listOf(1 to "M", 2 to "T", 3 to "W", 4 to "T", 5 to "F", 6 to "S", 7 to "S").forEach { (d, l) ->
-                                FilterChip(selected = weekday == d, onClick = { weekday = d }, label = { Text(l) })
-                            }
+                        OptionChips(listOf(1, 2, 3, 4, 5, 6, 7), weekday, { weekday = it }, spacing = 4) {
+                            when (it) { 1 -> "M"; 2 -> "T"; 3 -> "W"; 4 -> "T"; 5 -> "F"; 6 -> "S"; else -> "S" }
                         }
                     }
                 }
@@ -1196,18 +1184,14 @@ internal fun RepeatDialog(rule: String?, hasChildren: Boolean, onDismiss: () -> 
                 }
                 if (freq != null && hasChildren) {
                     Spacer(Modifier.size(10.dp)); Text("Subtasks each cycle", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf("all" to "Reset all", "allDone" to "Only if all done", "keep" to "Keep").forEach { (k, l) ->
-                            FilterChip(selected = subtaskReset == k, onClick = { subtaskReset = k }, label = { Text(l) })
-                        }
+                    OptionChips(listOf("all", "allDone", "keep"), subtaskReset, { subtaskReset = it }, spacing = 6) {
+                        when (it) { "all" -> "Reset all"; "allDone" -> "Only if all done"; else -> "Keep" }
                     }
                 }
                 if (freq != null) {
                     Spacer(Modifier.size(12.dp)); Text("Ends", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf(0 to "Never", 1 to "On date", 2 to "After N").forEachIndexed { _, (m, l) ->
-                            FilterChip(selected = endMode == m, onClick = { endMode = m }, label = { Text(l) })
-                        }
+                    OptionChips(listOf(0, 1, 2), endMode, { endMode = it }, spacing = 6) {
+                        when (it) { 0 -> "Never"; 1 -> "On date"; else -> "After N" }
                     }
                     if (endMode == 1) TextButton(onClick = { showUntil = true }) { Text("Until " + java.time.LocalDate.ofEpochDay(until)) }
                     if (endMode == 2) Row(verticalAlignment = Alignment.CenterVertically) { Text("After", Modifier.padding(end = 8.dp)); Stepper(count) { count = it.coerceIn(1, 999) }; Text(" times", Modifier.padding(start = 6.dp)) }
@@ -1735,9 +1719,8 @@ private fun TaskCoachCard(vm: AppViewModel, task: com.todocompanion.app.data.ent
                 androidx.compose.material3.TextButton(onClick = { valueOpen = !valueOpen }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
                     Text(if (vName != null) "Value: $vName" else "Link to a value…", color = color)
                 }
-                if (valueOpen) androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    androidx.compose.material3.FilterChip(task.valueId == null, { vm.setTaskValue(task.id, null); valueOpen = false }, label = { Text("None") })
-                    values.forEach { v -> androidx.compose.material3.FilterChip(task.valueId == v.id, { vm.setTaskValue(task.id, v.id); valueOpen = false }, label = { Text((v.emoji?.plus(" ") ?: "") + v.name, maxLines = 1) }) }
+                if (valueOpen) OptionChips(listOf<String?>(null) + values.map { it.id }, task.valueId, { id -> vm.setTaskValue(task.id, id); valueOpen = false }, spacing = 6) { id ->
+                    if (id == null) "None" else values.firstOrNull { it.id == id }?.let { (it.emoji?.plus(" ") ?: "") + it.name } ?: ""
                 }
             }
 
@@ -1770,10 +1753,7 @@ private fun TaskCoachCard(vm: AppViewModel, task: com.todocompanion.app.data.ent
                     Spacer(Modifier.height(8.dp))
                     com.todocompanion.app.ui.components.AppTextField(desc, { desc = it }, singleLine = true, label = { Text("Reward or stake") }, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        androidx.compose.material3.FilterChip(kind == "reward", { kind = "reward" }, label = { Text("Reward") })
-                        androidx.compose.material3.FilterChip(kind == "stake", { kind = "stake" }, label = { Text("Stake") })
-                    }
+                    OptionChips(listOf("reward", "stake"), kind, { kind = it }, spacing = 8) { if (it == "reward") "Reward" else "Stake" }
                 }
             },
             confirmButton = { TextButton(enabled = desc.isNotBlank(), onClick = { vm.addTaskEscrow(task.id, desc, kind); escrowOpen = false }) { Text("Lock it") } },
