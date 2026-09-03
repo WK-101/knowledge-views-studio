@@ -58,21 +58,6 @@ class MainActivity : FragmentActivity() {
         // R45 — route every file/photo/document pick through the classic Activity result API.
         SystemPicker.launcher = { req -> launchPicker(req) }
         setContent { AppRoot(launchAction = launchAction, importUri = importUri) }
-        // DIAG (R100) — TEMPORARY: log time-to-first-frame once, then detach the listener.
-        window.decorView.viewTreeObserver.addOnDrawListener(object : android.view.ViewTreeObserver.OnDrawListener {
-            override fun onDraw() {
-                com.todocompanion.app.util.Diag.logFirstFrame(this@MainActivity)
-                window.decorView.post { runCatching { window.decorView.viewTreeObserver.removeOnDrawListener(this) } }
-            }
-        })
-        // DIAG (R103) — TEMPORARY: per-frame jank sampling (Macrobenchmark substitute); flushed in onStop.
-        com.todocompanion.app.util.Diag.startFrameWatch(this)
-    }
-
-    // DIAG (R103) — TEMPORARY: append the frame-metrics distribution for the foreground session just ended.
-    override fun onStop() {
-        super.onStop()
-        com.todocompanion.app.util.Diag.flushFrameMetrics(this)
     }
 
     /**
