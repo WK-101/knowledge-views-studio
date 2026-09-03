@@ -393,19 +393,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
         }.state(emptyMap())
 
-    /** Optional live entry counts for the drawer's lists / folders / tags / contexts / filters (R19 #13). */
-    data class EntryCounts(
-        val lists: Map<String, Int> = emptyMap(),
-        val folders: Map<String, Int> = emptyMap(),
-        val tags: Map<String, Int> = emptyMap(),
-        val contexts: Map<String, Int> = emptyMap(),
-        val filters: Map<String, Int> = emptyMap(),
-    )
-
-    /** Live entry counts for the drawer, mirroring each view's own filter (active = not trashed /
-     *  completed / abandoned; filters honour their own query). Only computed when the user turns
-     *  "Show entry counts" on, so the default drawer stays cheap. */
-    val entryCounts: StateFlow<EntryCounts> =
+    /** Live entry counts for the drawer, mirroring each view's own filter. The pure math lives in
+     *  domain/EntryCounts; the VM keeps the reactive combine and the "show counts" gate (so the
+     *  default drawer stays cheap). */
+    val entryCounts: StateFlow<com.todocompanion.app.domain.EntryCounts.Result> =
         combine(
             wsTasks,
             combine(repo.taskTagRefs, repo.taskContextRefs) { tt, tc -> tt to tc },
@@ -413,40 +404,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             combine(repo.allTags, repo.allContexts, repo.allFilters) { t, c, fi -> Triple(t, c, fi) },
             settings,
         ) { all, refs, lf, tcf, set ->
-            if (!set.showEntryCounts) return@combine EntryCounts()
-            val now = System.currentTimeMillis()
+            if (!set.showEntryCounts) return@combine com.todocompanion.app.domain.EntryCounts.Result()
             val (ttRefs, tcRefs) = refs
             val (lists, folders) = lf
             val (allTagsL, _, filtersL) = tcf
-            val active = all.filter { !it.trashed && !it.completed && !it.abandoned && !it.someday }
-            val activeIds = active.mapTo(HashSet()) { it.id }
-            val listCounts = active.groupingBy { it.listId }.eachCount()
-            val folderCounts = folders.associate { fo ->
-                val ids = folderListIds(fo.id, lists, folders)
-                fo.id to active.count { it.listId in ids || it.folderId == fo.id }
-            }
-            // Tag counts roll up the subtree, like folders: a parent tag's count includes every task
-            // tagged with it OR any descendant tag (distinct tasks, so a task tagged with both parent
-            // and child isn't double-counted).
-            val tasksByTag = ttRefs.filter { it.taskId in activeIds }.groupBy { it.tagId }.mapValues { e -> e.value.mapTo(HashSet()) { it.taskId } }
-            val tagChildren = allTagsL.groupBy { it.parentId }
-            val tagCounts = allTagsL.associate { tg ->
-                val seen = HashSet<String>(); val stack = ArrayDeque<String>().apply { add(tg.id) }
-                val taskIds = HashSet<String>()
-                while (stack.isNotEmpty()) { val id = stack.removeLast(); if (seen.add(id)) { tasksByTag[id]?.let { taskIds.addAll(it) }; tagChildren[id]?.forEach { stack.add(it.id) } } }
-                tg.id to taskIds.size
-            }.filterValues { it > 0 }
-            val ctxCounts = tcRefs.filter { it.taskId in activeIds }.groupingBy { it.contextId }.eachCount()
-            val tagsByTask = ttRefs.groupBy { it.taskId }.mapValues { e -> e.value.map { it.tagId }.toSet() }
-            val ctxByTask = tcRefs.groupBy { it.taskId }.mapValues { e -> e.value.map { it.contextId }.toSet() }
-            val listFolderById = lists.associate { it.id to it.folderId }
-            fun folderOf(t: TaskEntity) = t.folderId ?: listFolderById[t.listId]
-            val filterCounts = filtersL.associate { fl ->
-                val q = com.todocompanion.app.domain.view.Filters.parse(fl.queryJson)
-                fl.id to all.count { !it.trashed && com.todocompanion.app.domain.view.Filters.matches(q, it, tagsByTask[it.id].orEmpty(), ctxByTask[it.id].orEmpty(), now, zone, folderOf(it)) }
-            }
-            EntryCounts(listCounts, folderCounts, tagCounts, ctxCounts, filterCounts)
-        }.state(EntryCounts())
+            com.todocompanion.app.domain.EntryCounts.compute(
+                all = all, tagRefs = ttRefs, ctxRefs = tcRefs, lists = lists, folders = folders,
+                tags = allTagsL, filters = filtersL, zone = zone, now = System.currentTimeMillis(),
+            )
+        }.state(com.todocompanion.app.domain.EntryCounts.Result())
 
     // P1: reliability (0–100) for every recurring task, from the completion activity trail.
     val taskReliability: StateFlow<Map<String, com.todocompanion.app.domain.task.TaskReliability.Reliability>> =
@@ -495,15 +461,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** All list ids inside a folder, including nested folders and nested lists. */
-    private fun folderListIds(folderId: String, lists: List<ListEntity>, folders: List<FolderEntity>): Set<String> {
-        val folderIds = mutableSetOf(folderId)
-        var changed = true
-        while (changed) {
-            changed = false
-            folders.forEach { if (it.parentId in folderIds && it.id !in folderIds) { folderIds.add(it.id); changed = true } }
-        }
-        return lists.filter { it.folderId in folderIds }.map { it.id }.toSet()
-    }
+    private fun folderListIds(folderId: String, lists: List<ListEntity>, folders: List<FolderEntity>): Set<String> =
+        com.todocompanion.app.domain.EntryCounts.folderListIds(folderId, lists, folders)
 
     private fun AppSettings.priorityConfig() = PriorityEngine.Config(
         mode = when (priorityMode) { "importance" -> PriorityEngine.Mode.IMPORTANCE; "urgency" -> PriorityEngine.Mode.URGENCY; else -> PriorityEngine.Mode.BOTH },
