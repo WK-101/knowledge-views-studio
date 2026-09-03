@@ -21,6 +21,7 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        com.todocompanion.app.util.Diag.markAppOnCreate() // DIAG (R100) — remove in R103
         // R71 — capture ANY uncaught crash to a file you can retrieve without a PC, then defer to the
         // normal handler. If the app ever fails to start, open a file manager and read:
         //   Android/data/com.wkhan.kairo/files/last_crash.txt
@@ -59,6 +60,8 @@ class App : Application() {
             runCatching { com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(this@App, repository) }
             // R38 — (re)arm dedicated-calendar event alerts for the next upcoming occurrence of each event.
             runCatching { com.todocompanion.app.reminders.AlarmScheduler.rescheduleEventAlerts(this@App, repository) }
+            // DIAG (R101) — remove in R103: R8/minified self-check of the reflective surfaces + core extractions.
+            runCatching { com.todocompanion.app.util.Diag.runSelfCheck(this@App, repository) }
         }
         // Keep any placed home-screen widget in sync with task changes. Delayed so this full
         // table read doesn't compete with the DB queries the first UI frame needs.

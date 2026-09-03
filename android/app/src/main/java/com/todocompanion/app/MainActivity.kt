@@ -58,6 +58,13 @@ class MainActivity : FragmentActivity() {
         // R45 — route every file/photo/document pick through the classic Activity result API.
         SystemPicker.launcher = { req -> launchPicker(req) }
         setContent { AppRoot(launchAction = launchAction, importUri = importUri) }
+        // DIAG (R100) — remove in R103: log time-to-first-frame once, then detach the listener.
+        window.decorView.viewTreeObserver.addOnDrawListener(object : android.view.ViewTreeObserver.OnDrawListener {
+            override fun onDraw() {
+                com.todocompanion.app.util.Diag.logFirstFrame(this@MainActivity)
+                window.decorView.post { runCatching { window.decorView.viewTreeObserver.removeOnDrawListener(this) } }
+            }
+        })
     }
 
     /**
