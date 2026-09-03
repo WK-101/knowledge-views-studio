@@ -171,6 +171,11 @@ dependencies {
     // R92 — Robolectric: run Room DAO/repository integration tests on the JVM (no device/emulator).
     testImplementation("org.robolectric:robolectric:4.11.1")
     testImplementation("androidx.test:core-ktx:1.5.0")
+    // R97 — Compose UI tests on the JVM under Robolectric (no device): render composables and assert on
+    // their semantics tree, so accessibility labels are verified in CI. ui-test-manifest supplies the
+    // host activity createComposeRule() launches into.
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 
     // R73 — instrumented tests: replay the whole Room migration chain against a real SQLite DB.
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
