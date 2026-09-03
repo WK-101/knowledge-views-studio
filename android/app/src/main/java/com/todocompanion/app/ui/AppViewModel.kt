@@ -363,34 +363,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** "Day starts at" rollover, in minutes past midnight, for Today/Tomorrow/overdue math. */
     private val dayStartMin: Int get() = settings.value.dayStartHour.coerceIn(0, 6) * 60
 
-    /** Live task count per smart list, for the drawer. */
+    /** Live task count per smart list, for the drawer. The pure math lives in domain/SmartCounts; the
+     *  VM keeps the reactive combine (and computes the settings-derived priority config to pass in). */
     val smartCounts: StateFlow<Map<SmartKind, Int>> =
         combine(
             combine(wsTasks, inboxTasksAll) { ws, inbox -> ws to inbox }, repo.allDependencies, settings,
             combine(repo.taskContextRefs, repo.allContexts) { r, c -> r to c },
         ) { tPair, deps, set, rc ->
-            val t = tPair.first          // workspace-clean tasks — every badge except Inbox
-            val inbox = tPair.second     // the shared Inbox set — the one cross-workspace surface
-            val now = System.currentTimeMillis()
-            SmartKind.entries.associateWith { k ->
-                when (k) {
-                    // The shared Inbox badge counts every workspace's Inbox tasks (matches the shared view).
-                    SmartKind.INBOX -> TaskViews.filterSmart(inbox, SmartKind.INBOX, now, zone, dayStartMin).size
-                    // Dependency-aware, so it can't go through the pure filterSmart path.
-                    SmartKind.WAITING -> {
-                        val byId = t.associateBy { it.id }
-                        val blocked = PriorityEngine.computeBlocked(deps, byId, now)
-                        t.count { !it.trashed && !it.completed && !it.abandoned && !it.someday && it.id in blocked }
-                    }
-                    // Do-Next uses the SAME focus filter as the rendered list, so the badge matches the list.
-                    // (The transient "I have N min / energy" planners aren't applied to the badge.)
-                    SmartKind.DO_NEXT -> doNextFocused(t, now, set.priorityConfig(), deps, rc.first, rc.second, null, null).size
-                    // Trash is per-workspace (matches the rendered list); the shared Inbox otherwise leaked
-                    // trashed tasks into every workspace's count.
-                    SmartKind.TRASH -> t.count { it.trashed && it.workspaceId == set.activeWorkspaceId }
-                    else -> TaskViews.filterSmart(t, k, now, zone, dayStartMin).size
-                }
-            }
+            com.todocompanion.app.domain.SmartCounts.compute(
+                wsTasks = tPair.first, inbox = tPair.second, deps = deps, prioCfg = set.priorityConfig(),
+                tcRefs = rc.first, ctxs = rc.second, activeWorkspaceId = set.activeWorkspaceId,
+                zone = zone, dayStartMin = dayStartMin, now = System.currentTimeMillis(),
+            )
         }.state(emptyMap())
 
     /** Live entry counts for the drawer, mirroring each view's own filter. The pure math lives in
