@@ -3837,11 +3837,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val today = java.time.LocalDate.now(zone).toEpochDay()
         val byDay = focusMinutesByDay()
         val todayMin = byDay[today] ?: 0
-        // Count consecutive goal-met days back from today; today counting only once it's already met,
-        // so a day still in progress never breaks the streak.
-        var streak = 0
-        var d = if (todayMin >= goal) today else today - 1
-        while ((byDay[d] ?: 0) >= goal) { streak++; d-- }
+        // R83 — the streak math lives in domain/FocusStats (unit-tested).
+        val streak = com.todocompanion.app.domain.FocusStats.streakDays(byDay, goal, today)
         val best = topDoNext()
         val blockMin = (best?.estimateMin ?: best?.estimateMax ?: best?.durationMin ?: 25).coerceIn(10, 90)
         return DeepWorkStatus(todayMin, goal, streak, best, blockMin)
@@ -3864,28 +3861,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      *  timeline, so the stats / momentum / digest screens read the SAME source as the Time reports — never
      *  a second table. Legacy persisted FocusSessions (written before this unification, when Time was off)
      *  are unioned in so old history isn't lost. A running interval is clamped to now. */
-    fun focusViews(): List<com.todocompanion.app.data.entity.FocusSessionEntity> {
-        val now = System.currentTimeMillis()
-        val fromTimeline = timeEntries.value.asSequence().filter { it.kind == "focus" }.map {
-            com.todocompanion.app.data.entity.FocusSessionEntity(
-                id = it.id,
-                epochDay = java.time.Instant.ofEpochMilli(it.startMillis).atZone(zone).toLocalDate().toEpochDay(),
-                startMillis = it.startMillis,
-                minutes = (((it.endMillis ?: now) - it.startMillis) / 60_000L).toInt().coerceAtLeast(0),
-                kind = "focus",
-                taskId = it.taskId,
-                workspaceId = it.workspaceId,
-            )
-        }.toList()
-        // Days that already have a timeline focus interval are fully represented there; only fold in legacy
-        // sessions from days with NO timeline focus, so a mirrored old session is never double-counted.
-        val timelineDays = fromTimeline.mapTo(HashSet()) { it.epochDay }
-        val legacy = focusSessions.value.filter { it.epochDay !in timelineDays }
-        return fromTimeline + legacy
-    }
+    fun focusViews(): List<com.todocompanion.app.data.entity.FocusSessionEntity> =
+        com.todocompanion.app.domain.FocusStats.views(timeEntries.value, focusSessions.value, zone, System.currentTimeMillis())
     /** Focused minutes per calendar day, from kind="focus" intervals (a running one clamped to now). */
     fun focusMinutesByDay(): Map<Long, Int> =
-        focusViews().groupBy { it.epochDay }.mapValues { e -> e.value.sumOf { it.minutes } }
+        com.todocompanion.app.domain.FocusStats.minutesByDay(timeEntries.value, focusSessions.value, zone, System.currentTimeMillis())
 
     /** Start a focus session against [activityId] (or the task's / habit's linked activity, else a generic
      *  "Focus" activity). [remainingSec] lets Resume schedule the chime for exactly the time still left. */
