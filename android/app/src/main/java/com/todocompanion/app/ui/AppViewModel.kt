@@ -662,61 +662,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         all: List<TaskEntity>, now: Long, prioCfg: PriorityEngine.Config,
         deps: List<DependencyEntity>, tcRefs: List<com.todocompanion.app.data.entity.TaskContextCrossRef>,
         ctxs: List<ContextEntity>, timeAvail: Int?, energyAvail: Int?,
-    ): List<TaskEntity> {
-        val base = TaskViews.filterSmart(all, SmartKind.DO_NEXT, now, zone, dayStartMin)
-        val ranked = rankDoNext(base, all, now, prioCfg, deps, tcRefs, ctxs)
-        val byId = all.associateBy { it.id }
-        val blocked = PriorityEngine.computeBlocked(deps, byId, now)
-        val today = java.time.Instant.ofEpochMilli(now - dayStartMin * 60_000L).atZone(zone).toLocalDate()
-        fun dueDay(t: TaskEntity) = t.dueDate?.let { java.time.Instant.ofEpochMilli(it - dayStartMin * 60_000L).atZone(zone).toLocalDate() }
-        val actionable = ranked.filter { t ->
-            if (t.id in blocked) return@filter false
-            if (t.startDate != null && t.startDate!! > now) return@filter false
-            val d = dueDay(t)
-            if (d != null) !d.isAfter(today) else (t.star || t.flagId != null)
-        }
-        val timed = timeAvail?.let { avail -> actionable.filter { t -> (t.estimateMin ?: t.estimateMax ?: t.durationMin)?.let { it <= avail } ?: true } } ?: actionable
-        return energyAvail?.let { cap -> timed.filter { t -> (t.energy ?: 0) <= cap } } ?: timed
-    }
+    ): List<TaskEntity> = com.todocompanion.app.domain.DoNext.focused(
+        all, now, prioCfg, deps, tcRefs, ctxs, timeAvail, energyAvail, zone, dayStartMin)
 
     private fun rankDoNext(
         base: List<TaskEntity>, all: List<TaskEntity>, now: Long, cfg: PriorityEngine.Config,
         deps: List<DependencyEntity>, tcRefs: List<com.todocompanion.app.data.entity.TaskContextCrossRef>, ctxs: List<ContextEntity>,
-    ): List<TaskEntity> {
-        val byParent = all.groupBy { it.parentId }
-        val byId = all.associateBy { it.id }
-        val blocked = PriorityEngine.computeBlocked(deps, byId, now)
-        // "Complete subtasks in order": a task is gated while an earlier sibling under the same
-        // ordered parent is still open — only the current step of the sequence surfaces.
-        fun orderBlocked(id: String): Boolean {
-            val t = byId[id] ?: return false
-            val parent = t.parentId?.let { byId[it] } ?: return false
-            if (!parent.completeInOrder) return false
-            val sibs = byParent[parent.id].orEmpty().filter { !it.trashed && !it.abandoned }.sortedBy { it.sortOrder }
-            val firstOpen = sibs.firstOrNull { !it.completed } ?: return false
-            return firstOpen.id != id
-        }
-        // Context availability (open-hours), evaluated once for now.
-        val dt = java.time.Instant.ofEpochMilli(now).atZone(zone)
-        val dow = dt.dayOfWeek.value; val minute = dt.hour * 60 + dt.minute
-        val availById = ctxs.associate { it.id to com.todocompanion.app.domain.context.ContextAvailability.isAvailable(it, dow, minute) }
-        val ctxByTask = tcRefs.groupBy { it.taskId }
-        // Dependency → priority propagation: a task blocking important work rises in the ranking.
-        val depBoosts = PriorityEngine.dependencyBoosts(deps, byId, cfg)
-        return PriorityEngine.doNext(
-            all = base,
-            now = now,
-            blocked = blocked,
-            hasIncompleteChild = { id -> byParent[id].orEmpty().any { !it.completed && !it.trashed && !it.abandoned && !it.someday } },
-            contextAvailable = { id ->
-                val ids = ctxByTask[id].orEmpty().map { it.contextId }
-                ids.isEmpty() || ids.any { availById[it] == true }
-            },
-            orderBlocked = ::orderBlocked,
-            cfg = cfg,
-            depBoost = { id -> depBoosts[id] ?: 0.0 },
-        ).map { it.task }
-    }
+    ): List<TaskEntity> = com.todocompanion.app.domain.DoNext.rank(base, all, now, cfg, deps, tcRefs, ctxs, zone)
 
     /** The full Do-Next ranking (priority + due urgency + dependency propagation + context
      *  open-hours availability), most-actionable first. */
