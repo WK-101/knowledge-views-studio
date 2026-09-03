@@ -1712,70 +1712,42 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- Tier S: time tracking ----------
     private fun refreshTimeWidget() = com.todocompanion.app.widget.TimeWidget.refresh(appCtx)
-    fun createTimeActivity(name: String, emoji: String?, colorArgb: Long?, goalMinutesPerDay: Int = 0) = viewModelScope.launch {
-        repo.createTimeActivity(name, emoji, colorArgb, goalMinutesPerDay); refreshTimeWidget(); refreshTrackShortcuts()
+    private val timeCtl by lazy {
+        com.todocompanion.app.time.TimeTrackingController(
+            context = appCtx,
+            repo = repo,
+            settings = { settings.value },
+            activities = { timeActivities.value },
+            entries = { timeEntries.value },
+            onRefreshHabits = { refreshHabitWidgets() },
+        )
     }
+    /** Paused-timer memory (Triple<activityId, taskId?, habitId?>) — owned by the controller. */
+    val pausedTrack: StateFlow<Triple<String, String?, String?>?> get() = timeCtl.pausedTrack
+
+    fun createTimeActivity(name: String, emoji: String?, colorArgb: Long?, goalMinutesPerDay: Int = 0) =
+        viewModelScope.launch { timeCtl.createTimeActivity(name, emoji, colorArgb, goalMinutesPerDay) }
     /** U13: start tracking by activity name (from an NFC/QR deep link), creating it if unknown. */
-    fun startTimeTrackingByName(name: String) = viewModelScope.launch {
-        val existing = timeActivities.value.firstOrNull { it.name.equals(name.trim(), true) && !it.archived }
-        val id = existing?.id ?: repo.createTimeActivity(name.trim().ifBlank { "Activity" }, null, null)
-        repo.startTimeTracking(id, stopFirst = !settings.value.multiTimer)
-        com.todocompanion.app.reminders.AutomationRunner.onStart(appCtx, repo, id); refreshTimeWidget()
-    }
+    fun startTimeTrackingByName(name: String) = viewModelScope.launch { timeCtl.startTimeTrackingByName(name) }
     /** Pin/unpin a time activity so it floats to the front of the one-tap tile grid. */
-    fun toggleActivityPin(id: String) = viewModelScope.launch {
-        val s = settings.value
-        val next = if (id in s.pinnedActivities) s.pinnedActivities - id else s.pinnedActivities + id
-        repo.saveSettings(s.copy(pinnedActivities = next))
-    }
+    fun toggleActivityPin(id: String) = viewModelScope.launch { timeCtl.toggleActivityPin(id) }
     /** Reassign the running (or any) time entry to a different activity — "start first, pick later". */
-    fun reassignTimeEntry(entryId: String, activityId: String) = viewModelScope.launch {
-        timeEntries.value.firstOrNull { it.id == entryId }?.let { repo.upsertTimeEntry(it.copy(activityId = activityId)); refreshTimeWidget() }
-    }
+    fun reassignTimeEntry(entryId: String, activityId: String) = viewModelScope.launch { timeCtl.reassignTimeEntry(entryId, activityId) }
     /** U13: publish a launcher shortcut per activity ("Track: Deep work") that fires the track deep link. */
-    fun refreshTrackShortcuts() = viewModelScope.launch {
-        com.todocompanion.app.util.TrackShortcuts.refresh(appCtx, timeActivities.value.filter { !it.archived })
-    }
-    fun updateTimeActivity(a: com.todocompanion.app.data.entity.TimeActivityEntity) = viewModelScope.launch { repo.upsertTimeActivity(a); refreshTimeWidget(); refreshTrackShortcuts() }
-    fun deleteTimeActivity(id: String) = viewModelScope.launch {
-        // Clear a paused timer on this activity too, or Resume would re-create an orphan entry (audit #7).
-        if (_pausedTrack.value?.first == id) _pausedTrack.value = null
-        repo.deleteTimeActivity(id); refreshTimeWidget(); refreshTrackShortcuts()
-    }
-    fun archiveTimeActivity(id: String) = viewModelScope.launch { repo.archiveTimeActivity(id); refreshTimeWidget(); refreshTrackShortcuts() }
-    /** Nested activities: set (or clear, with null) an activity's parent. Stored in settings (no migration).
-     *  Rejects a parent that would create a cycle (A→B→A), which would otherwise orphan the whole grid. */
-    fun setActivityParent(childId: String, parentId: String?) = viewModelScope.launch {
-        val s = settings.value
-        val map = s.timeActivityParents
-        val wouldCycle = parentId != null && run {
-            var cur: String? = parentId
-            var guard = 0
-            while (cur != null && guard < 64) { if (cur == childId) return@run true; cur = map[cur]; guard++ }
-            false
-        }
-        val next = if (parentId == null || parentId == childId || wouldCycle) map - childId
-        else map + (childId to parentId)
-        repo.saveSettings(s.copy(timeActivityParents = next))
-    }
-    /** Start (or switch) tracking. Passing the already-running activity is a no-op toggle handled by caller.
-     *  U15: with multi-timer on, the running timer isn't stopped first. U12: on-start rules run after. */
-    fun startTimeTracking(activityId: String, taskId: String? = null, habitId: String? = null) = viewModelScope.launch {
-        repo.startTimeTracking(activityId, taskId, habitId, stopFirst = !settings.value.multiTimer)
-        com.todocompanion.app.reminders.AutomationRunner.onStart(appCtx, repo, activityId)
-        com.todocompanion.app.reminders.TimeIntentApi.broadcastStarted(appCtx, timeActivities.value.firstOrNull { it.id == activityId }?.name ?: "")
-        refreshTimeWidget()
-    }
-    fun stopTimeTracking() = viewModelScope.launch {
-        val nm = timeEntries.value.firstOrNull { it.running }?.let { r -> timeActivities.value.firstOrNull { it.id == r.activityId }?.name }
-        repo.stopTimeTracking(); refreshHabitWidgets(); refreshTimeWidget()
-        nm?.let { com.todocompanion.app.reminders.TimeIntentApi.broadcastStopped(appCtx, it) }
-    }
+    fun refreshTrackShortcuts() = viewModelScope.launch { timeCtl.refreshTrackShortcuts() }
+    fun updateTimeActivity(a: com.todocompanion.app.data.entity.TimeActivityEntity) = viewModelScope.launch { timeCtl.updateTimeActivity(a) }
+    fun deleteTimeActivity(id: String) = viewModelScope.launch { timeCtl.deleteTimeActivity(id) }
+    fun archiveTimeActivity(id: String) = viewModelScope.launch { timeCtl.archiveTimeActivity(id) }
+    /** Nested activities: set (or clear, with null) an activity's parent; rejects cycles (A→B→A). */
+    fun setActivityParent(childId: String, parentId: String?) = viewModelScope.launch { timeCtl.setActivityParent(childId, parentId) }
+    /** Start (or switch) tracking. U15: with multi-timer on, the running timer isn't stopped first. */
+    fun startTimeTracking(activityId: String, taskId: String? = null, habitId: String? = null) =
+        viewModelScope.launch { timeCtl.startTimeTracking(activityId, taskId, habitId) }
+    fun stopTimeTracking() = viewModelScope.launch { timeCtl.stopTimeTracking() }
     /**
-     * One-tap "start now, decide later" — starts the clock against the most sensible activity without
-     * making the user scan the grid first (Simple-Time-Tracker's decision-fatigue fix): last-used, else a
-     * pinned one, else the first activity. Returns false only when there is no activity to start at all,
-     * so the caller can open the new-activity dialog. The running card lets you reassign afterward.
+     * One-tap "start now, decide later" — starts the clock against the most sensible activity
+     * (last-used, else a pinned one, else the first). Returns false only when there is no activity at
+     * all, so the caller can open the new-activity dialog.
      */
     fun startTimeTrackingSmart(): Boolean {
         val acts = timeActivities.value.filter { !it.archived }
@@ -1787,28 +1759,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         return true
     }
     /** U15: stop one specific running timer (when several overlap). */
-    fun stopTimeEntry(id: String) = viewModelScope.launch {
-        val nm = timeEntries.value.firstOrNull { it.id == id }?.let { r -> timeActivities.value.firstOrNull { it.id == r.activityId }?.name }
-        repo.stopTimeEntry(id); refreshHabitWidgets(); refreshTimeWidget()
-        nm?.let { com.todocompanion.app.reminders.TimeIntentApi.broadcastStopped(appCtx, it) }
-    }
+    fun stopTimeEntry(id: String) = viewModelScope.launch { timeCtl.stopTimeEntry(id) }
 
-    // ── U3 · pause / resume ─────────────────────────────────────────────────────────────────────
-    // Pause finalizes the running interval (crediting any linked habit) and remembers what it was, so
-    // Resume can start it again; the break in between is a real, honest untracked gap.
-    private val _pausedTrack = MutableStateFlow<Triple<String, String?, String?>?>(null)
-    val pausedTrack: StateFlow<Triple<String, String?, String?>?> = _pausedTrack
-    fun pauseTracking() = viewModelScope.launch {
-        val running = repo.runningTimeEntry() ?: return@launch
-        _pausedTrack.value = Triple(running.activityId, running.taskId, running.habitId)
-        repo.stopTimeTracking(); refreshHabitWidgets(); refreshTimeWidget()
-    }
-    fun resumeTracking() = viewModelScope.launch {
-        val p = _pausedTrack.value ?: return@launch
-        _pausedTrack.value = null
-        repo.startTimeTracking(p.first, p.second, p.third, stopFirst = !settings.value.multiTimer); refreshTimeWidget()
-    }
-    fun clearPaused() { _pausedTrack.value = null }
+    // ── U3 · pause / resume (finalize + remember, so Resume restarts the same activity) ──────────
+    fun pauseTracking() = viewModelScope.launch { timeCtl.pauseTracking() }
+    fun resumeTracking() = viewModelScope.launch { timeCtl.resumeTracking() }
+    fun clearPaused() = timeCtl.clearPaused()
 
     // ── U12 · automation rules ──────────────────────────────────────────────────────────────────
     fun automationRules(): List<com.todocompanion.app.domain.AutomationRule> =
