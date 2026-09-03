@@ -264,7 +264,13 @@ fun Dot(color: Color, sizeDp: Int = 8) {
 /** A compact square checkbox (TickTick matrix style): coloured outline that fills with a tick when done. */
 @Composable
 fun SmallCheck(checked: Boolean, color: Color, onToggle: () -> Unit) {
-    Box(Modifier.size(30.dp).clip(CircleShape).clickable { onToggle() }, contentAlignment = Alignment.Center) {
+    // Accessibility: announce the same real toggle (role + state) as PriorityCheckbox, so TalkBack reads
+    // this matrix/compact checkbox instead of an unlabelled tap target.
+    val a11y = if (checked) "Completed. Double-tap to mark incomplete." else "Mark complete."
+    Box(
+        Modifier.size(30.dp).clip(CircleShape).semantics { checkboxSemantics(a11y, checked) }.clickable { onToggle() },
+        contentAlignment = Alignment.Center,
+    ) {
         Box(
             Modifier.size(18.dp).clip(RoundedCornerShape(5.dp))
                 .background(if (checked) color else Color.Transparent)
