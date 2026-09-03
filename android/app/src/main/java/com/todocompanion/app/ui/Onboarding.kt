@@ -188,8 +188,17 @@ fun Onboarding(onDone: () -> Unit) {
                     }
                 }
             }
-            // Page indicator — reflects the pager; tap a dot to jump to that page.
-            Row(Modifier.padding(vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            // The finish CTA sits ABOVE the dots, and only on the last page — its height is reserved so
+            // the dots + signature below never shift as you swipe. Everything else is driven by swiping.
+            Box(Modifier.fillMaxWidth().padding(horizontal = 24.dp).height(52.dp), contentAlignment = Alignment.Center) {
+                if (onLastPage) {
+                    Button(onClick = onDone, modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(vertical = 14.dp)) {
+                        Text("Get started")
+                    }
+                }
+            }
+            // Page indicator — sits directly above the maker's mark (not floating mid-screen); tap a dot to jump.
+            Row(Modifier.padding(top = 10.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 pages.indices.forEach { idx ->
                     val active = idx == pagerState.currentPage
                     Box(
@@ -197,15 +206,6 @@ fun Onboarding(onDone: () -> Unit) {
                             .background(if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, CircleShape)
                             .clickable { scope.launch { pagerState.animateScrollToPage(idx) } },
                     )
-                }
-            }
-            // Only a finish CTA, and only on the last page — reserve its height so the signature below
-            // never shifts as you swipe. Everything else is driven by swiping, not buttons.
-            Box(Modifier.fillMaxWidth().padding(horizontal = 24.dp).height(52.dp), contentAlignment = Alignment.Center) {
-                if (onLastPage) {
-                    Button(onClick = onDone, modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(vertical = 14.dp)) {
-                        Text("Get started")
-                    }
                 }
             }
             // The same maker's mark that closes the sidebar & Settings, so the tour signs off in kind.
