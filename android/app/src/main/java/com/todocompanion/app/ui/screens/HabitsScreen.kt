@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -604,11 +606,28 @@ private fun HabitRow(
         val isNumeric = !isBreak && (h.targetPerDay > 1 || h.unit != null || h.clickIncrement > 1)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             // Progress ring. Numeric → value dialog; yes/no → toggle. Break habits show a shield.
+            // A11y (R87): the ring is a shape-only tap target, so give screen readers the habit + its
+            // current state as the label and name the action the tap performs.
+            val ringState = when {
+                isBreak && HabitStats.isRelapse(h, todayCount) -> "relapsed today"
+                isBreak -> "clean today"
+                skippedToday -> "skipped today"
+                !scheduledToday -> "not scheduled today"
+                done -> "done today"
+                isNumeric -> "$todayCount of ${h.targetPerDay} today"
+                else -> "not done today"
+            }
+            val ringAction = when {
+                isNumeric && scheduledToday && !skippedToday -> "Enter amount"
+                done -> "Mark not done"
+                else -> "Mark done"
+            }
             Box(
                 Modifier.size(44.dp).clip(CircleShape)
                     .background(if (done && !isBreak) color.copy(alpha = .16f) else if (isBreak && HabitStats.isRelapse(h, todayCount)) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (scheduledToday) .5f else .25f))
                     .border(2.dp, when { isBreak && HabitStats.isRelapse(h, todayCount) -> MaterialTheme.colorScheme.error; done -> color; else -> MaterialTheme.colorScheme.outlineVariant }, CircleShape)
-                    .clickable { if (isNumeric && scheduledToday && !skippedToday) onSetValue() else onCycle() },
+                    .clickable(onClickLabel = ringAction) { if (isNumeric && scheduledToday && !skippedToday) onSetValue() else onCycle() }
+                    .semantics { contentDescription = "${h.name}, $ringState" },
                 contentAlignment = Alignment.Center,
             ) {
                 when {
