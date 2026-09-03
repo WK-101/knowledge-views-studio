@@ -776,19 +776,16 @@ private fun GoalsEditorDialog(vm: AppViewModel, onDismiss: () -> Unit) {
                     com.todocompanion.app.ui.components.AppTextField(value = name, onValueChange = { name = it }, modifier = Modifier.weight(1f), label = { Text("Name") }, singleLine = true)
                 }
                 Spacer(Modifier.height(8.dp)); Text("Task list", style = MaterialTheme.typography.labelSmall, color = faint)
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FilterChip(selected = listId == "", onClick = { listId = "" }, label = { Text("None") })
-                    lists.forEach { l -> FilterChip(selected = listId == l.id, onClick = { listId = l.id }, label = { Text(l.name) }) }
+                com.todocompanion.app.ui.components.OptionChips(listOf("") + lists.map { it.id }, listId, { listId = it }, wrap = false, spacing = 6) { id ->
+                    if (id.isBlank()) "None" else lists.firstOrNull { it.id == id }?.name ?: ""
                 }
                 Spacer(Modifier.height(8.dp)); Text("Supporting habit", style = MaterialTheme.typography.labelSmall, color = faint)
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FilterChip(selected = habitId == "", onClick = { habitId = "" }, label = { Text("None") })
-                    habits.filter { !it.archived }.forEach { h -> FilterChip(selected = habitId == h.id, onClick = { habitId = h.id }, label = { Text((h.emoji?.plus(" ") ?: "") + h.name) }) }
+                com.todocompanion.app.ui.components.OptionChips(listOf("") + habits.filter { !it.archived }.map { it.id }, habitId, { habitId = it }, wrap = false, spacing = 6) { id ->
+                    if (id.isBlank()) "None" else habits.firstOrNull { it.id == id }?.let { (it.emoji?.plus(" ") ?: "") + it.name } ?: ""
                 }
                 Spacer(Modifier.height(8.dp)); Text("Time budget", style = MaterialTheme.typography.labelSmall, color = faint)
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FilterChip(selected = activityId == "", onClick = { activityId = "" }, label = { Text("None") })
-                    activities.filter { !it.archived }.forEach { a -> FilterChip(selected = activityId == a.id, onClick = { activityId = a.id }, label = { Text((a.emoji?.plus(" ") ?: "") + a.name) }) }
+                com.todocompanion.app.ui.components.OptionChips(listOf("") + activities.filter { !it.archived }.map { it.id }, activityId, { activityId = it }, wrap = false, spacing = 6) { id ->
+                    if (id.isBlank()) "None" else activities.firstOrNull { it.id == id }?.let { (it.emoji?.plus(" ") ?: "") + it.name } ?: ""
                 }
                 if (activityId != "") {
                     Spacer(Modifier.height(6.dp))
@@ -835,9 +832,8 @@ private fun SmartCaptureDialog(vm: AppViewModel, onDismiss: () -> Unit) {
                     singleLine = false, minLines = 2,
                 )
                 Spacer(Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    FilterChip(selected = kind == SmartCapture.Kind.TASK, onClick = { override = SmartCapture.Kind.TASK }, label = { Text("✓ Task") })
-                    FilterChip(selected = kind == SmartCapture.Kind.HABIT, onClick = { override = SmartCapture.Kind.HABIT }, label = { Text("↻ Habit") })
+                com.todocompanion.app.ui.components.OptionChips(listOf(SmartCapture.Kind.TASK, SmartCapture.Kind.HABIT), kind, { override = it }, spacing = 8) {
+                    if (it == SmartCapture.Kind.TASK) "✓ Task" else "↻ Habit"
                 }
                 Spacer(Modifier.height(6.dp))
                 Text(

@@ -606,11 +606,8 @@ private fun OccasionEditorSheet(vm: AppViewModel, existing: CountdownEntity?, on
             if (chainOptions.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
                 Text("Then comes… (chain)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FilterChip(selected = chainNext == null, onClick = { chainNext = null }, label = { Text("None") })
-                    chainOptions.take(12).forEach { o ->
-                        FilterChip(selected = chainNext == o.id, onClick = { chainNext = o.id }, label = { Text(o.personName.ifBlank { o.title }.take(16)) })
-                    }
+                com.todocompanion.app.ui.components.OptionChips(listOf<String?>(null) + chainOptions.take(12).map { it.id }, chainNext, { chainNext = it }, spacing = 6) { id ->
+                    if (id == null) "None" else chainOptions.firstOrNull { it.id == id }?.let { it.personName.ifBlank { it.title }.take(16) } ?: ""
                 }
             }
             // #31 letter to the future — sealed until a date you choose.
@@ -797,10 +794,7 @@ private fun OccasionFilterSheet(current: OccasionFilter, items: List<CountdownEn
             if (categories.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
                 Text("Category", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FilterChip(selected = f.category == null, onClick = { f = f.copy(category = null) }, label = { Text("Any") })
-                    categories.forEach { cat -> FilterChip(selected = f.category == cat, onClick = { f = f.copy(category = cat) }, label = { Text(cat) }) }
-                }
+                com.todocompanion.app.ui.components.OptionChips(listOf<String?>(null) + categories, f.category, { f = f.copy(category = it) }, spacing = 6) { it ?: "Any" }
             }
             Spacer(Modifier.height(8.dp))
             Text("Within", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

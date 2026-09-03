@@ -710,11 +710,8 @@ private fun ActivityDialog(
                     Spacer(Modifier.height(14.dp))
                     Text("Nest under", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(6.dp))
-                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = parentId == null, onClick = { onSetParent(null) }, label = { Text("Top level") })
-                        parentCandidates.forEach { (pid, pname) ->
-                            FilterChip(selected = parentId == pid, onClick = { onSetParent(pid) }, label = { Text(pname, maxLines = 1) })
-                        }
+                    com.todocompanion.app.ui.components.OptionChips(listOf<String?>(null) + parentCandidates.map { it.first }, parentId, { onSetParent(it) }, wrap = false, spacing = 8) { pid ->
+                        if (pid == null) "Top level" else parentCandidates.firstOrNull { it.first == pid }?.second ?: ""
                     }
                 }
                 // T3 (I4): link this activity to a habit — tracking it then counts the habit, sharing one goal.
@@ -722,11 +719,8 @@ private fun ActivityDialog(
                     Spacer(Modifier.height(14.dp))
                     Text("Counts toward habit", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(6.dp))
-                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = linkedHabitId == null, onClick = { onLinkHabit(null) }, label = { Text("None") })
-                        habitLinks.forEach { (hid, hname) ->
-                            FilterChip(selected = linkedHabitId == hid, onClick = { onLinkHabit(hid) }, label = { Text(hname, maxLines = 1) })
-                        }
+                    com.todocompanion.app.ui.components.OptionChips(listOf<String?>(null) + habitLinks.map { it.first }, linkedHabitId, { onLinkHabit(it) }, wrap = false, spacing = 8) { hid ->
+                        if (hid == null) "None" else habitLinks.firstOrNull { it.first == hid }?.second ?: ""
                     }
                 }
             }
@@ -822,34 +816,22 @@ private fun AutomationRuleDialog(activities: List<TimeActivityEntity>, onDismiss
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text("When I start", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    activities.forEach { a ->
-                        FilterChip(selected = a.id == whenId, onClick = { whenId = a.id }, label = { Text((a.emoji?.plus(" ") ?: "") + a.name) })
-                    }
-                }
+                com.todocompanion.app.ui.components.OptionChips(activities, activities.firstOrNull { it.id == whenId }, { whenId = it.id }, wrap = false, spacing = 6) { (it.emoji?.plus(" ") ?: "") + it.name }
                 Spacer(Modifier.height(12.dp))
                 Text("Then", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FilterChip(selected = action == AutomationRule.ACTION_NOTIFY, onClick = { action = AutomationRule.ACTION_NOTIFY }, label = { Text("Notify me") })
-                    FilterChip(selected = action == AutomationRule.ACTION_START, onClick = { action = AutomationRule.ACTION_START }, label = { Text("Start another") })
-                    FilterChip(selected = action == AutomationRule.ACTION_STOP, onClick = { action = AutomationRule.ACTION_STOP }, label = { Text("Stop another") })
+                com.todocompanion.app.ui.components.OptionChips(listOf(AutomationRule.ACTION_NOTIFY, AutomationRule.ACTION_START, AutomationRule.ACTION_STOP), action, { action = it }, spacing = 6) {
+                    when (it) { AutomationRule.ACTION_NOTIFY -> "Notify me"; AutomationRule.ACTION_START -> "Start another"; else -> "Stop another" }
                 }
                 Spacer(Modifier.height(8.dp))
                 when (action) {
                     AutomationRule.ACTION_NOTIFY -> com.todocompanion.app.ui.components.AppTextField(notifyText, { notifyText = it }, label = { Text("Message (e.g. Phone on silent?)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                     AutomationRule.ACTION_START -> {
                         Text("Requires “Allow overlapping timers” on.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            activities.filter { it.id != whenId }.forEach { a ->
-                                FilterChip(selected = a.id == startId, onClick = { startId = a.id }, label = { Text((a.emoji?.plus(" ") ?: "") + a.name) })
-                            }
-                        }
+                        val startable = activities.filter { it.id != whenId }
+                        com.todocompanion.app.ui.components.OptionChips(startable, startable.firstOrNull { it.id == startId }, { startId = it.id }, wrap = false, spacing = 6) { (it.emoji?.plus(" ") ?: "") + it.name }
                     }
-                    else -> Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        FilterChip(selected = stopId.isBlank(), onClick = { stopId = "" }, label = { Text("All other timers") })
-                        activities.filter { it.id != whenId }.forEach { a ->
-                            FilterChip(selected = a.id == stopId, onClick = { stopId = a.id }, label = { Text((a.emoji?.plus(" ") ?: "") + a.name) })
-                        }
+                    else -> com.todocompanion.app.ui.components.OptionChips(listOf("") + activities.filter { it.id != whenId }.map { it.id }, stopId, { stopId = it }, wrap = false, spacing = 6) { id ->
+                        if (id.isBlank()) "All other timers" else activities.firstOrNull { it.id == id }?.let { (it.emoji?.plus(" ") ?: "") + it.name } ?: ""
                     }
                 }
                 // Expert guards (R23): only within a time window and/or on chosen weekdays.

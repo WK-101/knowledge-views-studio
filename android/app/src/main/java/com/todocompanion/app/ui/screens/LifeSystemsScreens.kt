@@ -368,10 +368,7 @@ private fun ReviewsScreen(vm: AppViewModel, onBack: () -> Unit) {
     LSScaffold("Integrity review", onBack) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(kind == "weekly", { kind = "weekly" }, { Text("Weekly") })
-                    FilterChip(kind == "annual", { kind = "annual" }, { Text("Annual") })
-                }
+                com.todocompanion.app.ui.components.OptionChips(listOf("weekly", "annual"), kind, { kind = it }, spacing = 8) { if (it == "weekly") "Weekly" else "Annual" }
             }
             item {
                 Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
@@ -805,16 +802,11 @@ private fun EscrowAddDialog(vm: AppViewModel, habits: List<com.todocompanion.app
                 OutlinedTextField(desc, { desc = it }, label = { Text("Reward or stake") }, placeholder = { Text("e.g. new headphones") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 Spacer(Modifier.height(10.dp))
                 Text("Type", style = MaterialTheme.typography.labelMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(kind == "reward", { kind = "reward" }, label = { Text("Reward") })
-                    FilterChip(kind == "stake", { kind = "stake" }, label = { Text("Stake") })
-                }
+                com.todocompanion.app.ui.components.OptionChips(listOf("reward", "stake"), kind, { kind = it }, spacing = 8) { if (it == "reward") "Reward" else "Stake" }
                 Spacer(Modifier.height(10.dp))
                 Text("Milestone", style = MaterialTheme.typography.labelMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(mKind == "streak", { mKind = "streak"; value = "30" }, label = { Text("Streak") })
-                    FilterChip(mKind == "cleandays", { mKind = "cleandays"; value = "90" }, label = { Text("Clean days") })
-                    FilterChip(mKind == "automaticity", { mKind = "automaticity"; value = "80" }, label = { Text("Automatic %") })
+                com.todocompanion.app.ui.components.OptionChips(listOf("streak", "cleandays", "automaticity"), mKind, { mKind = it; value = when (it) { "streak" -> "30"; "cleandays" -> "90"; else -> "80" } }, spacing = 8) {
+                    when (it) { "streak" -> "Streak"; "cleandays" -> "Clean days"; else -> "Automatic %" }
                 }
                 Spacer(Modifier.height(10.dp))
                 OutlinedTextField(value, { v -> value = v.filter { it.isDigit() }.take(4) }, label = { Text("Target") }, modifier = Modifier.width(140.dp), singleLine = true)
@@ -822,9 +814,8 @@ private fun EscrowAddDialog(vm: AppViewModel, habits: List<com.todocompanion.app
                 if (linkable.isNotEmpty()) {
                     Spacer(Modifier.height(10.dp))
                     Text("Track on habit (optional)", style = MaterialTheme.typography.labelMedium)
-                    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(habitId == null, { habitId = null }, label = { Text("None") })
-                        linkable.take(8).forEach { h -> FilterChip(habitId == h.id, { habitId = h.id }, label = { Text(h.name, maxLines = 1) }) }
+                    com.todocompanion.app.ui.components.OptionChips(listOf<String?>(null) + linkable.take(8).map { it.id }, habitId, { habitId = it }, spacing = 8) { id ->
+                        if (id == null) "None" else linkable.firstOrNull { it.id == id }?.name ?: ""
                     }
                 }
             }
