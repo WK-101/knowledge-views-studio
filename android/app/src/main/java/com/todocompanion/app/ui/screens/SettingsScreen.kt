@@ -974,6 +974,9 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Toggle("Hide notification content on lock screen", s.lockscreenPrivacy) { vm.saveSettings(s.copy(lockscreenPrivacy = it)) }
             Text("Reminder and summary notifications show only a generic title on a locked screen — task names stay hidden until you unlock.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Toggle("Redact notes from shared exports", s.exportRedactNotes) { vm.saveSettings(s.copy(exportRedactNotes = it)) }
+            Text("Leaves task notes out of the Markdown, CSV and calendar (.ics) exports you share — titles, dates and tags still export. The full JSON backup is unaffected.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             // Plan A — at-rest database encryption (SQLCipher). Desired state is local to SecureDb and

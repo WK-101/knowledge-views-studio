@@ -1307,12 +1307,14 @@ class AppRepository(private val db: AppDatabase) {
         com.todocompanion.app.domain.port.Export.toMarkdown(
             tasks = tasks.getAll(), lists = lists.getAll(), tags = tags.getAll(),
             taskTagPairs = tags.getCrossRefs().map { it.taskId to it.tagId }, includeCompleted = includeCompleted,
+            redactNotes = settingsSnapshot().exportRedactNotes,   // R103 — privacy: strip notes from shareable exports
         )
 
     /** iCalendar (.ics) of dated tasks + deadlines — importable by any calendar app. */
     suspend fun exportIcs(includeCompleted: Boolean): String =
         com.todocompanion.app.domain.port.Export.toIcs(
-            tasks = tasks.getAll(), includeCompleted = includeCompleted, now = System.currentTimeMillis(),
+            tasks = tasks.getAll(), includeCompleted = includeCompleted,
+            redactNotes = settingsSnapshot().exportRedactNotes, now = System.currentTimeMillis(),
         )
 
     /** Habit check-ins as long-format CSV (re-importable). */
@@ -1341,6 +1343,7 @@ class AppRepository(private val db: AppDatabase) {
         com.todocompanion.app.domain.port.Export.toCsv(
             tasks = tasks.getAll(), lists = lists.getAll(), tags = tags.getAll(),
             taskTagPairs = tags.getCrossRefs().map { it.taskId to it.tagId }, includeCompleted = includeCompleted,
+            redactNotes = settingsSnapshot().exportRedactNotes,   // R103 — privacy: blank the Note column when set
         )
 
     suspend fun importJsonReplace(text: String) {

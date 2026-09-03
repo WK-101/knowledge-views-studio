@@ -37,6 +37,7 @@ object Export {
         tags: List<TagEntity>,
         taskTagPairs: List<Pair<String, String>>,   // taskId to tagId
         includeCompleted: Boolean,
+        redactNotes: Boolean = false,               // R103 — omit free-text notes for a shareable export
         zone: ZoneId = ZoneId.systemDefault(),
     ): String {
         val tagName = tags.associate { it.id to it.name }
@@ -60,7 +61,7 @@ object Export {
             sb.append("  ".repeat(depth)).append("- ").append(box).append(' ').append(t.title.ifBlank { "Untitled" })
             if (bits.isNotEmpty()) sb.append("  ").append(bits.joinToString("  "))
             sb.append('\n')
-            if (t.note.isNotBlank()) t.note.lines().forEach { sb.append("  ".repeat(depth + 1)).append("> ").append(it).append('\n') }
+            if (!redactNotes && t.note.isNotBlank()) t.note.lines().forEach { sb.append("  ".repeat(depth + 1)).append("> ").append(it).append('\n') }
             byParent[t.id]?.sortedBy { it.sortOrder }?.forEach { bullet(it, depth + 1) }
         }
 
@@ -80,6 +81,7 @@ object Export {
         tags: List<TagEntity>,
         taskTagPairs: List<Pair<String, String>>,
         includeCompleted: Boolean,
+        redactNotes: Boolean = false,               // R103 — blank the Note column for a shareable export
         zone: ZoneId = ZoneId.systemDefault(),
     ): String {
         val listName = lists.associate { it.id to it.name }
@@ -97,7 +99,7 @@ object Export {
                 val row = listOf(
                     t.title, listName[t.listId] ?: "", status, priorityLabel(t),
                     day(t.dueDate, zone), day(t.deadlineDate, zone), day(t.startDate, zone),
-                    energy, (t.estimateMin ?: t.estimateMax)?.toString() ?: "", tagStr, t.note.replace("\n", " "),
+                    energy, (t.estimateMin ?: t.estimateMax)?.toString() ?: "", tagStr, if (redactNotes) "" else t.note.replace("\n", " "),
                 )
                 sb.append(row.joinToString(",") { esc(it) }).append('\n')
             }
@@ -152,6 +154,7 @@ object Export {
     fun toIcs(
         tasks: List<TaskEntity>,
         includeCompleted: Boolean = false,
+        redactNotes: Boolean = false,               // R103 — drop VEVENT DESCRIPTION for a shareable export
         zone: ZoneId = ZoneId.systemDefault(),
         now: Long = 0L,
     ): String {
@@ -188,11 +191,11 @@ object Export {
             val title = t.title.ifBlank { "Untitled" }
             t.dueDate?.let { due ->
                 val timed = !t.isAllDay && Instant.ofEpochMilli(due).atZone(zone).let { it.hour != 0 || it.minute != 0 }
-                event(t.id, title, due, !timed, t.durationMin, t.note)
+                event(t.id, title, due, !timed, t.durationMin, if (redactNotes) "" else t.note)
             }
             t.deadlineDate?.let { dl ->
                 val timed = Instant.ofEpochMilli(dl).atZone(zone).let { it.hour != 0 || it.minute != 0 }
-                event("${t.id}-deadline", "⛳ $title (deadline)", dl, !timed, null, t.note)
+                event("${t.id}-deadline", "⛳ $title (deadline)", dl, !timed, null, if (redactNotes) "" else t.note)
             }
         }
         line("END:VCALENDAR")
