@@ -3894,6 +3894,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         taskId: String? = null, habitId: String? = null,
     ) = viewModelScope.launch {
         focusTargetMin.value = targetMin.coerceAtLeast(0)
+        // R81 — optional start cue.
+        com.todocompanion.app.util.Sounds.play(appCtx, settings.value.focusStartSound)
         val actId = activityId
             ?: taskId?.let { tid -> tasks.value.firstOrNull { it.id == tid }?.defaultActivityId }
             ?: habitId?.let { hid -> habits.value.firstOrNull { it.id == hid }?.timeActivityId }
@@ -3915,6 +3917,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         // R59 (Wave 3) — lift focus-block DND (no-op if it was never engaged / access not granted).
         com.todocompanion.app.reminders.FocusDnd.exit(appCtx)
     }
+
+    /** R81 — play the chosen focus/timer completion cue in-app (the background alarm plays it via the
+     *  notification channel; this is for when the app is in the foreground when the countdown finishes). */
+    fun playFocusDoneSound() = com.todocompanion.app.util.Sounds.play(appCtx, settings.value.focusDoneSound)
 
     // ---------- saved filters ----------
     fun createFilter(name: String) = viewModelScope.launch {

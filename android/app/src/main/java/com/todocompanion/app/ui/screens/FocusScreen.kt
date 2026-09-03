@@ -104,7 +104,9 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
         vm.startFocusSession(activityId = null, targetMin = target, remainingSec = remaining, taskId = focusTaskId, habitId = focusHabitId)
     }
     fun pause() { bankedSec = elapsedNow(); vm.stopFocus() }
-    fun finish() { if (running) vm.stopFocus(); bankedSec = 0 }
+    // R81 — finishing a running focus / timer / stopwatch session plays the chosen completion cue in-app
+    // (pausing does not). The background alarm plays it independently if the app is closed at completion.
+    fun finish() { if (running) { vm.stopFocus(); vm.playFocusDoneSound() }; bankedSec = 0 }
 
     // "Just start" hand-off: a task pre-selected from its detail screen lands here and auto-starts a session.
     val pendingFocus by vm.pendingFocusTaskId.collectAsState()

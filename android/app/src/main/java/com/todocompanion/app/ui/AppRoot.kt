@@ -438,6 +438,12 @@ fun AppRoot(
             }
         }
         val context = LocalContext.current
+        // R81 — keep the reminder notification channel in sync with the chosen sound (foreground path;
+        // App.onCreate seeds it for background receivers).
+        LaunchedEffect(settings.reminderSound) {
+            com.todocompanion.app.reminders.Notifications.reminderSoundSpec = settings.reminderSound
+            com.todocompanion.app.reminders.Notifications.ensureChannel(context)
+        }
         // R37 · Port 5 — when "time reminders to my peak" is on, aim the daily brief at the learned
         // receptive hour instead of the fixed time.
         val receptiveHour by vm.receptiveHour.collectAsState()

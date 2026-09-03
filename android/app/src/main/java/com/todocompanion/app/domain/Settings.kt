@@ -129,6 +129,11 @@ data class AppSettings(
     val reliabilityOnboarded: Boolean = false,
     // Completion sound on checking a task off.
     val completionSound: Boolean = false,
+    // R81 — selectable sound cues. Each is a "sound spec": a built-in preset id ("none","beep","double",
+    // "chime","ascending","descending"), "default"/"silent", or a content:// URI the user picked.
+    val focusStartSound: String = "none",       // played when a focus / timer session starts
+    val focusDoneSound: String = "chime",       // played when a focus / timer countdown finishes, or a stopwatch stops
+    val reminderSound: String = "default",      // notification sound for reminders: default | silent | URI
     // Require biometric / device credential to open the app.
     val appLockEnabled: Boolean = false,
     // Frontier F5 — the proof vault: lock just The Record behind biometrics (when the whole app isn't locked).
@@ -374,6 +379,9 @@ data class AppSettings(
         Keys.FOCUS_DND to focusDnd.toString(),
         Keys.RELIABILITY to reliabilityOnboarded.toString(),
         Keys.COMPLETION_SOUND to completionSound.toString(),
+        Keys.FOCUS_START_SOUND to focusStartSound,
+        Keys.FOCUS_DONE_SOUND to focusDoneSound,
+        Keys.REMINDER_SOUND to reminderSound,
         Keys.APP_LOCK to appLockEnabled.toString(),
         Keys.LOCK_RECORD to lockRecord.toString(),
         Keys.SECURE_SCREEN to secureScreen.toString(),
@@ -530,6 +538,9 @@ data class AppSettings(
         const val FOCUS_DND = "focus_dnd"
         const val RELIABILITY = "reliability_onboarded"
         const val COMPLETION_SOUND = "completion_sound"
+        const val FOCUS_START_SOUND = "focus_start_sound"
+        const val FOCUS_DONE_SOUND = "focus_done_sound"
+        const val REMINDER_SOUND = "reminder_sound"
         const val APP_LOCK = "app_lock"
         const val LOCK_RECORD = "lock_record"
         const val SECURE_SCREEN = "secure_screen"
@@ -755,6 +766,9 @@ data class AppSettings(
             focusDnd = m[Keys.FOCUS_DND]?.toBooleanStrictOrNull() ?: false,
             reliabilityOnboarded = m[Keys.RELIABILITY]?.toBooleanStrictOrNull() ?: false,
             completionSound = m[Keys.COMPLETION_SOUND]?.toBooleanStrictOrNull() ?: false,
+            focusStartSound = m[Keys.FOCUS_START_SOUND] ?: "none",
+            focusDoneSound = m[Keys.FOCUS_DONE_SOUND] ?: "chime",
+            reminderSound = m[Keys.REMINDER_SOUND] ?: "default",
             appLockEnabled = m[Keys.APP_LOCK]?.toBooleanStrictOrNull() ?: false,
             lockRecord = m[Keys.LOCK_RECORD]?.toBooleanStrictOrNull() ?: false,
             secureScreen = m[Keys.SECURE_SCREEN]?.toBooleanStrictOrNull() ?: false,

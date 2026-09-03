@@ -12,6 +12,8 @@ import com.todocompanion.app.MainActivity
 
 object Notifications {
     const val CHANNEL_ID = "reminders"
+    const val CHANNEL_SILENT = "reminders_silent"
+    const val CHANNEL_CUSTOM = "reminders_custom"
     const val SUMMARY_ID = 424242
 
     // Security (R18): when the user turns on "hide notification content on the lock screen", every
@@ -26,10 +28,28 @@ object Notifications {
     @Volatile var snoozeMinutes: Int = 10
     private fun snoozeLabel(): String { val m = snoozeMinutes; return if (m % 60 == 0 && m >= 60) "${m / 60}h" else "${m}m" }
 
-    /** Builder that applies the lock-screen-privacy setting centrally (the `id` local keeps this one call
-     *  from being caught by the project-wide swap onto this helper). */
+    // R81 — the reminder notification sound, mirrored from the settings flow: "default" (system default),
+    // "silent", or a content:// URI the user picked. On Android O+ a channel's sound is immutable once
+    // created, so each choice maps to its own channel; the custom channel is recreated only when its URI
+    // actually changes (tracked by [appliedCustomUri]) so a re-pick takes effect without churn.
+    @Volatile var reminderSoundSpec: String = "default"
+    @Volatile private var appliedCustomUri: String? = null
+
+    private fun isSoundUri(spec: String): Boolean =
+        spec.startsWith("content://") || spec.startsWith("android.resource") || spec.startsWith("file://")
+
+    /** The channel a reminder should post to, given the current sound choice. */
+    private fun activeChannelId(): String = when {
+        reminderSoundSpec == "silent" -> CHANNEL_SILENT
+        isSoundUri(reminderSoundSpec) -> CHANNEL_CUSTOM
+        else -> CHANNEL_ID
+    }
+
+    /** Builder that applies the lock-screen-privacy setting centrally and routes to the sound channel the
+     *  user chose. (The `id` local keeps this call from being caught by the project-wide swap onto this helper.) */
     private fun builder(context: Context): NotificationCompat.Builder {
-        val id = CHANNEL_ID
+        ensureChannel(context)
+        val id = activeChannelId()
         return NotificationCompat.Builder(context, id).apply {
             if (lockscreenPrivate) setVisibility(NotificationCompat.VISIBILITY_SECRET)
         }
@@ -38,11 +58,36 @@ object Notifications {
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val mgr = context.getSystemService(NotificationManager::class.java)
+            // The default-sound channel always exists (back-compat + the "Default" choice).
             if (mgr.getNotificationChannel(CHANNEL_ID) == null) {
                 mgr.createNotificationChannel(
                     NotificationChannel(CHANNEL_ID, "Task reminders", NotificationManager.IMPORTANCE_HIGH)
                         .apply { description = "Reminders and the daily summary" }
                 )
+            }
+            when {
+                reminderSoundSpec == "silent" ->
+                    if (mgr.getNotificationChannel(CHANNEL_SILENT) == null) {
+                        mgr.createNotificationChannel(
+                            NotificationChannel(CHANNEL_SILENT, "Reminders (silent)", NotificationManager.IMPORTANCE_HIGH)
+                                .apply { description = "Reminders with no sound"; setSound(null, null) }
+                        )
+                    }
+                isSoundUri(reminderSoundSpec) ->
+                    if (appliedCustomUri != reminderSoundSpec || mgr.getNotificationChannel(CHANNEL_CUSTOM) == null) {
+                        runCatching { mgr.deleteNotificationChannel(CHANNEL_CUSTOM) }
+                        val attrs = android.media.AudioAttributes.Builder()
+                            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
+                            .build()
+                        mgr.createNotificationChannel(
+                            NotificationChannel(CHANNEL_CUSTOM, "Reminders (custom sound)", NotificationManager.IMPORTANCE_HIGH).apply {
+                                description = "Reminders with your chosen sound"
+                                runCatching { setSound(android.net.Uri.parse(reminderSoundSpec), attrs) }
+                            }
+                        )
+                        appliedCustomUri = reminderSoundSpec
+                    }
             }
         }
     }

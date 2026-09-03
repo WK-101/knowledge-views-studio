@@ -793,6 +793,61 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
 
+        SettingsGroup(Icons.Filled.Notifications, "Sounds", open["sounds"] == true, { open["sounds"] = open["sounds"] != true }, keywords = "sound tone chime beep alarm focus timer stopwatch reminder ringtone audio start completion cue") {
+            val sndCtx = androidx.compose.ui.platform.LocalContext.current
+            var pickingFor by remember { mutableStateOf<String?>(null) }
+            val ringtonePicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
+                if (res.resultCode == android.app.Activity.RESULT_OK) {
+                    val uri = res.data?.let { androidx.core.content.IntentCompat.getParcelableExtra(it, android.media.RingtoneManager.EXTRA_RINGTONE_PICKED_URI, android.net.Uri::class.java) }
+                    val spec = uri?.toString() ?: (if (pickingFor == "reminder") "silent" else "none")
+                    when (pickingFor) {
+                        "focusStart" -> vm.saveSettings(s.copy(focusStartSound = spec))
+                        "focusDone" -> vm.saveSettings(s.copy(focusDoneSound = spec))
+                        "reminder" -> vm.saveSettings(s.copy(reminderSound = spec))
+                    }
+                }
+                pickingFor = null
+            }
+            fun launchPicker(field: String, current: String, title: String) {
+                pickingFor = field
+                val intent = android.content.Intent(android.media.RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                    putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_TYPE, android.media.RingtoneManager.TYPE_NOTIFICATION)
+                    putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_TITLE, title)
+                    putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true)
+                    putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                    if (com.todocompanion.app.util.Sounds.isUri(current)) putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, runCatching { android.net.Uri.parse(current) }.getOrNull())
+                }
+                runCatching { ringtonePicker.launch(intent) }
+            }
+            fun customLabel(spec: String) = if (com.todocompanion.app.util.Sounds.isUri(spec)) "Custom ✓" else "Custom…"
+
+            Text("Tap a tone to hear it. “Custom” opens your phone's sound picker.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
+
+            Sub("Focus & timer — start")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                com.todocompanion.app.util.Sounds.PRESETS.forEach { p ->
+                    FilterChip(selected = s.focusStartSound == p, onClick = { vm.saveSettings(s.copy(focusStartSound = p)); com.todocompanion.app.util.Sounds.play(sndCtx, p) }, label = { Text(com.todocompanion.app.util.Sounds.label(p)) })
+                }
+                FilterChip(selected = com.todocompanion.app.util.Sounds.isUri(s.focusStartSound), onClick = { launchPicker("focusStart", s.focusStartSound, "Focus start sound") }, label = { Text(customLabel(s.focusStartSound)) })
+            }
+
+            Sub("Focus, timer & stopwatch — completion")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                com.todocompanion.app.util.Sounds.PRESETS.forEach { p ->
+                    FilterChip(selected = s.focusDoneSound == p, onClick = { vm.saveSettings(s.copy(focusDoneSound = p)); com.todocompanion.app.util.Sounds.play(sndCtx, p) }, label = { Text(com.todocompanion.app.util.Sounds.label(p)) })
+                }
+                FilterChip(selected = com.todocompanion.app.util.Sounds.isUri(s.focusDoneSound), onClick = { launchPicker("focusDone", s.focusDoneSound, "Completion sound") }, label = { Text(customLabel(s.focusDoneSound)) })
+            }
+
+            Sub("Reminders")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("default" to "Default", "silent" to "Silent").forEach { (v, lbl) ->
+                    FilterChip(selected = s.reminderSound == v, onClick = { vm.saveSettings(s.copy(reminderSound = v)) }, label = { Text(lbl) })
+                }
+                FilterChip(selected = com.todocompanion.app.util.Sounds.isUri(s.reminderSound), onClick = { launchPicker("reminder", s.reminderSound, "Reminder sound") }, label = { Text(customLabel(s.reminderSound)) })
+            }
+            Text("Reminder notifications use this sound. Custom lets you choose any sound on your phone.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
+        }
         SettingsGroup(Icons.Filled.Notifications, "Reminders", open["reminders"] == true, { open["reminders"] = open["reminders"] != true }, keywords = "notification daily summary evening review morning brief exact alarm battery optimization intensity gentle persistent insistent snooze duration escalate") {
             // R59 (Wave 1) — the default intensity for new task reminders + the snooze duration every
             // notification's Snooze action uses.

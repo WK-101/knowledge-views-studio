@@ -48,6 +48,9 @@ class App : Application() {
             Notifications.lockscreenPrivate = s0.lockscreenPrivacy
             // R59 — seed the snooze duration every notification's Snooze action uses.
             Notifications.snoozeMinutes = s0.defaultSnoozeMin
+            // R81 — seed the chosen reminder sound so background notifications use the right channel.
+            Notifications.reminderSoundSpec = s0.reminderSound
+            Notifications.ensureChannel(this@App)
             // R59 (Wave 2) — seed quiet hours so background reminders defer to morning even before any UI.
             com.todocompanion.app.reminders.AlarmScheduler.quietEnabled = s0.quietHoursEnabled
             com.todocompanion.app.reminders.AlarmScheduler.quietStartHour = s0.quietStartHour
