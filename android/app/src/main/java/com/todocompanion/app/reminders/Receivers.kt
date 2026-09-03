@@ -30,8 +30,13 @@ class ReminderReceiver : BroadcastReceiver() {
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
                         val task = app.repository.getTask(taskId)
-                        // W8: suppress reminders for a task whose list the user has muted.
-                        val listMuted = task?.listId != null && app.repository.settingsSnapshot().mutedLists.contains(task.listId)
+                        // W8 / R107: suppress reminders for a task whose list — or the folder that list/task
+                        // lives in — the user has muted.
+                        val muteSnap = app.repository.settingsSnapshot()
+                        val listFolderId = task?.listId?.let { app.repository.getList(it)?.folderId }
+                        val listMuted = (task?.listId != null && muteSnap.mutedLists.contains(task.listId)) ||
+                            (task?.folderId != null && muteSnap.mutedFolders.contains(task.folderId)) ||
+                            (listFolderId != null && muteSnap.mutedFolders.contains(listFolderId))
                         // R59 (Wave 2) — quiet hours: hold this reminder and re-arm it for when quiet hours end.
                         val deferUntil = if (task != null && !task.completed && !task.trashed && !task.abandoned && !listMuted)
                             AlarmScheduler.quietDeferUntil(System.currentTimeMillis()) else null

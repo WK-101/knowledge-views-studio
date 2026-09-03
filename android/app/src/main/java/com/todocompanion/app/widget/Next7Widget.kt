@@ -50,7 +50,7 @@ class Next7Widget : AppWidgetProvider() {
                             Instant.ofEpochMilli(it.dueDate!!).atZone(zone).toLocalDate() == d
                     }
                     val min = dayTasks.sumOf { it.estimateMin ?: it.estimateMax ?: it.durationMin ?: 0 }
-                    val capMin = (settings.capacityHoursFor(d.dayOfWeek) * 60).coerceAtLeast(30)
+                    val capMin = settings.capacityMinutesFor(d.dayOfWeek).coerceAtLeast(30)
                     val overCap = min > capMin
                     if (overCap) over++
                     val frac = (min.toFloat() / capMin).coerceIn(0f, 1f)

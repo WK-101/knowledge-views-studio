@@ -362,7 +362,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val zoneId: ZoneId get() = zone
 
     /** "Day starts at" rollover, in minutes past midnight, for Today/Tomorrow/overdue math. */
-    private val dayStartMin: Int get() = settings.value.dayStartHour.coerceIn(0, 6) * 60
+    private val dayStartMin: Int get() = settings.value.dayStartMinuteOfDay()
 
     /** Live task count per smart list, for the drawer. The pure math lives in domain/SmartCounts; the
      *  VM keeps the reactive combine (and computes the settings-derived priority config to pass in). */
@@ -588,7 +588,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val today = java.time.LocalDate.now(zone)
         val trackedCapH = if (settings.value.honestCapacity) trackedCapacityHours() else null
         val capacityMin = if (trackedCapH != null) trackedCapH * 60 * days
-            else (0 until days).sumOf { settings.value.capacityHoursFor(today.plusDays(it.toLong()).dayOfWeek) * 60 }
+            else (0 until days).sumOf { settings.value.capacityMinutesFor(today.plusDays(it.toLong()).dayOfWeek) }
         val freeMin = (capacityMin - otherPlannedMin).coerceAtLeast(0)
         return DeadlineRisk(neededMin / 60.0, freeMin / 60.0, atRisk.size, days)
     }
@@ -1721,6 +1721,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val cur = settings.value.mutedLists
         repo.saveSettings(settings.value.copy(mutedLists = if (id in cur) cur - id else cur + id))
     }
+    /** R107 — mute/unmute reminders for a whole folder (silences every list inside it). */
+    fun toggleMutedFolder(id: String) = viewModelScope.launch {
+        val cur = settings.value.mutedFolders
+        repo.saveSettings(settings.value.copy(mutedFolders = if (id in cur) cur - id else cur + id))
+    }
 
     // ══ Tier X · the reasoning layer ═════════════════════════════════════════════════════════════
 
@@ -2050,7 +2055,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val trackedCapH = if (settings.value.honestCapacity) trackedCapacityHours() else null
         val today = java.time.LocalDate.now(zone)
         val capMin = if (trackedCapH != null) trackedCapH * 60 * days
-            else (0 until days).sumOf { settings.value.capacityHoursFor(today.plusDays(it.toLong()).dayOfWeek) * 60 }
+            else (0 until days).sumOf { settings.value.capacityMinutesFor(today.plusDays(it.toLong()).dayOfWeek) }
         return CapacitySnapshot(committed, capMin, trackedCapH != null)
     }
 
@@ -2205,6 +2210,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ── Z7 · trust dashboard — the data that exists, all on this device ───────────────────────────
     data class DataCounts(val tasks: Int, val habits: Int, val checkins: Int, val timeEntries: Int, val activities: Int, val focus: Int)
     fun dataCounts() = DataCounts(tasks.value.size, habits.value.size, habitCheckins.value.size, timeEntries.value.size, timeActivities.value.size, focusSessions.value.size + timeEntries.value.count { it.kind == "focus" })
+
+    /** R107 — the single authoritative "what's on this device" inventory, rendered identically in both the
+     *  Privacy › Trust panel and the Backup › Maintenance panel so their numbers always agree. Ordered,
+     *  label → count, sourced from the same in-memory stores. */
+    fun deviceInventory(): List<Pair<String, Int>> = listOf(
+        "Tasks" to tasks.value.size,
+        "Events" to events.value.size,
+        "Occasions" to countdowns.value.size,
+        "Habits" to habits.value.size,
+        "Habit check-ins" to habitCheckins.value.size,
+        "Activities" to timeActivities.value.size,
+        "Time entries" to timeEntries.value.size,
+        "Focus sessions" to (focusSessions.value.size + timeEntries.value.count { it.kind == "focus" }),
+    )
 
     // ── Plan A · at-rest database encryption (SQLCipher). State lives in SecureDb's own prefs (it must
     // be readable before the DB opens), not in AppSettings — so these are simple synchronous getters. ──
@@ -3024,8 +3043,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** R53 (Wave A) — user-triggered storage maintenance: compact + defragment the DB, refresh stats. */
     fun optimizeStorage(onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
         toast("Optimising storage…")
+        val before = repo.databaseSizeBytes()
         val ok = repo.optimizeStorage()
-        toast(if (ok) "Storage optimised." else "Couldn't optimise storage right now.")
+        val after = repo.databaseSizeBytes()
+        val freed = (before - after).coerceAtLeast(0)
+        fun human(b: Long): String = when {
+            b >= 1_048_576 -> "%.1f MB".format(b / 1_048_576.0)
+            b >= 1024 -> "%.0f KB".format(b / 1024.0)
+            else -> "$b B"
+        }
+        toast(when {
+            !ok -> "Couldn't optimise storage right now."
+            freed >= 1024 -> "Storage optimised — reclaimed ${human(freed)} (now ${human(after)})."
+            else -> "Storage optimised — already compact (${human(after)})."
+        })
         onDone(ok)
     }
     /** R54 — on-disk database size (bytes) for the storage-insight panel. */

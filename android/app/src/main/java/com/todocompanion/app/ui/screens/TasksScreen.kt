@@ -964,7 +964,7 @@ private fun TaskWipStrip(vm: AppViewModel) {
     if (settings.taskWipLimit <= 0) return
     val tasks by vm.tasks.collectAsState()
     val now = System.currentTimeMillis()
-    val wip = remember(tasks, settings.taskWipLimit) { com.todocompanion.app.domain.task.TaskCoach.wip(tasks, settings.taskWipLimit, now, dayStartMin = settings.dayStartHour * 60) }
+    val wip = remember(tasks, settings.taskWipLimit) { com.todocompanion.app.domain.task.TaskCoach.wip(tasks, settings.taskWipLimit, now, dayStartMin = settings.dayStartMinuteOfDay()) }
     if (!wip.overCap) return
     Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .55f)) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -983,7 +983,7 @@ private fun TaskLessonStrip(vm: AppViewModel) {
     val now = System.currentTimeMillis()
     val hour = java.time.LocalTime.now().hour
     val childCounts = remember(tasks) { tasks.filter { it.parentId != null }.groupingBy { it.parentId!! }.eachCount() }
-    val lesson = remember(tasks, hour) { com.todocompanion.app.domain.task.TaskCoach.todayLesson(tasks, childCounts, hour, now, dayStartMin = settings.dayStartHour * 60) }
+    val lesson = remember(tasks, hour) { com.todocompanion.app.domain.task.TaskCoach.todayLesson(tasks, childCounts, hour, now, dayStartMin = settings.dayStartMinuteOfDay()) }
     if (lesson == null) return
     Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
         Column(Modifier.padding(14.dp)) {
@@ -1121,10 +1121,10 @@ private fun WorkloadStrip(vm: AppViewModel) {
     val zone = java.time.ZoneId.systemDefault()
     val today = java.time.LocalDate.now(zone)
     // Each day's capacity in minutes — a per-weekday override when set, else the flat daily figure.
-    fun capMin(d: java.time.LocalDate) = (settings.capacityHoursFor(d.dayOfWeek) * 60).coerceAtLeast(30)
+    fun capMin(d: java.time.LocalDate) = settings.capacityMinutesFor(d.dayOfWeek).coerceAtLeast(30)
     // Minutes a habit costs on a day it's scheduled: a time habit uses its target, else a light default.
     fun habitMinutes(h: HabitEntity) = if (h.unit?.startsWith("min") == true) h.targetPerDay.coerceAtLeast(1) else 10
-    val loads = remember(tasks, habits, settings.dailyCapacityHours, settings.capacityByDay) {
+    val loads = remember(tasks, habits, settings.dailyCapacityMin, settings.capacityByDayMin) {
         (0..6).map { off ->
             val d = today.plusDays(off.toLong())
             val epochDay = d.toEpochDay()

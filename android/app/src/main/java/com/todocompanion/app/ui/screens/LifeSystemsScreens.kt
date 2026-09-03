@@ -560,7 +560,7 @@ private fun LoadBalancerScreen(vm: AppViewModel, onBack: () -> Unit) {
             items(forecast.days.size) { i ->
                 val dl = forecast.days[i]
                 val date = LocalDate.ofEpochDay(dl.day)
-                val cap = settings.capacityHoursFor(date.dayOfWeek) * 60
+                val cap = settings.capacityMinutesFor(date.dayOfWeek)
                 val over = dl.day in forecast.overloaded
                 val color = if (over) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                 FWCard {

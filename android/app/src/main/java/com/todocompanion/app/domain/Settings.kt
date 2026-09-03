@@ -80,9 +80,14 @@ data class AppSettings(
     // A subtle whole-app background tint: none | warm | cool | mint | dusk | rose.
     val appBackground: String = "none",
     // Planning: hours you can realistically commit per day (workload forecast + auto-schedule).
+    // R107 — capacity is now stored in MINUTES so it can be any hour+minute (e.g. 6h 30m). The legacy
+    // dailyCapacityHours/capacityByDay fields are kept for back-compat reads; capacityMinutesFor() is the
+    // single source consumers read.
     val dailyCapacityHours: Int = 8,
     // Optional per-weekday capacity (Mon..Sun, 7 entries). Empty = use dailyCapacityHours for every day.
     val capacityByDay: List<Int> = emptyList(),
+    val dailyCapacityMin: Int = 480,               // R107 — minutes/day (defaults to 8h)
+    val capacityByDayMin: List<Int> = emptyList(), // R107 — per-weekday minutes (Mon..Sun); empty = flat
     // Deep-work coach (H4): the daily focused-minutes goal that powers today's progress + streak.
     val deepWorkGoalMin: Int = 60,
     val workStartHour: Int = 9,
@@ -98,9 +103,11 @@ data class AppSettings(
     val protectedBlocks: String = "",
     // R58 — recent colors, shared across every color picker in the app (most-recent first, CSV of ARGB longs).
     val recentColors: String = "",
-    // The hour a new "day" begins (0–6). Tasks before this hour still count as the previous day,
-    // so late-night work stays under "Today". 0 = midnight (standard).
+    // The time a new "day" begins. Tasks before this still count as the previous day, so late-night work
+    // stays under "Today". 0 = midnight (standard). R107 — a minute component was added so it can be any
+    // hour+minute (e.g. 3:30 am), not just a whole hour.
     val dayStartHour: Int = 0,
+    val dayStartMinute: Int = 0,
     // Reminders
     val dailySummaryEnabled: Boolean = false,
     val dailySummaryHour: Int = 8,
@@ -231,6 +238,8 @@ data class AppSettings(
     // W5/W8: reminders suppressed for these habit ids / list ids (per-item mute; also feeds adaptive skip).
     val mutedHabits: Set<String> = emptySet(),
     val mutedLists: Set<String> = emptySet(),
+    // R107 — mute every list inside these folders too (reminders from a muted folder's lists are silenced).
+    val mutedFolders: Set<String> = emptySet(),
     // X1: Unified Goals — objectives spanning a task list + a habit + a time budget, one health bar each.
     val goalsJson: String = "",
     // X3: plan against real tracked focus-hours (median) instead of the assumed dailyCapacityHours.
@@ -302,9 +311,14 @@ data class AppSettings(
         return chosen + rest
     }
 
-    /** Capacity (hours) for a given weekday — per-day override if set, else the flat daily figure. */
-    fun capacityHoursFor(dayOfWeek: java.time.DayOfWeek): Int =
-        capacityByDay.getOrNull(dayOfWeek.value - 1) ?: dailyCapacityHours
+    /** R107 — capacity in MINUTES for a given weekday: per-day override if set, else the flat daily figure.
+     *  This is the single source consumers (forecast, auto-schedule, widgets) read. */
+    fun capacityMinutesFor(dayOfWeek: java.time.DayOfWeek): Int =
+        capacityByDayMin.getOrNull(dayOfWeek.value - 1) ?: dailyCapacityMin
+    /** Capacity in whole HOURS (rounded) — legacy accessor kept for any remaining back-compat callers. */
+    fun capacityHoursFor(dayOfWeek: java.time.DayOfWeek): Int = (capacityMinutesFor(dayOfWeek) + 30) / 60
+    /** R107 — the "day starts at" rollover as a minute-of-day. */
+    fun dayStartMinuteOfDay(): Int = dayStartHour * 60 + dayStartMinute
 
     fun toMap(): Map<String, String> = mapOf(
         Keys.FIRST_VIEW to firstView.name,
@@ -358,6 +372,8 @@ data class AppSettings(
         Keys.APP_BG to appBackground,
         Keys.CAPACITY to dailyCapacityHours.toString(),
         Keys.CAPACITY_DAYS to capacityByDay.joinToString(","),
+        Keys.CAPACITY_MIN to dailyCapacityMin.toString(),
+        Keys.CAPACITY_DAYS_MIN to capacityByDayMin.joinToString(","),
         Keys.DEEPWORK_GOAL to deepWorkGoalMin.toString(),
         Keys.WORK_START to workStartHour.toString(),
         Keys.WORK_END to workEndHour.toString(),
@@ -367,6 +383,7 @@ data class AppSettings(
         Keys.PROTECTED_BLOCKS to protectedBlocks,
         Keys.RECENT_COLORS to recentColors,
         Keys.DAY_START to dayStartHour.toString(),
+        Keys.DAY_START_MIN to dayStartMinute.toString(),
         Keys.SUMMARY_ON to dailySummaryEnabled.toString(),
         Keys.SUMMARY_H to dailySummaryHour.toString(),
         Keys.SUMMARY_M to dailySummaryMinute.toString(),
@@ -434,6 +451,7 @@ data class AppSettings(
         Keys.PLAN_LOCKED_DAYS to planLockedDaysCsv,
         Keys.MUTED_HABITS to mutedHabits.joinToString(","),
         Keys.MUTED_LISTS to mutedLists.joinToString(","),
+        Keys.MUTED_FOLDERS to mutedFolders.joinToString(","),
         Keys.GOALS to goalsJson,
         Keys.HONEST_CAPACITY to honestCapacity.toString(),
         Keys.INSIGHT_PREFS to insightPrefsJson,
@@ -519,6 +537,8 @@ data class AppSettings(
         const val APP_BG = "app_bg"
         const val CAPACITY = "daily_capacity_h"
         const val CAPACITY_DAYS = "capacity_by_day"
+        const val CAPACITY_MIN = "daily_capacity_min"
+        const val CAPACITY_DAYS_MIN = "capacity_by_day_min"
         const val DEEPWORK_GOAL = "deepwork_goal_min"
         const val WORK_START = "work_start_h"
         const val WORK_END = "work_end_h"
@@ -528,6 +548,7 @@ data class AppSettings(
         const val PROTECTED_BLOCKS = "protected_blocks"
         const val RECENT_COLORS = "recent_colors"
         const val DAY_START = "day_start"
+        const val DAY_START_MIN = "day_start_min"
         const val SUMMARY_H = "summary_h"
         const val SUMMARY_M = "summary_m"
         const val EVENING_ON = "evening_on"
@@ -594,6 +615,7 @@ data class AppSettings(
         const val PLAN_LOCKED_DAYS = "plan_locked_days"
         const val MUTED_HABITS = "muted_habits"
         const val MUTED_LISTS = "muted_lists"
+        const val MUTED_FOLDERS = "muted_folders"
         const val GOALS = "goals"
         const val HONEST_CAPACITY = "honest_capacity"
         const val INSIGHT_PREFS = "insight_prefs"
@@ -730,6 +752,7 @@ data class AppSettings(
             planLockedDaysCsv = m[Keys.PLAN_LOCKED_DAYS] ?: "",
             mutedHabits = (m[Keys.MUTED_HABITS] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             mutedLists = (m[Keys.MUTED_LISTS] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
+            mutedFolders = (m[Keys.MUTED_FOLDERS] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             goalsJson = m[Keys.GOALS] ?: "",
             honestCapacity = m[Keys.HONEST_CAPACITY]?.toBoolean() ?: false,
             insightPrefsJson = m[Keys.INSIGHT_PREFS] ?: "",
@@ -748,6 +771,10 @@ data class AppSettings(
             appBackground = m[Keys.APP_BG] ?: "none",
             dailyCapacityHours = m[Keys.CAPACITY]?.toIntOrNull()?.coerceIn(1, 16) ?: 8,
             capacityByDay = (m[Keys.CAPACITY_DAYS] ?: "").split(",").mapNotNull { it.trim().toIntOrNull() }.takeIf { it.size == 7 } ?: emptyList(),
+            dailyCapacityMin = m[Keys.CAPACITY_MIN]?.toIntOrNull()?.coerceIn(30, 24 * 60)
+                ?: ((m[Keys.CAPACITY]?.toIntOrNull()?.coerceIn(1, 16) ?: 8) * 60),
+            capacityByDayMin = (m[Keys.CAPACITY_DAYS_MIN] ?: "").split(",").mapNotNull { it.trim().toIntOrNull() }.takeIf { it.size == 7 }
+                ?: (m[Keys.CAPACITY_DAYS] ?: "").split(",").mapNotNull { it.trim().toIntOrNull()?.times(60) }.takeIf { it.size == 7 } ?: emptyList(),
             deepWorkGoalMin = m[Keys.DEEPWORK_GOAL]?.toIntOrNull()?.coerceIn(15, 600) ?: 60,
             workStartHour = m[Keys.WORK_START]?.toIntOrNull()?.coerceIn(0, 23) ?: 9,
             workEndHour = m[Keys.WORK_END]?.toIntOrNull()?.coerceIn(1, 24) ?: 18,
@@ -756,7 +783,8 @@ data class AppSettings(
             availBufferMin = m[Keys.AVAIL_BUFFER]?.toIntOrNull()?.coerceIn(0, 120) ?: 0,
             protectedBlocks = m[Keys.PROTECTED_BLOCKS] ?: "",
             recentColors = m[Keys.RECENT_COLORS] ?: "",
-            dayStartHour = m[Keys.DAY_START]?.toIntOrNull()?.coerceIn(0, 6) ?: 0,
+            dayStartHour = m[Keys.DAY_START]?.toIntOrNull()?.coerceIn(0, 11) ?: 0,
+            dayStartMinute = m[Keys.DAY_START_MIN]?.toIntOrNull()?.coerceIn(0, 59) ?: 0,
             dailySummaryHour = m[Keys.SUMMARY_H]?.toIntOrNull() ?: 8,
             dailySummaryMinute = m[Keys.SUMMARY_M]?.toIntOrNull() ?: 0,
             eveningReviewEnabled = m[Keys.EVENING_ON]?.toBooleanStrictOrNull() ?: false,

@@ -386,10 +386,10 @@ object FourthWave {
     fun lifeLoadForecast(tasks: List<TaskEntity>, habits: List<HabitEntity>, settings: AppSettings, today: Long, window: Int = 7, zone: ZoneId = ZoneId.systemDefault(), dayStartMin: Int = 0): LifeLoad {
         val days = loadByDay(tasks, habits, today, window, zone, dayStartMin)
         val over = days.filter { dl ->
-            val cap = settings.capacityHoursFor(LocalDate.ofEpochDay(dl.day).dayOfWeek) * 60
+            val cap = settings.capacityMinutesFor(LocalDate.ofEpochDay(dl.day).dayOfWeek)
             dl.total > cap
         }.map { it.day }
-        val avgCap = settings.dailyCapacityHours * 60
+        val avgCap = settings.dailyCapacityMin
         val advice = when {
             over.isEmpty() -> "Your week looks balanced — no day is over its capacity."
             over.size >= window - 1 -> "Nearly every day is over capacity. Consider deferring or dropping some commitments this week."

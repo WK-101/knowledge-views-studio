@@ -108,7 +108,6 @@ import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
 import com.todocompanion.app.ui.components.FLAG_COLORS
 import com.todocompanion.app.ui.components.FlagIcons
-import com.todocompanion.app.ui.components.HourStepper
 import com.todocompanion.app.ui.components.OptionChips
 import java.time.ZoneId
 
@@ -124,6 +123,12 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     var showZone by remember { mutableStateOf(false) }
     var showTime by remember { mutableStateOf(false) }
     var showEveningTime by remember { mutableStateOf(false) }
+    // R107 — tap-to-choose pickers replacing sprawling chip rows / +− steppers.
+    var showThemePack by remember { mutableStateOf(false) }
+    var showBg by remember { mutableStateOf(false) }
+    var showWeekStart by remember { mutableStateOf(false) }
+    var showSecondaryZone by remember { mutableStateOf(false) }
+    var showSnoozeCustom by remember { mutableStateOf(false) }
     var editFlag by remember { mutableStateOf<FlagEntity?>(null) }
     var addingFlag by remember { mutableStateOf(false) }
 
@@ -207,6 +212,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
 
         // T0: modular module system — pick the primary, switch any module off. Off hides it everywhere
         // (nav, drawer, capture, widgets, Momentum, Today) but never deletes its data.
+        SettingsSectionHeader("General")
         SettingsGroup(Icons.Filled.Dashboard, "Modules", open["modules"] == true, { open["modules"] = open["modules"] != true }) {
             Sub("Primary (your home + always shown)")
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -262,32 +268,11 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 )
             }
 
-            Spacer(Modifier.height(12.dp)); Sub("Theme pack")
-            Text("One tap sets a coordinated accent + background.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                THEME_PACKS.forEach { pack ->
-                    FilterChip(
-                        selected = s.themePack == pack.id,
-                        onClick = {
-                            vm.saveSettings(s.copy(themePack = pack.id, accentArgb = pack.accent, appBackground = pack.background,
-                                dynamicColor = if (pack.id.isBlank()) s.dynamicColor else false,
-                                themeMode = pack.themeMode ?: s.themeMode))
-                        },
-                        label = { Text(pack.label) },
-                        leadingIcon = { Box(Modifier.size(14.dp).clip(androidx.compose.foundation.shape.CircleShape).background(if (pack.accent == 0L) MaterialTheme.colorScheme.primary else Color(pack.accent))) },
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(12.dp)); Sub("App background")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf("none" to "None", "warm" to "Warm", "cool" to "Cool", "mint" to "Mint", "dusk" to "Dusk", "rose" to "Rose").forEach { (key, label) ->
-                    FilterChip(selected = s.appBackground == key, onClick = { vm.saveSettings(s.copy(appBackground = key)) }, label = { Text(label) })
-                }
-            }
-
-            Spacer(Modifier.height(10.dp))
-            Toggle("Completion sound", s.completionSound) { vm.saveSettings(s.copy(completionSound = it)) }
+            Spacer(Modifier.height(6.dp))
+            NavRow("Theme pack", THEME_PACKS.firstOrNull { it.id == s.themePack }?.label ?: "Custom",
+                { showThemePack = true }, subtitle = "A coordinated accent + background in one tap")
+            NavRow("App background", APP_BACKGROUNDS.firstOrNull { it.first == s.appBackground }?.second ?: "None",
+                { showBg = true })
 
             Spacer(Modifier.height(12.dp)); Sub("Task density")
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -316,6 +301,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Text("A short swipe runs the first action; a longer swipe runs the “full” action.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
+        SettingsSectionHeader("Planning")
         SettingsGroup(Icons.Filled.Tune, "Do-Next priority", open["priority"] == true, { open["priority"] = open["priority"] != true }, keywords = "computed priority weights importance urgency due start goal overdue boost score") {
             Toggle("Use computed priority", s.priorityComputed) { vm.saveSettings(s.copy(priorityComputed = it)) }
             Text(if (s.priorityComputed) "MLO-style score ranks the Do-Next list — importance & urgency compound down the outline, plus a date term."
@@ -435,14 +421,8 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         }
 
         SettingsGroup(Icons.Filled.Schedule, "Date & time", open["datetime"] == true, { open["datetime"] = open["datetime"] != true }, keywords = "week start clock 24 hour day start rollover timezone capacity working hours deep work goal") {
-            Sub("Week starts on")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                val labels = listOf("System" to 0, "Mon" to 1, "Tue" to 2, "Wed" to 3, "Thu" to 4, "Fri" to 5, "Sat" to 6, "Sun" to 7)
-                labels.forEach { (label, v) ->
-                    FilterChip(selected = s.weekStart == v, onClick = { vm.saveSettings(s.copy(weekStart = v)) }, label = { Text(label) })
-                }
-            }
-            Spacer(Modifier.height(10.dp)); Sub("Clock")
+            NavRow("Week starts on", WEEK_STARTS.firstOrNull { it.first == s.weekStart }?.second ?: "System", { showWeekStart = true })
+            Spacer(Modifier.height(6.dp)); Sub("Clock")
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 TimeFormat.entries.forEachIndexed { i, f ->
                     SegmentedButton(selected = s.timeFormat == f, onClick = { vm.saveSettings(s.copy(timeFormat = f)) },
@@ -455,39 +435,28 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 Text("Time zone", Modifier.weight(1f))
                 Text(s.timeZone.ifBlank { "Device (${ZoneId.systemDefault().id})" }, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Spacer(Modifier.height(10.dp)); Sub("Day starts at")
-            Text("Tasks before this hour still count under Today — handy for night owls.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                (0..6).forEach { h ->
-                    FilterChip(selected = s.dayStartHour == h, onClick = { vm.saveSettings(s.copy(dayStartHour = h)) },
-                        label = { Text(if (h == 0) "Midnight" else "%d:00".format(h)) })
-                }
+            Spacer(Modifier.height(6.dp))
+            TimeSettingRow("Day starts at", s.dayStartMinuteOfDay(),
+                subtitle = "Tasks before this still count under Today — for night owls") { m ->
+                vm.saveSettings(s.copy(dayStartHour = (m / 60).coerceIn(0, 11), dayStartMinute = m % 60))
             }
 
-            Spacer(Modifier.height(12.dp)); Sub("Daily capacity")
-            Text("How many hours you can realistically commit per day — powers the workload forecast and auto-schedule.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf(2, 4, 6, 8, 10, 12).forEach { h ->
-                    FilterChip(selected = s.dailyCapacityHours == h && s.capacityByDay.isEmpty(), onClick = { vm.saveSettings(s.copy(dailyCapacityHours = h)) }, label = { Text("${h}h") })
-                }
+            Spacer(Modifier.height(6.dp)); Sub("Daily capacity")
+            Text("How much time you can realistically commit per day — powers the workload forecast and auto-schedule.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
+            val perDayOn = s.capacityByDayMin.size == 7
+            if (!perDayOn) DurationSettingRow("Capacity per day", s.dailyCapacityMin) { m ->
+                vm.saveSettings(s.copy(dailyCapacityMin = m.coerceIn(30, 24 * 60)))
             }
-            val perDayOn = s.capacityByDay.size == 7
             Toggle("Different capacity per weekday", perDayOn) { on ->
-                vm.saveSettings(s.copy(capacityByDay = if (on) List(7) { s.dailyCapacityHours } else emptyList()))
+                vm.saveSettings(s.copy(capacityByDayMin = if (on) List(7) { s.dailyCapacityMin } else emptyList()))
             }
             if (perDayOn) {
-                Text("Some days you can commit more than others — set each one. Weekends are often lighter.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
                 java.time.DayOfWeek.values().forEach { dow ->
                     val idx = dow.value - 1
-                    val h = s.capacityByDay.getOrElse(idx) { s.dailyCapacityHours }
-                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(dow.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault()), Modifier.weight(1f))
-                        TextButton(onClick = { vm.saveSettings(s.copy(capacityByDay = s.capacityByDay.toMutableList().also { it[idx] = (h - 1).coerceAtLeast(0) })) }) { Text("−") }
-                        Text("${h}h", style = MaterialTheme.typography.titleSmall, modifier = Modifier.widthIn(min = 34.dp), textAlign = TextAlign.Center)
-                        TextButton(onClick = { vm.saveSettings(s.copy(capacityByDay = s.capacityByDay.toMutableList().also { it[idx] = (h + 1).coerceAtMost(24) })) }) { Text("+") }
+                    val cur = s.capacityByDayMin.getOrElse(idx) { s.dailyCapacityMin }
+                    DurationSettingRow(dow.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault()), cur) { m ->
+                        vm.saveSettings(s.copy(capacityByDayMin = s.capacityByDayMin.toMutableList().also { it[idx] = m.coerceIn(0, 24 * 60) }))
                     }
                 }
             }
@@ -504,26 +473,21 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 )
             }
 
-            Spacer(Modifier.height(10.dp)); Sub("Working hours (auto-schedule)")
-            Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Start", Modifier.weight(1f))
-                HourStepper(s.workStartHour) { vm.saveSettings(s.copy(workStartHour = (it + 24) % 24)) }
-                Spacer(Modifier.width(16.dp))
-                Text("End", Modifier.weight(1f))
-                HourStepper(s.workEndHour) { vm.saveSettings(s.copy(workEndHour = it.coerceIn(s.workStartHour + 1, 24))) }
+            Spacer(Modifier.height(6.dp)); Sub("Working hours (auto-schedule)")
+            TimeSettingRow("Start", s.workStartHour * 60) { m -> vm.saveSettings(s.copy(workStartHour = ((m + 30) / 60).coerceIn(0, 23))) }
+            TimeSettingRow("End", (s.workEndHour % 24) * 60) { m ->
+                val h = ((m + 30) / 60).let { if (it == 0) 24 else it }
+                vm.saveSettings(s.copy(workEndHour = h.coerceIn(s.workStartHour + 1, 24)))
             }
-            // R41 — a pinned secondary time-zone shown beside event times (a floating event keeps its wall clock).
-            Spacer(Modifier.height(10.dp)); Sub("Second time-zone (calendar rail)")
-            Text("Shown alongside event times in the editor. Off uses only your device zone.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
-            val zones = listOf("" to "Off", "UTC" to "UTC", "America/New_York" to "New York", "America/Los_Angeles" to "LA",
-                "Europe/London" to "London", "Asia/Dubai" to "Dubai", "Asia/Kolkata" to "India", "Asia/Tokyo" to "Tokyo")
-            OptionChips(zones, zones.firstOrNull { it.first == s.secondaryZoneId }, { vm.setSecondaryZone(it.first) }, spacing = 6) { it.second }
-            Spacer(Modifier.height(10.dp)); Sub("Deep-work goal")
-            Text("Minutes of focused time you aim for each day. Powers the Focus coach's progress and streak.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
-            OptionChips(listOf(30, 60, 90, 120, 180), s.deepWorkGoalMin, { vm.saveSettings(s.copy(deepWorkGoalMin = it)) }, spacing = 6) { m ->
-                if (m >= 60) "${m / 60}h${if (m % 60 != 0) " ${m % 60}m" else ""}" else "${m}m"
+
+            Spacer(Modifier.height(6.dp)); Sub("Second time-zone (calendar rail)")
+            NavRow("Second time zone", s.secondaryZoneId.ifBlank { "Off" }, { showSecondaryZone = true },
+                subtitle = "Shown beside event times in the editor")
+
+            Spacer(Modifier.height(6.dp)); Sub("Deep-work goal")
+            DurationSettingRow("Focused time I aim for daily", s.deepWorkGoalMin,
+                subtitle = "Powers the Focus coach's progress and streak") { m ->
+                vm.saveSettings(s.copy(deepWorkGoalMin = m.coerceIn(15, 600)))
             }
         }
 
@@ -542,19 +506,17 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
             protectedWindows.forEach { w ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("${w.name} · %02d:00–%02d:00".format(w.startMin / 60, w.endMin / 60), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    Text("${w.name} · ${fmtHm(w.startMin)}–${fmtHm(w.endMin)}", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                     IconButton(onClick = { vm.deleteProtectedWindow(w.id) }, modifier = Modifier.size(32.dp)) { Icon(Icons.Filled.Close, "Remove", Modifier.size(18.dp)) }
                 }
             }
             var pwName by remember { mutableStateOf("") }
-            var pwStart by remember { mutableIntStateOf(19) }
-            var pwEnd by remember { mutableIntStateOf(20) }
+            var pwStartMin by remember { mutableIntStateOf(19 * 60) }
+            var pwEndMin by remember { mutableIntStateOf(20 * 60) }
             OutlinedTextField(pwName, { pwName = it }, singleLine = true, placeholder = { Text("Window name") }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
-            Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("From", Modifier.weight(1f)); HourStepper(pwStart) { pwStart = (it + 24) % 24 }
-                Spacer(Modifier.width(10.dp)); Text("To", Modifier.weight(1f)); HourStepper(pwEnd) { pwEnd = it.coerceIn(pwStart + 1, 24) }
-            }
-            TextButton(onClick = { if (pwName.isNotBlank()) { vm.saveProtectedWindow(pwName, pwStart * 60, pwEnd * 60, emptyList()); pwName = "" } }, enabled = pwName.isNotBlank()) { Text("Add protected window") }
+            TimeSettingRow("From", pwStartMin) { pwStartMin = it }
+            TimeSettingRow("To", pwEndMin) { pwEndMin = it.coerceAtLeast(pwStartMin + 15) }
+            TextButton(onClick = { if (pwName.isNotBlank()) { vm.saveProtectedWindow(pwName, pwStartMin, pwEndMin, emptyList()); pwName = "" } }, enabled = pwName.isNotBlank()) { Text("Add protected window") }
 
             // R59 (Wave 4) — local holiday packs: add a region's public holidays as all-day events, offline.
             Spacer(Modifier.height(10.dp)); Sub("Holiday packs")
@@ -602,23 +564,24 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 Toggle("Prompt to track time-blocks", s.autoTrackPrompt) { on ->
                     vm.saveSettings(s.copy(autoTrackPrompt = on)); vm.rescheduleTrackPrompts()
                 }
-                Text("When a task with a start time (not an all-day task) reaches that time later today, a notification offers a one-tap “Start tracking”. Give a task a due date with a time to see it. Needs notifications + exact-alarm permission. (U2)",
+                Text("When a task with a start time (not an all-day task) reaches that time later today, a notification offers a one-tap “Start tracking”. Give a task a due date with a time to see it. Needs notifications + exact-alarm permission.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Toggle("Account for my whole day", s.timelineFill) { on -> vm.saveSettings(s.copy(timelineFill = on)) }
-                Text("Timeline-fill mode: gaps between tracked blocks become tappable “what were you doing?” chips on the Time screen, so every part of the day is accounted for. (U5)",
+                Text("Timeline-fill mode: gaps between tracked blocks become tappable “what were you doing?” chips on the Time screen, so every part of the day is accounted for.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Toggle("Allow overlapping timers", s.multiTimer) { on -> vm.saveSettings(s.copy(multiTimer = on)) }
-                Text("Multi-timer: run more than one activity at once instead of switching. Off keeps the simple single-timer. (U15)",
+                Text("Multi-timer: run more than one activity at once instead of switching. Off keeps the simple single-timer.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Toggle("Reveal untracked time on the calendar", s.untrackedReveal) { on -> vm.saveSettings(s.copy(untrackedReveal = on)) }
-                Text("Shade the day-column gaps between tracked intervals so uncounted time is visible. (U14)",
+                Text("Shade the day-column gaps between tracked intervals so uncounted time is visible.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         if (Modules.isEnabled(s, Modules.HABITS)) {
-            SettingsGroup(Icons.Filled.Whatshot, "Streaks", open["streaks"] == true, { open["streaks"] = open["streaks"] != true }) {
+            SettingsSectionHeader("Habits")
+            SettingsGroup(Icons.Filled.Whatshot, "Habits", open["streaks"] == true, { open["streaks"] = open["streaks"] != true }, keywords = "streak forgiving strength calm chronotype bookends companion garden wip limit rewards points routines nfc receptivity") {
                 Toggle("Forgiving streaks", s.forgivingStreaks) { on -> vm.saveSettings(s.copy(forgivingStreaks = on)) }
-                Text("Tolerate the odd missed day (about one a week) instead of resetting to zero — consistency over brittle chains, so one slip never wipes weeks of momentum. (U8)",
+                Text("Tolerate the odd missed day (about one a week) instead of resetting to zero — consistency over brittle chains, so one slip never wipes weeks of momentum.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
                 // Z8 — explain-and-opt-in migration: preview the before/after before changing scores.
@@ -671,8 +634,8 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 Text("Task focus limit (personal kanban)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                 Text("Cap how many tasks can be in progress (started, not done) at once. Over the cap, Today nudges you to finish one before starting another.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(0, 3, 5, 7, 10).forEach { n ->
+                FlowRow(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    (0..10).forEach { n ->
                         FilterChip(selected = s.taskWipLimit == n, onClick = { vm.setTaskWipLimit(n) }, label = { Text(if (n == 0) "Off" else "$n") })
                     }
                 }
@@ -680,79 +643,79 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 Toggle("Time reminders to my peak", s.receptivityTiming) { on -> vm.setReceptivityTiming(on) }
                 Text("Shift the daily brief and evening review to the hour you're most likely to act, learned from when you actually finish habits and tasks. Off = use the fixed times.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
 
-        // V12: the self-defined rewards store.
-        SettingsGroup(Icons.Filled.Star, "Rewards", open["rewards"] == true, { open["rewards"] = open["rewards"] != true }) {
-            val rewards = com.todocompanion.app.domain.Rewards.parse(s.rewardsJson)
-            Text("You earn ⭐ points by keeping habits and finishing tasks — currently ${s.pointsBalance}. Spend them on treats you set for yourself. Encouragement, never punishment.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
-            rewards.forEach { r ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("${r.emoji} ${r.name} · ${r.cost} pts" + (if (r.redeemed > 0) "  (redeemed ${r.redeemed}×)" else ""), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                    IconButton(onClick = { vm.saveRewards(rewards.filter { it.id != r.id }) }) { Icon(Icons.Filled.Delete, "Remove", modifier = Modifier.size(18.dp)) }
-                }
-            }
-            var rName by remember { mutableStateOf("") }
-            var rCost by remember { mutableStateOf("10") }
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                com.todocompanion.app.ui.components.AppTextField(rName, { rName = it }, label = { Text("New reward") }, singleLine = true, modifier = Modifier.weight(1f))
-                Spacer(Modifier.width(8.dp))
-                com.todocompanion.app.ui.components.AppTextField(rCost, { v -> rCost = v.filter { it.isDigit() }.take(4) }, label = { Text("Cost") }, singleLine = true, modifier = Modifier.width(90.dp))
-            }
-            TextButton(enabled = rName.isNotBlank(), onClick = {
-                vm.saveRewards(rewards + com.todocompanion.app.domain.Reward(id = java.util.UUID.randomUUID().toString(), name = rName.trim(), cost = rCost.toIntOrNull()?.coerceAtLeast(1) ?: 10))
-                rName = ""; rCost = "10"
-            }) { Text("＋ Add reward") }
-            // R34 · the intrinsic reward menu — real treats YOU choose to grant yourself at milestones.
-            // The app never invents the reward (avoids overjustification); it just holds your own list.
-            HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-            Text("Your reward menu", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-            Text("A list of real rewards you grant yourself at milestones — points-free, self-chosen.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            s.rewardMenu.forEach { r ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("🎁 $r", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                    IconButton(onClick = { vm.removeReward(r) }) { Icon(Icons.Filled.Delete, "Remove", modifier = Modifier.size(18.dp)) }
-                }
-            }
-            var mName by remember { mutableStateOf("") }
-            Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                com.todocompanion.app.ui.components.AppTextField(mName, { mName = it }, label = { Text("A reward you'd grant yourself") }, singleLine = true, modifier = Modifier.weight(1f))
-                Spacer(Modifier.width(8.dp))
-                TextButton(enabled = mName.isNotBlank(), onClick = { vm.addReward(mName); mName = "" }) { Text("Add") }
-            }
-        }
-
-        // W6: routine tags — a named bundle launched by one NFC/QR tap or shortcut.
-        if (Modules.isEnabled(s, Modules.TIME)) {
-            val activities by vm.timeActivities.collectAsState()
-            SettingsGroup(Icons.Filled.Bolt, "Routines", open["routines"] == true, { open["routines"] = open["routines"] != true }) {
-                Text("A routine starts an activity's timer and surfaces its habit group in one tap. Fire it from a home-screen tap, or write its link — todocompanion://routine?name=NAME — to an NFC tag or QR.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
-                val routines = com.todocompanion.app.domain.Routines.parse(s.routinesJson)
-                routines.forEach { r ->
-                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("${r.emoji} ${r.name}", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                        TextButton(onClick = { vm.runRoutine(r) }) { Text("Run") }
-                        IconButton(onClick = { vm.saveRoutines(routines.filter { it.id != r.id }) }) { Icon(Icons.Filled.Delete, "Remove", modifier = Modifier.size(18.dp)) }
+                // R107 — Rewards & Routines live here now, with the rest of the habit tools, instead of as
+                // standalone entries in the main settings list where they were easy to miss.
+                HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                Sub("Rewards")
+                run {
+                    val rewards = com.todocompanion.app.domain.Rewards.parse(s.rewardsJson)
+                    Text("Earn ⭐ points by keeping habits and finishing tasks — currently ${s.pointsBalance}. Spend them on treats you set yourself.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
+                    rewards.forEach { r ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("${r.emoji} ${r.name} · ${r.cost} pts" + (if (r.redeemed > 0) "  (redeemed ${r.redeemed}×)" else ""), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                            IconButton(onClick = { vm.saveRewards(rewards.filter { it.id != r.id }) }) { Icon(Icons.Filled.Delete, "Remove", modifier = Modifier.size(18.dp)) }
+                        }
+                    }
+                    var rName by remember { mutableStateOf("") }
+                    var rCost by remember { mutableStateOf("10") }
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        com.todocompanion.app.ui.components.AppTextField(rName, { rName = it }, label = { Text("New reward") }, singleLine = true, modifier = Modifier.weight(1f))
+                        Spacer(Modifier.width(8.dp))
+                        com.todocompanion.app.ui.components.AppTextField(rCost, { v -> rCost = v.filter { it.isDigit() }.take(4) }, label = { Text("Cost") }, singleLine = true, modifier = Modifier.width(90.dp))
+                    }
+                    TextButton(enabled = rName.isNotBlank(), onClick = {
+                        vm.saveRewards(rewards + com.todocompanion.app.domain.Reward(id = java.util.UUID.randomUUID().toString(), name = rName.trim(), cost = rCost.toIntOrNull()?.coerceAtLeast(1) ?: 10))
+                        rName = ""; rCost = "10"
+                    }) { Text("＋ Add reward") }
+                    Spacer(Modifier.height(6.dp))
+                    Text("Your reward menu — real treats you grant yourself at milestones (points-free, self-chosen).", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    s.rewardMenu.forEach { r ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("🎁 $r", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                            IconButton(onClick = { vm.removeReward(r) }) { Icon(Icons.Filled.Delete, "Remove", modifier = Modifier.size(18.dp)) }
+                        }
+                    }
+                    var mName by remember { mutableStateOf("") }
+                    Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        com.todocompanion.app.ui.components.AppTextField(mName, { mName = it }, label = { Text("A reward you'd grant yourself") }, singleLine = true, modifier = Modifier.weight(1f))
+                        Spacer(Modifier.width(8.dp))
+                        TextButton(enabled = mName.isNotBlank(), onClick = { vm.addReward(mName); mName = "" }) { Text("Add") }
                     }
                 }
-                var routName by remember { mutableStateOf("") }
-                var routAct by remember { mutableStateOf<String?>(null) }
-                com.todocompanion.app.ui.components.AppTextField(routName, { routName = it }, label = { Text("New routine name") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    activities.filter { !it.archived }.forEach { a ->
-                        FilterChip(selected = routAct == a.id, onClick = { routAct = if (routAct == a.id) null else a.id }, label = { Text((a.emoji?.plus(" ") ?: "") + a.name) })
+
+                if (Modules.isEnabled(s, Modules.TIME)) {
+                    HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                    Sub("Routines")
+                    val activities by vm.timeActivities.collectAsState()
+                    Text("A routine starts an activity's timer and surfaces its habit group in one tap. Fire it from a home-screen tap, or write its link — todocompanion://routine?name=NAME — to an NFC tag or QR.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
+                    val routines = com.todocompanion.app.domain.Routines.parse(s.routinesJson)
+                    routines.forEach { r ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("${r.emoji} ${r.name}", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                            TextButton(onClick = { vm.runRoutine(r) }) { Text("Run") }
+                            IconButton(onClick = { vm.saveRoutines(routines.filter { it.id != r.id }) }) { Icon(Icons.Filled.Delete, "Remove", modifier = Modifier.size(18.dp)) }
+                        }
                     }
+                    var routName by remember { mutableStateOf("") }
+                    var routAct by remember { mutableStateOf<String?>(null) }
+                    com.todocompanion.app.ui.components.AppTextField(routName, { routName = it }, label = { Text("New routine name") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        activities.filter { !it.archived }.forEach { a ->
+                            FilterChip(selected = routAct == a.id, onClick = { routAct = if (routAct == a.id) null else a.id }, label = { Text((a.emoji?.plus(" ") ?: "") + a.name) })
+                        }
+                    }
+                    TextButton(enabled = routName.isNotBlank(), onClick = {
+                        vm.saveRoutines(routines + com.todocompanion.app.domain.Routine(id = java.util.UUID.randomUUID().toString(), name = routName.trim(), activityId = routAct ?: ""))
+                        routName = ""; routAct = null
+                    }) { Text("＋ Add routine") }
                 }
-                TextButton(enabled = routName.isNotBlank(), onClick = {
-                    vm.saveRoutines(routines + com.todocompanion.app.domain.Routine(id = java.util.UUID.randomUUID().toString(), name = routName.trim(), activityId = routAct ?: ""))
-                    routName = ""; routAct = null
-                }) { Text("＋ Add routine") }
             }
         }
 
+        SettingsSectionHeader("Editor & notifications")
         SettingsGroup(Icons.Filled.EditNote, "Task editor", open["editor"] == true, { open["editor"] = open["editor"] != true }, keywords = "fields tier always more hidden reorder reflection estimate energy flag attachments") {
             Text("The editor shows a lean set of fields first and reveals the rest under “More fields.” Choose when each appears, or drag the order to match how you work. A field you’ve already filled always shows, whatever you pick here.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
@@ -825,6 +788,10 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
 
             Text("Tap a tone to hear it. “Custom” opens your phone's sound picker.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
 
+            // R107 — moved here from Appearance: completing a task can play a short cue.
+            Toggle("Play a sound when I complete a task", s.completionSound) { vm.saveSettings(s.copy(completionSound = it)) }
+            HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+
             Sub("Focus & timer — start")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 com.todocompanion.app.util.Sounds.PRESETS.forEach { p ->
@@ -862,23 +829,22 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Text(com.todocompanion.app.domain.reminders.ReminderPresets.TIER_BLURBS[s.defaultReminderTier.coerceIn(0, 2)],
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp, bottom = 8.dp))
             Text("Snooze duration", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            val snoozeFixed = listOf(5, 10, 15)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) {
-                com.todocompanion.app.domain.reminders.ReminderPresets.SNOOZE.forEach { m ->
-                    FilterChip(selected = s.defaultSnoozeMin == m, onClick = { vm.saveSettings(s.copy(defaultSnoozeMin = m)) }, label = { Text(com.todocompanion.app.domain.reminders.ReminderPresets.snoozeLabel(m)) })
+                snoozeFixed.forEach { m ->
+                    FilterChip(selected = s.defaultSnoozeMin == m, onClick = { vm.saveSettings(s.copy(defaultSnoozeMin = m)) }, label = { Text("${m}m") })
                 }
+                val isCustom = s.defaultSnoozeMin !in snoozeFixed
+                FilterChip(selected = isCustom, onClick = { showSnoozeCustom = true },
+                    label = { Text(if (isCustom) "Custom (${fmtDur(s.defaultSnoozeMin)})" else "Custom…") })
             }
             Text("Every notification's Snooze button uses this.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
             HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             // R59 (Wave 2) — quiet hours: hold overnight reminders and deliver them together in the morning.
             Toggle("Quiet hours", s.quietHoursEnabled) { vm.saveSettings(s.copy(quietHoursEnabled = it)) }
             if (s.quietHoursEnabled) {
-                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("From", Modifier.weight(1f))
-                    HourStepper(s.quietStartHour) { vm.saveSettings(s.copy(quietStartHour = (it + 24) % 24)) }
-                    Spacer(Modifier.width(12.dp))
-                    Text("to", Modifier.weight(1f))
-                    HourStepper(s.quietEndHour) { vm.saveSettings(s.copy(quietEndHour = (it + 24) % 24)) }
-                }
+                TimeSettingRow("From", s.quietStartHour * 60) { m -> vm.saveSettings(s.copy(quietStartHour = ((m + 30) / 60) % 24)) }
+                TimeSettingRow("To", s.quietEndHour * 60) { m -> vm.saveSettings(s.copy(quietEndHour = ((m + 30) / 60) % 24)) }
                 Text("Reminders due in this window are held and arrive together when it ends — a calm morning digest.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -896,10 +862,15 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Toggle("Daily summary notification", s.dailySummaryEnabled) { vm.saveSettings(s.copy(dailySummaryEnabled = it)) }
             // W8: per-list mute — silence reminders for chosen lists.
             val lists by vm.lists.collectAsState()
-            if (lists.any { !it.archived }) {
+            val muteFolders by vm.folders.collectAsState()
+            if (lists.any { !it.archived } || muteFolders.isNotEmpty()) {
                 HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-                Text("Mute reminders from these lists", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Mute reminders from these lists & folders", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Muting a folder silences every list inside it. Tap to toggle.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    muteFolders.forEach { fo ->
+                        FilterChip(selected = fo.id in s.mutedFolders, onClick = { vm.toggleMutedFolder(fo.id) }, label = { Text("\uD83D\uDCC1 " + fo.name.take(16)) })
+                    }
                     lists.filter { !it.archived }.forEach { l ->
                         FilterChip(selected = l.id in s.mutedLists, onClick = { vm.toggleMutedList(l.id) }, label = { Text(l.name.take(16)) })
                     }
@@ -925,10 +896,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             // Z4 — the morning brief: one calm daily note instead of scattered pings.
             Toggle("Morning brief", s.morningBriefEnabled) { vm.setMorningBrief(it, s.morningBriefHour) }
             if (s.morningBriefEnabled) {
-                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Brief time", Modifier.weight(1f))
-                    HourStepper(s.morningBriefHour) { vm.setMorningBrief(true, it.coerceIn(0, 23)) }
-                }
+                TimeSettingRow("Brief time", s.morningBriefHour * 60) { m -> vm.setMorningBrief(true, ((m + 30) / 60).coerceIn(0, 23)) }
                 Text("One note each morning: your next action, today's honest forecast, and one insight.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -939,10 +907,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Toggle("Daily reflection", s.occasionNudge) { vm.saveSettings(s.copy(occasionNudge = it)); vm.applyOccasionNudge() }
             if (s.occasionNudge) {
-                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Reflection time", Modifier.weight(1f))
-                    HourStepper(s.occasionNudgeHour) { vm.saveSettings(s.copy(occasionNudgeHour = it.coerceIn(0, 23))); vm.applyOccasionNudge() }
-                }
+                TimeSettingRow("Reflection time", s.occasionNudgeHour * 60) { m -> vm.saveSettings(s.copy(occasionNudgeHour = ((m + 30) / 60).coerceIn(0, 23))); vm.applyOccasionNudge() }
                 Text("One gentle, finite-time thought a day, paired with a this-day-in-history note. No cloud.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -959,6 +924,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Action("Ignore battery optimisation") { openBatterySettings(context) }
         }
 
+        SettingsSectionHeader("Privacy & data")
         SettingsGroup(Icons.Filled.Lock, "Privacy", open["privacy"] == true, { open["privacy"] = open["privacy"] != true }, keywords = "app lock biometric fingerprint secure screen screenshot lockscreen encrypt database sqlcipher security trust") {
             Toggle("Require unlock to open", s.appLockEnabled) { vm.saveSettings(s.copy(appLockEnabled = it)) }
             Text("Ask for your fingerprint, face or device PIN each time the app opens (strong biometric preferred). All checks happen on-device.",
@@ -1011,10 +977,14 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 "0 location permission — it never asks where you are.",
                 "Everything lives only on this device.",
             ).forEach { Text("✓ $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
-            val dc = remember(s) { vm.dataCounts() }
             Spacer(Modifier.height(6.dp))
-            Text("On this device: ${dc.tasks} tasks · ${dc.habits} habits · ${dc.checkins} check-ins · ${dc.timeEntries} time entries · ${dc.activities} activities · ${dc.focus} focus sessions.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("On this device", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            vm.deviceInventory().forEach { (label, n) ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
+                    Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("%,d".format(n), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+                }
+            }
             Spacer(Modifier.height(8.dp))
             Action("Export a full copy (JSON)") {
                 vm.exportToDownloads("json") { loc -> Toast.makeText(context, if (loc != null) "Saved to $loc" else "Couldn't save", Toast.LENGTH_SHORT).show() }
@@ -1068,30 +1038,22 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
             HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             Sub("Maintenance")
-            // R54 — live storage footprint, so "built for a decade" is visible (and the optimise is measurable).
-            val allTasks by vm.tasks.collectAsState()
-            val allEvents by vm.events.collectAsState()
-            val allOccasions by vm.countdowns.collectAsState()
+            // R107 — the same "what's on this device" inventory shown in Privacy › Trust, so the two panels
+            // always agree, plus the on-disk footprint and the measurable optimise.
             var dbBytes by remember { mutableLongStateOf(vm.databaseSizeBytes()) }
             fun humanBytes(b: Long): String = when {
                 b >= 1_048_576 -> "%.1f MB".format(b / 1_048_576.0)
                 b >= 1024 -> "%.0f KB".format(b / 1024.0)
                 else -> "$b B"
             }
-            Text("${allTasks.size} tasks · ${allEvents.size} events · ${allOccasions.size} occasions · database ${humanBytes(dbBytes)}",
-                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 2.dp))
-            // R56 (Wave B / R1) — a database-health breakdown computed by COUNT aggregates in the database
-            // itself (not by scanning in-memory lists), so it stays instant as the store grows.
-            val rowCounts by androidx.compose.runtime.produceState(initialValue = emptyMap<String, Long>(), dbBytes) { value = vm.databaseRowCounts() }
-            if (rowCounts.isNotEmpty()) {
-                Text("Database health", style = MaterialTheme.typography.labelMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
-                rowCounts.forEach { (label, n) ->
-                    Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
-                        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("%,d".format(n), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
-                    }
+            Text("On this device", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 2.dp))
+            vm.deviceInventory().forEach { (label, n) ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
+                    Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("%,d".format(n), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
                 }
             }
+            Text("Database file: ${humanBytes(dbBytes)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 4.dp))
             Action("Optimise storage now") { vm.optimizeStorage { dbBytes = vm.databaseSizeBytes() } }
             Text("Compacts and defragments the on-device database and rebuilds the full-text search index. Built for years of data — search stays fast into the hundred-thousands, and this keeps the file small. Safe and offline.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
@@ -1150,6 +1112,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
 
+        SettingsSectionHeader("About")
         SettingsGroup(Icons.Filled.School, "Help & tips", open["help"] == true, { open["help"] = open["help"] != true }) {
             Text("New here, or want a refresher? Replay the guided welcome tour any time.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
@@ -1177,6 +1140,23 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
 
     if (showZone) ZonePickerDialog(current = s.timeZone, onDismiss = { showZone = false }) { z ->
         vm.saveSettings(s.copy(timeZone = z)); showZone = false
+    }
+    if (showThemePack) ChoicePickerDialog("Theme pack", THEME_PACKS.map { it.id to it.label }, s.themePack, onDismiss = { showThemePack = false }) { id ->
+        val pack = THEME_PACKS.first { it.id == id }
+        vm.saveSettings(s.copy(themePack = pack.id, accentArgb = pack.accent, appBackground = pack.background,
+            dynamicColor = if (pack.id.isBlank()) s.dynamicColor else false, themeMode = pack.themeMode ?: s.themeMode))
+        showThemePack = false
+    }
+    if (showBg) ChoicePickerDialog("App background", APP_BACKGROUNDS, s.appBackground, onDismiss = { showBg = false }) { key ->
+        vm.saveSettings(s.copy(appBackground = key)); showBg = false
+    }
+    if (showWeekStart) ChoicePickerDialog("Week starts on", WEEK_STARTS, s.weekStart, onDismiss = { showWeekStart = false }) { v ->
+        vm.saveSettings(s.copy(weekStart = v)); showWeekStart = false
+    }
+    if (showSecondaryZone) ZonePickerDialog(current = s.secondaryZoneId, onDismiss = { showSecondaryZone = false },
+        title = "Second time zone", blankLabel = "Off") { z -> vm.setSecondaryZone(z); showSecondaryZone = false }
+    if (showSnoozeCustom) DurationPickerDialog(s.defaultSnoozeMin, onDismiss = { showSnoozeCustom = false }) { m ->
+        vm.saveSettings(s.copy(defaultSnoozeMin = m.coerceIn(1, 720))); showSnoozeCustom = false
     }
     if (showTime) {
         com.todocompanion.app.ui.components.TimeFieldDialog(
@@ -1327,21 +1307,21 @@ private fun openBatterySettings(context: android.content.Context) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ZonePickerDialog(current: String, onDismiss: () -> Unit, onPick: (String) -> Unit) {
+private fun ZonePickerDialog(current: String, onDismiss: () -> Unit, title: String = "Time zone", blankLabel: String = "Device (${ZoneId.systemDefault().id})", onPick: (String) -> Unit) {
     var query by remember { mutableStateOf("") }
     val all = remember { listOf("") + ZoneId.getAvailableZoneIds().sorted() }
     val filtered = remember(query) { all.filter { query.isBlank() || it.contains(query, ignoreCase = true) } }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
-        title = { Text("Time zone") },
+        title = { Text(title) },
         text = {
             Column {
                 com.todocompanion.app.ui.components.AppTextField(query, { query = it }, placeholder = { Text("Search zones…") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
                 LazyColumn(Modifier.heightIn(max = 320.dp)) {
                     items(filtered, key = { it }) { z ->
-                        val label = if (z.isBlank()) "Device (${ZoneId.systemDefault().id})" else z
+                        val label = if (z.isBlank()) blankLabel else z
                         Text(label, Modifier.fillMaxWidth().clickable { onPick(z) }.padding(vertical = 11.dp),
                             fontWeight = if (z == current) FontWeight.Bold else FontWeight.Normal)
                     }
@@ -1450,6 +1430,77 @@ private fun Action(title: String, onClick: () -> Unit) {
         style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
 }
 
+// ── R107 · the consistent selection idioms — a tappable row + a focused picker, used everywhere a setting
+//    is chosen, so no more sprawling chip rows or −/+ steppers. ─────────────────────────────────────────
+private fun fmtHm(minuteOfDay: Int): String = "%02d:%02d".format((minuteOfDay / 60) % 24, minuteOfDay % 60)
+private fun fmtDur(min: Int): String = when {
+    min <= 0 -> "0m"
+    min % 60 == 0 -> "${min / 60}h"
+    min < 60 -> "${min}m"
+    else -> "${min / 60}h ${min % 60}m"
+}
+
+/** A clean, tappable settings row: label (+ optional subtitle) on the left, current value + chevron on the
+ *  right. The single idiom for "tap to choose", replacing sprawling chip rows and steppers. */
+@Composable
+private fun NavRow(label: String, value: String, onClick: () -> Unit, subtitle: String? = null) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+            Text(label, style = MaterialTheme.typography.bodyLarge)
+            if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.width(6.dp))
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+    }
+}
+
+/** A time-of-day setting shown as a NavRow that opens the shared themed hour+minute picker. */
+@Composable
+private fun TimeSettingRow(label: String, minuteOfDay: Int, subtitle: String? = null, onPick: (Int) -> Unit) {
+    var show by remember { mutableStateOf(false) }
+    NavRow(label, fmtHm(minuteOfDay), { show = true }, subtitle)
+    if (show) com.todocompanion.app.ui.components.TimeFieldDialog(minuteOfDay, onDismiss = { show = false }) { onPick(it); show = false }
+}
+
+/** A duration setting (hours + minutes) shown as a NavRow that opens the shared duration picker. */
+@Composable
+private fun DurationSettingRow(label: String, minutes: Int, subtitle: String? = null, onPick: (Int) -> Unit) {
+    var show by remember { mutableStateOf(false) }
+    NavRow(label, fmtDur(minutes), { show = true }, subtitle)
+    if (show) DurationPickerDialog(minutes, onDismiss = { show = false }) { onPick(it); show = false }
+}
+
+/** A generic single-choice picker dialog — used for theme pack, app background, week start, etc. */
+@Composable
+private fun <T> ChoicePickerDialog(title: String, options: List<Pair<T, String>>, current: T?, onDismiss: () -> Unit, onPick: (T) -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text(title) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                options.forEach { (v, l) ->
+                    Row(Modifier.fillMaxWidth().clickable { onPick(v) }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(l, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge,
+                            color = if (v == current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                        if (v == current) Icon(Icons.Filled.Check, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                    }
+                }
+            }
+        },
+    )
+}
+
+/** R107 — a small section heading that groups the collapsible category cards, so the screen reads as a few
+ *  labelled sections instead of one long list. */
+@Composable
+private fun SettingsSectionHeader(text: String) {
+    Text(text.uppercase(), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 6.dp, top = 18.dp, bottom = 2.dp))
+}
+
 /** A short human name for a SAF tree URI, e.g. "…/tree/primary:Backups" → "Backups". */
 private fun folderLabel(uri: String): String {
     if (uri == com.todocompanion.app.data.sync.SyncEngine.DOWNLOADS_FOLDER) return "Device Downloads"
@@ -1475,6 +1526,16 @@ private val THEME_PACKS = listOf(
     ThemePack("rose", "Rosé", 0xFFDB2777, "rose"),
     ThemePack("midnight", "Midnight", 0xFF2F6BFF, "none", ThemeMode.AMOLED),
     ThemePack("slate", "Slate", 0xFF64748B, "cool"),
+)
+
+/** R107 — the subtle whole-app background tints, one place so the row + picker agree. */
+private val APP_BACKGROUNDS = listOf(
+    "none" to "None", "warm" to "Warm", "cool" to "Cool", "mint" to "Mint", "dusk" to "Dusk", "rose" to "Rosé",
+)
+
+/** R107 — week-start options (0 = follow the system locale). */
+private val WEEK_STARTS = listOf(
+    0 to "System default", 1 to "Monday", 2 to "Tuesday", 3 to "Wednesday", 4 to "Thursday", 5 to "Friday", 6 to "Saturday", 7 to "Sunday",
 )
 
 @Composable
