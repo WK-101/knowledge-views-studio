@@ -411,10 +411,31 @@ fun AppRoot(
         val boardMode = if (currentListId != null) currentListId in settings.boardLists else boardModeTransient
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // R81 — never ask for notifications at first launch. A brand-new user who wants no reminders is
+            // never nagged. We request POST_NOTIFICATIONS only once the user turns on something that
+            // actually needs it: a task reminder, the daily/evening/morning brief, an occasion notification,
+            // a habit reminder time, or a calendar-event alert. (R71: the launch stays runCatching-guarded so
+            // a launcher/registry hiccup can never take the app down.)
+            val notifCtx = LocalContext.current
             val perm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
-            // R71 — asking for a permission must NEVER take the app down: guard the launch so any
-            // launcher/registry hiccup degrades to "no prompt" instead of a startup crash.
-            LaunchedEffect(Unit) { runCatching { perm.launch(android.Manifest.permission.POST_NOTIFICATIONS) } }
+            val taskReminders by vm.reminders.collectAsState()
+            val habitsForNotif by vm.habits.collectAsState()
+            val eventsForNotif by vm.events.collectAsState()
+            val needsNotif = settings.dailySummaryEnabled || settings.eveningReviewEnabled ||
+                settings.morningBriefEnabled || settings.occasionLiveNotif || settings.occasionNudge ||
+                taskReminders.isNotEmpty() ||
+                habitsForNotif.any { it.reminderTimes.isNotBlank() } ||
+                eventsForNotif.any { it.alertsMinutes.isNotBlank() }
+            val askedNotif = remember { mutableStateOf(false) }
+            LaunchedEffect(needsNotif) {
+                val granted = androidx.core.content.ContextCompat.checkSelfPermission(
+                    notifCtx, android.Manifest.permission.POST_NOTIFICATIONS,
+                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                if (needsNotif && !askedNotif.value && !granted) {
+                    askedNotif.value = true
+                    runCatching { perm.launch(android.Manifest.permission.POST_NOTIFICATIONS) }
+                }
+            }
         }
         val context = LocalContext.current
         // R37 · Port 5 — when "time reminders to my peak" is on, aim the daily brief at the learned

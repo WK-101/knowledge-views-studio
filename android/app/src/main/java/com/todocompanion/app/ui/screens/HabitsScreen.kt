@@ -909,20 +909,20 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
                 com.todocompanion.app.ui.components.AppTextField(
                     notes, { notes = it }, label = { Text("Notes") }, modifier = Modifier.fillMaxWidth(),
                 )
-                // Row 3 — target per day (with ± nudges) on the left, unit on the right.
+                // Row 3 — units first, then the per-day target (with ± nudges): "Units + Targets per day".
                 Spacer(Modifier.size(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    com.todocompanion.app.ui.components.AppTextField(unit, { unit = it.take(12) }, singleLine = true, label = { Text("Units") }, modifier = Modifier.weight(1f))
                     com.todocompanion.app.ui.components.AppTextField(
                         value = target.toString(),
                         onValueChange = { v -> target = (v.filter { it.isDigit() }.take(7).toIntOrNull() ?: 0).coerceIn(if (isBreak) 0 else 1, 9_999_999) },
                         singleLine = true,
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-                        label = { Text(if (isBreak) "Daily limit" else "Target per day") },
+                        label = { Text(if (isBreak) "Daily limit" else "Targets per day") },
                         modifier = Modifier.weight(1.2f),
                     )
                     IconButton(onClick = { target = (target - 1).coerceAtLeast(if (isBreak) 0 else 1) }) { Icon(Icons.Filled.Remove, "Less") }
                     IconButton(onClick = { target = (target + 1).coerceAtMost(9_999_999) }) { Icon(Icons.Filled.Add, "More") }
-                    com.todocompanion.app.ui.components.AppTextField(unit, { unit = it.take(12) }, singleLine = true, label = { Text("Unit") }, modifier = Modifier.weight(1f))
                 }
                 // Row 4 — group only (no suggestion chips).
                 Spacer(Modifier.size(10.dp))
@@ -1118,10 +1118,28 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
                             FilterChip(selected = linkMode == v, onClick = { linkMode = v }, label = { Text(lbl) })
                         }
                     }
+                    // R81 — for Minutes / Sessions, let the user write the exact amount that counts as done.
+                    // This is the day's target (the app-wide completion threshold: count ≥ target), surfaced
+                    // here so "45 minutes tracked" or "3 sessions tracked" can be set to complete the habit.
+                    if (linkMode == "minutes" || linkMode == "sessions") {
+                        Spacer(Modifier.size(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            com.todocompanion.app.ui.components.AppTextField(
+                                value = target.toString(),
+                                onValueChange = { v -> target = (v.filter { it.isDigit() }.take(7).toIntOrNull() ?: 0).coerceIn(1, 9_999_999) },
+                                singleLine = true,
+                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                                label = { Text(if (linkMode == "minutes") "Minutes to complete" else "Sessions to complete") },
+                                modifier = Modifier.weight(1f),
+                            )
+                            IconButton(onClick = { target = (target - 1).coerceAtLeast(1) }) { Icon(Icons.Filled.Remove, "Less") }
+                            IconButton(onClick = { target = (target + 1).coerceAtMost(9_999_999) }) { Icon(Icons.Filled.Add, "More") }
+                        }
+                    }
                     Text(
                         when (linkMode) {
-                            "minutes" -> "Tracked minutes add to today's count — it completes when they reach the target."
-                            "sessions" -> "Each timed session adds one to the count."
+                            "minutes" -> "Completes once tracked minutes reach $target."
+                            "sessions" -> "Each timed session counts one; completes at $target."
                             "complete" -> "Any timed session marks it done for the day."
                             else -> "Timing this activity won't change the habit."
                         },
