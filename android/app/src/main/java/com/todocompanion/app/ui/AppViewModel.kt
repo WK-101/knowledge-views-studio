@@ -24,6 +24,7 @@ import com.todocompanion.app.domain.view.SmartKind
 import com.todocompanion.app.domain.view.SortMode
 import com.todocompanion.app.domain.view.TaskGroup
 import com.todocompanion.app.domain.view.TaskViews
+import com.todocompanion.app.domain.view.ListPipeline
 import com.todocompanion.app.domain.view.ViewRef
 import com.todocompanion.app.reminders.AlarmScheduler
 import kotlinx.coroutines.flow.Flow
@@ -407,8 +408,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 .toMap()
         }.state(emptyMap())
 
-    private data class Cfg(val view: ViewRef, val group: GroupMode, val sort: SortMode, val prio: PriorityEngine.Config, val flags: List<FlagEntity>, val timeAvail: Int? = null, val energyAvail: Int? = null, val ws: String = "default")
-
     /** "I have N minutes" planner: when set, Do-Next hides tasks whose estimate exceeds N. null = off. */
     val timeAvailableMin = MutableStateFlow<Int?>(null)
 
@@ -420,29 +419,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      *  much energy (plus untagged). null = off. */
     val energyAvailable = MutableStateFlow<Int?>(null)
 
-    /** Cross-ref + container context threaded into the groups combine. */
-    private data class ViewCtx(
-        val tcRefs: List<com.todocompanion.app.data.entity.TaskContextCrossRef>,
-        val contexts: List<ContextEntity>,
-        val filters: List<com.todocompanion.app.data.entity.FilterEntity>,
-        val lists: List<ListEntity>,
-        val folders: List<FolderEntity>,
-        val tags: List<TagEntity>,
-    )
-
-    /** All ids in the subtree rooted at [rootId] — the root plus every descendant, following parent
-     *  links. Cycle-safe. Used so a parent tag / context page rolls up its children's tasks (R29 #2). */
-    private fun <T> subtreeIds(rootId: String, entities: List<T>, idOf: (T) -> String, parentOf: (T) -> String?): Set<String> {
-        val children = entities.groupBy { parentOf(it) }
-        val out = LinkedHashSet<String>()
-        val queue = ArrayDeque<String>().apply { add(rootId) }
-        while (queue.isNotEmpty()) {
-            val cur = queue.removeFirst()
-            if (!out.add(cur)) continue
-            children[cur].orEmpty().forEach { queue.add(idOf(it)) }
-        }
-        return out
-    }
+    /** All ids in the subtree rooted at [rootId] — root plus every descendant. Cycle-safe. Delegates to
+     *  the pure ListPipeline copy (shared with the extracted rendering pipeline). */
+    private fun <T> subtreeIds(rootId: String, entities: List<T>, idOf: (T) -> String, parentOf: (T) -> String?): Set<String> =
+        ListPipeline.subtreeIds(rootId, entities, idOf, parentOf)
 
     /** All list ids inside a folder, including nested folders and nested lists. */
     private fun folderListIds(folderId: String, lists: List<ListEntity>, folders: List<FolderEntity>): Set<String> =
@@ -457,122 +437,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val groups: StateFlow<List<TaskGroup>> =
         combine(
             combine(wsTasks, inboxTasksAll) { ws, inbox -> ws to inbox },
-            combine(currentView, groupMode, sortMode, settings, combine(repo.allFlags, timeAvailableMin, energyAvailable) { fl, ta, ea -> Triple(fl, ta, ea) }) { v, g, s, set, fte -> Cfg(v, g, s, set.priorityConfig(), fte.first, fte.second, fte.third, set.activeWorkspaceId) },
+            combine(currentView, groupMode, sortMode, settings, combine(repo.allFlags, timeAvailableMin, energyAvailable) { fl, ta, ea -> Triple(fl, ta, ea) }) { v, g, s, set, fte -> ListPipeline.Cfg(v, g, s, set.priorityConfig(), fte.first, fte.second, fte.third, set.activeWorkspaceId) },
             repo.taskTagRefs,
-            combine(repo.taskContextRefs, repo.allContexts, repo.allFilters, repo.allLists, combine(repo.allFolders, repo.allTags) { fo, tg -> fo to tg }) { r, c, f, l, foTg -> ViewCtx(r, c, f, l, foTg.first, foTg.second) },
+            combine(repo.taskContextRefs, repo.allContexts, repo.allFilters, repo.allLists, combine(repo.allFolders, repo.allTags) { fo, tg -> fo to tg }) { r, c, f, l, foTg -> ListPipeline.ViewCtx(r, c, f, l, foTg.first, foTg.second) },
             repo.allDependencies,
         ) { wsPair, cfg, ttRefs, vc, deps ->
-            val tcRefs = vc.tcRefs; val ctxEntities = vc.contexts; val filterList = vc.filters
-            val now = System.currentTimeMillis()
-            // The base task set is the workspace-clean [wsTasks]; ONLY when viewing the Inbox do we swap in
-            // the shared, cross-workspace Inbox set (deduped so a current-workspace Inbox task isn't doubled).
-            val viewingInbox = (cfg.view as? ViewRef.Smart)?.kind == SmartKind.INBOX ||
-                (cfg.view as? ViewRef.ListView)?.listId == ListEntity.INBOX_ID
-            val all = if (viewingInbox) {
-                val ids = wsPair.first.mapTo(HashSet()) { it.id }
-                wsPair.first + wsPair.second.filter { it.id !in ids }
-            } else wsPair.first
-            val filteredRaw = when (val v = cfg.view) {
-                is ViewRef.Smart -> {
-                    when (v.kind) {
-                        SmartKind.DO_NEXT -> doNextFocused(all, now, cfg.prio, deps, tcRefs, ctxEntities, cfg.timeAvail, cfg.energyAvail)
-                        // Waiting-on: open tasks currently blocked by an incomplete prerequisite.
-                        SmartKind.WAITING -> {
-                            val byId = all.associateBy { it.id }
-                            val blocked = PriorityEngine.computeBlocked(deps, byId, now)
-                            all.filter { !it.trashed && !it.completed && !it.abandoned && !it.someday && it.id in blocked }
-                        }
-                        // R28 #3: Trash is per-workspace — the shared Inbox otherwise leaked trashed tasks
-                        // into every workspace. A trashed task is stamped with the workspace it was deleted in.
-                        SmartKind.TRASH -> all.filter { it.trashed && it.workspaceId == cfg.ws }
-                        else -> TaskViews.filterSmart(all, v.kind, now, zone, dayStartMin)
-                    }
-                }
-                is ViewRef.FilterView -> {
-                    val q = com.todocompanion.app.domain.view.Filters.parse(filterList.firstOrNull { it.id == v.filterId }?.queryJson)
-                    val tagsByTask = ttRefs.groupBy { it.taskId }.mapValues { e -> e.value.map { it.tagId }.toSet() }
-                    val ctxByTask = tcRefs.groupBy { it.taskId }.mapValues { e -> e.value.map { it.contextId }.toSet() }
-                    val listFolderById = vc.lists.associate { it.id to it.folderId }
-                    val hit = all.filter { com.todocompanion.app.domain.view.Filters.matches(q, it, tagsByTask[it.id].orEmpty(), ctxByTask[it.id].orEmpty(), now, zone, it.folderId ?: listFolderById[it.listId]) }
-                    if (q.includeChildren) {
-                        val keep = expandWithDescendants(hit.map { it.id }.toSet(), all)
-                        all.filter { it.id in keep && !it.trashed }
-                    } else hit
-                }
-                is ViewRef.ListView -> all.filter { !it.trashed && !it.completed && !it.abandoned && !it.someday && it.listId == v.listId }
-                is ViewRef.FolderView -> {
-                    val listIds = folderListIds(v.folderId, vc.lists, vc.folders)
-                    // Tasks in the folder's lists, plus tasks captured directly into the folder.
-                    all.filter { !it.trashed && !it.completed && !it.abandoned && !it.someday && (it.listId in listIds || it.folderId == v.folderId) }
-                }
-                is ViewRef.TagView -> {
-                    // R29 #2 — a parent tag's page rolls up every descendant tag's tasks (matching the
-                    // sidebar count, which already summed the subtree), so opening #work shows #work/errands too.
-                    val tagIds = subtreeIds(v.tagId, vc.tags, { it.id }, { it.parentId })
-                    val ids = ttRefs.filter { it.tagId in tagIds }.map { it.taskId }.toSet()
-                    all.filter { it.id in ids && !it.trashed && !it.completed && !it.abandoned && !it.someday }
-                }
-                is ViewRef.ContextView -> {
-                    // Same subtree rollup for contexts / sub-contexts.
-                    val ctxIds = subtreeIds(v.contextId, ctxEntities, { it.id }, { it.parentId })
-                    val ids = tcRefs.filter { it.contextId in ctxIds }.map { it.taskId }.toSet()
-                    all.filter { it.id in ids && !it.trashed && !it.completed && !it.abandoned && !it.someday }
-                }
-            }
-            // R52 — tasks in an archived list or folder drop out of every active view (Todoist-style),
-            // but stay visible in Trash / Completed / Won't-Do so nothing is silently lost.
-            val archivedFolderIds = run {
-                val ids = vc.folders.filter { it.archived }.map { it.id }.toMutableSet()
-                var changed = true
-                while (changed) { changed = false; vc.folders.forEach { if (it.parentId in ids && it.id !in ids) { ids.add(it.id); changed = true } } }
-                ids
-            }
-            val archivedListIds = vc.lists.filter { it.archived || it.folderId in archivedFolderIds }.map { it.id }.toSet()
-            val kindNow = (cfg.view as? ViewRef.Smart)?.kind
-            val keepArchived = kindNow == SmartKind.TRASH || kindNow == SmartKind.COMPLETED || kindNow == SmartKind.WONT_DO
-            val filtered = if (keepArchived || archivedListIds.isEmpty()) filteredRaw
-                else filteredRaw.filter { it.listId !in archivedListIds }
-            val flagRank = cfg.flags.sortedBy { it.sortOrder }.mapIndexed { i, f -> f.id to i }.toMap()
-            val sorted = if ((cfg.view as? ViewRef.Smart)?.kind == SmartKind.DO_NEXT) filtered
-            else TaskViews.sort(filtered, cfg.sort, flagRank)
-            // Manual sort flattens the view into ONE ungrouped list so long-press drag (reorder + nest)
-            // works everywhere — folders, lists and smart lists alike — not only when grouping is off.
-            val gm = if ((cfg.view as? ViewRef.Smart)?.kind == SmartKind.DO_NEXT || cfg.sort == SortMode.MANUAL) GroupMode.NONE else cfg.group
-            if (gm == GroupMode.FLAG) {
-                // Group by flag, in the user's flag order; unflagged tasks fall into a trailing bucket.
-                val ordered = cfg.flags.sortedBy { it.sortOrder }
-                val nameById = ordered.associate { it.id to it.name }
-                val orderById = ordered.mapIndexed { i, f -> f.id to i }.toMap()
-                val buckets = LinkedHashMap<String, MutableList<TaskEntity>>()
-                sorted.forEach { t ->
-                    val key = t.flagId?.takeIf { it in nameById } ?: "￿No flag"
-                    buckets.getOrPut(key) { mutableListOf() }.add(t)
-                }
-                buckets.entries
-                    .sortedBy { (k, _) -> if (k.startsWith("￿")) Int.MAX_VALUE else (orderById[k] ?: Int.MAX_VALUE - 1) }
-                    .map { (k, ts) ->
-                        val label = if (k.startsWith("￿")) "No flag" else (nameById[k] ?: "Flag")
-                        TaskGroup("flag:$k", label, ts)
-                    }
-            } else if (gm == GroupMode.CONTEXT) {
-                // Active-by-context (GTD): group each task under every context it carries.
-                val ctxNameById = ctxEntities.associate { it.id to it.name }
-                val ctxByTask = tcRefs.groupBy { it.taskId }.mapValues { e -> e.value.map { it.contextId } }
-                val buckets = LinkedHashMap<String, MutableList<TaskEntity>>()
-                sorted.forEach { t ->
-                    val cids = ctxByTask[t.id].orEmpty()
-                    if (cids.isEmpty()) buckets.getOrPut("￿No context") { mutableListOf() }.add(t)
-                    else cids.forEach { cid -> buckets.getOrPut(ctxNameById[cid] ?: "?") { mutableListOf() }.add(t) }
-                }
-                buckets.entries.sortedBy { it.key }.map { (name, ts) ->
-                    val label = if (name.startsWith("￿")) "No context" else "@$name"
-                    TaskGroup("ctx:$name", label, ts)
-                }
-            } else {
-                // R28 #2 — the Completed / Won't-Do views group by COMPLETION date, not the (always-past) due date.
-                val doneView = (cfg.view as? ViewRef.Smart)?.kind.let { it == SmartKind.COMPLETED || it == SmartKind.WONT_DO }
-                TaskViews.group(sorted, gm, now, zone, dayStartMin, byCompletion = doneView)
-            }
+            ListPipeline.compute(wsPair.first, wsPair.second, cfg, ttRefs, vc, deps, zone, dayStartMin, System.currentTimeMillis())
         }.state(emptyList())
 
     /** When set, the outline is zoomed into this task's subtree (MLO-style focus). */
@@ -4385,16 +4255,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Grow an id set to include every descendant of its members (for "include subtasks" filters). */
-    private fun expandWithDescendants(ids: Set<String>, all: List<TaskEntity>): Set<String> {
-        val byParent = all.groupBy { it.parentId }
-        val out = HashSet(ids)
-        val stack = ArrayDeque(ids)
-        while (stack.isNotEmpty()) {
-            val id = stack.removeLast()
-            byParent[id].orEmpty().forEach { if (out.add(it.id)) stack.addLast(it.id) }
-        }
-        return out
-    }
+    private fun expandWithDescendants(ids: Set<String>, all: List<TaskEntity>): Set<String> =
+        ListPipeline.expandWithDescendants(ids, all)
 
     /** Build an outline of the [matched] tasks plus every ancestor needed to place them in the tree.
      *  Ancestors that aren't themselves matches are flagged (rendered dimmed). Ignores collapse. */
