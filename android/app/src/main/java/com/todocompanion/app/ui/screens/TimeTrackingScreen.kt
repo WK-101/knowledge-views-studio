@@ -70,6 +70,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -125,7 +127,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
     // A live clock so the running timer counts up AND the untracked-time / "since your last entry" gaps
     // keep advancing even when nothing is running (previously `now` froze whenever no timer was live, so
     // untracked time looked "stuck"). Ticks every second while tracking, every 20s when idle.
-    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val runningList = entries.filter { it.running }
     val running = runningList.firstOrNull()
     LaunchedEffect(runningList.isNotEmpty()) {
@@ -137,7 +139,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
     var actsCollapsed by rememberSaveable { mutableStateOf(false) }   // fold the activity grid to save space
     // The Time view can summarise a Day, a Week or a Month — the totals, tiles and insights all follow
     // this window (not just day-by-day). 0 = day · 1 = week (Mon-anchored) · 2 = month.
-    var rangeUnit by rememberSaveable { mutableStateOf(0) }
+    var rangeUnit by rememberSaveable { mutableIntStateOf(0) }
     val winStartDate = when (rangeUnit) {
         1 -> day.minusDays((day.dayOfWeek.value - 1).toLong())
         2 -> day.withDayOfMonth(1)
@@ -278,7 +280,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
     // FAB. As the Time tab (embedded) the FAB lives in the shared scaffold and pokes us through the
     // view-model, so the tab shows a single top header like every other tab; standalone we host both.
     val addReq by vm.addTimeEntryRequests.collectAsState()
-    var lastAddReq by remember { mutableStateOf(addReq) }
+    var lastAddReq by remember { mutableIntStateOf(addReq) }
     fun onAddEntry() { if (activities.none { !it.archived }) showNewActivity = true else showManual = true }
     LaunchedEffect(addReq) { if (addReq != lastAddReq) { lastAddReq = addReq; onAddEntry() } }
 
@@ -681,7 +683,7 @@ private fun ActivityDialog(
 ) {
     var name by remember { mutableStateOf(existing?.name ?: "") }
     var emoji by remember { mutableStateOf(existing?.emoji ?: "") }
-    var color by remember { mutableStateOf(existing?.colorArgb ?: PALETTE.first()) }
+    var color by remember { mutableLongStateOf(existing?.colorArgb ?: PALETTE.first()) }
     var goal by remember { mutableStateOf(existing?.goalMinutesPerDay?.takeIf { it > 0 }?.toString() ?: "") }
     var confirmDelete by remember { mutableStateOf(false) }
     AlertDialog(
@@ -756,8 +758,8 @@ private fun ActivityDialog(
 @Composable
 private fun ManualEntryDialog(activities: List<TimeActivityEntity>, day: LocalDate, zone: ZoneId, initialStartMin: Int = 9 * 60, initialEndMin: Int = 10 * 60, onDismiss: () -> Unit, onAdd: (String, Long, Long) -> Unit) {
     var activityId by remember { mutableStateOf(activities.firstOrNull { !it.archived }?.id) }
-    var startMin by remember { mutableStateOf(initialStartMin) }   // minutes from midnight
-    var endMin by remember { mutableStateOf(initialEndMin) }
+    var startMin by remember { mutableIntStateOf(initialStartMin) }   // minutes from midnight
+    var endMin by remember { mutableIntStateOf(initialEndMin) }
     // Themed time picker (one UI everywhere) instead of the OS TimePickerDialog.
     var picking by remember { mutableStateOf<Pair<Int, (Int) -> Unit>?>(null) }
     fun pick(initial: Int, onPicked: (Int) -> Unit) { picking = initial to onPicked }
@@ -808,8 +810,8 @@ private fun AutomationRuleDialog(activities: List<TimeActivityEntity>, onDismiss
     var notifyText by remember { mutableStateOf("") }
     var startId by remember { mutableStateOf(activities.getOrNull(1)?.id ?: activities.firstOrNull()?.id ?: "") }
     var stopId by remember { mutableStateOf("") }   // "" = every other timer
-    var afterMin by remember { mutableStateOf(-1) }
-    var beforeMin by remember { mutableStateOf(-1) }
+    var afterMin by remember { mutableIntStateOf(-1) }
+    var beforeMin by remember { mutableIntStateOf(-1) }
     var days by remember { mutableStateOf(setOf<Int>()) }
     var pickAfter by remember { mutableStateOf(false) }
     var pickBefore by remember { mutableStateOf(false) }
@@ -891,7 +893,7 @@ internal fun EditEntryDialog(entry: TimeEntryEntity, activities: List<TimeActivi
     var note by remember { mutableStateOf(entry.note) }
     var tags by remember { mutableStateOf(entry.tags) }
     var activityId by remember { mutableStateOf(entry.activityId) }
-    var start by remember { mutableStateOf(entry.startMillis) }
+    var start by remember { mutableLongStateOf(entry.startMillis) }
     var end by remember { mutableStateOf(entry.endMillis) }
     val fmt = remember { DateTimeFormatter.ofPattern("HH:mm") }
     val activity = activities.firstOrNull { it.id == activityId }
@@ -957,7 +959,7 @@ internal fun EditEntryDialog(entry: TimeEntryEntity, activities: List<TimeActivi
 @Composable
 private fun ThemedMonthPicker(initial: LocalDate, zone: ZoneId, onDismiss: () -> Unit, onPick: (LocalDate) -> Unit) {
     val today = LocalDate.now(zone)
-    var year by remember { mutableStateOf(initial.year) }
+    var year by remember { mutableIntStateOf(initial.year) }
     val months = java.time.Month.values()
     AlertDialog(
         onDismissRequest = onDismiss,

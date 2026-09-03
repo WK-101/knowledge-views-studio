@@ -85,6 +85,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -140,11 +142,11 @@ fun CalendarStudioScreen(vm: AppViewModel, onBack: () -> Unit, onOpenTask: (Stri
 
     var view by remember { mutableStateOf(CalView.MONTH) }
     var monthAnchor by remember { mutableStateOf(YearMonth.now(zone)) }
-    var selectedDay by remember { mutableStateOf(LocalDate.now(zone).toEpochDay()) }
+    var selectedDay by remember { mutableLongStateOf(LocalDate.now(zone).toEpochDay()) }
     var editing by remember { mutableStateOf<EventEntity?>(null) }
     var editorOpen by remember { mutableStateOf(false) }
-    var editorSeedStart by remember { mutableStateOf(0L) }
-    var editorSeedEnd by remember { mutableStateOf(0L) }
+    var editorSeedStart by remember { mutableLongStateOf(0L) }
+    var editorSeedEnd by remember { mutableLongStateOf(0L) }
     var quickOpen by remember { mutableStateOf(false) }
     var calsOpen by remember { mutableStateOf(false) }
     var gapOpen by remember { mutableStateOf(false) }
@@ -565,7 +567,7 @@ internal fun CalendarsManager(vm: AppViewModel, calendars: List<EventCalendarEnt
 @Composable
 private fun CalendarEditDialog(existing: EventCalendarEntity?, onDismiss: () -> Unit, onSave: (String, Long) -> Unit, onDelete: (() -> Unit)?) {
     var name by remember { mutableStateOf(existing?.name ?: "") }
-    var color by remember { mutableStateOf(existing?.colorArgb ?: CAL_COLORS.first()) }
+    var color by remember { mutableLongStateOf(existing?.colorArgb ?: CAL_COLORS.first()) }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onSave(name.trim(), color) }, enabled = name.isNotBlank()) { Text("Save") } },
@@ -595,7 +597,7 @@ private fun ColorRow(selected: Long, onPick: (Long) -> Unit) {
 // ── Gap finder ──────────────────────────────────────────────────────────────────────────────────
 @Composable
 internal fun GapFinder(events: List<EventEntity>, day: Long, zone: ZoneId, workStart: Int, workEnd: Int, onDismiss: () -> Unit, tasks: List<TaskEntity> = emptyList(), onPick: (Long, Long) -> Unit) {
-    var dur by remember { mutableStateOf(60) }
+    var dur by remember { mutableIntStateOf(60) }
     val hm = DateTimeFormatter.ofPattern("h:mm a")
     // R60 — scheduled tasks block the day too, so a "gap" never lands on top of an already-timed task.
     val busy = remember(events, tasks, day) {
@@ -637,8 +639,8 @@ internal fun EventEditor(
     var title by remember { mutableStateOf(existing?.title ?: "") }
     var calId by remember { mutableStateOf(existing?.calendarId ?: defaultCal?.id ?: "") }
     var allDay by remember { mutableStateOf(existing?.allDay ?: false) }
-    var start by remember { mutableStateOf(existing?.startMillis ?: seedStart) }
-    var end by remember { mutableStateOf(existing?.endMillis ?: seedEnd) }
+    var start by remember { mutableLongStateOf(existing?.startMillis ?: seedStart) }
+    var end by remember { mutableLongStateOf(existing?.endMillis ?: seedEnd) }
     var location by remember { mutableStateOf(existing?.location ?: "") }
     var notes by remember { mutableStateOf(existing?.notes ?: "") }
     var url by remember { mutableStateOf(existing?.url ?: "") }
@@ -663,7 +665,7 @@ internal fun EventEditor(
     val travelMap by vm.travelTimes.collectAsState()
     val settings by vm.settings.collectAsState()
     var travelOn by remember { mutableStateOf(false) }
-    var travelMin by remember { mutableStateOf(0) }
+    var travelMin by remember { mutableIntStateOf(0) }
     androidx.compose.runtime.LaunchedEffect(location) {
         com.todocompanion.app.domain.calendar.TravelTimes.forPlace(travelMap, location)?.let { if (travelMin == 0) travelMin = it }
     }

@@ -85,6 +85,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -527,7 +530,7 @@ private fun InsightsCard(insights: List<com.todocompanion.app.domain.habit.Insig
 private fun HabitDraggableColumn(habits: List<HabitEntity>, onReorder: (List<String>) -> Unit, row: @Composable (HabitEntity) -> Unit) {
     var order by remember(habits) { mutableStateOf(habits) }
     var draggingId by remember { mutableStateOf<String?>(null) }
-    var dragY by remember { mutableStateOf(0f) }
+    var dragY by remember { mutableFloatStateOf(0f) }
     val rowPx = with(LocalDensity.current) { 68.dp.toPx() }
     Column {
         order.forEach { h ->
@@ -782,15 +785,15 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
     var name by remember { mutableStateOf(existing?.name ?: "") }
     var emoji by remember { mutableStateOf(existing?.emoji ?: "") }
     var unit by remember { mutableStateOf(existing?.unit ?: "") }
-    var color by remember { mutableStateOf(existing?.colorArgb ?: HABIT_COLORS.first()) }
-    var target by remember { mutableStateOf(existing?.targetPerDay ?: 1) }
+    var color by remember { mutableLongStateOf(existing?.colorArgb ?: HABIT_COLORS.first()) }
+    var target by remember { mutableIntStateOf(existing?.targetPerDay ?: 1) }
     var days by remember { mutableStateOf(HabitStats.parseSchedule(existing?.scheduleDays ?: "")) }
     var reminders by remember { mutableStateOf(existing?.reminderTimes.orEmpty().split(",").mapNotNull { it.trim().toIntOrNull() }.filter { it in 0..1439 }.toSortedSet()) }
     var showReminderPicker by remember { mutableStateOf(false) }
     var freqType by remember { mutableStateOf(existing?.freqType ?: HabitStats.FREQ_WEEKLY) }
-    var freqParam by remember { mutableStateOf((existing?.freqParam ?: 3).coerceAtLeast(1)) }
+    var freqParam by remember { mutableIntStateOf((existing?.freqParam ?: 3).coerceAtLeast(1)) }
     var habitType by remember { mutableStateOf(existing?.habitType ?: "build") }
-    var increment by remember { mutableStateOf(existing?.clickIncrement ?: 1) }
+    var increment by remember { mutableIntStateOf(existing?.clickIncrement ?: 1) }
     var extra by remember { mutableStateOf(existing?.extraTarget) }
     var description by remember { mutableStateOf(existing?.description ?: "") }
     var notes by remember { mutableStateOf(existing?.notes ?: "") }
@@ -799,7 +802,7 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
     var identity by remember { mutableStateOf(existing?.identity ?: "") }
     var anchorId by remember { mutableStateOf(existing?.anchorHabitId) }
     var rewardText by remember { mutableStateOf(existing?.rewardText ?: "") }
-    var rewardAt by remember { mutableStateOf(existing?.rewardAtStreak ?: 0) }
+    var rewardAt by remember { mutableIntStateOf(existing?.rewardAtStreak ?: 0) }
     // Tier V4: user-written encouragements (one per line). V3: how linked tracked time credits the habit.
     var encouragements by remember { mutableStateOf(existing?.encouragements ?: "") }
     var linkMode by remember { mutableStateOf(existing?.linkMode ?: "minutes") }

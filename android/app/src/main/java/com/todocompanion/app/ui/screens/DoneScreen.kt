@@ -53,6 +53,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -1130,7 +1131,7 @@ private fun WriteLetterDialog(today: LocalDate, onDismiss: () -> Unit, onSeal: (
     var title by remember { mutableStateOf("") }
     var body by remember { mutableStateOf("") }
     val horizons = listOf("6 months" to 6L, "1 year" to 12L, "2 years" to 24L, "5 years" to 60L)
-    var months by remember { mutableStateOf(12L) }
+    var months by remember { mutableLongStateOf(12L) }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { androidx.compose.material3.TextButton(enabled = body.isNotBlank(), onClick = {

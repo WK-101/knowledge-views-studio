@@ -33,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -68,7 +69,7 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
     BackHandler { onBack() }
     val zone = ZoneId.systemDefault()
     val todayEd = LocalDate.now(zone).toEpochDay()
-    var day by remember { mutableStateOf(initialDay) }
+    var day by remember { mutableLongStateOf(initialDay) }
     var showPicker by remember { mutableStateOf(false) }
 
     val tasks by vm.tasks.collectAsState()

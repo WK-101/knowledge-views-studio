@@ -63,6 +63,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -556,7 +557,7 @@ private fun DayEditorDialog(
     onDismiss: () -> Unit,
     onSave: (count: Int, skip: Boolean, note: String) -> Unit,
 ) {
-    var count by remember { mutableStateOf(initialCount) }
+    var count by remember { mutableIntStateOf(initialCount) }
     var skip by remember { mutableStateOf(initialSkip) }
     var note by remember { mutableStateOf(initialNote) }
     val date = LocalDate.ofEpochDay(epochDay)
@@ -782,7 +783,7 @@ private fun MonthCalendar(
     onCycle: (Long) -> Unit,
     onEdit: (Long) -> Unit,
 ) {
-    var monthOffset by remember { mutableStateOf(0) }
+    var monthOffset by remember { mutableIntStateOf(0) }
     val month = YearMonth.now().plusMonths(monthOffset.toLong())
     val first = month.atDay(1)
     val daysInMonth = month.lengthOfMonth()
@@ -1071,8 +1072,8 @@ private fun BuilderSection(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun UrgeDialog(competingResponse: String, onDismiss: () -> Unit, onLog: (Int, String, Boolean, String, Int) -> Unit) {
-    var secs by remember { mutableStateOf(90) }
-    var intensity by remember { mutableStateOf(3) }
+    var secs by remember { mutableIntStateOf(90) }
+    var intensity by remember { mutableIntStateOf(3) }
     var trigger by remember { mutableStateOf("") }
     val halt = remember { mutableStateListOf<String>() }
     LaunchedEffect(Unit) { while (secs > 0) { kotlinx.coroutines.delay(1000); secs-- } }
@@ -1165,8 +1166,8 @@ private fun LifeSystemsHabitCards(
     // LS2 · context capture — a light "how did it go?" once today's habit is done.
     if (!isBreak && today in doneDays) {
         val todayCheckin = hc.firstOrNull { it.habitId == h.id && it.epochDay == today }
-        var energy by remember(todayCheckin?.ctxEnergy) { mutableStateOf(todayCheckin?.ctxEnergy ?: 0) }
-        var mood by remember(todayCheckin?.ctxMood) { mutableStateOf(todayCheckin?.ctxMood ?: 0) }
+        var energy by remember(todayCheckin?.ctxEnergy) { mutableIntStateOf(todayCheckin?.ctxEnergy ?: 0) }
+        var mood by remember(todayCheckin?.ctxMood) { mutableIntStateOf(todayCheckin?.ctxMood ?: 0) }
         Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
             Column(Modifier.padding(16.dp)) {
                 Text("How did it go? (optional)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)

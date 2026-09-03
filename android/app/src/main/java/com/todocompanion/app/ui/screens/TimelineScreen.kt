@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -177,7 +178,7 @@ fun TimelineScreen(
                                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)))
                             }
                             // Long-press then drag a bar horizontally to shift its dates by whole days.
-                            var dragDays by remember(task.id, startIdx) { mutableStateOf(0) }
+                            var dragDays by remember(task.id, startIdx) { mutableIntStateOf(0) }
                             var dragging by remember(task.id) { mutableStateOf(false) }
                             val dayPx = with(androidx.compose.ui.platform.LocalDensity.current) { dayWidth.toPx() }
                             Box(

@@ -43,6 +43,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -219,7 +222,7 @@ private fun ValueEditor(v: CoreValueEntity?, onDismiss: () -> Unit, onSave: (Str
     var name by remember { mutableStateOf(v?.name ?: "") }
     var emoji by remember { mutableStateOf(v?.emoji ?: "") }
     var statement by remember { mutableStateOf(v?.statement ?: "") }
-    var color by remember { mutableStateOf(v?.colorArgb ?: LS_COLORS.first()) }
+    var color by remember { mutableLongStateOf(v?.colorArgb ?: LS_COLORS.first()) }
     AlertDialog(onDismissRequest = onDismiss,
         title = { Text(if (v == null) "New value" else "Edit value") },
         text = {
@@ -893,9 +896,9 @@ private fun GroundingExercise(g: FourthWave.Grounding, onClose: () -> Unit) {
 
 @Composable
 private fun BreathingPacer(phases: List<Pair<String, Int>>) {
-    var idx by remember { mutableStateOf(0) }
-    var round by remember { mutableStateOf(1) }
-    var target by remember { mutableStateOf(0.35f) }
+    var idx by remember { mutableIntStateOf(0) }
+    var round by remember { mutableIntStateOf(1) }
+    var target by remember { mutableFloatStateOf(0.35f) }
     val secs = phases[idx].second
     val label = phases[idx].first
     val scale by androidx.compose.animation.core.animateFloatAsState(
@@ -924,7 +927,7 @@ private fun BreathingPacer(phases: List<Pair<String, Int>>) {
 
 @Composable
 private fun CountdownCircle(totalSecs: Int) {
-    var remaining by remember { mutableStateOf(totalSecs) }
+    var remaining by remember { mutableIntStateOf(totalSecs) }
     LaunchedEffect(Unit) { while (remaining > 0) { kotlinx.coroutines.delay(1000); remaining -= 1 } }
     val frac = if (totalSecs > 0) remaining / totalSecs.toFloat() else 0f
     val size = androidx.compose.ui.unit.lerp(96.dp, 264.dp, frac)

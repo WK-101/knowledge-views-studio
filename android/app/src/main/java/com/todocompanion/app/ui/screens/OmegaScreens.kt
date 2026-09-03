@@ -40,6 +40,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -227,8 +228,8 @@ fun RecapScreen(vm: AppViewModel, initialStartDay: Long, initialEndDay: Long, in
             Preset("This year", today.withDayOfYear(1).toEpochDay(), td),
         )
     }
-    var start by remember { mutableStateOf(initialStartDay) }
-    var end by remember { mutableStateOf(initialEndDay) }
+    var start by remember { mutableLongStateOf(initialStartDay) }
+    var end by remember { mutableLongStateOf(initialEndDay) }
     var title by remember { mutableStateOf(initialTitle) }
     val recap = remember(start, end, liveTasks) { vm.periodRecap(start, end, title, liveTasks) }
 

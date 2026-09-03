@@ -42,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.todocompanion.app.domain.WeeklyDigest
@@ -350,7 +351,7 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
 
             // Y3 — what-if capacity: does new work fit your real hours before you commit?
             if (tasksOn) {
-                var extraH by remember { mutableStateOf(0) }
+                var extraH by remember { mutableIntStateOf(0) }
                 val snap = remember(tasks, settings) { vm.capacitySnapshot(14) }
                 AppCard {
                     Text("What if I take this on?", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)

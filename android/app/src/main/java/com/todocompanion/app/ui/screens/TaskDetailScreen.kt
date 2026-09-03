@@ -120,6 +120,9 @@ import androidx.compose.material.icons.automirrored.filled.TextSnippet
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -203,7 +206,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     // staged in the draft. So adding one never moved the draft and the Save check stayed grey, reading as
     // "there's no way to save." attachBump lights the Save button so the change is acknowledged; because the
     // bytes are already committed, Back needs no discard prompt for an attachment-only change.
-    var attachBump by remember(taskId) { mutableStateOf(0) }
+    var attachBump by remember(taskId) { mutableIntStateOf(0) }
     var pendingDeleteAtt by remember(taskId) { mutableStateOf<com.todocompanion.app.data.entity.AttachmentMeta?>(null) }
     val contentDirty = (draft != null && savedSnapshot != null && draft != savedSnapshot) || tagsDirty || ctxDirty
     val dirty = contentDirty || attachBump > 0
@@ -336,7 +339,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             } else if ((task.progressPct ?: 0) > 0) {
                 Column(Modifier.padding(horizontal = 6.dp)) {
-                    var p by remember(task.id, task.progressPct) { mutableStateOf((task.progressPct ?: 0).toFloat()) }
+                    var p by remember(task.id, task.progressPct) { mutableFloatStateOf((task.progressPct ?: 0).toFloat()) }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Progress", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("${p.toInt()}%", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -378,7 +381,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 val mine = timeEntries.filter { it.taskId == task.id }
                 val running = mine.firstOrNull { it.running }
                 // A one-second tick so the running total counts up live (was static before).
-                var nowMs by remember { mutableStateOf(System.currentTimeMillis()) }
+                var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
                 LaunchedEffect(running?.id) {
                     while (running != null) { nowMs = System.currentTimeMillis(); delay(1000) }
                 }
@@ -778,7 +781,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                      DetailSection("Estimate, goals & review", null, false) {
                 if (totalN == 0) {
                     // Leaf manual progress lives here when not already set/shown above.
-                    var p by remember(task.id, task.progressPct) { mutableStateOf((task.progressPct ?: 0).toFloat()) }
+                    var p by remember(task.id, task.progressPct) { mutableFloatStateOf((task.progressPct ?: 0).toFloat()) }
                     Text("Manual progress", style = MaterialTheme.typography.bodyMedium)
                     ModernSlider(p, 0f..100f, 0, { p = it }, { update { it.copy(progressPct = p.toInt().takeIf { v -> v > 0 }) } }, Modifier.fillMaxWidth())
                 }
@@ -1097,17 +1100,17 @@ private fun RepeatRow(rule: String?, hasChildren: Boolean, onChange: (String?) -
 internal fun RepeatDialog(rule: String?, hasChildren: Boolean, onDismiss: () -> Unit, onSave: (String?) -> Unit) {
     val r0 = com.todocompanion.app.domain.recurrence.Recurrence.parse(rule)
     var freq by remember { mutableStateOf(r0?.freq) }   // null = does not repeat
-    var interval by remember { mutableStateOf(r0?.interval ?: 1) }
+    var interval by remember { mutableIntStateOf(r0?.interval ?: 1) }
     var days by remember { mutableStateOf(r0?.byDays ?: emptySet<Int>()) }
     // end: 0 never, 1 until, 2 count
-    var endMode by remember { mutableStateOf(if (r0?.untilEpochDay != null) 1 else if (r0?.count != null) 2 else 0) }
-    var until by remember { mutableStateOf(r0?.untilEpochDay ?: java.time.LocalDate.now().plusMonths(3).toEpochDay()) }
-    var count by remember { mutableStateOf(r0?.count ?: 10) }
+    var endMode by remember { mutableIntStateOf(if (r0?.untilEpochDay != null) 1 else if (r0?.count != null) 2 else 0) }
+    var until by remember { mutableLongStateOf(r0?.untilEpochDay ?: java.time.LocalDate.now().plusMonths(3).toEpochDay()) }
+    var count by remember { mutableIntStateOf(r0?.count ?: 10) }
     var showUntil by remember { mutableStateOf(false) }
     // Monthly mode: 0 day-of-month, 1 nth weekday, 2 first working day. + regenerate-from-completion.
-    var monthMode by remember { mutableStateOf(if (r0?.firstWorkday == true) 2 else if (r0?.bySetPos != null && r0.byWeekday != null) 1 else 0) }
-    var pos by remember { mutableStateOf(r0?.bySetPos ?: 1) }
-    var weekday by remember { mutableStateOf(r0?.byWeekday ?: 1) }
+    var monthMode by remember { mutableIntStateOf(if (r0?.firstWorkday == true) 2 else if (r0?.bySetPos != null && r0.byWeekday != null) 1 else 0) }
+    var pos by remember { mutableIntStateOf(r0?.bySetPos ?: 1) }
+    var weekday by remember { mutableIntStateOf(r0?.byWeekday ?: 1) }
     var fromCompletion by remember { mutableStateOf(r0?.fromCompletion ?: false) }
     var subtaskReset by remember { mutableStateOf(r0?.subtaskReset ?: "all") }
 
@@ -1630,8 +1633,8 @@ fun fmtDuration(min: Int): String {
 internal fun DurationPickerDialog(initialMin: Int, onDismiss: () -> Unit, onPick: (Int) -> Unit) {
     // Any amount of time (R22): hours 0–99 and minutes 0–59 at 1-minute granularity, typeable directly or
     // nudged with ±. A quick-preset row covers the common cases without stepping.
-    var hours by remember { mutableStateOf((initialMin / 60).coerceIn(0, 99)) }
-    var mins by remember { mutableStateOf((initialMin % 60).coerceIn(0, 59)) }
+    var hours by remember { mutableIntStateOf((initialMin / 60).coerceIn(0, 99)) }
+    var mins by remember { mutableIntStateOf((initialMin % 60).coerceIn(0, 59)) }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Duration") },

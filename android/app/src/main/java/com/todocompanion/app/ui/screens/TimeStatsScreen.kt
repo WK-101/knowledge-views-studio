@@ -40,6 +40,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -83,7 +84,7 @@ fun TimeStatsScreen(vm: AppViewModel, onBack: () -> Unit) {
     var detailId by remember { mutableStateOf<String?>(null) }
     var showTrends by rememberSaveable { mutableStateOf(false) }   // Breakdown ↔ Trends & correlations
 
-    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val anyRunning = entries.any { it.running }
     LaunchedEffect(anyRunning) { while (anyRunning) { now = System.currentTimeMillis(); delay(1000) } }
 

@@ -103,6 +103,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -197,7 +199,7 @@ private fun RunningTimerBar(vm: AppViewModel, onOpen: () -> Unit) {
     val running = entries.filter { it.running }
     val paused0 = paused
     if (running.isEmpty() && paused0 == null) return
-    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(running.size) { while (true) { now = System.currentTimeMillis(); kotlinx.coroutines.delay(1000) } }
     var reassignFor by remember { mutableStateOf<String?>(null) }
     Column(Modifier.fillMaxWidth()) {
@@ -1821,8 +1823,8 @@ private fun ManageContextDialog(
     val oh0 = com.todocompanion.app.domain.context.ContextAvailability.parse(ctx.openHoursJson)
     var restricted by remember { mutableStateOf(oh0 != null) }
     var days by remember { mutableStateOf(oh0?.days ?: setOf(1, 2, 3, 4, 5)) }
-    var startH by remember { mutableStateOf((oh0?.startMin ?: 540) / 60) }
-    var endH by remember { mutableStateOf((oh0?.endMin ?: 1020) / 60) }
+    var startH by remember { mutableIntStateOf((oh0?.startMin ?: 540) / 60) }
+    var endH by remember { mutableIntStateOf((oh0?.endMin ?: 1020) / 60) }
     fun persistHours() {
         onHours(if (restricted) com.todocompanion.app.domain.context.ContextAvailability.encode(
             com.todocompanion.app.domain.context.OpenHours(days, startH * 60, endH * 60)) else null)

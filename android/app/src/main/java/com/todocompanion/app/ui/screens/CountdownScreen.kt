@@ -63,6 +63,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -508,7 +510,7 @@ private fun OccasionEditorSheet(vm: AppViewModel, existing: CountdownEntity?, on
     var person by remember { mutableStateOf(existing?.personName ?: "") }
     var emoji by remember { mutableStateOf(existing?.emoji ?: "") }
     var emojiOpen by remember { mutableStateOf(false) }
-    var color by remember { mutableStateOf(existing?.colorArgb ?: CD_COLORS.first()) }
+    var color by remember { mutableLongStateOf(existing?.colorArgb ?: CD_COLORS.first()) }
     var yearly by remember { mutableStateOf(existing?.yearly ?: true) }
     var yearKnown by remember { mutableStateOf(existing?.yearKnown ?: true) }
     var countUp by remember { mutableStateOf(existing?.countUp ?: false) }
@@ -518,19 +520,19 @@ private fun OccasionEditorSheet(vm: AppViewModel, existing: CountdownEntity?, on
     var locked by remember { mutableStateOf(existing?.locked ?: false) }
     var photoB64 by remember { mutableStateOf(existing?.photoBase64) }
     var notes by remember { mutableStateOf(existing?.notes ?: "") }
-    var leadDays by remember { mutableStateOf(existing?.prepLeadDays ?: 0) }
-    var keepInTouch by remember { mutableStateOf(existing?.keepInTouchDays ?: 0) }
+    var leadDays by remember { mutableIntStateOf(existing?.prepLeadDays ?: 0) }
+    var keepInTouch by remember { mutableIntStateOf(existing?.keepInTouchDays ?: 0) }
     var recurCal by remember { mutableStateOf(existing?.recurCalendar ?: "gregorian") }
     var chainNext by remember { mutableStateOf(existing?.chainNextId) }
     var letter by remember { mutableStateOf(existing?.sealedLetter ?: "") }
-    var sealedUntil by remember { mutableStateOf(existing?.sealedUntil ?: 0L) }
+    var sealedUntil by remember { mutableLongStateOf(existing?.sealedUntil ?: 0L) }
     var showSealDate by remember { mutableStateOf(false) }
     val allOccasions by vm.countdowns.collectAsState()
     // Moments (relationship loop / know-them). Persisted immediately on the row; mirrored here so the list
     // in the sheet updates optimistically without re-observing.
     var momentsLocal by remember { mutableStateOf(existing?.let { com.todocompanion.app.domain.Moments.parse(it) } ?: emptyList()) }
     var momentDraft by remember { mutableStateOf("") }
-    var millis by remember { mutableStateOf(existing?.targetMillis ?: LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()) }
+    var millis by remember { mutableLongStateOf(existing?.targetMillis ?: LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()) }
     var showDate by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     val d = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()

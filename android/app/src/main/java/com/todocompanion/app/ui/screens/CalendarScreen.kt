@@ -97,6 +97,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
@@ -187,13 +190,13 @@ fun CalendarScreen(
     // Event editor / management dialog state (reuses the R38 dialogs, now folded into this calendar).
     var eventEditing by remember { mutableStateOf<com.todocompanion.app.data.entity.EventEntity?>(null) }
     var eventEditorOpen by remember { mutableStateOf(false) }
-    var eventSeedStart by remember { mutableStateOf(0L) }
-    var eventSeedEnd by remember { mutableStateOf(0L) }
+    var eventSeedStart by remember { mutableLongStateOf(0L) }
+    var eventSeedEnd by remember { mutableLongStateOf(0L) }
     var eventCalsOpen by remember { mutableStateOf(false) }
     var eventGapOpen by remember { mutableStateOf(false) }
     var eventBlockOpen by remember { mutableStateOf(false) }
     var plannerOpen by remember { mutableStateOf(false) }
-    var plannerTab by remember { mutableStateOf(0) }
+    var plannerTab by remember { mutableIntStateOf(0) }
     val openEvent: (String) -> Unit = { id -> eventEditing = eventsAll.firstOrNull { e -> e.id == id }; if (eventEditing != null) eventEditorOpen = true }
     // R45 — import/export via SystemPicker (classic Activity startActivityForResult). See SystemPickers.kt.
 
@@ -574,7 +577,7 @@ private fun CalPeriodPicker(mode: String, anchor: LocalDate, onDismiss: () -> Un
 /** A 3×4 grid of years with decade paging, styled like the month grid. */
 @Composable
 private fun YearGridPicker(currentYear: Int, onDismiss: () -> Unit, onPick: (Int) -> Unit) {
-    var base by remember { mutableStateOf(currentYear - (currentYear.mod(12))) }
+    var base by remember { mutableIntStateOf(currentYear - (currentYear.mod(12))) }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
@@ -667,7 +670,7 @@ private fun DayPicker(anchor: LocalDate, onDismiss: () -> Unit, onPick: (LocalDa
 /** A quick month/year chooser: a year stepper over a 3×4 grid of month chips. */
 @Composable
 private fun MonthYearPicker(current: YearMonth, onDismiss: () -> Unit, onPick: (YearMonth) -> Unit) {
-    var year by remember { mutableStateOf(current.year) }
+    var year by remember { mutableIntStateOf(current.year) }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
@@ -1021,11 +1024,11 @@ private fun TimelineView(
     // Pinch-to-zoom the day: two fingers scale the hour height, so the day can be stretched tall for a
     // detailed look or squeezed short for the whole-day overview — the smooth zoom Simple Time Tracker has.
     // canPan=false lets one-finger vertical scrolling keep working underneath the pinch.
-    var hourZoom by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(1f) }
+    var hourZoom by androidx.compose.runtime.saveable.rememberSaveable { mutableFloatStateOf(1f) }
     val hourDp = HOUR_DP * hourZoom
     // Track the viewport height so a pinch zooms *around the middle of what you're looking at* rather than
     // pivoting at midnight (the top) — the polish that makes the zoom feel anchored and smooth (R17).
-    var viewportPx by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(0) }
+    var viewportPx by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
     val zoomState = androidx.compose.foundation.gestures.rememberTransformableState { zoomChange, _, _ ->
         val old = hourZoom
         val next = (old * zoomChange).coerceIn(0.5f, 3.0f)
@@ -1156,8 +1159,8 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hou
             val c = if (level == PriorityLevel.NONE) MaterialTheme.colorScheme.primary else priorityColor(level)
             val laneW = (taskAreaW - 2.dp) / p.lanes
             // Live start + duration while dragging (snapped to 15 min); reset when the saved span changes.
-            var liveStart by remember(p.task.id, p.startMin) { mutableStateOf(p.startMin) }
-            var liveDur by remember(p.task.id, p.endMin - p.startMin) { mutableStateOf(p.endMin - p.startMin) }
+            var liveStart by remember(p.task.id, p.startMin) { mutableIntStateOf(p.startMin) }
+            var liveDur by remember(p.task.id, p.endMin - p.startMin) { mutableIntStateOf(p.endMin - p.startMin) }
             var dragging by remember(p.task.id) { mutableStateOf(false) }
             fun snap(v: Int) = ((v / 15f).roundToInt() * 15)
             val top = (hourDp * liveStart / 60f).dp

@@ -37,6 +37,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -150,14 +152,14 @@ fun ColorPickerSheet(
     noneLabel: String = "No colour (use default)",
 ) {
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var tab by remember { mutableStateOf(0) }   // 0 = palette, 1 = custom
+    var tab by remember { mutableIntStateOf(0) }   // 0 = palette, 1 = custom
     val hsv0 = remember(initial) {
         val out = FloatArray(3)
         android.graphics.Color.colorToHSV((initial ?: 0xFF3E7BFA).toInt(), out); out
     }
-    var hue by remember { mutableStateOf(hsv0[0]) }
-    var sat by remember { mutableStateOf(hsv0[1]) }
-    var value by remember { mutableStateOf(hsv0[2]) }
+    var hue by remember { mutableFloatStateOf(hsv0[0]) }
+    var sat by remember { mutableFloatStateOf(hsv0[1]) }
+    var value by remember { mutableFloatStateOf(hsv0[2]) }
     var hexText by remember { mutableStateOf("") }
     val customArgb = (android.graphics.Color.HSVToColor(floatArrayOf(hue, sat, value)).toLong() and 0xFFFFFFFFL) or 0xFF000000L
 
@@ -255,8 +257,8 @@ private fun Swatch(color: Long, selected: Boolean, modifier: Modifier = Modifier
 @Composable
 private fun SatValPanel(hue: Float, sat: Float, value: Float, onChange: (Float, Float) -> Unit) {
     val hueColor = Color.hsv(hue, 1f, 1f)
-    var w by remember { mutableStateOf(1f) }
-    var h by remember { mutableStateOf(1f) }
+    var w by remember { mutableFloatStateOf(1f) }
+    var h by remember { mutableFloatStateOf(1f) }
     Box(
         Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(12.dp))
             .onSizeChanged { w = it.width.toFloat(); h = it.height.toFloat() }
@@ -278,7 +280,7 @@ private fun SatValPanel(hue: Float, sat: Float, value: Float, onChange: (Float, 
 /** Horizontal hue spectrum 0..360 with a draggable thumb. */
 @Composable
 private fun HueBar(hue: Float, onChange: (Float) -> Unit) {
-    var w by remember { mutableStateOf(1f) }
+    var w by remember { mutableFloatStateOf(1f) }
     val stops = (0..360 step 30).map { Color.hsv(it.toFloat(), 1f, 1f) }
     Box(
         Modifier.fillMaxWidth().height(26.dp).clip(RoundedCornerShape(13.dp))

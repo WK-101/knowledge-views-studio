@@ -90,6 +90,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -545,8 +547,8 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 }
             }
             var pwName by remember { mutableStateOf("") }
-            var pwStart by remember { mutableStateOf(19) }
-            var pwEnd by remember { mutableStateOf(20) }
+            var pwStart by remember { mutableIntStateOf(19) }
+            var pwEnd by remember { mutableIntStateOf(20) }
             OutlinedTextField(pwName, { pwName = it }, singleLine = true, placeholder = { Text("Window name") }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
             Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("From", Modifier.weight(1f)); HourStepper(pwStart) { pwStart = (it + 24) % 24 }
@@ -1067,7 +1069,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             val allTasks by vm.tasks.collectAsState()
             val allEvents by vm.events.collectAsState()
             val allOccasions by vm.countdowns.collectAsState()
-            var dbBytes by remember { mutableStateOf(vm.databaseSizeBytes()) }
+            var dbBytes by remember { mutableLongStateOf(vm.databaseSizeBytes()) }
             fun humanBytes(b: Long): String = when {
                 b >= 1_048_576 -> "%.1f MB".format(b / 1_048_576.0)
                 b >= 1024 -> "%.0f KB".format(b / 1024.0)
@@ -1350,7 +1352,7 @@ private fun ZonePickerDialog(current: String, onDismiss: () -> Unit, onPick: (St
 @Composable
 private fun FlagEditDialog(initial: FlagEntity?, onDismiss: () -> Unit, onSave: (String, Long, String) -> Unit) {
     var name by remember { mutableStateOf(initial?.name ?: "") }
-    var color by remember { mutableStateOf(initial?.colorArgb ?: FLAG_COLORS.first()) }
+    var color by remember { mutableLongStateOf(initial?.colorArgb ?: FLAG_COLORS.first()) }
     var icon by remember { mutableStateOf(initial?.icon ?: "bookmark") }
     AlertDialog(
         onDismissRequest = onDismiss,

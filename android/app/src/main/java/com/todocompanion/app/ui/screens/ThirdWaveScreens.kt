@@ -42,6 +42,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -255,8 +256,8 @@ private fun ActivationScreen(vm: AppViewModel, onBack: () -> Unit) {
         }
     }
     rating?.let { item ->
-        var pleasure by remember { mutableStateOf(3) }
-        var mastery by remember { mutableStateOf(3) }
+        var pleasure by remember { mutableIntStateOf(3) }
+        var mastery by remember { mutableIntStateOf(3) }
         AlertDialog(onDismissRequest = { rating = null },
             title = { Text("How was it?") },
             text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -284,8 +285,8 @@ private fun RoutineRunnerScreen(vm: AppViewModel, onBack: () -> Unit) {
         }
     }
     var running by remember { mutableStateOf(false) }
-    var idx by remember { mutableStateOf(0) }
-    var secs by remember { mutableStateOf(0) }
+    var idx by remember { mutableIntStateOf(0) }
+    var secs by remember { mutableIntStateOf(0) }
     LaunchedEffect(running, idx) { if (running) { secs = 0; while (running) { kotlinx.coroutines.delay(1000); secs++ } } }
     TWScaffold("Routine runner", onBack) { pad ->
         Column(Modifier.padding(pad).fillMaxSize().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -334,11 +335,11 @@ private fun RoutineRunnerScreen(vm: AppViewModel, onBack: () -> Unit) {
 // ── TW-E · focus lock (escalating exit) ───────────────────────────────────────────────────────────
 @Composable
 private fun FocusLockScreen(vm: AppViewModel, onBack: () -> Unit) {
-    var minutes by remember { mutableStateOf(25) }
+    var minutes by remember { mutableIntStateOf(25) }
     var running by remember { mutableStateOf(false) }
-    var left by remember { mutableStateOf(0) }
-    var quitAttempts by remember { mutableStateOf(0) }
-    var holding by remember { mutableStateOf(0) }        // seconds of exit-hold remaining
+    var left by remember { mutableIntStateOf(0) }
+    var quitAttempts by remember { mutableIntStateOf(0) }
+    var holding by remember { mutableIntStateOf(0) }        // seconds of exit-hold remaining
     LaunchedEffect(running) { if (running) { while (running && left > 0) { kotlinx.coroutines.delay(1000); left--; if (holding > 0) holding-- }; if (left <= 0) running = false } }
     TWScaffold("Focus lock", onBack) { pad ->
         Column(Modifier.padding(pad).fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {

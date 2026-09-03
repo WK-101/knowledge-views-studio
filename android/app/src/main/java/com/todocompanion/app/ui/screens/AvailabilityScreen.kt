@@ -37,6 +37,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -81,7 +82,7 @@ fun AvailabilitySheet(vm: AppViewModel, anchorDay: Long, onDismiss: () -> Unit) 
 
     var range by remember { mutableStateOf("Week") }        // Day / Week / Month
     var anchor by remember { mutableStateOf(LocalDate.ofEpochDay(anchorDay)) }
-    var minDur by remember { mutableStateOf(60) }           // duration-aware "openings" filter
+    var minDur by remember { mutableIntStateOf(60) }           // duration-aware "openings" filter
     var openingsSort by remember { mutableStateOf("Longest") } // Longest / Soonest
     var timePref by remember { mutableStateOf("Any") }      // Wave C ranked slots: Any / Morning / Afternoon / Evening
 
@@ -339,8 +340,8 @@ fun AvailabilitySheet(vm: AppViewModel, anchorDay: Long, onDismiss: () -> Unit) 
                 }
             }
             var pDays by remember { mutableStateOf(setOf(1, 2, 3, 4, 5)) }
-            var pStart by remember { mutableStateOf(9) }
-            var pEnd by remember { mutableStateOf(11) }
+            var pStart by remember { mutableIntStateOf(9) }
+            var pEnd by remember { mutableIntStateOf(11) }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
                 dowLabels.forEach { (n, l) ->
                     FilterChip(selected = n in pDays, onClick = { pDays = if (n in pDays) pDays - n else pDays + n }, label = { Text(l) })

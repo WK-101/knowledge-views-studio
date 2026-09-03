@@ -94,6 +94,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -1032,7 +1033,7 @@ private fun BookendCard(vm: AppViewModel) {
     val alreadyDone = if (evening) (log?.pmReflection?.isNotBlank() == true) else (log?.amIntention?.isNotBlank() == true)
     if (alreadyDone) return
     var text by remember(evening, today) { mutableStateOf("") }
-    var mood by remember(evening, today) { mutableStateOf(0) }
+    var mood by remember(evening, today) { mutableIntStateOf(0) }
     Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
         Column(Modifier.padding(14.dp)) {
             Text(if (evening) "🌙 Evening review" else "🌅 Morning intention", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
