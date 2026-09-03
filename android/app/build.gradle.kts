@@ -54,7 +54,12 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R85 — R8 code + resource shrinking ON (obfuscation OFF; see proguard-rules.pro for
+            // why). Strips unused classes/methods/resources → smaller APK and fewer classes to load
+            // at cold start. Keep rules cover the audited reflective surface (kotlinx.serialization,
+            // SQLCipher JNI, Room, ZXing); backup/restore must be smoke-tested after any R8 change.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -98,6 +103,9 @@ dependencies {
     implementation(composeBom)
 
     implementation("androidx.core:core-ktx:1.13.1")
+    // R85 — installs the bundled baseline profile (src/main/baseline-prof.txt) so the cold-start
+    // path is AOT-compiled at install time on API 26–33 (API 34+ handles it natively).
+    implementation("androidx.profileinstaller:profileinstaller:1.3.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
     implementation("androidx.activity:activity-compose:1.9.2")

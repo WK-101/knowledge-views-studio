@@ -1,0 +1,32 @@
+# Kairo — curated cold-start baseline profile (R85).
+#
+# Hand-authored, covering the classes on the app's own cold-start path so they
+# are AOT-compiled at install time (API 26–33 via profileinstaller; API 34+
+# natively). AndroidX/Compose ship their own baseline profiles, so this only
+# needs to name Kairo's startup code. Replace or augment this with a
+# Macrobenchmark-generated profile once on-device measurement is available —
+# a measured profile will be broader and more precise than these rules.
+#
+# Format: HRF (human-readable). L = include class; H/S/P method flags mark
+# hot / startup / post-startup methods; ** is a profgen wildcard.
+
+# Application + launch activity — the very first frames.
+Lcom/todocompanion/app/App;
+HSPLcom/todocompanion/app/App;-><init>()V
+HSPLcom/todocompanion/app/App;->onCreate()V
+HSPLcom/todocompanion/app/App;->**(**)**
+Lcom/todocompanion/app/MainActivity;
+HSPLcom/todocompanion/app/MainActivity;->onCreate(Landroid/os/Bundle;)V
+HSPLcom/todocompanion/app/MainActivity;->**(**)**
+
+# Root composition + the top-level view model constructed at launch.
+HSPLcom/todocompanion/app/ui/AppRootKt;->**(**)**
+Lcom/todocompanion/app/ui/AppViewModel;
+HSPLcom/todocompanion/app/ui/AppViewModel;-><init>(Landroid/app/Application;)V
+
+# Database open + key unwrap + settings decode — all run before first paint.
+HSPLcom/todocompanion/app/data/AppDatabase**->**(**)**
+HSPLcom/todocompanion/app/data/security/SecureDb**->**(**)**
+HSPLcom/todocompanion/app/data/AppRepository;-><init>(**)**
+HSPLcom/todocompanion/app/domain/SettingsKt**->**(**)**
+HSPLcom/todocompanion/app/domain/ThemePrefs**->**(**)**
