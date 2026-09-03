@@ -317,7 +317,7 @@ private fun TodayInHistoryCard(fact: String) {
 
 /** #12 This-week digest — occasions + tasks due + habits, fused from the one local store. */
 @Composable
-private fun WeekDigestCard(d: AppViewModel.WeekDigest) {
+private fun WeekDigestCard(d: com.todocompanion.app.domain.LifeReadModels.WeekDigest) {
     Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .4f), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
             Text("🗓 This week in your life", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
@@ -377,7 +377,7 @@ private fun AchievementsCard(entries: List<Pair<Int, com.todocompanion.app.data.
 
 /** #34 Year in people — a private, offline "wrapped". */
 @Composable
-private fun WrappedCard(w: AppViewModel.YearInPeople) {
+private fun WrappedCard(w: com.todocompanion.app.domain.LifeReadModels.YearInPeople) {
     Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
             Text("✨ Your year in people", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
@@ -392,7 +392,7 @@ private fun WrappedCard(w: AppViewModel.YearInPeople) {
 
 /** #30 Chapters of your life — years segmented by their relative fullness, from your own record. */
 @Composable
-private fun ChaptersCard(chapters: List<AppViewModel.Chapter>) {
+private fun ChaptersCard(chapters: List<com.todocompanion.app.domain.LifeReadModels.Chapter>) {
     Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
             Text("📖 Chapters of your life", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
