@@ -11,6 +11,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets // DIAG (R102) — remove in R103
+import androidx.compose.foundation.layout.ime // DIAG (R102) — remove in R103
+import androidx.compose.foundation.layout.systemBars // DIAG (R102) — remove in R103
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -305,6 +308,19 @@ fun AppRoot(
 ) {
     val vm: AppViewModel = viewModel()
     val settings by vm.settings.collectAsState()
+
+    // DIAG (R102) — remove in R103: log the edge-to-edge window insets once they settle, so the
+    // targetSdk 35 change can be validated off a real device (system bars handled, content not clipped).
+    run {
+        val dCtx = androidx.compose.ui.platform.LocalContext.current
+        val dDens = androidx.compose.ui.platform.LocalDensity.current
+        val topPx = WindowInsets.systemBars.getTop(dDens)
+        val botPx = WindowInsets.systemBars.getBottom(dDens)
+        val imePx = WindowInsets.ime.getBottom(dDens)
+        androidx.compose.runtime.LaunchedEffect(topPx, botPx, imePx) {
+            com.todocompanion.app.util.Diag.logInsets(dCtx, topPx, botPx, imePx)
+        }
+    }
 
     AppTheme(themeMode = settings.themeMode, dynamicColor = settings.dynamicColor, accentArgb = settings.accentArgb) {
       // R58 — provide the app-wide recent-colours host so every unified colour picker shares recents.
