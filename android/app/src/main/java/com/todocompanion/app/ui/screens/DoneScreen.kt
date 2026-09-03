@@ -266,11 +266,7 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
         ) {
             // Range selector — scope the whole record to a window.
             item(key = "range") {
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    RANGES.forEach { (k, l) ->
-                        FilterChip(selected = range == k, onClick = { range = k }, label = { Text(l) })
-                    }
-                }
+                com.todocompanion.app.ui.components.OptionChips(RANGES, RANGES.firstOrNull { it.first == range }, { range = it.first }, wrap = false, spacing = 6) { it.second }
             }
             // Totals + personal bests, over the chosen range.
             item(key = "stats") { LifetimeCard(stats, rangeLabel(range)) }
@@ -631,17 +627,13 @@ private fun BragDialog(
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.size(12.dp))
                 Text("Range", style = MaterialTheme.typography.labelMedium)
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("month" to "This month", "quarter" to "Last 3 mo", "year" to "This year", "all" to "All time").forEach { (k, l) ->
-                        FilterChip(selected = range == k, onClick = { range = k }, label = { Text(l) })
-                    }
+                com.todocompanion.app.ui.components.OptionChips(listOf("month", "quarter", "year", "all"), range, { range = it }, wrap = false, spacing = 6) {
+                    when (it) { "month" -> "This month"; "quarter" -> "Last 3 mo"; "year" -> "This year"; else -> "All time" }
                 }
                 Spacer(Modifier.size(10.dp))
                 Text("Group by", style = MaterialTheme.typography.labelMedium)
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("list" to "List", "day" to "Day", "flat" to "Flat").forEach { (k, l) ->
-                        FilterChip(selected = group == k, onClick = { group = k }, label = { Text(l) })
-                    }
+                com.todocompanion.app.ui.components.OptionChips(listOf("list", "day", "flat"), group, { group = it }, wrap = false, spacing = 6) {
+                    when (it) { "list" -> "List"; "day" -> "Day"; else -> "Flat" }
                 }
             }
         },
@@ -781,9 +773,7 @@ private fun ImpactScreen(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item(key = "impact-range") {
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    RANGES.forEach { (k, l) -> FilterChip(selected = range == k, onClick = { range = k }, label = { Text(l) }) }
-                }
+                com.todocompanion.app.ui.components.OptionChips(RANGES, RANGES.firstOrNull { it.first == range }, { range = it.first }, wrap = false, spacing = 6) { it.second }
             }
             if (g.nodes.isEmpty()) {
                 item(key = "impact-empty") {
@@ -1144,9 +1134,7 @@ private fun WriteLetterDialog(today: LocalDate, onDismiss: () -> Unit, onSeal: (
                 com.todocompanion.app.ui.components.AppTextField(title, { title = it }, singleLine = true, label = { Text("Title (optional)") }, modifier = Modifier.fillMaxWidth())
                 com.todocompanion.app.ui.components.AppTextField(body, { body = it }, singleLine = false, label = { Text("What do you want to tell yourself?") }, modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp))
                 Text("Open it in…", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    horizons.forEach { (lbl, m) -> FilterChip(selected = months == m, onClick = { months = m }, label = { Text(lbl) }) }
-                }
+                com.todocompanion.app.ui.components.OptionChips(horizons, horizons.firstOrNull { it.second == months }, { months = it.second }, wrap = false, spacing = 6) { it.first }
                 Text("Sealed with a tamper-evident hash. It can't be edited once sealed.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },

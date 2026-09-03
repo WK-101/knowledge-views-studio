@@ -789,11 +789,7 @@ internal fun EventEditor(
             if (location.isNotBlank() && !allDay) {
                 EditorToggle("Add travel buffer", travelOn) { travelOn = it; if (it && travelMin == 0) travelMin = 15 }
                 if (travelOn) {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf(10, 15, 20, 30, 45, 60).forEach { m ->
-                            FilterChip(selected = travelMin == m, onClick = { travelMin = m }, label = { Text("${m}m") })
-                        }
-                    }
+                    com.todocompanion.app.ui.components.OptionChips(listOf(10, 15, 20, 30, 45, 60), travelMin, { travelMin = it }, spacing = 6) { "${it}m" }
                     Text("Reserves ${travelMin}m before the event and remembers it for “${location.trim()}”.",
                         style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

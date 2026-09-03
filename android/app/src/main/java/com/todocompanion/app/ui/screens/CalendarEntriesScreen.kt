@@ -51,6 +51,7 @@ import com.todocompanion.app.data.entity.EventCalendarEntity
 import com.todocompanion.app.data.entity.EventEntity
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppTextField
+import com.todocompanion.app.ui.components.OptionChips
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -156,20 +157,13 @@ fun CalendarEntriesSheet(
             }
             Spacer(Modifier.height(6.dp))
             // Scope / cleanup finders.
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                EScope.entries.forEach { sc ->
-                    val extra = when (sc) { EScope.DUPLICATES -> if (dupIds.isNotEmpty()) " ${dupIds.size}" else ""; else -> "" }
-                    FilterChip(selected = scope == sc, onClick = { scope = sc }, label = { Text(sc.label + extra) })
-                }
+            OptionChips(EScope.entries, scope, { scope = it }, spacing = 6) { sc ->
+                sc.label + (if (sc == EScope.DUPLICATES && dupIds.isNotEmpty()) " ${dupIds.size}" else "")
             }
             Spacer(Modifier.height(6.dp))
             AppTextField(query, { query = it }, singleLine = true, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Search title, place, notes") })
             // Sort row.
-            FlowRow(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                ESort.entries.forEach { so ->
-                    FilterChip(selected = sort == so, onClick = { sort = so }, label = { Text(so.label) })
-                }
-            }
+            OptionChips(ESort.entries, sort, { sort = it }, modifier = Modifier.padding(top = 4.dp), spacing = 6) { it.label }
             Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (selectMode) {
                     Text("${selected.size} selected", style = MaterialTheme.typography.labelMedium)

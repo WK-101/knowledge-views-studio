@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -249,10 +248,8 @@ fun AvailabilitySheet(vm: AppViewModel, anchorDay: Long, onDismiss: () -> Unit) 
                 }
                 // Ranked slots: prefer a time of day (SavvyCal's "best times", turned inward). One line —
                 // horizontally scrollable so the four choices never wrap onto a second row.
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("Any", "Morning", "Afternoon", "Evening").forEach { p ->
-                        FilterChip(selected = timePref == p, onClick = { timePref = p }, label = { Text(if (p == "Any") p else bucketEmoji(p) + " " + p, maxLines = 1) })
-                    }
+                OptionChips(listOf("Any", "Morning", "Afternoon", "Evening"), timePref, { timePref = it }, wrap = false, spacing = 6) {
+                    if (it == "Any") it else bucketEmoji(it) + " " + it
                 }
                 bestOpenings.forEach { o ->
                     val bucket = bucketOf(o.slot.startMillis)

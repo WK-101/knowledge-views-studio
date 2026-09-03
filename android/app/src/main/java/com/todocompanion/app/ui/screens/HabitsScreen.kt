@@ -956,12 +956,10 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
             EditorCard {
                 Text("Repeat", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 // R64 — one compact line (scrolls on very narrow screens) instead of a two-row wrap.
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf(
-                        HabitStats.FREQ_WEEKLY to "Weekly", HabitStats.FREQ_TIMES_WEEK to "×/wk",
-                        HabitStats.FREQ_TIMES_MONTH to "×/mo", HabitStats.FREQ_INTERVAL to "Every N",
-                    ).forEach { (ft, label) -> FilterChip(selected = freqType == ft, onClick = { freqType = ft }, label = { Text(label) }) }
-                }
+                com.todocompanion.app.ui.components.OptionChips(
+                    listOf(HabitStats.FREQ_WEEKLY, HabitStats.FREQ_TIMES_WEEK, HabitStats.FREQ_TIMES_MONTH, HabitStats.FREQ_INTERVAL),
+                    freqType, { freqType = it }, modifier = Modifier.padding(top = 6.dp), wrap = false, spacing = 6,
+                ) { when (it) { HabitStats.FREQ_WEEKLY -> "Weekly"; HabitStats.FREQ_TIMES_WEEK -> "×/wk"; HabitStats.FREQ_TIMES_MONTH -> "×/mo"; else -> "Every N" } }
                 when (freqType) {
                     HabitStats.FREQ_WEEKLY -> {
                         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -1021,9 +1019,8 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
             // 5. Type & advanced
             EditorCard {
                 Text("Type", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
-                    FilterChip(selected = habitType == "build", onClick = { habitType = "build" }, label = { Text("Build") })
-                    FilterChip(selected = habitType == "break", onClick = { habitType = "break" }, label = { Text("Quit (bad habit)") })
+                com.todocompanion.app.ui.components.OptionChips(listOf("build", "break"), habitType, { habitType = it }, modifier = Modifier.padding(top = 6.dp), spacing = 6) {
+                    if (it == "build") "Build" else "Quit (bad habit)"
                 }
                 if (isBreak) {
                     Text("Success = staying at or under the daily limit. Streak = days since your last slip.",
