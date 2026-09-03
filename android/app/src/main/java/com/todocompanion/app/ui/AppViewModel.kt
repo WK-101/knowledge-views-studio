@@ -3853,6 +3853,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // so "time tracked" and "time focused" can never diverge into two contradictory totals.
     val focusTargetMin = MutableStateFlow(25)   // countdown length in minutes; 0 = open-ended stopwatch
 
+    // R84 — the imperative focus control lives in focus/FocusController; the VM keeps the flows above and
+    // passes in the settings snapshot, activity resolver, and widget-refresh callbacks.
+    private val focusCtl by lazy {
+        com.todocompanion.app.focus.FocusController(
+            appCtx, repo,
+            settings = { settings.value },
+            resolveActivity = { taskId, habitId ->
+                taskId?.let { tid -> tasks.value.firstOrNull { it.id == tid }?.defaultActivityId }
+                    ?: habitId?.let { hid -> habits.value.firstOrNull { it.id == hid }?.timeActivityId }
+            },
+            setTargetMin = { focusTargetMin.value = it },
+            onRefreshTime = { refreshTimeWidget() },
+            onRefreshHabits = { refreshHabitWidgets() },
+        )
+    }
+
     /** The single running focus interval, if a focus session is live right now (drives the ring). */
     val runningFocus: StateFlow<com.todocompanion.app.data.entity.TimeEntryEntity?> =
         timeEntries.map { list -> list.firstOrNull { it.running && it.kind == "focus" } }.state(null)
@@ -3872,35 +3888,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun startFocusSession(
         activityId: String?, targetMin: Int, remainingSec: Int = targetMin * 60,
         taskId: String? = null, habitId: String? = null,
-    ) = viewModelScope.launch {
-        focusTargetMin.value = targetMin.coerceAtLeast(0)
-        // R81 — optional start cue.
-        com.todocompanion.app.util.Sounds.play(appCtx, settings.value.focusStartSound)
-        val actId = activityId
-            ?: taskId?.let { tid -> tasks.value.firstOrNull { it.id == tid }?.defaultActivityId }
-            ?: habitId?.let { hid -> habits.value.firstOrNull { it.id == hid }?.timeActivityId }
-            ?: repo.ensureFocusActivity()
-        repo.startTimeTracking(actId, taskId, habitId, stopFirst = !settings.value.multiTimer, kind = "focus")
-        // R59 (Wave 3) — focus-block DND: silence notifications for the duration if the user opted in.
-        if (settings.value.focusDnd) com.todocompanion.app.reminders.FocusDnd.enter(appCtx)
-        com.todocompanion.app.reminders.AutomationRunner.onStart(appCtx, repo, actId)
-        if (targetMin > 0 && remainingSec > 0)
-            com.todocompanion.app.reminders.AlarmScheduler.scheduleFocusDone(appCtx, System.currentTimeMillis() + remainingSec * 1000L)
-        refreshTimeWidget()
-    }
+    ) = viewModelScope.launch { focusCtl.start(activityId, targetMin, remainingSec, taskId, habitId) }
+
     /** Stop the running focus interval (finalize + credit any linked habit) and cancel its chime. Only ever
      *  stops a kind="focus" entry, so a paused-focus Finish can never accidentally stop a manual timer. */
     fun stopFocus() = viewModelScope.launch {
-        val id = timeEntries.value.firstOrNull { it.running && it.kind == "focus" }?.id
-        if (id != null) { repo.stopTimeEntry(id); refreshHabitWidgets(); refreshTimeWidget() }
-        com.todocompanion.app.reminders.AlarmScheduler.cancelFocusDone(appCtx)
-        // R59 (Wave 3) — lift focus-block DND (no-op if it was never engaged / access not granted).
-        com.todocompanion.app.reminders.FocusDnd.exit(appCtx)
+        focusCtl.stop(timeEntries.value.firstOrNull { it.running && it.kind == "focus" }?.id)
     }
 
     /** R81 — play the chosen focus/timer completion cue in-app (the background alarm plays it via the
      *  notification channel; this is for when the app is in the foreground when the countdown finishes). */
-    fun playFocusDoneSound() = com.todocompanion.app.util.Sounds.play(appCtx, settings.value.focusDoneSound)
+    fun playFocusDoneSound() = focusCtl.playDoneSound()
 
     // ---------- saved filters ----------
     fun createFilter(name: String) = viewModelScope.launch {
@@ -4566,12 +4564,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---------- Tier D: folder backup & account-free sync ----------
-    private fun ensureDeviceId(): String {
-        val cur = settings.value.deviceId
-        if (cur.isNotBlank()) return cur
-        val id = UUID.randomUUID().toString().take(8)
-        viewModelScope.launch { repo.saveSettings(settings.value.copy(deviceId = id)) }
-        return id
+    // R84 — sync + every restore/import path lives in data.backup/RestoreManager (the most data-sensitive
+    // corner: a restore overwrites the whole store). The VM keeps the trivial settings setters below and
+    // thin viewModelScope wrappers; behaviour is identical.
+    private val restore by lazy {
+        com.todocompanion.app.data.backup.RestoreManager(
+            appCtx, repo,
+            settings = { settings.value },
+            saveSettings = { repo.saveSettings(it) },
+            listsSnapshot = { lists.value },
+            displayNameOf = { displayNameOf(it) },
+        )
     }
     fun setSyncFolder(uri: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(syncFolder = uri, syncEnabled = uri.isNotBlank())) }
     fun setAutoBackupFolder(uri: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(autoBackupFolder = uri, autoBackupEnabled = uri.isNotBlank())) }
@@ -4579,160 +4582,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setSyncEnabled(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(syncEnabled = on)) }
     fun markOnboarded() = viewModelScope.launch { repo.saveSettings(settings.value.copy(onboarded = true)) }
     fun replayOnboarding() = viewModelScope.launch { repo.saveSettings(settings.value.copy(onboarded = false)) }
-
     fun setSyncPassphrase(pass: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(syncPassphrase = pass)) }
 
-    fun runSyncNow(onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
-        val folder = settings.value.syncFolder
-        if (folder.isBlank()) { onDone(false, "Choose a sync folder first"); return@launch }
-        val dev = ensureDeviceId()
-        val r = com.todocompanion.app.data.sync.SyncEngine.sync(appCtx, repo, folder, dev, settings.value.syncPassphrase)
-        if (r.ok) {
-            repo.saveSettings(settings.value.copy(lastSyncAt = System.currentTimeMillis(), deviceId = dev, lastSyncSummary = r.message))
-            AlarmScheduler.rescheduleAll(appCtx, repo)
-        }
-        onDone(r.ok, r.message)
-    }
-
-    fun runBackupNow(onDone: (Boolean) -> Unit) = viewModelScope.launch {
-        val folder = settings.value.autoBackupFolder.ifBlank { settings.value.syncFolder }
-        if (folder.isBlank()) { onDone(false); return@launch }
-        val stamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
-        onDone(com.todocompanion.app.data.sync.SyncEngine.backup(appCtx, repo, folder, "todo-backup-$stamp.json", settings.value.syncPassphrase))
-    }
-
+    fun runSyncNow(onDone: (Boolean, String) -> Unit) = viewModelScope.launch { restore.runSyncNow(onDone) }
+    fun runBackupNow(onDone: (Boolean) -> Unit) = viewModelScope.launch { restore.runBackupNow(onDone) }
     /** Import tasks from a Todoist/TickTick CSV or MLO OPML/.mlobak file. Returns (ok, message). */
-    fun importExternal(uri: Uri, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
-        val text = readImportText(uri = uri)
-        importExternalText(text, onDone)
-    }
-    /** Read an import file as text, unzipping/decoding MLO `.mlobak` (ZIP / UTF-16 XML) so it isn't read
-     *  as garbage. Accepts either a content Uri or a File. */
-    private suspend fun readImportText(uri: Uri? = null, file: java.io.File? = null): String? = withContext(Dispatchers.IO) {
-        val bytes = runCatching {
-            when {
-                uri != null -> appCtx.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                file != null -> file.readBytes()
-                else -> null
-            }
-        }.getOrNull() ?: return@withContext null
-        com.todocompanion.app.data.sync.Importers.bytesToText(bytes)
-    }
-    /** Core of external (Todoist/TickTick CSV, MLO OPML) import — reused by the in-app restore browser. */
-    private suspend fun importExternalText(text: String?, onDone: (Boolean, String) -> Unit) {
-        val ok = runCatching {
-            if (text == null) return@runCatching null
-            val parsed = com.todocompanion.app.data.sync.Importers.parse(text) ?: return@runCatching null
-            val listIds = HashMap<String, String>()
-            val existing = lists.value.associateBy { it.name.lowercase() }
-            parsed.rows.forEach { row ->
-                val listId = listIds.getOrPut(row.list) {
-                    existing[row.list.lowercase()]?.id ?: repo.createList(row.list)
-                }
-                val id = repo.createTask(listId, row.title, importance = row.importance, urgency = row.urgency, dueDate = row.dueMillis)
-                if (row.note.isNotBlank() || row.completed) repo.getTask(id)?.let { t ->
-                    repo.saveTask(t.copy(note = row.note, completed = row.completed, completedAt = if (row.completed) System.currentTimeMillis() else null))
-                }
-                if (row.tags.isNotEmpty()) {
-                    val ws = settings.value.activeWorkspaceId
-                    val tagExisting = repo.getTagsOnce().filter { it.workspaceId == ws }.associateBy { it.name.lowercase() }
-                    val ids = row.tags.map { name -> tagExisting[name.lowercase()]?.id ?: UUID.randomUUID().toString().also { repo.upsertTag(TagEntity(it, name, workspaceId = ws)) } }
-                    repo.setTaskTags(id, ids.distinct())
-                }
-            }
-            parsed.source to parsed.rows.size
-        }.getOrNull()
-        if (ok == null) onDone(false, "Couldn't read that file — export a Todoist/TickTick CSV or MLO OPML")
-        else onDone(true, "Imported ${ok.second} tasks from ${ok.first}")
-    }
-
-    // ---- In-app restore / import (no system picker needed) ----
-    // [broad] = true lists any JSON/CSV a user dropped into the import inbox, not just our own backups.
-    fun loadSavedBackups(broad: Boolean = false, onDone: (List<com.todocompanion.app.util.FileExport.SavedFile>) -> Unit) = viewModelScope.launch {
-        val list = withContext(Dispatchers.IO) { com.todocompanion.app.util.FileExport.listSaved(appCtx, broad) }
-        onDone(list)
-    }
-    /** The folder a user copies a backup into to import it with no picker and no permission. */
-    fun importInboxHint(): String = com.todocompanion.app.util.FileExport.importInboxHint(appCtx)
-    /**
-     * Import from text the user pasted in (a backup copied from another device / the clipboard) — the
-     * last-resort channel that needs no file, no picker and no storage access. JSON restores the whole
-     * store; anything else routes through the Todoist/TickTick/MLO parser.
-     */
-    fun importPastedText(text: String, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
-        val t = text.trim()
-        if (t.isEmpty()) { onDone(false, "Nothing to import — paste a backup first"); return@launch }
-        if (t.startsWith("{") || t.startsWith("[")) {
-            val ok = runCatching {
-                val plain = com.todocompanion.app.data.sync.Crypto.decrypt(t, settings.value.syncPassphrase) ?: t
-                repo.importJsonReplace(plain); AlarmScheduler.rescheduleAll(appCtx, repo); true
-            }.getOrDefault(false)
-            onDone(ok, if (ok) "Restored from pasted backup" else "That text isn't a valid ToDo Companion backup")
-        } else importExternalText(t, onDone)
-    }
-    fun restoreSaved(s: com.todocompanion.app.util.FileExport.SavedFile, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
-        val text = readImportText(uri = s.uri, file = s.file)
-        if (text == null) { onDone(false, "Couldn't read that file"); return@launch }
-        if (s.name.endsWith(".json", ignoreCase = true)) {
-            val ok = runCatching {
-                val plain = com.todocompanion.app.data.sync.Crypto.decrypt(text, settings.value.syncPassphrase) ?: text
-                repo.importJsonReplace(plain); AlarmScheduler.rescheduleAll(appCtx, repo); true
-            }.getOrDefault(false)
-            onDone(ok, if (ok) "Restored from ${s.name}" else "Restore failed — is this a ToDo Companion backup?")
-        } else importExternalText(text, onDone)
-    }
-
-    /**
-     * E9: import a backup a file manager handed us via "Open with" / "Share" (a content:// URI that
-     * grants a temporary read — no storage permission needed). Reuses the restore pipeline; sniffs
-     * JSON vs external (CSV/OPML) when the filename carries no usable extension.
-     */
-    fun importFromIntent(uri: Uri, merge: Boolean = false, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
-        // Robust filename: content providers give DISPLAY_NAME; a file:// URI falls back to the last path
-        // segment so the extension is still known (de-Googled file managers use both).
-        val name = (displayNameOf(uri) ?: uri.lastPathSegment ?: "").lowercase()
-        val ext = name.substringAfterLast('.', "")
-        val text = readImportText(uri = uri)
-        if (text.isNullOrBlank()) { onDone(false, "Couldn't read that file. Try 'Share → ToDo Companion' from your file manager."); return@launch }
-        val external = com.todocompanion.app.data.sync.Importers.parse(text)
-        // Route by intent, not by a fragile first-character sniff. A file from another app (.mlobak/.ml/
-        // .opml/.csv/.xml) is NEVER our JSON backup, so it must never reach the JSON path — that misroute
-        // is what showed "isn't a valid ToDo Companion backup" for a real MLO .mlobak (R23).
-        val externalExt = ext in setOf("mlobak", "ml", "mlt", "opml", "csv", "tsv", "xml")
-        val jsonExt = ext == "json" || ext == "todobackup"
-        val looksJson = jsonExt || (ext.isEmpty() && text.trimStart().firstOrNull()?.let { it == '{' || it == '[' } == true)
-        when {
-            externalExt -> {
-                if (external != null) importExternalText(text, onDone)
-                else onDone(false, "Couldn't read that ${ext.uppercase()} file. In MyLifeOrganized, use Menu ▸ Backup/Export ▸ OPML and share the .opml — some .mlobak archives are password-protected or in a format we can't open.")
-            }
-            external != null && !looksJson -> importExternalText(text, onDone)
-            looksJson -> {
-                val ok = runCatching {
-                    val plain = com.todocompanion.app.data.sync.Crypto.decrypt(text, settings.value.syncPassphrase) ?: text
-                    if (merge) repo.importJsonMerge(plain) else repo.importJsonReplace(plain)
-                    AlarmScheduler.rescheduleAll(appCtx, repo); true
-                }.getOrDefault(false)
-                val verb = if (merge) "Merged" else "Restored"
-                if (ok) onDone(true, "$verb ${name.ifBlank { "your backup" }}")
-                else if (external != null) importExternalText(text, onDone) // last resort: try as external export
-                else onDone(false, "That file isn't a valid ToDo Companion backup")
-            }
-            else -> importExternalText(text, onDone)
-        }
-    }
-
-    fun importFrom(uri: Uri, onDone: (Boolean) -> Unit) = viewModelScope.launch {
-        val ok = runCatching {
-            val raw = appCtx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: return@runCatching false
-            // Transparently decrypt an encrypted backup (G1) using the stored passphrase.
-            val text = com.todocompanion.app.data.sync.Crypto.decrypt(raw, settings.value.syncPassphrase) ?: return@runCatching false
-            repo.importJsonReplace(text)
-            AlarmScheduler.rescheduleAll(appCtx, repo)
-            true
-        }.getOrDefault(false)
-        onDone(ok)
-    }
+    fun importExternal(uri: Uri, onDone: (Boolean, String) -> Unit) = viewModelScope.launch { restore.importExternal(uri, onDone) }
+    fun loadSavedBackups(broad: Boolean = false, onDone: (List<com.todocompanion.app.util.FileExport.SavedFile>) -> Unit) = viewModelScope.launch { onDone(restore.loadSavedBackups(broad)) }
+    fun importInboxHint(): String = restore.importInboxHint()
+    fun importPastedText(text: String, onDone: (Boolean, String) -> Unit) = viewModelScope.launch { restore.importPastedText(text, onDone) }
+    fun restoreSaved(s: com.todocompanion.app.util.FileExport.SavedFile, onDone: (Boolean, String) -> Unit) = viewModelScope.launch { restore.restoreSaved(s, onDone) }
+    fun importFromIntent(uri: Uri, merge: Boolean = false, onDone: (Boolean, String) -> Unit) = viewModelScope.launch { restore.importFromIntent(uri, merge, onDone) }
+    fun importFrom(uri: Uri, onDone: (Boolean) -> Unit) = viewModelScope.launch { restore.importFrom(uri, onDone) }
 
     private fun buildOutline(all: List<TaskEntity>, startId: String? = null): List<OutlineRow> {
         val byParent = all.groupBy { it.parentId }
