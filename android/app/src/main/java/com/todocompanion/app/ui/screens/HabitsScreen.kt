@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -1129,13 +1128,11 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
                 // V3: how tracked time on a linked activity credits this habit.
                 if (timeOn && timeActivityId != null) {
                     Text("When timed, count", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp))
-                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        // R64 — "Complete" marks the habit done once any session is tracked (for non-minute
-                        // units like steps, which time can't measure); "Minutes" auto-completes when tracked
-                        // minutes reach the target.
-                        listOf("minutes" to "Minutes", "sessions" to "Sessions", "complete" to "Complete", "off" to "Off").forEach { (v, lbl) ->
-                            FilterChip(selected = linkMode == v, onClick = { linkMode = v }, label = { Text(lbl) })
-                        }
+                    // R64 — "Complete" marks the habit done once any session is tracked (for non-minute
+                    // units like steps, which time can't measure); "Minutes" auto-completes when tracked
+                    // minutes reach the target.
+                    com.todocompanion.app.ui.components.OptionChips(listOf("minutes", "sessions", "complete", "off"), linkMode, { linkMode = it }, wrap = false, spacing = 6) {
+                        when (it) { "minutes" -> "Minutes"; "sessions" -> "Sessions"; "complete" -> "Complete"; else -> "Off" }
                     }
                     // R81 — for Minutes / Sessions, let the user write the exact amount that counts as done.
                     // This is the day's target (the app-wide completion threshold: count ≥ target), surfaced

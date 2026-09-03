@@ -548,11 +548,7 @@ private fun OccasionEditorSheet(vm: AppViewModel, existing: CountdownEntity?, on
         Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 28.dp).verticalScroll(rememberScrollState())) {
             Text(if (existing == null) "New occasion" else "Occasion", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(12.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                LifeEvent.EventType.entries.forEach { t ->
-                    FilterChip(selected = type == t, onClick = { type = t; yearly = t.yearlyByDefault }, label = { Text("${t.emoji} ${t.label}") })
-                }
-            }
+            com.todocompanion.app.ui.components.OptionChips(LifeEvent.EventType.entries, type, { type = it; yearly = it.yearlyByDefault }, spacing = 6) { "${it.emoji} ${it.label}" }
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 val face = rememberFace(photoB64)
@@ -582,9 +578,7 @@ private fun OccasionEditorSheet(vm: AppViewModel, existing: CountdownEntity?, on
             // Unit
             Spacer(Modifier.height(6.dp))
             Text("Show in", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                UNITS.forEach { (key, label) -> FilterChip(selected = unit == key, onClick = { unit = key }, label = { Text(label) }) }
-            }
+            com.todocompanion.app.ui.components.OptionChips(UNITS, UNITS.firstOrNull { it.first == unit }, { unit = it.first }, spacing = 6) { it.second }
             Spacer(Modifier.height(8.dp))
             com.todocompanion.app.ui.components.AppTextField(category, { category = it }, singleLine = true, label = { Text("Category (optional)") }, modifier = Modifier.fillMaxWidth())
             // #3 alternate-calendar recurrence — only meaningful when the occasion repeats yearly.
@@ -810,17 +804,13 @@ private fun OccasionFilterSheet(current: OccasionFilter, items: List<CountdownEn
             }
             Spacer(Modifier.height(8.dp))
             Text("Within", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf(0 to "Any", 7 to "1 week", 30 to "1 month", 90 to "3 months", 365 to "1 year").forEach { (n, lbl) ->
-                    FilterChip(selected = f.windowDays == n, onClick = { f = f.copy(windowDays = n) }, label = { Text(lbl) })
-                }
+            com.todocompanion.app.ui.components.OptionChips(listOf(0, 7, 30, 90, 365), f.windowDays, { f = f.copy(windowDays = it) }, spacing = 6) {
+                when (it) { 0 -> "Any"; 7 -> "1 week"; 30 -> "1 month"; 90 -> "3 months"; else -> "1 year" }
             }
             Spacer(Modifier.height(8.dp))
             Text("Direction", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                FilterChip(selected = f.countUp == null, onClick = { f = f.copy(countUp = null) }, label = { Text("Any") })
-                FilterChip(selected = f.countUp == false, onClick = { f = f.copy(countUp = false) }, label = { Text("Countdown") })
-                FilterChip(selected = f.countUp == true, onClick = { f = f.copy(countUp = true) }, label = { Text("Count-up") })
+            com.todocompanion.app.ui.components.OptionChips(listOf(null, false, true), f.countUp, { f = f.copy(countUp = it) }, spacing = 6) {
+                when (it) { null -> "Any"; false -> "Countdown"; else -> "Count-up" }
             }
             Spacer(Modifier.height(4.dp))
             EditorSwitch("Favourites only", f.favouritesOnly) { f = f.copy(favouritesOnly = it) }
