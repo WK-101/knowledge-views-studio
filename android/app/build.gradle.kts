@@ -24,7 +24,11 @@ val runNumber = System.getenv("GITHUB_RUN_NUMBER")
 
 android {
     namespace = "com.todocompanion.app"
-    compileSdk = 34
+    // R103 — compileSdk/targetSdk 35 (Android 15). Enabled once edge-to-edge was verified on a real
+    // Android 15 device (R102 insets diagnostic: status-bar top inset correctly reported, content clear)
+    // and the toolchain was moved to AGP 8.7.x (official API-35 support, no suppressUnsupportedCompileSdk
+    // needed) with Robolectric 4.14 (SDK-35 runtime for the JVM test suite).
+    compileSdk = 35
 
     defaultConfig {
         // R69 — the installed package id now carries the Kairo brand. (The code `namespace` stays
@@ -32,7 +36,7 @@ android {
         // authorities are all built from the runtime packageName, so they follow this automatically.)
         applicationId = "com.wkhan.kairo"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 35
         versionCode = runNumber?.toIntOrNull() ?: 1
         versionName = "0.1.${runNumber ?: "0"}"
         vectorDrawables { useSupportLibrary = true }
@@ -94,6 +98,13 @@ android {
         warningsAsErrors = false
         checkDependencies = false
         textReport = true
+        // R103 — the AGP 8.7 lint added `ProduceStateDoesNotAssignValue`, which mis-fires on every
+        // produceState call site in this codebase even though each one DOES assign `value` inside the
+        // producer lambda (e.g. `value = vm.searchAsync(query)` in SearchScreen, `value = withContext(IO){…}`
+        // in AttachmentsScreen). The detector's data-flow heuristic doesn't see the assignment when the
+        // call carries recomposition keys + an explicit type argument — a known false positive on correct
+        // code — so it's disabled here rather than annotating six provably-correct sites.
+        disable += "ProduceStateDoesNotAssignValue"
     }
     // R73 — expose the exported Room schema (app/schemas/) to instrumented tests as an asset, so a
     // MigrationTestHelper can load it and validate the migration chain against the real DB.
@@ -169,7 +180,7 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
     // R92 — Robolectric: run Room DAO/repository integration tests on the JVM (no device/emulator).
-    testImplementation("org.robolectric:robolectric:4.11.1")
+    testImplementation("org.robolectric:robolectric:4.14.1")
     testImplementation("androidx.test:core-ktx:1.5.0")
     // R97 — Compose UI tests on the JVM under Robolectric (no device): render composables and assert on
     // their semantics tree, so accessibility labels are verified in CI. ui-test-manifest supplies the
