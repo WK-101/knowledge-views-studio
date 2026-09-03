@@ -4053,21 +4053,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- templates ----------
     fun saveAsTemplate(taskId: String, name: String) = viewModelScope.launch { repo.saveAsTemplate(taskId, name) }
 
-    /** Repeated task shapes worth turning into a template (G5). */
-    data class TemplateSuggestion(val title: String, val count: Int, val exampleId: String)
-    fun suggestedTemplates(minCount: Int = 3): List<TemplateSuggestion> {
-        val existing = templates.value.map { it.name.trim().lowercase() }.toSet()
-        return tasks.value.asSequence()
-            .filter { !it.trashed && !it.isNote && it.title.isNotBlank() }
-            .groupBy { it.title.trim().lowercase() }
-            .filter { (norm, list) -> list.size >= minCount && norm !in existing }
-            .map { (_, list) ->
-                val newest = list.maxByOrNull { it.createdAt }!!
-                TemplateSuggestion(newest.title.trim(), list.size, newest.id)
-            }
-            .sortedByDescending { it.count }
-            .take(5)
-    }
+    /** Repeated task shapes worth turning into a template (G5). Pure logic in domain/TemplateSuggest. */
+    fun suggestedTemplates(minCount: Int = 3): List<com.todocompanion.app.domain.TemplateSuggest.Suggestion> =
+        com.todocompanion.app.domain.TemplateSuggest.suggest(
+            tasks.value, templates.value.map { it.name.trim().lowercase() }.toSet(), minCount,
+        )
     fun deleteTemplate(id: String) = viewModelScope.launch { repo.deleteTemplate(id) }
     fun renameTemplate(id: String, name: String) = viewModelScope.launch { repo.renameTemplate(id, name) }
     /** Drop a template into the current view's list (or Inbox), opening its new root if requested. */
