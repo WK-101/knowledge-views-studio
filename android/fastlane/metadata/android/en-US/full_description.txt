@@ -1,0 +1,23 @@
+Kairo is a private, fully-offline planner that brings tasks, a calendar, habits, and time tracking together in one place — with no account, no sign-in, and no network permission at all.
+
+Private by construction. The app declares no INTERNET permission, so it cannot send your data anywhere. Everything stays on your device. The only permissions it uses are local: notifications and exact alarms for on-device reminders, and vibrate. Your database can optionally be encrypted at rest (AES-256 via SQLCipher, with the key held in the Android KeyStore).
+
+No lock-in. Your data is yours: lossless JSON export and import, plus Markdown and CSV export. Back up to a folder you choose, or move to another device, with nothing held hostage behind a subscription.
+
+What's inside:
+
+• Tasks and outlining — nested subtasks with unlimited depth, folders and lists, priorities (simple, or advanced importance/urgency), due and start dates, deadlines, tags, contexts, checklists, and natural-language quick capture.
+
+• Smart lists — Inbox, Today, Tomorrow, Next 7 Days, Do Next (a computed priority ranking), Scheduled, Flagged, Waiting-on, Completed, and Trash, all with live counts.
+
+• Calendar — list, day, 3-day, week, month, and year views, drag-to-reschedule, and interactive time-blocking.
+
+• Habits — build or quit habits with flexible schedules, numeric or checkbox check-ins, streaks, reminders, and per-habit analytics.
+
+• Time tracking — one timeline that links tasks and habits to the time you actually spend, with goals and reports.
+
+• Reminders — local exact alarms with Done and Snooze actions, an optional daily summary, and rescheduling after reboot.
+
+• Views and polish — Eisenhower matrix, workload forecast, weekly review, home-screen widgets, a quick-settings tile, light/dark/AMOLED themes, Material You, any week-start, 12/24h clock, and any time zone.
+
+Native Kotlin and Jetpack Compose (Material 3), Room/SQLite. Free, offline, and yours.

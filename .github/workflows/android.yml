@@ -70,7 +70,14 @@ jobs:
         # backup round-trip, the achievement/coach engines, and the migration-chain assertions). A red
         # test now fails the build instead of shipping. (Instrumented tests that need a device — the
         # Room MigrationTest — run in a separate emulator job when one is configured.)
+        # R92/R94 — the suite now also includes the Robolectric integration layer (Room DAO, repository,
+        # backup export→import round-trip) and the pure list-rendering pipeline, all on the JVM.
         run: ./gradlew testReleaseUnitTest --stacktrace
+
+      - name: Lint
+        # R95 — Android Lint gates the release the same way. abortOnError is on, so any Error-severity
+        # finding fails the build before an APK is produced. Runs against the release variant it ships.
+        run: ./gradlew lintRelease --stacktrace
 
       - name: Build release APK
         run: ./gradlew assembleRelease --stacktrace

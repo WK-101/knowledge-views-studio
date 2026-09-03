@@ -1,0 +1,9 @@
+First public build.
+
+• Tasks, outlining, folders and lists, smart lists, and Do-Next priority ranking.
+• Calendar (list / day / 3-day / week / month / year) with drag-to-reschedule and time-blocking.
+• Habits with flexible schedules, streaks, and per-habit analytics.
+• Time tracking that links to tasks and habits.
+• Local reminders with Done and Snooze; optional daily summary; reschedules after reboot.
+• Lossless JSON export/import, plus Markdown and CSV export. Optional AES-256 encryption at rest.
+• No account, no sign-in, and no network permission — everything stays on your device.
