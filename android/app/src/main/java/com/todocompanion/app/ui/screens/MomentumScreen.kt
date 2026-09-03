@@ -1,4 +1,5 @@
 package com.todocompanion.app.ui.screens
+import com.todocompanion.app.ui.components.EmptyState
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -159,9 +160,11 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
         val nothing = (!habitsOn || activeHabits.isEmpty()) && (!tasksOn || reliability.isEmpty()) && (!timeOn || timeEntries.isEmpty())
         if (nothing) {
             Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Start a habit, a task, or a timer and your momentum fills in here.", Modifier.padding(32.dp),
-                    style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                EmptyState(
+                    emoji = "⚡",
+                    title = "Your day starts here",
+                    body = "Start a habit, check off a task, or run a timer — your momentum fills in here.",
+                )
             }
             return@Scaffold
         }

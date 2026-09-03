@@ -1,4 +1,5 @@
 package com.todocompanion.app.ui.screens
+import com.todocompanion.app.ui.components.EmptyState
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -69,7 +70,11 @@ fun HabitTrendsScreen(vm: AppViewModel, onBack: () -> Unit) {
     }) { padding ->
         if (active.isEmpty()) {
             Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Add a few habits to see trends.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                EmptyState(
+                    emoji = "📈",
+                    title = "No trends yet",
+                    body = "Track a few habits for a couple of weeks — their strength, weekday patterns and correlations appear here.",
+                )
             }
             return@Scaffold
         }

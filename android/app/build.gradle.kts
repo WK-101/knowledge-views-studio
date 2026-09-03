@@ -127,7 +127,12 @@ ksp {
 }
 
 dependencies {
-    val composeBom = platform("androidx.compose:compose-bom:2024.09.02")
+    // R105 — bumped 2024.09.02 → 2024.12.01 (Compose 1.7.6). The older BOM's bundled androidx.compose.ui
+    // lint checks were compiled against an earlier lint API and threw NoClassDefFoundError across several
+    // detectors (SuspiciousModifierThen, ModifierDeclaration, …) under AGP 8.7's lint 31.7 runtime, aborting
+    // lintAnalyzeRelease. Compose 1.7.6's lint jar is built against lint 31.7, so the whole detector set
+    // loads. Patch-level Compose bump (same 1.7 line), Kotlin 2.0.20 / compose-compiler 2.0.20 compatible.
+    val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
     implementation(composeBom)
 
     implementation("androidx.core:core-ktx:1.13.1")

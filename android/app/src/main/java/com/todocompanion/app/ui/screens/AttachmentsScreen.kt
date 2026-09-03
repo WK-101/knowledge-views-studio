@@ -1,4 +1,5 @@
 package com.todocompanion.app.ui.screens
+import com.todocompanion.app.ui.components.EmptyState
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
@@ -215,7 +216,15 @@ fun AttachmentsScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: ()
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
             if (items.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No attachments" + if (filter.active || query.isNotBlank()) " match these filters" else " yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (filter.active || query.isNotBlank()) {
+                        Text("No attachments match these filters", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else {
+                        EmptyState(
+                            emoji = "📎",
+                            title = "No attachments yet",
+                            body = "Files, photos and PDFs you attach to a task collect here — everything stays offline in your backup.",
+                        )
+                    }
                 }
             } else when (view) {
                 AttView.LIST -> LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp)) {

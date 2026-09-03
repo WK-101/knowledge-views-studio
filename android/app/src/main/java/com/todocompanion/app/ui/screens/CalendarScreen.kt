@@ -1,4 +1,5 @@
 package com.todocompanion.app.ui.screens
+import com.todocompanion.app.ui.components.EmptyState
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
@@ -1513,7 +1514,7 @@ private fun WeekChip(task: TaskEntity, onOpenTask: (String) -> Unit) {
 @Composable
 private fun AgendaView(dueByDate: Map<LocalDate, List<TaskEntity>>, onOpenTask: (String) -> Unit, swipe: CalSwipe) {
     val days = dueByDate.keys.sorted()
-    if (days.isEmpty()) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("No scheduled tasks", color = MaterialTheme.colorScheme.onSurfaceVariant) }; return }
+    if (days.isEmpty()) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { EmptyState(emoji = "🗓️", title = "Nothing scheduled", body = "Give a task a due date and it shows up here, grouped day by day.") }; return }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 2.dp, bottom = 100.dp)) {
         days.forEach { d ->
             item(key = "h$d") { DayHeader(d) }
