@@ -1823,22 +1823,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ── U1 · untracked planned blocks + one-tap fill ────────────────────────────────────────────
-    fun untrackedTodayBlocks(): List<com.todocompanion.app.domain.TimeInsights.PlannedBlock> {
-        val zone = java.time.ZoneId.systemDefault()
-        val today = java.time.LocalDate.now(zone)
-        val dayStart = today.atStartOfDay(zone).toInstant().toEpochMilli()
-        val now = System.currentTimeMillis()
-        val blocks = tasks.value.mapNotNull { t ->
-            val due = t.dueDate ?: return@mapNotNull null
-            if (t.completed || t.trashed || t.abandoned || t.isAllDay || t.isNote) return@mapNotNull null
-            if (java.time.Instant.ofEpochMilli(due).atZone(zone).toLocalDate() != today) return@mapNotNull null
-            val startMin = ((due - dayStart) / 60_000L).toInt().coerceIn(0, 1439)
-            if (dayStart + startMin * 60_000L > now) return@mapNotNull null   // block hasn't started yet
-            val dur = (t.durationMin ?: t.estimateMin ?: 30).coerceAtLeast(5)
-            com.todocompanion.app.domain.TimeInsights.PlannedBlock(t.id, t.title, startMin, dur)
-        }
-        return com.todocompanion.app.domain.TimeInsights.untrackedBlocks(blocks, timeEntries.value, dayStart, now)
-    }
+    fun untrackedTodayBlocks(): List<com.todocompanion.app.domain.TimeInsights.PlannedBlock> =
+        com.todocompanion.app.domain.TimeReports.untrackedTodayBlocks(
+            tasks.value, timeEntries.value, java.time.ZoneId.systemDefault(), System.currentTimeMillis())
     /** U1: backfill a planned block's time interval against its task, in one tap. */
     fun fillTrackedBlock(block: com.todocompanion.app.domain.TimeInsights.PlannedBlock) = viewModelScope.launch {
         val zone = java.time.ZoneId.systemDefault()
@@ -1854,86 +1841,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ── U6 · plan vs actual (this week) + calibration ───────────────────────────────────────────
-    fun planVsActualWeek(): com.todocompanion.app.domain.TimeInsights.PlanActual {
-        val zone = java.time.ZoneId.systemDefault()
-        val now = System.currentTimeMillis()
-        val weekStart = java.time.LocalDate.now(zone).minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli()
-        val weekEndWindow = java.time.LocalDate.now(zone).plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-        val trackedByTask = timeEntries.value.filter { it.taskId != null }.groupBy { it.taskId!! }
-            .mapValues { (_, es) -> es.sumOf { com.todocompanion.app.domain.TimeTracking.minutesInWindow(it.startMillis, it.endMillis, weekStart, now + 1, now) } }
-        val items = tasks.value.mapNotNull { t ->
-            val planned = (t.estimateMin ?: t.durationMin ?: 0)
-            if (planned <= 0) return@mapNotNull null
-            val actual = trackedByTask[t.id] ?: 0
-            val dueThisWeek = t.dueDate?.let { it in weekStart until weekEndWindow } ?: false
-            if (actual <= 0 && !dueThisWeek) return@mapNotNull null
-            com.todocompanion.app.domain.TimeInsights.PlanActualItem(t.id, t.title, planned, actual)
-        }
-        return com.todocompanion.app.domain.TimeInsights.planVsActual(items)
-    }
+    fun planVsActualWeek(): com.todocompanion.app.domain.TimeInsights.PlanActual =
+        com.todocompanion.app.domain.TimeReports.planVsActualWeek(
+            tasks.value, timeEntries.value, java.time.ZoneId.systemDefault(), System.currentTimeMillis())
 
     // ── U7 · cross-type correlation ("what moves your momentum") ────────────────────────────────
-    fun momentumLinks(windowDays: Int = 60): List<String> {
-        val hs = com.todocompanion.app.domain.habit.HabitStats
-        val zone = java.time.ZoneId.systemDefault()
-        val today = java.time.LocalDate.now(zone).toEpochDay()
-        val universe = (0 until windowDays).map { today - it }
-        val entriesByDay = HashMap<Long, MutableSet<String>>()
-        timeEntries.value.forEach { e ->
-            val d = java.time.Instant.ofEpochMilli(e.startMillis).atZone(zone).toLocalDate().toEpochDay()
-            entriesByDay.getOrPut(d) { mutableSetOf() }.add(e.activityId)
-        }
-        val actName = timeActivities.value.associate { it.id to ((it.emoji?.plus(" ") ?: "") + it.name) }
-        val out = mutableListOf<Pair<Double, String>>()
-        habits.value.filter { !it.paused && it.habitType != "break" }.forEach { h ->
-            val hc = habitCheckins.value.filter { it.habitId == h.id }
-            val doneDays = hc.filter { it.status == "done" && hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
-            val expected = universe.filter { hs.isExpectedDay(h, it) }
-            if (expected.size < 12) return@forEach
-            timeActivities.value.filter { !it.archived }.forEach { a ->
-                val cond = expected.filter { entriesByDay[it]?.contains(a.id) == true }.toSet()
-                if (cond.size < 4 || expected.size - cond.size < 4) return@forEach
-                val c = com.todocompanion.app.domain.TimeInsights.conditionalRate(expected, doneDays, cond)
-                if (c.lift >= 0.20) out += c.lift to
-                    "Your ‘${h.name}’ habit lands ${(c.rateWith * 100).toInt()}% on days you track ${actName[a.id]}, vs ${(c.rateWithout * 100).toInt()}% otherwise."
-            }
-        }
-        return out.sortedByDescending { it.first }.take(3).map { it.second }
-    }
+    fun momentumLinks(windowDays: Int = 60): List<String> =
+        com.todocompanion.app.domain.TimeReports.momentumLinks(
+            habits.value, habitCheckins.value, timeActivities.value, timeEntries.value,
+            java.time.ZoneId.systemDefault(), windowDays)
 
     // ── V6 · cross-type tag report — hours + tasks + habit-days grouped by one tag ──────────────
-    data class TagLine(val tag: String, val minutes: Int, val tasksDone: Int, val habitDays: Int)
-    fun crossTypeTagReport(windowDays: Int = 7): List<TagLine> {
-        val zone = java.time.ZoneId.systemDefault()
-        val now = System.currentTimeMillis()
-        val today = java.time.LocalDate.now(zone)
-        val winStart = today.minusDays((windowDays - 1).toLong()).atStartOfDay(zone).toInstant().toEpochMilli()
-        val startDay = today.minusDays((windowDays - 1).toLong()).toEpochDay()
-        val endDay = today.toEpochDay()
-        val acc = HashMap<String, IntArray>()   // tag → [minutes, tasksDone, habitDays]
-        fun bucket(tag: String) = acc.getOrPut(tag.trim().lowercase()) { IntArray(3) }
-        // time (U11 tags)
-        com.todocompanion.app.domain.TimeInsights.totalsByTag(timeEntries.value, winStart, now + 1, now).forEach { bucket(it.tag)[0] += it.minutes }
-        // tasks completed in the window, by their tag names
-        val tagName = tags.value.associate { it.id to it.name }
-        val tagsByTask = taskTags.value.groupBy { it.taskId }.mapValues { e -> e.value.mapNotNull { tagName[it.tagId] } }
-        tasks.value.forEach { t ->
-            val ca = t.completedAt ?: return@forEach
-            val d = java.time.Instant.ofEpochMilli(ca).atZone(zone).toLocalDate().toEpochDay()
-            if (d in startDay..endDay) tagsByTask[t.id].orEmpty().forEach { if (it.isNotBlank()) bucket(it)[1] += 1 }
-        }
-        // habit "done" days in the window, keyed by the habit's category (used as a tag)
-        val habById = habits.value.associateBy { it.id }
-        val hs = com.todocompanion.app.domain.habit.HabitStats
-        habitCheckins.value.forEach { ci ->
-            if (ci.status != "done" || ci.epochDay !in startDay..endDay) return@forEach
-            val h = habById[ci.habitId] ?: return@forEach
-            if (h.category.isNotBlank() && hs.meetsGoal(h, ci.count)) bucket(h.category)[2] += 1
-        }
-        return acc.filter { it.value.any { v -> v > 0 } }
-            .map { TagLine(it.key, it.value[0], it.value[1], it.value[2]) }
-            .sortedByDescending { it.minutes + it.tasksDone * 30 + it.habitDays * 30 }
-    }
+    fun crossTypeTagReport(windowDays: Int = 7): List<com.todocompanion.app.domain.TimeReports.TagLine> =
+        com.todocompanion.app.domain.TimeReports.crossTypeTagReport(
+            tasks.value, timeEntries.value, habits.value, habitCheckins.value, tags.value, taskTags.value,
+            java.time.ZoneId.systemDefault(), System.currentTimeMillis(), windowDays)
 
     // ── V12 · rewards store ─────────────────────────────────────────────────────────────────────
     fun rewards(): List<com.todocompanion.app.domain.Reward> = com.todocompanion.app.domain.Rewards.parse(settings.value.rewardsJson)
@@ -2002,13 +1924,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ── W4 · Balance — where the week actually went, by life area (cross-type tags) ───────────────
-    data class BalanceSlice(val area: String, val weight: Int, val share: Double)
-    fun balanceBreakdown(windowDays: Int = 7): List<BalanceSlice> {
-        val weighted = crossTypeTagReport(windowDays).map { it.tag to (it.minutes + it.tasksDone * 30 + it.habitDays * 30) }.filter { it.second > 0 }
-        val total = weighted.sumOf { it.second }
-        if (total == 0) return emptyList()
-        return weighted.map { BalanceSlice(it.first, it.second, it.second.toDouble() / total) }.sortedByDescending { it.weight }
-    }
+    fun balanceBreakdown(windowDays: Int = 7): List<com.todocompanion.app.domain.TimeReports.BalanceSlice> =
+        com.todocompanion.app.domain.TimeReports.balanceBreakdown(
+            tasks.value, timeEntries.value, habits.value, habitCheckins.value, tags.value, taskTags.value,
+            java.time.ZoneId.systemDefault(), System.currentTimeMillis(), windowDays)
 
     // ── W7 · Self-writing weekly review ─────────────────────────────────────────────────────────
     fun weeklyReviewText(): String {
