@@ -78,6 +78,13 @@ android {
     buildFeatures {
         compose = true
     }
+    // R92 — let JVM unit tests use Android resources + Robolectric (no emulator/device): this powers
+    // the Room DAO/repository integration tests that fill the middle of the pyramid entirely on the JVM.
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
     // R73 — expose the exported Room schema (app/schemas/) to instrumented tests as an asset, so a
     // MigrationTestHelper can load it and validate the migration chain against the real DB.
     sourceSets {
@@ -151,6 +158,9 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+    // R92 — Robolectric: run Room DAO/repository integration tests on the JVM (no device/emulator).
+    testImplementation("org.robolectric:robolectric:4.11.1")
+    testImplementation("androidx.test:core-ktx:1.5.0")
 
     // R73 — instrumented tests: replay the whole Room migration chain against a real SQLite DB.
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
