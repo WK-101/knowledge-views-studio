@@ -363,9 +363,7 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Add", style = MaterialTheme.typography.bodyMedium)
-                        TextButton(onClick = { extraH = (extraH - 2).coerceAtLeast(0) }) { Text("−") }
-                        Text("${extraH}h", style = MaterialTheme.typography.titleSmall, modifier = Modifier.width(40.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                        TextButton(onClick = { extraH = (extraH + 2).coerceAtMost(80) }) { Text("+") }
+                        com.todocompanion.app.ui.components.Stepper(extraH, { extraH = it }, min = 0, max = 80, step = 2, display = { "${it}h" })
                     }
                     if (extraH > 0) {
                         val addMin = extraH * 60

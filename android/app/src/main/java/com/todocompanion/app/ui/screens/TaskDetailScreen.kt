@@ -45,7 +45,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Check
@@ -82,7 +81,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.SegmentedButton
@@ -135,6 +133,7 @@ import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
 import com.todocompanion.app.ui.components.CardLabel
 import com.todocompanion.app.ui.components.OptionChips
+import com.todocompanion.app.ui.components.Stepper
 import com.todocompanion.app.ui.components.DateTimePickerDialog
 import com.todocompanion.app.ui.components.formatDue
 import com.todocompanion.app.ui.components.formatDueSpan
@@ -1148,7 +1147,7 @@ internal fun RepeatDialog(rule: String?, hasChildren: Boolean, onDismiss: () -> 
                     Spacer(Modifier.size(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Every", Modifier.padding(end = 8.dp))
-                        Stepper(interval) { interval = it.coerceIn(1, 99) }
+                        Stepper(interval, { interval = it.coerceIn(1, 99) })
                     }
                 }
                 if (freq == com.todocompanion.app.domain.recurrence.Freq.WEEKLY) {
@@ -1194,7 +1193,7 @@ internal fun RepeatDialog(rule: String?, hasChildren: Boolean, onDismiss: () -> 
                         when (it) { 0 -> "Never"; 1 -> "On date"; else -> "After N" }
                     }
                     if (endMode == 1) TextButton(onClick = { showUntil = true }) { Text("Until " + java.time.LocalDate.ofEpochDay(until)) }
-                    if (endMode == 2) Row(verticalAlignment = Alignment.CenterVertically) { Text("After", Modifier.padding(end = 8.dp)); Stepper(count) { count = it.coerceIn(1, 999) }; Text(" times", Modifier.padding(start = 6.dp)) }
+                    if (endMode == 2) Row(verticalAlignment = Alignment.CenterVertically) { Text("After", Modifier.padding(end = 8.dp)); Stepper(count, { count = it.coerceIn(1, 999) }); Text(" times", Modifier.padding(start = 6.dp)) }
                 }
             }
         },
@@ -1204,15 +1203,6 @@ internal fun RepeatDialog(rule: String?, hasChildren: Boolean, onDismiss: () -> 
         DateTimePickerDialog(java.time.LocalDate.ofEpochDay(until).atStartOfDay(z).toInstant().toEpochMilli(), { showUntil = false }) { m ->
             until = java.time.Instant.ofEpochMilli(m).atZone(z).toLocalDate().toEpochDay(); showUntil = false
         }
-    }
-}
-
-@Composable
-private fun Stepper(value: Int, onChange: (Int) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        TextButton(onClick = { onChange(value - 1) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp)) { Text("−") }
-        Text(value.toString(), style = MaterialTheme.typography.titleMedium)
-        TextButton(onClick = { onChange(value + 1) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp)) { Text("+") }
     }
 }
 
@@ -1624,9 +1614,9 @@ internal fun DurationPickerDialog(initialMin: Int, onDismiss: () -> Unit, onPick
         title = { Text("Duration") },
         text = {
             Column {
-                DurStepper("Hours", hours, 0, 99, 1) { hours = it }
+                Stepper(hours, { hours = it }, min = 0, max = 99, step = 1, label = "Hours", editable = true)
                 Spacer(Modifier.height(8.dp))
-                DurStepper("Minutes", mins, 0, 59, 5) { mins = it }   // ± nudges by 5; type any minute directly
+                Stepper(mins, { mins = it }, min = 0, max = 59, step = 5, label = "Minutes", editable = true)   // ± nudges by 5; type any minute directly
                 Spacer(Modifier.height(12.dp))
                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf(15, 30, 45, 60, 90, 120, 180, 240).forEach { m ->
@@ -1644,26 +1634,6 @@ internal fun DurationPickerDialog(initialMin: Int, onDismiss: () -> Unit, onPick
     )
 }
 
-@Composable
-private fun DurStepper(label: String, value: Int, min: Int, max: Int, step: Int, onChange: (Int) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-        IconButton(onClick = { onChange((value - step).coerceAtLeast(min)) }) { Icon(Icons.Filled.Remove, "Less") }
-        // Editable field so any value in range can be typed, not only reached by stepping.
-        androidx.compose.material3.OutlinedTextField(
-            value = value.toString(),
-            onValueChange = { s ->
-                val digits = s.filter { it.isDigit() }.take(3)
-                onChange(digits.toIntOrNull()?.coerceIn(min, max) ?: min)
-            },
-            singleLine = true,
-            textStyle = MaterialTheme.typography.titleMedium.copy(textAlign = androidx.compose.ui.text.style.TextAlign.Center),
-            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-            modifier = Modifier.width(76.dp),
-        )
-        IconButton(onClick = { onChange((value + step).coerceAtMost(max)) }) { Icon(Icons.Filled.Add, "More") }
-    }
-}
 
 // ══════════════════════════════ R37 · Task coach (habit-science ports) ══════════════════════════════
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)

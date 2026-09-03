@@ -52,7 +52,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.todocompanion.app.domain.calendar.CalendarEngine
 import com.todocompanion.app.domain.calendar.CalendarPlanner
@@ -599,13 +598,13 @@ private fun HorizonTab(vm: AppViewModel, zone: ZoneId, day: Long) {
             Text("Set targets:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             val targets = remember(settings.northStarTargetsCsv) { ThirdHorizon.parseTargets(settings.northStarTargetsCsv) }
             visibleCals.take(6).forEach { c ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(c.name, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, maxLines = 1)
-                    val cur = ((targets[c.id] ?: 0.0) * 100).toInt()
-                    TextButton(onClick = { vm.setNorthStarTarget(c.id, ((cur - 10) / 100.0)) }, enabled = cur > 0, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Text("−") }
-                    Text("$cur%", style = MaterialTheme.typography.labelMedium, modifier = Modifier.width(36.dp), textAlign = TextAlign.Center)
-                    TextButton(onClick = { vm.setNorthStarTarget(c.id, ((cur + 10) / 100.0)) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Text("+") }
-                }
+                val cur = ((targets[c.id] ?: 0.0) * 100).toInt()
+                com.todocompanion.app.ui.components.StepperRow(
+                    label = c.name, value = "$cur%",
+                    onMinus = { vm.setNorthStarTarget(c.id, (cur - 10) / 100.0) },
+                    onPlus = { vm.setNorthStarTarget(c.id, (cur + 10) / 100.0) },
+                    modifier = Modifier.padding(vertical = 2.dp), minusEnabled = cur > 0,
+                )
             }
         }
     }

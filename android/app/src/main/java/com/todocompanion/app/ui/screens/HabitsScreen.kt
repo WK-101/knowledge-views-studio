@@ -103,6 +103,7 @@ import androidx.compose.ui.geometry.Size
 import com.todocompanion.app.data.entity.HabitEntity
 import com.todocompanion.app.domain.habit.HabitStats
 import com.todocompanion.app.ui.AppViewModel
+import com.todocompanion.app.ui.components.StepperRow
 import java.time.LocalDate
 
 private val HABIT_COLORS = listOf(
@@ -1237,16 +1238,6 @@ private fun EditorCard(content: @Composable ColumnScope.() -> Unit) {
     }
 }
 
-/** A label + −/value/+ stepper row, used throughout the editor. */
-@Composable
-private fun StepperRow(label: String, value: String, onMinus: () -> Unit, onPlus: () -> Unit, modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f))
-        TextButton(onClick = onMinus) { Text("−", style = MaterialTheme.typography.titleLarge) }
-        Text(value, style = MaterialTheme.typography.titleMedium, modifier = Modifier.width(44.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        TextButton(onClick = onPlus) { Text("+", style = MaterialTheme.typography.titleLarge) }
-    }
-}
 
 /**
  * L6: type a habit in plain language ("meditate 10 min every morning") — parsed live into a draft.
