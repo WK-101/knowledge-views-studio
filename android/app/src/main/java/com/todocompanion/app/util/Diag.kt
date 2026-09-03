@@ -31,6 +31,8 @@ import java.util.Date
  *   (b) SELF-CHECK — an R8/minified check of the reflective surfaces (Room+SQLCipher, kotlinx.serialization
  *                    backup round-trip, ZXing) and the two behaviour-preserving core extractions
  *   (c) INSETS     — the edge-to-edge window insets + effective targetSdk (used by R102)
+ *   (d) FRAME METRICS — on-device jank distribution (a runtime substitute for a Macrobenchmark scroll pass:
+ *                    p50/p90/p99 frame time + janky/severe counts), flushed when the app is backgrounded (R103)
  */
 object Diag {
     @Volatile var processStartUptime = 0L
@@ -131,6 +133,62 @@ object Diag {
             appendLine("  (all four app bars should sit clear of the system bars, and content should not hide under them.)")
         })
     }
+
+    /**
+     * (d) On-device frame timing — a runtime stand-in for a Macrobenchmark jank pass. Registers a per-frame
+     * listener (its callback runs on a background Handler, so no main-thread I/O) that records each frame's
+     * TOTAL_DURATION; flushFrameMetrics() appends the distribution + jank counts. Call startFrameWatch() once
+     * after setContent, and flushFrameMetrics() from Activity.onStop (a whole foreground session per line).
+     */
+    private val frameThread by lazy { android.os.HandlerThread("kairo-diag-frames").apply { start() } }
+    private val frameDurationsNs = java.util.concurrent.ConcurrentLinkedQueue<Long>()
+    private val jankyFrames = java.util.concurrent.atomic.AtomicInteger(0)   // > 16.7 ms (a 60 Hz miss)
+    private val severeFrames = java.util.concurrent.atomic.AtomicInteger(0)  // > 33.3 ms (two-frame stall)
+    @Volatile private var frameWatchRegistered = false
+    @Volatile private var refreshHz = 0f
+
+    fun startFrameWatch(activity: android.app.Activity) {
+        if (frameWatchRegistered) return
+        frameWatchRegistered = true
+        refreshHz = runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) activity.display?.refreshRate ?: 60f
+            else @Suppress("DEPRECATION") activity.windowManager.defaultDisplay.refreshRate
+        }.getOrDefault(60f)
+        val handler = android.os.Handler(frameThread.looper)
+        runCatching {
+            activity.window.addOnFrameMetricsAvailableListener({ _, metrics, _ ->
+                val total = metrics.getMetric(android.view.FrameMetrics.TOTAL_DURATION)
+                frameDurationsNs.add(total)
+                val ms = total / 1_000_000.0
+                when {
+                    ms > 33.34 -> severeFrames.incrementAndGet()
+                    ms > 16.67 -> jankyFrames.incrementAndGet()
+                }
+                while (frameDurationsNs.size > 20_000) frameDurationsNs.poll()
+            }, handler)
+        }
+    }
+
+    fun flushFrameMetrics(c: Context) {
+        val arr = frameDurationsNs.toLongArray()
+        if (arr.size < 20) return   // too few frames to be meaningful — skip
+        arr.sort()
+        fun pctMs(p: Double) = arr[((arr.size - 1) * p).toInt()] / 1_000_000.0
+        val janky = jankyFrames.get(); val severe = severeFrames.get()
+        append(c, buildString {
+            append(header(c))
+            appendLine("FRAME METRICS (on-device jank · ${f0(refreshHz.toDouble())} Hz display)")
+            appendLine("  frames sampled : ${arr.size}")
+            appendLine("  p50 / p90 / p99: ${f1(pctMs(0.50))} / ${f1(pctMs(0.90))} / ${f1(pctMs(0.99))} ms")
+            appendLine("  max frame      : ${f1(arr.last() / 1_000_000.0)} ms")
+            appendLine("  janky  >16.7ms : $janky (${f1(100.0 * janky / arr.size)}%)")
+            appendLine("  severe >33.3ms : $severe (${f1(100.0 * severe / arr.size)}%)")
+            appendLine("  (scroll the lists + calendar ~20s, then leave the app. Lower p99 & fewer janky = smoother.)")
+        })
+    }
+
+    private fun f1(x: Double) = String.format(java.util.Locale.US, "%.1f", x)
+    private fun f0(x: Double) = String.format(java.util.Locale.US, "%.0f", x)
 
     private fun pf(ok: Boolean) = if (ok) "PASS" else "FAIL"
     private fun syntheticTask(id: String, listId: String, trashed: Boolean = false) =
