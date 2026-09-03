@@ -330,9 +330,9 @@ private fun CorrelationsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit
                 Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth().clickable { onOpenHabit(c.habit.id) }) {
                     Column(Modifier.padding(14.dp)) {
                         Text("On days you do ${c.habit.emoji?.plus(" ") ?: ""}${c.habit.name}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                        Text("${c.signal} is ${if (c.positive) "+" else ""}${String.format("%.1f", c.delta)} ${unitFor(c.signal)}",
+                        Text("${c.signal} is ${if (c.positive) "+" else ""}${String.format(java.util.Locale.getDefault(), "%.1f", c.delta)} ${unitFor(c.signal)}",
                             style = MaterialTheme.typography.bodyLarge, color = color, fontWeight = FontWeight.SemiBold)
-                        Text("${c.onValue.let { String.format("%.1f", it) }} on vs ${c.offValue.let { String.format("%.1f", it) }} off · ${c.nOn}/${c.nOff} days",
+                        Text("${c.onValue.let { String.format(java.util.Locale.getDefault(), "%.1f", it) }} on vs ${c.offValue.let { String.format(java.util.Locale.getDefault(), "%.1f", it) }} off · ${c.nOn}/${c.nOff} days",
                             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }

@@ -1,13 +1,17 @@
 package com.todocompanion.app.reminders
 
+import android.Manifest
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import com.todocompanion.app.MainActivity
 
 object Notifications {
@@ -53,6 +57,17 @@ object Notifications {
         return NotificationCompat.Builder(context, id).apply {
             if (lockscreenPrivate) setVisibility(NotificationCompat.VISIBILITY_SECRET)
         }
+    }
+
+    /** R95 — post a notification only when we're actually allowed to. On Android 13+ POST_NOTIFICATIONS is
+     *  runtime-revocable, so a bare notify() both risks a swallowed SecurityException and wastes the work of
+     *  building a notification the system will silently drop; this gate skips it cleanly instead. On older
+     *  APIs the permission is granted implicitly at install. Every notify() in this file funnels through here. */
+    private fun post(context: Context, id: Int, notification: Notification) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) return
+        runCatching { NotificationManagerCompat.from(context).notify(id, notification) }
     }
 
     fun ensureChannel(context: Context) {
@@ -126,7 +141,7 @@ object Notifications {
             .setAutoCancel(true)
             .setContentIntent(openApp(context))
             .build()
-        runCatching { NotificationManagerCompat.from(context).notify(MORNING_ID, n) }
+        post(context, MORNING_ID, n)
     }
 
     fun showEvening(context: Context, leftover: Int) {
@@ -142,7 +157,7 @@ object Notifications {
             .setAutoCancel(true)
             .setContentIntent(openAppRoute(context, "open_plan", 918_276))
             .build()
-        runCatching { NotificationManagerCompat.from(context).notify(EVENING_ID, n) }
+        post(context, EVENING_ID, n)
     }
 
     const val OCCASION_LIVE_ID = 424246
@@ -177,7 +192,7 @@ object Notifications {
             .setAutoCancel(false)
             .setContentIntent(openApp(context))
             .build()
-        runCatching { NotificationManagerCompat.from(context).notify(OCCASION_LIVE_ID, n) }
+        post(context, OCCASION_LIVE_ID, n)
     }
 
     /** #23 — one gentle daily reflection (a finite-time thought + today-in-history), opt-in. */
@@ -193,7 +208,7 @@ object Notifications {
             .setAutoCancel(true)
             .setContentIntent(openApp(context))
             .build()
-        runCatching { NotificationManagerCompat.from(context).notify(OCCASION_NUDGE_ID, n) }
+        post(context, OCCASION_NUDGE_ID, n)
     }
 
     fun show(context: Context, taskId: String, title: String, reminderId: String, annoying: Boolean, escalate: Boolean = false, step: Int = 0, subText: String? = null) {
@@ -220,7 +235,7 @@ object Notifications {
             b.setVibrate(longArrayOf(0, 400, 200, 400))
             if (step >= 2) b.setFullScreenIntent(openApp(context), true)
         }
-        runCatching { NotificationManagerCompat.from(context).notify(taskId.hashCode(), b.build()) }
+        post(context, taskId.hashCode(), b.build())
     }
 
     fun cancel(context: Context, taskId: String) {
@@ -257,7 +272,7 @@ object Notifications {
             .setAutoCancel(true)
             .setContentIntent(openAppRoute(context, "open_calendar", ("evc$eventId").hashCode()))
             .build()
-        runCatching { NotificationManagerCompat.from(context).notify(EVENT_ALERT_BASE + (eventId.hashCode() and 0x3FF), n) }
+        post(context, EVENT_ALERT_BASE + (eventId.hashCode() and 0x3FF), n)
     }
 
     const val FOCUS_ID = 424243
@@ -272,7 +287,7 @@ object Notifications {
             .setAutoCancel(true)
             .setContentIntent(openApp(context))
             .build()
-        runCatching { NotificationManagerCompat.from(context).notify(FOCUS_ID, n) }
+        post(context, FOCUS_ID, n)
     }
 
     private val HABIT_LINES = listOf(
@@ -296,7 +311,7 @@ object Notifications {
             .setContentIntent(openApp(context))
             .addAction(0, "Done", broadcast(context, AlarmScheduler.ACTION_HABIT_DONE, reqBase + 1, doneExtras))
             .addAction(0, "Snooze ${snoozeLabel()}", broadcast(context, AlarmScheduler.ACTION_HABIT_SNOOZE, reqBase + 2, doneExtras))
-        runCatching { NotificationManagerCompat.from(context).notify(("habit:$habitId").hashCode(), b.build()) }
+        post(context, ("habit:$habitId").hashCode(), b.build())
     }
 
     fun showSummary(context: Context, dueToday: Int, brief: String? = null, topHabitId: String? = null, topHabitName: String? = null) {
@@ -317,7 +332,7 @@ object Notifications {
             b.addAction(0, "✓ ${topHabitName.take(22)}", broadcast(context, AlarmScheduler.ACTION_HABIT_DONE, ("summ:$topHabitId").hashCode(),
                 mapOf(AlarmScheduler.EXTRA_HABIT_ID to topHabitId, AlarmScheduler.EXTRA_HABIT_NAME to topHabitName, AlarmScheduler.EXTRA_HABIT_MIN to "-1")))
         }
-        runCatching { NotificationManagerCompat.from(context).notify(SUMMARY_ID, b.build()) }
+        post(context, SUMMARY_ID, b.build())
     }
 
     /** U12: a plain automation notification ("phone on silent?") fired when a rule matches. */
@@ -332,7 +347,7 @@ object Notifications {
             .setAutoCancel(true)
             .setContentIntent(openApp(context))
             .build()
-        runCatching { NotificationManagerCompat.from(context).notify(tag.hashCode(), n) }
+        post(context, tag.hashCode(), n)
     }
 
     /** U2: a time-blocked task's start time arrived — offer to begin tracking it in one tap. The Start
@@ -353,7 +368,7 @@ object Notifications {
             .setContentIntent(openApp(context))
             .addAction(0, "▶ Start tracking", pi)
             .build()
-        runCatching { NotificationManagerCompat.from(context).notify(("trackprompt:$taskId").hashCode(), n) }
+        post(context, ("trackprompt:$taskId").hashCode(), n)
     }
 
     /** N2: celebrate a habit reaching its self-chosen reward streak. */
@@ -369,6 +384,6 @@ object Notifications {
             .setAutoCancel(true)
             .setContentIntent(openApp(context))
             .build()
-        runCatching { NotificationManagerCompat.from(context).notify(("reward:$name").hashCode(), n) }
+        post(context, ("reward:$name").hashCode(), n)
     }
 }

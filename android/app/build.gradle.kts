@@ -85,6 +85,16 @@ android {
             isIncludeAndroidResources = true
         }
     }
+    // R95 — Lint is a real gate: any Error-severity issue fails the build (locally and in CI), and lint
+    // runs on the release variant too. Warnings are surfaced but don't block yet. The known errors were
+    // the notification-permission ones in reminders/Notifications.kt, now funneled through a guarded post().
+    lint {
+        abortOnError = true
+        checkReleaseBuilds = true
+        warningsAsErrors = false
+        checkDependencies = false
+        textReport = true
+    }
     // R73 — expose the exported Room schema (app/schemas/) to instrumented tests as an asset, so a
     // MigrationTestHelper can load it and validate the migration chain against the real DB.
     sourceSets {

@@ -136,7 +136,7 @@ private fun ExperimentsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit:
                         Text("${e.blocks} × ${e.blockLenDays}-day blocks · $phase", style = MaterialTheme.typography.labelMedium, color = if (onBlockNow) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                         if (res != null) {
                             val sign = if (res.effect >= 0) "+" else ""
-                            Text("On “on” days, ${res.outcomeLabel} was $sign${String.format("%.1f", res.effect)} vs off (${String.format("%.1f", res.onMean)} vs ${String.format("%.1f", res.offMean)}).",
+                            Text("On “on” days, ${res.outcomeLabel} was $sign${String.format(java.util.Locale.getDefault(), "%.1f", res.effect)} vs off (${String.format(java.util.Locale.getDefault(), "%.1f", res.onMean)} vs ${String.format(java.util.Locale.getDefault(), "%.1f", res.offMean)}).",
                                 style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
                             Text(if (res.confident) "Enough data to trust the direction." else "Keep going — more days will firm this up. (${res.nOn}/${res.nOff} days)",
                                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
