@@ -43,6 +43,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material3.Checkbox
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -129,6 +132,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     var showWeekStart by remember { mutableStateOf(false) }
     var showSecondaryZone by remember { mutableStateOf(false) }
     var showSnoozeCustom by remember { mutableStateOf(false) }
+    var showMute by remember { mutableStateOf(false) }
     var editFlag by remember { mutableStateOf<FlagEntity?>(null) }
     var addingFlag by remember { mutableStateOf(false) }
 
@@ -270,9 +274,10 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
 
             Spacer(Modifier.height(6.dp))
             NavRow("Theme pack", THEME_PACKS.firstOrNull { it.id == s.themePack }?.label ?: "Custom",
-                { showThemePack = true }, subtitle = "A coordinated accent + background in one tap")
+                { showThemePack = true }, subtitle = "A coordinated accent + background in one tap",
+                preview = { THEME_PACKS.firstOrNull { it.id == s.themePack }?.let { ThemePackSwatch(it, 22.dp) } })
             NavRow("App background", APP_BACKGROUNDS.firstOrNull { it.first == s.appBackground }?.second ?: "None",
-                { showBg = true })
+                { showBg = true }, preview = { BackgroundSwatch(s.appBackground, 22.dp) })
 
             Spacer(Modifier.height(12.dp)); Sub("Task density")
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -860,21 +865,20 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             Toggle("Daily summary notification", s.dailySummaryEnabled) { vm.saveSettings(s.copy(dailySummaryEnabled = it)) }
-            // W8: per-list mute — silence reminders for chosen lists.
+            // W8: per-list/folder mute — a searchable multi-select (R108), like the "Move to" surface.
             val lists by vm.lists.collectAsState()
             val muteFolders by vm.folders.collectAsState()
             if (lists.any { !it.archived } || muteFolders.isNotEmpty()) {
                 HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-                Text("Mute reminders from these lists & folders", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Muting a folder silences every list inside it. Tap to toggle.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    muteFolders.forEach { fo ->
-                        FilterChip(selected = fo.id in s.mutedFolders, onClick = { vm.toggleMutedFolder(fo.id) }, label = { Text("\uD83D\uDCC1 " + fo.name.take(16)) })
-                    }
-                    lists.filter { !it.archived }.forEach { l ->
-                        FilterChip(selected = l.id in s.mutedLists, onClick = { vm.toggleMutedList(l.id) }, label = { Text(l.name.take(16)) })
-                    }
-                }
+                val activeLists = lists.filter { !it.archived }
+                val mutedCount = s.mutedFolders.count { id -> muteFolders.any { it.id == id } } +
+                    s.mutedLists.count { id -> activeLists.any { it.id == id } }
+                NavRow(
+                    "Mute reminders",
+                    if (mutedCount == 0) "None" else "$mutedCount muted",
+                    { showMute = true },
+                    subtitle = "Silence chosen lists & folders",
+                )
             }
             if (s.dailySummaryEnabled) {
                 Row(Modifier.fillMaxWidth().clickable { showTime = true }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1141,13 +1145,15 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     if (showZone) ZonePickerDialog(current = s.timeZone, onDismiss = { showZone = false }) { z ->
         vm.saveSettings(s.copy(timeZone = z)); showZone = false
     }
-    if (showThemePack) ChoicePickerDialog("Theme pack", THEME_PACKS.map { it.id to it.label }, s.themePack, onDismiss = { showThemePack = false }) { id ->
+    if (showThemePack) ChoicePickerDialog("Theme pack", THEME_PACKS.map { it.id to it.label }, s.themePack,
+        leading = { id -> ThemePackSwatch(THEME_PACKS.first { it.id == id }) }, onDismiss = { showThemePack = false }) { id ->
         val pack = THEME_PACKS.first { it.id == id }
         vm.saveSettings(s.copy(themePack = pack.id, accentArgb = pack.accent, appBackground = pack.background,
             dynamicColor = if (pack.id.isBlank()) s.dynamicColor else false, themeMode = pack.themeMode ?: s.themeMode))
         showThemePack = false
     }
-    if (showBg) ChoicePickerDialog("App background", APP_BACKGROUNDS, s.appBackground, onDismiss = { showBg = false }) { key ->
+    if (showBg) ChoicePickerDialog("App background", APP_BACKGROUNDS, s.appBackground,
+        leading = { key -> BackgroundSwatch(key) }, onDismiss = { showBg = false }) { key ->
         vm.saveSettings(s.copy(appBackground = key)); showBg = false
     }
     if (showWeekStart) ChoicePickerDialog("Week starts on", WEEK_STARTS, s.weekStart, onDismiss = { showWeekStart = false }) { v ->
@@ -1158,6 +1164,15 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     if (showSnoozeCustom) DurationPickerDialog(s.defaultSnoozeMin, onDismiss = { showSnoozeCustom = false }) { m ->
         vm.saveSettings(s.copy(defaultSnoozeMin = m.coerceIn(1, 720))); showSnoozeCustom = false
     }
+    if (showMute) MuteTargetsDialog(
+        folders = vm.folders.collectAsState().value,
+        lists = vm.lists.collectAsState().value.filter { !it.archived },
+        mutedFolders = s.mutedFolders,
+        mutedLists = s.mutedLists,
+        onToggleFolder = { vm.toggleMutedFolder(it) },
+        onToggleList = { vm.toggleMutedList(it) },
+        onDismiss = { showMute = false },
+    )
     if (showTime) {
         com.todocompanion.app.ui.components.TimeFieldDialog(
             initialMinuteOfDay = s.dailySummaryHour * 60 + s.dailySummaryMinute,
@@ -1331,6 +1346,63 @@ private fun ZonePickerDialog(current: String, onDismiss: () -> Unit, title: Stri
     )
 }
 
+/** R108 — a searchable multi-select for muting reminders from chosen folders & lists, mirroring the
+ *  "Move to" surface: a search field over one row per target, each a folder/list icon + name (+ parent
+ *  folder as subtitle) with a checkbox. Replaces the space-hungry chip grid. */
+@Composable
+private fun MuteTargetsDialog(
+    folders: List<com.todocompanion.app.data.entity.FolderEntity>,
+    lists: List<com.todocompanion.app.data.entity.ListEntity>,
+    mutedFolders: Set<String>,
+    mutedLists: Set<String>,
+    onToggleFolder: (String) -> Unit,
+    onToggleList: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    data class MuteRow(val id: String, val name: String, val sub: String?, val isFolder: Boolean, val muted: Boolean)
+    val folderById = remember(folders) { folders.associateBy { it.id } }
+    val all = remember(folders, lists, mutedFolders, mutedLists) {
+        folders.map { MuteRow(it.id, it.name, "Folder", true, it.id in mutedFolders) } +
+            lists.map { l -> MuteRow(l.id, l.name, l.folderId?.let { fid -> folderById[fid]?.name } ?: "List", false, l.id in mutedLists) }
+    }
+    var query by remember { mutableStateOf("") }
+    val filtered = all.filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+        title = { Text("Mute reminders") },
+        text = {
+            Column {
+                Text("Muting a folder silences every list inside it.", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
+                com.todocompanion.app.ui.components.AppTextField(query, { query = it }, placeholder = { Text("Search lists & folders…") },
+                    singleLine = true, leadingIcon = { Icon(Icons.Filled.Search, null) }, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(Modifier.heightIn(max = 340.dp)) {
+                    items(filtered, key = { (if (it.isFolder) "f:" else "l:") + it.id }) { r ->
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                                .clickable { if (r.isFolder) onToggleFolder(r.id) else onToggleList(r.id) }
+                                .padding(horizontal = 4.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(if (r.isFolder) Icons.Filled.Folder else Icons.AutoMirrored.Filled.List, null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(r.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                if (r.sub != null) Text(r.sub, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Checkbox(checked = r.muted, onCheckedChange = { if (r.isFolder) onToggleFolder(r.id) else onToggleList(r.id) })
+                        }
+                    }
+                    if (filtered.isEmpty()) item { Text("No match", Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
+            }
+        },
+    )
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun FlagEditDialog(initial: FlagEntity?, onDismiss: () -> Unit, onSave: (String, Long, String) -> Unit) {
@@ -1443,11 +1515,15 @@ private fun fmtDur(min: Int): String = when {
 /** A clean, tappable settings row: label (+ optional subtitle) on the left, current value + chevron on the
  *  right. The single idiom for "tap to choose", replacing sprawling chip rows and steppers. */
 @Composable
-private fun NavRow(label: String, value: String, onClick: () -> Unit, subtitle: String? = null) {
+private fun NavRow(label: String, value: String, onClick: () -> Unit, subtitle: String? = null, preview: (@Composable () -> Unit)? = null) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).padding(end = 12.dp)) {
             Text(label, style = MaterialTheme.typography.bodyLarge)
             if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (preview != null) {
+            preview()
+            Spacer(Modifier.width(8.dp))
         }
         Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.width(6.dp))
@@ -1471,9 +1547,17 @@ private fun DurationSettingRow(label: String, minutes: Int, subtitle: String? = 
     if (show) DurationPickerDialog(minutes, onDismiss = { show = false }) { onPick(it); show = false }
 }
 
-/** A generic single-choice picker dialog — used for theme pack, app background, week start, etc. */
+/** A generic single-choice picker dialog — used for theme pack, app background, week start, etc.
+ *  [leading] optionally draws a preview (e.g. a colour swatch) at the start of each row. */
 @Composable
-private fun <T> ChoicePickerDialog(title: String, options: List<Pair<T, String>>, current: T?, onDismiss: () -> Unit, onPick: (T) -> Unit) {
+private fun <T> ChoicePickerDialog(
+    title: String,
+    options: List<Pair<T, String>>,
+    current: T?,
+    leading: (@Composable (T) -> Unit)? = null,
+    onDismiss: () -> Unit,
+    onPick: (T) -> Unit,
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {},
@@ -1482,7 +1566,11 @@ private fun <T> ChoicePickerDialog(title: String, options: List<Pair<T, String>>
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 options.forEach { (v, l) ->
-                    Row(Modifier.fillMaxWidth().clickable { onPick(v) }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().clickable { onPick(v) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (leading != null) {
+                            leading(v)
+                            Spacer(Modifier.width(14.dp))
+                        }
                         Text(l, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge,
                             color = if (v == current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
                         if (v == current) Icon(Icons.Filled.Check, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
@@ -1491,6 +1579,43 @@ private fun <T> ChoicePickerDialog(title: String, options: List<Pair<T, String>>
             }
         },
     )
+}
+
+/** The subtle whole-app background tints, kept in sync with [appBackgroundBrush] in AppRoot so the
+ *  Settings swatch previews the real thing. Returns null for "none". */
+private fun appBackgroundTint(name: String): Color? = when (name) {
+    "warm" -> Color(0xFFF59E0B)
+    "cool" -> Color(0xFF3E7BFA)
+    "mint" -> Color(0xFF12A594)
+    "dusk" -> Color(0xFF8B5CF6)
+    "rose" -> Color(0xFFEC4899)
+    else -> null
+}
+
+/** A round preview for a whole-app background option — the tint over the surface, or an empty ring for "none". */
+@Composable
+private fun BackgroundSwatch(key: String, size: androidx.compose.ui.unit.Dp = 30.dp) {
+    val tint = appBackgroundTint(key)
+    Box(
+        Modifier.size(size).clip(CircleShape)
+            .background(tint?.copy(alpha = 0.30f) ?: MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
+    )
+}
+
+/** A round preview for a theme pack — the pack's background tint as the field, its accent as the inner dot. */
+@Composable
+private fun ThemePackSwatch(pack: ThemePack, size: androidx.compose.ui.unit.Dp = 30.dp) {
+    val accent = if (pack.accent == 0L) MaterialTheme.colorScheme.primary else Color(pack.accent)
+    val tint = appBackgroundTint(pack.background)
+    Box(
+        Modifier.size(size).clip(CircleShape)
+            .background(tint?.copy(alpha = 0.28f) ?: MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(Modifier.size(size * 0.53f).clip(CircleShape).background(accent))
+    }
 }
 
 /** R107 — a small section heading that groups the collapsible category cards, so the screen reads as a few
