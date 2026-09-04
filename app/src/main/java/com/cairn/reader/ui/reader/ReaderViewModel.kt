@@ -59,7 +59,18 @@ class ReaderViewModel @Inject constructor(
         viewModelScope.launch {
             val data = itemRepository.reader(itemId)
             _state.value = ReaderUiState(loading = false, data = data)
-            if (data != null) itemRepository.setRead(itemId, true)
+            if (data != null) {
+                itemRepository.setRead(itemId, true)
+                // Automatically fetch the full article the first time it's opened, so RSS
+                // items that only carry a summary read like the real thing — no button.
+                // Feed content is shown immediately and swapped when extraction returns;
+                // on failure the feed content stays and the status becomes FAILED.
+                if (data.extractStatus == "NONE") {
+                    _state.update { it.copy(extracting = true) }
+                    feedRepository.extractFull(itemId)
+                    _state.update { ReaderUiState(loading = false, extracting = false, data = itemRepository.reader(itemId)) }
+                }
+            }
         }
     }
 

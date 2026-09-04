@@ -175,7 +175,8 @@ class FeedRepository @Inject constructor(
         val res = runCatching { fetcher.fetch(url) }.getOrNull()
         val extracted = res?.body?.let { extractor.extract(res.finalUrl, it) }
         if (extracted == null) {
-            itemDao.setExtracted(itemId, null, null, 0, 0, null, "FAILED", "ORIGINAL")
+            // Keep whatever content we already have (e.g. the feed body); just record the failure.
+            itemDao.setExtractStatus(itemId, "FAILED")
             return
         }
         val blob = blobStore.writeArticle(itemId, extracted.contentHtml)

@@ -329,15 +329,21 @@ private fun ArticleBody(
                     }.joinToString("  ·  ")
                     if (meta.isNotEmpty()) Text(meta, style = MaterialTheme.typography.labelMedium, color = palette.secondary)
                     Spacer(Modifier.height(16.dp))
-                    if (data.extractStatus != "OK") {
-                        OutlinedButton(onClick = onLoadFull, enabled = !state.extracting) {
-                            if (state.extracting) {
+                    when {
+                        state.extracting -> {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.height(16.dp).width(16.dp))
-                                Spacer(Modifier.width(8.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text("Fetching full article…", style = MaterialTheme.typography.labelMedium, color = palette.secondary)
                             }
-                            Text(if (state.extracting) "Fetching…" else "Read full article")
+                            Spacer(Modifier.height(8.dp))
                         }
-                        Spacer(Modifier.height(8.dp))
+                        data.extractStatus == "FAILED" -> {
+                            OutlinedButton(onClick = onLoadFull) { Text("Retry full article") }
+                            Spacer(Modifier.height(4.dp))
+                            Text("Showing the summary — the full article couldn't be fetched.", style = MaterialTheme.typography.labelSmall, color = palette.secondary)
+                            Spacer(Modifier.height(8.dp))
+                        }
                     }
                     HorizontalDivider(color = palette.secondary.copy(alpha = 0.25f))
                     Spacer(Modifier.height(12.dp))

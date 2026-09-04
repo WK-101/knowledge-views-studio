@@ -151,6 +151,11 @@ interface ItemDao {
     @Query("UPDATE item_states SET readProgress = :progress, lastReadAt = :ts, updatedAt = :ts WHERE itemId = :id")
     suspend fun setProgress(id: String, progress: Float, ts: Long)
 
+    /** Update only the extraction status — used to record a failed fetch without
+     *  discarding the feed content we already have. */
+    @Query("UPDATE items SET extractStatus = :status WHERE id = :id")
+    suspend fun setExtractStatus(id: String, status: String)
+
     @Query("UPDATE items SET title = :title, author = COALESCE(:author, author), siteName = COALESCE(:siteName, siteName) WHERE id = :id")
     suspend fun updateMeta(id: String, title: String, author: String?, siteName: String?)
 
