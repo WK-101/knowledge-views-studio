@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.DoneAll
+import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Settings
@@ -107,6 +108,7 @@ fun CairnApp(
     val inboxState by inboxViewModel.state.collectAsStateWithLifecycle()
     val feeds by inboxViewModel.feeds.collectAsStateWithLifecycle()
     val selection by inboxViewModel.selection.collectAsStateWithLifecycle()
+    val ttsState by inboxViewModel.tts.collectAsStateWithLifecycle()
     var showViewMenu by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -168,6 +170,11 @@ fun CairnApp(
                 },
                 actions = {
                     if (current == Destination.Inbox) {
+                        if (inboxState.items.isNotEmpty() && !ttsState.active) {
+                            IconButton(onClick = { inboxViewModel.listenAll() }) {
+                                Icon(Icons.Outlined.Headphones, contentDescription = "Listen to all")
+                            }
+                        }
                         if (inboxState.unread > 0) {
                             IconButton(onClick = { inboxViewModel.markAllRead() }) {
                                 Icon(Icons.Outlined.DoneAll, contentDescription = "Mark all read")
@@ -205,15 +212,27 @@ fun CairnApp(
             )
         },
         bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-                destinations.forEachIndexed { index, dest ->
-                    NavigationBarItem(
-                        selected = selected == index,
-                        onClick = { selected = index },
-                        icon = { Icon(dest.icon, contentDescription = dest.label) },
-                        label = { Text(dest.label) },
-                        alwaysShowLabel = false,
+            Column {
+                if (ttsState.active) {
+                    com.cairn.reader.ui.components.ListenBar(
+                        state = ttsState,
+                        onPlayPause = inboxViewModel::listenToggle,
+                        onStop = inboxViewModel::listenStop,
+                        onSpeed = inboxViewModel::listenSpeed,
+                        onPrev = inboxViewModel::listenPrev,
+                        onNext = inboxViewModel::listenNext,
                     )
+                }
+                NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+                    destinations.forEachIndexed { index, dest ->
+                        NavigationBarItem(
+                            selected = selected == index,
+                            onClick = { selected = index },
+                            icon = { Icon(dest.icon, contentDescription = dest.label) },
+                            label = { Text(dest.label) },
+                            alwaysShowLabel = false,
+                        )
+                    }
                 }
             }
         },

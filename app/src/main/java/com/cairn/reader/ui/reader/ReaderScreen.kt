@@ -241,11 +241,13 @@ fun ReaderScreen(
         bottomBar = {
             Column {
                 if (ttsState.active) {
-                    MiniPlayer(
+                    com.cairn.reader.ui.components.ListenBar(
                         state = ttsState,
                         onPlayPause = viewModel::toggleListen,
                         onStop = viewModel::stopListen,
                         onSpeed = viewModel::setListenSpeed,
+                        onPrev = viewModel::listenPrev,
+                        onNext = viewModel::listenNext,
                     )
                 }
                 if (data != null) {

@@ -168,12 +168,14 @@ class ReaderViewModel @Inject constructor(
             ttsReader.togglePlayPause()
         } else {
             val data = _state.value.data ?: return
-            ttsReader.start(buildSpeechChunks(data))
+            ttsReader.startQueue(listOf(TtsReader.Track(data.title, buildSpeechChunks(data))))
         }
     }
 
     fun stopListen() = ttsReader.stop()
     fun setListenSpeed(speed: Float) = ttsReader.setSpeed(speed)
+    fun listenNext() = ttsReader.skipNext()
+    fun listenPrev() = ttsReader.skipPrevious()
 
     private fun buildSpeechChunks(data: ReaderData): List<String> {
         val chunks = ArrayList<String>()

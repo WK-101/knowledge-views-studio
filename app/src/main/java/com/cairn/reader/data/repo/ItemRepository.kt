@@ -10,6 +10,7 @@ import com.cairn.reader.data.db.SourceEntity
 import com.cairn.reader.data.db.SyncDao
 import com.cairn.reader.data.db.SyncOpEntity
 import kotlinx.coroutines.flow.Flow
+import org.jsoup.Jsoup
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -65,6 +66,17 @@ class ItemRepository @Inject constructor(
             collectionId = e.collectionId,
             html = blobStore.readArticle(e.blobPath),
         )
+    }
+
+    /** Article text for read-aloud: (title, plain body). Falls back to the excerpt when
+     *  no full content is cached. Null when there's nothing speakable. */
+    suspend fun articleText(itemId: String): Pair<String, String>? {
+        val e = itemDao.getItem(itemId) ?: return null
+        val html = blobStore.readArticle(e.blobPath)
+        val body = html?.let { runCatching { Jsoup.parse(it).text() }.getOrNull() }?.takeIf { it.isNotBlank() }
+            ?: e.excerpt?.takeIf { it.isNotBlank() }
+            ?: return null
+        return e.title to body
     }
 
     fun inbox(sourceId: String? = null, folder: String? = null): Flow<List<ItemListRow>> = itemDao.observeInbox(sourceId, folder)

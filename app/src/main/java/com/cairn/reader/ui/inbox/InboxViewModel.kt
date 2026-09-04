@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cairn.reader.data.db.FeedUnread
 import com.cairn.reader.data.db.ItemListRow
+import com.cairn.reader.audio.SpeechText
+import com.cairn.reader.audio.TtsReader
 import com.cairn.reader.data.prefs.ListViewMode
 import com.cairn.reader.data.prefs.PreferencesRepository
 import com.cairn.reader.data.repo.FeedRepository
@@ -54,7 +56,28 @@ class InboxViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
     private val feedRepository: FeedRepository,
     private val preferencesRepository: PreferencesRepository,
+    private val ttsReader: TtsReader,
 ) : ViewModel() {
+
+    /** Playback state for the "Listen to all" queue, shared with the reader. */
+    val tts: StateFlow<TtsReader.State> = ttsReader.state
+
+    /** Queue the current list (up to 30 stories) for read-aloud, back-to-back. */
+    fun listenAll() = viewModelScope.launch {
+        val rows = state.value.items.take(30)
+        val tracks = rows.mapNotNull { row ->
+            val (title, body) = itemRepository.articleText(row.id) ?: return@mapNotNull null
+            val chunks = SpeechText.chunks(title, body)
+            if (chunks.isEmpty()) null else TtsReader.Track(title, chunks)
+        }
+        if (tracks.isEmpty()) _messages.emit("Nothing here to read aloud") else ttsReader.startQueue(tracks)
+    }
+
+    fun listenToggle() = ttsReader.togglePlayPause()
+    fun listenStop() = ttsReader.stop()
+    fun listenSpeed(speed: Float) = ttsReader.setSpeed(speed)
+    fun listenNext() = ttsReader.skipNext()
+    fun listenPrev() = ttsReader.skipPrevious()
 
     private val _refreshing = MutableStateFlow(false)
     val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()

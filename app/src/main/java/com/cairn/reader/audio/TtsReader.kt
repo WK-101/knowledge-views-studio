@@ -18,18 +18,25 @@ import javax.inject.Singleton
  * the system engine synthesizes locally (and offline once its voice data is installed),
  * which keeps read-aloud consistent with Cairn's privacy-first promise.
  *
- * The platform engine has no real pause, so "pause" stops synthesis and remembers the
- * position; "resume" re-queues from there. Speed changes take effect on the next chunk.
+ * Plays a QUEUE of tracks (each an article's title + sentences) back-to-back, so a whole
+ * feed can be listened to; utterance ids encode "trackIndex:chunkIndex". The platform engine
+ * has no real pause, so "pause" stops synthesis and remembers the position; "resume" re-queues.
  */
 @Singleton
 class TtsReader @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
+    /** One article in the listen queue. */
+    data class Track(val title: String, val chunks: List<String>)
+
     data class State(
         val active: Boolean = false,
         val playing: Boolean = false,
-        val index: Int = 0,
-        val total: Int = 0,
+        val index: Int = 0,          // chunk within the current track
+        val total: Int = 0,          // chunks in the current track
+        val trackIndex: Int = 0,     // position in the queue
+        val trackCount: Int = 0,     // queue length
+        val trackTitle: String = "",
         val speed: Float = 1.0f,
     )
 
@@ -38,7 +45,7 @@ class TtsReader @Inject constructor(
 
     private var tts: TextToSpeech? = null
     private var ready = false
-    private var chunks: List<String> = emptyList()
+    private var tracks: List<Track> = emptyList()
 
     private fun ensureEngine(onReady: () -> Unit) {
         if (ready) { onReady(); return }
@@ -57,40 +64,69 @@ class TtsReader @Inject constructor(
         }
     }
 
+    private fun parseId(id: String?): Pair<Int, Int>? {
+        val parts = id?.split(":") ?: return null
+        if (parts.size != 2) return null
+        val t = parts[0].toIntOrNull() ?: return null
+        val i = parts[1].toIntOrNull() ?: return null
+        return t to i
+    }
+
     private val progressListener = object : UtteranceProgressListener() {
         override fun onStart(utteranceId: String?) {
-            val i = utteranceId?.toIntOrNull() ?: return
-            _state.update { it.copy(index = i, playing = true, active = true) }
+            val (t, i) = parseId(utteranceId) ?: return
+            val track = tracks.getOrNull(t)
+            _state.update {
+                it.copy(
+                    active = true, playing = true, trackIndex = t, index = i,
+                    total = track?.chunks?.size ?: it.total,
+                    trackTitle = track?.title ?: it.trackTitle,
+                )
+            }
         }
 
         override fun onDone(utteranceId: String?) {
-            val i = utteranceId?.toIntOrNull() ?: return
-            if (i >= chunks.lastIndex) _state.update { State(speed = it.speed) }
+            val (t, i) = parseId(utteranceId) ?: return
+            val track = tracks.getOrNull(t) ?: return
+            if (i >= track.chunks.lastIndex) {
+                if (t < tracks.lastIndex) enqueueTrack(t + 1, 0)
+                else _state.update { State(speed = it.speed) }
+            }
         }
 
         @Deprecated("Deprecated in Java")
         override fun onError(utteranceId: String?) = Unit
     }
 
-    /** Begin reading [textChunks] from the top (title first, then sentences). */
-    fun start(textChunks: List<String>) {
-        if (textChunks.isEmpty()) return
-        chunks = textChunks
+    /** Begin reading a queue of tracks from [startAt]. */
+    fun startQueue(newTracks: List<Track>, startAt: Int = 0) {
+        val filtered = newTracks.filter { it.chunks.isNotEmpty() }
+        if (filtered.isEmpty()) return
+        tracks = filtered
         ensureEngine {
-            _state.update { it.copy(active = true, total = chunks.size) }
-            enqueueFrom(0)
+            _state.update { it.copy(active = true, trackCount = filtered.size) }
+            enqueueTrack(startAt.coerceIn(0, filtered.lastIndex), 0)
         }
     }
 
-    private fun enqueueFrom(from: Int) {
+    /** Convenience for a single article. */
+    fun start(textChunks: List<String>) = startQueue(listOf(Track("", textChunks)))
+
+    private fun enqueueTrack(t: Int, fromChunk: Int) {
+        val track = tracks.getOrNull(t) ?: return
         val engine = tts ?: return
         engine.setSpeechRate(_state.value.speed)
         engine.stop()
-        for (i in from until chunks.size) {
-            val mode = if (i == from) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
-            engine.speak(chunks[i], mode, null, i.toString())
+        for (i in fromChunk until track.chunks.size) {
+            val mode = if (i == fromChunk) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+            engine.speak(track.chunks[i], mode, null, "$t:$i")
         }
-        _state.update { it.copy(playing = true, active = true, index = from) }
+        _state.update {
+            it.copy(
+                active = true, playing = true, trackIndex = t, trackCount = tracks.size,
+                trackTitle = track.title, index = fromChunk, total = track.chunks.size,
+            )
+        }
     }
 
     fun togglePlayPause() {
@@ -100,18 +136,31 @@ class TtsReader @Inject constructor(
             tts?.stop()
             _state.update { it.copy(playing = false) }
         } else {
-            enqueueFrom(s.index)
+            enqueueTrack(s.trackIndex, s.index)
         }
+    }
+
+    fun skipNext() {
+        val s = _state.value
+        if (s.trackIndex < tracks.lastIndex) enqueueTrack(s.trackIndex + 1, 0)
+    }
+
+    fun skipPrevious() {
+        val s = _state.value
+        // Restart the current track if we're past its start, else step back a track.
+        if (s.index > 1 || s.trackIndex == 0) enqueueTrack(s.trackIndex, 0)
+        else enqueueTrack(s.trackIndex - 1, 0)
     }
 
     fun setSpeed(speed: Float) {
         _state.update { it.copy(speed = speed) }
-        if (_state.value.playing) enqueueFrom(_state.value.index)
+        val s = _state.value
+        if (s.playing) enqueueTrack(s.trackIndex, s.index)
     }
 
     fun stop() {
         tts?.stop()
-        chunks = emptyList()
+        tracks = emptyList()
         _state.update { State(speed = it.speed) }
     }
 
