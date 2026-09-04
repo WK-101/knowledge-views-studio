@@ -9,6 +9,7 @@ import com.cairn.reader.data.prefs.ReaderFont
 import com.cairn.reader.data.prefs.ReaderTheme
 import com.cairn.reader.data.prefs.ThemeMode
 import com.cairn.reader.data.repo.FeedRepository
+import com.cairn.reader.data.repo.HighlightRepository
 import com.cairn.reader.data.repo.SourceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,10 +23,14 @@ class SettingsViewModel @Inject constructor(
     private val sourceRepository: SourceRepository,
     private val feedRepository: FeedRepository,
     private val preferencesRepository: PreferencesRepository,
+    highlightRepository: HighlightRepository,
 ) : ViewModel() {
 
     val sources: StateFlow<List<SourceEntity>> =
         sourceRepository.sources().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val highlightCount: StateFlow<Int> =
+        highlightRepository.observeCount().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     val preferences: StateFlow<AppPreferences> =
         preferencesRepository.preferences.stateIn(viewModelScope, SharingStarted.Eagerly, AppPreferences())

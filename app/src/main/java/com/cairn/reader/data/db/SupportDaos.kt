@@ -25,19 +25,68 @@ interface TagDao {
     suspend fun tagsForItem(itemId: String): List<TagEntity>
 }
 
+/** A highlight joined with the article it belongs to, for the notebook and exports. */
+data class HighlightWithArticle(
+    val id: String,
+    val itemId: String,
+    val articleTitle: String,
+    val articleUrl: String,
+    val quote: String,
+    val note: String?,
+    val color: Int,
+    val createdAt: Long,
+)
+
 @Dao
 interface HighlightDao {
     @Upsert
     suspend fun upsert(highlight: HighlightEntity)
 
-    @Query("SELECT * FROM highlights WHERE itemId = :itemId ORDER BY startOffset")
+    @Query("SELECT * FROM highlights WHERE itemId = :itemId ORDER BY startSelector, startOffset")
     fun observeForItem(itemId: String): Flow<List<HighlightEntity>>
 
-    @Query("SELECT * FROM highlights ORDER BY createdAt DESC")
-    fun observeAll(): Flow<List<HighlightEntity>>
+    @Query("UPDATE highlights SET note = :note WHERE id = :id")
+    suspend fun setNote(id: String, note: String?)
+
+    @Query("UPDATE highlights SET color = :color WHERE id = :id")
+    suspend fun setColor(id: String, color: Int)
 
     @Query("DELETE FROM highlights WHERE id = :id")
     suspend fun delete(id: String)
+
+    @Query("SELECT COUNT(*) FROM highlights")
+    fun observeCount(): Flow<Int>
+
+    @Query(
+        """
+        SELECT h.id AS id, h.itemId AS itemId, i.title AS articleTitle, i.url AS articleUrl,
+               h.quote AS quote, h.note AS note, h.color AS color, h.createdAt AS createdAt
+        FROM highlights h JOIN items i ON i.id = h.itemId
+        ORDER BY h.createdAt DESC
+        """
+    )
+    fun observeAllWithArticle(): Flow<List<HighlightWithArticle>>
+
+    @Query(
+        """
+        SELECT h.id AS id, h.itemId AS itemId, i.title AS articleTitle, i.url AS articleUrl,
+               h.quote AS quote, h.note AS note, h.color AS color, h.createdAt AS createdAt
+        FROM highlights h JOIN items i ON i.id = h.itemId
+        ORDER BY i.title COLLATE NOCASE, h.startSelector, h.startOffset
+        """
+    )
+    suspend fun allWithArticle(): List<HighlightWithArticle>
+
+    @Query(
+        """
+        SELECT h.id AS id, h.itemId AS itemId, i.title AS articleTitle, i.url AS articleUrl,
+               h.quote AS quote, h.note AS note, h.color AS color, h.createdAt AS createdAt
+        FROM highlights h JOIN items i ON i.id = h.itemId
+        WHERE h.itemId = :itemId
+        ORDER BY h.startSelector, h.startOffset
+        """
+    )
+    suspend fun forItemWithArticle(itemId: String): List<HighlightWithArticle>
 }
 
 @Dao

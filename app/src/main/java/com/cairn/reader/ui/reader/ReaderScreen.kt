@@ -5,6 +5,9 @@ package com.cairn.reader.ui.reader
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,10 +21,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -29,9 +34,14 @@ import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FormatSize
+import androidx.compose.material.icons.outlined.IosShare
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -41,9 +51,11 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -51,30 +63,40 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.cairn.reader.data.db.HighlightEntity
 import com.cairn.reader.data.prefs.ReaderFont
 import com.cairn.reader.data.prefs.ReaderTheme
 import com.cairn.reader.ui.theme.InterFamily
 import com.cairn.reader.ui.theme.ReadingSerif
 import com.cairn.reader.ui.util.formatAgo
+import java.text.BreakIterator
+import java.util.Locale
 
 private val ReaderHPad = 22.dp
 
@@ -97,9 +119,12 @@ fun ReaderScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val prefs by viewModel.preferences.collectAsStateWithLifecycle()
+    val highlights by viewModel.highlights.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val data = state.data
     var showTypography by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
+    var managed by remember { mutableStateOf<HighlightEntity?>(null) }
 
     val palette = readerPalette(prefs.readerTheme)
 
@@ -108,6 +133,15 @@ fun ReaderScreen(
         runCatching {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
+    }
+
+    fun shareText(text: String, subject: String?) {
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, text)
+            if (subject != null) putExtra(Intent.EXTRA_SUBJECT, subject)
+        }
+        runCatching { context.startActivity(Intent.createChooser(send, null)) }
     }
 
     Scaffold(
@@ -136,7 +170,27 @@ fun ReaderScreen(
                             tint = if (data?.isReadLater == true) MaterialTheme.colorScheme.tertiary else palette.text,
                         )
                     }
-                    IconButton(onClick = ::openOriginal) { Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = "Open original", tint = palette.text) }
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(Icons.Outlined.MoreVert, contentDescription = "More", tint = palette.text)
+                        }
+                        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Open original") },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null) },
+                                onClick = { showMenu = false; openOriginal() },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(if (highlights.isEmpty()) "Share article" else "Export highlights") },
+                                leadingIcon = { Icon(Icons.Outlined.IosShare, contentDescription = null) },
+                                onClick = {
+                                    showMenu = false
+                                    if (highlights.isEmpty()) shareText(data?.url.orEmpty(), data?.title)
+                                    else viewModel.exportHighlights { md -> shareText(md, data?.title?.let { "Highlights — $it" }) }
+                                },
+                            )
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = palette.background),
             )
@@ -149,11 +203,14 @@ fun ReaderScreen(
                 padding = padding,
                 state = state,
                 palette = palette,
+                highlights = highlights,
                 fontFamily = if (prefs.readerFont == ReaderFont.SERIF) ReadingSerif else InterFamily,
                 scale = prefs.readerFontScale,
                 onLoadFull = viewModel::loadFullArticle,
                 onOpenOriginal = ::openOriginal,
                 onSaveProgress = viewModel::setProgress,
+                onAddHighlight = viewModel::addHighlight,
+                onManageHighlight = { managed = it },
             )
         }
     }
@@ -169,6 +226,16 @@ fun ReaderScreen(
             onDismiss = { showTypography = false },
         )
     }
+
+    managed?.let { highlight ->
+        HighlightSheet(
+            highlight = highlight,
+            onColor = { viewModel.setHighlightColor(highlight.id, it) },
+            onSaveNote = { viewModel.setHighlightNote(highlight.id, it) },
+            onDelete = { viewModel.removeHighlight(highlight.id); managed = null },
+            onDismiss = { managed = null },
+        )
+    }
 }
 
 @Composable
@@ -176,11 +243,14 @@ private fun ArticleBody(
     padding: PaddingValues,
     state: ReaderUiState,
     palette: ReaderPalette,
+    highlights: List<HighlightEntity>,
     fontFamily: FontFamily,
     scale: Float,
     onLoadFull: () -> Unit,
     onOpenOriginal: () -> Unit,
     onSaveProgress: (Float) -> Unit,
+    onAddHighlight: (blockIndex: Int, start: Int, end: Int, quote: String) -> Unit,
+    onManageHighlight: (HighlightEntity) -> Unit,
 ) {
     val data = state.data ?: return
     val linkColor = MaterialTheme.colorScheme.primary
@@ -188,6 +258,7 @@ private fun ArticleBody(
         data.html?.let { HtmlLinearizer.linearize(it, data.url, linkColor) }.orEmpty()
     }
     val bodyStyle = TextStyle(fontFamily = fontFamily, fontSize = (18 * scale).sp, lineHeight = (30 * scale).sp, color = palette.text)
+    val byBlock = remember(highlights) { highlights.groupBy { it.startSelector?.toIntOrNull() ?: -1 } }
 
     val listState = rememberLazyListState()
     val progress by remember {
@@ -262,27 +333,49 @@ private fun ArticleBody(
             }
 
             items(blocks.size) { index ->
-                BlockView(blocks[index], bodyStyle, palette)
+                BlockView(
+                    block = blocks[index],
+                    blockIndex = index,
+                    bodyStyle = bodyStyle,
+                    palette = palette,
+                    highlights = byBlock[index].orEmpty(),
+                    onAddHighlight = onAddHighlight,
+                    onManageHighlight = onManageHighlight,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun BlockView(block: ReaderBlock, bodyStyle: TextStyle, palette: ReaderPalette) {
+private fun BlockView(
+    block: ReaderBlock,
+    blockIndex: Int,
+    bodyStyle: TextStyle,
+    palette: ReaderPalette,
+    highlights: List<HighlightEntity>,
+    onAddHighlight: (blockIndex: Int, start: Int, end: Int, quote: String) -> Unit,
+    onManageHighlight: (HighlightEntity) -> Unit,
+) {
     when (block) {
-        is ReaderBlock.Heading -> Text(
-            text = block.text,
+        is ReaderBlock.Heading -> HighlightableText(
+            base = block.text,
             style = bodyStyle.copy(
                 fontWeight = FontWeight.SemiBold,
                 fontSize = bodyStyle.fontSize * when (block.level) { 1, 2 -> 1.35f; 3 -> 1.2f; else -> 1.08f },
                 lineHeight = bodyStyle.lineHeight * 1.05f,
             ),
+            highlights = highlights,
+            onAdd = { s, e, q -> onAddHighlight(blockIndex, s, e, q) },
+            onManage = onManageHighlight,
             modifier = Modifier.padding(horizontal = ReaderHPad, vertical = 10.dp),
         )
-        is ReaderBlock.Paragraph -> Text(
-            text = block.text,
+        is ReaderBlock.Paragraph -> HighlightableText(
+            base = block.text,
             style = bodyStyle,
+            highlights = highlights,
+            onAdd = { s, e, q -> onAddHighlight(blockIndex, s, e, q) },
+            onManage = onManageHighlight,
             modifier = Modifier.padding(horizontal = ReaderHPad, vertical = 8.dp),
         )
         is ReaderBlock.Image -> Column(Modifier.padding(vertical = 10.dp)) {
@@ -302,7 +395,13 @@ private fun BlockView(block: ReaderBlock, bodyStyle: TextStyle, palette: ReaderP
         ) {
             Box(Modifier.width(3.dp).fillMaxHeight().background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)))
             Spacer(Modifier.width(14.dp))
-            Text(text = block.text, style = bodyStyle.copy(fontStyle = FontStyle.Italic, color = palette.secondary))
+            HighlightableText(
+                base = block.text,
+                style = bodyStyle.copy(fontStyle = FontStyle.Italic, color = palette.secondary),
+                highlights = highlights,
+                onAdd = { s, e, q -> onAddHighlight(blockIndex, s, e, q) },
+                onManage = onManageHighlight,
+            )
         }
         is ReaderBlock.Code -> Box(
             Modifier.padding(horizontal = ReaderHPad, vertical = 10.dp).fillMaxWidth()
@@ -320,6 +419,109 @@ private fun BlockView(block: ReaderBlock, bodyStyle: TextStyle, palette: ReaderP
             }
         }
         ReaderBlock.Rule -> HorizontalDivider(color = palette.secondary.copy(alpha = 0.25f), modifier = Modifier.padding(horizontal = ReaderHPad, vertical = 18.dp))
+    }
+}
+
+/**
+ * Body text that can be highlighted. Long-press a sentence to highlight it; long-press
+ * an existing highlight to manage it. Links keep working because they are rendered as
+ * their own interactive regions inside the text.
+ */
+@Composable
+private fun HighlightableText(
+    base: AnnotatedString,
+    style: TextStyle,
+    highlights: List<HighlightEntity>,
+    onAdd: (start: Int, end: Int, quote: String) -> Unit,
+    onManage: (HighlightEntity) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val plain = base.text
+    val rendered = remember(base, highlights) { applyHighlights(base, highlights) }
+    val layoutState = remember { mutableStateOf<TextLayoutResult?>(null) }
+    val currentAdd by rememberUpdatedState(onAdd)
+    val currentManage by rememberUpdatedState(onManage)
+    val currentHighlights by rememberUpdatedState(highlights)
+    Text(
+        text = rendered,
+        style = style,
+        onTextLayout = { layoutState.value = it },
+        modifier = modifier.pointerInput(plain) {
+            detectTapGestures(
+                onLongPress = { pos ->
+                    val layout = layoutState.value ?: return@detectTapGestures
+                    val offset = layout.getOffsetForPosition(pos).coerceIn(0, plain.length)
+                    val hit = currentHighlights.firstOrNull { offset >= it.startOffset && offset < it.endOffset }
+                    if (hit != null) {
+                        currentManage(hit)
+                    } else {
+                        sentenceRangeAt(plain, offset)?.let { r ->
+                            currentAdd(r.first, r.last + 1, plain.substring(r.first, r.last + 1))
+                        }
+                    }
+                },
+            )
+        },
+    )
+}
+
+@Composable
+private fun HighlightSheet(
+    highlight: HighlightEntity,
+    onColor: (Int) -> Unit,
+    onSaveNote: (String?) -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var note by remember(highlight.id) { mutableStateOf(highlight.note.orEmpty()) }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp)) {
+            Text(
+                text = "“${highlight.quote.trim()}”",
+                style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic),
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 4,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                HighlightColors.all.forEach { c ->
+                    val selected = c == highlight.color
+                    Box(
+                        Modifier
+                            .size(30.dp)
+                            .clip(CircleShape)
+                            .background(Color(c))
+                            .border(
+                                width = if (selected) 3.dp else 1.dp,
+                                color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outlineVariant,
+                                shape = CircleShape,
+                            )
+                            .clickable { onColor(c) },
+                    )
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            OutlinedTextField(
+                value = note,
+                onValueChange = { note = it },
+                label = { Text("Note") },
+                placeholder = { Text("Add a thought…") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Done),
+            )
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                TextButton(onClick = onDelete) {
+                    Icon(Icons.Outlined.DeleteOutline, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Delete")
+                }
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = { onSaveNote(note); onDismiss() }) { Text("Save") }
+            }
+        }
     }
 }
 
@@ -374,4 +576,33 @@ private fun Centered(padding: PaddingValues, content: @Composable () -> Unit) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) { content() }
+}
+
+// -- Highlight helpers --------------------------------------------------------
+
+private fun applyHighlights(base: AnnotatedString, highlights: List<HighlightEntity>): AnnotatedString {
+    if (highlights.isEmpty()) return base
+    return buildAnnotatedString {
+        append(base)
+        highlights.forEach { h ->
+            val s = h.startOffset.coerceIn(0, base.length)
+            val e = h.endOffset.coerceIn(s, base.length)
+            if (e > s) addStyle(SpanStyle(background = Color(h.color).copy(alpha = 0.42f)), s, e)
+        }
+    }
+}
+
+/** The character range of the sentence containing [offset], trimmed of surrounding space. */
+private fun sentenceRangeAt(text: String, offset: Int): IntRange? {
+    if (text.isBlank()) return null
+    val iterator = BreakIterator.getSentenceInstance(Locale.getDefault())
+    iterator.setText(text)
+    val probe = offset.coerceIn(0, text.length - 1)
+    val end = iterator.following(probe).let { if (it == BreakIterator.DONE) text.length else it }
+    val start = iterator.previous().let { if (it == BreakIterator.DONE) 0 else it }
+    var e = end
+    while (e > start && text[e - 1].isWhitespace()) e--
+    var s = start
+    while (s < e && text[s].isWhitespace()) s++
+    return if (e > s) s..(e - 1) else null
 }

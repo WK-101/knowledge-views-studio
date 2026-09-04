@@ -9,11 +9,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -39,10 +42,12 @@ import com.cairn.reader.data.prefs.ThemeMode
 @Composable
 fun SettingsScreen(
     padding: PaddingValues,
+    onOpenNotebook: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val sources by viewModel.sources.collectAsStateWithLifecycle()
     val prefs by viewModel.preferences.collectAsStateWithLifecycle()
+    val highlightCount by viewModel.highlightCount.collectAsStateWithLifecycle()
     val scheme = MaterialTheme.colorScheme
 
     LazyColumn(
@@ -77,6 +82,30 @@ fun SettingsScreen(
                 }
                 IconButton(onClick = { viewModel.removeSource(source.id) }) {
                     Icon(Icons.Outlined.DeleteOutline, contentDescription = "Remove", tint = scheme.onSurfaceVariant)
+                }
+            }
+        }
+
+        item {
+            Column(Modifier.padding(top = 8.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onOpenNotebook)
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Outlined.FormatQuote, contentDescription = null, tint = scheme.primary)
+                    Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Highlights & notes", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(
+                            if (highlightCount == 0) "Long-press a sentence while reading to save it" else "$highlightCount saved",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = scheme.onSurfaceVariant,
+                        )
+                    }
+                    Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = scheme.onSurfaceVariant)
                 }
             }
         }

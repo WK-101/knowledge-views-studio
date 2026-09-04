@@ -3,11 +3,13 @@ package com.cairn.reader.ui.reader
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.cairn.reader.data.db.HighlightEntity
 import com.cairn.reader.data.prefs.AppPreferences
 import com.cairn.reader.data.prefs.PreferencesRepository
 import com.cairn.reader.data.prefs.ReaderFont
 import com.cairn.reader.data.prefs.ReaderTheme
 import com.cairn.reader.data.repo.FeedRepository
+import com.cairn.reader.data.repo.HighlightRepository
 import com.cairn.reader.data.repo.ItemRepository
 import com.cairn.reader.data.repo.ReaderData
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -31,6 +33,7 @@ class ReaderViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
     private val feedRepository: FeedRepository,
     private val preferencesRepository: PreferencesRepository,
+    private val highlightRepository: HighlightRepository,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -41,6 +44,9 @@ class ReaderViewModel @Inject constructor(
 
     val preferences: StateFlow<AppPreferences> =
         preferencesRepository.preferences.stateIn(viewModelScope, SharingStarted.Eagerly, AppPreferences())
+
+    val highlights: StateFlow<List<HighlightEntity>> =
+        highlightRepository.observeForItem(itemId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     init {
         viewModelScope.launch {
@@ -83,4 +89,18 @@ class ReaderViewModel @Inject constructor(
     fun setFontScale(scale: Float) = viewModelScope.launch { preferencesRepository.setReaderFontScale(scale) }
     fun setReaderTheme(theme: ReaderTheme) = viewModelScope.launch { preferencesRepository.setReaderTheme(theme) }
     fun setReaderFont(font: ReaderFont) = viewModelScope.launch { preferencesRepository.setReaderFont(font) }
+
+    fun addHighlight(blockIndex: Int, start: Int, end: Int, quote: String, color: Int = HighlightColors.Default) {
+        if (itemId.isEmpty() || quote.isBlank()) return
+        viewModelScope.launch { highlightRepository.add(itemId, blockIndex, start, end, quote, color) }
+    }
+
+    fun setHighlightNote(id: String, note: String?) = viewModelScope.launch { highlightRepository.setNote(id, itemId, note) }
+    fun setHighlightColor(id: String, color: Int) = viewModelScope.launch { highlightRepository.setColor(id, itemId, color) }
+    fun removeHighlight(id: String) = viewModelScope.launch { highlightRepository.remove(id, itemId) }
+
+    /** Builds the shareable Markdown for this article's highlights off the main thread. */
+    fun exportHighlights(onReady: (String) -> Unit) {
+        viewModelScope.launch { onReady(highlightRepository.exportItem(itemId)) }
+    }
 }

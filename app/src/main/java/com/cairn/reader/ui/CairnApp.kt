@@ -76,7 +76,10 @@ private enum class Destination(val label: String, val icon: ImageVector) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CairnApp(onOpenItem: (String) -> Unit = {}) {
+fun CairnApp(
+    onOpenItem: (String) -> Unit = {},
+    onOpenNotebook: () -> Unit = {},
+) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
     var showAddFeed by remember { mutableStateOf(false) }
     val destinations = remember { Destination.entries }
@@ -135,7 +138,7 @@ fun CairnApp(onOpenItem: (String) -> Unit = {}) {
             when (dest) {
                 Destination.Inbox -> InboxScreen(padding, inboxViewModel, onOpenItem)
                 Destination.Library -> LibraryScreen(padding, onOpenItem)
-                Destination.Settings -> SettingsScreen(padding)
+                Destination.Settings -> SettingsScreen(padding, onOpenNotebook = onOpenNotebook)
             }
         }
     }

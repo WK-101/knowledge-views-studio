@@ -11,6 +11,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.cairn.reader.data.prefs.ThemeMode
+import com.cairn.reader.ui.notebook.NotebookScreen
 import com.cairn.reader.ui.reader.ReaderScreen
 import com.cairn.reader.ui.theme.CairnTheme
 
@@ -30,13 +31,22 @@ fun CairnRoot() {
         val navController = rememberNavController()
         NavHost(navController = navController, startDestination = "home") {
             composable("home") {
-                CairnApp(onOpenItem = { itemId -> navController.navigate("reader/$itemId") })
+                CairnApp(
+                    onOpenItem = { itemId -> navController.navigate("reader/$itemId") },
+                    onOpenNotebook = { navController.navigate("notebook") },
+                )
             }
             composable(
                 route = "reader/{itemId}",
                 arguments = listOf(navArgument("itemId") { type = NavType.StringType }),
             ) {
                 ReaderScreen(onBack = { navController.popBackStack() })
+            }
+            composable("notebook") {
+                NotebookScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenItem = { itemId -> navController.navigate("reader/$itemId") },
+                )
             }
         }
     }
