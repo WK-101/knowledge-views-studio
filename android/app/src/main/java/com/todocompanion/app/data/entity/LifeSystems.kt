@@ -147,6 +147,10 @@ data class DayLogEntity(
     // Phase C — self-scored Daily Questions: a JSON object mapping questionId -> score 1..5 for this day.
     // "" = nothing scored yet (so old backups round-trip). See domain/DailyQuestions.kt.
     val dailyScoresJson: String = "",
+    // Phase E — the day's alignment to what the user is working toward: a small JSON blob holding the
+    // ids of the goals today advanced and the top values today honored. "" = nothing recorded (so old
+    // backups round-trip). See domain/DayAlignment.kt.
+    val alignmentJson: String = "",
     val updatedAt: Long = 0,
     val workspaceId: String = "default",
 )

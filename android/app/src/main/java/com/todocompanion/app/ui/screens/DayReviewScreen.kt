@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -55,9 +57,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.todocompanion.app.data.entity.CoreValueEntity
 import com.todocompanion.app.domain.DailyQuestion
 import com.todocompanion.app.domain.DailyQuestions
+import com.todocompanion.app.domain.DayAlignment
+import com.todocompanion.app.domain.DayAlignments
 import com.todocompanion.app.domain.DayPrompts
+import com.todocompanion.app.domain.Goal
+import com.todocompanion.app.domain.Goals
 import com.todocompanion.app.domain.ReviewRollup
 import com.todocompanion.app.domain.calendar.CalendarEngine
 import com.todocompanion.app.domain.done.DoneKind
@@ -111,6 +118,7 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
     val events by vm.events.collectAsState()
     val dayLogs by vm.dayLogs.collectAsState()
     val settings by vm.settings.collectAsState()
+    val coreValues by vm.coreValues.collectAsState()
 
     val date = LocalDate.ofEpochDay(day)
     val dayStart = date.atStartOfDay(zone).toInstant().toEpochMilli()
@@ -154,6 +162,15 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
             DailyQuestions.parseScores(dayLogs.firstOrNull { it.epochDay == d0 }?.dailyScoresJson ?: "")
         }
     }
+
+    // Phase E — align the day to what the user is working toward. Goals are the app's Unified Goals
+    // (settings JSON); "top values" are the highest-ranked rows of the values card-sort (by orderIndex).
+    // The day's recorded alignment resolves back to live goal / value objects so names & emoji stay real.
+    val goals = remember(settings.goalsJson) { Goals.parse(settings.goalsJson) }
+    val topValues = remember(coreValues) { coreValues.sortedBy { it.orderIndex }.take(TOP_VALUES) }
+    val alignment = remember(bookend?.alignmentJson) { DayAlignments.parse(bookend?.alignmentJson ?: "") }
+    val movedGoals = remember(goals, alignment) { goals.filter { it.id in alignment.movedGoalIds } }
+    val honoredValues = remember(coreValues, alignment) { coreValues.filter { it.id in alignment.honoredValueIds }.sortedBy { it.orderIndex } }
 
     // At-a-glance context: vs your usual, and the review streak.
     val avg7 = remember(tasks, day) {
@@ -210,7 +227,7 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
                     mode = mode, anchor = day, todayEd = todayEd, zone = zone,
                     weekStartSetting = settings.weekStart,
                     dayLogs = dayLogs, questions = questions, habits = habits, checkins = checkins,
-                    timeEntries = timeEntries, activities = activities,
+                    timeEntries = timeEntries, activities = activities, goals = goals,
                     onAnchorChange = { day = it },
                     onOpenDay = { d -> day = d; mode = ReviewRange.DAY },
                 )
@@ -454,6 +471,19 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
                     Spacer(Modifier.height(8.dp))
                     FilledTonalButton(onClick = { showReflect = true }) { Text("Reflect on today") }
                 }
+                // Phase E — the day's alignment, rendered back: goals advanced + values honored.
+                if (movedGoals.isNotEmpty() || honoredValues.isNotEmpty()) {
+                    Spacer(Modifier.height(10.dp))
+                    if (movedGoals.isNotEmpty()) {
+                        Text("🎯 Moved a goal", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+                        StaticChipRow(movedGoals.map { "${it.emoji} ${it.name}" })
+                    }
+                    if (honoredValues.isNotEmpty()) {
+                        if (movedGoals.isNotEmpty()) Spacer(Modifier.height(6.dp))
+                        Text("🧭 Values honored", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+                        StaticChipRow(honoredValues.map { v -> (v.emoji?.let { "$it " } ?: "") + v.name })
+                    }
+                }
             }
 
             // ── Daily questions: self-scored effort on what you value (Marshall Goldsmith) ──
@@ -554,6 +584,10 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
         questions = questions,
         initialScores = todayScores,
         onScore = { qId, s -> vm.saveDailyScore(day, qId, s) },
+        goals = goals,
+        topValues = topValues,
+        initialAlignment = alignment,
+        onSaveAlignment = { movedGoalIds, honoredValueIds -> vm.saveDayAlignment(day, movedGoalIds, honoredValueIds) },
         summary = if (nothing) "A quiet day — nothing tracked." else buildString {
             append("✓ ${tasksDone.size} done")
             if (habitsExpected > 0) append(" · 🔁 ${habitsKept.size}/$habitsExpected")
@@ -693,6 +727,41 @@ private fun ScoreSparkline(scores: List<Int?>, modifier: Modifier = Modifier) {
     }
 }
 
+/** Phase E — a wrapping multi-select chip row (goals advanced / values honored), tapped in the close
+ *  flow's align step. Mirrors the app's single-select OptionChips idiom with Material3 FilterChips. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SelectableChips(items: List<Pair<String, String>>, selected: Set<String>, onToggle: (String) -> Unit) {
+    FlowRow(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items.forEach { (id, label) ->
+            FilterChip(selected = id in selected, onClick = { onToggle(id) }, label = { Text(label, maxLines = 1) })
+        }
+    }
+}
+
+/** Phase E — a read-only wrapping row of tonal pills, used to render a day's chosen goals / honored
+ *  values back in the reflect card. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun StaticChipRow(labels: List<String>) {
+    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        labels.forEach { l ->
+            Text(
+                l, style = MaterialTheme.typography.labelMedium, maxLines = 1,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.secondaryContainer).padding(horizontal = 10.dp, vertical = 5.dp),
+            )
+        }
+    }
+}
+
+/** Phase E — how many of the ranked values to surface as "top values" in the close flow's align step. */
+private const val TOP_VALUES = 5
+
 /** Phase A — the guided "Close the day" ritual: Recall → Feel → Reflect → Tomorrow → closed. Express hides
  *  the extra prose fields for a ~60-second close; Full keeps them. Reuses the existing DayLog fields. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -707,6 +776,10 @@ private fun CloseDayFlow(
     questions: List<DailyQuestion>,
     initialScores: Map<String, Int>,
     onScore: (questionId: String, score: Int) -> Unit,
+    goals: List<Goal>,
+    topValues: List<CoreValueEntity>,
+    initialAlignment: DayAlignment,
+    onSaveAlignment: (movedGoalIds: List<String>, honoredValueIds: List<String>) -> Unit,
     onDismiss: () -> Unit,
     onSave: (rating: Int, energy: Int, reflection: String, mood: Int, highlight: String, gratitude: String, lesson: String, tomorrow: String) -> Unit,
     onSaveExtras: (good1: String, good2: String, good3: String, intentionOutcome: Int, promptAnswer: String) -> Unit,
@@ -728,11 +801,24 @@ private fun CloseDayFlow(
     var intentionOutcome by remember { mutableIntStateOf(log?.intentionOutcome ?: 0) }
     // Phase C — the day's Daily-Question scores, edited in-flow and persisted immediately on each tap.
     var scores by remember { mutableStateOf(initialScores) }
+    // Phase E — the goals today advanced and the top values it honored, chosen in the "align" step.
+    var movedGoalIds by remember { mutableStateOf(initialAlignment.movedGoalIds.toSet()) }
+    var honoredValueIds by remember { mutableStateOf(initialAlignment.honoredValueIds.toSet()) }
     val amIntention = log?.amIntention?.trim().orEmpty()
     val prompt = remember(day) { DayPrompts.promptFor(day) }
 
-    val steps = remember(isToday, questions.isEmpty()) {
-        buildList { add("recall"); add("feel"); if (questions.isNotEmpty()) add("questions"); add("reflect"); if (isToday) add("tomorrow"); add("done") }
+    // Phase E — the align step is a Full-flow-only, additive reflective prompt; skip it entirely when the
+    // user has neither goals nor ranked values (nothing to align to), so Express stays a ~60s close.
+    val hasAlignTargets = goals.isNotEmpty() || topValues.isNotEmpty()
+    val steps = remember(isToday, questions.isEmpty(), full, hasAlignTargets) {
+        buildList {
+            add("recall"); add("feel")
+            if (questions.isNotEmpty()) add("questions")
+            add("reflect")
+            if (full && hasAlignTargets) add("align")
+            if (isToday) add("tomorrow")
+            add("done")
+        }
     }
     var idx by remember { mutableIntStateOf(0) }
     val stepId = steps[idx]
@@ -748,6 +834,8 @@ private fun CloseDayFlow(
                     if (nextIsDone) {
                         onSave(rating, energy, reflection, mood, highlight, if (full) gratitude else "", if (full) lesson else "", tomorrow)
                         onSaveExtras(if (full) good1 else "", if (full) good2 else "", if (full) good3 else "", intentionOutcome, if (full) promptAnswer else "")
+                        // Express never shows the align step, so leave any recorded alignment untouched there.
+                        if (full) onSaveAlignment(movedGoalIds.toList(), honoredValueIds.toList())
                     }
                     idx++
                 }) { Text(if (nextIsDone) "Close the day" else "Next") }
@@ -759,7 +847,7 @@ private fun CloseDayFlow(
         title = {
             Text(when (stepId) {
                 "recall" -> "Recall your day"; "feel" -> "How did it feel?"; "questions" -> "Daily questions"; "reflect" -> "Reflect"
-                "tomorrow" -> "Ready for tomorrow"; else -> "Day closed"
+                "align" -> "Align"; "tomorrow" -> "Ready for tomorrow"; else -> "Day closed"
             })
         },
         text = {
@@ -842,6 +930,28 @@ private fun CloseDayFlow(
                             Text(prompt, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                             Spacer(Modifier.height(4.dp))
                             AppTextField(promptAnswer, { promptAnswer = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Your answer") }, singleLine = true)
+                        }
+                    }
+                    "align" -> {
+                        Text("Tie today to what you're working toward — both optional.", style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(bottom = 12.dp))
+                        Text("🎯 Did today move a goal?", style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.height(6.dp))
+                        if (goals.isEmpty()) {
+                            Text("No goals yet — set up a goal to link your tasks, a habit and tracked time, then mark the days it advances.", style = MaterialTheme.typography.bodySmall, color = muted)
+                        } else {
+                            SelectableChips(goals.map { it.id to "${it.emoji} ${it.name}" }, movedGoalIds) { id ->
+                                movedGoalIds = if (id in movedGoalIds) movedGoalIds - id else movedGoalIds + id
+                            }
+                        }
+                        Spacer(Modifier.height(16.dp))
+                        Text("🧭 Which of your values did today honor?", style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.height(6.dp))
+                        if (topValues.isEmpty()) {
+                            Text("No ranked values yet — rank your core values in Life Systems and your top ones will show here to check off.", style = MaterialTheme.typography.bodySmall, color = muted)
+                        } else {
+                            SelectableChips(topValues.map { v -> v.id to ((v.emoji?.let { "$it " } ?: "") + v.name) }, honoredValueIds) { id ->
+                                honoredValueIds = if (id in honoredValueIds) honoredValueIds - id else honoredValueIds + id
+                            }
                         }
                     }
                     "tomorrow" -> {
@@ -1044,6 +1154,7 @@ private fun RangeRollup(
     checkins: List<com.todocompanion.app.data.entity.HabitCheckinEntity>,
     timeEntries: List<com.todocompanion.app.data.entity.TimeEntryEntity>,
     activities: List<com.todocompanion.app.data.entity.TimeActivityEntity>,
+    goals: List<Goal>,
     onAnchorChange: (Long) -> Unit,
     onOpenDay: (Long) -> Unit,
 ) {
@@ -1082,8 +1193,8 @@ private fun RangeRollup(
         canNext = first < curFirst
     }
 
-    val rollup = remember(mode, start, end, dayLogs, questions, habits, checkins, timeEntries, activities) {
-        ReviewRollup.compute(start, end, dayLogs, questions, habits, checkins, timeEntries, activities, zone, System.currentTimeMillis())
+    val rollup = remember(mode, start, end, dayLogs, questions, habits, checkins, timeEntries, activities, goals) {
+        ReviewRollup.compute(start, end, dayLogs, questions, habits, checkins, timeEntries, activities, zone, System.currentTimeMillis(), goals)
     }
 
     // ── Period navigator (mirrors the day navigator) ──
@@ -1144,6 +1255,20 @@ private fun RangeRollup(
                 }
             }
             if (rollup.moreWins > 0) Text("+ ${rollup.moreWins} more", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(top = 4.dp))
+        }
+    }
+
+    // ── 2b. Phase E — goals advanced this period ──
+    if (rollup.goalsMoved.isNotEmpty()) {
+        Spacer(Modifier.height(12.dp))
+        AppCard {
+            SectionTitle("🎯 Goals advanced")
+            rollup.goalsMoved.forEach { g ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(g.text, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("${g.count} day${if (g.count == 1) "" else "s"}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                }
+            }
         }
     }
 

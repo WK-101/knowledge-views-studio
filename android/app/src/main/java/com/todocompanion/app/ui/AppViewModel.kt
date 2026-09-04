@@ -2658,6 +2658,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.upsertDayLog(cur.copy(dailyScoresJson = DailyQuestions.scoresToJson(scores), updatedAt = System.currentTimeMillis()))
     }
 
+    // Phase E — the day's alignment: which active goals today advanced and which top values it honored.
+    // One JSON blob per day on the DayLog. Read-modify-write, preserving every other field.
+    fun saveDayAlignment(day: Long, movedGoalIds: List<String>, honoredValueIds: List<String>) = viewModelScope.launch {
+        val cur = repo.dayLogFor(day) ?: com.todocompanion.app.data.entity.DayLogEntity(day, workspaceId = activeWorkspace())
+        val alignment = com.todocompanion.app.domain.DayAlignment(
+            movedGoalIds = movedGoalIds.distinct(),
+            honoredValueIds = honoredValueIds.distinct(),
+        )
+        repo.upsertDayLog(cur.copy(alignmentJson = com.todocompanion.app.domain.DayAlignments.encode(alignment), updatedAt = System.currentTimeMillis()))
+    }
+
     // ── R36 · fourth-wave actions ───────────────────────────────────────────────────────────────────
     // FW-5 New-Habit WIP limiter.
     fun setHabitWipLimit(n: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(habitWipLimit = n.coerceIn(0, 20))) }

@@ -57,15 +57,37 @@ class MigrationTest {
         for (i in 0 until steps.size - 1) {
             assertEquals("gap between ${steps[i]} and ${steps[i + 1]}", steps[i].second, steps[i + 1].first)
         }
-        // The chain ends on the DB's declared version (62). Bumping the version without adding a
+        // The chain ends on the DB's declared version (63). Bumping the version without adding a
         // migration — or vice-versa — trips this.
-        assertEquals("chain must end at the current schema version", 62, steps.last().second)
+        assertEquals("chain must end at the current schema version", 63, steps.last().second)
     }
 
     /** The exported latest schema JSON must describe a database SQLite can actually create. */
     @Test
     fun exportedLatestSchemaIsBuildable() {
-        helper.createDatabase(TEST_DB, 62).close()
+        helper.createDatabase(TEST_DB, 63).close()
+    }
+
+    /**
+     * Phase E — 62→63 adds the additive `alignmentJson` column to day_logs. Create the DB at v62 with a
+     * day_logs row, migrate to v63, and assert the row survives and the new column defaults to "".
+     */
+    @Test
+    fun migrate62To63AddsAlignmentColumn() {
+        helper.createDatabase(TEST_DB, 62).apply {
+            execSQL(
+                "INSERT INTO day_logs (epochDay, amIntention, pmReflection, amMood, pmMood, dayRating, energy, " +
+                    "highlight, gratitude, lesson, tomorrowFocus, good1, good2, good3, intentionOutcome, " +
+                    "promptAnswer, dailyScoresJson, updatedAt, workspaceId) " +
+                    "VALUES (100, '', '', 0, 0, 3, 0, '', '', '', '', '', '', '', 0, '', '', 0, 'default')",
+            )
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(TEST_DB, 63, true, *AppDatabase.ALL_MIGRATIONS)
+        db.query("SELECT alignmentJson FROM day_logs WHERE epochDay = 100 AND workspaceId = 'default'").use { c ->
+            assertTrue("day_logs row survives the migration", c.moveToFirst())
+            assertEquals("new alignmentJson column defaults to ''", "", c.getString(0))
+        }
     }
 
     /**

@@ -75,11 +75,14 @@ object ReviewRollup {
         val topActivities: List<ActivityDuration>,
         val questionAverages: List<QuestionAverage>,
         val correlations: List<String>,
+        // Phase E — goals the user marked as advanced during the period, most-advanced first ([count] = days).
+        val goalsMoved: List<WinTally> = emptyList(),
     ) {
         /** True when there is anything worth rendering beyond an empty-period hint. */
         val hasData: Boolean
             get() = reviewedDays > 0 || wins.isNotEmpty() || reflections.isNotEmpty() ||
-                habitConsistency.isNotEmpty() || topActivities.isNotEmpty() || questionAverages.isNotEmpty()
+                habitConsistency.isNotEmpty() || topActivities.isNotEmpty() || questionAverages.isNotEmpty() ||
+                goalsMoved.isNotEmpty()
     }
 
     /** A day counts as "reviewed" once any close-the-day field is filled — mirrors the Day Review's own tally. */
@@ -104,6 +107,7 @@ object ReviewRollup {
         activities: List<TimeActivityEntity>,
         zone: ZoneId,
         now: Long,
+        goals: List<Goal> = emptyList(),
     ): Rollup {
         if (endDay < startDay) {
             return Rollup(startDay, endDay, 0, 0, 0, 0.0, emptyList(), emptyList(), 0, emptyList(), 0, emptyList(), emptyList(), emptyList(), emptyList())
@@ -179,12 +183,27 @@ object ReviewRollup {
         // ── 7. "Your best days share…" — descriptive differences between top-rated days and the rest.
         val correlations = correlate(startDay, endDay, logByDay, checkinByKey, questions, habits, scoresByDay, timeEntries, activities, zone, now)
 
+        // ── 8. Phase E — goals advanced across the period, counted from each day's alignment blob and
+        // resolved to live goal names/emoji (goals live in settings, passed in). Most-advanced first.
+        val goalsMoved = if (goals.isEmpty()) emptyList() else {
+            val countById = LinkedHashMap<String, Int>()
+            for (d in startDay..endDay) {
+                val log = logByDay[d] ?: continue
+                DayAlignments.parse(log.alignmentJson).movedGoalIds.forEach { gid ->
+                    countById[gid] = (countById[gid] ?: 0) + 1
+                }
+            }
+            countById.mapNotNull { (gid, count) ->
+                goals.firstOrNull { it.id == gid }?.let { WinTally("${it.emoji} ${it.name}", count) }
+            }.sortedByDescending { it.count }
+        }
+
         return Rollup(
             startDay = startDay, endDay = endDay, periodDays = periodDays, reviewedDays = reviewedDays,
             ratedDays = ratings.size, avgRating = avgRating, ratingTrend = ratingTrend,
             wins = wins, moreWins = moreWins, reflections = reflections, moreReflections = moreReflections,
             habitConsistency = habitConsistency, topActivities = topActivities,
-            questionAverages = questionAverages, correlations = correlations,
+            questionAverages = questionAverages, correlations = correlations, goalsMoved = goalsMoved,
         )
     }
 
