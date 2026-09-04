@@ -89,6 +89,8 @@ fun LibraryScreen(
     val sort by viewModel.sort.collectAsStateWithLifecycle()
     val savedSearches by viewModel.savedSearches.collectAsStateWithLifecycle()
     val selection by viewModel.selection.collectAsStateWithLifecycle()
+    val availableTypes by viewModel.availableTypes.collectAsStateWithLifecycle()
+    val typeFilter by viewModel.typeFilter.collectAsStateWithLifecycle()
 
     var showCreate by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf<Pair<String, String>?>(null) }
@@ -131,7 +133,7 @@ fun LibraryScreen(
                     Text("VIEW", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
                     LibraryViewMode.entries.forEach { m ->
                         DropdownMenuItem(
-                            text = { Text(m.name.lowercase().replaceFirstChar(Char::uppercase), fontWeight = if (m == viewMode) FontWeight.SemiBold else FontWeight.Normal) },
+                            text = { Text(viewModeLabel(m), fontWeight = if (m == viewMode) FontWeight.SemiBold else FontWeight.Normal) },
                             onClick = { viewModel.setViewMode(m); displayMenu = false },
                         )
                     }
@@ -176,6 +178,21 @@ fun LibraryScreen(
                     label = { Text("New") },
                     leadingIcon = { Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.padding(0.dp)) },
                 )
+            }
+            if (availableTypes.size >= 2) {
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(selected = typeFilter == null, onClick = { viewModel.setTypeFilter(null) }, label = { Text("All types") })
+                    availableTypes.forEach { t ->
+                        FilterChip(
+                            selected = typeFilter == t,
+                            onClick = { viewModel.setTypeFilter(if (typeFilter == t) null else t) },
+                            label = { Text(typeLabel(t)) },
+                        )
+                    }
+                }
             }
             if (tags.isNotEmpty()) {
                 Text(
@@ -355,25 +372,108 @@ private fun LibraryCoverCard(row: ItemListRow, fixedRatio: Boolean, selected: Bo
             .combinedClickable(onClick = onClick, onLongClick = onLongPress)
             .padding(bottom = 10.dp),
     ) {
-        if (row.leadImage != null) {
-            AsyncImage(
-                model = row.leadImage,
-                contentDescription = null,
-                contentScale = if (fixedRatio) ContentScale.Crop else ContentScale.FillWidth,
-                modifier = if (fixedRatio) {
-                    Modifier.fillMaxWidth().aspectRatio(16f / 10f)
-                } else {
-                    Modifier.fillMaxWidth().heightIn(min = 100.dp, max = 320.dp)
-                },
-            )
+        Box {
+            if (row.leadImage != null) {
+                AsyncImage(
+                    model = row.leadImage,
+                    contentDescription = null,
+                    contentScale = if (fixedRatio) ContentScale.Crop else ContentScale.FillWidth,
+                    modifier = if (fixedRatio) {
+                        Modifier.fillMaxWidth().aspectRatio(16f / 10f)
+                    } else {
+                        Modifier.fillMaxWidth().heightIn(min = 100.dp, max = 320.dp)
+                    },
+                )
+            } else {
+                // No cover image — synthesise a tinted panel so the moodboard stays full.
+                MonogramCover(row, tall = !fixedRatio)
+            }
+            TypeBadge(row.type, Modifier.align(Alignment.TopStart).padding(8.dp))
         }
         Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
             val source = row.sourceTitle ?: row.siteName ?: "Unknown"
             Text(source, style = MaterialTheme.typography.labelSmall, color = scheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(2.dp))
             Text(row.title, style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            if (!row.excerpt.isNullOrBlank() && !fixedRatio) {
+                Spacer(Modifier.height(4.dp))
+                Text(row.excerpt, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            }
         }
     }
+}
+
+/** A generated cover for items with no lead image — a tinted wash carrying the title initial. */
+@Composable
+private fun MonogramCover(row: ItemListRow, tall: Boolean) {
+    val scheme = MaterialTheme.colorScheme
+    val base = COVER_TINTS[(row.title.hashCode() and 0x7fffffff) % COVER_TINTS.size]
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .then(if (tall) Modifier.height(120.dp) else Modifier.aspectRatio(16f / 10f))
+            .background(
+                androidx.compose.ui.graphics.Brush.linearGradient(
+                    listOf(base.copy(alpha = 0.85f), base.copy(alpha = 0.45f)),
+                ),
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            (row.sourceTitle ?: row.siteName ?: row.title).trim().take(1).uppercase(),
+            style = MaterialTheme.typography.displaySmall,
+            color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.92f),
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+/** A small pill naming the item type (Article / Link / Video / Image), Raindrop-style. */
+@Composable
+private fun TypeBadge(type: String, modifier: Modifier = Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    Text(
+        typeLabelSingular(type),
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Medium,
+        color = scheme.onSurface,
+        modifier = modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(scheme.surface.copy(alpha = 0.88f))
+            .padding(horizontal = 7.dp, vertical = 2.dp),
+    )
+}
+
+private val COVER_TINTS = listOf(
+    androidx.compose.ui.graphics.Color(0xFF3F5E7A),
+    androidx.compose.ui.graphics.Color(0xFF3E8E5A),
+    androidx.compose.ui.graphics.Color(0xFFB98A2E),
+    androidx.compose.ui.graphics.Color(0xFFB0553F),
+    androidx.compose.ui.graphics.Color(0xFF6A5A8E),
+    androidx.compose.ui.graphics.Color(0xFF2E8B94),
+)
+
+private fun typeLabel(type: String): String = when (type) {
+    "ARTICLE" -> "Articles"
+    "LINK" -> "Links"
+    "VIDEO" -> "Videos"
+    "IMAGE" -> "Images"
+    else -> type.lowercase().replaceFirstChar(Char::uppercase)
+}
+
+private fun typeLabelSingular(type: String): String = when (type) {
+    "ARTICLE" -> "Article"
+    "LINK" -> "Link"
+    "VIDEO" -> "Video"
+    "IMAGE" -> "Image"
+    else -> type.lowercase().replaceFirstChar(Char::uppercase)
+}
+
+private fun viewModeLabel(mode: LibraryViewMode): String = when (mode) {
+    LibraryViewMode.LIST -> "List"
+    LibraryViewMode.GRID -> "Grid"
+    LibraryViewMode.MASONRY -> "Moodboard"
+    LibraryViewMode.HEADLINES -> "Headlines"
 }
 
 @Composable

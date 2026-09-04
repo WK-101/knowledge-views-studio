@@ -22,6 +22,7 @@ data class ItemListRow(
     val savedAt: Long,
     val readingMinutes: Int,
     val extractStatus: String,
+    val type: String,
     val isRead: Boolean,
     val isStarred: Boolean,
     val isReadLater: Boolean,
@@ -64,7 +65,7 @@ interface ItemDao {
         SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
                i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
                i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus,
+               i.extractStatus AS extractStatus, i.type AS type,
                COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
                COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
         FROM items i
@@ -83,7 +84,7 @@ interface ItemDao {
         SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
                i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
                i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus,
+               i.extractStatus AS extractStatus, i.type AS type,
                COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
                COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
         FROM items i
@@ -100,7 +101,7 @@ interface ItemDao {
         SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
                i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
                i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus,
+               i.extractStatus AS extractStatus, i.type AS type,
                COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
                COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
         FROM items i
@@ -119,7 +120,7 @@ interface ItemDao {
         SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
                i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
                i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus,
+               i.extractStatus AS extractStatus, i.type AS type,
                COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
                COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
         FROM items i
@@ -138,7 +139,7 @@ interface ItemDao {
         SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
                i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
                i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus,
+               i.extractStatus AS extractStatus, i.type AS type,
                COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
                COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
         FROM items i
@@ -213,6 +214,9 @@ interface ItemDao {
     @Query("UPDATE items SET extractStatus = :status WHERE id = :id")
     suspend fun setExtractStatus(id: String, status: String)
 
+    @Query("UPDATE items SET type = :type WHERE id = :id")
+    suspend fun setType(id: String, type: String)
+
     @Query("UPDATE items SET collectionId = :collectionId WHERE id = :id")
     suspend fun setCollection(id: String, collectionId: String?)
 
@@ -253,7 +257,7 @@ interface ItemDao {
         SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
                i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
                i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus,
+               i.extractStatus AS extractStatus, i.type AS type,
                COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
                COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
         FROM item_fts
@@ -273,7 +277,7 @@ interface ItemDao {
         SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
                i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
                i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus,
+               i.extractStatus AS extractStatus, i.type AS type,
                COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
                COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
         FROM items i
@@ -290,7 +294,7 @@ interface ItemDao {
         SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
                i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
                i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus,
+               i.extractStatus AS extractStatus, i.type AS type,
                COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
                COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
         FROM items i
@@ -307,7 +311,7 @@ interface ItemDao {
         SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
                i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
                i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus,
+               i.extractStatus AS extractStatus, i.type AS type,
                COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
                COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
         FROM items i
@@ -324,7 +328,7 @@ interface ItemDao {
         SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
                i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
                i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus,
+               i.extractStatus AS extractStatus, i.type AS type,
                COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
                COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
         FROM items i

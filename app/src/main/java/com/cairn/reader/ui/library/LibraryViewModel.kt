@@ -55,9 +55,18 @@ class LibraryViewModel @Inject constructor(
     val tags: StateFlow<List<TagWithCount>> =
         tagRepository.allWithCounts().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    private val _scope = MutableStateFlow<LibraryScope>(LibraryScope.All)
+    val scope: StateFlow<LibraryScope> = _scope.asStateFlow()
+
+    /** null = every type; otherwise one of ARTICLE / LINK / VIDEO / IMAGE. */
+    private val _typeFilter = MutableStateFlow<String?>(null)
+    val typeFilter: StateFlow<String?> = _typeFilter.asStateFlow()
+
+    /** View mode resolves per scope (Raindrop-style memory), falling back to the global default. */
     val viewMode: StateFlow<LibraryViewMode> =
-        preferencesRepository.preferences.map { it.libraryViewMode }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryViewMode.GRID)
+        combine(preferencesRepository.preferences, _scope) { prefs, scope ->
+            prefs.libraryViewByScope[scopeKey(scope)] ?: prefs.libraryViewMode
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryViewMode.GRID)
 
     val savedSearches: StateFlow<List<String>> =
         preferencesRepository.preferences.map { it.savedSearches.sorted() }
@@ -65,9 +74,6 @@ class LibraryViewModel @Inject constructor(
 
     private val _sort = MutableStateFlow(LibrarySort.NEWEST)
     val sort: StateFlow<LibrarySort> = _sort.asStateFlow()
-
-    private val _scope = MutableStateFlow<LibraryScope>(LibraryScope.All)
-    val scope: StateFlow<LibraryScope> = _scope.asStateFlow()
 
     private val scopeRows: kotlinx.coroutines.flow.Flow<List<ItemListRow>> =
         _scope.flatMapLatest { scope ->
@@ -79,13 +85,19 @@ class LibraryViewModel @Inject constructor(
             }
         }
 
+    /** The distinct item types present in the current scope, ordered for the filter chip row. */
+    val availableTypes: StateFlow<List<String>> =
+        scopeRows.map { rows -> TYPE_ORDER.filter { t -> rows.any { it.type == t } } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val items: StateFlow<List<ItemListRow>> =
-        combine(scopeRows, _sort) { rows, sort ->
+        combine(scopeRows, _sort, _typeFilter) { rows, sort, type ->
+            val filtered = if (type == null) rows else rows.filter { it.type == type }
             when (sort) {
-                LibrarySort.NEWEST -> rows.sortedByDescending { it.publishedAt ?: it.savedAt }
-                LibrarySort.OLDEST -> rows.sortedBy { it.publishedAt ?: it.savedAt }
-                LibrarySort.TITLE -> rows.sortedBy { it.title.lowercase() }
-                LibrarySort.SITE -> rows.sortedBy { (it.sourceTitle ?: it.siteName ?: "").lowercase() }
+                LibrarySort.NEWEST -> filtered.sortedByDescending { it.publishedAt ?: it.savedAt }
+                LibrarySort.OLDEST -> filtered.sortedBy { it.publishedAt ?: it.savedAt }
+                LibrarySort.TITLE -> filtered.sortedBy { it.title.lowercase() }
+                LibrarySort.SITE -> filtered.sortedBy { (it.sourceTitle ?: it.siteName ?: "").lowercase() }
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -95,11 +107,28 @@ class LibraryViewModel @Inject constructor(
     private val _results = MutableStateFlow<List<ItemListRow>>(emptyList())
     val results: StateFlow<List<ItemListRow>> = _results.asStateFlow()
 
-    fun setScope(scope: LibraryScope) { _scope.value = scope }
+    fun setScope(scope: LibraryScope) {
+        _scope.value = scope
+        _typeFilter.value = null // a fresh scope starts unfiltered
+    }
     fun setSort(sort: LibrarySort) { _sort.value = sort }
+    fun setTypeFilter(type: String?) { _typeFilter.value = type }
     fun saveSearch(query: String) = viewModelScope.launch { preferencesRepository.addSavedSearch(query) }
     fun removeSavedSearch(query: String) = viewModelScope.launch { preferencesRepository.removeSavedSearch(query) }
-    fun setViewMode(mode: LibraryViewMode) = viewModelScope.launch { preferencesRepository.setLibraryViewMode(mode) }
+    fun setViewMode(mode: LibraryViewMode) = viewModelScope.launch {
+        preferencesRepository.setLibraryViewForScope(scopeKey(_scope.value), mode)
+    }
+
+    private fun scopeKey(scope: LibraryScope): String = when (scope) {
+        LibraryScope.All -> "all"
+        LibraryScope.Unsorted -> "unsorted"
+        is LibraryScope.Collection -> "col:${scope.id}"
+        is LibraryScope.Tag -> "tag:${scope.id}"
+    }
+
+    companion object {
+        val TYPE_ORDER = listOf("ARTICLE", "LINK", "VIDEO", "IMAGE")
+    }
 
     fun setQuery(value: String) {
         _query.value = value

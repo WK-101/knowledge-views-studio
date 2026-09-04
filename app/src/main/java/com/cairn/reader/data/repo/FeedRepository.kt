@@ -158,7 +158,7 @@ class FeedRepository @Inject constructor(
                 publishedAt = p.publishedAt,
                 savedAt = now,
                 sourceId = source.id,
-                type = "ARTICLE",
+                type = detectType(p.link, hasBody = !content.isNullOrBlank()),
                 excerpt = excerpt,
                 leadImage = lead,
                 wordCount = words,
@@ -191,7 +191,7 @@ class FeedRepository @Inject constructor(
                 url = url,
                 title = hostOf(url),
                 savedAt = now,
-                type = "LINK",
+                type = detectType(url, hasBody = false),
                 extractStatus = "PENDING",
                 contentSource = "READABLE",
             ),
@@ -231,6 +231,28 @@ class FeedRepository @Inject constructor(
         itemDao.indexItem(
             ItemFtsEntity(itemId, extracted.title ?: "", extracted.byline, extracted.plainText.take(20_000)),
         )
+        // A saved bare link that turned out to have a real article body is promoted to ARTICLE,
+        // so it filters and reads like one. Video/image classifications are left untouched.
+        if (extracted.wordCount >= 200 && itemDao.getItem(itemId)?.type == "LINK") {
+            itemDao.setType(itemId, "ARTICLE")
+        }
+    }
+
+    /** Classify an item into a Raindrop-style type from its URL and whether it carries an
+     *  article body. Video and image are detected by host/extension; a feed item with real
+     *  content is an ARTICLE; a bare saved link with no body is a LINK. */
+    private fun detectType(url: String?, hasBody: Boolean): String {
+        val u = (url ?: "").substringBefore('?').lowercase()
+        val host = url?.toHttpUrlOrNull()?.host?.removePrefix("www.").orEmpty()
+        val videoHosts = listOf("youtube.com", "youtu.be", "vimeo.com", "dailymotion.com", "twitch.tv")
+        val videoExt = listOf(".mp4", ".webm", ".mov", ".m4v", ".mkv")
+        val imageExt = listOf(".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".bmp")
+        return when {
+            videoHosts.any { host == it || host.endsWith(".$it") } || videoExt.any { u.endsWith(it) } -> "VIDEO"
+            imageExt.any { u.endsWith(it) } -> "IMAGE"
+            hasBody -> "ARTICLE"
+            else -> "LINK"
+        }
     }
 
     private fun firstImage(html: String, baseUrl: String): String? = runCatching {

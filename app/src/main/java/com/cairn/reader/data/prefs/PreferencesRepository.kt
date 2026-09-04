@@ -39,6 +39,8 @@ data class AppPreferences(
     val blockedKeywords: Set<String> = emptySet(),
     val hideDuplicates: Boolean = false,
     val savedSearches: Set<String> = emptySet(),
+    /** Remembered library view mode per scope key (e.g. "col:<id>"), Raindrop-style. */
+    val libraryViewByScope: Map<String, LibraryViewMode> = emptyMap(),
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -59,7 +61,11 @@ class PreferencesRepository @Inject constructor(
         val BLOCKED = stringSetPreferencesKey("blocked_keywords")
         val HIDE_DUP = booleanPreferencesKey("hide_duplicates")
         val SAVED_SEARCHES = stringSetPreferencesKey("saved_searches")
+        val LIBRARY_VIEW_BY_SCOPE = stringSetPreferencesKey("library_view_by_scope")
     }
+
+    /** Per-scope view entries are stored as "scopeKey<sep>MODE" in a string set. */
+    private val scopeSep = ""
 
     val preferences: Flow<AppPreferences> = context.dataStore.data.map { p ->
         AppPreferences(
@@ -74,6 +80,12 @@ class PreferencesRepository @Inject constructor(
             blockedKeywords = p[Keys.BLOCKED] ?: emptySet(),
             hideDuplicates = p[Keys.HIDE_DUP] ?: false,
             savedSearches = p[Keys.SAVED_SEARCHES] ?: emptySet(),
+            libraryViewByScope = (p[Keys.LIBRARY_VIEW_BY_SCOPE] ?: emptySet()).mapNotNull { entry ->
+                val parts = entry.split(scopeSep)
+                if (parts.size != 2) return@mapNotNull null
+                val mode = runCatching { LibraryViewMode.valueOf(parts[1]) }.getOrNull() ?: return@mapNotNull null
+                parts[0] to mode
+            }.toMap(),
         )
     }
 
@@ -87,6 +99,17 @@ class PreferencesRepository @Inject constructor(
     suspend fun setReaderJustify(justify: Boolean) = context.dataStore.edit { it[Keys.READER_JUSTIFY] = justify }
 
     suspend fun setHideDuplicates(enabled: Boolean) = context.dataStore.edit { it[Keys.HIDE_DUP] = enabled }
+
+    /** Remember the library view mode for a specific scope, and make it the global default too,
+     *  so scopes you haven't customised inherit your latest choice. */
+    suspend fun setLibraryViewForScope(scopeKey: String, mode: LibraryViewMode) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.LIBRARY_VIEW] = mode.name
+            val existing = prefs[Keys.LIBRARY_VIEW_BY_SCOPE] ?: emptySet()
+            val kept = existing.filterNot { it.substringBefore(scopeSep) == scopeKey }.toSet()
+            prefs[Keys.LIBRARY_VIEW_BY_SCOPE] = kept + "$scopeKey$scopeSep${mode.name}"
+        }
+    }
 
     suspend fun addBlockedKeyword(term: String) {
         val t = term.trim().lowercase()
