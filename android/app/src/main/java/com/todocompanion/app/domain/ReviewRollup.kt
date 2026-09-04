@@ -1,0 +1,288 @@
+package com.todocompanion.app.domain
+
+import com.todocompanion.app.data.entity.DayLogEntity
+import com.todocompanion.app.data.entity.HabitCheckinEntity
+import com.todocompanion.app.data.entity.HabitEntity
+import com.todocompanion.app.data.entity.TimeActivityEntity
+import com.todocompanion.app.data.entity.TimeEntryEntity
+import com.todocompanion.app.domain.habit.HabitStats
+import java.time.LocalDate
+import java.time.ZoneId
+import java.util.Locale
+import kotlin.math.ceil
+import kotlin.math.roundToInt
+
+/**
+ * Phase D — the reflection roll-up. A pure fold over an already-loaded slice of the store (the day
+ * logs, active daily questions, habits + check-ins, time entries + activities) that aggregates a
+ * *reviewed period* — a week or a month — into the read-only cards the Day Review shows in Week/Month
+ * mode. It is the reflection counterpart to the cross-module {@link PeriodRecap}: where the recap tells
+ * the "what you did vs. before" story, this tells the "what your reviews add up to" story — wins,
+ * recurring lessons, habit consistency, top activities, daily-question averages, and a light,
+ * descriptive "your best days share…" pattern.
+ *
+ * Everything is computed on the fly (no persistence, no schema change) and entirely on-device. Kept
+ * free of Compose so it unit-tests as plain Kotlin, mirroring HabitStats / DayPrompts / DailyQuestions.
+ */
+object ReviewRollup {
+
+    /** Below this many *rated* days the "best days share…" split isn't meaningful, so it's suppressed. */
+    const val MIN_DAYS_FOR_CORRELATION = 6
+
+    /** Caps so the read-only lists stay scannable; the overflow is surfaced as "+N more". */
+    const val MAX_WINS = 12
+    const val MAX_REFLECTIONS = 12
+    const val MAX_ACTIVITIES = 5
+
+    /** One aggregated "good thing", condensed across the period with how many days it recurred. */
+    data class WinTally(val text: String, val count: Int)
+
+    /** One dated reflection fragment for the digest — a lesson, a prompt answer, or an evening reflection. */
+    data class ReflectionEntry(val epochDay: Long, val label: String, val text: String)
+
+    /** Per-habit kept-vs-expected over the period. [pct] is the consistency percentage for the meter bar. */
+    data class HabitConsistency(
+        val habitId: String, val name: String, val emoji: String?, val colorArgb: Long?,
+        val kept: Int, val expected: Int,
+    ) {
+        val pct: Int get() = if (expected <= 0) 0 else (kept * 100) / expected
+    }
+
+    /** One time-activity's total minutes over the period, with its display attributes resolved. */
+    data class ActivityDuration(
+        val activityId: String, val name: String, val emoji: String?, val colorArgb: Long?, val minutes: Int,
+    )
+
+    /** One active daily question's average effort score over the period, plus a per-day trend for the sparkline. */
+    data class QuestionAverage(
+        val id: String, val text: String, val avg: Double, val count: Int, val trend: List<Int?>,
+    )
+
+    /** The immutable roll-up result the UI renders. Each list is empty when the period has nothing to show. */
+    data class Rollup(
+        val startDay: Long,
+        val endDay: Long,
+        val periodDays: Int,
+        val reviewedDays: Int,
+        val ratedDays: Int,
+        val avgRating: Double,
+        val ratingTrend: List<Int?>,
+        val wins: List<WinTally>,
+        val moreWins: Int,
+        val reflections: List<ReflectionEntry>,
+        val moreReflections: Int,
+        val habitConsistency: List<HabitConsistency>,
+        val topActivities: List<ActivityDuration>,
+        val questionAverages: List<QuestionAverage>,
+        val correlations: List<String>,
+    ) {
+        /** True when there is anything worth rendering beyond an empty-period hint. */
+        val hasData: Boolean
+            get() = reviewedDays > 0 || wins.isNotEmpty() || reflections.isNotEmpty() ||
+                habitConsistency.isNotEmpty() || topActivities.isNotEmpty() || questionAverages.isNotEmpty()
+    }
+
+    /** A day counts as "reviewed" once any close-the-day field is filled — mirrors the Day Review's own tally. */
+    fun isReviewed(log: DayLogEntity): Boolean =
+        log.pmReflection.isNotBlank() || log.dayRating > 0 || log.amIntention.isNotBlank() ||
+            log.highlight.isNotBlank() || log.gratitude.isNotBlank() || log.lesson.isNotBlank() ||
+            log.tomorrowFocus.isNotBlank()
+
+    /**
+     * Fold the loaded slice into a [Rollup] for the inclusive epoch-day window [startDay]..[endDay].
+     * All inputs are plain data the caller already holds (day logs must already be workspace-scoped, as
+     * the Day Review scopes them); habits should be the active, non-archived set.
+     */
+    fun compute(
+        startDay: Long,
+        endDay: Long,
+        dayLogs: List<DayLogEntity>,
+        questions: List<DailyQuestion>,
+        habits: List<HabitEntity>,
+        checkins: List<HabitCheckinEntity>,
+        timeEntries: List<TimeEntryEntity>,
+        activities: List<TimeActivityEntity>,
+        zone: ZoneId,
+        now: Long,
+    ): Rollup {
+        if (endDay < startDay) {
+            return Rollup(startDay, endDay, 0, 0, 0, 0.0, emptyList(), emptyList(), 0, emptyList(), 0, emptyList(), emptyList(), emptyList(), emptyList())
+        }
+        val periodDays = (endDay - startDay + 1).toInt()
+        val logByDay = dayLogs.filter { it.epochDay in startDay..endDay }.associateBy { it.epochDay }
+        // One-time check-in index keyed by (habit, day) — the check-in table is unique on that pair.
+        val checkinByKey = checkins.associateBy { it.habitId to it.epochDay }
+
+        val reviewedDays = logByDay.values.count { isReviewed(it) }
+
+        // ── 1. Ratings: average over rated days, and a per-day trend for the sparkline (null = no rating).
+        val ratingTrend = (startDay..endDay).map { d -> logByDay[d]?.dayRating?.takeIf { it > 0 } }
+        val ratings = ratingTrend.filterNotNull()
+        val avgRating = if (ratings.isEmpty()) 0.0 else ratings.average()
+
+        // ── 2. Wins: every "good thing" across the period, condensed case-insensitively, recurrences counted.
+        val winsByKey = LinkedHashMap<String, WinTally>()
+        for (d in startDay..endDay) {
+            val log = logByDay[d] ?: continue
+            listOf(log.good1, log.good2, log.good3).map { it.trim() }.filter { it.isNotEmpty() }.forEach { w ->
+                val key = w.lowercase(Locale.getDefault())
+                val cur = winsByKey[key]
+                winsByKey[key] = cur?.copy(count = cur.count + 1) ?: WinTally(w, 1)
+            }
+        }
+        val allWins = winsByKey.values.sortedByDescending { it.count }
+        val wins = allWins.take(MAX_WINS)
+        val moreWins = (allWins.size - wins.size).coerceAtLeast(0)
+
+        // ── 3. Reflections digest: lessons, prompt answers and evening reflections, most-recent day first.
+        val allReflections = buildList {
+            for (d in endDay downTo startDay) {
+                val log = logByDay[d] ?: continue
+                if (log.lesson.isNotBlank()) add(ReflectionEntry(d, "💡 Lesson", log.lesson.trim()))
+                if (log.promptAnswer.isNotBlank()) add(ReflectionEntry(d, DayPrompts.promptFor(d), log.promptAnswer.trim()))
+                if (log.pmReflection.isNotBlank()) add(ReflectionEntry(d, "🌙 Reflection", log.pmReflection.trim()))
+            }
+        }
+        val reflections = allReflections.take(MAX_REFLECTIONS)
+        val moreReflections = (allReflections.size - reflections.size).coerceAtLeast(0)
+
+        // ── 4. Habit consistency: kept scheduled days / expected scheduled days over the period.
+        val habitConsistency = habits.map { h ->
+            var expected = 0
+            var kept = 0
+            for (d in startDay..endDay) {
+                if (!HabitStats.isExpectedDay(h, d)) continue
+                expected++
+                val c = checkinByKey[h.id to d]
+                if (c != null && c.status == "done" && HabitStats.meetsGoal(h, c.count)) kept++
+            }
+            HabitConsistency(h.id, h.name, h.emoji, h.colorArgb, kept, expected)
+        }.filter { it.expected > 0 }.sortedByDescending { it.pct }
+
+        // ── 5. Top time activities by total tracked minutes over the whole window.
+        val (winStart, winEnd) = millisWindow(startDay, endDay, zone)
+        val topActivities = TimeTracking.totalsByActivity(timeEntries, winStart, winEnd, now)
+            .take(MAX_ACTIVITIES)
+            .map { at ->
+                val a = activities.firstOrNull { it.id == at.activityId }
+                ActivityDuration(at.activityId, a?.name ?: "—", a?.emoji, a?.colorArgb, at.minutes)
+            }
+
+        // ── 6. Daily-question averages + per-day trend (reuses the Phase C scores map).
+        val scoresByDay = (startDay..endDay).associateWith { d -> DailyQuestions.parseScores(logByDay[d]?.dailyScoresJson ?: "") }
+        val questionAverages = questions.map { q ->
+            val trend = (startDay..endDay).map { d -> scoresByDay[d]?.get(q.id) }
+            val vals = trend.filterNotNull()
+            QuestionAverage(q.id, q.text, if (vals.isEmpty()) 0.0 else vals.average(), vals.size, trend)
+        }.filter { it.count > 0 }
+
+        // ── 7. "Your best days share…" — descriptive differences between top-rated days and the rest.
+        val correlations = correlate(startDay, endDay, logByDay, checkinByKey, questions, habits, scoresByDay, timeEntries, activities, zone, now)
+
+        return Rollup(
+            startDay = startDay, endDay = endDay, periodDays = periodDays, reviewedDays = reviewedDays,
+            ratedDays = ratings.size, avgRating = avgRating, ratingTrend = ratingTrend,
+            wins = wins, moreWins = moreWins, reflections = reflections, moreReflections = moreReflections,
+            habitConsistency = habitConsistency, topActivities = topActivities,
+            questionAverages = questionAverages, correlations = correlations,
+        )
+    }
+
+    /**
+     * Compare the top third of rated days (by rating) against the rest and surface up to three purely
+     * factual differences. Descriptive only — it never claims causation. Suppressed unless there are at
+     * least [MIN_DAYS_FOR_CORRELATION] rated days and the two groups actually differ in rating.
+     */
+    private fun correlate(
+        startDay: Long,
+        endDay: Long,
+        logByDay: Map<Long, DayLogEntity>,
+        checkinByKey: Map<Pair<String, Long>, HabitCheckinEntity>,
+        questions: List<DailyQuestion>,
+        habits: List<HabitEntity>,
+        scoresByDay: Map<Long, Map<String, Int>>,
+        timeEntries: List<TimeEntryEntity>,
+        activities: List<TimeActivityEntity>,
+        zone: ZoneId,
+        now: Long,
+    ): List<String> {
+        val rated = (startDay..endDay).filter { (logByDay[it]?.dayRating ?: 0) > 0 }
+        if (rated.size < MIN_DAYS_FOR_CORRELATION) return emptyList()
+        val sorted = rated.sortedByDescending { logByDay[it]!!.dayRating }
+        val bestN = ceil(sorted.size / 3.0).toInt().coerceIn(1, sorted.size - 1)
+        val best = sorted.take(bestN)
+        val rest = sorted.drop(bestN)
+        if (best.isEmpty() || rest.isEmpty()) return emptyList()
+        val bestRating = best.map { logByDay[it]!!.dayRating }.average()
+        val restRating = rest.map { logByDay[it]!!.dayRating }.average()
+        if (bestRating - restRating < 0.5) return emptyList() // no real separation (e.g. every day the same)
+
+        val out = mutableListOf<String>()
+
+        // (a) Habits kept per day.
+        fun habitsKeptOn(d: Long): Int = habits.count { h ->
+            HabitStats.isExpectedDay(h, d) &&
+                checkinByKey[h.id to d]?.let { it.status == "done" && HabitStats.meetsGoal(h, it.count) } == true
+        }
+        if (habits.isNotEmpty()) {
+            val b = best.map { habitsKeptOn(it) }.average()
+            val r = rest.map { habitsKeptOn(it) }.average()
+            if (b - r >= 0.5) out += "averaged ${oneDp(b)} habits kept vs ${oneDp(r)}"
+        }
+
+        // (b) Daily-question effort — the question with the biggest positive gap, if any group has enough data.
+        val qGap = questions.mapNotNull { q ->
+            val b = best.mapNotNull { scoresByDay[it]?.get(q.id) }
+            val r = rest.mapNotNull { scoresByDay[it]?.get(q.id) }
+            if (b.size < 2 || r.size < 2) return@mapNotNull null
+            val gap = b.average() - r.average()
+            if (gap >= 0.5) Triple(q, b.average(), r.average()) else null
+        }.maxByOrNull { it.second - it.third }
+        qGap?.let { (q, b, r) -> out += "scored higher on “${shortQuestion(q.text)}” (${oneDp(b)} vs ${oneDp(r)})" }
+
+        // (c) Time on an activity — per-day minutes, the activity with the biggest positive gap.
+        if (activities.isNotEmpty()) {
+            fun perDayMinutes(days: List<Long>): Map<String, Double> {
+                val n = days.size.coerceAtLeast(1)
+                val totals = HashMap<String, Int>()
+                for (d in days) {
+                    val (ws, we) = millisWindow(d, d, zone)
+                    TimeTracking.totalsByActivity(timeEntries, ws, we, now).forEach {
+                        totals[it.activityId] = (totals[it.activityId] ?: 0) + it.minutes
+                    }
+                }
+                return totals.mapValues { it.value.toDouble() / n }
+            }
+            val bestMin = perDayMinutes(best)
+            val restMin = perDayMinutes(rest)
+            val actGap = activities.mapNotNull { a ->
+                val b = bestMin[a.id] ?: 0.0
+                val r = restMin[a.id] ?: 0.0
+                if (b - r >= 15.0) Triple(a, b, r) else null
+            }.maxByOrNull { it.second - it.third }
+            actGap?.let { (a, b, r) ->
+                out += "had more time on ${a.name} (${fmtHm(b.roundToInt())} vs ${fmtHm(r.roundToInt())} a day)"
+            }
+        }
+
+        return out.take(3)
+    }
+
+    /** Millis window [start, end) for the inclusive day range, in [zone]. */
+    private fun millisWindow(startDay: Long, endDay: Long, zone: ZoneId): Pair<Long, Long> {
+        val s = LocalDate.ofEpochDay(startDay).atStartOfDay(zone).toInstant().toEpochMilli()
+        val e = LocalDate.ofEpochDay(endDay + 1).atStartOfDay(zone).toInstant().toEpochMilli()
+        return s to e
+    }
+
+    private fun oneDp(v: Double): String = String.format(Locale.US, "%.1f", v)
+
+    /** Trim the shared "Did I do my best to …?" scaffolding so the phrase reads inside a sentence. */
+    private fun shortQuestion(text: String): String {
+        var s = text.trim().removeSuffix("?").trim()
+        val prefixes = listOf("did i do my best to ", "did i do my best ", "did i ")
+        val lower = s.lowercase(Locale.getDefault())
+        prefixes.firstOrNull { lower.startsWith(it) }?.let { s = s.substring(it.length) }
+        return s.ifBlank { text }
+    }
+}

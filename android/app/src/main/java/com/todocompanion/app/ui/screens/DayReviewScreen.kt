@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import com.todocompanion.app.domain.DailyQuestion
 import com.todocompanion.app.domain.DailyQuestions
 import com.todocompanion.app.domain.DayPrompts
+import com.todocompanion.app.domain.ReviewRollup
 import com.todocompanion.app.domain.calendar.CalendarEngine
 import com.todocompanion.app.domain.done.DoneKind
 import com.todocompanion.app.domain.done.DoneRecord
@@ -67,6 +68,7 @@ import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
 import com.todocompanion.app.ui.components.AppTextField
 import com.todocompanion.app.ui.components.DateOnlyPickerDialog
+import com.todocompanion.app.ui.components.OptionChips
 import com.todocompanion.app.util.DayCard
 import com.todocompanion.app.util.ProgressCard
 import java.time.Instant
@@ -97,6 +99,9 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
     var showShare by remember { mutableStateOf(false) }
     var showClose by remember { mutableStateOf(false) }
     var showQuestions by remember { mutableStateOf(false) }
+    // Phase D — Day · Week · Month. Day keeps the full close-the-day screen; Week/Month roll the reviewed
+    // period up into read-only aggregate cards.
+    var mode by remember { mutableStateOf(ReviewRange.DAY) }
 
     val tasks by vm.tasks.collectAsState()
     val habits by vm.habits.collectAsState()
@@ -195,6 +200,23 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
         )
     }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(top = 2.dp)) {
+            // ── Range mode: Day (this screen) · Week · Month (roll-up) ──
+            OptionChips(
+                options = ReviewRange.ALL, selected = mode, onSelect = { mode = it }, wrap = false,
+                label = { it.label }, modifier = Modifier.padding(bottom = 12.dp),
+            )
+            if (mode != ReviewRange.DAY) {
+                RangeRollup(
+                    mode = mode, anchor = day, todayEd = todayEd, zone = zone,
+                    weekStartSetting = settings.weekStart,
+                    dayLogs = dayLogs, questions = questions, habits = habits, checkins = checkins,
+                    timeEntries = timeEntries, activities = activities,
+                    onAnchorChange = { day = it },
+                    onOpenDay = { d -> day = d; mode = ReviewRange.DAY },
+                )
+                Spacer(Modifier.height(24.dp))
+                return@Column
+            }
             // Date navigator.
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { day -= 1 }) { Icon(Icons.Filled.ChevronLeft, "Previous day") }
@@ -994,4 +1016,246 @@ private fun ShareDialog(onDismiss: () -> Unit, onShare: (includeTitles: Boolean,
             }
         },
     )
+}
+
+/** Phase D — the Day Review's range mode. Day is the full close-the-day screen; Week/Month roll up. */
+private enum class ReviewRange(val label: String) {
+    DAY("Day"), WEEK("Week"), MONTH("Month");
+    companion object { val ALL = listOf(DAY, WEEK, MONTH) }
+}
+
+/**
+ * Phase D — the weekly / monthly reflection roll-up. A period navigator (‹ label ›, honoring the
+ * week-start setting) over read-only aggregate cards computed by [ReviewRollup] from the same day logs,
+ * habits, check-ins and tracked time the Day view already holds. Each card renders only when it has
+ * data, and reuses the day-review idioms (AppCard, SectionTitle, MeterRow, ScoreSparkline). The current
+ * week/month is capped at today, matching the Recap screen's "this week / this month" semantics.
+ */
+@Composable
+private fun RangeRollup(
+    mode: ReviewRange,
+    anchor: Long,
+    todayEd: Long,
+    zone: ZoneId,
+    weekStartSetting: Int,
+    dayLogs: List<com.todocompanion.app.data.entity.DayLogEntity>,
+    questions: List<DailyQuestion>,
+    habits: List<com.todocompanion.app.data.entity.HabitEntity>,
+    checkins: List<com.todocompanion.app.data.entity.HabitCheckinEntity>,
+    timeEntries: List<com.todocompanion.app.data.entity.TimeEntryEntity>,
+    activities: List<com.todocompanion.app.data.entity.TimeActivityEntity>,
+    onAnchorChange: (Long) -> Unit,
+    onOpenDay: (Long) -> Unit,
+) {
+    val date = LocalDate.ofEpochDay(anchor)
+    val today = LocalDate.ofEpochDay(todayEd)
+
+    // Resolve the window, label, relative caption and the prev/next anchors for this range.
+    val start: Long
+    val end: Long
+    val label: String
+    val relative: String
+    val prevAnchor: Long
+    val nextAnchor: Long
+    val canNext: Boolean
+    if (mode == ReviewRange.WEEK) {
+        val ws = weekStartOf(date, weekStartSetting)
+        val we = ws.plusDays(6)
+        val curWs = weekStartOf(today, weekStartSetting)
+        start = ws.toEpochDay()
+        end = minOf(we.toEpochDay(), todayEd)
+        label = weekLabel(ws, we)
+        relative = when (ws) { curWs -> "This week"; curWs.minusWeeks(1) -> "Last week"; else -> "" }
+        prevAnchor = anchor - 7
+        nextAnchor = anchor + 7
+        canNext = ws < curWs
+    } else {
+        val first = date.withDayOfMonth(1)
+        val last = date.withDayOfMonth(date.lengthOfMonth())
+        val curFirst = today.withDayOfMonth(1)
+        start = first.toEpochDay()
+        end = minOf(last.toEpochDay(), todayEd)
+        label = first.month.getDisplayName(TextStyle.FULL, Locale.getDefault()) + " " + first.year
+        relative = when (first) { curFirst -> "This month"; curFirst.minusMonths(1) -> "Last month"; else -> "" }
+        prevAnchor = first.minusMonths(1).toEpochDay()
+        nextAnchor = first.plusMonths(1).toEpochDay()
+        canNext = first < curFirst
+    }
+
+    val rollup = remember(mode, start, end, dayLogs, questions, habits, checkins, timeEntries, activities) {
+        ReviewRollup.compute(start, end, dayLogs, questions, habits, checkins, timeEntries, activities, zone, System.currentTimeMillis())
+    }
+
+    // ── Period navigator (mirrors the day navigator) ──
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = { onAnchorChange(prevAnchor) }) { Icon(Icons.Filled.ChevronLeft, "Previous ${mode.label.lowercase()}") }
+        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+            if (relative.isNotBlank()) Text(relative, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+            Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        }
+        IconButton(onClick = { if (canNext) onAnchorChange(nextAnchor) }, enabled = canNext) { Icon(Icons.Filled.ChevronRight, "Next ${mode.label.lowercase()}") }
+    }
+    Spacer(Modifier.height(12.dp))
+
+    // ── 1. At-a-glance header ──
+    AppCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("${rollup.reviewedDays} of ${rollup.periodDays} days reviewed", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                if (rollup.ratedDays > 0) Text("Average rating ${oneDp(rollup.avgRating)} · ${rollup.ratedDays} rated", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (rollup.avgRating > 0) {
+                val r = rollup.avgRating.roundToInt()
+                Row {
+                    (1..5).forEach { i ->
+                        Text(if (i <= r) "★" else "☆", style = MaterialTheme.typography.titleMedium,
+                            color = if (i <= r) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
+                    }
+                }
+            }
+        }
+        if (rollup.ratingTrend.any { it != null }) {
+            Spacer(Modifier.height(10.dp))
+            Text("Rating trend", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+            Spacer(Modifier.height(4.dp))
+            ScoreSparkline(rollup.ratingTrend, Modifier.fillMaxWidth())
+        }
+    }
+
+    if (!rollup.hasData) {
+        Spacer(Modifier.height(12.dp))
+        AppCard {
+            Text("Nothing to roll up in this ${mode.label.lowercase()} yet — close a few days and your wins, lessons and consistency gather here.",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        return
+    }
+
+    // ── 2. Wins ──
+    if (rollup.wins.isNotEmpty()) {
+        Spacer(Modifier.height(12.dp))
+        AppCard {
+            SectionTitle("⭐ Wins")
+            rollup.wins.forEach { w ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("⭐", Modifier.width(24.dp))
+                    Text(w.text, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    if (w.count > 1) Text("×${w.count}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                }
+            }
+            if (rollup.moreWins > 0) Text("+ ${rollup.moreWins} more", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(top = 4.dp))
+        }
+    }
+
+    // ── 3. Lessons & reflections (tap a card to open that day) ──
+    if (rollup.reflections.isNotEmpty()) {
+        Spacer(Modifier.height(12.dp))
+        AppCard {
+            SectionTitle("Lessons & reflections")
+            rollup.reflections.forEach { r ->
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onOpenDay(r.epochDay) }.padding(vertical = 4.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(dayChip(r.epochDay), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.width(8.dp))
+                        Text(r.label, Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Text(r.text, style = MaterialTheme.typography.bodyMedium, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            if (rollup.moreReflections > 0) Text("+ ${rollup.moreReflections} more", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(top = 4.dp))
+        }
+    }
+
+    // ── 4. Habit consistency ──
+    if (rollup.habitConsistency.isNotEmpty()) {
+        Spacer(Modifier.height(12.dp))
+        AppCard {
+            SectionTitle("Habit consistency")
+            val tertiary = MaterialTheme.colorScheme.tertiary
+            rollup.habitConsistency.forEach { h ->
+                MeterRow(
+                    leading = { Text(h.emoji ?: "🔁") },
+                    name = h.name,
+                    trailing = "${h.pct}% · ${h.kept}/${h.expected}",
+                    frac = h.pct / 100f,
+                    color = h.colorArgb?.let { Color(it) } ?: tertiary,
+                )
+            }
+        }
+    }
+
+    // ── 5. Top time activities ──
+    if (rollup.topActivities.isNotEmpty()) {
+        Spacer(Modifier.height(12.dp))
+        AppCard {
+            SectionTitle("Time tracked · top activities")
+            val maxMin = (rollup.topActivities.maxOfOrNull { it.minutes } ?: 1).coerceAtLeast(1)
+            val fallback = MaterialTheme.colorScheme.primary
+            rollup.topActivities.forEach { a ->
+                val col = a.colorArgb?.let { Color(it) } ?: fallback
+                MeterRow(
+                    leading = { val e = a.emoji; if (e != null) Text(e) else Box(Modifier.size(12.dp).clip(CircleShape).background(col)) },
+                    name = a.name,
+                    trailing = formatHm(a.minutes),
+                    frac = a.minutes / maxMin.toFloat(),
+                    color = col,
+                )
+            }
+        }
+    }
+
+    // ── 6. Daily-question averages ──
+    if (rollup.questionAverages.isNotEmpty()) {
+        Spacer(Modifier.height(12.dp))
+        AppCard {
+            SectionTitle("Daily questions")
+            rollup.questionAverages.forEachIndexed { i, q ->
+                if (i > 0) Spacer(Modifier.height(12.dp))
+                Text(q.text, style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(oneDp(q.avg), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(4.dp))
+                    Text("avg", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                    Spacer(Modifier.width(10.dp))
+                    ScoreSparkline(q.trend, Modifier.weight(1f))
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            Text("Effort scores, averaged over the ${mode.label.lowercase()}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+        }
+    }
+
+    // ── 7. "Your best days share…" — descriptive, computed on-device ──
+    if (rollup.correlations.isNotEmpty()) {
+        Spacer(Modifier.height(12.dp))
+        AppCard {
+            SectionTitle("Your best days share…")
+            rollup.correlations.forEach { c ->
+                Row(Modifier.padding(vertical = 2.dp)) {
+                    Text("•", Modifier.width(16.dp), color = MaterialTheme.colorScheme.primary)
+                    Text(c, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            Text("A pattern in your reviews, not a cause — just what your higher-rated days had in common.",
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(top = 6.dp))
+        }
+    }
+}
+
+private fun oneDp(v: Double): String = String.format(Locale.US, "%.1f", v)
+
+private fun formatHm(m: Int): String = if (m >= 60) "${m / 60}h ${m % 60}m" else "${m}m"
+
+/** A compact week label: "1–7 Sep", or "28 Aug – 3 Sep" when the week straddles two months. */
+private fun weekLabel(a: LocalDate, b: LocalDate): String {
+    val ma = a.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+    val mb = b.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+    return if (a.month == b.month) "${a.dayOfMonth}–${b.dayOfMonth} $mb" else "${a.dayOfMonth} $ma – ${b.dayOfMonth} $mb"
+}
+
+/** A short dated chip for a reflection entry, e.g. "Mon 1". */
+private fun dayChip(epochDay: Long): String {
+    val d = LocalDate.ofEpochDay(epochDay)
+    return d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()) + " " + d.dayOfMonth
 }
