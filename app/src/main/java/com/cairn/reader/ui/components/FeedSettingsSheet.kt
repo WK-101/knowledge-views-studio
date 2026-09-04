@@ -45,15 +45,27 @@ fun FeedSettingsSheet(
     onNotify: (Boolean) -> Unit,
     onRemove: () -> Unit,
     onDismiss: () -> Unit,
+    onRename: (String) -> Unit = {},
+    onOpenSite: (() -> Unit)? = null,
 ) {
+    var title by remember(source.id) { mutableStateOf(source.title) }
     var folder by remember(source.id) { mutableStateOf(source.folder.orEmpty()) }
     var fullText by remember(source.id) { mutableStateOf(source.fullTextByDefault) }
     var notify by remember(source.id) { mutableStateOf(source.notify) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp)) {
-            Text(source.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(source.feedUrl, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(12.dp))
+
+            Text("Name", style = MaterialTheme.typography.labelLarge)
+            Spacer(Modifier.height(6.dp))
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it; onRename(it) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
             Spacer(Modifier.height(16.dp))
 
             Text("Folder", style = MaterialTheme.typography.labelLarge)
@@ -92,10 +104,15 @@ fun FeedSettingsSheet(
             }
 
             Spacer(Modifier.height(16.dp))
-            TextButton(onClick = { onRemove(); onDismiss() }) {
-                Icon(Icons.Outlined.DeleteOutline, contentDescription = null, modifier = Modifier.height(18.dp))
-                Spacer(Modifier.height(0.dp))
-                Text("  Remove feed")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { onRemove(); onDismiss() }) {
+                    Icon(Icons.Outlined.DeleteOutline, contentDescription = null, modifier = Modifier.height(18.dp))
+                    Text("  Remove")
+                }
+                if (onOpenSite != null && !source.siteUrl.isNullOrBlank()) {
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = { onOpenSite(); onDismiss() }) { Text("Open site") }
+                }
             }
         }
     }

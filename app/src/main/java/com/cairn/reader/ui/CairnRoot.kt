@@ -11,6 +11,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.cairn.reader.data.prefs.ThemeMode
+import com.cairn.reader.ui.feeds.FeedsScreen
 import com.cairn.reader.ui.notebook.NotebookScreen
 import com.cairn.reader.ui.onboarding.OnboardingScreen
 import com.cairn.reader.ui.reader.ReaderScreen
@@ -45,6 +46,7 @@ fun CairnRoot() {
                     onOpenNotebook = { navController.navigate("notebook") },
                     onOpenWeb = openWeb,
                     onOpenSearch = { navController.navigate("search") },
+                    onOpenFeeds = { navController.navigate("feeds") },
                 )
             }
             composable(
@@ -66,6 +68,12 @@ fun CairnRoot() {
                 SearchScreen(
                     onBack = { navController.popBackStack() },
                     onOpenItem = { itemId -> navController.navigate("reader/$itemId") },
+                )
+            }
+            composable("feeds") {
+                FeedsScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenWeb = openWeb,
                 )
             }
             composable(

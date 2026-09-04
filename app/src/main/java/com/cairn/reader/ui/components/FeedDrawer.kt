@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.RssFeed
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.StarOutline
@@ -75,6 +76,7 @@ fun FeedDrawerContent(
     onSaved: () -> Unit,
     onHighlights: () -> Unit,
     onSearch: () -> Unit,
+    onManageFeeds: () -> Unit,
     onSettings: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
@@ -199,6 +201,13 @@ fun FeedDrawerContent(
             selected = false,
             icon = { Icon(Icons.Outlined.Search, contentDescription = null) },
             onClick = onSearch,
+            modifier = Modifier.padding(itemPad),
+        )
+        NavigationDrawerItem(
+            label = { Text("Manage feeds") },
+            selected = false,
+            icon = { Icon(Icons.Outlined.RssFeed, contentDescription = null) },
+            onClick = onManageFeeds,
             modifier = Modifier.padding(itemPad),
         )
         NavigationDrawerItem(

@@ -59,6 +59,33 @@ class FeedRepository @Inject constructor(
         return Result.success(sourceId)
     }
 
+    /** Follow a site that publishes no feed of its own by subscribing to a Google News
+     *  "site:" search, which returns a real RSS feed of that site's recent articles.
+     *  It's just an HTTP fetch of a public feed — no account — so it stays within the
+     *  privacy model while making almost any site followable. */
+    suspend fun followViaGoogleNews(rawInput: String): Result<String> {
+        val host = normalize(rawInput)?.toHttpUrlOrNull()?.host?.removePrefix("www.")
+            ?: return Result.failure(IllegalStateException("Enter a website address first."))
+        val query = java.net.URLEncoder.encode("site:$host", "UTF-8")
+        val gUrl = "https://news.google.com/rss/search?q=$query&hl=en-US&gl=US&ceid=US:en"
+        val res = runCatching { fetcher.fetch(gUrl) }.getOrNull()
+            ?: return Result.failure(IllegalStateException("Couldn't reach Google News."))
+        val feed = res.body?.let { parser.parse(it, res.finalUrl) }
+            ?: return Result.failure(IllegalStateException("Google News has no articles for $host yet."))
+        val now = System.currentTimeMillis()
+        val sourceId = deterministicId(gUrl)
+        val source = SourceEntity(
+            id = sourceId,
+            kind = "RSS",
+            feedUrl = gUrl,
+            siteUrl = "https://$host",
+            title = "$host · via Google News",
+        )
+        sourceDao.upsert(source)
+        feed.items.forEach { insertParsed(source, it, now) }
+        return Result.success(sourceId)
+    }
+
     /** On first run, subscribe to a few well-known feeds so the app has real content
      *  after the first sync. Returns true if it seeded (i.e. there were no sources). */
     suspend fun seedDefaultFeedsIfEmpty(): Boolean {

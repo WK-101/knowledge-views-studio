@@ -100,6 +100,7 @@ fun CairnApp(
     onOpenNotebook: () -> Unit = {},
     onOpenWeb: (String) -> Unit = {},
     onOpenSearch: () -> Unit = {},
+    onOpenFeeds: () -> Unit = {},
 ) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
     var showAddFeed by remember { mutableStateOf(false) }
@@ -147,6 +148,7 @@ fun CairnApp(
                     onSaved = { selected = 1; scope.launch { drawerState.close() } },
                     onHighlights = { scope.launch { drawerState.close() }; onOpenNotebook() },
                     onSearch = { scope.launch { drawerState.close() }; onOpenSearch() },
+                    onManageFeeds = { scope.launch { drawerState.close() }; onOpenFeeds() },
                     onSettings = { selected = 2; scope.launch { drawerState.close() } },
                 )
             }

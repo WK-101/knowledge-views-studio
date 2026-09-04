@@ -231,15 +231,33 @@ class InboxViewModel @Inject constructor(
             _refreshing.value = true
             val result = feedRepository.addFeedByUrl(trimmed)
             _refreshing.value = false
-            _snacks.emit(
-                Snack(
-                    result.fold(
-                        onSuccess = { "Feed added" },
-                        onFailure = { it.message ?: "Couldn't find a feed at that address" },
-                    ),
-                ),
+            result.fold(
+                onSuccess = { _snacks.emit(Snack("Feed added")) },
+                onFailure = {
+                    // No direct feed — offer the no-RSS fallback right in the snackbar.
+                    _snacks.emit(
+                        Snack(it.message ?: "No feed found there", "Try Google News") {
+                            followViaGoogleNews(trimmed)
+                        },
+                    )
+                },
             )
         }
+    }
+
+    /** Follow a site with no RSS via a Google News "site:" feed. */
+    fun followViaGoogleNews(url: String) = viewModelScope.launch {
+        _refreshing.value = true
+        val result = feedRepository.followViaGoogleNews(url)
+        _refreshing.value = false
+        _snacks.emit(
+            Snack(
+                result.fold(
+                    onSuccess = { "Now following via Google News" },
+                    onFailure = { it.message ?: "Couldn't follow that site" },
+                ),
+            ),
+        )
     }
 
     private fun applyContentFilters(list: List<ItemListRow>, blocked: Set<String>, dedup: Boolean): List<ItemListRow> {

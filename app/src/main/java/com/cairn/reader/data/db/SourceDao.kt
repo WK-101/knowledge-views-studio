@@ -29,6 +29,9 @@ interface SourceDao {
     @Query("UPDATE sources SET consecutiveErrors = consecutiveErrors + 1, retryAfter = :retryAfter WHERE id = :id")
     suspend fun markError(id: String, retryAfter: Long?)
 
+    @Query("UPDATE sources SET title = :title WHERE id = :id")
+    suspend fun setTitle(id: String, title: String)
+
     @Query("UPDATE sources SET folder = :folder WHERE id = :id")
     suspend fun setFolder(id: String, folder: String?)
 
