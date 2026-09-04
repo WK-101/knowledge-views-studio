@@ -7,6 +7,7 @@ import com.cairn.reader.data.prefs.AppPreferences
 import com.cairn.reader.data.prefs.PreferencesRepository
 import com.cairn.reader.data.prefs.ReaderFont
 import com.cairn.reader.data.prefs.ReaderTheme
+import com.cairn.reader.data.prefs.SwipeAction
 import com.cairn.reader.data.prefs.ThemeMode
 import com.cairn.reader.data.backup.BackupManager
 import com.cairn.reader.data.repo.FeedRepository
@@ -70,4 +71,9 @@ class SettingsViewModel @Inject constructor(
     fun setDynamicColor(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setDynamicColor(enabled) }
     fun setReaderFont(font: ReaderFont) = viewModelScope.launch { preferencesRepository.setReaderFont(font) }
     fun setReaderTheme(theme: ReaderTheme) = viewModelScope.launch { preferencesRepository.setReaderTheme(theme) }
+    fun setSwipeRight(action: SwipeAction) = viewModelScope.launch { preferencesRepository.setSwipeRight(action) }
+    fun setSwipeLeft(action: SwipeAction) = viewModelScope.launch { preferencesRepository.setSwipeLeft(action) }
+    fun setCompactDensity(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setCompactDensity(enabled) }
+    fun setReaderJustify(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setReaderJustify(enabled) }
+    fun setReaderFontScale(scale: Float) = viewModelScope.launch { preferencesRepository.setReaderFontScale(scale) }
 }

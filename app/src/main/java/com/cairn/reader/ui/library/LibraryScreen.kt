@@ -98,6 +98,7 @@ fun LibraryScreen(
     var showSave by remember { mutableStateOf(false) }
     var scopeMenu by remember { mutableStateOf(false) }
     var displayMenu by remember { mutableStateOf(false) }
+    var searchOpen by remember { mutableStateOf(false) }
 
     val selectionActive = selection.isNotEmpty()
     val searching = query.isNotBlank()
@@ -107,26 +108,42 @@ fun LibraryScreen(
 
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
-        // Search + (for a collection scope) manage overflow
+        // Compact header: title/search on the left, a search toggle + view/sort + manage.
         androidx.compose.foundation.layout.Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            OutlinedTextField(
-                value = query,
-                onValueChange = viewModel::setQuery,
-                singleLine = true,
-                leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (query.isNotBlank()) {
-                        IconButton(onClick = { viewModel.saveSearch(query) }) {
-                            Icon(Icons.Outlined.BookmarkAdd, contentDescription = "Save search")
+            if (searchOpen) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = viewModel::setQuery,
+                    singleLine = true,
+                    leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                    trailingIcon = {
+                        androidx.compose.foundation.layout.Row {
+                            if (query.isNotBlank()) {
+                                IconButton(onClick = { viewModel.saveSearch(query) }) {
+                                    Icon(Icons.Outlined.BookmarkAdd, contentDescription = "Save search")
+                                }
+                            }
+                            IconButton(onClick = { viewModel.setQuery(""); searchOpen = false }) {
+                                Icon(Icons.Outlined.Close, contentDescription = "Close search")
+                            }
                         }
-                    }
-                },
-                placeholder = { Text("Search everything you've saved") },
-                modifier = Modifier.weight(1f),
-            )
+                    },
+                    placeholder = { Text("Search your library") },
+                    modifier = Modifier.weight(1f).padding(vertical = 4.dp),
+                )
+            } else {
+                Text(
+                    text = "Library",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = { searchOpen = true }) { Icon(Icons.Outlined.Search, contentDescription = "Search") }
+            }
             Box {
                 IconButton(onClick = { displayMenu = true }) { Icon(Icons.Outlined.Tune, contentDescription = "View and sort") }
                 DropdownMenu(expanded = displayMenu, onDismissRequest = { displayMenu = false }) {
@@ -228,7 +245,7 @@ fun LibraryScreen(
                     savedSearches.forEach { q ->
                         androidx.compose.material3.InputChip(
                             selected = false,
-                            onClick = { viewModel.setQuery(q) },
+                            onClick = { viewModel.setQuery(q); searchOpen = true },
                             label = { Text(q) },
                             trailingIcon = {
                                 Icon(

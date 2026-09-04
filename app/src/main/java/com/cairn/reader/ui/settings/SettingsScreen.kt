@@ -52,6 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cairn.reader.data.db.SourceEntity
 import com.cairn.reader.data.prefs.ReaderFont
 import com.cairn.reader.data.prefs.ReaderTheme
+import com.cairn.reader.data.prefs.SwipeAction
 import com.cairn.reader.data.prefs.ThemeMode
 import com.cairn.reader.ui.components.FeedSettingsSheet
 
@@ -237,6 +238,41 @@ fun SettingsScreen(
 
         item {
             Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+                SectionLabel("GESTURES & LIST")
+                Spacer(Modifier.height(12.dp))
+                LabeledChips(
+                    label = "List density",
+                    options = listOf(false to "Comfortable", true to "Compact"),
+                    selected = prefs.compactDensity,
+                    onSelect = viewModel::setCompactDensity,
+                )
+                Spacer(Modifier.height(10.dp))
+                LabeledChips(
+                    label = "Swipe right",
+                    options = SwipeAction.entries.map { it to it.label },
+                    selected = prefs.swipeRight,
+                    onSelect = viewModel::setSwipeRight,
+                )
+                Spacer(Modifier.height(10.dp))
+                LabeledChips(
+                    label = "Swipe left",
+                    options = SwipeAction.entries.map { it to it.label },
+                    selected = prefs.swipeLeft,
+                    onSelect = viewModel::setSwipeLeft,
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Justify reader text", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text("Straighten the right edge of articles", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                    }
+                    Switch(checked = prefs.readerJustify, onCheckedChange = viewModel::setReaderJustify)
+                }
+            }
+        }
+
+        item {
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
                 SectionLabel("FILTERS")
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -291,7 +327,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(24.dp))
                 SectionLabel("ABOUT")
                 Spacer(Modifier.height(8.dp))
-                Text("Cairn 1.6.0", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
+                Text("Cairn 1.7.0", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
                 Text("One reader for everything you read.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
             }
         }

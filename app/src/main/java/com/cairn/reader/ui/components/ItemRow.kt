@@ -45,21 +45,23 @@ fun ItemRow(
     modifier: Modifier = Modifier,
     onLongPress: (() -> Unit)? = null,
     selected: Boolean = false,
+    compact: Boolean = false,
 ) {
     val scheme = MaterialTheme.colorScheme
     val source = row.sourceTitle ?: row.siteName ?: "Unknown"
+    val thumb = if (compact) 46.dp else 56.dp
     Row(
         modifier = modifier
             .fillMaxWidth()
             .background(if (selected) scheme.secondaryContainer else scheme.surface)
             .combinedClickable(onClick = onOpen, onLongClick = onLongPress)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = 16.dp, vertical = if (compact) 8.dp else 10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Box(
             modifier = Modifier
-                .size(56.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .size(thumb)
+                .clip(RoundedCornerShape(if (compact) 10.dp else 12.dp))
                 .background(scheme.secondaryContainer),
             contentAlignment = Alignment.Center,
         ) {
@@ -102,28 +104,27 @@ fun ItemRow(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (!row.excerpt.isNullOrBlank()) {
+            if (!row.excerpt.isNullOrBlank() && !(compact && row.leadImage != null)) {
                 Spacer(Modifier.height(3.dp))
                 Text(
                     text = row.excerpt,
                     style = MaterialTheme.typography.bodyMedium,
                     color = scheme.onSurfaceVariant,
-                    maxLines = 2,
+                    maxLines = if (compact) 1 else 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Spacer(Modifier.height(6.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (row.readingMinutes > 0) {
-                    Text("${row.readingMinutes} min read", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
+            if (row.readingMinutes > 0 || row.isReadLater) {
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (row.readingMinutes > 0) {
+                        Text("${row.readingMinutes} min read", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
+                    }
+                    if (row.isReadLater) {
+                        Spacer(Modifier.width(8.dp))
+                        Icon(Icons.Filled.Bookmark, contentDescription = "Saved", tint = scheme.tertiary, modifier = Modifier.size(14.dp))
+                    }
                 }
-                Spacer(Modifier.weight(1f))
-                Icon(
-                    imageVector = if (row.isReadLater) Icons.Filled.Bookmark else Icons.Outlined.Bookmark,
-                    contentDescription = if (row.isReadLater) "Saved" else "Save",
-                    tint = if (row.isReadLater) scheme.tertiary else scheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp).clickable(onClick = onToggleSave),
-                )
             }
         }
     }

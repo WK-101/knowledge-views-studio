@@ -20,11 +20,14 @@ import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material.icons.outlined.DoneAll
+import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material.icons.outlined.ViewAgenda
 import androidx.compose.material.icons.outlined.ViewCarousel
@@ -111,18 +114,18 @@ fun CairnApp(
     val ttsState by inboxViewModel.tts.collectAsStateWithLifecycle()
     val audioState by inboxViewModel.audio.collectAsStateWithLifecycle()
     var showViewMenu by remember { mutableStateOf(false) }
+    var showFilterMenu by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) {
-        inboxViewModel.messages.collect { message ->
-            if (message.startsWith(InboxViewModel.ARCHIVE_UNDO_MARKER)) {
-                val id = message.removePrefix(InboxViewModel.ARCHIVE_UNDO_MARKER)
-                val result = snackbar.showSnackbar("Archived", actionLabel = "Undo", withDismissAction = true)
-                if (result == SnackbarResult.ActionPerformed) inboxViewModel.unarchive(id)
-            } else {
-                snackbar.showSnackbar(message)
-            }
+        inboxViewModel.snacks.collect { snack ->
+            val result = snackbar.showSnackbar(
+                message = snack.message,
+                actionLabel = snack.actionLabel,
+                withDismissAction = true,
+            )
+            if (result == SnackbarResult.ActionPerformed) snack.onAction?.invoke()
         }
     }
 
@@ -182,6 +185,21 @@ fun CairnApp(
                             }
                         }
                         Box {
+                            IconButton(onClick = { showFilterMenu = true }) {
+                                Icon(Icons.Outlined.FilterList, contentDescription = "Filter: ${inboxState.filter.label}")
+                            }
+                            DropdownMenu(expanded = showFilterMenu, onDismissRequest = { showFilterMenu = false }) {
+                                MenuSectionLabel("SHOW")
+                                InboxFilter.entries.forEach { f ->
+                                    ViewModeItem(
+                                        label = if (f == InboxFilter.UNREAD && inboxState.unread > 0) "Unread · ${inboxState.unread}" else f.label,
+                                        icon = filterIcon(f),
+                                        selected = inboxState.filter == f,
+                                    ) { inboxViewModel.setFilter(f); showFilterMenu = false }
+                                }
+                            }
+                        }
+                        Box {
                             IconButton(onClick = { showViewMenu = true }) {
                                 Icon(Icons.Outlined.ViewAgenda, contentDescription = "View and sort")
                             }
@@ -233,13 +251,16 @@ fun CairnApp(
                         onStop = inboxViewModel::audioStop,
                     )
                 }
-                NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    modifier = Modifier.height(64.dp),
+                ) {
                     destinations.forEachIndexed { index, dest ->
                         NavigationBarItem(
                             selected = selected == index,
                             onClick = { selected = index },
                             icon = { Icon(dest.icon, contentDescription = dest.label) },
-                            label = { Text(dest.label) },
+                            label = { Text(dest.label, style = MaterialTheme.typography.labelSmall) },
                             alwaysShowLabel = false,
                         )
                     }
@@ -289,6 +310,8 @@ private fun InboxScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
+    val (rightAction, leftAction) = viewModel.swipeActions.collectAsStateWithLifecycle().value
+    val compact by viewModel.compact.collectAsStateWithLifecycle()
     var sheetRow by remember { mutableStateOf<ItemListRow?>(null) }
 
     Column(
@@ -296,20 +319,6 @@ private fun InboxScreen(
             .fillMaxSize()
             .padding(top = padding.calculateTopPadding()),
     ) {
-        SingleChoiceSegmentedButtonRow(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
-        ) {
-            val filters = InboxFilter.entries
-            filters.forEachIndexed { index, filter ->
-                SegmentedButton(
-                    selected = filter == state.filter,
-                    onClick = { viewModel.setFilter(filter) },
-                    shape = SegmentedButtonDefaults.itemShape(index, filters.size),
-                    label = { Text(if (filter == InboxFilter.UNREAD && state.unread > 0) "Unread · ${state.unread}" else filter.label) },
-                )
-            }
-        }
-
         PullToRefreshBox(
             isRefreshing = refreshing,
             onRefresh = viewModel::refresh,
@@ -326,10 +335,12 @@ private fun InboxScreen(
                         SwipeableItemRow(
                             row = row,
                             onOpen = { onOpenItem(row.id) },
-                            onToggleSave = { viewModel.toggleSave(row.id, !row.isReadLater) },
-                            onMarkRead = { viewModel.markRead(row.id, true) },
                             onLongPress = { sheetRow = row },
+                            rightAction = rightAction,
+                            leftAction = leftAction,
+                            onAction = { action -> viewModel.swipe(row, action) },
                             mode = viewMode,
+                            compact = compact,
                         )
                     }
                 }
@@ -377,6 +388,13 @@ private fun AddFeedDialog(onDismiss: () -> Unit, onAdd: (String) -> Unit) {
         confirmButton = { TextButton(onClick = { onAdd(text) }, enabled = text.isNotBlank()) { Text("Add") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
+}
+
+private fun filterIcon(filter: InboxFilter): ImageVector = when (filter) {
+    InboxFilter.UNREAD -> Icons.Outlined.Circle
+    InboxFilter.STARRED -> Icons.Outlined.StarBorder
+    InboxFilter.SAVED -> Icons.Outlined.Bookmark
+    InboxFilter.ALL -> Icons.Outlined.Inbox
 }
 
 @Composable

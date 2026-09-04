@@ -43,6 +43,9 @@ sealed interface DrawerSelection {
 
 enum class InboxSort(val label: String) { NEWEST("Newest first"), OLDEST("Oldest first") }
 
+/** A transient snackbar; when [onAction] is set the UI shows an action button (usually "Undo"). */
+data class Snack(val message: String, val actionLabel: String? = null, val onAction: (() -> Unit)? = null)
+
 data class InboxUiState(
     val loading: Boolean = true,
     val items: List<ItemListRow> = emptyList(),
@@ -76,7 +79,7 @@ class InboxViewModel @Inject constructor(
             if (chunks.isEmpty()) null else TtsReader.Track(title, chunks)
         }
         if (tracks.isEmpty()) {
-            _messages.emit("Nothing here to read aloud")
+            _snacks.emit(Snack("Nothing here to read aloud"))
         } else {
             audioPlayer.stop() // one thing plays at a time
             ttsReader.startQueue(tracks)
@@ -103,6 +106,20 @@ class InboxViewModel @Inject constructor(
 
     fun setViewMode(mode: ListViewMode) = viewModelScope.launch { preferencesRepository.setListViewMode(mode) }
 
+    /** Comfortable (false) vs compact (true) list density. */
+    val compact: StateFlow<Boolean> =
+        preferencesRepository.preferences.map { it.compactDensity }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /** (right, left) swipe actions from preferences. */
+    val swipeActions: StateFlow<Pair<com.cairn.reader.data.prefs.SwipeAction, com.cairn.reader.data.prefs.SwipeAction>> =
+        preferencesRepository.preferences
+            .map { it.swipeRight to it.swipeLeft }
+            .stateIn(
+                viewModelScope, SharingStarted.WhileSubscribed(5_000),
+                com.cairn.reader.data.prefs.SwipeAction.SAVE to com.cairn.reader.data.prefs.SwipeAction.MARK_READ,
+            )
+
     private val _filter = MutableStateFlow(InboxFilter.UNREAD)
     private val _sort = MutableStateFlow(InboxSort.NEWEST)
 
@@ -113,8 +130,8 @@ class InboxViewModel @Inject constructor(
     val feeds: StateFlow<List<FeedUnread>> =
         itemRepository.feedUnread().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 4)
-    val messages = _messages.asSharedFlow()
+    private val _snacks = MutableSharedFlow<Snack>(extraBufferCapacity = 8)
+    val snacks = _snacks.asSharedFlow()
 
     init {
         // First run: subscribe to a few real feeds, then pull them in.
@@ -165,18 +182,18 @@ class InboxViewModel @Inject constructor(
             sourceId = (sel as? DrawerSelection.Feed)?.sourceId,
             folder = (sel as? DrawerSelection.Folder)?.name,
         )
-        _messages.emit("Marked all read")
+        _snacks.emit(Snack("Marked all read"))
     }
 
     /** Mark a specific feed or folder read from the drawer's long-press menu. */
     fun markFeedRead(sourceId: String) = viewModelScope.launch {
         itemRepository.markAllRead(sourceId = sourceId, folder = null)
-        _messages.emit("Marked all read")
+        _snacks.emit(Snack("Marked all read"))
     }
 
     fun markFolderRead(folder: String) = viewModelScope.launch {
         itemRepository.markAllRead(sourceId = null, folder = folder)
-        _messages.emit("Marked all read")
+        _snacks.emit(Snack("Marked all read"))
     }
 
     /** All Articles — the whole inbox, unread first. */
@@ -214,10 +231,12 @@ class InboxViewModel @Inject constructor(
             _refreshing.value = true
             val result = feedRepository.addFeedByUrl(trimmed)
             _refreshing.value = false
-            _messages.emit(
-                result.fold(
-                    onSuccess = { "Feed added" },
-                    onFailure = { it.message ?: "Couldn't find a feed at that address" },
+            _snacks.emit(
+                Snack(
+                    result.fold(
+                        onSuccess = { "Feed added" },
+                        onFailure = { it.message ?: "Couldn't find a feed at that address" },
+                    ),
                 ),
             )
         }
@@ -238,23 +257,48 @@ class InboxViewModel @Inject constructor(
         return out
     }
 
-    fun markRead(id: String, read: Boolean = true) = viewModelScope.launch { itemRepository.setRead(id, read) }
-    fun toggleStar(id: String, starred: Boolean) = viewModelScope.launch { itemRepository.setStarred(id, starred) }
+    fun markRead(id: String, read: Boolean = true) = viewModelScope.launch {
+        itemRepository.setRead(id, read)
+        _snacks.emit(
+            Snack(if (read) "Marked read" else "Marked unread", "Undo") {
+                viewModelScope.launch { itemRepository.setRead(id, !read) }
+            },
+        )
+    }
+
+    fun toggleStar(id: String, starred: Boolean) = viewModelScope.launch {
+        itemRepository.setStarred(id, starred)
+        _snacks.emit(
+            Snack(if (starred) "Starred" else "Unstarred", "Undo") {
+                viewModelScope.launch { itemRepository.setStarred(id, !starred) }
+            },
+        )
+    }
 
     fun toggleSave(id: String, save: Boolean) = viewModelScope.launch {
         itemRepository.setReadLater(id, save)
-        _messages.emit(if (save) "Saved for later" else "Removed from Saved")
+        _snacks.emit(
+            Snack(if (save) "Saved for later" else "Removed from Saved", "Undo") {
+                viewModelScope.launch { itemRepository.setReadLater(id, !save) }
+            },
+        )
     }
 
     fun archive(id: String) = viewModelScope.launch {
         itemRepository.setArchived(id, true)
-        _messages.emit(ARCHIVE_UNDO_MARKER + id)
+        _snacks.emit(Snack("Archived", "Undo") { viewModelScope.launch { itemRepository.setArchived(id, false) } })
     }
 
     fun unarchive(id: String) = viewModelScope.launch { itemRepository.setArchived(id, false) }
 
-    companion object {
-        /** Prefix that tells the UI a message carries an item id for an "Undo archive" action. */
-        const val ARCHIVE_UNDO_MARKER = "archived:"
+    /** Perform a configurable swipe action on a row; each carries its own undo. */
+    fun swipe(row: ItemListRow, action: com.cairn.reader.data.prefs.SwipeAction) {
+        when (action) {
+            com.cairn.reader.data.prefs.SwipeAction.MARK_READ -> markRead(row.id, !row.isRead)
+            com.cairn.reader.data.prefs.SwipeAction.SAVE -> toggleSave(row.id, !row.isReadLater)
+            com.cairn.reader.data.prefs.SwipeAction.STAR -> toggleStar(row.id, !row.isStarred)
+            com.cairn.reader.data.prefs.SwipeAction.ARCHIVE -> archive(row.id)
+            com.cairn.reader.data.prefs.SwipeAction.NONE -> Unit
+        }
     }
 }

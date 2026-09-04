@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkRemove
@@ -48,27 +49,30 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.cairn.reader.data.db.ItemListRow
 import com.cairn.reader.data.prefs.ListViewMode
+import com.cairn.reader.data.prefs.SwipeAction
 
 /**
- * A list row that can be swiped: right to save/unsave, left to mark read.
- * Both snap back; in the Unread view a read item then drops out via the reactive
- * query. Archive lives in the long-press sheet.
+ * A list row with user-configurable swipe actions (right = [rightAction], left = [leftAction]).
+ * Both snap back; a mark-read in the Unread view then drops out via the reactive query.
+ * Every action carries its own Undo via the snackbar.
  */
 @Composable
 fun SwipeableItemRow(
     row: ItemListRow,
     onOpen: () -> Unit,
-    onToggleSave: () -> Unit,
-    onMarkRead: () -> Unit,
     onLongPress: () -> Unit,
+    rightAction: SwipeAction,
+    leftAction: SwipeAction,
+    onAction: (SwipeAction) -> Unit,
     modifier: Modifier = Modifier,
     mode: ListViewMode = ListViewMode.CARD,
+    compact: Boolean = false,
 ) {
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             when (value) {
-                SwipeToDismissBoxValue.StartToEnd -> { onToggleSave(); false }
-                SwipeToDismissBoxValue.EndToStart -> { onMarkRead(); false }
+                SwipeToDismissBoxValue.StartToEnd -> { if (rightAction != SwipeAction.NONE) onAction(rightAction); false }
+                SwipeToDismissBoxValue.EndToStart -> { if (leftAction != SwipeAction.NONE) onAction(leftAction); false }
                 SwipeToDismissBoxValue.Settled -> false
             }
         },
@@ -76,22 +80,33 @@ fun SwipeableItemRow(
     SwipeToDismissBox(
         state = dismissState,
         modifier = modifier,
-        backgroundContent = { SwipeBackground(dismissState.dismissDirection, row.isReadLater, row.isRead) },
+        enableDismissFromStartToEnd = rightAction != SwipeAction.NONE,
+        enableDismissFromEndToStart = leftAction != SwipeAction.NONE,
+        backgroundContent = { SwipeBackground(dismissState.dismissDirection, row, rightAction, leftAction) },
     ) {
-        FeedItemCell(row = row, mode = mode, onOpen = onOpen, onToggleSave = onToggleSave, onLongPress = onLongPress)
+        FeedItemCell(row = row, mode = mode, onOpen = onOpen, onLongPress = onLongPress, compact = compact)
     }
 }
 
 @Composable
-private fun SwipeBackground(direction: SwipeToDismissBoxValue, isSaved: Boolean, isRead: Boolean) {
+private fun swipeIcon(action: SwipeAction, row: ItemListRow): ImageVector = when (action) {
+    SwipeAction.MARK_READ -> if (row.isRead) Icons.Outlined.MarkEmailUnread else Icons.Outlined.MarkEmailRead
+    SwipeAction.SAVE -> if (row.isReadLater) Icons.Outlined.BookmarkRemove else Icons.Outlined.Bookmark
+    SwipeAction.STAR -> if (row.isStarred) Icons.Filled.Star else Icons.Outlined.Star
+    SwipeAction.ARCHIVE -> Icons.Outlined.Archive
+    SwipeAction.NONE -> Icons.Outlined.Archive
+}
+
+@Composable
+private fun SwipeBackground(direction: SwipeToDismissBoxValue, row: ItemListRow, rightAction: SwipeAction, leftAction: SwipeAction) {
     val scheme = MaterialTheme.colorScheme
     val (color, icon, alignment) = when (direction) {
         SwipeToDismissBoxValue.StartToEnd ->
-            Triple(scheme.tertiaryContainer, if (isSaved) Icons.Outlined.BookmarkRemove else Icons.Outlined.Bookmark, Alignment.CenterStart)
+            Triple(scheme.tertiaryContainer, swipeIcon(rightAction, row), Alignment.CenterStart)
         SwipeToDismissBoxValue.EndToStart ->
-            Triple(scheme.secondaryContainer, if (isRead) Icons.Outlined.MarkEmailUnread else Icons.Outlined.MarkEmailRead, Alignment.CenterEnd)
+            Triple(scheme.secondaryContainer, swipeIcon(leftAction, row), Alignment.CenterEnd)
         SwipeToDismissBoxValue.Settled ->
-            Triple(Color.Transparent, Icons.Outlined.MarkEmailRead, Alignment.Center)
+            Triple(Color.Transparent, Icons.Outlined.Archive, Alignment.Center)
     }
     Box(
         Modifier.fillMaxSize().background(color).padding(horizontal = 28.dp),

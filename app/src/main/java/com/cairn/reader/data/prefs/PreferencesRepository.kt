@@ -27,6 +27,15 @@ enum class ReaderFont(val label: String) {
 enum class ListViewMode { LIST, CARD, MAGAZINE }
 enum class LibraryViewMode { LIST, GRID, MASONRY, HEADLINES }
 
+/** A configurable list-row swipe action. */
+enum class SwipeAction(val label: String) {
+    NONE("Nothing"),
+    MARK_READ("Mark read"),
+    SAVE("Save for later"),
+    STAR("Star"),
+    ARCHIVE("Archive"),
+}
+
 data class AppPreferences(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,
@@ -42,6 +51,9 @@ data class AppPreferences(
     /** Remembered library view mode per scope key (e.g. "col:<id>"), Raindrop-style. */
     val libraryViewByScope: Map<String, LibraryViewMode> = emptyMap(),
     val seenOnboarding: Boolean = false,
+    val swipeRight: SwipeAction = SwipeAction.SAVE,
+    val swipeLeft: SwipeAction = SwipeAction.MARK_READ,
+    val compactDensity: Boolean = false,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -64,6 +76,9 @@ class PreferencesRepository @Inject constructor(
         val SAVED_SEARCHES = stringSetPreferencesKey("saved_searches")
         val LIBRARY_VIEW_BY_SCOPE = stringSetPreferencesKey("library_view_by_scope")
         val SEEN_ONBOARDING = booleanPreferencesKey("seen_onboarding")
+        val SWIPE_RIGHT = stringPreferencesKey("swipe_right")
+        val SWIPE_LEFT = stringPreferencesKey("swipe_left")
+        val COMPACT_DENSITY = booleanPreferencesKey("compact_density")
     }
 
     /** Per-scope view entries are stored as "scopeKey<sep>MODE" in a string set. */
@@ -89,10 +104,16 @@ class PreferencesRepository @Inject constructor(
                 parts[0] to mode
             }.toMap(),
             seenOnboarding = p[Keys.SEEN_ONBOARDING] ?: false,
+            swipeRight = p[Keys.SWIPE_RIGHT]?.let { runCatching { SwipeAction.valueOf(it) }.getOrNull() } ?: SwipeAction.SAVE,
+            swipeLeft = p[Keys.SWIPE_LEFT]?.let { runCatching { SwipeAction.valueOf(it) }.getOrNull() } ?: SwipeAction.MARK_READ,
+            compactDensity = p[Keys.COMPACT_DENSITY] ?: false,
         )
     }
 
     suspend fun setSeenOnboarding(seen: Boolean) = context.dataStore.edit { it[Keys.SEEN_ONBOARDING] = seen }
+    suspend fun setSwipeRight(action: SwipeAction) = context.dataStore.edit { it[Keys.SWIPE_RIGHT] = action.name }
+    suspend fun setSwipeLeft(action: SwipeAction) = context.dataStore.edit { it[Keys.SWIPE_LEFT] = action.name }
+    suspend fun setCompactDensity(enabled: Boolean) = context.dataStore.edit { it[Keys.COMPACT_DENSITY] = enabled }
 
     suspend fun setThemeMode(mode: ThemeMode) = context.dataStore.edit { it[Keys.THEME_MODE] = mode.name }
     suspend fun setDynamicColor(enabled: Boolean) = context.dataStore.edit { it[Keys.DYNAMIC] = enabled }

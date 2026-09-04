@@ -43,14 +43,14 @@ fun FeedItemCell(
     row: ItemListRow,
     mode: ListViewMode,
     onOpen: () -> Unit,
-    onToggleSave: () -> Unit,
     onLongPress: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
+    compact: Boolean = false,
 ) {
     when (mode) {
-        ListViewMode.CARD -> ItemRow(row, onOpen, onToggleSave, modifier, onLongPress)
-        ListViewMode.LIST -> CompactCell(row, onOpen, onToggleSave, onLongPress, modifier)
-        ListViewMode.MAGAZINE -> MagazineCell(row, onOpen, onToggleSave, onLongPress, modifier)
+        ListViewMode.CARD -> ItemRow(row, onOpen, {}, modifier, onLongPress, compact = compact)
+        ListViewMode.LIST -> CompactCell(row, onOpen, onLongPress, modifier)
+        ListViewMode.MAGAZINE -> MagazineCell(row, onOpen, onLongPress, modifier)
     }
 }
 
@@ -58,7 +58,6 @@ fun FeedItemCell(
 private fun CompactCell(
     row: ItemListRow,
     onOpen: () -> Unit,
-    onToggleSave: () -> Unit,
     onLongPress: (() -> Unit)?,
     modifier: Modifier,
 ) {
@@ -97,6 +96,9 @@ private fun CompactCell(
                 overflow = TextOverflow.Ellipsis,
             )
         }
+        if (row.isReadLater) {
+            Icon(Icons.Filled.Bookmark, contentDescription = "Saved", tint = scheme.tertiary, modifier = Modifier.size(15.dp))
+        }
         if (row.leadImage != null) {
             AsyncImage(
                 model = row.leadImage,
@@ -105,12 +107,6 @@ private fun CompactCell(
                 modifier = Modifier.size(46.dp).clip(RoundedCornerShape(9.dp)).background(scheme.secondaryContainer),
             )
         }
-        Icon(
-            imageVector = if (row.isReadLater) Icons.Filled.Bookmark else Icons.Outlined.Bookmark,
-            contentDescription = if (row.isReadLater) "Saved" else "Save",
-            tint = if (row.isReadLater) scheme.tertiary else scheme.onSurfaceVariant,
-            modifier = Modifier.size(18.dp).combinedClickable(onClick = onToggleSave),
-        )
     }
 }
 
@@ -118,7 +114,6 @@ private fun CompactCell(
 private fun MagazineCell(
     row: ItemListRow,
     onOpen: () -> Unit,
-    onToggleSave: () -> Unit,
     onLongPress: (() -> Unit)?,
     modifier: Modifier,
 ) {
@@ -178,18 +173,17 @@ private fun MagazineCell(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Spacer(Modifier.height(10.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (row.readingMinutes > 0) {
-                Text("${row.readingMinutes} min read", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
+        if (row.readingMinutes > 0 || row.isReadLater) {
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (row.readingMinutes > 0) {
+                    Text("${row.readingMinutes} min read", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
+                }
+                if (row.isReadLater) {
+                    Spacer(Modifier.width(8.dp))
+                    Icon(Icons.Filled.Bookmark, contentDescription = "Saved", tint = scheme.tertiary, modifier = Modifier.size(14.dp))
+                }
             }
-            Spacer(Modifier.weight(1f))
-            Icon(
-                imageVector = if (row.isReadLater) Icons.Filled.Bookmark else Icons.Outlined.Bookmark,
-                contentDescription = if (row.isReadLater) "Saved" else "Save",
-                tint = if (row.isReadLater) scheme.tertiary else scheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp).combinedClickable(onClick = onToggleSave),
-            )
         }
     }
 }
