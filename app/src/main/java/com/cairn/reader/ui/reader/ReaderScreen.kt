@@ -208,8 +208,10 @@ fun ReaderScreen(
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = palette.text) }
                 },
                 actions = {
-                    IconButton(onClick = { showTypography = true }) {
-                        Icon(Icons.Outlined.FormatSize, contentDescription = "Text options", tint = palette.text)
+                    if (data?.type != "PDF") {
+                        IconButton(onClick = { showTypography = true }) {
+                            Icon(Icons.Outlined.FormatSize, contentDescription = "Text options", tint = palette.text)
+                        }
                     }
                     IconButton(onClick = viewModel::toggleStar) {
                         Icon(
@@ -240,11 +242,13 @@ fun ReaderScreen(
                                 leadingIcon = { Icon(Icons.Outlined.Label, contentDescription = null) },
                                 onClick = { showMenu = false; showTags = true },
                             )
-                            DropdownMenuItem(
-                                text = { Text("Listen") },
-                                leadingIcon = { Icon(Icons.Outlined.Headphones, contentDescription = null) },
-                                onClick = { showMenu = false; viewModel.toggleListen() },
-                            )
+                            if (data?.type != "PDF") {
+                                DropdownMenuItem(
+                                    text = { Text("Listen") },
+                                    leadingIcon = { Icon(Icons.Outlined.Headphones, contentDescription = null) },
+                                    onClick = { showMenu = false; viewModel.toggleListen() },
+                                )
+                            }
                             val permanent = data?.cacheStatus == "PERMANENT"
                             DropdownMenuItem(
                                 text = {
@@ -285,11 +289,13 @@ fun ReaderScreen(
                                     },
                                 )
                             }
-                            DropdownMenuItem(
-                                text = { Text("Open original") },
-                                leadingIcon = { Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null) },
-                                onClick = { showMenu = false; openOriginal() },
-                            )
+                            if (data?.type != "PDF") {
+                                DropdownMenuItem(
+                                    text = { Text("Open original") },
+                                    leadingIcon = { Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null) },
+                                    onClick = { showMenu = false; openOriginal() },
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text(if (highlights.isEmpty()) "Share article" else "Export highlights") },
                                 leadingIcon = { Icon(Icons.Outlined.IosShare, contentDescription = null) },
