@@ -59,6 +59,8 @@ class App : Application() {
             runCatching { com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(this@App, repository) }
             // R38 — (re)arm dedicated-calendar event alerts for the next upcoming occurrence of each event.
             runCatching { com.todocompanion.app.reminders.AlarmScheduler.rescheduleEventAlerts(this@App, repository) }
+            // R105 — arm the daily midnight widget refresh so date-sensitive widgets roll over on time.
+            runCatching { com.todocompanion.app.widget.Widgets.scheduleMidnight(this@App) }
         }
         // Keep any placed home-screen widget in sync with task changes. Delayed so this full
         // table read doesn't compete with the DB queries the first UI frame needs.

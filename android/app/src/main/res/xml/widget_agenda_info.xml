@@ -6,7 +6,7 @@
     android:targetCellHeight="3"
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/widget_agenda"
-    android:previewLayout="@layout/widget_agenda"
+    android:previewLayout="@layout/widget_agenda_preview"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
     android:configure="com.todocompanion.app.widget.WidgetConfigActivity"

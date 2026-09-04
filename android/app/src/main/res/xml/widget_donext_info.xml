@@ -6,7 +6,7 @@
     android:targetCellHeight="3"
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/widget_donext"
-    android:previewLayout="@layout/widget_donext"
+    android:previewLayout="@layout/widget_donext_preview"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
     android:configure="com.todocompanion.app.widget.WidgetConfigActivity"

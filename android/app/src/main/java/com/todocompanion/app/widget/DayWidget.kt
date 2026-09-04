@@ -54,8 +54,15 @@ class DayWidget : AppWidgetProvider() {
         views.setOnClickPendingIntent(R.id.day_add_event, activity(context, id * 10 + 3, "open_calendar"))
 
         WidgetStyle.applyListCard(views, R.id.day_card, context, id)
+        // R105 — size-responsive: on a short widget, drop the footer so the list keeps its rows.
+        val minH = runCatching { manager.getAppWidgetOptions(id).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0) }.getOrDefault(0)
+        views.setViewVisibility(R.id.day_footer, if (minH in 1..119) android.view.View.GONE else android.view.View.VISIBLE)
         manager.updateAppWidget(id, views)
         manager.notifyAppWidgetViewDataChanged(id, R.id.day_list)
+    }
+
+    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, newOptions: android.os.Bundle) {
+        render(context, manager, id)
     }
 
     private fun dayLabel(date: LocalDate, today: LocalDate): String = when (date) {

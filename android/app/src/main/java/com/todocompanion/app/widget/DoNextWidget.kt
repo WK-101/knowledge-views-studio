@@ -53,9 +53,17 @@ class DoNextWidget : AppWidgetProvider() {
 
         // R104 — theme + opacity on the card layer (config).
         WidgetStyle.applyListCard(views, R.id.dn_card, context, id)
+        // R105 — size-responsive: at ~1 cell tall there's no room for the filter chips + a list,
+        // so drop the chips and give the ranked list all the space.
+        val minH = runCatching { manager.getAppWidgetOptions(id).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0) }.getOrDefault(0)
+        views.setViewVisibility(R.id.dn_filters, if (minH in 1..109) android.view.View.GONE else android.view.View.VISIBLE)
 
         manager.updateAppWidget(id, views)
         manager.notifyAppWidgetViewDataChanged(id, R.id.dn_list)
+    }
+
+    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, newOptions: android.os.Bundle) {
+        render(context, manager, id)
     }
 
     private fun activity(context: Context, code: Int, action: String?): PendingIntent {

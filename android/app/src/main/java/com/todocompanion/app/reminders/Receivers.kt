@@ -331,6 +331,7 @@ class BootReceiver : BroadcastReceiver() {
                 if (s.autoBackupEnabled && s.autoBackupFolder.isNotBlank()) AlarmScheduler.scheduleAutoBackup(context, s.autoBackupHour)
                 if (s.autoTrackPrompt) AlarmScheduler.scheduleTrackPrompts(context, app.repository)
                 AlarmScheduler.rescheduleEventAlerts(context, app.repository)
+                com.todocompanion.app.widget.Widgets.scheduleMidnight(context)
             } finally { pending.finish() }
         }
     }

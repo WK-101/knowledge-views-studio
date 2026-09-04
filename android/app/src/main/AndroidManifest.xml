@@ -324,6 +324,16 @@
             android:exported="false" />
         <receiver android:name=".widget.DayNavReceiver" android:exported="false" />
 
+        <!-- R105 — refresh date-sensitive widgets at midnight and on time/timezone/locale changes. -->
+        <receiver android:name=".widget.WidgetRefreshReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.LOCALE_CHANGED" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
         <receiver android:name=".widget.DoNextWidget" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
