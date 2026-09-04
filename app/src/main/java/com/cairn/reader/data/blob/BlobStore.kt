@@ -70,4 +70,11 @@ class BlobStore @Inject constructor(
         file.outputStream().buffered().use { it.write(bytes) }
         return file.absolutePath
     }
+
+    /** Total bytes on disk for cached article bodies, offline images, and imported PDFs. */
+    fun storageBytes(): Long = runCatching {
+        listOf(dir, mediaDir, pdfDir).sumOf { d ->
+            d.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+        }
+    }.getOrDefault(0L)
 }

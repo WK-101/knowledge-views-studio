@@ -90,6 +90,18 @@ fun OfflineScreen(
             )
 
             SectionHeader("STORAGE")
+            val storage by androidx.compose.runtime.produceState(initialValue = -1L, prefs.maxItemsPerFeed) {
+                value = viewModel.storageBytes()
+            }
+            Text(
+                text = when {
+                    storage < 0 -> "Measuring storage…"
+                    else -> "Offline copies, images & PDFs use ${formatBytes(storage)} on this device."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = scheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+            )
             Column(Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
                 Text("Keep per feed", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
                 Spacer(Modifier.height(2.dp))
@@ -117,6 +129,13 @@ fun OfflineScreen(
 }
 
 private val KeepOptions = listOf(0, 50, 100, 200, 500)
+
+private fun formatBytes(bytes: Long): String = when {
+    bytes < 1024 -> "$bytes B"
+    bytes < 1024 * 1024 -> "%.0f KB".format(bytes / 1024.0)
+    bytes < 1024L * 1024 * 1024 -> "%.1f MB".format(bytes / (1024.0 * 1024))
+    else -> "%.2f GB".format(bytes / (1024.0 * 1024 * 1024))
+}
 
 @Composable
 private fun SectionHeader(text: String) {

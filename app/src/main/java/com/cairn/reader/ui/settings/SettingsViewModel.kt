@@ -11,6 +11,7 @@ import com.cairn.reader.data.prefs.SwipeAction
 import com.cairn.reader.data.prefs.ThemeMode
 import android.content.Context
 import com.cairn.reader.data.backup.BackupManager
+import com.cairn.reader.data.blob.BlobStore
 import com.cairn.reader.data.repo.FeedRepository
 import com.cairn.reader.data.repo.HighlightRepository
 import com.cairn.reader.data.repo.SourceRepository
@@ -29,6 +30,7 @@ class SettingsViewModel @Inject constructor(
     private val feedRepository: FeedRepository,
     private val preferencesRepository: PreferencesRepository,
     private val backupManager: BackupManager,
+    private val blobStore: BlobStore,
     @ApplicationContext private val context: Context,
     highlightRepository: HighlightRepository,
 ) : ViewModel() {
@@ -97,4 +99,7 @@ class SettingsViewModel @Inject constructor(
     fun setCacheImagesOffline(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setCacheImagesOffline(enabled) }
     fun setImagesWifiOnly(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setImagesWifiOnly(enabled) }
     fun setMaxItemsPerFeed(max: Int) = viewModelScope.launch { preferencesRepository.setMaxItemsPerFeed(max) }
+
+    /** Bytes on disk used by cached article bodies, offline images, and imported PDFs. */
+    suspend fun storageBytes(): Long = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { blobStore.storageBytes() }
 }
