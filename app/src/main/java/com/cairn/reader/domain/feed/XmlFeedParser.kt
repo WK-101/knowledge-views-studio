@@ -53,6 +53,7 @@ class XmlFeedParser @Inject constructor() : FeedParser {
         var contentHtml: String? = null
         var summary: String? = null
         var imageUrl: String? = null
+        var audioUrl: String? = null
 
         while (true) {
             val event = parser.next()
@@ -88,8 +89,11 @@ class XmlFeedParser @Inject constructor() : FeedParser {
                 "creator" -> author = author ?: safeText(parser)
                 "author" -> author = author ?: readAuthor(parser)
                 "enclosure" -> {
-                    if (imageUrl == null && attr(parser, "type")?.startsWith("image") == true) {
-                        imageUrl = attr(parser, "url")
+                    val encType = attr(parser, "type")
+                    val encUrl = attr(parser, "url")
+                    if (imageUrl == null && encType?.startsWith("image") == true) imageUrl = encUrl
+                    if (audioUrl == null && encUrl != null && (encType?.startsWith("audio") == true || isAudioUrl(encUrl))) {
+                        audioUrl = encUrl
                     }
                 }
                 "thumbnail" -> if (imageUrl == null) imageUrl = attr(parser, "url")
@@ -104,7 +108,14 @@ class XmlFeedParser @Inject constructor() : FeedParser {
             contentHtml = contentHtml,
             summary = summary?.trim(),
             imageUrl = imageUrl?.trim(),
+            audioUrl = audioUrl?.trim(),
         )
+    }
+
+    private fun isAudioUrl(url: String): Boolean {
+        val u = url.substringBefore('?').lowercase()
+        return u.endsWith(".mp3") || u.endsWith(".m4a") || u.endsWith(".aac") ||
+            u.endsWith(".ogg") || u.endsWith(".oga") || u.endsWith(".wav") || u.endsWith(".opus")
     }
 
     /** Handles both RSS `<author>text</author>` and Atom `<author><name>..</name></author>`. */

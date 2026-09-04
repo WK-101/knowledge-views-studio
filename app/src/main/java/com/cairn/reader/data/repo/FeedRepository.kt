@@ -158,7 +158,7 @@ class FeedRepository @Inject constructor(
                 publishedAt = p.publishedAt,
                 savedAt = now,
                 sourceId = source.id,
-                type = detectType(p.link, hasBody = !content.isNullOrBlank()),
+                type = if (!p.audioUrl.isNullOrBlank()) "AUDIO" else detectType(p.link, hasBody = !content.isNullOrBlank()),
                 excerpt = excerpt,
                 leadImage = lead,
                 wordCount = words,
@@ -167,6 +167,7 @@ class FeedRepository @Inject constructor(
                 extractStatus = "NONE",
                 contentSource = "FEED",
                 guid = p.guid ?: p.link,
+                enclosureUrl = p.audioUrl,
             ),
             now,
         )

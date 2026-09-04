@@ -35,6 +35,7 @@ data class ReaderData(
     val isStarred: Boolean,
     val isReadLater: Boolean,
     val collectionId: String?,
+    val enclosureUrl: String?,
     val html: String?,
 )
 
@@ -64,6 +65,7 @@ class ItemRepository @Inject constructor(
             isStarred = state?.isStarred == true,
             isReadLater = state?.isReadLater == true,
             collectionId = e.collectionId,
+            enclosureUrl = e.enclosureUrl,
             html = blobStore.readArticle(e.blobPath),
         )
     }

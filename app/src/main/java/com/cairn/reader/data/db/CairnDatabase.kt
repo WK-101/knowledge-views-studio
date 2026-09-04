@@ -18,7 +18,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TombstoneEntity::class,
         SyncOpEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class CairnDatabase : RoomDatabase() {
@@ -39,5 +39,12 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
         db.execSQL("ALTER TABLE items ADD COLUMN cacheStatus TEXT")
         db.execSQL("ALTER TABLE collections ADD COLUMN icon TEXT")
         db.execSQL("ALTER TABLE collections ADD COLUMN viewMode TEXT")
+    }
+}
+
+/** v2 → v3: podcast support. Adds the nullable audio enclosure URL only. */
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE items ADD COLUMN enclosureUrl TEXT")
     }
 }

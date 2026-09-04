@@ -16,6 +16,7 @@ data class ParsedItem(
     val contentHtml: String?,
     val summary: String?,
     val imageUrl: String?,
+    val audioUrl: String? = null,
 )
 
 /** Pluggable feed parser. In-house [XmlFeedParser] is the default; Rome/RSSParser could

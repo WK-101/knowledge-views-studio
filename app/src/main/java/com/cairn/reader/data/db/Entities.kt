@@ -74,6 +74,8 @@ data class ItemEntity(
     val collectionId: String? = null,
     val domain: String? = null,
     val cacheStatus: String? = null,
+    // v1.6: audio enclosure URL for podcast items (nullable → v2→v3 migration adds it).
+    val enclosureUrl: String? = null,
 )
 
 @Entity(

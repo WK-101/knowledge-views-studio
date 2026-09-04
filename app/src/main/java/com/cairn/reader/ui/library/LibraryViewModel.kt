@@ -127,7 +127,7 @@ class LibraryViewModel @Inject constructor(
     }
 
     companion object {
-        val TYPE_ORDER = listOf("ARTICLE", "LINK", "VIDEO", "IMAGE")
+        val TYPE_ORDER = listOf("ARTICLE", "LINK", "VIDEO", "AUDIO", "IMAGE")
     }
 
     fun setQuery(value: String) {

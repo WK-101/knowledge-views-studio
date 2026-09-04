@@ -109,6 +109,7 @@ fun CairnApp(
     val feeds by inboxViewModel.feeds.collectAsStateWithLifecycle()
     val selection by inboxViewModel.selection.collectAsStateWithLifecycle()
     val ttsState by inboxViewModel.tts.collectAsStateWithLifecycle()
+    val audioState by inboxViewModel.audio.collectAsStateWithLifecycle()
     var showViewMenu by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -221,6 +222,15 @@ fun CairnApp(
                         onSpeed = inboxViewModel::listenSpeed,
                         onPrev = inboxViewModel::listenPrev,
                         onNext = inboxViewModel::listenNext,
+                    )
+                }
+                if (audioState.active) {
+                    com.cairn.reader.ui.components.AudioBar(
+                        state = audioState,
+                        onPlayPause = inboxViewModel::audioToggle,
+                        onBack = { inboxViewModel.audioSeek(-15_000) },
+                        onForward = { inboxViewModel.audioSeek(30_000) },
+                        onStop = inboxViewModel::audioStop,
                     )
                 }
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {

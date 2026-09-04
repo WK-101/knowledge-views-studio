@@ -3,6 +3,7 @@ package com.cairn.reader.ui.reader
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.cairn.reader.audio.AudioPlayer
 import com.cairn.reader.audio.TtsReader
 import com.cairn.reader.data.db.HighlightEntity
 import com.cairn.reader.data.prefs.AppPreferences
@@ -46,12 +47,14 @@ class ReaderViewModel @Inject constructor(
     private val collectionRepository: CollectionRepository,
     private val tagRepository: TagRepository,
     private val ttsReader: TtsReader,
+    private val audioPlayer: AudioPlayer,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
     private val itemId: String = savedStateHandle.get<String>("itemId").orEmpty()
 
     val tts: StateFlow<TtsReader.State> = ttsReader.state
+    val audio: StateFlow<AudioPlayer.State> = audioPlayer.state
 
     val collections: StateFlow<List<CollectionWithCount>> =
         collectionRepository.collections().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -168,6 +171,7 @@ class ReaderViewModel @Inject constructor(
             ttsReader.togglePlayPause()
         } else {
             val data = _state.value.data ?: return
+            audioPlayer.stop() // one thing plays at a time
             ttsReader.startQueue(listOf(TtsReader.Track(data.title, buildSpeechChunks(data))))
         }
     }
@@ -176,6 +180,19 @@ class ReaderViewModel @Inject constructor(
     fun setListenSpeed(speed: Float) = ttsReader.setSpeed(speed)
     fun listenNext() = ttsReader.skipNext()
     fun listenPrev() = ttsReader.skipPrevious()
+
+    // -- Podcast episode audio -------------------------------------------------
+
+    fun playEpisode() {
+        val data = _state.value.data ?: return
+        val url = data.enclosureUrl ?: return
+        ttsReader.stop() // one thing plays at a time
+        audioPlayer.play(url, data.title)
+    }
+
+    fun audioToggle() = audioPlayer.togglePlayPause()
+    fun audioSeek(deltaMs: Int) = audioPlayer.seekBy(deltaMs)
+    fun audioStop() = audioPlayer.stop()
 
     private fun buildSpeechChunks(data: ReaderData): List<String> {
         val chunks = ArrayList<String>()
@@ -203,6 +220,7 @@ class ReaderViewModel @Inject constructor(
     }
 
     override fun onCleared() {
-        ttsReader.stop()
+        // Playback is global and follows the user out of the reader; the ListenBar / audio
+        // bar (with its stop button) controls it, so we intentionally don't stop here.
     }
 }

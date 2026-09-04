@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cairn.reader.data.db.FeedUnread
 import com.cairn.reader.data.db.ItemListRow
+import com.cairn.reader.audio.AudioPlayer
 import com.cairn.reader.audio.SpeechText
 import com.cairn.reader.audio.TtsReader
 import com.cairn.reader.data.prefs.ListViewMode
@@ -57,10 +58,14 @@ class InboxViewModel @Inject constructor(
     private val feedRepository: FeedRepository,
     private val preferencesRepository: PreferencesRepository,
     private val ttsReader: TtsReader,
+    private val audioPlayer: AudioPlayer,
 ) : ViewModel() {
 
     /** Playback state for the "Listen to all" queue, shared with the reader. */
     val tts: StateFlow<TtsReader.State> = ttsReader.state
+
+    /** Podcast-episode playback state, shared with the reader. */
+    val audio: StateFlow<AudioPlayer.State> = audioPlayer.state
 
     /** Queue the current list (up to 30 stories) for read-aloud, back-to-back. */
     fun listenAll() = viewModelScope.launch {
@@ -70,7 +75,12 @@ class InboxViewModel @Inject constructor(
             val chunks = SpeechText.chunks(title, body)
             if (chunks.isEmpty()) null else TtsReader.Track(title, chunks)
         }
-        if (tracks.isEmpty()) _messages.emit("Nothing here to read aloud") else ttsReader.startQueue(tracks)
+        if (tracks.isEmpty()) {
+            _messages.emit("Nothing here to read aloud")
+        } else {
+            audioPlayer.stop() // one thing plays at a time
+            ttsReader.startQueue(tracks)
+        }
     }
 
     fun listenToggle() = ttsReader.togglePlayPause()
@@ -78,6 +88,10 @@ class InboxViewModel @Inject constructor(
     fun listenSpeed(speed: Float) = ttsReader.setSpeed(speed)
     fun listenNext() = ttsReader.skipNext()
     fun listenPrev() = ttsReader.skipPrevious()
+
+    fun audioToggle() = audioPlayer.togglePlayPause()
+    fun audioSeek(deltaMs: Int) = audioPlayer.seekBy(deltaMs)
+    fun audioStop() = audioPlayer.stop()
 
     private val _refreshing = MutableStateFlow(false)
     val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()

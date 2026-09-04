@@ -143,6 +143,7 @@ fun ReaderScreen(
     val prefs by viewModel.preferences.collectAsStateWithLifecycle()
     val highlights by viewModel.highlights.collectAsStateWithLifecycle()
     val ttsState by viewModel.tts.collectAsStateWithLifecycle()
+    val audioState by viewModel.audio.collectAsStateWithLifecycle()
     val collections by viewModel.collections.collectAsStateWithLifecycle()
     val itemTags by viewModel.itemTags.collectAsStateWithLifecycle()
     val allTags by viewModel.allTags.collectAsStateWithLifecycle()
@@ -250,6 +251,15 @@ fun ReaderScreen(
                         onNext = viewModel::listenNext,
                     )
                 }
+                if (audioState.active) {
+                    com.cairn.reader.ui.components.AudioBar(
+                        state = audioState,
+                        onPlayPause = viewModel::audioToggle,
+                        onBack = { viewModel.audioSeek(-15_000) },
+                        onForward = { viewModel.audioSeek(30_000) },
+                        onStop = viewModel::audioStop,
+                    )
+                }
                 if (data != null) {
                     ReaderActionBar(
                         isStarred = data.isStarred,
@@ -279,6 +289,7 @@ fun ReaderScreen(
                 onSaveProgress = viewModel::setProgress,
                 onSelectText = { b, s, e, q -> pending = PendingSelection(b, s, e, q) },
                 onManageHighlight = { managed = it },
+                onPlayEpisode = viewModel::playEpisode,
             )
         }
     }
@@ -360,6 +371,7 @@ private fun ArticleBody(
     onSaveProgress: (Float) -> Unit,
     onSelectText: (blockIndex: Int, start: Int, end: Int, quote: String) -> Unit,
     onManageHighlight: (HighlightEntity) -> Unit,
+    onPlayEpisode: () -> Unit,
 ) {
     val data = state.data ?: return
     val linkColor = MaterialTheme.colorScheme.primary
@@ -431,6 +443,14 @@ private fun ArticleBody(
                             Text("Showing the summary — the full article couldn't be fetched.", style = MaterialTheme.typography.labelSmall, color = palette.secondary)
                             Spacer(Modifier.height(8.dp))
                         }
+                    }
+                    if (data.enclosureUrl != null) {
+                        OutlinedButton(onClick = onPlayEpisode) {
+                            Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Play episode")
+                        }
+                        Spacer(Modifier.height(12.dp))
                     }
                     HorizontalDivider(color = palette.secondary.copy(alpha = 0.25f))
                     Spacer(Modifier.height(12.dp))

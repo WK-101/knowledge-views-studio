@@ -469,6 +469,7 @@ private fun typeLabel(type: String): String = when (type) {
     "ARTICLE" -> "Articles"
     "LINK" -> "Links"
     "VIDEO" -> "Videos"
+    "AUDIO" -> "Podcasts"
     "IMAGE" -> "Images"
     else -> type.lowercase().replaceFirstChar(Char::uppercase)
 }
@@ -477,6 +478,7 @@ private fun typeLabelSingular(type: String): String = when (type) {
     "ARTICLE" -> "Article"
     "LINK" -> "Link"
     "VIDEO" -> "Video"
+    "AUDIO" -> "Podcast"
     "IMAGE" -> "Image"
     else -> type.lowercase().replaceFirstChar(Char::uppercase)
 }
