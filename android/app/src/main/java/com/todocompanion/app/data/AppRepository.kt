@@ -156,7 +156,11 @@ class AppRepository(private val db: AppDatabase) {
     // ----- task time-travel: sparse revision history (H5) -----
     private val lastRevSig = HashMap<String, Int>()
     private val lastRevAt = HashMap<String, Long>()
-    private companion object { const val REV_KEEP = 25; const val REV_MIN_GAP_MS = 30_000L }
+    private companion object {
+        const val REV_KEEP = 25; const val REV_MIN_GAP_MS = 30_000L
+        // Track 3.4 — settings (DataStore) key holding the CSV set of already-notified sealed-letter ids.
+        const val SEALED_NOTIFIED_KEY = "sealedLetterNotifiedIds"
+    }
 
     /** Fields worth versioning — cosmetic/order/timestamp churn is deliberately excluded. */
     private fun revisionSignature(t: TaskEntity): Int = listOf(
@@ -239,6 +243,19 @@ class AppRepository(private val db: AppDatabase) {
     val allSealedNotes: Flow<List<com.todocompanion.app.data.entity.SealedNoteEntity>> = sealedNotes.observeAll()
     suspend fun upsertSealedNote(n: com.todocompanion.app.data.entity.SealedNoteEntity) = sealedNotes.upsert(n)
     suspend fun deleteSealedNote(id: String) = sealedNotes.deleteById(id)
+    // Track 3.4 — one-shot reads for the local sealed-letter reveal notification (scheduler / receiver).
+    suspend fun allSealedNotesOnce(): List<com.todocompanion.app.data.entity.SealedNoteEntity> = sealedNotes.getAll()
+    suspend fun sealedNoteById(id: String): com.todocompanion.app.data.entity.SealedNoteEntity? =
+        sealedNotes.getAll().firstOrNull { it.id == id }
+    /** Track 3.4 — which sealed letters have already fired their "ready to open" notification. Stored as a
+     *  comma-separated set under a single settings (DataStore) key — no new Room column, no migration. */
+    suspend fun sealedLetterNotifiedIds(): Set<String> =
+        settings.get(SEALED_NOTIFIED_KEY)?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
+    suspend fun markSealedLetterNotified(id: String) {
+        val cur = sealedLetterNotifiedIds()
+        if (id in cur) return
+        settings.put(SettingEntity(SEALED_NOTIFIED_KEY, (cur + id).joinToString(",")))
+    }
     val allCravings: Flow<List<com.todocompanion.app.data.entity.CravingEventEntity>> = cravings.observeAll()
     suspend fun upsertCraving(c: com.todocompanion.app.data.entity.CravingEventEntity) = cravings.upsert(c)
     suspend fun deleteCraving(id: String) = cravings.deleteById(id)

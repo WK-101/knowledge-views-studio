@@ -308,6 +308,35 @@ class ReminderReceiver : BroadcastReceiver() {
                 }
             }
 
+            AlarmScheduler.ACTION_SEALED_LETTER -> {
+                if (app == null) return
+                val id = intent.getStringExtra(AlarmScheduler.EXTRA_SEALED_ID) ?: return
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val note = app.repository.sealedNoteById(id) ?: return@launch
+                        // Skip if it's been opened already, or already notified once (fire-once via DataStore).
+                        if (note.acknowledged) return@launch
+                        if (app.repository.sealedLetterNotifiedIds().contains(id)) return@launch
+                        val today = java.time.LocalDate.now(ZoneId.systemDefault()).toEpochDay()
+                        // Fired early (clock skew / reschedule): re-arm for the real reveal day and bail.
+                        if (today < note.revealEpochDay) {
+                            AlarmScheduler.scheduleSealedLetter(context, note.id, note.title, note.createdEpochDay, note.revealEpochDay)
+                            return@launch
+                        }
+                        // R59 (Wave 2) — honour quiet hours: hold the reveal ping until quiet hours end.
+                        val deferUntil = AlarmScheduler.quietDeferUntil(System.currentTimeMillis())
+                        if (deferUntil != null) {
+                            val delay = ((deferUntil - System.currentTimeMillis()) / 60_000L).coerceAtLeast(1)
+                            AlarmScheduler.scheduleSealedLetterIn(context, note.id, note.title, note.createdEpochDay, delay)
+                            return@launch
+                        }
+                        Notifications.showSealedLetter(context, note.id, note.title, note.createdEpochDay)
+                        app.repository.markSealedLetterNotified(id)
+                    } finally { pending.finish() }
+                }
+            }
+
             AlarmScheduler.ACTION_HABIT_SNOOZE -> {
                 val habitId = intent.getStringExtra(AlarmScheduler.EXTRA_HABIT_ID) ?: return
                 val name = intent.getStringExtra(AlarmScheduler.EXTRA_HABIT_NAME) ?: "your habit"
@@ -337,6 +366,7 @@ class BootReceiver : BroadcastReceiver() {
                 if (s.autoBackupEnabled && s.autoBackupFolder.isNotBlank()) AlarmScheduler.scheduleAutoBackup(context, s.autoBackupHour)
                 if (s.autoTrackPrompt) AlarmScheduler.scheduleTrackPrompts(context, app.repository)
                 AlarmScheduler.rescheduleEventAlerts(context, app.repository)
+                AlarmScheduler.rescheduleSealedLetters(context, app.repository)   // Track 3.4
                 com.todocompanion.app.widget.Widgets.scheduleMidnight(context)
             } finally { pending.finish() }
         }

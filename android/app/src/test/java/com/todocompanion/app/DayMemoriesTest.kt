@@ -2,9 +2,12 @@ package com.todocompanion.app
 
 import com.todocompanion.app.data.entity.DayLogEntity
 import com.todocompanion.app.domain.DayMemories
+import com.todocompanion.app.domain.done.Accomplishment
+import com.todocompanion.app.domain.done.DoneKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 
@@ -51,5 +54,37 @@ class DayMemoriesTest {
         assertNull("no logs at all → nothing to resurface", DayMemories.select(today, emptyList()))
         // A recent day with a rating but no words is not memorable.
         assertNull("a wordless day is not resurfaced", DayMemories.select(today, listOf(log(today - 1, rating = 4))))
+    }
+
+    // ── Track 3.2 — the ranked "moments to reflect on" engine ──
+
+    private fun logObstacle(day: Long, obstacle: String) = DayLogEntity(epochDay = day, tomorrowObstacle = obstacle)
+    private fun goal(day: Long, title: String) =
+        Accomplishment(kind = DoneKind.GOAL, refId = "g", title = title, whenMillis = day * 86_400_000L, epochDay = day)
+
+    @Test fun momentsRankAnniversaryFirstThenFinishThenObstacle() {
+        val yearAgo = LocalDate.of(2025, 9, 4).toEpochDay()
+        val logs = listOf(
+            log(yearAgo, highlight = "Camped under the stars"),
+            log(today - 3, rating = 1, highlight = "A rough one"),        // hard day
+            log(today - 8, rating = 5, highlight = "Landed the offer"),   // bright moment
+            logObstacle(today - 2, "Email overload"),
+            logObstacle(today - 10, "Email overload"),                    // recurs → returning obstacle
+        )
+        val feed = listOf(goal(today - 5, "Finished the marathon plan"))
+        val moments = DayMemories.moments(today, logs, feed)
+        assertTrue("has several candidates", moments.size >= 4)
+        assertEquals(DayMemories.MomentKind.ANNIVERSARY, moments.first().kind)
+        assertTrue("a finished goal surfaces", moments.any { it.kind == DayMemories.MomentKind.FINISHED && it.line.contains("Finished the marathon plan") })
+        assertTrue("a returning obstacle surfaces", moments.any { it.kind == DayMemories.MomentKind.RETURNING_OBSTACLE && it.line.contains("Email overload") })
+        assertTrue("a hard day surfaces", moments.any { it.kind == DayMemories.MomentKind.HARD_DAY })
+        // Each kind appears at most once.
+        assertEquals(moments.size, moments.map { it.kind }.distinct().size)
+    }
+
+    @Test fun momentsEmptyWithNothingToDrawOn() {
+        assertTrue(DayMemories.moments(today, emptyList()).isEmpty())
+        // A single wordless recent day yields nothing.
+        assertTrue(DayMemories.moments(today, listOf(log(today - 1, rating = 3))).isEmpty())
     }
 }

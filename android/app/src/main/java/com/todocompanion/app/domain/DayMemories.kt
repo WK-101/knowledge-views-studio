@@ -1,7 +1,10 @@
 package com.todocompanion.app.domain
 
 import com.todocompanion.app.data.entity.DayLogEntity
+import com.todocompanion.app.domain.done.Accomplishment
+import com.todocompanion.app.domain.done.DoneKind
 import java.time.LocalDate
+import java.util.Locale
 
 /**
  * Wave 2 (feature 8) — local memory resurfacing. Gently brings one past moment back into view on the
@@ -94,4 +97,124 @@ object DayMemories {
         d < 14 -> "$d days ago"
         else -> "2 weeks ago"
     }
+
+    // ── Track 3.2 — "Moments to reflect on": a ranked list of candidate second-looks ──────────────────
+    //
+    // The single [select] above stays the calm one-card resurfacing. This grows the same idea into a small
+    // engine that offers a *ranked list* of moments worth a second look, each sourced entirely from the
+    // user's own logs: an anniversary, a recent hard day, a just-finished project/goal, a returning
+    // obstacle, and a bright high-mood highlight. Each moment is an icon + a gentle line + an optional
+    // deep-link day. Pure, deterministic, gracefully empty. Nothing leaves the device.
+
+    /** How far back the "recent" sources reach. */
+    private const val RECENT_HARD_DAYS = 21
+    private const val RECENT_FINISH_DAYS = 30
+    private const val RECENT_BRIGHT_DAYS = 45
+    private const val OBSTACLE_WINDOW_DAYS = 45
+
+    enum class MomentKind(val icon: String) {
+        ANNIVERSARY("🕰️"),
+        HARD_DAY("🌧️"),
+        FINISHED("🏁"),
+        RETURNING_OBSTACLE("🧱"),
+        HIGH_MOMENT("✨"),
+    }
+
+    /**
+     * One candidate "moment worth a second look". [line] is the gentle, already-framed caption; [epochDay]
+     * is the day to open on tap (null = no single day); [rank] orders the list (higher first).
+     */
+    data class Moment(
+        val kind: MomentKind,
+        val line: String,
+        val epochDay: Long?,
+        val rank: Double,
+    )
+
+    /**
+     * Build a ranked list of moments to reflect on for [anchorDay], from the user's [dayLogs] and,
+     * optionally, the achievement [feed] (for just-finished projects/goals). Deterministic and honest —
+     * returns fewer than [max] (or none) when there is little to draw on. Each source contributes at most
+     * one moment so the row stays varied.
+     */
+    fun moments(
+        anchorDay: Long,
+        dayLogs: List<DayLogEntity>,
+        feed: List<Accomplishment> = emptyList(),
+        max: Int = 5,
+    ): List<Moment> {
+        val byDay = dayLogs.associateBy { it.epochDay }
+        val out = mutableListOf<Moment>()
+
+        // 1. Anniversary — the strongest pull: the same calendar date, a prior year then a prior month.
+        select(anchorDay, dayLogs)?.takeIf { it.kind == Kind.ON_THIS_DAY }?.let { m ->
+            out += Moment(MomentKind.ANNIVERSARY, "${m.whenLabel} today — “${m.text}”", m.epochDay, 1.0)
+        }
+
+        // 2. A just-finished project or goal in the last month — worth pausing to mark.
+        feed.asSequence()
+            .filter { (it.kind == DoneKind.GOAL || it.kind == DoneKind.PROJECT) && it.epochDay in (anchorDay - RECENT_FINISH_DAYS)..anchorDay }
+            .maxByOrNull { it.whenMillis }
+            ?.let { a ->
+                val back = (anchorDay - a.epochDay).toInt().coerceAtLeast(0)
+                out += Moment(MomentKind.FINISHED, "You finished “${a.title.trim()}” ${lowerWhen(back)} — take a moment to mark it.", a.epochDay, 0.9)
+            }
+
+        // 3. A returning obstacle / lesson — the same worry named on more than one recent day.
+        returningObstacle(anchorDay, dayLogs)?.let { out += it }
+
+        // 4. A recent hard day — a low-rated day in the last few weeks, worth a gentler second look.
+        val hard = (1..RECENT_HARD_DAYS)
+            .mapNotNull { back -> byDay[anchorDay - back] }
+            .filter { it.dayRating in 1..2 }
+            .minByOrNull { it.dayRating }   // the hardest first; ties → most recent (earliest back)
+        if (hard != null) {
+            val back = (anchorDay - hard.epochDay).toInt()
+            val tail = snippet(hard).takeIf { it.isNotBlank() }?.let { " You wrote: “$it”." } ?: ""
+            out += Moment(MomentKind.HARD_DAY, "A hard day ${lowerWhen(back)} — worth a kinder second look.$tail", hard.epochDay, 0.7)
+        }
+
+        // 5. A bright high-mood highlight in the last several weeks — a good moment worth savouring again.
+        val bright = (1..RECENT_BRIGHT_DAYS)
+            .mapNotNull { back -> byDay[anchorDay - back] }
+            .filter { it.dayRating in 4..5 && it.highlight.isNotBlank() }
+            .maxWithOrNull(compareBy<DayLogEntity>({ it.dayRating }, { it.epochDay }))
+        if (bright != null) {
+            val back = (anchorDay - bright.epochDay).toInt()
+            out += Moment(MomentKind.HIGH_MOMENT, "A bright spot ${lowerWhen(back)} — “${bright.highlight.trim()}”.", bright.epochDay, 0.6)
+        }
+
+        return out
+            .distinctBy { it.kind }
+            .sortedWith(compareByDescending<Moment> { it.rank }.thenByDescending { it.epochDay ?: Long.MIN_VALUE })
+            .take(max)
+    }
+
+    /** A worry the user named on more than one recent day (tomorrowObstacle or lesson), most recent shown. */
+    private fun returningObstacle(anchorDay: Long, dayLogs: List<DayLogEntity>): Moment? {
+        val window = dayLogs.filter { it.epochDay in (anchorDay - OBSTACLE_WINDOW_DAYS)..anchorDay }
+        data class Hit(val norm: String, val text: String, val day: Long)
+        val hits = window.flatMap { l ->
+            listOf(l.tomorrowObstacle, l.lesson)
+                .map { it.trim() }
+                .filter { it.length >= 4 }
+                .map { Hit(it.lowercase(Locale.getDefault()), it, l.epochDay) }
+        }
+        val grouped = hits.groupBy { it.norm }.filter { it.value.size >= 2 }
+        if (grouped.isEmpty()) return null
+        // The most-recurring worry (ties → the one seen most recently).
+        val top = grouped.values.maxWithOrNull(
+            compareBy<List<Hit>>({ it.size }, { it.maxOf { h -> h.day } })
+        ) ?: return null
+        val recent = top.maxByOrNull { it.day }!!
+        return Moment(
+            MomentKind.RETURNING_OBSTACLE,
+            "“${recent.text}” has come up ${top.size} times lately — maybe worth a plan.",
+            recent.day,
+            0.8,
+        )
+    }
+
+    /** A gentle lowercase relative caption for use mid-sentence ("a year ago", "3 days ago"). */
+    private fun lowerWhen(back: Int): String = daysAgo(back).replaceFirstChar { it.lowercase(Locale.getDefault()) }
 }

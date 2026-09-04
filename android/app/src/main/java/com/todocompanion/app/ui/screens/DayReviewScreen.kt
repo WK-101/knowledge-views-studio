@@ -84,6 +84,8 @@ import com.todocompanion.app.domain.ReflectionCompanion
 import com.todocompanion.app.domain.ReviewCadence
 import com.todocompanion.app.domain.ReviewInsights
 import com.todocompanion.app.domain.ReviewRollup
+import com.todocompanion.app.domain.PastYearReview
+import com.todocompanion.app.domain.TextInsights
 import com.todocompanion.app.domain.YearReviewed
 import com.todocompanion.app.domain.WeeklyReview
 import com.todocompanion.app.domain.WeeklyReviews
@@ -256,6 +258,13 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
     // year/month, or a recent good moment worth savouring. Computed on-device from the loaded day logs.
     val memory = remember(dayLogs, day) { DayMemories.select(day, dayLogs) }
 
+    // Track 3.2 — the ranked "moments to reflect on": anniversaries, a just-finished project/goal, a
+    // returning obstacle, a recent hard day and a bright high-mood moment — all from the user's own logs.
+    val moments = remember(dayLogs, tasks, habits, checkins, timeEntries, day) {
+        val fullFeed = DoneRecord.build(tasks, habits, checkins, timeEntries, zone)
+        DayMemories.moments(day, dayLogs, fullFeed)
+    }
+
     // Wave 3 (C) — predictions due to resurface today (the Drucker loop). Parsed from settings, like the
     // Daily Questions / Weekly Reviews stores; only checked-in on today.
     val predictions = remember(settings.predictionsJson) { Predictions.parseAll(settings.predictionsJson) }
@@ -405,6 +414,29 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
                     }
                     Spacer(Modifier.height(6.dp))
                     Text("“${mem.text}”", style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                }
+            }
+
+            // ── Track 3.2 — Moments to reflect on: a small, calm, optional list of second-looks. Tap to open. ──
+            if (moments.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                AppCard {
+                    Text("Moments to reflect on", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text("A few second-looks, drawn from your own days — no pressure to open any.",
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
+                    moments.forEach { m ->
+                        val tappable = m.epochDay != null
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                                .then(if (tappable) Modifier.clickable { day = m.epochDay!! } else Modifier)
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(m.kind.icon, Modifier.width(30.dp))
+                            Text(m.line, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                            if (tappable) Icon(Icons.Filled.ChevronRight, "Open that day", tint = MaterialTheme.colorScheme.outline)
+                        }
+                    }
                 }
             }
 
@@ -911,6 +943,7 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
     openLetter?.let { n ->
         SealedLetterRevealDialog(
             note = n, ready = todayEd >= n.revealEpochDay, intact = vm.letterIntact(n),
+            currentCount = remember(n.id, feed) { vm.accomplishmentCount() }, todayEd = todayEd,
             onDismiss = { openLetter = null },
             onAck = { vm.acknowledgeLetter(n); openLetter = null },
             onDelete = { vm.deleteLetter(n.id); openLetter = null },
@@ -932,15 +965,22 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
         )
     }
 
-    // ── Wave 3 (E) — the rule-based reflection companion (no LLM); saves into the day's reflection field. ──
-    if (showCompanion) ReflectionCompanionDialog(
-        rating = bookend?.dayRating ?: 0,
-        mood = bookend?.pmMood ?: 0,
-        emotionLabel = bookend?.emotionLabel ?: "",
-        existingReflection = bookend?.pmReflection ?: "",
-        onDismiss = { showCompanion = false },
-        onSave = { merged -> vm.saveEveningReflection(day, merged, bookend?.pmMood ?: 0); showCompanion = false },
-    )
+    // ── Wave 3 (E) + Track 3.6 — the richer, adaptive rule-based reflection companion (no LLM); saves into
+    // the day's reflection field. Signals include energy, a marked win, and whether an obstacle recurred. ──
+    if (showCompanion) {
+        val obst = (bookend?.tomorrowObstacle ?: "").trim()
+        val obstacleRecurred = obst.length >= 4 &&
+            dayLogs.count { it.epochDay != day && it.tomorrowObstacle.trim().equals(obst, ignoreCase = true) } >= 1
+        ReflectionCompanionDialog(
+            signals = ReflectionCompanion.Signals(
+                rating = bookend?.dayRating ?: 0, mood = bookend?.pmMood ?: 0, energy = bookend?.energy ?: 0,
+                emotionLabel = bookend?.emotionLabel ?: "", obstacleRecurred = obstacleRecurred, wasWin = wins.isNotEmpty(),
+            ),
+            existingReflection = bookend?.pmReflection ?: "",
+            onDismiss = { showCompanion = false },
+            onSave = { merged -> vm.saveEveningReflection(day, merged, bookend?.pmMood ?: 0); showCompanion = false },
+        )
+    }
 
     // ── Wave 3 (B) — the fully-local "Year, reviewed" recap, opened from the Month roll-up. ──
     if (showYear) YearReviewedScreen(
@@ -1974,6 +2014,19 @@ private fun RangeRollup(
         Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
             Box(Modifier.fillMaxWidth((closedPct / 100f).coerceIn(0.02f, 1f)).height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.primary))
         }
+        // Track 3.3 — the period in three recurring words, extracted on-device from your own reflections.
+        val themeWords = remember(start, end, dayLogs) {
+            val docs = dayLogs.asSequence().filter { it.epochDay in start..end }.map { l ->
+                listOf(l.pmReflection, l.highlight, l.gratitude, l.lesson, l.good1, l.good2, l.good3, l.promptAnswer, l.amIntention)
+                    .filter { it.isNotBlank() }.joinToString(" ")
+            }.filter { it.isNotBlank() }.toList()
+            TextInsights.threeWords(docs)
+        }
+        if (themeWords.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            Text("Themes this ${mode.label.lowercase(Locale.getDefault())}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(themeWords.joinToString("  ·  "), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+        }
     }
 
     // ── 1·2.1 — Execution score (Week only): a lead measure of planned commitments vs done, vs the 85% target ──
@@ -2359,9 +2412,12 @@ private fun WriteSealedLetterDialog(today: LocalDate, onDismiss: () -> Unit, onS
 @Composable
 private fun SealedLetterRevealDialog(
     note: com.todocompanion.app.data.entity.SealedNoteEntity, ready: Boolean, intact: Boolean,
+    currentCount: Int, todayEd: Long,
     onDismiss: () -> Unit, onAck: () -> Unit, onDelete: () -> Unit,
 ) {
     val sealedOn = LocalDate.ofEpochDay(note.createdEpochDay)
+    // Track 3.4 — the "what's changed since you sealed this" diff, from the pure domain helper.
+    val diff = com.todocompanion.app.domain.SealedLetters.diff(note.sealedCount, currentCount, note.createdEpochDay, todayEd)
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = onAck) { Text("Keep") } },
@@ -2376,6 +2432,12 @@ private fun SealedLetterRevealDialog(
                     Text("Sealed on $sealedOn", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(6.dp))
                     Text(note.body, style = MaterialTheme.typography.bodyLarge)
+                    Spacer(Modifier.height(10.dp))
+                    androidx.compose.material3.HorizontalDivider()
+                    Spacer(Modifier.height(8.dp))
+                    Text("What's changed since you sealed this", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
+                    Text(diff.phrase, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                    diff.paceLine?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     Spacer(Modifier.height(10.dp))
                     Text(
                         if (intact) "✓ Untouched since sealing (hash verified)." else "⚠ This letter's text no longer matches its seal.",
@@ -2452,30 +2514,43 @@ private fun ResolvePredictionDialog(
  *  chosen on-device from the day's mood/rating, saving the answers into the day's reflection field. */
 @Composable
 private fun ReflectionCompanionDialog(
-    rating: Int, mood: Int, emotionLabel: String, existingReflection: String,
+    signals: ReflectionCompanion.Signals, existingReflection: String,
     onDismiss: () -> Unit, onSave: (String) -> Unit,
 ) {
-    val chain = remember(rating, mood, emotionLabel) { ReflectionCompanion.chainFor(rating, mood, emotionLabel) }
-    var answers by remember { mutableStateOf(List(chain.prompts.size) { "" }) }
+    // The chain is recomputed each turn from the signals AND the answers so far, so a substantial answer
+    // grows a deepening follow-up. Extra steps are appended after the core prompts, so the answered prefix
+    // never shifts — walking forward/back stays stable.
+    var answers by remember { mutableStateOf(listOf<String>()) }
     var idx by remember { mutableIntStateOf(0) }
-    val last = idx >= chain.prompts.lastIndex
+    val chain = ReflectionCompanion.adaptiveChain(signals, answers)
+    val prompts = chain.prompts
+    val padded = if (answers.size < prompts.size) answers + List(prompts.size - answers.size) { "" } else answers
+    val cur = idx.coerceIn(0, prompts.lastIndex)
+    val last = cur >= prompts.lastIndex
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(onClick = {
-                if (last) onSave(ReflectionCompanion.merge(existingReflection, ReflectionCompanion.compose(chain, answers)))
-                else idx++
+                if (last) onSave(ReflectionCompanion.merge(existingReflection, ReflectionCompanion.compose(chain, padded)))
+                else idx = cur + 1
             }) { Text(if (last) "Save" else "Next") }
         },
-        dismissButton = { TextButton(onClick = { if (idx > 0) idx-- else onDismiss() }) { Text(if (idx > 0) "Back" else "Cancel") } },
+        dismissButton = { TextButton(onClick = { if (cur > 0) idx = cur - 1 else onDismiss() }) { Text(if (cur > 0) "Back" else "Cancel") } },
         title = { Text("${chain.track.glyph}  ${chain.track.title}") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(chain.intro, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(12.dp))
-                Text("Question ${idx + 1} of ${chain.prompts.size}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                Text(chain.prompts[idx], style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, modifier = Modifier.padding(vertical = 4.dp))
-                AppTextField(answers[idx], { v -> answers = answers.toMutableList().also { it[idx] = v } }, minLines = 2, placeholder = { Text("Your answer (optional)") }, modifier = Modifier.fillMaxWidth())
+                // A small progress strip so a longer chain reads as a gentle walk, not an interrogation.
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(bottom = 6.dp)) {
+                    prompts.indices.forEach { i ->
+                        Box(Modifier.height(4.dp).weight(1f).clip(RoundedCornerShape(2.dp))
+                            .background(if (i <= cur) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant))
+                    }
+                }
+                Text("Question ${cur + 1} of ${prompts.size}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                Text(prompts[cur], style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, modifier = Modifier.padding(vertical = 4.dp))
+                AppTextField(padded[cur], { v -> answers = padded.toMutableList().also { it[cur] = v } }, minLines = 2, placeholder = { Text("Your answer (optional)") }, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(10.dp))
                 Text("A private guide, all on your device — no AI service. Your answers save into today's reflection.",
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
@@ -2513,6 +2588,14 @@ private fun YearReviewedScreen(
     val toLabel = LocalDate.ofEpochDay(end)
     val windowLabel = "${fromLabel.dayOfMonth} ${fromLabel.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${fromLabel.year} – " +
         "${toLabel.dayOfMonth} ${toLabel.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${toLabel.year}"
+
+    // Track 3.5 — the Ferriss Past-Year Review lives on this spine: same recap + the window's day logs.
+    var showPastReview by remember { mutableStateOf(false) }
+    val pastReview = remember(recap, dayLogs) { PastYearReview.compute(recap, dayLogs) }
+    if (showPastReview) {
+        PastYearReviewScreen(review = pastReview, windowLabel = windowLabel, onBack = { showPastReview = false })
+        return
+    }
 
     fun shareYear() {
         runCatching {
@@ -2569,6 +2652,14 @@ private fun YearReviewedScreen(
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         tiles.forEach { (icon, value, label) -> StatTile(icon, value, label, Modifier.weight(1f)) }
                     }
+                }
+            }
+
+            // Track 3.5 — enter the Ferriss Past-Year Review (scenes + two action lists at the end).
+            if (pastReview.hasData) {
+                Spacer(Modifier.height(12.dp))
+                FilledTonalButton(onClick = { showPastReview = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("📆  Do a Past Year Review")
                 }
             }
 
@@ -2656,6 +2747,79 @@ private fun YearReviewedScreen(
             Button(onClick = { shareYear() }, modifier = Modifier.fillMaxWidth()) { Text("Share a summary") }
             Spacer(Modifier.height(8.dp))
             Text("Built entirely on your device from your private record. Nothing was sent anywhere.",
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(bottom = 24.dp))
+        }
+    }
+}
+
+/**
+ * Track 3.5 — the Ferriss Past-Year Review: a calm, scrollable set of scenes ending in two action lists —
+ * the positives to schedule MORE of, and a NOT-TO-DO list. Everything is derived by [PastYearReview] from
+ * the felt recap and the window's day logs; data-adaptive, so a light year still reads as a short, honest
+ * review. Nothing leaves the device.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PastYearReviewScreen(review: PastYearReview.Review, windowLabel: String, onBack: () -> Unit) {
+    BackHandler(onBack = onBack)
+    Scaffold(topBar = {
+        TopAppBar(
+            expandedHeight = 52.dp,
+            title = { Text("Past Year Review") },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+        )
+    }) { padding ->
+        Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
+            Spacer(Modifier.height(4.dp))
+            Text(windowLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+            Spacer(Modifier.height(8.dp))
+            Text("Ferriss's review: look back at what worked and what didn't, then do two things — schedule more of the good, and keep a not-to-do list for the rest.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            // The scenes — one calm tinted panel each.
+            val tints = listOf(
+                MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.secondary,
+            )
+            review.scenes.forEachIndexed { i, s ->
+                Spacer(Modifier.height(12.dp))
+                Surface(shape = RoundedCornerShape(22.dp), color = tints[i % tints.size].copy(alpha = .14f), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.fillMaxWidth().padding(20.dp)) {
+                        Text(s.emoji, style = MaterialTheme.typography.headlineSmall)
+                        Spacer(Modifier.height(6.dp))
+                        Text(s.headline, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = tints[i % tints.size])
+                        Spacer(Modifier.height(4.dp))
+                        Text(s.body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+            }
+
+            // The two action lists at the end.
+            if (review.moreOf.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                AppCard {
+                    SectionTitle("＋  Schedule more of this")
+                    review.moreOf.forEach { item ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.Top) {
+                            Text("＋", Modifier.width(24.dp), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                            Text(item, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            }
+            if (review.notToDo.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                AppCard {
+                    SectionTitle("✕  Your not-to-do list")
+                    review.notToDo.forEach { item ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.Top) {
+                            Text("✕", Modifier.width(24.dp), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                            Text(item, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            Text("Computed on your device from your own year. Keep the not-to-do list somewhere you'll see it.",
                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(bottom = 24.dp))
         }
     }

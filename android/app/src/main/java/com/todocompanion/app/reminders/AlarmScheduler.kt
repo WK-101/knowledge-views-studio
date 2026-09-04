@@ -31,6 +31,7 @@ object AlarmScheduler {
     const val ACTION_MORNING = "com.todocompanion.app.action.MORNING"
     const val ACTION_EVENT_ALERT = "com.todocompanion.app.action.EVENT_ALERT"
     const val ACTION_OCCASION_NUDGE = "com.todocompanion.app.action.OCCASION_NUDGE"
+    const val ACTION_SEALED_LETTER = "com.todocompanion.app.action.SEALED_LETTER"   // Track 3.4
 
     const val EXTRA_TASK_ID = "taskId"
     const val EXTRA_TITLE = "title"
@@ -48,6 +49,9 @@ object AlarmScheduler {
     const val EXTRA_EVENT_LOC = "eventLoc"
     const val EXTRA_EVENT_START = "eventStart"
     const val EXTRA_EVENT_MIN = "eventMin"
+    const val EXTRA_SEALED_ID = "sealedId"          // Track 3.4
+    const val EXTRA_SEALED_TITLE = "sealedTitle"
+    const val EXTRA_SEALED_CREATED = "sealedCreated" // createdEpochDay (as string)
 
     private const val SUMMARY_REQ = 918_273
     private const val EVENING_REQ = 918_275
@@ -243,6 +247,46 @@ object AlarmScheduler {
     fun cancelOccasionNudge(context: Context) {
         val am = context.getSystemService(AlarmManager::class.java) ?: return
         am.cancel(broadcast(context, ACTION_OCCASION_NUDGE, OCCASION_NUDGE_REQ, emptyMap()))
+    }
+
+    // ---------- Track 3.4 · sealed letter reveal notification ----------
+    // A letter sealed for the future fires ONE local notification when its reveal day arrives, using the
+    // exact-alarm + notification infra already in the manifest (no new permission). Scheduled on seal,
+    // re-armed on boot / app start, and fired at most once (tracked in DataStore by the receiver).
+    private const val SEALED_REVEAL_HOUR = 9
+    private fun sealedReqCode(id: String): Int = (("sl:$id").hashCode() and 0x3FFFFFFF) + 4_000_000
+
+    private fun sealedExtras(id: String, title: String, createdEpochDay: Long) = mapOf<String, Any?>(
+        EXTRA_SEALED_ID to id, EXTRA_SEALED_TITLE to title, EXTRA_SEALED_CREATED to createdEpochDay.toString(),
+    )
+
+    /** Arm the reveal notification for one sealed letter. Fires at 9am on the reveal day; if that moment
+     *  has already passed (a missed reveal), fires shortly so it isn't silently lost. Idempotent per id. */
+    fun scheduleSealedLetter(context: Context, id: String, title: String, createdEpochDay: Long, revealEpochDay: Long, zone: ZoneId = ZoneId.systemDefault()) {
+        val now = System.currentTimeMillis()
+        val at0 = LocalDate.ofEpochDay(revealEpochDay).atTime(SEALED_REVEAL_HOUR, 0).atZone(zone).toInstant().toEpochMilli()
+        val at = if (at0 <= now) now + 60_000L else at0
+        setAlarm(context, at, broadcast(context, ACTION_SEALED_LETTER, sealedReqCode(id), sealedExtras(id, title, createdEpochDay)))
+    }
+
+    /** Re-fire a sealed-letter reveal after [delayMin] minutes (quiet-hours deferral). */
+    fun scheduleSealedLetterIn(context: Context, id: String, title: String, createdEpochDay: Long, delayMin: Long) {
+        setAlarm(context, System.currentTimeMillis() + delayMin * 60_000L, broadcast(context, ACTION_SEALED_LETTER, sealedReqCode(id), sealedExtras(id, title, createdEpochDay)))
+    }
+
+    fun cancelSealedLetter(context: Context, id: String) {
+        val am = context.getSystemService(AlarmManager::class.java) ?: return
+        am.cancel(broadcast(context, ACTION_SEALED_LETTER, sealedReqCode(id), emptyMap()))
+    }
+
+    /** Re-arm reveal notifications for every letter that's still sealed, unacknowledged and not yet
+     *  notified (app start / boot). Self-healing: acknowledged or already-notified letters simply skip. */
+    suspend fun rescheduleSealedLetters(context: Context, repo: AppRepository, zone: ZoneId = ZoneId.systemDefault()) {
+        val notified = repo.sealedLetterNotifiedIds()
+        repo.allSealedNotesOnce().forEach { n ->
+            if (n.acknowledged || n.id in notified) return@forEach
+            scheduleSealedLetter(context, n.id, n.title, n.createdEpochDay, n.revealEpochDay, zone)
+        }
     }
 
     // ---------- automatic backup ----------

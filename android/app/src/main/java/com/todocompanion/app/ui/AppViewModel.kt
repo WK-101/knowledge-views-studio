@@ -4147,17 +4147,27 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun sealLetter(title: String, body: String, revealEpochDay: Long) = viewModelScope.launch {
         val today = java.time.LocalDate.now().toEpochDay()
         val hash = com.todocompanion.app.domain.done.Integrity.hash("${body}|$today")
-        repo.upsertSealedNote(com.todocompanion.app.data.entity.SealedNoteEntity(
+        val note = com.todocompanion.app.data.entity.SealedNoteEntity(
             id = java.util.UUID.randomUUID().toString(), createdEpochDay = today,
             revealEpochDay = revealEpochDay.coerceAtLeast(today + 1), title = title.trim().ifBlank { "A letter to future me" },
             body = body.trim(), anchorHash = hash, sealedCount = doneFeed().size, workspaceId = activeWorkspace(),
-        ))
+        )
+        repo.upsertSealedNote(note)
+        // Track 3.4 — arm the local reveal notification (reuses the existing AlarmScheduler; no new permission).
+        runCatching { com.todocompanion.app.reminders.AlarmScheduler.scheduleSealedLetter(appCtx, note.id, note.title, note.createdEpochDay, note.revealEpochDay, zone) }
         toast("Sealed — opens ${java.time.LocalDate.ofEpochDay(revealEpochDay)}")
     }
     fun acknowledgeLetter(n: com.todocompanion.app.data.entity.SealedNoteEntity) = viewModelScope.launch {
         repo.upsertSealedNote(n.copy(acknowledged = true))
     }
-    fun deleteLetter(id: String) = viewModelScope.launch { repo.deleteSealedNote(id) }
+    fun deleteLetter(id: String) = viewModelScope.launch {
+        // Track 3.4 — cancel any pending reveal notification before removing the letter.
+        runCatching { com.todocompanion.app.reminders.AlarmScheduler.cancelSealedLetter(appCtx, id) }
+        repo.deleteSealedNote(id)
+    }
+
+    /** Track 3.4 — the current accomplishment count for the active workspace, for the sealed-letter diff. */
+    fun accomplishmentCount(): Int = doneFeed().size
     /** Whether a sealed note's body still matches its anchor hash (i.e. hasn't been tampered with). */
     fun letterIntact(n: com.todocompanion.app.data.entity.SealedNoteEntity): Boolean =
         com.todocompanion.app.domain.done.Integrity.hash("${n.body}|${n.createdEpochDay}") == n.anchorHash

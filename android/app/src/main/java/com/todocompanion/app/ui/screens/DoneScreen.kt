@@ -138,6 +138,10 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
     // Cross-stream insights are heavier (per-day activity minutes), so cap their window to ~2 years.
     val insightStart = maxOf(feltStart, feltEnd - 729)
     val recordFeltInsights = remember(range, dayLogs, checkins, timeEntries) { vm.reviewInsightsFor(insightStart, feltEnd).take(2) }
+    // Track 3.1 — the felt × output ledger: join finishing (per-day output) to how days felt, honestly.
+    val outputLedger = remember(range, dayLogs, feed) {
+        com.todocompanion.app.domain.FeltOutputLedger.compute(feltStart, feltEnd, feed, dayLogs)
+    }
     val skills = remember(rangedFeed, tagNamesByTask, listNameById) { com.todocompanion.app.domain.done.LivingRecord.skills(rangedFeed, tagNamesByTask, listNameById) }
     val sealedNotes by vm.sealedNotes.collectAsState()
     var writeLetter by remember { mutableStateOf(false) }
@@ -298,6 +302,8 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
             if (milestones.isNotEmpty()) item(key = "milestones") { MilestonesCard(milestones) { m -> vm.shareMilestone(m) } }
             // R32 #4 — heuristic pattern insights (best day, peak hour, focus lift).
             if (patternInsights.isNotEmpty() || recordFelt.hasData) item(key = "insights") { PatternInsightsCard(patternInsights, recordFelt, recordFeltInsights, rangeLabel(range)) }
+            // Track 3.1 — output vs. how you felt: descriptive, non-causal findings joining the two.
+            if (outputLedger.hasData) item(key = "ledger") { OutputVsFeltCard(outputLedger) }
             // R32 #8 — skills ledger: finished work rolled up into evidence-backed areas.
             if (skills.isNotEmpty()) item(key = "skills") { SkillsCard(skills) }
             // R32 #7 — sealed letters to your future self (reveal when their day comes).
@@ -414,7 +420,7 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
         vm.sealLetter(title, body, reveal); writeLetter = false
     })
     openLetter?.let { n ->
-        LetterRevealDialog(n, today, revealedNow = feed.size - n.sealedCount, intact = vm.letterIntact(n),
+        LetterRevealDialog(n, today, currentCount = feed.size, intact = vm.letterIntact(n),
             onDismiss = { openLetter = null },
             onAck = { vm.acknowledgeLetter(n); openLetter = null },
             onDelete = { vm.deleteLetter(n.id); openLetter = null })
@@ -1108,6 +1114,31 @@ private fun PatternInsightsCard(
     }
 }
 
+/** Track 3.1 — "Output vs. how you felt": honest, descriptive findings joining finishing to how days
+ *  felt, each carrying its confidence, with the non-causal disclaimer front and centre. */
+@Composable
+private fun OutputVsFeltCard(ledger: com.todocompanion.app.domain.FeltOutputLedger.Ledger) {
+    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .35f), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Output vs. how you felt", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text("Over ${ledger.pairedDays} days you both rated and finished things — averaging ${String.format(Locale.US, "%.1f", ledger.avgOutputPerDay)} finished a day at ${String.format(Locale.US, "%.1f", ledger.avgRating)}★.",
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            ledger.findings.forEach { f ->
+                Row(verticalAlignment = Alignment.Top) {
+                    Text("⚖️", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.size(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(f.text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                        Text("${f.confidence.label} · ${f.sampleSize} days", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                    }
+                }
+            }
+            Text(ledger.disclaimer, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Computed on-device from your own record — nothing leaves the phone.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
 /** #8 — skills ledger: finished work rolled into areas, each with a count and hours as evidence. */
 @Composable
 private fun SkillsCard(skills: List<LivingRecord.Skill>) {
@@ -1198,10 +1229,12 @@ private fun WriteLetterDialog(today: LocalDate, onDismiss: () -> Unit, onSeal: (
 /** Reveal a due letter beside a diff of what you accomplished since sealing it. */
 @Composable
 private fun LetterRevealDialog(
-    n: com.todocompanion.app.data.entity.SealedNoteEntity, today: LocalDate, revealedNow: Int, intact: Boolean,
+    n: com.todocompanion.app.data.entity.SealedNoteEntity, today: LocalDate, currentCount: Int, intact: Boolean,
     onDismiss: () -> Unit, onAck: () -> Unit, onDelete: () -> Unit,
 ) {
     val sealedOn = LocalDate.ofEpochDay(n.createdEpochDay)
+    // Track 3.4 — the "what's changed since you sealed this" diff, from the pure domain helper.
+    val diff = com.todocompanion.app.domain.SealedLetters.diff(n.sealedCount, currentCount, n.createdEpochDay, today.toEpochDay())
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { androidx.compose.material3.TextButton(onClick = onAck) { Text("Keep") } },
@@ -1212,8 +1245,9 @@ private fun LetterRevealDialog(
                 Text("Sealed on $sealedOn", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(n.body, style = MaterialTheme.typography.bodyLarge)
                 androidx.compose.material3.HorizontalDivider()
-                Text("Since you sealed this, you've finished ${revealedNow.coerceAtLeast(0)} more things.",
-                    style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                Text("What's changed since you sealed this", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
+                Text(diff.phrase, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                diff.paceLine?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 Text(if (intact) "✓ Untouched since sealing (hash verified)." else "⚠ This letter's text no longer matches its seal.",
                     style = MaterialTheme.typography.labelSmall, color = if (intact) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
             }

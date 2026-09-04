@@ -57,6 +57,33 @@ class ReflectionCompanionTest {
         assertEquals("", ReflectionCompanion.compose(chain, listOf("", "", "")))
     }
 
+    // ── Track 3.6 — the adaptive, multi-turn chain ──
+
+    @Test fun adaptiveChainAlwaysEndsOnAForwardStep() {
+        val chain = ReflectionCompanion.adaptiveChain(ReflectionCompanion.Signals(rating = 1))
+        assertEquals(ReflectionCompanion.Track.REFRAME, chain.track)
+        assertTrue("closes on a WOOP-forward if-then", chain.prompts.last().contains("if-then"))
+        assertTrue("richer than the bare 3-prompt spine possibility", chain.prompts.size >= 4)
+    }
+
+    @Test fun adaptiveChainGrowsWithMoreSignals() {
+        val plain = ReflectionCompanion.adaptiveChain(ReflectionCompanion.Signals(rating = 3))
+        val rich = ReflectionCompanion.adaptiveChain(
+            ReflectionCompanion.Signals(rating = 3, energy = 1, wasWin = true, obstacleRecurred = true)
+        )
+        assertTrue("more signals → more prompts", rich.prompts.size > plain.prompts.size)
+        assertTrue(rich.prompts.any { it.contains("break the pattern") })
+        assertTrue(rich.prompts.any { it.contains("earn it") })
+        assertTrue(rich.prompts.any { it.contains("refill") })
+    }
+
+    @Test fun adaptiveChainDeepensOnASubstantialFirstAnswer() {
+        val s = ReflectionCompanion.Signals(rating = 5)
+        val shallow = ReflectionCompanion.adaptiveChain(s, listOf("ok"))
+        val deep = ReflectionCompanion.adaptiveChain(s, listOf("A really meaningful morning with family"))
+        assertTrue("a long first answer earns a deepening follow-up", deep.prompts.size > shallow.prompts.size)
+    }
+
     @Test fun mergeAppendsWithoutDuplicating() {
         val existing = "Felt good overall."
         val block = "What was the best moment of today?\n— The walk"

@@ -371,6 +371,29 @@ object Notifications {
         post(context, ("trackprompt:$taskId").hashCode(), n)
     }
 
+    const val SEALED_LETTER_BASE = 424400
+
+    /** Track 3.4 — a letter you sealed for the future is ready to open. Opens The Record (where the sealed
+     *  letters live) so you can read it beside the "what's changed since you sealed this" diff. */
+    fun showSealedLetter(context: Context, id: String, title: String, createdEpochDay: Long) {
+        ensureChannel(context)
+        val sealedOn = runCatching {
+            java.time.LocalDate.ofEpochDay(createdEpochDay)
+                .format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy"))
+        }.getOrDefault("")
+        val text = if (sealedOn.isNotBlank()) "A letter you sealed on $sealedOn is ready to open." else "A letter you sealed for your future self is ready to open."
+        val n = builder(context)
+            .setSmallIcon(android.R.drawable.ic_dialog_email)
+            .setContentTitle(title.ifBlank { "A letter to future you" })
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText("$text\n\nSee everything you've finished since then."))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(openAppRoute(context, "open_record", ("sealed:$id").hashCode()))
+            .build()
+        post(context, SEALED_LETTER_BASE + (id.hashCode() and 0x3FF), n)
+    }
+
     /** N2: celebrate a habit reaching its self-chosen reward streak. */
     fun showReward(context: Context, name: String, reward: String, streak: Int) {
         ensureChannel(context)
