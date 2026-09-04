@@ -20,9 +20,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -169,7 +171,7 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
             },
         )
     }) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+        Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(top = 2.dp)) {
             // Date navigator.
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { day -= 1 }) { Icon(Icons.Filled.ChevronLeft, "Previous day") }
@@ -187,50 +189,26 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
             }
             Spacer(Modifier.height(12.dp))
 
-            // ── At-a-glance: rating, headline strip, context, streak ──
+            // ── At-a-glance: the day's metrics as evenly-spread stat tiles (rating + context live in Reflect) ──
             AppCard {
-                // Tappable rating stars.
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    (1..5).forEach { i ->
-                        val filled = (bookend?.dayRating ?: 0) >= i
-                        Text(
-                            if (filled) "★" else "☆",
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = if (filled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.clip(CircleShape).clickable {
-                                val r = if ((bookend?.dayRating ?: 0) == i) 0 else i
-                                vm.saveDayReflect(day, r, bookend?.energy ?: 0, bookend?.highlight ?: "", bookend?.gratitude ?: "", bookend?.lesson ?: "")
-                            }.padding(horizontal = 3.dp, vertical = 2.dp),
-                        )
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Text("How was today?", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Spacer(Modifier.height(8.dp))
                 if (nothing) {
                     Text("A quiet day — nothing tracked yet. Reflect on it, or check what's still open below.",
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
-                    Text(buildString {
-                        append("✓ ${tasksDone.size} done")
-                        if (habitsExpected > 0) append("   ·   🔁 ${habitsKept.size}/$habitsExpected")
-                        if (focusMin > 0) append("   ·   🎯 ${fmtHm(focusMin)}")
-                        if (trackedTotal > 0) append("   ·   ⧗ ${fmtHm(trackedTotal)}")
-                    }, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                }
-                val vs = when {
-                    avg7 < 0.5 -> null
-                    tasksDone.size > avg7 * 1.15 -> "▲ above your usual ${avg7.roundToInt()}/day"
-                    tasksDone.size < avg7 * 0.85 -> "▼ below your usual ${avg7.roundToInt()}/day"
-                    else -> "about your usual ${avg7.roundToInt()}/day"
-                }
-                if (vs != null && !nothing) {
-                    Spacer(Modifier.height(4.dp))
-                    Text(vs, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    val tiles = buildList {
+                        add(Triple("✓", tasksDone.size.toString(), "done"))
+                        if (habitsExpected > 0) add(Triple("🔁", "${habitsKept.size}/$habitsExpected", "habits"))
+                        if (focusMin > 0) add(Triple("🎯", fmtHm(focusMin), "focus"))
+                        if (trackedTotal > 0) add(Triple("⧗", fmtHm(trackedTotal), "tracked"))
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        tiles.forEach { (icon, value, label) -> StatTile(icon, value, label, Modifier.weight(1f)) }
+                    }
                 }
                 if (reviewStreak > 0) {
-                    Spacer(Modifier.height(4.dp))
-                    Text("🔥 Reviewed $reviewStreak day${if (reviewStreak == 1) "" else "s"} in a row", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.height(if (nothing) 8.dp else 12.dp))
+                    Text("🔥 Reviewed $reviewStreak day${if (reviewStreak == 1) "" else "s"} in a row",
+                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                 }
             }
 
@@ -252,8 +230,9 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
                 AppCard {
                     SectionTitle("Completed · ${tasksDone.size}")
                     tasksDone.take(30).forEach { t ->
-                        Row(Modifier.fillMaxWidth().clickable { onOpenTask(t.id) }.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("✓", Modifier.width(24.dp), color = MaterialTheme.colorScheme.primary)
+                        Row(Modifier.fillMaxWidth().clickable { onOpenTask(t.id) }.padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                            DoneTick()
+                            Spacer(Modifier.width(10.dp))
                             Text(t.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             t.completedAt?.let { Text(timeLabel(it), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline) }
                         }
@@ -264,13 +243,17 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
             if (habitsKept.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
                 AppCard {
-                    SectionTitle("Habits kept · ${habitsKept.size}")
+                    SectionTitle("Habits · ${habitsKept.size}/$habitsExpected kept")
+                    val tertiary = MaterialTheme.colorScheme.tertiary
                     habitsKept.forEach { (h, c) ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(h.emoji ?: "🔁", Modifier.width(24.dp))
-                            Text(h.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            if (h.targetPerDay > 1) Text("$c/${h.targetPerDay}${h.unit?.let { " $it" } ?: ""}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                        }
+                        val target = h.targetPerDay.coerceAtLeast(1)
+                        MeterRow(
+                            leading = { Text(h.emoji ?: "🔁") },
+                            name = h.name,
+                            trailing = if (target > 1) "$c/$target${h.unit?.let { " $it" } ?: ""}" else "done",
+                            frac = (c.toFloat() / target).coerceIn(0f, 1f),
+                            color = tertiary,
+                        )
                     }
                 }
             }
@@ -290,15 +273,18 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
                 Spacer(Modifier.height(12.dp))
                 AppCard {
                     SectionTitle("Time tracked · ${fmtHm(trackedTotal)}")
+                    val maxMin = (tracked.values.maxOrNull() ?: 1).coerceAtLeast(1)
+                    val fallback = MaterialTheme.colorScheme.primary
                     tracked.entries.sortedByDescending { it.value }.forEach { (actId, min) ->
                         val a = activities.firstOrNull { it.id == actId }
-                        val col = a?.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
-                        Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                            if (a?.emoji != null) Text(a.emoji!!, Modifier.width(24.dp))
-                            else Box(Modifier.width(24.dp), contentAlignment = Alignment.CenterStart) { Box(Modifier.size(12.dp).clip(CircleShape).background(col)) }
-                            Text(a?.name ?: "—", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(fmtHm(min), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                        val col = a?.colorArgb?.let { Color(it) } ?: fallback
+                        MeterRow(
+                            leading = { if (a?.emoji != null) Text(a.emoji!!) else Box(Modifier.size(12.dp).clip(CircleShape).background(col)) },
+                            name = a?.name ?: "—",
+                            trailing = fmtHm(min),
+                            frac = min / maxMin.toFloat(),
+                            color = col,
+                        )
                     }
                 }
             }
@@ -310,7 +296,7 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
                     SectionTitle("Didn't get to")
                     openTasks.take(12).forEach { t ->
                         Row(Modifier.fillMaxWidth().clickable { onOpenTask(t.id) }.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("○", Modifier.width(24.dp), color = MaterialTheme.colorScheme.outline)
+                            Box(Modifier.width(28.dp), contentAlignment = Alignment.CenterStart) { OpenTick() }
                             Text(t.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
@@ -334,6 +320,31 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
             Spacer(Modifier.height(12.dp))
             AppCard {
                 SectionTitle("Reflect")
+                // Rating (tappable) — how the day felt overall.
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 2.dp)) {
+                    (1..5).forEach { i ->
+                        val filled = (bookend?.dayRating ?: 0) >= i
+                        Text(
+                            if (filled) "★" else "☆",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = if (filled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.clip(CircleShape).clickable {
+                                val r = if ((bookend?.dayRating ?: 0) == i) 0 else i
+                                vm.saveDayReflect(day, r, bookend?.energy ?: 0, bookend?.highlight ?: "", bookend?.gratitude ?: "", bookend?.lesson ?: "")
+                            }.padding(horizontal = 3.dp, vertical = 2.dp),
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Text("How was today?", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                // Context vs your usual (moved here from the summary card).
+                val vs = when {
+                    avg7 < 0.5 -> null
+                    tasksDone.size > avg7 * 1.15 -> "▲ above your usual ${avg7.roundToInt()}/day"
+                    tasksDone.size < avg7 * 0.85 -> "▼ below your usual ${avg7.roundToInt()}/day"
+                    else -> "about your usual ${avg7.roundToInt()}/day"
+                }
+                if (vs != null && !nothing) Text(vs, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
                 val hasProse = bookend != null && (bookend.pmReflection.isNotBlank() || bookend.highlight.isNotBlank() || bookend.gratitude.isNotBlank() || bookend.lesson.isNotBlank())
                 if (bookend?.amIntention?.isNotBlank() == true) {
                     Row(Modifier.padding(bottom = 4.dp)) { Text("🌅 ${mood(bookend.amMood)}", Modifier.width(48.dp)); Text(bookend.amIntention, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium) }
@@ -379,7 +390,7 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
                         }
                         tmrTasks.take(6).forEach { t ->
                             Row(Modifier.fillMaxWidth().clickable { onOpenTask(t.id) }.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text("○", Modifier.width(24.dp), color = MaterialTheme.colorScheme.outline)
+                                Box(Modifier.width(28.dp), contentAlignment = Alignment.CenterStart) { OpenTick() }
                                 Text(t.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
@@ -450,6 +461,51 @@ private fun ReflectLine(label: String, value: String) {
 @Composable
 private fun SectionTitle(text: String) {
     Text(text, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 4.dp))
+}
+
+/** A stat tile for the at-a-glance summary: a tonal rounded box with icon, big value and label. */
+@Composable
+private fun StatTile(icon: String, value: String, label: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier.clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)).padding(vertical = 10.dp, horizontal = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(icon, style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(2.dp))
+        Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+    }
+}
+
+/** A modern filled-circle check (completed), à la TickTick/Things. */
+@Composable
+private fun DoneTick(modifier: Modifier = Modifier) {
+    Box(modifier.size(22.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
+        Icon(Icons.Filled.Check, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onPrimary)
+    }
+}
+
+/** An outlined circle for an open / not-done item. */
+@Composable
+private fun OpenTick(modifier: Modifier = Modifier) {
+    Icon(Icons.Outlined.Circle, null, modifier.size(22.dp), tint = MaterialTheme.colorScheme.outline)
+}
+
+/** A "dynamic card" row — leading marker, name, trailing value and a proportional meter bar, matching
+ *  the activity time-tracking breakdown. */
+@Composable
+private fun MeterRow(leading: @Composable () -> Unit, name: String, trailing: String, frac: Float, color: Color) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.width(28.dp), contentAlignment = Alignment.CenterStart) { leading() }
+            Text(name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(trailing, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Spacer(Modifier.height(5.dp))
+        Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+            Box(Modifier.fillMaxWidth(frac.coerceIn(0.03f, 1f)).height(8.dp).clip(RoundedCornerShape(4.dp)).background(color))
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
