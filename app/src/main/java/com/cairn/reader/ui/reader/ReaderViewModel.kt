@@ -9,6 +9,8 @@ import com.cairn.reader.data.prefs.AppPreferences
 import com.cairn.reader.data.prefs.PreferencesRepository
 import com.cairn.reader.data.prefs.ReaderFont
 import com.cairn.reader.data.prefs.ReaderTheme
+import com.cairn.reader.data.db.CollectionWithCount
+import com.cairn.reader.data.repo.CollectionRepository
 import com.cairn.reader.data.repo.FeedRepository
 import com.cairn.reader.data.repo.HighlightRepository
 import com.cairn.reader.data.repo.ItemRepository
@@ -38,6 +40,7 @@ class ReaderViewModel @Inject constructor(
     private val feedRepository: FeedRepository,
     private val preferencesRepository: PreferencesRepository,
     private val highlightRepository: HighlightRepository,
+    private val collectionRepository: CollectionRepository,
     private val ttsReader: TtsReader,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
@@ -45,6 +48,9 @@ class ReaderViewModel @Inject constructor(
     private val itemId: String = savedStateHandle.get<String>("itemId").orEmpty()
 
     val tts: StateFlow<TtsReader.State> = ttsReader.state
+
+    val collections: StateFlow<List<CollectionWithCount>> =
+        collectionRepository.collections().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _state = MutableStateFlow(ReaderUiState())
     val state = _state.asStateFlow()
@@ -112,6 +118,19 @@ class ReaderViewModel @Inject constructor(
     fun addHighlight(blockIndex: Int, start: Int, end: Int, quote: String, color: Int = HighlightColors.Default) {
         if (itemId.isEmpty() || quote.isBlank()) return
         viewModelScope.launch { highlightRepository.add(itemId, blockIndex, start, end, quote, color) }
+    }
+
+    fun moveToCollection(collectionId: String?) {
+        val current = _state.value.data ?: return
+        viewModelScope.launch {
+            collectionRepository.moveItem(itemId, collectionId)
+            if (!current.isReadLater && !current.isStarred) itemRepository.setReadLater(itemId, true)
+            _state.update { it.copy(data = it.data?.copy(collectionId = collectionId, isReadLater = current.isReadLater || (collectionId != null))) }
+        }
+    }
+
+    fun createCollection(name: String, onCreated: (String) -> Unit) {
+        viewModelScope.launch { onCreated(collectionRepository.create(name)) }
     }
 
     fun setHighlightNote(id: String, note: String?) = viewModelScope.launch { highlightRepository.setNote(id, itemId, note) }

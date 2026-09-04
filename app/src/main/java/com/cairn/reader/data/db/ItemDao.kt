@@ -182,6 +182,9 @@ interface ItemDao {
     @Query("UPDATE items SET collectionId = :collectionId WHERE id = :id")
     suspend fun setCollection(id: String, collectionId: String?)
 
+    @Query("UPDATE items SET collectionId = NULL WHERE collectionId = :collectionId")
+    suspend fun clearCollection(collectionId: String)
+
     @Query("UPDATE items SET title = :title, author = COALESCE(:author, author), siteName = COALESCE(:siteName, siteName) WHERE id = :id")
     suspend fun updateMeta(id: String, title: String, author: String?, siteName: String?)
 
@@ -228,4 +231,75 @@ interface ItemDao {
         """
     )
     suspend fun search(query: String): List<ItemListRow>
+
+    // -- Library scopes (Raindrop-style) --------------------------------------
+
+    @Query(
+        """
+        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
+               i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
+               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
+               i.extractStatus AS extractStatus,
+               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
+               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
+        FROM items i
+        LEFT JOIN item_states s ON s.itemId = i.id
+        LEFT JOIN sources src ON src.id = i.sourceId
+        WHERE COALESCE(s.isReadLater, 0) = 1 OR COALESCE(s.isStarred, 0) = 1 OR i.collectionId IS NOT NULL
+        ORDER BY i.savedAt DESC
+        """
+    )
+    fun observeLibraryAll(): Flow<List<ItemListRow>>
+
+    @Query(
+        """
+        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
+               i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
+               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
+               i.extractStatus AS extractStatus,
+               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
+               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
+        FROM items i
+        LEFT JOIN item_states s ON s.itemId = i.id
+        LEFT JOIN sources src ON src.id = i.sourceId
+        WHERE i.collectionId IS NULL AND (COALESCE(s.isReadLater, 0) = 1 OR COALESCE(s.isStarred, 0) = 1)
+        ORDER BY i.savedAt DESC
+        """
+    )
+    fun observeUnsorted(): Flow<List<ItemListRow>>
+
+    @Query(
+        """
+        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
+               i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
+               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
+               i.extractStatus AS extractStatus,
+               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
+               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
+        FROM items i
+        LEFT JOIN item_states s ON s.itemId = i.id
+        LEFT JOIN sources src ON src.id = i.sourceId
+        WHERE i.collectionId = :collectionId
+        ORDER BY i.savedAt DESC
+        """
+    )
+    fun observeCollection(collectionId: String): Flow<List<ItemListRow>>
+
+    @Query(
+        """
+        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
+               i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
+               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
+               i.extractStatus AS extractStatus,
+               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
+               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
+        FROM items i
+        JOIN item_tags it ON it.itemId = i.id
+        LEFT JOIN item_states s ON s.itemId = i.id
+        LEFT JOIN sources src ON src.id = i.sourceId
+        WHERE it.tagId = :tagId
+        ORDER BY i.savedAt DESC
+        """
+    )
+    fun observeByTag(tagId: String): Flow<List<ItemListRow>>
 }

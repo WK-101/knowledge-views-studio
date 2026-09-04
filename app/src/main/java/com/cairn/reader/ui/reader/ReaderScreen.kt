@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.FormatSize
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.IosShare
@@ -98,6 +99,7 @@ import coil.compose.AsyncImage
 import com.cairn.reader.data.db.HighlightEntity
 import com.cairn.reader.data.prefs.ReaderFont
 import com.cairn.reader.data.prefs.ReaderTheme
+import com.cairn.reader.ui.components.CollectionPickerSheet
 import com.cairn.reader.ui.theme.InterFamily
 import com.cairn.reader.ui.theme.ReadingSerif
 import com.cairn.reader.ui.util.formatAgo
@@ -135,10 +137,12 @@ fun ReaderScreen(
     val prefs by viewModel.preferences.collectAsStateWithLifecycle()
     val highlights by viewModel.highlights.collectAsStateWithLifecycle()
     val ttsState by viewModel.tts.collectAsStateWithLifecycle()
+    val collections by viewModel.collections.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val data = state.data
     var showTypography by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
+    var showCollections by remember { mutableStateOf(false) }
     var managed by remember { mutableStateOf<HighlightEntity?>(null) }
 
     val palette = readerPalette(prefs.readerTheme)
@@ -188,6 +192,11 @@ fun ReaderScreen(
                             Icon(Icons.Outlined.MoreVert, contentDescription = "More", tint = palette.text)
                         }
                         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text(if (data?.collectionId != null) "Move to collection" else "Save to collection") },
+                                leadingIcon = { Icon(Icons.Outlined.FolderOpen, contentDescription = null) },
+                                onClick = { showMenu = false; showCollections = true },
+                            )
                             DropdownMenuItem(
                                 text = { Text("Listen") },
                                 leadingIcon = { Icon(Icons.Outlined.Headphones, contentDescription = null) },
@@ -255,6 +264,16 @@ fun ReaderScreen(
             onReaderTheme = viewModel::setReaderTheme,
             onJustify = viewModel::setReaderJustify,
             onDismiss = { showTypography = false },
+        )
+    }
+
+    if (showCollections && data != null) {
+        CollectionPickerSheet(
+            collections = collections,
+            currentCollectionId = data.collectionId,
+            onPick = { collectionId -> viewModel.moveToCollection(collectionId); showCollections = false },
+            onCreate = { name -> viewModel.createCollection(name) {} },
+            onDismiss = { showCollections = false },
         )
     }
 

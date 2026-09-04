@@ -131,6 +131,9 @@ interface CollectionDao {
     @Query("UPDATE collections SET viewMode = :mode WHERE id = :id")
     suspend fun setViewMode(id: String, mode: String)
 
+    @Query("UPDATE collections SET parentId = NULL WHERE parentId = :parentId")
+    suspend fun promoteChildren(parentId: String)
+
     @Query("DELETE FROM collections WHERE id = :id")
     suspend fun delete(id: String)
 }

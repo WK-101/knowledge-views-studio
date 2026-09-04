@@ -33,6 +33,7 @@ data class ReaderData(
     val extractStatus: String,
     val isStarred: Boolean,
     val isReadLater: Boolean,
+    val collectionId: String?,
     val html: String?,
 )
 
@@ -61,6 +62,7 @@ class ItemRepository @Inject constructor(
             extractStatus = e.extractStatus,
             isStarred = state?.isStarred == true,
             isReadLater = state?.isReadLater == true,
+            collectionId = e.collectionId,
             html = blobStore.readArticle(e.blobPath),
         )
     }
@@ -69,6 +71,10 @@ class ItemRepository @Inject constructor(
     fun saved(sourceId: String? = null): Flow<List<ItemListRow>> = itemDao.observeSaved(sourceId)
     fun all(sourceId: String? = null): Flow<List<ItemListRow>> = itemDao.observeAll(sourceId)
     fun library(): Flow<List<ItemListRow>> = itemDao.observeLibrary()
+    fun libraryAll(): Flow<List<ItemListRow>> = itemDao.observeLibraryAll()
+    fun unsorted(): Flow<List<ItemListRow>> = itemDao.observeUnsorted()
+    fun collectionItems(collectionId: String): Flow<List<ItemListRow>> = itemDao.observeCollection(collectionId)
+    fun byTag(tagId: String): Flow<List<ItemListRow>> = itemDao.observeByTag(tagId)
     fun unreadCount(): Flow<Int> = itemDao.observeUnreadCount()
     fun feedUnread(): Flow<List<com.cairn.reader.data.db.FeedUnread>> = itemDao.observeFeedUnread()
 
