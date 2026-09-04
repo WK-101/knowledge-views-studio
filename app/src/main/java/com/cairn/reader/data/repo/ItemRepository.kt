@@ -65,11 +65,12 @@ class ItemRepository @Inject constructor(
         )
     }
 
-    fun inbox(): Flow<List<ItemListRow>> = itemDao.observeInbox()
-    fun saved(): Flow<List<ItemListRow>> = itemDao.observeSaved()
-    fun all(): Flow<List<ItemListRow>> = itemDao.observeAll()
+    fun inbox(sourceId: String? = null): Flow<List<ItemListRow>> = itemDao.observeInbox(sourceId)
+    fun saved(sourceId: String? = null): Flow<List<ItemListRow>> = itemDao.observeSaved(sourceId)
+    fun all(sourceId: String? = null): Flow<List<ItemListRow>> = itemDao.observeAll(sourceId)
     fun library(): Flow<List<ItemListRow>> = itemDao.observeLibrary()
     fun unreadCount(): Flow<Int> = itemDao.observeUnreadCount()
+    fun feedUnread(): Flow<List<com.cairn.reader.data.db.FeedUnread>> = itemDao.observeFeedUnread()
 
     suspend fun search(query: String): List<ItemListRow> {
         val sanitized = query.trim()

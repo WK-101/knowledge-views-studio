@@ -2,6 +2,7 @@ package com.cairn.reader.ui.inbox
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.cairn.reader.data.db.FeedUnread
 import com.cairn.reader.data.db.ItemListRow
 import com.cairn.reader.data.prefs.ListViewMode
 import com.cairn.reader.data.prefs.PreferencesRepository
@@ -56,6 +57,13 @@ class InboxViewModel @Inject constructor(
 
     private val _filter = MutableStateFlow(InboxFilter.UNREAD)
 
+    /** null = All Articles; otherwise a specific feed selected in the drawer. */
+    private val _selectedSource = MutableStateFlow<String?>(null)
+    val selectedSource: StateFlow<String?> = _selectedSource.asStateFlow()
+
+    val feeds: StateFlow<List<FeedUnread>> =
+        itemRepository.feedUnread().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val messages = _messages.asSharedFlow()
 
@@ -66,13 +74,14 @@ class InboxViewModel @Inject constructor(
         }
     }
 
-    private val rows = _filter.flatMapLatest { filter ->
-        when (filter) {
-            InboxFilter.UNREAD -> itemRepository.inbox()
-            InboxFilter.SAVED -> itemRepository.saved()
-            InboxFilter.ALL -> itemRepository.all()
+    private val rows = combine(_filter, _selectedSource) { filter, source -> filter to source }
+        .flatMapLatest { (filter, source) ->
+            when (filter) {
+                InboxFilter.UNREAD -> itemRepository.inbox(source)
+                InboxFilter.SAVED -> itemRepository.saved(source)
+                InboxFilter.ALL -> itemRepository.all(source)
+            }
         }
-    }
 
     val state: StateFlow<InboxUiState> =
         combine(rows, itemRepository.unreadCount(), _filter) { items, unread, filter ->
@@ -85,6 +94,10 @@ class InboxViewModel @Inject constructor(
 
     fun setFilter(filter: InboxFilter) {
         _filter.value = filter
+    }
+
+    fun selectSource(sourceId: String?) {
+        _selectedSource.value = sourceId
     }
 
     fun refresh() {

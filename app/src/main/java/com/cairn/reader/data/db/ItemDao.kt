@@ -28,6 +28,14 @@ data class ItemListRow(
     val isArchived: Boolean,
 )
 
+/** A feed with its current unread count, for the navigation drawer. */
+data class FeedUnread(
+    val sourceId: String,
+    val title: String,
+    val folder: String?,
+    val unread: Int,
+)
+
 @Dao
 interface ItemDao {
 
@@ -63,10 +71,11 @@ interface ItemDao {
         LEFT JOIN item_states s ON s.itemId = i.id
         LEFT JOIN sources src ON src.id = i.sourceId
         WHERE COALESCE(s.isArchived, 0) = 0 AND COALESCE(s.isRead, 0) = 0
+          AND (:sourceId IS NULL OR i.sourceId = :sourceId)
         ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC
         """
     )
-    fun observeInbox(): Flow<List<ItemListRow>>
+    fun observeInbox(sourceId: String?): Flow<List<ItemListRow>>
 
     @Query(
         """
@@ -97,10 +106,11 @@ interface ItemDao {
         LEFT JOIN item_states s ON s.itemId = i.id
         LEFT JOIN sources src ON src.id = i.sourceId
         WHERE COALESCE(s.isArchived, 0) = 0 AND COALESCE(s.isReadLater, 0) = 1
+          AND (:sourceId IS NULL OR i.sourceId = :sourceId)
         ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC
         """
     )
-    fun observeSaved(): Flow<List<ItemListRow>>
+    fun observeSaved(sourceId: String?): Flow<List<ItemListRow>>
 
     @Query(
         """
@@ -114,10 +124,11 @@ interface ItemDao {
         LEFT JOIN item_states s ON s.itemId = i.id
         LEFT JOIN sources src ON src.id = i.sourceId
         WHERE COALESCE(s.isArchived, 0) = 0
+          AND (:sourceId IS NULL OR i.sourceId = :sourceId)
         ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC
         """
     )
-    fun observeAll(): Flow<List<ItemListRow>>
+    fun observeAll(sourceId: String?): Flow<List<ItemListRow>>
 
     @Query(
         """
@@ -127,6 +138,18 @@ interface ItemDao {
         """
     )
     fun observeUnreadCount(): Flow<Int>
+
+    @Query(
+        """
+        SELECT src.id AS sourceId, src.title AS title, src.folder AS folder,
+               (SELECT COUNT(*) FROM items i
+                LEFT JOIN item_states s ON s.itemId = i.id
+                WHERE i.sourceId = src.id AND COALESCE(s.isRead, 0) = 0 AND COALESCE(s.isArchived, 0) = 0) AS unread
+        FROM sources src
+        ORDER BY src.sortOrder, src.title COLLATE NOCASE
+        """
+    )
+    fun observeFeedUnread(): Flow<List<FeedUnread>>
 
     @Query("SELECT * FROM items WHERE id = :id")
     suspend fun getItem(id: String): ItemEntity?

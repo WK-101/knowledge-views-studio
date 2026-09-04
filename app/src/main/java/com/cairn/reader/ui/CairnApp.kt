@@ -21,17 +21,21 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.Inbox
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.ViewAgenda
 import androidx.compose.material.icons.outlined.ViewCarousel
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
@@ -45,6 +49,7 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -52,19 +57,23 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cairn.reader.data.db.ItemListRow
 import com.cairn.reader.data.prefs.ListViewMode
+import com.cairn.reader.ui.components.FeedDrawerContent
 import com.cairn.reader.ui.components.ItemActionSheet
 import com.cairn.reader.ui.components.SwipeableItemRow
 import com.cairn.reader.ui.inbox.InboxFilter
@@ -92,8 +101,13 @@ fun CairnApp(
 
     val inboxViewModel: InboxViewModel = hiltViewModel()
     val inboxViewMode by inboxViewModel.viewMode.collectAsStateWithLifecycle()
+    val inboxState by inboxViewModel.state.collectAsStateWithLifecycle()
+    val feeds by inboxViewModel.feeds.collectAsStateWithLifecycle()
+    val selectedSource by inboxViewModel.selectedSource.collectAsStateWithLifecycle()
     var showViewMenu by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) {
         inboxViewModel.messages.collect { message ->
             if (message.startsWith(InboxViewModel.ARCHIVE_UNDO_MARKER)) {
@@ -106,11 +120,38 @@ fun CairnApp(
         }
     }
 
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet {
+                FeedDrawerContent(
+                    totalUnread = inboxState.unread,
+                    feeds = feeds,
+                    selectedSource = selectedSource,
+                    onAllArticles = { inboxViewModel.selectSource(null); selected = 0; scope.launch { drawerState.close() } },
+                    onSelectFeed = { id -> inboxViewModel.selectSource(id); selected = 0; scope.launch { drawerState.close() } },
+                    onSaved = { inboxViewModel.selectSource(null); inboxViewModel.setFilter(InboxFilter.SAVED); selected = 0; scope.launch { drawerState.close() } },
+                    onHighlights = { scope.launch { drawerState.close() }; onOpenNotebook() },
+                    onSettings = { selected = 2; scope.launch { drawerState.close() } },
+                )
+            }
+        },
+    ) {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    Text(current.label, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                    val title = if (current == Destination.Inbox && selectedSource != null) {
+                        feeds.firstOrNull { it.sourceId == selectedSource }?.title ?: "Feed"
+                    } else {
+                        current.label
+                    }
+                    Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                },
+                navigationIcon = {
+                    IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                        Icon(Icons.Outlined.Menu, contentDescription = "Open navigation")
+                    }
                 },
                 actions = {
                     if (current == Destination.Inbox) {
@@ -168,6 +209,7 @@ fun CairnApp(
                 Destination.Settings -> SettingsScreen(padding, onOpenNotebook = onOpenNotebook)
             }
         }
+    }
     }
 
     if (showAddFeed) {
