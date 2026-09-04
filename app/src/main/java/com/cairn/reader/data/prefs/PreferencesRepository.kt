@@ -41,6 +41,7 @@ data class AppPreferences(
     val savedSearches: Set<String> = emptySet(),
     /** Remembered library view mode per scope key (e.g. "col:<id>"), Raindrop-style. */
     val libraryViewByScope: Map<String, LibraryViewMode> = emptyMap(),
+    val seenOnboarding: Boolean = false,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -62,6 +63,7 @@ class PreferencesRepository @Inject constructor(
         val HIDE_DUP = booleanPreferencesKey("hide_duplicates")
         val SAVED_SEARCHES = stringSetPreferencesKey("saved_searches")
         val LIBRARY_VIEW_BY_SCOPE = stringSetPreferencesKey("library_view_by_scope")
+        val SEEN_ONBOARDING = booleanPreferencesKey("seen_onboarding")
     }
 
     /** Per-scope view entries are stored as "scopeKey<sep>MODE" in a string set. */
@@ -86,8 +88,11 @@ class PreferencesRepository @Inject constructor(
                 val mode = runCatching { LibraryViewMode.valueOf(parts[1]) }.getOrNull() ?: return@mapNotNull null
                 parts[0] to mode
             }.toMap(),
+            seenOnboarding = p[Keys.SEEN_ONBOARDING] ?: false,
         )
     }
+
+    suspend fun setSeenOnboarding(seen: Boolean) = context.dataStore.edit { it[Keys.SEEN_ONBOARDING] = seen }
 
     suspend fun setThemeMode(mode: ThemeMode) = context.dataStore.edit { it[Keys.THEME_MODE] = mode.name }
     suspend fun setDynamicColor(enabled: Boolean) = context.dataStore.edit { it[Keys.DYNAMIC] = enabled }

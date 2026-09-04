@@ -12,6 +12,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.cairn.reader.data.prefs.ThemeMode
 import com.cairn.reader.ui.notebook.NotebookScreen
+import com.cairn.reader.ui.onboarding.OnboardingScreen
 import com.cairn.reader.ui.reader.ReaderScreen
 import com.cairn.reader.ui.search.SearchScreen
 import com.cairn.reader.ui.theme.CairnTheme
@@ -31,6 +32,10 @@ fun CairnRoot() {
     }
 
     CairnTheme(darkTheme = dark, dynamicColor = prefs.dynamicColor) {
+        if (!prefs.seenOnboarding) {
+            OnboardingScreen(onGetStarted = { appViewModel.markOnboardingSeen() })
+            return@CairnTheme
+        }
         val navController = rememberNavController()
         val openWeb: (String) -> Unit = { url -> navController.navigate("web/${WebRoute.encode(url)}") }
         NavHost(navController = navController, startDestination = "home") {
