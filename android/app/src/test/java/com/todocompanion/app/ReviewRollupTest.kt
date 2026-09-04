@@ -52,7 +52,6 @@ class ReviewRollupTest {
         assertTrue(r.habitConsistency.isEmpty())
         assertTrue(r.topActivities.isEmpty())
         assertTrue(r.questionAverages.isEmpty())
-        assertTrue(r.correlations.isEmpty())
         assertFalse(r.hasData)
     }
 
@@ -110,34 +109,6 @@ class ReviewRollupTest {
         assertEquals(3.0, r.questionAverages[0].avg, 0.0001)
         assertEquals(3, r.questionAverages[0].count)
 
-        // Only 5 rated days → below the correlation threshold, so no correlation card.
-        assertTrue(r.correlations.isEmpty())
         assertTrue(r.hasData)
-    }
-
-    // ── 3. Correlation card threshold ──
-    @Test fun correlationAppearsOnlyWithEnoughRatedDays() {
-        // 3 clearly-best days (rating 5, habit kept) + 6 rest days (rating 2, habit missed).
-        val best = listOf(200L, 201L, 202L)
-        val rest = (203L..208L).toList()
-        val logs = best.map { log(it, rating = 5) } + rest.map { log(it, rating = 2) }
-        val checkins = best.map { checkin("h1", it) } // best days keep the habit; rest days don't
-
-        val full = ReviewRollup.compute(
-            startDay = 200, endDay = 208, dayLogs = logs, questions = emptyList(),
-            habits = listOf(habit("h1")), checkins = checkins, timeEntries = emptyList(), activities = emptyList(),
-            zone = zone, now = now,
-        )
-        // 9 rated days (≥ 6) with a real habit gap → a descriptive correlation line.
-        assertTrue(full.correlations.isNotEmpty())
-        assertTrue(full.correlations.any { it.contains("habits kept") })
-
-        // The same data trimmed to 5 rated days (200..204) falls below the threshold → suppressed.
-        val trimmed = ReviewRollup.compute(
-            startDay = 200, endDay = 204, dayLogs = logs.filter { it.epochDay in 200..204 }, questions = emptyList(),
-            habits = listOf(habit("h1")), checkins = checkins.filter { it.epochDay in 200..204 },
-            timeEntries = emptyList(), activities = emptyList(), zone = zone, now = now,
-        )
-        assertTrue(trimmed.correlations.isEmpty())
     }
 }

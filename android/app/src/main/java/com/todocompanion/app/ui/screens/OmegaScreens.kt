@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -233,9 +234,29 @@ fun RecapScreen(vm: AppViewModel, initialStartDay: Long, initialEndDay: Long, in
     var title by remember { mutableStateOf(initialTitle) }
     val recap = remember(start, end, liveTasks) { vm.periodRecap(start, end, title, liveTasks) }
 
+    // Track 1.5 — render the recap to a permission-free PNG via the shared DayCard path (FileProvider +
+    // ACTION_SEND, no network), the same family the day / week / year cards already use.
+    val shareCtx = androidx.compose.ui.platform.LocalContext.current
+    fun shareRecap() {
+        runCatching {
+            val felt = vm.feltSummary(start, end)
+            val rd = com.todocompanion.app.util.DayCard.RecapData(
+                title = title,
+                avgRating = felt.avgRating,
+                lines = recap.lines.map { "${it.icon} ${it.label} · ${it.value}" },
+                narrative = recap.narrative,
+                accentArgb = settings.accentArgb.takeIf { it != 0L },
+            )
+            val bmp = com.todocompanion.app.util.DayCard.renderRecap(rd)
+            val res = com.todocompanion.app.util.ProgressCard.saveAndShareUri(shareCtx, bmp, "kairo-recap-$start-$end.png")
+            res.shareUri?.let { com.todocompanion.app.util.ProgressCard.share(shareCtx, it) }
+        }
+    }
+
     Scaffold(topBar = {
         TopAppBar(expandedHeight = 52.dp, title = { Text("Recap") },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } })
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+            actions = { if (recap.hasData) IconButton(onClick = { shareRecap() }) { Icon(Icons.Filled.Share, "Share recap") } })
     }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {

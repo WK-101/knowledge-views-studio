@@ -263,10 +263,11 @@ private fun TrendsSection(vm: AppViewModel, range: TimeStats.Range, anchor: Loca
         return
     }
 
-    // Momentum vs previous period.
+    // Pace vs previous period. (Track 1.4 — was "Momentum"; renamed so it doesn't collide with the
+    // Momentum screen / achievement score / Record comeback card, which all mean different things.)
     AppCard {
         val delta = t.totalMin - t.prevTotalMin
-        Text("Momentum", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Pace", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(sfmt(t.totalMin), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.width(10.dp))

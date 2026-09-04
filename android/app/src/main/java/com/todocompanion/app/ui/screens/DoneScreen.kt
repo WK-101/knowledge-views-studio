@@ -1,6 +1,7 @@
 package com.todocompanion.app.ui.screens
 
 import androidx.activity.compose.BackHandler
+import kotlin.math.roundToInt
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -128,6 +129,15 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
     val heat = remember(rangedFeed) { com.todocompanion.app.domain.done.LivingRecord.heatmap(rangedFeed) }
     val milestones = remember(rangedFeed) { com.todocompanion.app.domain.done.LivingRecord.milestones(rangedFeed, today) }
     val patternInsights = remember(rangedFeed) { com.todocompanion.app.domain.done.LivingRecord.insights(rangedFeed, today) }
+    // Track 1.1 — the felt dimension for The Record: how the record's window FELT, plus 1–2 cross-stream
+    // findings that relate finishing to how days felt (descriptive only). Lifetime clamps to a finite window.
+    val dayLogs by vm.dayLogs.collectAsState()
+    val feltStart = if (bounds.first == Long.MIN_VALUE) today.toEpochDay() - 3650 else bounds.first
+    val feltEnd = if (bounds.last == Long.MAX_VALUE) today.toEpochDay() else bounds.last
+    val recordFelt = remember(range, dayLogs) { vm.feltSummary(feltStart, feltEnd) }
+    // Cross-stream insights are heavier (per-day activity minutes), so cap their window to ~2 years.
+    val insightStart = maxOf(feltStart, feltEnd - 729)
+    val recordFeltInsights = remember(range, dayLogs, checkins, timeEntries) { vm.reviewInsightsFor(insightStart, feltEnd).take(2) }
     val skills = remember(rangedFeed, tagNamesByTask, listNameById) { com.todocompanion.app.domain.done.LivingRecord.skills(rangedFeed, tagNamesByTask, listNameById) }
     val sealedNotes by vm.sealedNotes.collectAsState()
     var writeLetter by remember { mutableStateOf(false) }
@@ -183,7 +193,11 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
         return
     }
     if (showWrapped) {
-        WrappedScreen(feed, today, onBack = { showWrapped = false })
+        // Track 1.3 — Wrapped reads the unified year spine (felt + achievement counts) for the calendar year.
+        val yearRecap = remember(feed, today) {
+            vm.yearReviewed(today.withDayOfYear(1).toEpochDay(), today.withMonth(12).withDayOfMonth(31).toEpochDay())
+        }
+        WrappedScreen(feed, today, yearRecap, onBack = { showWrapped = false })
         return
     }
 
@@ -277,7 +291,7 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
             // R32 #2 — milestone shelf: earned badges + the next target, each shareable.
             if (milestones.isNotEmpty()) item(key = "milestones") { MilestonesCard(milestones) { m -> vm.shareMilestone(m) } }
             // R32 #4 — heuristic pattern insights (best day, peak hour, focus lift).
-            if (patternInsights.isNotEmpty()) item(key = "insights") { PatternInsightsCard(patternInsights) }
+            if (patternInsights.isNotEmpty() || recordFelt.hasData) item(key = "insights") { PatternInsightsCard(patternInsights, recordFelt, recordFeltInsights, rangeLabel(range)) }
             // R32 #8 — skills ledger: finished work rolled up into evidence-backed areas.
             if (skills.isNotEmpty()) item(key = "skills") { SkillsCard(skills) }
             // R32 #7 — sealed letters to your future self (reveal when their day comes).
@@ -448,7 +462,7 @@ private fun LifetimeCard(s: com.todocompanion.app.domain.done.DoneStats, rangeLa
 private fun ComebackCard(lines: List<String>) {
     Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .35f), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
-            Text("📈 Momentum", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text("📈 Comeback", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.size(6.dp))
             lines.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 2.dp)) }
         }
@@ -461,11 +475,16 @@ private fun HonestyCard(overall: com.todocompanion.app.domain.done.DoneRecord.Le
         Column(Modifier.padding(16.dp)) {
             Text("⚖️ Estimate vs. actual", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.size(4.dp))
-            val pct = (overall.ratio * 100).toInt()
+            // Track 1.4 — verdict from the one shared Calibration engine (10% tolerance), presentation unchanged.
+            val ratio = overall.ratio.toDouble()
+            val pct = (ratio * 100).toInt()
+            val over = com.todocompanion.app.domain.Calibration.percentOff(ratio)
             Text(
-                if (pct in 90..110) "Your estimates are on the money — finished work took ${pct}% of the estimate."
-                else if (pct > 110) "Finished work runs long: ${pct}% of your estimate on average. Pad by ~${pct - 100}%."
-                else "You beat your estimates — work took only ${pct}% of what you planned.",
+                when (com.todocompanion.app.domain.Calibration.classify(ratio, 0.10)) {
+                    com.todocompanion.app.domain.Calibration.Verdict.ON_POINT -> "Your estimates are on the money — finished work took ${pct}% of the estimate."
+                    com.todocompanion.app.domain.Calibration.Verdict.OVER -> "Finished work runs long: ${pct}% of your estimate on average. Pad by ~${over}%."
+                    com.todocompanion.app.domain.Calibration.Verdict.UNDER -> "You beat your estimates — work took only ${pct}% of what you planned."
+                },
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (worst.isNotEmpty()) {
@@ -1038,7 +1057,12 @@ private fun MilestonesCard(milestones: List<LivingRecord.Milestone>, onShare: (L
 
 /** #4 — heuristic pattern insights. */
 @Composable
-private fun PatternInsightsCard(insights: List<LivingRecord.Insight>) {
+private fun PatternInsightsCard(
+    insights: List<LivingRecord.Insight>,
+    felt: com.todocompanion.app.domain.FeltState.FeltSummary,
+    feltInsights: List<com.todocompanion.app.domain.ReviewInsights.Insight>,
+    rangeLabel: String,
+) {
     Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .4f), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("What your record reveals", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
@@ -1049,6 +1073,25 @@ private fun PatternInsightsCard(insights: List<LivingRecord.Insight>) {
                     Text(i.text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                 }
             }
+            // Track 1.1 — the felt dimension: how the window felt, and how finishing related to it.
+            if (felt.hasData && felt.ratedDays > 0) {
+                val stars = felt.avgRating.roundToInt().coerceIn(1, 5)
+                val emo = if (felt.dominantEmotion.isNotBlank()) " and most often felt ${felt.dominantEmotion.lowercase(java.util.Locale.getDefault())}" else ""
+                Row(verticalAlignment = Alignment.Top) {
+                    Text("💗", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.size(10.dp))
+                    Text("Across ${rangeLabel.lowercase(java.util.Locale.getDefault())}, your days averaged ${"★".repeat(stars)} (${String.format(java.util.Locale.US, "%.1f", felt.avgRating)})$emo.",
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+            feltInsights.forEach { i ->
+                Row(verticalAlignment = Alignment.Top) {
+                    Text("🔍", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.size(10.dp))
+                    Text(i.text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+            if (feltInsights.isNotEmpty()) Text("These are descriptive patterns, not cause and effect.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text("Computed on-device from your own history — nothing leaves the phone.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -1167,31 +1210,34 @@ private fun LetterRevealDialog(
     )
 }
 
-/** #5 — year-in-review story: bold, scroll-through slides generated on-device from the record. */
+/** #5 — year-in-review story: bold, scroll-through slides generated on-device from the record. Track 1.3 —
+ *  the achievement counts AND the "how your year felt" slides both read from the one [YearReviewed] spine. */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun WrappedScreen(feed: List<Accomplishment>, today: LocalDate, onBack: () -> Unit) {
+private fun WrappedScreen(feed: List<Accomplishment>, today: LocalDate, recap: com.todocompanion.app.domain.YearReviewed.Recap, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
     val year = today.year
     val ofYear = remember(feed) { feed.filter { LocalDate.ofEpochDay(it.epochDay).year == year } }
-    val stats = remember(ofYear) { DoneRecord.stats(ofYear) }
-    val topList = remember(ofYear) { ofYear.filter { it.isTaskLike && it.listId != null }.groupingBy { it.listId }.eachCount().maxByOrNull { it.value } }
-    val bestMonth = remember(ofYear) {
-        ofYear.groupBy { LocalDate.ofEpochDay(it.epochDay).month }.maxByOrNull { it.value.size }
-    }
     data class Slide(val emoji: String, val big: String, val cap: String, val bg: Color)
     val primary = MaterialTheme.colorScheme.primary
     val tertiary = MaterialTheme.colorScheme.tertiary
     val secondary = MaterialTheme.colorScheme.secondary
+    fun oneDp(v: Double) = String.format(java.util.Locale.US, "%.1f", v)
     val slides = buildList {
         add(Slide("📖", "$year", "Your year, on the record", primary))
-        add(Slide("🏁", "${stats.totalTasks}", "tasks finished", tertiary))
-        if (stats.focusedMinutes >= 60) add(Slide("🎯", "${stats.focusedMinutes / 60}h", "of focused time", secondary))
-        if (stats.habitCheckins > 0) add(Slide("🔁", "${stats.habitCheckins}", "habit days kept", primary))
-        if (stats.longestStreakDays >= 3) add(Slide("🔥", "${stats.longestStreakDays}", "day longest streak", tertiary))
-        bestMonth?.let { add(Slide("📅", it.key.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault()), "was your biggest month · ${it.value.size} done", secondary)) }
-        if (stats.totalWins > 0) add(Slide("⭐", "${stats.totalWins}", "moments you marked a win", primary))
-        add(Slide("🏅", "${stats.activeDays}", "days you showed up", tertiary))
+        add(Slide("🏁", "${recap.tasksFinished}", "tasks finished", tertiary))
+        if (recap.focusMinutesDone >= 60) add(Slide("🎯", "${recap.focusHoursDone}h", "of focused time", secondary))
+        if (recap.habitDaysKept > 0) add(Slide("🔁", "${recap.habitDaysKept}", "habit days kept", primary))
+        if (recap.longestActiveStreakDays >= 3) add(Slide("🔥", "${recap.longestActiveStreakDays}", "day longest streak", tertiary))
+        if (recap.biggestMonthValue in 1..12) add(Slide("📅", java.time.Month.of(recap.biggestMonthValue).getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault()), "was your biggest month · ${recap.biggestMonthCount} done", secondary))
+        if (recap.winsMarked > 0) add(Slide("⭐", "${recap.winsMarked}", "moments you marked a win", primary))
+        add(Slide("🏅", "${recap.activeDays}", "days you showed up", tertiary))
+        // Track 1.3 — how your year FELT: average rating, the feeling you named most, and a standout highlight.
+        if (recap.ratedDays > 0) add(Slide("💗", "${oneDp(recap.avgRating)}★", "how your year felt, on average", tertiary))
+        if (recap.topEmotionWord.isNotBlank() && recap.topEmotionCount >= 3)
+            add(Slide("🫧", recap.topEmotionWord, "the feeling you named most · ${recap.topEmotionCount} days", secondary))
+        if (recap.highlightText.isNotBlank())
+            add(Slide("✨", "A highlight", recap.highlightText, primary))
     }
     Scaffold(topBar = {
         TopAppBar(expandedHeight = 52.dp, title = { Text("$year, wrapped") },

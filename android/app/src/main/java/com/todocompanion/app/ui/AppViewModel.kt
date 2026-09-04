@@ -4048,10 +4048,30 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun answerQuery(question: String): com.todocompanion.app.domain.OmegaQuery.Answer =
         com.todocompanion.app.domain.OmegaQuery.answer(question, omegaCtx())
 
-    /** Ω5 — the cross-module recap for any date range (inclusive epoch-days). */
+    /** Ω5 — the cross-module recap for any date range (inclusive epoch-days). Track 1.2 — now folds the
+     *  day logs' felt state too, so the recap can say how the days felt vs the window before. */
     fun periodRecap(startDay: Long, endDay: Long, title: String, tasksOverride: List<TaskEntity>? = null): com.todocompanion.app.domain.PeriodRecap.Recap =
         com.todocompanion.app.domain.PeriodRecap.compute(startDay, endDay, title,
-            omegaCtx().let { if (tasksOverride != null) it.copy(tasks = tasksOverride) else it })
+            omegaCtx().let { if (tasksOverride != null) it.copy(tasks = tasksOverride) else it }, dayLogs.value)
+
+    // ── Track 1 (Unify) · shared felt-state / insight / year-spine accessors ────────────────────────
+    /** Track 1.1 — the felt-state summary over an inclusive epoch-day window, for the achievement surfaces. */
+    fun feltSummary(startDay: Long, endDay: Long): com.todocompanion.app.domain.FeltState.FeltSummary =
+        com.todocompanion.app.domain.FeltState.summarize(dayLogs.value, startDay, endDay)
+
+    /** Track 1.1 — cross-stream descriptive insights over a window (the mood dimension for The Record). */
+    fun reviewInsightsFor(startDay: Long, endDay: Long): List<com.todocompanion.app.domain.ReviewInsights.Insight> =
+        com.todocompanion.app.domain.ReviewInsights.compute(
+            startDay, endDay, dayLogs.value,
+            com.todocompanion.app.domain.DailyQuestions.parseQuestions(settings.value.dailyQuestionsJson),
+            habits.value, habitCheckins.value, timeEntries.value, timeActivities.value,
+            zone, System.currentTimeMillis())
+
+    /** Track 1.3 — the unified year spine (felt state + achievement counts) over an inclusive window. */
+    fun yearReviewed(startDay: Long, endDay: Long): com.todocompanion.app.domain.YearReviewed.Recap =
+        com.todocompanion.app.domain.YearReviewed.compute(
+            startDay, endDay, dayLogs.value, habits.value, habitCheckins.value,
+            timeEntries.value, timeActivities.value, zone, System.currentTimeMillis(), tasks.value)
 
     /** Ω3 — adaptive hints suggesting a module the user would benefit from turning on. */
     fun moduleHints(): List<com.todocompanion.app.domain.ModuleHints.Hint> =

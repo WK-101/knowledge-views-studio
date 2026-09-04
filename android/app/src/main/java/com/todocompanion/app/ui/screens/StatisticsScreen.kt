@@ -52,9 +52,12 @@ fun StatisticsScreen(vm: AppViewModel, onBack: () -> Unit) {
     val focus = remember(timeEntries, legacyFocus) { vm.focusViews() }
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
+    // Track 1.1 — the felt lane reads the day logs over the same 7-day window as "Completed per day".
+    val dayLogs by vm.dayLogs.collectAsState()
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now()
     val todayEpoch = today.toEpochDay()
+    val felt = remember(dayLogs, todayEpoch) { vm.feltSummary(todayEpoch - 6, todayEpoch) }
 
     fun dayOf(ms: Long) = Instant.ofEpochMilli(ms).atZone(zone).toLocalDate()
     val completed = tasks.filter { it.completed && it.completedAt != null }
@@ -112,6 +115,15 @@ fun StatisticsScreen(vm: AppViewModel, onBack: () -> Unit) {
                     }
                 }
             }
+            // Track 1.1 — "How it felt" lane: the same 7-day window, but the felt side (rating + mood + emotion).
+            if (felt.hasData) {
+                Spacer(Modifier.height(12.dp))
+                AppCard {
+                    Text("How it felt · 7 days", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(10.dp))
+                    FeltReadout(felt)
+                }
+            }
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 StatTile("Focus · 7 days", "${focusMin}m", Modifier.weight(1f), sub = "$focusSessions sessions")
@@ -156,13 +168,14 @@ fun StatisticsScreen(vm: AppViewModel, onBack: () -> Unit) {
             if (calibs.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
                 AppCard {
-                    val totalEst = calibs.sumOf { it.est }.coerceAtLeast(1)
-                    val totalAct = calibs.sumOf { it.actual }
-                    val pct = (totalAct * 100 / totalEst)
-                    val verdict = when {
-                        pct >= 115 -> "You take about ${pct - 100}% longer than you estimate — pad your estimates."
-                        pct <= 85 -> "You finish about ${100 - pct}% faster than you estimate — you can commit to more."
-                        else -> "Your estimates are on point (within 15%). Nice calibration."
+                    // Track 1.4 — ratio + verdict come from the one shared Calibration engine (15% tolerance here).
+                    val ratio = com.todocompanion.app.domain.Calibration.overallRatio(
+                        calibs.map { com.todocompanion.app.domain.Calibration.Pair(it.est, it.actual) }) ?: 1.0
+                    val off = com.todocompanion.app.domain.Calibration.percentOff(ratio)
+                    val verdict = when (com.todocompanion.app.domain.Calibration.classify(ratio, 0.15)) {
+                        com.todocompanion.app.domain.Calibration.Verdict.OVER -> "You take about ${off}% longer than you estimate — pad your estimates."
+                        com.todocompanion.app.domain.Calibration.Verdict.UNDER -> "You finish about ${-off}% faster than you estimate — you can commit to more."
+                        com.todocompanion.app.domain.Calibration.Verdict.ON_POINT -> "Your estimates are on point (within 15%). Nice calibration."
                     }
                     Text("Estimation calibration", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(4.dp))

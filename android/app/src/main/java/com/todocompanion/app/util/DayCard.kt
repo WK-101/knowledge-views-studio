@@ -302,6 +302,85 @@ object DayCard {
         append("\n— via Kairo")
     }
 
+    // ── Track 1.5 · the any-period recap share card ────────────────────────────────────────────────────
+
+    /** Everything the recap card needs, already computed by the caller from the period recap. */
+    data class RecapData(
+        val title: String,           // e.g. "This week" / "Last month"
+        val avgRating: Double,       // 0 = none rated
+        val lines: List<String>,     // already-formatted stat lines ("✓ Tasks done · 12")
+        val narrative: String,       // the one-paragraph story ("" = omit)
+        val accentArgb: Long?,
+    )
+
+    /**
+     * Render the any-period recap to a PNG in the same visual language as the day/week/year cards — accent
+     * eyebrow, big title, optional rating stars, stat lines, the narrative, footer. Guarded end-to-end so a
+     * share can never crash or produce a blank image.
+     */
+    fun renderRecap(d: RecapData): Bitmap {
+        val accent = d.accentArgb?.toInt() ?: 0xFF6650A4.toInt()
+        val bg = 0xFF16121F.toInt()
+        val onBg = 0xFFEDE8F5.toInt()
+        val muted = 0xFF9B93AC.toInt()
+        val bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        c.drawColor(bg)
+        try {
+            val bold = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = onBg; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD) }
+            val reg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = muted; typeface = Typeface.DEFAULT }
+
+            reg.textSize = 38f; reg.color = accent
+            c.drawText("RECAP", 72f, 130f, reg)
+            bold.textSize = 72f; bold.color = onBg
+            c.drawText(ellipsize(d.title, bold, (W - 144).toFloat()), 72f, 210f, bold)
+
+            var y = 320f
+            if (d.avgRating > 0) {
+                val r = d.avgRating.roundToInt().coerceIn(1, 5)
+                bold.textSize = 80f; bold.color = accent
+                c.drawText("★".repeat(r) + "☆".repeat(5 - r), 72f, y, bold)
+                reg.textSize = 34f; reg.color = muted
+                c.drawText("avg ${oneDp(d.avgRating)}", 72f + 470f, y - 18f, reg)
+                y += 60f
+            }
+            y += 40f
+
+            bold.textSize = 50f; bold.color = onBg
+            d.lines.take(6).forEach { line ->
+                c.drawText(ellipsize(line, bold, (W - 144).toFloat()), 72f, y + 44f, bold)
+                y += 82f
+            }
+            y += 24f
+
+            if (d.narrative.isNotBlank()) {
+                reg.textSize = 34f; reg.color = accent
+                c.drawText("THE STORY", 72f, y, reg); y += 56f
+                bold.textSize = 40f; bold.color = onBg; bold.typeface = Typeface.create(Typeface.DEFAULT, Typeface.ITALIC)
+                wrap(d.narrative, bold, (W - 144).toFloat()).take(6).forEach { line ->
+                    c.drawText(line, 72f, y, bold); y += 54f
+                }
+                bold.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            }
+
+            reg.textSize = 32f; reg.color = muted
+            c.drawText("Kairo · a period, recapped · 100% offline", 72f, (H - 60).toFloat(), reg)
+        } catch (t: Throwable) {
+            val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = onBg; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD); textSize = 64f }
+            c.drawText(d.title.ifBlank { "Recap" }, 72f, 160f, p)
+        }
+        return bmp
+    }
+
+    /** Plain-text equivalent for the recap card's "share as text" path. */
+    fun recapText(d: RecapData): String = buildString {
+        append("${d.title} — recap\n")
+        if (d.avgRating > 0) append("★ ${oneDp(d.avgRating)} avg\n")
+        d.lines.take(6).forEach { append("$it\n") }
+        if (d.narrative.isNotBlank()) append("\n${d.narrative}\n")
+        append("\n— via Kairo")
+    }
+
     private fun oneDp(v: Double): String = String.format(java.util.Locale.US, "%.1f", v)
 
     private fun ellipsize(s: String, p: Paint, maxW: Float): String {

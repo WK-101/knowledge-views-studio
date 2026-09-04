@@ -1027,20 +1027,6 @@ private fun MiniCheck(modifier: Modifier = Modifier) {
     }
 }
 
-/** A per-day mood strip (1–5 → 😞…😄), one dot-height bar per day, for the roll-up mood trend. */
-@Composable
-private fun MoodStrip(moods: List<Int?>, modifier: Modifier = Modifier) {
-    val on = MaterialTheme.colorScheme.tertiary
-    val off = MaterialTheme.colorScheme.surfaceVariant
-    Row(modifier.height(26.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        moods.forEach { s ->
-            val frac = if (s != null) (s.coerceIn(1, 5) / 5f) else 0f
-            Box(Modifier.weight(1f).fillMaxHeight(frac.coerceAtLeast(0.14f)).clip(RoundedCornerShape(2.dp))
-                .background(if (s != null) on else off.copy(alpha = .5f)))
-        }
-    }
-}
-
 /** Phase C — a tappable 1–5 effort selector for a Daily Question, filled up to the chosen score.
  *  Mirrors the energy ◆ row's diamond idiom; a score of 0 means "not scored yet". */
 @Composable
@@ -1053,23 +1039,6 @@ private fun ScorePips(score: Int, onPick: (Int) -> Unit) {
                 style = MaterialTheme.typography.titleLarge,
                 color = if (filled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                 modifier = Modifier.clip(CircleShape).clickable { onPick(i) }.padding(horizontal = 3.dp, vertical = 2.dp),
-            )
-        }
-    }
-}
-
-/** Phase C — a thin trend of recent daily-question scores: one bar per day, height-scaled to score/5,
- *  muted where no score was logged. Reuses the meter-bar drawing idiom. */
-@Composable
-private fun ScoreSparkline(scores: List<Int?>, modifier: Modifier = Modifier) {
-    val on = MaterialTheme.colorScheme.primary
-    val off = MaterialTheme.colorScheme.surfaceVariant
-    Row(modifier.height(26.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        scores.forEach { s ->
-            val frac = if (s != null) (s.coerceIn(1, 5) / 5f) else 0f
-            Box(
-                Modifier.weight(1f).fillMaxHeight(frac.coerceAtLeast(0.14f)).clip(RoundedCornerShape(2.dp))
-                    .background(if (s != null) on else off.copy(alpha = .5f)),
             )
         }
     }

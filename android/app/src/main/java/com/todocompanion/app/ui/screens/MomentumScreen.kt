@@ -84,6 +84,9 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
     val settings by vm.settings.collectAsState()
     val timeEntries by vm.timeEntries.collectAsState()
     val legacyFocus by vm.focusSessions.collectAsState()
+    // Track 1.1 — the felt state over the trailing week, for the "How your week felt" readout and the
+    // burnout card's felt line. Reads day logs the same way the Day Review does.
+    val dayLogs by vm.dayLogs.collectAsState()
     // Focus is derived from the one timeline (kind="focus" intervals), so momentum reads the same source
     // as the time reports — never a divergent second statistic.
     val focus = remember(timeEntries, legacyFocus) { vm.focusViews() }
@@ -266,6 +269,15 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                 }
             }
 
+            // Track 1.1 — "How your week felt": the felt lane sitting right beside the output ring, so the
+            // dashboard shows not just how much you did but how the doing actually felt.
+            val feltWeek = remember(dayLogs, today) { vm.feltSummary(today - 6, today) }
+            if (feltWeek.hasData) AppCard {
+                Text("How your week felt", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                FeltReadout(feltWeek)
+            }
+
             // The inputs — a disabled module's tile is dropped so the row only shows what's live.
             fun fmtMin(m: Int) = if (m >= 60) "${m / 60}h ${m % 60}m" else "${m}m"
             val weekStartMs = LocalDate.now(zone).minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli()
@@ -345,6 +357,13 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                     Text("A gentle heads-up", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
                     Spacer(Modifier.height(4.dp))
                     Text(burnout, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                    // Track 1.1 — cite the felt side when output is up but the days haven't felt good (the real divergence).
+                    if (feltWeek.ratedDays > 0 && feltWeek.avgRating <= 3.2) {
+                        Spacer(Modifier.height(6.dp))
+                        val emo = if (feltWeek.dominantEmotion.isNotBlank()) ", most often feeling ${feltWeek.dominantEmotion.lowercase(java.util.Locale.getDefault())}" else ""
+                        Text("And it hasn't only been busy — your days have averaged ${String.format(java.util.Locale.US, "%.1f", feltWeek.avgRating)}★$emo. High output with a low rating is exactly the divergence worth heeding.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                    }
                     Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("Snooze a week", Modifier.clickable { vm.snoozeInsight("burnout") }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onErrorContainer)
                         Text("Dismiss", Modifier.clickable { vm.dismissInsight("burnout") }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onErrorContainer)

@@ -10,8 +10,6 @@ import com.todocompanion.app.domain.habit.HabitStats
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Locale
-import kotlin.math.ceil
-import kotlin.math.roundToInt
 
 /**
  * Phase D — the reflection roll-up. A pure fold over an already-loaded slice of the store (the day
@@ -26,9 +24,6 @@ import kotlin.math.roundToInt
  * free of Compose so it unit-tests as plain Kotlin, mirroring HabitStats / DayPrompts / DailyQuestions.
  */
 object ReviewRollup {
-
-    /** Below this many *rated* days the "best days share…" split isn't meaningful, so it's suppressed. */
-    const val MIN_DAYS_FOR_CORRELATION = 6
 
     /** Caps so the read-only lists stay scannable; the overflow is surfaced as "+N more". */
     const val MAX_WINS = 12
@@ -89,7 +84,6 @@ object ReviewRollup {
         val habitConsistency: List<HabitConsistency>,
         val topActivities: List<ActivityDuration>,
         val questionAverages: List<QuestionAverage>,
-        val correlations: List<String>,
         // Phase E — goals the user marked as advanced during the period, most-advanced first ([count] = days).
         val goalsMoved: List<WinTally> = emptyList(),
         // Mood aggregation (evening mood 1–5): average, per-day trend (null = none), and how many days logged.
@@ -130,7 +124,7 @@ object ReviewRollup {
         tasks: List<TaskEntity> = emptyList(),
     ): Rollup {
         if (endDay < startDay) {
-            return Rollup(startDay, endDay, 0, 0, 0, 0.0, emptyList(), emptyList(), 0, emptyList(), 0, emptyList(), emptyList(), emptyList(), emptyList())
+            return Rollup(startDay, endDay, 0, 0, 0, 0.0, emptyList(), emptyList(), 0, emptyList(), 0, emptyList(), emptyList(), emptyList())
         }
         val periodDays = (endDay - startDay + 1).toInt()
         val logByDay = dayLogs.filter { it.epochDay in startDay..endDay }.associateBy { it.epochDay }
@@ -217,10 +211,7 @@ object ReviewRollup {
             QuestionAverage(q.id, q.text, if (vals.isEmpty()) 0.0 else vals.average(), vals.size, trend)
         }.filter { it.count > 0 }
 
-        // ── 7. "Your best days share…" — descriptive differences between top-rated days and the rest.
-        val correlations = correlate(startDay, endDay, logByDay, checkinByKey, questions, habits, scoresByDay, timeEntries, activities, zone, now)
-
-        // ── 8. Phase E — goals advanced across the period, counted from each day's alignment blob and
+        // ── 7. Phase E — goals advanced across the period, counted from each day's alignment blob and
         // resolved to live goal names/emoji (goals live in settings, passed in). Most-advanced first.
         val goalsMoved = if (goals.isEmpty()) emptyList() else {
             val countById = LinkedHashMap<String, Int>()
@@ -240,89 +231,9 @@ object ReviewRollup {
             ratedDays = ratings.size, avgRating = avgRating, ratingTrend = ratingTrend,
             wins = wins, moreWins = moreWins, reflections = reflections, moreReflections = moreReflections,
             habitConsistency = habitConsistency, topActivities = topActivities,
-            questionAverages = questionAverages, correlations = correlations,
+            questionAverages = questionAverages,
             avgMood = avgMood, moodTrend = moodTrend, moodCount = moods.size, goalsMoved = goalsMoved,
         )
-    }
-
-    /**
-     * Compare the top third of rated days (by rating) against the rest and surface up to three purely
-     * factual differences. Descriptive only — it never claims causation. Suppressed unless there are at
-     * least [MIN_DAYS_FOR_CORRELATION] rated days and the two groups actually differ in rating.
-     */
-    private fun correlate(
-        startDay: Long,
-        endDay: Long,
-        logByDay: Map<Long, DayLogEntity>,
-        checkinByKey: Map<Pair<String, Long>, HabitCheckinEntity>,
-        questions: List<DailyQuestion>,
-        habits: List<HabitEntity>,
-        scoresByDay: Map<Long, Map<String, Int>>,
-        timeEntries: List<TimeEntryEntity>,
-        activities: List<TimeActivityEntity>,
-        zone: ZoneId,
-        now: Long,
-    ): List<String> {
-        val rated = (startDay..endDay).filter { (logByDay[it]?.dayRating ?: 0) > 0 }
-        if (rated.size < MIN_DAYS_FOR_CORRELATION) return emptyList()
-        val sorted = rated.sortedByDescending { logByDay[it]!!.dayRating }
-        val bestN = ceil(sorted.size / 3.0).toInt().coerceIn(1, sorted.size - 1)
-        val best = sorted.take(bestN)
-        val rest = sorted.drop(bestN)
-        if (best.isEmpty() || rest.isEmpty()) return emptyList()
-        val bestRating = best.map { logByDay[it]!!.dayRating }.average()
-        val restRating = rest.map { logByDay[it]!!.dayRating }.average()
-        if (bestRating - restRating < 0.5) return emptyList() // no real separation (e.g. every day the same)
-
-        val out = mutableListOf<String>()
-
-        // (a) Habits kept per day.
-        fun habitsKeptOn(d: Long): Int = habits.count { h ->
-            HabitStats.isExpectedDay(h, d) &&
-                checkinByKey[h.id to d]?.let { it.status == "done" && HabitStats.meetsGoal(h, it.count) } == true
-        }
-        if (habits.isNotEmpty()) {
-            val b = best.map { habitsKeptOn(it) }.average()
-            val r = rest.map { habitsKeptOn(it) }.average()
-            if (b - r >= 0.5) out += "averaged ${oneDp(b)} habits kept vs ${oneDp(r)}"
-        }
-
-        // (b) Daily-question effort — the question with the biggest positive gap, if any group has enough data.
-        val qGap = questions.mapNotNull { q ->
-            val b = best.mapNotNull { scoresByDay[it]?.get(q.id) }
-            val r = rest.mapNotNull { scoresByDay[it]?.get(q.id) }
-            if (b.size < 2 || r.size < 2) return@mapNotNull null
-            val gap = b.average() - r.average()
-            if (gap >= 0.5) Triple(q, b.average(), r.average()) else null
-        }.maxByOrNull { it.second - it.third }
-        qGap?.let { (q, b, r) -> out += "scored higher on “${shortQuestion(q.text)}” (${oneDp(b)} vs ${oneDp(r)})" }
-
-        // (c) Time on an activity — per-day minutes, the activity with the biggest positive gap.
-        if (activities.isNotEmpty()) {
-            fun perDayMinutes(days: List<Long>): Map<String, Double> {
-                val n = days.size.coerceAtLeast(1)
-                val totals = HashMap<String, Int>()
-                for (d in days) {
-                    val (ws, we) = millisWindow(d, d, zone)
-                    TimeTracking.totalsByActivity(timeEntries, ws, we, now).forEach {
-                        totals[it.activityId] = (totals[it.activityId] ?: 0) + it.minutes
-                    }
-                }
-                return totals.mapValues { it.value.toDouble() / n }
-            }
-            val bestMin = perDayMinutes(best)
-            val restMin = perDayMinutes(rest)
-            val actGap = activities.mapNotNull { a ->
-                val b = bestMin[a.id] ?: 0.0
-                val r = restMin[a.id] ?: 0.0
-                if (b - r >= 15.0) Triple(a, b, r) else null
-            }.maxByOrNull { it.second - it.third }
-            actGap?.let { (a, b, r) ->
-                out += "had more time on ${a.name} (${fmtHm(b.roundToInt())} vs ${fmtHm(r.roundToInt())} a day)"
-            }
-        }
-
-        return out.take(3)
     }
 
     /** Millis window [start, end) for the inclusive day range, in [zone]. */
@@ -330,16 +241,5 @@ object ReviewRollup {
         val s = LocalDate.ofEpochDay(startDay).atStartOfDay(zone).toInstant().toEpochMilli()
         val e = LocalDate.ofEpochDay(endDay + 1).atStartOfDay(zone).toInstant().toEpochMilli()
         return s to e
-    }
-
-    private fun oneDp(v: Double): String = String.format(Locale.US, "%.1f", v)
-
-    /** Trim the shared "Did I do my best to …?" scaffolding so the phrase reads inside a sentence. */
-    private fun shortQuestion(text: String): String {
-        var s = text.trim().removeSuffix("?").trim()
-        val prefixes = listOf("did i do my best to ", "did i do my best ", "did i ")
-        val lower = s.lowercase(Locale.getDefault())
-        prefixes.firstOrNull { lower.startsWith(it) }?.let { s = s.substring(it.length) }
-        return s.ifBlank { text }
     }
 }

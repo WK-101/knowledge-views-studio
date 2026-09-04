@@ -3,8 +3,11 @@ package com.todocompanion.app.domain
 import com.todocompanion.app.data.entity.DayLogEntity
 import com.todocompanion.app.data.entity.HabitCheckinEntity
 import com.todocompanion.app.data.entity.HabitEntity
+import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.data.entity.TimeActivityEntity
 import com.todocompanion.app.data.entity.TimeEntryEntity
+import com.todocompanion.app.domain.done.DoneKind
+import com.todocompanion.app.domain.done.DoneRecord
 import com.todocompanion.app.domain.habit.HabitStats
 import java.time.LocalDate
 import java.time.ZoneId
@@ -20,6 +23,11 @@ import java.util.Locale
  *
  * Pure and Compose-free so it unit-tests as plain Kotlin, mirroring ReviewRollup / ReviewInsights.
  * Nothing leaves the device; everything is computed on the fly (no persistence, no schema change).
+ *
+ * Track 1.3 — this is now the single "year spine". Beyond the felt recap it also folds the achievement
+ * counts the Record's "Wrapped" slides want (tasks finished, focus hours, habit days, the longest active
+ * streak, the biggest month, wins marked). Those counts are derived by reusing [DoneRecord] over the same
+ * window, so they are identical to what the Record's own feed reports — one source of truth for the year.
  */
 object YearReviewed {
 
@@ -59,8 +67,18 @@ object YearReviewed {
         val highlightText: String,          // the standout highlight ("" = none)
         val highlightEpochDay: Long,
         val highlightRating: Int,
+        // Track 1.3 — achievement counts folded from the same window via DoneRecord (the Record's spine).
+        val tasksFinished: Int = 0,         // completed tasks (DoneKind.TASK) in the window
+        val focusMinutesDone: Int = 0,      // minutes of finished focus sessions in the window
+        val habitDaysKept: Int = 0,         // habit check-ins that met their goal, one per (habit, day)
+        val winsMarked: Int = 0,            // items flagged as a "win"
+        val activeDays: Int = 0,            // distinct days with any completed task / kept habit / focus
+        val longestActiveStreakDays: Int = 0, // longest run of consecutive active days
+        val biggestMonthValue: Int = 0,     // 1..12 of the month with the most accomplishments (0 = none)
+        val biggestMonthCount: Int = 0,
     ) {
         val trackedHours: Int get() = trackedMinutes / 60
+        val focusHoursDone: Int get() = focusMinutesDone / 60
         /** True when the year has enough recorded for a recap to be worth showing at all. */
         val hasData: Boolean
             get() = daysReviewed > 0 || ratedDays > 0 || moodDays > 0 || trackedMinutes > 0 ||
@@ -82,6 +100,7 @@ object YearReviewed {
         activities: List<TimeActivityEntity>,
         zone: ZoneId,
         now: Long,
+        tasks: List<TaskEntity> = emptyList(),
     ): Recap {
         if (endDay < startDay) {
             return Recap(startDay, endDay, 0, 0, 0.0, 0, 0.0, 0, emptyList(), emptyList(), 0, emptyList(), emptyList(), 0, 0, "", 0, "", 0, 0)
@@ -143,6 +162,14 @@ object YearReviewed {
             .maxWithOrNull(compareBy<DayLogEntity>({ it.dayRating }, { it.epochDay }))
         val highlightText = highlightDay?.highlight?.trim().orEmpty()
 
+        // ── Achievement counts: reuse the Record's own feed over this window, so the numbers are identical ──
+        val feed = DoneRecord.build(tasks, habits, checkins, timeEntries, zone).filter { it.epochDay in startDay..endDay }
+        val ds = DoneRecord.stats(feed)
+        val biggestMonth = feed
+            .groupingBy { LocalDate.ofEpochDay(it.epochDay).monthValue }
+            .eachCount().maxByOrNull { it.value }
+        val focusMinutesDone = feed.filter { it.kind == DoneKind.FOCUS }.sumOf { it.durationMin }
+
         return Recap(
             startDay = startDay, endDay = endDay, periodDays = periodDays,
             daysReviewed = daysReviewed,
@@ -156,6 +183,14 @@ object YearReviewed {
             highlightText = highlightText,
             highlightEpochDay = highlightDay?.epochDay ?: 0L,
             highlightRating = highlightDay?.dayRating ?: 0,
+            tasksFinished = ds.totalTasks,
+            focusMinutesDone = focusMinutesDone,
+            habitDaysKept = ds.habitCheckins,
+            winsMarked = ds.totalWins,
+            activeDays = ds.activeDays,
+            longestActiveStreakDays = ds.longestStreakDays,
+            biggestMonthValue = biggestMonth?.key ?: 0,
+            biggestMonthCount = biggestMonth?.value ?: 0,
         )
     }
 

@@ -81,14 +81,9 @@ object TimeInsights {
     fun planVsActual(items: List<PlanActualItem>): PlanActual {
         val planned = items.sumOf { it.plannedMin }
         val actual = items.sumOf { it.actualMin }
-        val ratios = items.filter { it.plannedMin > 0 && it.actualMin > 0 }.map { it.actualMin.toDouble() / it.plannedMin }
-        val cal = if (ratios.size >= 3) median(ratios) else null
+        // Track 1.4 — the calibration factor now comes from the one shared estimate-vs-actual engine.
+        val cal = Calibration.medianRatio(items.map { Calibration.Pair(it.plannedMin, it.actualMin) })
         return PlanActual(items, planned, actual, cal)
-    }
-
-    private fun median(xs: List<Double>): Double {
-        val s = xs.sorted(); val n = s.size
-        return if (n % 2 == 1) s[n / 2] else (s[n / 2 - 1] + s[n / 2]) / 2.0
     }
 
     // ── U7 · cross-type correlation ─────────────────────────────────────────────────────────────
