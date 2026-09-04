@@ -7,6 +7,9 @@ import androidx.room.Query
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
+/** A tag with the number of items it's applied to. */
+data class TagWithCount(val id: String, val name: String, val count: Int)
+
 @Dao
 interface TagDao {
     @Upsert
@@ -15,14 +18,36 @@ interface TagDao {
     @Query("SELECT * FROM tags ORDER BY name COLLATE NOCASE")
     fun observeAll(): Flow<List<TagEntity>>
 
+    @Query(
+        """
+        SELECT t.id AS id, t.name AS name,
+               (SELECT COUNT(*) FROM item_tags it WHERE it.tagId = t.id) AS count
+        FROM tags t
+        ORDER BY t.name COLLATE NOCASE
+        """
+    )
+    fun observeAllWithCounts(): Flow<List<TagWithCount>>
+
+    @Query("SELECT * FROM tags WHERE normalizedName = :normalized LIMIT 1")
+    suspend fun findByNormalized(normalized: String): TagEntity?
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun link(ref: ItemTagCrossRef)
 
     @Query("DELETE FROM item_tags WHERE itemId = :itemId AND tagId = :tagId")
     suspend fun unlink(itemId: String, tagId: String)
 
-    @Query("SELECT t.* FROM tags t JOIN item_tags it ON it.tagId = t.id WHERE it.itemId = :itemId")
+    @Query("SELECT t.* FROM tags t JOIN item_tags it ON it.tagId = t.id WHERE it.itemId = :itemId ORDER BY t.name COLLATE NOCASE")
     suspend fun tagsForItem(itemId: String): List<TagEntity>
+
+    @Query("SELECT t.* FROM tags t JOIN item_tags it ON it.tagId = t.id WHERE it.itemId = :itemId ORDER BY t.name COLLATE NOCASE")
+    fun observeTagsForItem(itemId: String): Flow<List<TagEntity>>
+
+    @Query("UPDATE tags SET name = :name, normalizedName = :normalized WHERE id = :id")
+    suspend fun rename(id: String, name: String, normalized: String)
+
+    @Query("DELETE FROM tags WHERE id = :id")
+    suspend fun delete(id: String)
 }
 
 /** A highlight joined with the article it belongs to, for the notebook and exports. */

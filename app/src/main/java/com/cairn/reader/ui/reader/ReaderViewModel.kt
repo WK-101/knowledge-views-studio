@@ -10,11 +10,14 @@ import com.cairn.reader.data.prefs.PreferencesRepository
 import com.cairn.reader.data.prefs.ReaderFont
 import com.cairn.reader.data.prefs.ReaderTheme
 import com.cairn.reader.data.db.CollectionWithCount
+import com.cairn.reader.data.db.TagEntity
+import com.cairn.reader.data.db.TagWithCount
 import com.cairn.reader.data.repo.CollectionRepository
 import com.cairn.reader.data.repo.FeedRepository
 import com.cairn.reader.data.repo.HighlightRepository
 import com.cairn.reader.data.repo.ItemRepository
 import com.cairn.reader.data.repo.ReaderData
+import com.cairn.reader.data.repo.TagRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import org.jsoup.Jsoup
 import java.text.BreakIterator
@@ -41,6 +44,7 @@ class ReaderViewModel @Inject constructor(
     private val preferencesRepository: PreferencesRepository,
     private val highlightRepository: HighlightRepository,
     private val collectionRepository: CollectionRepository,
+    private val tagRepository: TagRepository,
     private val ttsReader: TtsReader,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
@@ -51,6 +55,15 @@ class ReaderViewModel @Inject constructor(
 
     val collections: StateFlow<List<CollectionWithCount>> =
         collectionRepository.collections().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val itemTags: StateFlow<List<TagEntity>> =
+        tagRepository.tagsForItem(itemId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val allTags: StateFlow<List<TagWithCount>> =
+        tagRepository.allWithCounts().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun addTag(name: String) = viewModelScope.launch { tagRepository.addToItem(itemId, name) }
+    fun removeTag(tagId: String) = viewModelScope.launch { tagRepository.removeFromItem(itemId, tagId) }
 
     private val _state = MutableStateFlow(ReaderUiState())
     val state = _state.asStateFlow()

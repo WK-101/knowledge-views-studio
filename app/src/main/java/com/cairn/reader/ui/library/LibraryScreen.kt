@@ -49,6 +49,7 @@ fun LibraryScreen(
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
     val collections by viewModel.collections.collectAsStateWithLifecycle()
+    val tags by viewModel.tags.collectAsStateWithLifecycle()
     val scope by viewModel.scope.collectAsStateWithLifecycle()
     val items by viewModel.items.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
@@ -107,6 +108,26 @@ fun LibraryScreen(
                     label = { Text("New") },
                     leadingIcon = { Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.padding(0.dp)) },
                 )
+            }
+            if (tags.isNotEmpty()) {
+                Text(
+                    "TAGS",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 18.dp, top = 12.dp, bottom = 2.dp),
+                )
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    tags.forEach { tag ->
+                        FilterChip(
+                            selected = scope.let { it is LibraryScope.Tag && it.id == tag.id },
+                            onClick = { viewModel.setScope(LibraryScope.Tag(tag.id, tag.name)) },
+                            label = { Text(if (tag.count > 0) "#${tag.name} · ${tag.count}" else "#${tag.name}") },
+                        )
+                    }
+                }
             }
         }
 

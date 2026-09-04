@@ -4,8 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cairn.reader.data.db.CollectionWithCount
 import com.cairn.reader.data.db.ItemListRow
+import com.cairn.reader.data.db.TagWithCount
 import com.cairn.reader.data.repo.CollectionRepository
 import com.cairn.reader.data.repo.ItemRepository
+import com.cairn.reader.data.repo.TagRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,10 +32,14 @@ sealed interface LibraryScope {
 class LibraryViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
     private val collectionRepository: CollectionRepository,
+    private val tagRepository: TagRepository,
 ) : ViewModel() {
 
     val collections: StateFlow<List<CollectionWithCount>> =
         collectionRepository.collections().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val tags: StateFlow<List<TagWithCount>> =
+        tagRepository.allWithCounts().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _scope = MutableStateFlow<LibraryScope>(LibraryScope.All)
     val scope: StateFlow<LibraryScope> = _scope.asStateFlow()

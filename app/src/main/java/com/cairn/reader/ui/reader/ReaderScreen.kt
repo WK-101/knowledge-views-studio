@@ -42,6 +42,7 @@ import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.FormatSize
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.IosShare
+import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.CircularProgressIndicator
@@ -100,6 +101,7 @@ import com.cairn.reader.data.db.HighlightEntity
 import com.cairn.reader.data.prefs.ReaderFont
 import com.cairn.reader.data.prefs.ReaderTheme
 import com.cairn.reader.ui.components.CollectionPickerSheet
+import com.cairn.reader.ui.components.TagEditorSheet
 import com.cairn.reader.ui.theme.InterFamily
 import com.cairn.reader.ui.theme.ReadingSerif
 import com.cairn.reader.ui.util.formatAgo
@@ -138,11 +140,14 @@ fun ReaderScreen(
     val highlights by viewModel.highlights.collectAsStateWithLifecycle()
     val ttsState by viewModel.tts.collectAsStateWithLifecycle()
     val collections by viewModel.collections.collectAsStateWithLifecycle()
+    val itemTags by viewModel.itemTags.collectAsStateWithLifecycle()
+    val allTags by viewModel.allTags.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val data = state.data
     var showTypography by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var showCollections by remember { mutableStateOf(false) }
+    var showTags by remember { mutableStateOf(false) }
     var managed by remember { mutableStateOf<HighlightEntity?>(null) }
 
     val palette = readerPalette(prefs.readerTheme)
@@ -196,6 +201,11 @@ fun ReaderScreen(
                                 text = { Text(if (data?.collectionId != null) "Move to collection" else "Save to collection") },
                                 leadingIcon = { Icon(Icons.Outlined.FolderOpen, contentDescription = null) },
                                 onClick = { showMenu = false; showCollections = true },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(if (itemTags.isEmpty()) "Add tags" else "Tags · ${itemTags.size}") },
+                                leadingIcon = { Icon(Icons.Outlined.Label, contentDescription = null) },
+                                onClick = { showMenu = false; showTags = true },
                             )
                             DropdownMenuItem(
                                 text = { Text("Listen") },
@@ -274,6 +284,16 @@ fun ReaderScreen(
             onPick = { collectionId -> viewModel.moveToCollection(collectionId); showCollections = false },
             onCreate = { name -> viewModel.createCollection(name) {} },
             onDismiss = { showCollections = false },
+        )
+    }
+
+    if (showTags && data != null) {
+        TagEditorSheet(
+            current = itemTags,
+            all = allTags,
+            onAdd = viewModel::addTag,
+            onRemove = viewModel::removeTag,
+            onDismiss = { showTags = false },
         )
     }
 
