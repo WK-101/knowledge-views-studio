@@ -3,6 +3,7 @@ package com.cairn.reader
 import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.cairn.reader.work.CairnWork
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -20,4 +21,9 @@ class CairnApplication : Application(), Configuration.Provider {
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
             .build()
+
+    override fun onCreate() {
+        super.onCreate()
+        CairnWork.schedulePeriodicSync(this)
+    }
 }

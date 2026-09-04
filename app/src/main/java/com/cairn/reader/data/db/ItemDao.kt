@@ -117,6 +117,9 @@ interface ItemDao {
     @Query("UPDATE item_states SET readProgress = :progress, lastReadAt = :ts, updatedAt = :ts WHERE itemId = :id")
     suspend fun setProgress(id: String, progress: Float, ts: Long)
 
+    @Query("UPDATE items SET title = :title, author = COALESCE(:author, author), siteName = COALESCE(:siteName, siteName) WHERE id = :id")
+    suspend fun updateMeta(id: String, title: String, author: String?, siteName: String?)
+
     @Query("UPDATE items SET blobPath = :blobPath, excerpt = :excerpt, wordCount = :wordCount, readingMinutes = :minutes, leadImage = COALESCE(:leadImage, leadImage), extractStatus = :status, contentSource = :contentSource WHERE id = :id")
     suspend fun setExtracted(
         id: String,
