@@ -3,6 +3,8 @@ package com.cairn.reader.ui.inbox
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cairn.reader.data.db.ItemListRow
+import com.cairn.reader.data.prefs.ListViewMode
+import com.cairn.reader.data.prefs.PreferencesRepository
 import com.cairn.reader.data.repo.FeedRepository
 import com.cairn.reader.data.repo.ItemRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,6 +17,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -38,10 +41,18 @@ data class InboxUiState(
 class InboxViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
     private val feedRepository: FeedRepository,
+    private val preferencesRepository: PreferencesRepository,
 ) : ViewModel() {
 
     private val _refreshing = MutableStateFlow(false)
     val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
+
+    val viewMode: StateFlow<ListViewMode> =
+        preferencesRepository.preferences
+            .map { it.listViewMode }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ListViewMode.CARD)
+
+    fun setViewMode(mode: ListViewMode) = viewModelScope.launch { preferencesRepository.setListViewMode(mode) }
 
     private val _filter = MutableStateFlow(InboxFilter.UNREAD)
 

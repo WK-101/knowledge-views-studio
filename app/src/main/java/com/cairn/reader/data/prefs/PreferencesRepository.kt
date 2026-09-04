@@ -17,10 +17,12 @@ import javax.inject.Singleton
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 enum class ReaderTheme { DEFAULT, SEPIA, BLACK }
 enum class ReaderFont { SERIF, SANS }
+enum class ListViewMode { LIST, CARD, MAGAZINE }
 
 data class AppPreferences(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,
+    val listViewMode: ListViewMode = ListViewMode.CARD,
     val readerFontScale: Float = 1.0f,
     val readerTheme: ReaderTheme = ReaderTheme.DEFAULT,
     val readerFont: ReaderFont = ReaderFont.SERIF,
@@ -35,6 +37,7 @@ class PreferencesRepository @Inject constructor(
     private object Keys {
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val DYNAMIC = booleanPreferencesKey("dynamic_color")
+        val LIST_VIEW = stringPreferencesKey("list_view_mode")
         val FONT_SCALE = floatPreferencesKey("reader_font_scale")
         val READER_THEME = stringPreferencesKey("reader_theme")
         val READER_FONT = stringPreferencesKey("reader_font")
@@ -44,6 +47,7 @@ class PreferencesRepository @Inject constructor(
         AppPreferences(
             themeMode = p[Keys.THEME_MODE]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM,
             dynamicColor = p[Keys.DYNAMIC] ?: true,
+            listViewMode = p[Keys.LIST_VIEW]?.let { runCatching { ListViewMode.valueOf(it) }.getOrNull() } ?: ListViewMode.CARD,
             readerFontScale = p[Keys.FONT_SCALE] ?: 1.0f,
             readerTheme = p[Keys.READER_THEME]?.let { runCatching { ReaderTheme.valueOf(it) }.getOrNull() } ?: ReaderTheme.DEFAULT,
             readerFont = p[Keys.READER_FONT]?.let { runCatching { ReaderFont.valueOf(it) }.getOrNull() } ?: ReaderFont.SERIF,
@@ -52,6 +56,7 @@ class PreferencesRepository @Inject constructor(
 
     suspend fun setThemeMode(mode: ThemeMode) = context.dataStore.edit { it[Keys.THEME_MODE] = mode.name }
     suspend fun setDynamicColor(enabled: Boolean) = context.dataStore.edit { it[Keys.DYNAMIC] = enabled }
+    suspend fun setListViewMode(mode: ListViewMode) = context.dataStore.edit { it[Keys.LIST_VIEW] = mode.name }
     suspend fun setReaderFontScale(scale: Float) = context.dataStore.edit { it[Keys.FONT_SCALE] = scale.coerceIn(0.8f, 1.8f) }
     suspend fun setReaderTheme(theme: ReaderTheme) = context.dataStore.edit { it[Keys.READER_THEME] = theme.name }
     suspend fun setReaderFont(font: ReaderFont) = context.dataStore.edit { it[Keys.READER_FONT] = font.name }

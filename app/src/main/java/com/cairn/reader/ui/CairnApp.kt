@@ -2,6 +2,7 @@ package com.cairn.reader.ui
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -15,16 +16,21 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
+import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.ViewAgenda
+import androidx.compose.material.icons.outlined.ViewCarousel
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -58,6 +64,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cairn.reader.data.db.ItemListRow
+import com.cairn.reader.data.prefs.ListViewMode
 import com.cairn.reader.ui.components.ItemActionSheet
 import com.cairn.reader.ui.components.SwipeableItemRow
 import com.cairn.reader.ui.inbox.InboxFilter
@@ -84,6 +91,8 @@ fun CairnApp(
     val current = destinations[selected]
 
     val inboxViewModel: InboxViewModel = hiltViewModel()
+    val inboxViewMode by inboxViewModel.viewMode.collectAsStateWithLifecycle()
+    var showViewMenu by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(Unit) {
         inboxViewModel.messages.collect { message ->
@@ -102,6 +111,26 @@ fun CairnApp(
             CenterAlignedTopAppBar(
                 title = {
                     Text(current.label, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                },
+                actions = {
+                    if (current == Destination.Inbox) {
+                        Box {
+                            IconButton(onClick = { showViewMenu = true }) {
+                                Icon(Icons.Outlined.ViewAgenda, contentDescription = "View mode")
+                            }
+                            DropdownMenu(expanded = showViewMenu, onDismissRequest = { showViewMenu = false }) {
+                                ViewModeItem("List", Icons.AutoMirrored.Outlined.ViewList, inboxViewMode == ListViewMode.LIST) {
+                                    inboxViewModel.setViewMode(ListViewMode.LIST); showViewMenu = false
+                                }
+                                ViewModeItem("Cards", Icons.Outlined.ViewAgenda, inboxViewMode == ListViewMode.CARD) {
+                                    inboxViewModel.setViewMode(ListViewMode.CARD); showViewMenu = false
+                                }
+                                ViewModeItem("Magazine", Icons.Outlined.ViewCarousel, inboxViewMode == ListViewMode.MAGAZINE) {
+                                    inboxViewModel.setViewMode(ListViewMode.MAGAZINE); showViewMenu = false
+                                }
+                            }
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
@@ -134,7 +163,7 @@ fun CairnApp(
     ) { padding ->
         Crossfade(targetState = current, label = "destination") { dest ->
             when (dest) {
-                Destination.Inbox -> InboxScreen(padding, inboxViewModel, onOpenItem, onOpenWeb)
+                Destination.Inbox -> InboxScreen(padding, inboxViewModel, onOpenItem, onOpenWeb, inboxViewMode)
                 Destination.Library -> LibraryScreen(padding, onOpenItem)
                 Destination.Settings -> SettingsScreen(padding, onOpenNotebook = onOpenNotebook)
             }
@@ -159,6 +188,7 @@ private fun InboxScreen(
     viewModel: InboxViewModel,
     onOpenItem: (String) -> Unit,
     onOpenWeb: (String) -> Unit,
+    viewMode: ListViewMode,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
@@ -202,6 +232,7 @@ private fun InboxScreen(
                             onToggleSave = { viewModel.toggleSave(row.id, !row.isReadLater) },
                             onArchive = { viewModel.archive(row.id) },
                             onLongPress = { sheetRow = row },
+                            mode = viewMode,
                         )
                     }
                 }
@@ -248,6 +279,15 @@ private fun AddFeedDialog(onDismiss: () -> Unit, onAdd: (String) -> Unit) {
         },
         confirmButton = { TextButton(onClick = { onAdd(text) }, enabled = text.isNotBlank()) { Text("Add") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun ViewModeItem(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, selected: Boolean, onClick: () -> Unit) {
+    androidx.compose.material3.DropdownMenuItem(
+        text = { Text(label, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal) },
+        leadingIcon = { Icon(icon, contentDescription = null, tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) },
+        onClick = onClick,
     )
 }
 

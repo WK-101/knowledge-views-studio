@@ -47,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.cairn.reader.data.db.ItemListRow
+import com.cairn.reader.data.prefs.ListViewMode
 
 /**
  * A list row that can be swiped: right to save/unsave, left to archive.
@@ -61,6 +62,7 @@ fun SwipeableItemRow(
     onArchive: () -> Unit,
     onLongPress: () -> Unit,
     modifier: Modifier = Modifier,
+    mode: ListViewMode = ListViewMode.CARD,
 ) {
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
@@ -76,7 +78,7 @@ fun SwipeableItemRow(
         modifier = modifier,
         backgroundContent = { SwipeBackground(dismissState.dismissDirection, row.isReadLater) },
     ) {
-        ItemRow(row = row, onOpen = onOpen, onToggleSave = onToggleSave, onLongPress = onLongPress)
+        FeedItemCell(row = row, mode = mode, onOpen = onOpen, onToggleSave = onToggleSave, onLongPress = onLongPress)
     }
 }
 
