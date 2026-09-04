@@ -88,13 +88,35 @@ object OccasionCards {
         val cv = Canvas(bmp)
         val ct = content(c, spec, today)
         val rnd = Random(kotlin.math.abs(c.id.hashCode()).toLong() + spec.template.ordinal)
-        when (spec.template) {
-            Template.BLOOM -> bloom(cv, w, h, ct, spec, rnd)
-            Template.FIESTA -> fiesta(cv, w, h, ct, spec, rnd)
-            Template.ELEGANT -> elegant(cv, w, h, ct, spec, rnd)
-            Template.WEEKS -> weeks(cv, w, h, ct, spec)
+        // A card must never come back blank: if any skin throws mid-draw, fall back to a clean simple card.
+        try {
+            when (spec.template) {
+                Template.BLOOM -> bloom(cv, w, h, ct, spec, rnd)
+                Template.FIESTA -> fiesta(cv, w, h, ct, spec, rnd)
+                Template.ELEGANT -> elegant(cv, w, h, ct, spec, rnd)
+                Template.WEEKS -> weeks(cv, w, h, ct, spec)
+            }
+        } catch (t: Throwable) {
+            fallbackCard(cv, w, h, ct, spec)
         }
         return bmp
+    }
+
+    /** A clean, dependency-light card used if a skin ever throws — so the share never produces a blank. */
+    private fun fallbackCard(cv: Canvas, w: Int, h: Int, ct: Content, spec: Spec) {
+        val accent = (spec.accentArgb?.toInt()) ?: 0xFF6D5AE6.toInt()
+        val bg = lighten(accent, 0.86f); val ink = darken(accent, 0.5f); val s = min(w, h).toFloat()
+        cv.drawColor(bg)
+        cv.drawRect(0f, 0f, w.toFloat(), h.toFloat(), Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(0f, 0f, 0f, h.toFloat(), withAlpha(accent, 0x24), withAlpha(bg, 0x00), Shader.TileMode.CLAMP)
+        })
+        val blocks = ArrayList<Block>()
+        blocks += TextB(ct.head, s * 0.11f, Typeface.create(Typeface.SERIF, Typeface.BOLD), ink, lineSp = 1.0f)
+        if (spec.modules.name && ct.name.isNotBlank()) blocks += TextB(ct.name, s * 0.075f, Typeface.create(Typeface.SERIF, Typeface.ITALIC), accent)
+        metaLine(ct, spec.modules)?.let { blocks += TextB(it, s * 0.036f, Typeface.DEFAULT, darken(accent, 0.25f)) }
+        if (spec.modules.message && ct.message.isNotBlank()) blocks += TextB(quote(ct.message), s * 0.04f, Typeface.create(Typeface.SERIF, Typeface.ITALIC), darken(accent, 0.3f), maxLines = 4)
+        layoutColumn(cv, w / 2f, w * 0.82f, h * 0.2f, h * 0.82f, Paint.Align.CENTER, VAlign.CENTER, s * 0.022f, blocks)
+        if (spec.modules.footer) footer(cv, w, h, withAlpha(ink, 0xAA), Paint.Align.CENTER)
     }
 
     /** Plain-text equivalent for the "As text" share path. */
@@ -110,7 +132,7 @@ object OccasionCards {
             if (m.age && ct.ageLine != null) append("${ct.ageLine}\n")
             val chips = listOfNotNull(ct.milestone?.takeIf { m.milestone }, ct.zodiac?.takeIf { m.zodiac })
             if (chips.isNotEmpty()) append("${chips.joinToString(" · ")}\n")
-            if (m.weeks && ct.weeksPct != null) append("▦ ${ct.weeksLived} weeks lived · ${ct.weeksPct}% of a ${LIFE_YEARS}-year life\n")
+            if (m.weeks && ct.weeksPct != null) append("▦ ${ct.weeksLived} weeks lived · ${ct.weeksPct}% of an ${LIFE_YEARS}-year life\n")
             if (m.message && ct.message.isNotBlank()) append("\n“${ct.message}”\n")
             if (m.footer) append("\n— Made with Kairo")
         }
@@ -241,9 +263,12 @@ object OccasionCards {
             shader = LinearGradient(0f, 0f, 0f, h.toFloat(), lighten(blush, 0.25f), blush, Shader.TileMode.CLAMP)
         })
         val cx = w / 2f; val cy = h / 2f
-        confetti(cv, w, h, party, rnd, count = if (h > w) 90 else 60)
+        val tall = h.toFloat() / w.toFloat()
+        confetti(cv, w, h, party, rnd, count = if (tall > 1.4f) 120 else if (tall > 1.05f) 90 else 62)
 
-        val badgeR = min(w, h) * 0.36f
+        // Badge grows for taller frames so the balloon+badge+gift ensemble fills the height instead of
+        // floating in the middle of empty bands.
+        val badgeR = (min(w, h) * (0.36f + (tall - 1f).coerceIn(0f, 1f) * 0.11f)).coerceAtMost(w * 0.44f)
         // Bunting across the top, two strings meeting near the centre.
         bunting(cv, w * 0.02f, h * 0.06f, cx, h * 0.045f, party, 8)
         bunting(cv, cx, h * 0.045f, w * 0.98f, h * 0.08f, party, 8)
@@ -323,7 +348,9 @@ object OccasionCards {
         chipsFor(ct, spec.modules).takeIf { it.isNotEmpty() }?.let { blocks += Chips(it, darken(accent, 0.45f), ink, s * 0.03f, Paint.Align.LEFT) }
         if (spec.modules.weeks && ct.weeksPct != null) blocks += WeeksStrip(ct, darken(accent, 0.4f), withAlpha(ink, 0x99), light = true, align = Paint.Align.LEFT)
 
-        layoutColumn(cv, marginX, colW, h * 0.15f, h * 0.72f, Paint.Align.LEFT, VAlign.TOP, s * 0.022f, blocks)
+        // Centre the column in the upper-middle so the content is balanced (not top-packed) in every
+        // shape, while the rose clusters anchor the opposite corners. Bigger gaps give an editorial feel.
+        layoutColumn(cv, marginX, colW, h * 0.14f, h * 0.72f, Paint.Align.LEFT, VAlign.CENTER, s * 0.03f, blocks)
         if (spec.modules.footer) footer(cv, w, h, withAlpha(ink, 0x77), Paint.Align.LEFT, marginX)
     }
 
@@ -358,7 +385,7 @@ object OccasionCards {
         cv.drawText("$pct%", marginX, y, big)
         val statR = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = muted; typeface = Typeface.DEFAULT; textSize = s * 0.034f }
         val statX = marginX + big.measureText("$pct%") + s * 0.03f
-        cv.drawText("of a ${LIFE_YEARS}-year life", statX, y - s * 0.055f, statR)
+        cv.drawText("of an ${LIFE_YEARS}-year life", statX, y - s * 0.055f, statR)
         cv.drawText("lived so far", statX, y - s * 0.015f, statR)
         cv.drawText("${ct.weeksLived ?: "0"} weeks", statX, y + s * 0.025f, statR.apply { color = onBg })
 
@@ -558,7 +585,7 @@ object OccasionCards {
             val pct = ct.weeksPct ?: return
             val tp = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = muted; typeface = Typeface.DEFAULT_BOLD; textAlign = align; textSize = width * 0.03f * scale }
             val tx = if (align == Paint.Align.LEFT) ax else ax
-            cv.drawText("▦  ${ct.weeksLived} weeks · $pct% of a ${LIFE_YEARS}-yr life", tx, top + width * 0.03f * scale, tp)
+            cv.drawText("▦  ${ct.weeksLived} weeks · $pct% of an ${LIFE_YEARS}-yr life", tx, top + width * 0.03f * scale, tp)
             val cols = 52; val rows = 12
             val gTop = top + width * 0.05f * scale
             val step = width / cols
@@ -621,16 +648,30 @@ object OccasionCards {
     }
 
     private fun rose(cv: Canvas, cx: Float, cy: Float, r: Float, base: Int, deep: Int) {
-        // Soft outer bloom.
-        cv.drawCircle(cx, cy, r, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = withAlpha(base, 0x88); maskFilter = BlurMaskFilter(r * 0.12f, BlurMaskFilter.Blur.NORMAL) })
-        cv.drawCircle(cx, cy, r, Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = RadialGradient(cx - r * 0.2f, cy - r * 0.2f, r * 1.2f, lighten(base, 0.2f), deep, Shader.TileMode.CLAMP)
+        // A layered-petal bloom (rounded oval petals in two offset rings) rather than concentric rings.
+        // Base cup.
+        cv.drawCircle(cx, cy, r * 0.98f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = RadialGradient(cx - r * 0.25f, cy - r * 0.3f, r * 1.35f, lighten(base, 0.22f), deep, Shader.TileMode.CLAMP)
         })
-        // Petal spiral.
-        val sp = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = r * 0.085f; color = withAlpha(deep, 0xCC); strokeCap = Paint.Cap.ROUND }
-        var rr = r * 0.5f
-        for (k in 0..3) { cv.drawArc(RectF(cx - rr, cy - rr, cx + rr, cy + rr), 20f + k * 40f, 250f, false, sp); rr *= 0.62f }
-        cv.drawCircle(cx, cy, r * 0.1f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFC77A2A.toInt() })
+        fun petalRing(count: Int, ringR: Float, petalW: Float, petalH: Float, col: Int, phase: Float) {
+            for (i in 0 until count) {
+                val a = phase + i * (2.0 * Math.PI / count).toFloat()
+                val px = cx + cos(a) * ringR; val py = cy + sin(a) * ringR
+                cv.save(); cv.rotate(Math.toDegrees(a.toDouble()).toFloat() + 90f, px, py)
+                cv.drawRoundRect(RectF(px - petalW, py - petalH, px + petalW, py + petalH), petalW, petalW, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    shader = LinearGradient(px, py - petalH, px, py + petalH, lighten(col, 0.14f), darken(col, 0.06f), Shader.TileMode.CLAMP)
+                })
+                // A soft crease down the petal.
+                cv.drawLine(px, py - petalH * 0.7f, px, py + petalH * 0.5f, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = r * 0.02f; color = withAlpha(darken(col, 0.2f), 0x55) })
+                cv.restore()
+            }
+        }
+        petalRing(7, r * 0.58f, r * 0.34f, r * 0.44f, lighten(base, 0.08f), 0.1f)
+        petalRing(5, r * 0.30f, r * 0.26f, r * 0.34f, deep, 0.7f)
+        // Furled centre.
+        cv.drawCircle(cx, cy, r * 0.2f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = darken(deep, 0.12f) })
+        cv.drawArc(RectF(cx - r * 0.14f, cy - r * 0.14f, cx + r * 0.14f, cy + r * 0.14f), 40f, 260f, false,
+            Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = r * 0.05f; color = withAlpha(0xFFF3D6C0.toInt(), 0x99); strokeCap = Paint.Cap.ROUND })
     }
 
     private fun roseCluster(cv: Canvas, cx: Float, cy: Float, r: Float, base: Int, deep: Int, foliage: Int, rnd: Random) {
@@ -689,11 +730,12 @@ object OccasionCards {
 
     private fun confetti(cv: Canvas, w: Int, h: Int, colors: IntArray, rnd: Random, count: Int) {
         val avoid = RectF(w * 0.14f, h * 0.16f, w * 0.86f, h * 0.84f)
+        val footerTop = h - min(w, h) * 0.09f   // keep the "Made with Kairo" line clear
         var placed = 0; var guard = 0
         while (placed < count && guard < count * 4) {
             guard++
             val x = rnd.nextFloat() * w; val y = rnd.nextFloat() * h
-            if (avoid.contains(x, y)) continue
+            if (avoid.contains(x, y) || y > footerTop) continue
             val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = colors[rnd.nextInt(colors.size)] }
             when (rnd.nextInt(3)) {
                 0 -> cv.drawCircle(x, y, 5f + rnd.nextFloat() * 6f, p)
@@ -716,16 +758,18 @@ object OccasionCards {
     }
 
     private fun watercolorBlob(cv: Canvas, cx: Float, cy: Float, r: Float, color: Int, rnd: Random) {
+        // Layered low-alpha circles build a soft cloud without a heavy mask-filter (which could fail /
+        // dominate on some devices). Each layer is faint so overlaps read as watercolour bleed.
         val hue2 = lighten(color, 0.28f)
-        for (k in 0 until 11) {
-            val ox = (rnd.nextFloat() - 0.5f) * r * 0.9f; val oy = (rnd.nextFloat() - 0.5f) * r * 0.8f
-            val rr = r * (0.45f + rnd.nextFloat() * 0.6f)
+        for (k in 0 until 16) {
+            val ox = (rnd.nextFloat() - 0.5f) * r * 0.95f; val oy = (rnd.nextFloat() - 0.5f) * r * 0.85f
+            val rr = r * (0.40f + rnd.nextFloat() * 0.62f)
             cv.drawCircle(cx + ox, cy + oy, rr, Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                this.color = withAlpha(if (k % 2 == 0) color else hue2, 0x16 + rnd.nextInt(0x1A)); maskFilter = BlurMaskFilter(r * 0.18f, BlurMaskFilter.Blur.NORMAL)
+                this.color = withAlpha(if (k % 2 == 0) color else hue2, 0x10 + rnd.nextInt(0x12))
             })
         }
-        cv.drawCircle(cx, cy, r * 0.85f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = RadialGradient(cx, cy, r * 0.85f, withAlpha(color, 0x3A), withAlpha(color, 0x00), Shader.TileMode.CLAMP)
+        cv.drawCircle(cx, cy, r * 0.9f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = RadialGradient(cx, cy, r * 0.9f, withAlpha(color, 0x33), withAlpha(color, 0x00), Shader.TileMode.CLAMP)
         })
     }
 
