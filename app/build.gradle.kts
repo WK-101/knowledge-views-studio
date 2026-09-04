@@ -20,10 +20,6 @@ android {
         versionName = "0.6.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
-        // On-device translation (ML Kit) ships native libraries per ABI. Restrict to the
-        // architectures real phones use so the sideloaded APK stays reasonably small;
-        // this drops the x86/x86_64 emulator variants.
-        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
 
     // Release signing is read from environment (CI) or a local keystore.properties.
@@ -103,8 +99,6 @@ dependencies {
     // Storage / networking / images / parsing
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.webkit)
-    implementation(libs.mlkit.translate)
-    implementation(libs.mlkit.language.id)
     implementation(libs.coil.compose)
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)

@@ -45,7 +45,6 @@ import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.StarBorder
-import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -143,7 +142,6 @@ fun ReaderScreen(
     val collections by viewModel.collections.collectAsStateWithLifecycle()
     val itemTags by viewModel.itemTags.collectAsStateWithLifecycle()
     val allTags by viewModel.allTags.collectAsStateWithLifecycle()
-    val translate by viewModel.translate.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val data = state.data
     var showTypography by remember { mutableStateOf(false) }
@@ -215,11 +213,6 @@ fun ReaderScreen(
                                 onClick = { showMenu = false; viewModel.toggleListen() },
                             )
                             DropdownMenuItem(
-                                text = { Text(if (translate) "Show original" else "Translate") },
-                                leadingIcon = { Icon(Icons.Outlined.Translate, contentDescription = null) },
-                                onClick = { showMenu = false; viewModel.toggleTranslate() },
-                            )
-                            DropdownMenuItem(
                                 text = { Text("Open original") },
                                 leadingIcon = { Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null) },
                                 onClick = { showMenu = false; openOriginal() },
@@ -261,8 +254,6 @@ fun ReaderScreen(
                 fontFamily = readerFontFamily(prefs.readerFont),
                 scale = prefs.readerFontScale,
                 justify = prefs.readerJustify,
-                translate = translate,
-                translateText = viewModel::translateText,
                 onLoadFull = viewModel::loadFullArticle,
                 onOpenOriginal = ::openOriginal,
                 onSaveProgress = viewModel::setProgress,
@@ -326,8 +317,6 @@ private fun ArticleBody(
     fontFamily: FontFamily,
     scale: Float,
     justify: Boolean,
-    translate: Boolean,
-    translateText: suspend (String) -> String,
     onLoadFull: () -> Unit,
     onOpenOriginal: () -> Unit,
     onSaveProgress: (Float) -> Unit,
@@ -427,8 +416,6 @@ private fun ArticleBody(
                     bodyStyle = bodyStyle,
                     palette = palette,
                     justify = justify,
-                    translate = translate,
-                    translateText = translateText,
                     highlights = byBlock[index].orEmpty(),
                     onAddHighlight = onAddHighlight,
                     onManageHighlight = onManageHighlight,
@@ -445,8 +432,6 @@ private fun BlockView(
     bodyStyle: TextStyle,
     palette: ReaderPalette,
     justify: Boolean,
-    translate: Boolean,
-    translateText: suspend (String) -> String,
     highlights: List<HighlightEntity>,
     onAddHighlight: (blockIndex: Int, start: Int, end: Int, quote: String) -> Unit,
     onManageHighlight: (HighlightEntity) -> Unit,
@@ -460,8 +445,6 @@ private fun BlockView(
                 lineHeight = bodyStyle.lineHeight * 1.05f,
             ),
             highlights = highlights,
-            translate = translate,
-            translateText = translateText,
             onAdd = { s, e, q -> onAddHighlight(blockIndex, s, e, q) },
             onManage = onManageHighlight,
             modifier = Modifier.padding(horizontal = ReaderHPad, vertical = 10.dp),
@@ -470,8 +453,6 @@ private fun BlockView(
             base = block.text,
             style = bodyStyle.copy(textAlign = if (justify) TextAlign.Justify else TextAlign.Start),
             highlights = highlights,
-            translate = translate,
-            translateText = translateText,
             onAdd = { s, e, q -> onAddHighlight(blockIndex, s, e, q) },
             onManage = onManageHighlight,
             modifier = Modifier.padding(horizontal = ReaderHPad, vertical = 8.dp),
@@ -497,8 +478,6 @@ private fun BlockView(
                 base = block.text,
                 style = bodyStyle.copy(fontStyle = FontStyle.Italic, color = palette.secondary),
                 highlights = highlights,
-                translate = translate,
-                translateText = translateText,
                 onAdd = { s, e, q -> onAddHighlight(blockIndex, s, e, q) },
                 onManage = onManageHighlight,
             )
@@ -535,18 +514,8 @@ private fun HighlightableText(
     onAdd: (start: Int, end: Int, quote: String) -> Unit,
     onManage: (HighlightEntity) -> Unit,
     modifier: Modifier = Modifier,
-    translate: Boolean = false,
-    translateText: suspend (String) -> String = { it },
 ) {
     val plain = base.text
-    // When translating, show translated plain text (no highlight overlay / gestures).
-    if (translate) {
-        val translated by androidx.compose.runtime.produceState(initialValue = plain, plain) {
-            value = runCatching { translateText(plain) }.getOrDefault(plain)
-        }
-        Text(text = translated, style = style, modifier = modifier)
-        return
-    }
     val rendered = remember(base, highlights) { applyHighlights(base, highlights) }
     val layoutState = remember { mutableStateOf<TextLayoutResult?>(null) }
     val currentAdd by rememberUpdatedState(onAdd)
