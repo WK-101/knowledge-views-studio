@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -803,6 +804,12 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
             if (focusMin > 0) append(" · 🎯 ${fmtHm(focusMin)}")
             if (trackedTotal > 0) append(" · ⧗ ${fmtHm(trackedTotal)}")
         },
+        recallTiles = if (nothing) emptyList() else buildList {
+            add(Triple("✓", tasksDone.size.toString(), "done"))
+            if (habitsExpected > 0) add(Triple("🔁", "${habitsKept.size}/$habitsExpected", "habits"))
+            if (focusMin > 0) add(Triple("🎯", fmtHm(focusMin), "focus"))
+            if (trackedTotal > 0) add(Triple("⧗", fmtHm(trackedTotal), "tracked"))
+        },
         wins = wins.map { it.title },
         streak = reviewStreak + (if (day !in reviewedDays) 1 else 0),
         onDismiss = { showClose = false },
@@ -1139,6 +1146,7 @@ private fun CloseDayFlow(
     day: Long,
     isToday: Boolean,
     summary: String,
+    recallTiles: List<Triple<String, String, String>>,
     wins: List<String>,
     streak: Int,
     log: com.todocompanion.app.data.entity.DayLogEntity?,
@@ -1203,8 +1211,8 @@ private fun CloseDayFlow(
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-            Column(Modifier.fillMaxSize().systemBarsPadding().padding(horizontal = 22.dp)) {
-                // Progress bar — one segment per step (the terminal "done" step isn't counted).
+            Column(Modifier.fillMaxSize().systemBarsPadding().imePadding().padding(horizontal = 22.dp)) {
+                // Progress bar — one segment per step (the terminal "done" step isn't counted). Pinned at top.
                 val totalSteps = (steps.size - 1).coerceAtLeast(1)
                 Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     (0 until totalSteps).forEach { i ->
@@ -1212,31 +1220,45 @@ private fun CloseDayFlow(
                             .background(if (stepId == "done" || i <= idx) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant))
                     }
                 }
-                Spacer(Modifier.height(24.dp))
-                // Hero header — a large glyph + title + one-line intent for the step.
-                Text(when (stepId) { "recall" -> "🗓️"; "feel" -> "💗"; "questions" -> "🎯"; "reflect" -> "🌙"; "align" -> "🧭"; "tomorrow" -> "🌅"; else -> "✅" }, style = MaterialTheme.typography.displaySmall)
-                Spacer(Modifier.height(8.dp))
-                Text(when (stepId) {
-                    "recall" -> "Recall your day"; "feel" -> "How did it feel?"; "questions" -> "Daily questions"; "reflect" -> "Reflect"
-                    "align" -> "Align"; "tomorrow" -> "Ready for tomorrow"; else -> "Day closed"
-                }, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                val sub = when (stepId) {
-                    "recall" -> "A quiet look back at your day."; "feel" -> "Reckon with how it went."; "questions" -> "Did you do your best?"
-                    "reflect" -> "Put a few words to it."; "align" -> "Tie today to what you're working toward."; "tomorrow" -> "Pre-decide the one thing."; else -> ""
-                }
-                if (sub.isNotBlank()) { Spacer(Modifier.height(4.dp)); Text(sub, style = MaterialTheme.typography.bodyMedium, color = muted) }
-                Spacer(Modifier.height(22.dp))
+                // Everything between the pinned progress bar and the pinned action bar scrolls (hero header
+                // included), so the flow can never overflow the screen — on small screens or with the keyboard up.
                 Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
+                    Spacer(Modifier.height(24.dp))
+                    Text(when (stepId) { "recall" -> "🗓️"; "feel" -> "💗"; "questions" -> "🎯"; "reflect" -> "🌙"; "align" -> "🧭"; "tomorrow" -> "🌅"; else -> "✅" }, style = MaterialTheme.typography.displaySmall)
+                    Spacer(Modifier.height(8.dp))
+                    Text(when (stepId) {
+                        "recall" -> "Recall your day"; "feel" -> "How did it feel?"; "questions" -> "Daily questions"; "reflect" -> "Reflect"
+                        "align" -> "Align"; "tomorrow" -> "Ready for tomorrow"; else -> "Day closed"
+                    }, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    val sub = when (stepId) {
+                        "recall" -> "A quiet look back at your day."; "feel" -> "Reckon with how it went."; "questions" -> "Did you do your best?"
+                        "reflect" -> "Put a few words to it."; "align" -> "Tie today to what you're working toward."; "tomorrow" -> "Pre-decide the one thing."; else -> ""
+                    }
+                    if (sub.isNotBlank()) { Spacer(Modifier.height(4.dp)); Text(sub, style = MaterialTheme.typography.bodyMedium, color = muted) }
+                    Spacer(Modifier.height(22.dp))
                     when (stepId) {
                     "recall" -> {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 10.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 12.dp)) {
                             FilterChip(selected = !full, onClick = { full = false }, label = { Text("Express · 60s") })
                             FilterChip(selected = full, onClick = { full = true }, label = { Text("Full") })
                         }
-                        Text(summary, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                        // The day's metrics as tonal box tiles, matching the day-review at-a-glance card.
+                        if (recallTiles.isEmpty()) {
+                            Text(summary, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                        } else {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                recallTiles.forEach { (icon, value, label) -> StatTile(icon, value, label, Modifier.weight(1f)) }
+                            }
+                        }
                         if (wins.isNotEmpty()) {
-                            Spacer(Modifier.height(8.dp))
-                            wins.take(3).forEach { Text("⭐  $it", style = MaterialTheme.typography.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                            Spacer(Modifier.height(14.dp))
+                            Text("Wins", style = MaterialTheme.typography.labelMedium, color = muted, modifier = Modifier.padding(bottom = 2.dp))
+                            wins.take(3).forEach {
+                                Row(Modifier.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text("⭐", Modifier.width(28.dp))
+                                    Text(it, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
                         }
                     }
                     "feel" -> {
@@ -1252,22 +1274,22 @@ private fun CloseDayFlow(
                         }
                         Text("Rating", style = MaterialTheme.typography.labelMedium, color = muted)
                         Row(Modifier.padding(top = 2.dp, bottom = 10.dp)) {
-                            (1..5).forEach { i -> Text(if (rating >= i) "★" else "☆", style = MaterialTheme.typography.headlineSmall,
+                            (1..5).forEach { i -> Text(if (rating >= i) "★" else "☆", style = MaterialTheme.typography.headlineMedium,
                                 color = if (rating >= i) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                                modifier = Modifier.clip(CircleShape).clickable { rating = if (rating == i) 0 else i }.padding(horizontal = 3.dp)) }
+                                modifier = Modifier.clip(CircleShape).clickable { rating = if (rating == i) 0 else i }.padding(horizontal = 4.dp, vertical = 2.dp)) }
                         }
                         Text("Energy", style = MaterialTheme.typography.labelMedium, color = muted)
                         Row(Modifier.padding(top = 2.dp, bottom = 10.dp)) {
-                            (1..5).forEach { i -> Text(if (energy >= i) "◆" else "◇", style = MaterialTheme.typography.titleLarge,
+                            (1..5).forEach { i -> Text(if (energy >= i) "◆" else "◇", style = MaterialTheme.typography.headlineMedium,
                                 color = if (energy >= i) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                                modifier = Modifier.clip(CircleShape).clickable { energy = if (energy == i) 0 else i }.padding(horizontal = 3.dp)) }
+                                modifier = Modifier.clip(CircleShape).clickable { energy = if (energy == i) 0 else i }.padding(horizontal = 4.dp, vertical = 2.dp)) }
                         }
                         Text("Mood", style = MaterialTheme.typography.labelMedium, color = muted)
                         Row(Modifier.padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             listOf(1 to "😞", 2 to "🙁", 3 to "😐", 4 to "🙂", 5 to "😄").forEach { (v, e) ->
-                                Text(e, style = MaterialTheme.typography.headlineSmall,
+                                Text(e, style = MaterialTheme.typography.headlineMedium,
                                     modifier = Modifier.clip(CircleShape).clickable { mood = if (mood == v) 0 else v }
-                                        .background(if (mood == v) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent).padding(4.dp))
+                                        .background(if (mood == v) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent).padding(horizontal = 6.dp, vertical = 4.dp))
                             }
                         }
                         // Wave 1 — name it: an optional, single-select precise emotion word (affect-labeling).
@@ -1423,7 +1445,7 @@ private fun WeeklyReviewFlow(
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-            Column(Modifier.fillMaxSize().systemBarsPadding().padding(horizontal = 22.dp)) {
+            Column(Modifier.fillMaxSize().systemBarsPadding().imePadding().padding(horizontal = 22.dp)) {
                 val totalSteps = (steps.size - 1).coerceAtLeast(1)
                 Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     (0 until totalSteps).forEach { i ->
@@ -1431,20 +1453,22 @@ private fun WeeklyReviewFlow(
                             .background(if (stepId == "done" || i <= idx) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant))
                     }
                 }
-                Spacer(Modifier.height(24.dp))
-                Text(when (stepId) { "clear" -> "🧹"; "current" -> "📊"; "creative" -> "🌱"; "roles" -> "⚖️"; else -> "✅" }, style = MaterialTheme.typography.displaySmall)
-                Spacer(Modifier.height(8.dp))
-                Text(when (stepId) {
-                    "clear" -> "Get clear"; "current" -> "Get current"; "creative" -> "Get creative"; "roles" -> "Sharpen the saw"; else -> "Week reviewed"
-                }, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Text(weekLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                val sub = when (stepId) {
-                    "clear" -> "Tidy up what's still open."; "current" -> "How your week actually went."
-                    "creative" -> "What to try or change next week."; "roles" -> "A light look across your life areas."; else -> ""
-                }
-                if (sub.isNotBlank()) { Spacer(Modifier.height(4.dp)); Text(sub, style = MaterialTheme.typography.bodyMedium, color = muted) }
-                Spacer(Modifier.height(22.dp))
+                // Hero header + step body share one scroll region between the pinned progress bar and action
+                // bar, so the flow can never overflow the screen (small screens / keyboard up).
                 Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
+                    Spacer(Modifier.height(24.dp))
+                    Text(when (stepId) { "clear" -> "🧹"; "current" -> "📊"; "creative" -> "🌱"; "roles" -> "⚖️"; else -> "✅" }, style = MaterialTheme.typography.displaySmall)
+                    Spacer(Modifier.height(8.dp))
+                    Text(when (stepId) {
+                        "clear" -> "Get clear"; "current" -> "Get current"; "creative" -> "Get creative"; "roles" -> "Sharpen the saw"; else -> "Week reviewed"
+                    }, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text(weekLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                    val sub = when (stepId) {
+                        "clear" -> "Tidy up what's still open."; "current" -> "How your week actually went."
+                        "creative" -> "What to try or change next week."; "roles" -> "A light look across your life areas."; else -> ""
+                    }
+                    if (sub.isNotBlank()) { Spacer(Modifier.height(4.dp)); Text(sub, style = MaterialTheme.typography.bodyMedium, color = muted) }
+                    Spacer(Modifier.height(22.dp))
                     when (stepId) {
                     "clear" -> {
                         Text("Carry what still matters; let go of the rest. Your choices apply when you continue.",
