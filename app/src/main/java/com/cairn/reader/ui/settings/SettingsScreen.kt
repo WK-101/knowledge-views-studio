@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.cairn.reader.ui.settings
 
 import android.content.Intent
@@ -21,6 +23,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Refresh
@@ -196,6 +200,50 @@ fun SettingsScreen(
                     selected = prefs.readerTheme,
                     onSelect = viewModel::setReaderTheme,
                 )
+            }
+        }
+
+        item {
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+                SectionLabel("FILTERS")
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Hide duplicates", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text("Collapse the same story across feeds", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                    }
+                    Switch(checked = prefs.hideDuplicates, onCheckedChange = viewModel::setHideDuplicates)
+                }
+                Spacer(Modifier.height(12.dp))
+                Text("Muted keywords", style = MaterialTheme.typography.labelLarge, color = scheme.onSurface)
+                Text("Hide inbox articles whose title or summary contains these", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                Spacer(Modifier.height(6.dp))
+                if (prefs.blockedKeywords.isNotEmpty()) {
+                    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        prefs.blockedKeywords.sorted().forEach { term ->
+                            androidx.compose.material3.InputChip(
+                                selected = true,
+                                onClick = { viewModel.removeBlockedKeyword(term) },
+                                label = { Text(term) },
+                                trailingIcon = { Icon(Icons.Outlined.Close, contentDescription = "Remove", modifier = Modifier.height(16.dp)) },
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                }
+                var newTerm by remember { mutableStateOf("") }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = newTerm,
+                        onValueChange = { newTerm = it },
+                        singleLine = true,
+                        placeholder = { Text("Add a keyword to mute") },
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(onClick = { if (newTerm.isNotBlank()) { viewModel.addBlockedKeyword(newTerm); newTerm = "" } }) {
+                        Icon(Icons.Outlined.Add, contentDescription = "Mute keyword")
+                    }
+                }
             }
         }
 

@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -35,6 +36,9 @@ data class AppPreferences(
     val readerTheme: ReaderTheme = ReaderTheme.DEFAULT,
     val readerFont: ReaderFont = ReaderFont.SERIF,
     val readerJustify: Boolean = false,
+    val blockedKeywords: Set<String> = emptySet(),
+    val hideDuplicates: Boolean = false,
+    val savedSearches: Set<String> = emptySet(),
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -52,6 +56,9 @@ class PreferencesRepository @Inject constructor(
         val READER_THEME = stringPreferencesKey("reader_theme")
         val READER_FONT = stringPreferencesKey("reader_font")
         val READER_JUSTIFY = booleanPreferencesKey("reader_justify")
+        val BLOCKED = stringSetPreferencesKey("blocked_keywords")
+        val HIDE_DUP = booleanPreferencesKey("hide_duplicates")
+        val SAVED_SEARCHES = stringSetPreferencesKey("saved_searches")
     }
 
     val preferences: Flow<AppPreferences> = context.dataStore.data.map { p ->
@@ -64,6 +71,9 @@ class PreferencesRepository @Inject constructor(
             readerTheme = p[Keys.READER_THEME]?.let { runCatching { ReaderTheme.valueOf(it) }.getOrNull() } ?: ReaderTheme.DEFAULT,
             readerFont = p[Keys.READER_FONT]?.let { runCatching { ReaderFont.valueOf(it) }.getOrNull() } ?: ReaderFont.SERIF,
             readerJustify = p[Keys.READER_JUSTIFY] ?: false,
+            blockedKeywords = p[Keys.BLOCKED] ?: emptySet(),
+            hideDuplicates = p[Keys.HIDE_DUP] ?: false,
+            savedSearches = p[Keys.SAVED_SEARCHES] ?: emptySet(),
         )
     }
 
@@ -75,4 +85,24 @@ class PreferencesRepository @Inject constructor(
     suspend fun setReaderTheme(theme: ReaderTheme) = context.dataStore.edit { it[Keys.READER_THEME] = theme.name }
     suspend fun setReaderFont(font: ReaderFont) = context.dataStore.edit { it[Keys.READER_FONT] = font.name }
     suspend fun setReaderJustify(justify: Boolean) = context.dataStore.edit { it[Keys.READER_JUSTIFY] = justify }
+
+    suspend fun setHideDuplicates(enabled: Boolean) = context.dataStore.edit { it[Keys.HIDE_DUP] = enabled }
+
+    suspend fun addBlockedKeyword(term: String) {
+        val t = term.trim().lowercase()
+        if (t.isBlank()) return
+        context.dataStore.edit { it[Keys.BLOCKED] = (it[Keys.BLOCKED] ?: emptySet()) + t }
+    }
+
+    suspend fun removeBlockedKeyword(term: String) =
+        context.dataStore.edit { it[Keys.BLOCKED] = (it[Keys.BLOCKED] ?: emptySet()) - term }
+
+    suspend fun addSavedSearch(query: String) {
+        val q = query.trim()
+        if (q.isBlank()) return
+        context.dataStore.edit { it[Keys.SAVED_SEARCHES] = (it[Keys.SAVED_SEARCHES] ?: emptySet()) + q }
+    }
+
+    suspend fun removeSavedSearch(query: String) =
+        context.dataStore.edit { it[Keys.SAVED_SEARCHES] = (it[Keys.SAVED_SEARCHES] ?: emptySet()) - query }
 }

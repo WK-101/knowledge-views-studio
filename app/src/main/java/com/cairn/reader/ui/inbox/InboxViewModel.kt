@@ -83,8 +83,12 @@ class InboxViewModel @Inject constructor(
             }
         }
 
+    private val filteredRows = combine(rows, preferencesRepository.preferences) { list, prefs ->
+        applyContentFilters(list, prefs.blockedKeywords, prefs.hideDuplicates)
+    }
+
     val state: StateFlow<InboxUiState> =
-        combine(rows, itemRepository.unreadCount(), _filter) { items, unread, filter ->
+        combine(filteredRows, itemRepository.unreadCount(), _filter) { items, unread, filter ->
             InboxUiState(loading = false, items = items, unread = unread, filter = filter)
         }.stateIn(
             scope = viewModelScope,
@@ -122,6 +126,21 @@ class InboxViewModel @Inject constructor(
                 ),
             )
         }
+    }
+
+    private fun applyContentFilters(list: List<ItemListRow>, blocked: Set<String>, dedup: Boolean): List<ItemListRow> {
+        var out = list
+        if (blocked.isNotEmpty()) {
+            out = out.filter { row ->
+                val hay = (row.title + " " + (row.excerpt ?: "")).lowercase()
+                blocked.none { it.isNotBlank() && hay.contains(it) }
+            }
+        }
+        if (dedup) {
+            val seen = HashSet<String>()
+            out = out.filter { seen.add(it.title.trim().lowercase()) }
+        }
+        return out
     }
 
     fun markRead(id: String, read: Boolean = true) = viewModelScope.launch { itemRepository.setRead(id, read) }
