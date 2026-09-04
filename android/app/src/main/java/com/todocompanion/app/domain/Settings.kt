@@ -312,6 +312,9 @@ data class AppSettings(
     val streakRepairTokens: Int = ReviewCadence.STREAK_REPAIR_CAP,
     val streakRepairPeriod: String = "",
     val repairedDaysCsv: String = "",
+    // Wave 1 — the guided Weekly Review store: a JSON object mapping an ISO-week key ("YYYY-Www") to that
+    // week's reflection + next-week focus + life areas. "" = none reviewed yet. See domain/WeeklyReview.kt.
+    val weeklyReviewsJson: String = "",
 ) {
     /** Effective tier for an optional editor field: user override, else its built-in default. */
     fun editorTier(f: EditorField): Int = editorFieldTiers[f.id] ?: f.defaultTier
@@ -502,6 +505,7 @@ data class AppSettings(
         Keys.STREAK_REPAIR_TOKENS to streakRepairTokens.toString(),
         Keys.STREAK_REPAIR_PERIOD to streakRepairPeriod,
         Keys.REPAIRED_DAYS to repairedDaysCsv,
+        Keys.WEEKLY_REVIEWS to weeklyReviewsJson,
     )
 
     object Keys {
@@ -670,6 +674,7 @@ data class AppSettings(
         const val STREAK_REPAIR_TOKENS = "streak_repair_tokens"
         const val STREAK_REPAIR_PERIOD = "streak_repair_period"
         const val REPAIRED_DAYS = "repaired_days"
+        const val WEEKLY_REVIEWS = "weekly_reviews"
     }
 
     companion object {
@@ -862,6 +867,7 @@ data class AppSettings(
             streakRepairTokens = m[Keys.STREAK_REPAIR_TOKENS]?.toIntOrNull()?.coerceIn(0, ReviewCadence.STREAK_REPAIR_CAP) ?: ReviewCadence.STREAK_REPAIR_CAP,
             streakRepairPeriod = m[Keys.STREAK_REPAIR_PERIOD] ?: "",
             repairedDaysCsv = m[Keys.REPAIRED_DAYS] ?: "",
+            weeklyReviewsJson = m[Keys.WEEKLY_REVIEWS] ?: "",
         )
     }
 }

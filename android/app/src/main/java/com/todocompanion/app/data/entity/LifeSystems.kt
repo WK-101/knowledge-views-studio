@@ -151,6 +151,9 @@ data class DayLogEntity(
     // ids of the goals today advanced and the top values today honored. "" = nothing recorded (so old
     // backups round-trip). See domain/DayAlignment.kt.
     val alignmentJson: String = "",
+    // Wave 1 — an optional precise emotion word alongside the 5-face pmMood (affect-labeling; see
+    // domain/EmotionWords.kt). "" = none named (so old backups round-trip).
+    val emotionLabel: String = "",
     val updatedAt: Long = 0,
     val workspaceId: String = "default",
 )

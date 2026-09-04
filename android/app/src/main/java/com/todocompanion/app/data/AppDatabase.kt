@@ -83,7 +83,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         com.todocompanion.app.data.entity.EventCalendarEntity::class,
         com.todocompanion.app.data.entity.EventEntity::class,
     ],
-    version = 63,
+    version = 64,
     // R73 — export the schema JSON (to app/schemas/) on every build. With 54 hand-written migrations
     // this is the safety net: it lets an instrumented MigrationTest replay the whole chain in CI and
     // fail the build the moment a migration drifts from the entity definitions. Turned on from v59;
@@ -754,6 +754,14 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Wave 1 — a precise emotion word alongside the 5-face mood (affect-labeling / How-We-Feel). One
+        // optional column on day_logs, holding a chosen word from a curated set. Purely additive, safe default.
+        private val MIGRATION_63_64 = object : Migration(63, 64) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `day_logs` ADD COLUMN `emotionLabel` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         /**
          * The complete, ordered v5→v63 migration chain. Exposed (and used by the builder below) so an
          * instrumented [androidTest] MigrationTest can replay it against a real SQLite DB and assert the
@@ -769,7 +777,7 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_41_42, MIGRATION_42_43, MIGRATION_43_44, MIGRATION_44_45, MIGRATION_45_46, MIGRATION_46_47,
             MIGRATION_47_48, MIGRATION_48_49, MIGRATION_49_50, MIGRATION_50_51, MIGRATION_51_52, MIGRATION_52_53,
             MIGRATION_53_54, MIGRATION_54_55, MIGRATION_55_56, MIGRATION_56_57, MIGRATION_57_58, MIGRATION_58_59,
-            MIGRATION_59_60, MIGRATION_60_61, MIGRATION_61_62, MIGRATION_62_63,
+            MIGRATION_59_60, MIGRATION_60_61, MIGRATION_61_62, MIGRATION_62_63, MIGRATION_63_64,
         )
 
         fun get(context: Context): AppDatabase =

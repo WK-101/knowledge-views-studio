@@ -2644,6 +2644,50 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         ))
     }
 
+    // Wave 1 — a precise emotion word alongside the 5-face pmMood (affect-labeling). Optional; "" clears it.
+    // Read-modify-write, preserving every other field.
+    fun saveEmotionLabel(day: Long, label: String) = viewModelScope.launch {
+        val cur = repo.dayLogFor(day) ?: com.todocompanion.app.data.entity.DayLogEntity(day, workspaceId = activeWorkspace())
+        repo.upsertDayLog(cur.copy(emotionLabel = label.trim(), updatedAt = System.currentTimeMillis()))
+    }
+
+    // Wave 1 — deliberate rollover (Bullet-Journal migration): per-task and explicit, not a silent
+    // auto-carry. Carry the KEPT tasks to tomorrow (the same date bump carry-forward uses) and "let go" of
+    // the rest using the app's existing won't-do / abandon (reversible via the undo it emits). No new
+    // deletion path is invented; nothing happens to a task the user didn't decide on.
+    fun reviewRollover(carryIds: List<String>, letGoIds: List<String>) = viewModelScope.launch {
+        val tomorrowMillis = java.time.LocalDate.now(zone).plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        var carried = 0
+        carryIds.forEach { id ->
+            val t = repo.getTask(id) ?: return@forEach
+            if (!t.completed && !t.trashed) { repo.saveTask(t.copy(dueDate = tomorrowMillis, updatedAt = System.currentTimeMillis())); carried++ }
+        }
+        var released = 0
+        letGoIds.forEach { id ->
+            val t = repo.getTask(id) ?: return@forEach
+            if (!t.completed && !t.trashed && !t.abandoned) { repo.setAbandoned(t, true); released++ }
+        }
+        toast(
+            buildString {
+                append("Day closed.")
+                if (carried > 0) append(" Carried $carried forward.")
+                if (released > 0) append(" Let go of $released.")
+            },
+        )
+    }
+
+    // Wave 1 — the guided Weekly Review. Persist minimally: the week's reflection + next-week focus + the
+    // life areas touched, in ONE settings JSON keyed by ISO week (no new Room table). Empty fields clear it.
+    fun saveWeeklyReview(isoWeek: String, reflection: String, nextFocus: String, areas: List<String>) = viewModelScope.launch {
+        if (isoWeek.isBlank()) return@launch
+        val review = com.todocompanion.app.domain.WeeklyReview(
+            isoWeek = isoWeek, reflection = reflection.trim(), nextFocus = nextFocus.trim(),
+            areas = areas.distinct(), updatedAt = System.currentTimeMillis(),
+        )
+        val cur = settings.value
+        repo.saveSettings(cur.copy(weeklyReviewsJson = com.todocompanion.app.domain.WeeklyReviews.upsert(cur.weeklyReviewsJson, review)))
+    }
+
     // Phase F — (re)schedule the evening review through the smart layer (skip-if-done + adaptive time).
     // Called from the settings flow whenever the nudge toggle, its hour, or the adaptive toggle changes.
     fun rescheduleEveningReview() = viewModelScope.launch {
