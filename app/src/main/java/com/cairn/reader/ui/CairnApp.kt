@@ -298,7 +298,7 @@ private fun InboxScreen(
                             row = row,
                             onOpen = { onOpenItem(row.id) },
                             onToggleSave = { viewModel.toggleSave(row.id, !row.isReadLater) },
-                            onArchive = { viewModel.archive(row.id) },
+                            onMarkRead = { viewModel.markRead(row.id, true) },
                             onLongPress = { sheetRow = row },
                             mode = viewMode,
                         )

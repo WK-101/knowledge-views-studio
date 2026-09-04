@@ -50,16 +50,16 @@ import com.cairn.reader.data.db.ItemListRow
 import com.cairn.reader.data.prefs.ListViewMode
 
 /**
- * A list row that can be swiped: right to save/unsave, left to archive.
- * Archiving dismisses the row (the reactive query drops it); saving snaps back
- * and lets the bookmark state update in place.
+ * A list row that can be swiped: right to save/unsave, left to mark read.
+ * Both snap back; in the Unread view a read item then drops out via the reactive
+ * query. Archive lives in the long-press sheet.
  */
 @Composable
 fun SwipeableItemRow(
     row: ItemListRow,
     onOpen: () -> Unit,
     onToggleSave: () -> Unit,
-    onArchive: () -> Unit,
+    onMarkRead: () -> Unit,
     onLongPress: () -> Unit,
     modifier: Modifier = Modifier,
     mode: ListViewMode = ListViewMode.CARD,
@@ -68,7 +68,7 @@ fun SwipeableItemRow(
         confirmValueChange = { value ->
             when (value) {
                 SwipeToDismissBoxValue.StartToEnd -> { onToggleSave(); false }
-                SwipeToDismissBoxValue.EndToStart -> { onArchive(); true }
+                SwipeToDismissBoxValue.EndToStart -> { onMarkRead(); false }
                 SwipeToDismissBoxValue.Settled -> false
             }
         },
@@ -76,22 +76,22 @@ fun SwipeableItemRow(
     SwipeToDismissBox(
         state = dismissState,
         modifier = modifier,
-        backgroundContent = { SwipeBackground(dismissState.dismissDirection, row.isReadLater) },
+        backgroundContent = { SwipeBackground(dismissState.dismissDirection, row.isReadLater, row.isRead) },
     ) {
         FeedItemCell(row = row, mode = mode, onOpen = onOpen, onToggleSave = onToggleSave, onLongPress = onLongPress)
     }
 }
 
 @Composable
-private fun SwipeBackground(direction: SwipeToDismissBoxValue, isSaved: Boolean) {
+private fun SwipeBackground(direction: SwipeToDismissBoxValue, isSaved: Boolean, isRead: Boolean) {
     val scheme = MaterialTheme.colorScheme
     val (color, icon, alignment) = when (direction) {
         SwipeToDismissBoxValue.StartToEnd ->
             Triple(scheme.tertiaryContainer, if (isSaved) Icons.Outlined.BookmarkRemove else Icons.Outlined.Bookmark, Alignment.CenterStart)
         SwipeToDismissBoxValue.EndToStart ->
-            Triple(scheme.secondaryContainer, Icons.Outlined.Archive, Alignment.CenterEnd)
+            Triple(scheme.secondaryContainer, if (isRead) Icons.Outlined.MarkEmailUnread else Icons.Outlined.MarkEmailRead, Alignment.CenterEnd)
         SwipeToDismissBoxValue.Settled ->
-            Triple(Color.Transparent, Icons.Outlined.Archive, Alignment.Center)
+            Triple(Color.Transparent, Icons.Outlined.MarkEmailRead, Alignment.Center)
     }
     Box(
         Modifier.fillMaxSize().background(color).padding(horizontal = 28.dp),
