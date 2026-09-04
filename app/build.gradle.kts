@@ -26,7 +26,9 @@ android {
     // When neither is present, release builds fall back to the debug key so the
     // project always assembles for development.
     val keystorePropsFile = rootProject.file("keystore.properties")
-    val hasReleaseSigning = System.getenv("CAIRN_KEYSTORE_BASE64") != null || keystorePropsFile.exists()
+    val hasReleaseSigning = System.getenv("CAIRN_KEYSTORE_PATH") != null ||
+        System.getenv("CAIRN_KEYSTORE_BASE64") != null ||
+        keystorePropsFile.exists()
     signingConfigs {
         if (hasReleaseSigning) {
             create("release") {
@@ -47,8 +49,10 @@ android {
             versionNameSuffix = "-debug"
         }
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // R8 stays off until the release build is verified on a device; the shipped
+            // v0.1 APK then behaves exactly like the tested debug build, just signed.
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = if (hasReleaseSigning) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
         }
