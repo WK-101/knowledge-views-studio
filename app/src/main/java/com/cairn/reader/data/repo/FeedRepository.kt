@@ -41,8 +41,10 @@ class FeedRepository @Inject constructor(
 
     /** Discover and subscribe to a feed from any URL, importing its current items. */
     suspend fun addFeedByUrl(rawUrl: String): Result<String> {
-        val result = discovery.discover(rawUrl)
-            ?: return Result.failure(IllegalStateException("No feed found for \"$rawUrl\""))
+        val result = when (val outcome = discovery.discover(rawUrl)) {
+            is com.cairn.reader.domain.feed.Discovery.Found -> outcome.result
+            is com.cairn.reader.domain.feed.Discovery.NotFound -> return Result.failure(IllegalStateException(outcome.reason))
+        }
         val now = System.currentTimeMillis()
         val sourceId = deterministicId(result.feedUrl)
         val source = SourceEntity(

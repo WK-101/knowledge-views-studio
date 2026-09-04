@@ -30,6 +30,15 @@ object NetworkModule {
             .addInterceptor { chain ->
                 val request = chain.request().newBuilder()
                     .header("User-Agent", CAIRN_USER_AGENT)
+                    // Browser-like Accept that also welcomes feeds, so content-negotiating
+                    // servers hand us the RSS/Atom/JSON feed instead of an HTML landing page.
+                    .header(
+                        "Accept",
+                        "text/html,application/xhtml+xml,application/xml;q=0.9," +
+                            "application/rss+xml,application/atom+xml,application/feed+json," +
+                            "application/json;q=0.8,*/*;q=0.7",
+                    )
+                    .header("Accept-Language", "en,*;q=0.5")
                     .build()
                 chain.proceed(request)
             }

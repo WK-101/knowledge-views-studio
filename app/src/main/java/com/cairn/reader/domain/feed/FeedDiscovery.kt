@@ -10,6 +10,13 @@ data class DiscoveryResult(
     val feed: ParsedFeed,
 )
 
+/** Outcome of a discovery attempt — carries a human reason when nothing was found,
+ *  so the UI can tell the user *why* rather than a generic failure. */
+sealed interface Discovery {
+    data class Found(val result: DiscoveryResult) : Discovery
+    data class NotFound(val reason: String) : Discovery
+}
+
 /**
  * Turns a user-entered URL into an actual feed, trying in order:
  * 1. known platform patterns (YouTube / Reddit / GitHub / Medium / Substack),
@@ -22,29 +29,45 @@ class FeedDiscovery @Inject constructor(
     private val fetcher: HttpFetcher,
     private val parser: FeedParser,
 ) {
-    suspend fun discover(rawInput: String): DiscoveryResult? {
-        val url = normalize(rawInput) ?: return null
+    suspend fun discover(rawInput: String): Discovery {
+        val url = normalize(rawInput)
+            ?: return Discovery.NotFound("That doesn't look like a valid web address.")
 
+        // 1. Known platform shortcuts (YouTube / Reddit / Substack / …).
         knownPattern(url)?.let { candidate ->
-            tryFeed(candidate)?.let { return it }
+            tryFeed(candidate)?.let { return Discovery.Found(it) }
         }
 
-        val response = runCatching { fetcher.fetch(url) }.getOrNull()
-        val body = response?.body
+        // 2. The URL itself — is it already a feed, or an HTML page that declares one?
+        val fetched = runCatching { fetcher.fetch(url) }
+        val response = fetched.getOrNull()
+            ?: return Discovery.NotFound("Couldn't reach ${hostOf(url)} — check the address or your connection.")
+
+        val body = response.body
         if (body != null) {
             parser.parse(body, response.finalUrl)?.let { feed ->
-                return DiscoveryResult(response.finalUrl, feed)
+                return Discovery.Found(DiscoveryResult(response.finalUrl, feed))
             }
-            // Not a feed — treat as HTML and look for declared feeds.
             for (candidate in htmlFeedLinks(body, response.finalUrl)) {
-                tryFeed(candidate)?.let { return it }
+                tryFeed(candidate)?.let { return Discovery.Found(it) }
             }
         }
 
+        // 3. Common guessed paths on the site's origin and the given path.
         for (candidate in guessPaths(url)) {
-            tryFeed(candidate)?.let { return it }
+            tryFeed(candidate)?.let { return Discovery.Found(it) }
         }
-        return null
+
+        return Discovery.NotFound(
+            when {
+                !response.isSuccess ->
+                    "The server responded with HTTP ${response.status}. This feed may block apps or require a login."
+                body.isNullOrBlank() ->
+                    "That address returned no content."
+                else ->
+                    "That page loaded, but no RSS/Atom feed was found on it. Try the feed's direct URL — often ending in /feed, /rss, or .xml."
+            },
+        )
     }
 
     private suspend fun tryFeed(candidate: String): DiscoveryResult? {
@@ -56,14 +79,17 @@ class FeedDiscovery @Inject constructor(
 
     private fun htmlFeedLinks(html: String, baseUrl: String): List<String> = runCatching {
         val doc = Jsoup.parse(html, baseUrl)
-        doc.select("link[rel~=(?i)alternate][href]")
-            .filter { el ->
-                val type = el.attr("type").lowercase()
-                type.contains("rss") || type.contains("atom") || type.contains("xml") || type.contains("json")
-            }
-            .map { it.absUrl("href") }
-            .filter { it.isNotBlank() }
-            .distinct()
+        // <link rel="alternate"|"feed" …>, matched by a feed-ish type OR a feed-ish href,
+        // so pages that omit the type attribute are still discovered. <a> tags too.
+        val links = doc.select("link[rel~=(?i)(alternate|feed)][href], a[href~=(?i)(/feed|/rss|atom|\\.xml|\\.rss)]")
+        links.mapNotNull { el ->
+            val href = el.absUrl("href").ifBlank { el.attr("href") }
+            if (href.isBlank()) return@mapNotNull null
+            val type = el.attr("type").lowercase()
+            val looksFeed = type.contains("rss") || type.contains("atom") || type.contains("xml") || type.contains("json") ||
+                Regex("(?i)(/feed|/rss|atom|\\.xml|\\.rss|feed=)").containsMatchIn(href)
+            if (looksFeed) href else null
+        }.distinct().take(8)
     }.getOrDefault(emptyList())
 
     private fun guessPaths(url: String): List<String> {
@@ -95,6 +121,8 @@ class FeedDiscovery @Inject constructor(
             else -> null
         }
     }
+
+    private fun hostOf(url: String): String = url.toHttpUrlOrNull()?.host ?: "that site"
 
     private fun normalize(raw: String): String? {
         val trimmed = raw.trim()

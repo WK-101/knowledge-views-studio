@@ -122,7 +122,7 @@ class InboxViewModel @Inject constructor(
             _messages.emit(
                 result.fold(
                     onSuccess = { "Feed added" },
-                    onFailure = { "Couldn't find a feed at that address" },
+                    onFailure = { it.message ?: "Couldn't find a feed at that address" },
                 ),
             )
         }
