@@ -65,7 +65,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.cairn.reader.data.db.ItemListRow
+import com.cairn.reader.ui.components.ItemRow
 import com.cairn.reader.ui.inbox.InboxViewModel
+import com.cairn.reader.ui.library.LibraryScreen
+import com.cairn.reader.ui.settings.SettingsScreen
 import com.cairn.reader.ui.util.formatAgo
 
 private enum class Destination(val label: String, val icon: ImageVector) {
@@ -126,8 +129,8 @@ fun CairnApp(onOpenItem: (String) -> Unit = {}) {
         Crossfade(targetState = current, label = "destination") { dest ->
             when (dest) {
                 Destination.Inbox -> InboxScreen(padding, inboxViewModel, onOpenItem)
-                Destination.Library -> PlaceholderScreen(padding, "Your archive", "Saved, starred, and archived articles with tags and full-text search — coming next in this build.")
-                Destination.Settings -> PlaceholderScreen(padding, "Settings", "Sources, appearance, backup, and privacy controls.")
+                Destination.Library -> LibraryScreen(padding, onOpenItem)
+                Destination.Settings -> SettingsScreen(padding)
             }
         }
     }
@@ -174,105 +177,12 @@ private fun InboxScreen(
                     )
                 }
                 items(state.items, key = { it.id }) { row ->
-                    ArticleRow(
+                    ItemRow(
                         row = row,
                         onOpen = { onOpenItem(row.id) },
                         onToggleSave = { viewModel.toggleSave(row.id, !row.isReadLater) },
                     )
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ArticleRow(row: ItemListRow, onOpen: () -> Unit, onToggleSave: () -> Unit) {
-    val scheme = MaterialTheme.colorScheme
-    val source = row.sourceTitle ?: row.siteName ?: "Unknown"
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onOpen)
-            .padding(horizontal = 20.dp, vertical = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(64.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(scheme.secondaryContainer),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (row.leadImage != null) {
-                AsyncImage(
-                    model = row.leadImage,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            } else {
-                Text(
-                    text = source.take(1).uppercase(),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = scheme.onSecondaryContainer,
-                )
-            }
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (!row.isRead) {
-                    Box(
-                        modifier = Modifier
-                            .size(7.dp)
-                            .clip(CircleShape)
-                            .background(scheme.primary),
-                    )
-                    Spacer(Modifier.width(8.dp))
-                }
-                Text(
-                    text = source,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = scheme.primary,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                val ago = formatAgo(row.publishedAt ?: row.savedAt)
-                if (ago.isNotEmpty()) {
-                    Text("  ·  $ago", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
-                }
-            }
-            Spacer(Modifier.height(3.dp))
-            Text(
-                text = row.title,
-                style = MaterialTheme.typography.titleMedium,
-                color = scheme.onSurface,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (!row.excerpt.isNullOrBlank()) {
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = row.excerpt,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = scheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (row.readingMinutes > 0) {
-                    Text("${row.readingMinutes} min read", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
-                }
-                Spacer(Modifier.weight(1f))
-                Icon(
-                    imageVector = if (row.isReadLater) Icons.Filled.Bookmark else Icons.Outlined.Bookmark,
-                    contentDescription = if (row.isReadLater) "Saved" else "Save",
-                    tint = if (row.isReadLater) scheme.tertiary else scheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp).clickable(onClick = onToggleSave),
-                )
             }
         }
     }

@@ -5,7 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import com.cairn.reader.ui.CairnApp
+import com.cairn.reader.ui.CairnRoot
 import com.cairn.reader.ui.theme.CairnTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -17,7 +17,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             CairnTheme {
-                CairnApp()
+                CairnRoot()
             }
         }
     }

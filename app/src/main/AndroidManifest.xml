@@ -32,6 +32,20 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ShareActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:label="Save to Cairn"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
         <!-- Use Hilt's WorkerFactory instead of WorkManager's default initializer. -->
         <provider
             android:name="androidx.startup.InitializationProvider"

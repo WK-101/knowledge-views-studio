@@ -1,5 +1,6 @@
 package com.cairn.reader.data.repo
 
+import com.cairn.reader.data.blob.BlobStore
 import com.cairn.reader.data.db.ItemDao
 import com.cairn.reader.data.db.ItemEntity
 import com.cairn.reader.data.db.ItemFtsEntity
@@ -18,13 +19,49 @@ import javax.inject.Singleton
  * append a [SyncOpEntity] to the outbox, so an optional remote backend can reconcile
  * later without changing any calling code (the design proven by Capy/Wallabag).
  */
+/** Everything the reader screen needs for one item, including its cached HTML body. */
+data class ReaderData(
+    val id: String,
+    val url: String,
+    val title: String,
+    val author: String?,
+    val siteName: String?,
+    val publishedAt: Long?,
+    val readingMinutes: Int,
+    val contentSource: String,
+    val extractStatus: String,
+    val isStarred: Boolean,
+    val isReadLater: Boolean,
+    val html: String?,
+)
+
 @Singleton
 class ItemRepository @Inject constructor(
     private val itemDao: ItemDao,
     private val sourceDao: SourceDao,
     private val syncDao: SyncDao,
+    private val blobStore: BlobStore,
 ) {
     private val clock: () -> Long = { System.currentTimeMillis() }
+
+    suspend fun reader(id: String): ReaderData? {
+        val e = itemDao.getItem(id) ?: return null
+        val state = itemDao.getState(id)
+        return ReaderData(
+            id = e.id,
+            url = e.url,
+            title = e.title,
+            author = e.author,
+            siteName = e.siteName,
+            publishedAt = e.publishedAt,
+            readingMinutes = e.readingMinutes,
+            contentSource = e.contentSource,
+            extractStatus = e.extractStatus,
+            isStarred = state?.isStarred == true,
+            isReadLater = state?.isReadLater == true,
+            html = blobStore.readArticle(e.blobPath),
+        )
+    }
 
     fun inbox(): Flow<List<ItemListRow>> = itemDao.observeInbox()
     fun library(): Flow<List<ItemListRow>> = itemDao.observeLibrary()
