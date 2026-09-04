@@ -188,6 +188,23 @@ fun ReaderScreen(
         runCatching { context.startActivity(Intent.createChooser(send, null)) }
     }
 
+    // Share an imported PDF's actual file out to other apps via the FileProvider.
+    fun sharePdf() {
+        val path = data?.pdfPath ?: return
+        runCatching {
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                context, context.packageName + ".fileprovider", java.io.File(path),
+            )
+            val send = Intent(Intent.ACTION_SEND).apply {
+                type = "application/pdf"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                data?.title?.let { putExtra(Intent.EXTRA_SUBJECT, it) }
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(send, null))
+        }
+    }
+
     // Search / Define stay inside Cairn's own WebView (a normal fetch of a public
     // search page) — no app switch, nothing about the query leaves the device
     // beyond the search itself, which the reader deliberately asked for.
@@ -301,8 +318,11 @@ fun ReaderScreen(
                                 leadingIcon = { Icon(Icons.Outlined.IosShare, contentDescription = null) },
                                 onClick = {
                                     showMenu = false
-                                    if (highlights.isEmpty()) shareText(data?.url.orEmpty(), data?.title)
-                                    else viewModel.exportHighlights { md -> shareText(md, data?.title?.let { "Highlights — $it" }) }
+                                    when {
+                                        data?.type == "PDF" -> sharePdf()
+                                        highlights.isEmpty() -> shareText(data?.url.orEmpty(), data?.title)
+                                        else -> viewModel.exportHighlights { md -> shareText(md, data?.title?.let { "Highlights — $it" }) }
+                                    }
                                 },
                             )
                         }
@@ -335,7 +355,7 @@ fun ReaderScreen(
                 if (data != null) {
                     ReaderActionBar(
                         isStarred = data.isStarred,
-                        onShare = { shareText(data.url, data.title) },
+                        onShare = { if (data.type == "PDF") sharePdf() else shareText(data.url, data.title) },
                         onUnread = { viewModel.markUnread(); onBack() },
                         onStar = viewModel::toggleStar,
                         onTag = { showTags = true },
