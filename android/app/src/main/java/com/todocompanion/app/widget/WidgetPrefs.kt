@@ -64,6 +64,7 @@ object WidgetPrefs {
             .remove("scope_$id").remove("title_$id").remove("theme_$id")
             .remove("energy_$id").remove("time_$id")
             .remove("opacity_$id").remove("font_$id").remove("compact_$id").remove("toolbar_$id")
+            .remove("dayoff_$id")
             .apply()
     }
 
@@ -86,6 +87,15 @@ object WidgetPrefs {
         val order = listOf(0, 15, 30, 60)
         val next = order[(order.indexOf(time(ctx, id)).coerceAtLeast(0) + 1) % order.size]
         ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putInt("time_$id", next).apply()
+    }
+
+    // ---- R104: Day widget — which day it's showing, as an offset from today (0 = today). ----
+    fun dayOffset(ctx: Context, id: Int): Int =
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getInt("dayoff_$id", 0)
+
+    fun setDayOffset(ctx: Context, id: Int, offset: Int) {
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
+            .putInt("dayoff_$id", offset.coerceIn(-365, 365)).apply()
     }
 
     /** Default header title for a scope token, used when the user left the title blank. */

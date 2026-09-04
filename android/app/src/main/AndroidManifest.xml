@@ -311,6 +311,19 @@
         <!-- R104 — check a task off / open it straight from a task-list widget. -->
         <receiver android:name=".widget.TaskWidgetReceiver" android:exported="false" />
 
+        <!-- R104 — the Day widget: one day's events + tasks, day navigation, dual add. Offline. -->
+        <receiver android:name=".widget.DayWidget" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_day_info" />
+        </receiver>
+        <service
+            android:name=".widget.DayWidgetService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
+        <receiver android:name=".widget.DayNavReceiver" android:exported="false" />
+
         <receiver android:name=".widget.DoNextWidget" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
