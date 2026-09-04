@@ -23,11 +23,19 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** The three list lenses on the inbox. */
+/** The list lenses on the inbox. */
 enum class InboxFilter(val label: String) {
     UNREAD("Unread"),
+    STARRED("Starred"),
     SAVED("Saved"),
     ALL("All"),
+}
+
+/** What the drawer is currently pointing the inbox at: everything, one feed, or a folder. */
+sealed interface DrawerSelection {
+    data object All : DrawerSelection
+    data class Feed(val sourceId: String, val title: String) : DrawerSelection
+    data class Folder(val name: String) : DrawerSelection
 }
 
 data class InboxUiState(
@@ -57,9 +65,9 @@ class InboxViewModel @Inject constructor(
 
     private val _filter = MutableStateFlow(InboxFilter.UNREAD)
 
-    /** null = All Articles; otherwise a specific feed selected in the drawer. */
-    private val _selectedSource = MutableStateFlow<String?>(null)
-    val selectedSource: StateFlow<String?> = _selectedSource.asStateFlow()
+    /** What the drawer points the list at: All Articles, one feed, or a whole folder. */
+    private val _selection = MutableStateFlow<DrawerSelection>(DrawerSelection.All)
+    val selection: StateFlow<DrawerSelection> = _selection.asStateFlow()
 
     val feeds: StateFlow<List<FeedUnread>> =
         itemRepository.feedUnread().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -74,12 +82,15 @@ class InboxViewModel @Inject constructor(
         }
     }
 
-    private val rows = combine(_filter, _selectedSource) { filter, source -> filter to source }
-        .flatMapLatest { (filter, source) ->
+    private val rows = combine(_filter, _selection) { filter, selection -> filter to selection }
+        .flatMapLatest { (filter, selection) ->
+            val source = (selection as? DrawerSelection.Feed)?.sourceId
+            val folder = (selection as? DrawerSelection.Folder)?.name
             when (filter) {
-                InboxFilter.UNREAD -> itemRepository.inbox(source)
-                InboxFilter.SAVED -> itemRepository.saved(source)
-                InboxFilter.ALL -> itemRepository.all(source)
+                InboxFilter.UNREAD -> itemRepository.inbox(source, folder)
+                InboxFilter.STARRED -> itemRepository.starred(source, folder)
+                InboxFilter.SAVED -> itemRepository.saved(source, folder)
+                InboxFilter.ALL -> itemRepository.all(source, folder)
             }
         }
 
@@ -100,8 +111,24 @@ class InboxViewModel @Inject constructor(
         _filter.value = filter
     }
 
-    fun selectSource(sourceId: String?) {
-        _selectedSource.value = sourceId
+    /** All Articles — the whole inbox, unread first. */
+    fun selectAll() {
+        _selection.value = DrawerSelection.All
+        _filter.value = InboxFilter.UNREAD
+    }
+
+    /** Starred hub — every starred story, regardless of feed. */
+    fun selectStarred() {
+        _selection.value = DrawerSelection.All
+        _filter.value = InboxFilter.STARRED
+    }
+
+    fun selectFeed(sourceId: String, title: String) {
+        _selection.value = DrawerSelection.Feed(sourceId, title)
+    }
+
+    fun selectFolder(name: String) {
+        _selection.value = DrawerSelection.Folder(name)
     }
 
     fun refresh() {

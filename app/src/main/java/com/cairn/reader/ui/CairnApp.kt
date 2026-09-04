@@ -93,6 +93,7 @@ fun CairnApp(
     onOpenItem: (String) -> Unit = {},
     onOpenNotebook: () -> Unit = {},
     onOpenWeb: (String) -> Unit = {},
+    onOpenSearch: () -> Unit = {},
 ) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
     var showAddFeed by remember { mutableStateOf(false) }
@@ -103,7 +104,7 @@ fun CairnApp(
     val inboxViewMode by inboxViewModel.viewMode.collectAsStateWithLifecycle()
     val inboxState by inboxViewModel.state.collectAsStateWithLifecycle()
     val feeds by inboxViewModel.feeds.collectAsStateWithLifecycle()
-    val selectedSource by inboxViewModel.selectedSource.collectAsStateWithLifecycle()
+    val selection by inboxViewModel.selection.collectAsStateWithLifecycle()
     var showViewMenu by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -127,11 +128,15 @@ fun CairnApp(
                 FeedDrawerContent(
                     totalUnread = inboxState.unread,
                     feeds = feeds,
-                    selectedSource = selectedSource,
-                    onAllArticles = { inboxViewModel.selectSource(null); selected = 0; scope.launch { drawerState.close() } },
-                    onSelectFeed = { id -> inboxViewModel.selectSource(id); selected = 0; scope.launch { drawerState.close() } },
-                    onSaved = { inboxViewModel.selectSource(null); inboxViewModel.setFilter(InboxFilter.SAVED); selected = 0; scope.launch { drawerState.close() } },
+                    selection = selection,
+                    filter = inboxState.filter,
+                    onAllArticles = { inboxViewModel.selectAll(); selected = 0; scope.launch { drawerState.close() } },
+                    onStarred = { inboxViewModel.selectStarred(); selected = 0; scope.launch { drawerState.close() } },
+                    onSelectFeed = { feed -> inboxViewModel.selectFeed(feed.sourceId, feed.title); selected = 0; scope.launch { drawerState.close() } },
+                    onSelectFolder = { name -> inboxViewModel.selectFolder(name); selected = 0; scope.launch { drawerState.close() } },
+                    onSaved = { selected = 1; scope.launch { drawerState.close() } },
                     onHighlights = { scope.launch { drawerState.close() }; onOpenNotebook() },
+                    onSearch = { scope.launch { drawerState.close() }; onOpenSearch() },
                     onSettings = { selected = 2; scope.launch { drawerState.close() } },
                 )
             }
@@ -141,10 +146,14 @@ fun CairnApp(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    val title = if (current == Destination.Inbox && selectedSource != null) {
-                        feeds.firstOrNull { it.sourceId == selectedSource }?.title ?: "Feed"
-                    } else {
-                        current.label
+                    val title = when {
+                        current != Destination.Inbox -> current.label
+                        inboxState.filter == InboxFilter.STARRED -> "Starred"
+                        selection is com.cairn.reader.ui.inbox.DrawerSelection.Feed ->
+                            (selection as com.cairn.reader.ui.inbox.DrawerSelection.Feed).title
+                        selection is com.cairn.reader.ui.inbox.DrawerSelection.Folder ->
+                            (selection as com.cairn.reader.ui.inbox.DrawerSelection.Folder).name
+                        else -> "All Articles"
                     }
                     Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 },
@@ -340,6 +349,11 @@ private fun EmptyState(filter: InboxFilter) {
             Icons.Outlined.Inbox,
             "You're all caught up",
             "New articles from your feeds land here. Tap Add feed, or share a link to Cairn, to get started.",
+        )
+        InboxFilter.STARRED -> Triple(
+            Icons.Outlined.Bookmark,
+            "No starred stories",
+            "Star a story from its menu to keep it here. Starred stories stay put no matter how you triage the rest.",
         )
         InboxFilter.SAVED -> Triple(
             Icons.Outlined.Bookmark,

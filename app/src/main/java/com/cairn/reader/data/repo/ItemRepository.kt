@@ -67,9 +67,10 @@ class ItemRepository @Inject constructor(
         )
     }
 
-    fun inbox(sourceId: String? = null): Flow<List<ItemListRow>> = itemDao.observeInbox(sourceId)
-    fun saved(sourceId: String? = null): Flow<List<ItemListRow>> = itemDao.observeSaved(sourceId)
-    fun all(sourceId: String? = null): Flow<List<ItemListRow>> = itemDao.observeAll(sourceId)
+    fun inbox(sourceId: String? = null, folder: String? = null): Flow<List<ItemListRow>> = itemDao.observeInbox(sourceId, folder)
+    fun saved(sourceId: String? = null, folder: String? = null): Flow<List<ItemListRow>> = itemDao.observeSaved(sourceId, folder)
+    fun all(sourceId: String? = null, folder: String? = null): Flow<List<ItemListRow>> = itemDao.observeAll(sourceId, folder)
+    fun starred(sourceId: String? = null, folder: String? = null): Flow<List<ItemListRow>> = itemDao.observeStarred(sourceId, folder)
     fun library(): Flow<List<ItemListRow>> = itemDao.observeLibrary()
     fun libraryAll(): Flow<List<ItemListRow>> = itemDao.observeLibraryAll()
     fun unsorted(): Flow<List<ItemListRow>> = itemDao.observeUnsorted()

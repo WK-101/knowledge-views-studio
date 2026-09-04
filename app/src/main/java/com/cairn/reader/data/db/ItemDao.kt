@@ -72,10 +72,11 @@ interface ItemDao {
         LEFT JOIN sources src ON src.id = i.sourceId
         WHERE COALESCE(s.isArchived, 0) = 0 AND COALESCE(s.isRead, 0) = 0
           AND (:sourceId IS NULL OR i.sourceId = :sourceId)
+          AND (:folder IS NULL OR src.folder = :folder)
         ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC
         """
     )
-    fun observeInbox(sourceId: String?): Flow<List<ItemListRow>>
+    fun observeInbox(sourceId: String?, folder: String?): Flow<List<ItemListRow>>
 
     @Query(
         """
@@ -107,10 +108,11 @@ interface ItemDao {
         LEFT JOIN sources src ON src.id = i.sourceId
         WHERE COALESCE(s.isArchived, 0) = 0 AND COALESCE(s.isReadLater, 0) = 1
           AND (:sourceId IS NULL OR i.sourceId = :sourceId)
+          AND (:folder IS NULL OR src.folder = :folder)
         ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC
         """
     )
-    fun observeSaved(sourceId: String?): Flow<List<ItemListRow>>
+    fun observeSaved(sourceId: String?, folder: String?): Flow<List<ItemListRow>>
 
     @Query(
         """
@@ -125,10 +127,30 @@ interface ItemDao {
         LEFT JOIN sources src ON src.id = i.sourceId
         WHERE COALESCE(s.isArchived, 0) = 0
           AND (:sourceId IS NULL OR i.sourceId = :sourceId)
+          AND (:folder IS NULL OR src.folder = :folder)
         ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC
         """
     )
-    fun observeAll(sourceId: String?): Flow<List<ItemListRow>>
+    fun observeAll(sourceId: String?, folder: String?): Flow<List<ItemListRow>>
+
+    @Query(
+        """
+        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
+               i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
+               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
+               i.extractStatus AS extractStatus,
+               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
+               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
+        FROM items i
+        LEFT JOIN item_states s ON s.itemId = i.id
+        LEFT JOIN sources src ON src.id = i.sourceId
+        WHERE COALESCE(s.isArchived, 0) = 0 AND COALESCE(s.isStarred, 0) = 1
+          AND (:sourceId IS NULL OR i.sourceId = :sourceId)
+          AND (:folder IS NULL OR src.folder = :folder)
+        ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC
+        """
+    )
+    fun observeStarred(sourceId: String?, folder: String?): Flow<List<ItemListRow>>
 
     @Query(
         """
