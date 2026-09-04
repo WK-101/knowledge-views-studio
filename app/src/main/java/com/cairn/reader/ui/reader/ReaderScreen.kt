@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.FormatSize
@@ -80,6 +81,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -149,6 +151,8 @@ fun ReaderScreen(
     var showCollections by remember { mutableStateOf(false) }
     var showTags by remember { mutableStateOf(false) }
     var managed by remember { mutableStateOf<HighlightEntity?>(null) }
+    var pending by remember { mutableStateOf<PendingSelection?>(null) }
+    val clipboard = LocalClipboardManager.current
 
     val palette = readerPalette(prefs.readerTheme)
 
@@ -257,7 +261,7 @@ fun ReaderScreen(
                 onLoadFull = viewModel::loadFullArticle,
                 onOpenOriginal = ::openOriginal,
                 onSaveProgress = viewModel::setProgress,
-                onAddHighlight = viewModel::addHighlight,
+                onSelectText = { b, s, e, q -> pending = PendingSelection(b, s, e, q) },
                 onManageHighlight = { managed = it },
             )
         }
@@ -302,11 +306,29 @@ fun ReaderScreen(
             highlight = highlight,
             onColor = { viewModel.setHighlightColor(highlight.id, it) },
             onSaveNote = { viewModel.setHighlightNote(highlight.id, it) },
+            onCopy = { clipboard.setText(AnnotatedString(highlight.quote.trim())) },
+            onShare = { shareText(highlight.quote.trim(), data?.title) },
             onDelete = { viewModel.removeHighlight(highlight.id); managed = null },
             onDismiss = { managed = null },
         )
     }
+
+    pending?.let { sel ->
+        SelectionSheet(
+            quote = sel.quote,
+            onHighlight = { color ->
+                viewModel.addHighlight(sel.blockIndex, sel.start, sel.end, sel.quote, color)
+                pending = null
+            },
+            onCopy = { clipboard.setText(AnnotatedString(sel.quote.trim())); pending = null },
+            onShare = { shareText(sel.quote.trim(), data?.title); pending = null },
+            onDismiss = { pending = null },
+        )
+    }
 }
+
+/** A text selection awaiting an action from the contextual menu. */
+private data class PendingSelection(val blockIndex: Int, val start: Int, val end: Int, val quote: String)
 
 @Composable
 private fun ArticleBody(
@@ -320,7 +342,7 @@ private fun ArticleBody(
     onLoadFull: () -> Unit,
     onOpenOriginal: () -> Unit,
     onSaveProgress: (Float) -> Unit,
-    onAddHighlight: (blockIndex: Int, start: Int, end: Int, quote: String) -> Unit,
+    onSelectText: (blockIndex: Int, start: Int, end: Int, quote: String) -> Unit,
     onManageHighlight: (HighlightEntity) -> Unit,
 ) {
     val data = state.data ?: return
@@ -417,7 +439,7 @@ private fun ArticleBody(
                     palette = palette,
                     justify = justify,
                     highlights = byBlock[index].orEmpty(),
-                    onAddHighlight = onAddHighlight,
+                    onSelectText = onSelectText,
                     onManageHighlight = onManageHighlight,
                 )
             }
@@ -433,7 +455,7 @@ private fun BlockView(
     palette: ReaderPalette,
     justify: Boolean,
     highlights: List<HighlightEntity>,
-    onAddHighlight: (blockIndex: Int, start: Int, end: Int, quote: String) -> Unit,
+    onSelectText: (blockIndex: Int, start: Int, end: Int, quote: String) -> Unit,
     onManageHighlight: (HighlightEntity) -> Unit,
 ) {
     when (block) {
@@ -445,7 +467,7 @@ private fun BlockView(
                 lineHeight = bodyStyle.lineHeight * 1.05f,
             ),
             highlights = highlights,
-            onAdd = { s, e, q -> onAddHighlight(blockIndex, s, e, q) },
+            onSelect = { s, e, q -> onSelectText(blockIndex, s, e, q) },
             onManage = onManageHighlight,
             modifier = Modifier.padding(horizontal = ReaderHPad, vertical = 10.dp),
         )
@@ -453,9 +475,9 @@ private fun BlockView(
             base = block.text,
             style = bodyStyle.copy(textAlign = if (justify) TextAlign.Justify else TextAlign.Start),
             highlights = highlights,
-            onAdd = { s, e, q -> onAddHighlight(blockIndex, s, e, q) },
+            onSelect = { s, e, q -> onSelectText(blockIndex, s, e, q) },
             onManage = onManageHighlight,
-            modifier = Modifier.padding(horizontal = ReaderHPad, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = ReaderHPad, vertical = 9.dp),
         )
         is ReaderBlock.Image -> Column(Modifier.padding(vertical = 10.dp)) {
             AsyncImage(
@@ -478,7 +500,7 @@ private fun BlockView(
                 base = block.text,
                 style = bodyStyle.copy(fontStyle = FontStyle.Italic, color = palette.secondary),
                 highlights = highlights,
-                onAdd = { s, e, q -> onAddHighlight(blockIndex, s, e, q) },
+                onSelect = { s, e, q -> onSelectText(blockIndex, s, e, q) },
                 onManage = onManageHighlight,
             )
         }
@@ -502,23 +524,23 @@ private fun BlockView(
 }
 
 /**
- * Body text that can be highlighted. Long-press a sentence to highlight it; long-press
- * an existing highlight to manage it. Links keep working because they are rendered as
- * their own interactive regions inside the text.
+ * Body text that can be highlighted. Long-press a sentence to open the selection menu
+ * (highlight in a colour, copy, share); long-press an existing highlight to manage it.
+ * Links keep working because they are rendered as their own interactive regions.
  */
 @Composable
 private fun HighlightableText(
     base: AnnotatedString,
     style: TextStyle,
     highlights: List<HighlightEntity>,
-    onAdd: (start: Int, end: Int, quote: String) -> Unit,
+    onSelect: (start: Int, end: Int, quote: String) -> Unit,
     onManage: (HighlightEntity) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val plain = base.text
     val rendered = remember(base, highlights) { applyHighlights(base, highlights) }
     val layoutState = remember { mutableStateOf<TextLayoutResult?>(null) }
-    val currentAdd by rememberUpdatedState(onAdd)
+    val currentSelect by rememberUpdatedState(onSelect)
     val currentManage by rememberUpdatedState(onManage)
     val currentHighlights by rememberUpdatedState(highlights)
     Text(
@@ -535,7 +557,7 @@ private fun HighlightableText(
                         currentManage(hit)
                     } else {
                         sentenceRangeAt(plain, offset)?.let { r ->
-                            currentAdd(r.first, r.last + 1, plain.substring(r.first, r.last + 1))
+                            currentSelect(r.first, r.last + 1, plain.substring(r.first, r.last + 1))
                         }
                     }
                 },
@@ -544,11 +566,62 @@ private fun HighlightableText(
     )
 }
 
+/** Shown when the reader long-presses unhighlighted text — the Inoreader-style contextual
+ *  menu: pick a highlight colour, or copy / share the selected passage. */
+@Composable
+private fun SelectionSheet(
+    quote: String,
+    onHighlight: (Int) -> Unit,
+    onCopy: () -> Unit,
+    onShare: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 28.dp)) {
+            Text(
+                text = "“${quote.trim()}”",
+                style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic),
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 4,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(18.dp))
+            Text("Highlight", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                HighlightColors.all.forEach { c ->
+                    Box(
+                        Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(Color(c))
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                            .clickable { onHighlight(c) },
+                    )
+                }
+            }
+            Spacer(Modifier.height(20.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = onCopy) {
+                    Icon(Icons.Outlined.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp)); Text("Copy")
+                }
+                OutlinedButton(onClick = onShare) {
+                    Icon(Icons.Outlined.IosShare, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp)); Text("Share")
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun HighlightSheet(
     highlight: HighlightEntity,
     onColor: (Int) -> Unit,
     onSaveNote: (String?) -> Unit,
+    onCopy: () -> Unit,
+    onShare: () -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -591,13 +664,15 @@ private fun HighlightSheet(
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Done),
             )
             Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 TextButton(onClick = onDelete) {
                     Icon(Icons.Outlined.DeleteOutline, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
                     Text("Delete")
                 }
                 Spacer(Modifier.weight(1f))
+                IconButton(onClick = onCopy) { Icon(Icons.Outlined.ContentCopy, contentDescription = "Copy", modifier = Modifier.size(20.dp)) }
+                IconButton(onClick = onShare) { Icon(Icons.Outlined.IosShare, contentDescription = "Share", modifier = Modifier.size(20.dp)) }
                 TextButton(onClick = { onSaveNote(note); onDismiss() }) { Text("Save") }
             }
         }
