@@ -2633,6 +2633,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val cur = repo.dayLogFor(day) ?: com.todocompanion.app.data.entity.DayLogEntity(day, workspaceId = activeWorkspace())
         repo.upsertDayLog(cur.copy(tomorrowFocus = text.trim(), updatedAt = System.currentTimeMillis()))
     }
+    // Wave 2 — tomorrow's WOOP if-then: the obstacle you expect + the "if <obstacle>, then I will…"
+    // implementation intention. Both optional ("" clears them). Read-modify-write, preserving every
+    // other field (the one-thing focus is set separately via saveTomorrowFocus).
+    fun saveTomorrowPlan(day: Long, obstacle: String, plan: String) = viewModelScope.launch {
+        val cur = repo.dayLogFor(day) ?: com.todocompanion.app.data.entity.DayLogEntity(day, workspaceId = activeWorkspace())
+        repo.upsertDayLog(cur.copy(tomorrowObstacle = obstacle.trim(), tomorrowPlan = plan.trim(), updatedAt = System.currentTimeMillis()))
+    }
     // Phase B — the reflection-depth extras: three good things, the morning-intention outcome, and the
     // answer to the day's rotating prompt. Read-modify-write, preserving every other field.
     fun saveDayReflectExtras(day: Long, good1: String, good2: String, good3: String, intentionOutcome: Int, promptAnswer: String) = viewModelScope.launch {

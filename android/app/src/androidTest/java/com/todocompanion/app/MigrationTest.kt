@@ -57,15 +57,15 @@ class MigrationTest {
         for (i in 0 until steps.size - 1) {
             assertEquals("gap between ${steps[i]} and ${steps[i + 1]}", steps[i].second, steps[i + 1].first)
         }
-        // The chain ends on the DB's declared version (64). Bumping the version without adding a
+        // The chain ends on the DB's declared version (65). Bumping the version without adding a
         // migration — or vice-versa — trips this.
-        assertEquals("chain must end at the current schema version", 64, steps.last().second)
+        assertEquals("chain must end at the current schema version", 65, steps.last().second)
     }
 
     /** The exported latest schema JSON must describe a database SQLite can actually create. */
     @Test
     fun exportedLatestSchemaIsBuildable() {
-        helper.createDatabase(TEST_DB, 64).close()
+        helper.createDatabase(TEST_DB, 65).close()
     }
 
     /**
@@ -109,6 +109,31 @@ class MigrationTest {
         db.query("SELECT emotionLabel FROM day_logs WHERE epochDay = 100 AND workspaceId = 'default'").use { c ->
             assertTrue("day_logs row survives the migration", c.moveToFirst())
             assertEquals("new emotionLabel column defaults to ''", "", c.getString(0))
+        }
+    }
+
+    /**
+     * Wave 2 — 64→65 adds the additive `tomorrowObstacle` + `tomorrowPlan` columns to day_logs. Create
+     * the DB at v64 with a day_logs row, migrate to v65, and assert the row survives and both new
+     * columns default to "".
+     */
+    @Test
+    fun migrate64To65AddsTomorrowWoopColumns() {
+        helper.createDatabase(TEST_DB, 64).apply {
+            execSQL(
+                "INSERT INTO day_logs (epochDay, amIntention, pmReflection, amMood, pmMood, dayRating, energy, " +
+                    "highlight, gratitude, lesson, tomorrowFocus, good1, good2, good3, intentionOutcome, " +
+                    "promptAnswer, dailyScoresJson, alignmentJson, emotionLabel, updatedAt, workspaceId) " +
+                    "VALUES (100, '', '', 0, 0, 3, 0, '', '', '', 'Ship it', '', '', '', 0, '', '', '', '', 0, 'default')",
+            )
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(TEST_DB, 65, true, *AppDatabase.ALL_MIGRATIONS)
+        db.query("SELECT tomorrowFocus, tomorrowObstacle, tomorrowPlan FROM day_logs WHERE epochDay = 100 AND workspaceId = 'default'").use { c ->
+            assertTrue("day_logs row survives the migration", c.moveToFirst())
+            assertEquals("existing tomorrowFocus is preserved", "Ship it", c.getString(0))
+            assertEquals("new tomorrowObstacle column defaults to ''", "", c.getString(1))
+            assertEquals("new tomorrowPlan column defaults to ''", "", c.getString(2))
         }
     }
 

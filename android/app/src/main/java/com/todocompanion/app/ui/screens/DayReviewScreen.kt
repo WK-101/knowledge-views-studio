@@ -72,9 +72,11 @@ import com.todocompanion.app.domain.DailyQuestions
 import com.todocompanion.app.domain.DayAlignment
 import com.todocompanion.app.domain.DayAlignments
 import com.todocompanion.app.domain.EmotionWords
+import com.todocompanion.app.domain.DayMemories
 import com.todocompanion.app.domain.Goal
 import com.todocompanion.app.domain.Goals
 import com.todocompanion.app.domain.ReviewCadence
+import com.todocompanion.app.domain.ReviewInsights
 import com.todocompanion.app.domain.ReviewRollup
 import com.todocompanion.app.domain.WeeklyReview
 import com.todocompanion.app.domain.WeeklyReviews
@@ -234,6 +236,10 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
     fun outcomeLabel(v: Int) = when (v) { 1 -> "Not yet"; 2 -> "Partly"; 3 -> "Done"; else -> "" }
     val reflectionLine = bookend?.let { it.highlight.ifBlank { it.pmReflection } } ?: ""
 
+    // Wave 2 (feature 8) — local memory resurfacing: one past moment from the same date in a prior
+    // year/month, or a recent good moment worth savouring. Computed on-device from the loaded day logs.
+    val memory = remember(dayLogs, day) { DayMemories.select(day, dayLogs) }
+
     Scaffold(topBar = {
         TopAppBar(
             expandedHeight = 52.dp,
@@ -256,7 +262,7 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
                     mode = mode, anchor = day, todayEd = todayEd, zone = zone,
                     weekStartSetting = settings.weekStart,
                     dayLogs = dayLogs, questions = questions, habits = habits, checkins = checkins,
-                    timeEntries = timeEntries, activities = activities, goals = goals,
+                    timeEntries = timeEntries, activities = activities, goals = goals, tasks = tasks,
                     weeklyReviewsJson = settings.weeklyReviewsJson,
                     onStartWeeklyReview = { iso -> weeklyIso = iso; showWeekly = true },
                     onAnchorChange = { day = it },
@@ -340,6 +346,25 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
             val closedToday = day in reviewedDays
             FilledTonalButton(onClick = { showClose = true }, modifier = Modifier.fillMaxWidth()) {
                 Text(if (closedToday) "🌙  Review the close" else "🌙  Close the day")
+            }
+
+            // ── On this day / from your reviews: a gentle, occasional local memory (feature 8) ──
+            memory?.let { mem ->
+                Spacer(Modifier.height(12.dp))
+                AppCard(modifier = Modifier.clickable { day = mem.epochDay }) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(if (mem.kind == DayMemories.Kind.ON_THIS_DAY) "🕰️" else "✨", Modifier.width(30.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(if (mem.kind == DayMemories.Kind.ON_THIS_DAY) "On this day" else "Worth remembering",
+                                style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text(mem.whenLabel + (if (mem.rating in 1..5) "  ·  " + "★".repeat(mem.rating) else ""),
+                                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                        }
+                        Icon(Icons.Filled.ChevronRight, "Open that day", tint = MaterialTheme.colorScheme.outline)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text("“${mem.text}”", style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                }
             }
 
             // ── Recap cards ──
@@ -464,6 +489,17 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
             Spacer(Modifier.height(12.dp))
             AppCard {
                 SectionTitle("Reflect")
+                // Feature 6 — bind the reflection to that day's numbers: a slim at-a-glance caption so the
+                // "why" is always read next to the "what", right inside this card.
+                if (!nothing) {
+                    val glance = buildString {
+                        append("✓ ${tasksDone.size}")
+                        if (habitsExpected > 0) append("  ·  🔁 ${habitsKept.size}/$habitsExpected")
+                        if (focusMin > 0) append("  ·  🎯 ${fmtHm(focusMin)}")
+                        if (trackedTotal > 0) append("  ·  ⧗ ${fmtHm(trackedTotal)}")
+                    }
+                    Text(glance, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(bottom = 6.dp))
+                }
                 // Mood + rating are captured in the close-the-day flow and the "Reflect on today" editor;
                 // shown here read-only (no duplicate pickers) — use Reflect / Edit below to change them.
                 val moodV = bookend?.pmMood ?: 0
@@ -587,6 +623,21 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
                             color = if (focusText.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
                         TextButton(onClick = { showReflect = true }) { Text(if (focusText.isBlank()) "Set" else "Edit") }
                     }
+                    // Wave 2 — the tomorrow WOOP if-then, rendered beneath the focus (feature 7). Secondary.
+                    val obstacleText = bookend?.tomorrowObstacle ?: ""
+                    val planText = bookend?.tomorrowPlan ?: ""
+                    if (obstacleText.isNotBlank()) {
+                        Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
+                            Text("🧱", Modifier.width(28.dp))
+                            Text(obstacleText, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    if (planText.isNotBlank()) {
+                        Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
+                            Text("🧭", Modifier.width(28.dp))
+                            Text(planText, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
                     if (tmrTasks.isNotEmpty() || tmrOcc.isNotEmpty()) {
                         Spacer(Modifier.height(6.dp))
                         Text("On the calendar", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
@@ -632,6 +683,7 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
             vm.saveDayReflectExtras(day, good1, good2, good3, intentionOutcome, promptAnswer)
         },
         onSaveEmotion = { label -> vm.saveEmotionLabel(day, label) },
+        onSaveTomorrowPlan = { obstacle, plan -> vm.saveTomorrowPlan(day, obstacle, plan) },
     )
 
     if (showQuestions) DailyQuestionsDialog(
@@ -667,6 +719,7 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
             vm.saveDayReflectExtras(day, good1, good2, good3, intentionOutcome, promptAnswer)
         },
         onSaveEmotion = { label -> vm.saveEmotionLabel(day, label) },
+        onSaveTomorrowPlan = { obstacle, plan -> vm.saveTomorrowPlan(day, obstacle, plan) },
     )
 
     // Wave 1 — the guided Weekly Review, opened from the Week roll-up. Computes the week window from the
@@ -675,8 +728,8 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
         val ws = weekStartOf(date, settings.weekStart)
         val wStart = ws.toEpochDay()
         val wEnd = minOf(ws.plusDays(6).toEpochDay(), todayEd)
-        val weekRollup = remember(wStart, wEnd, dayLogs, questions, habits, checkins, timeEntries, activities, goals) {
-            ReviewRollup.compute(wStart, wEnd, dayLogs, questions, habits, checkins, timeEntries, activities, zone, System.currentTimeMillis(), goals)
+        val weekRollup = remember(wStart, wEnd, dayLogs, questions, habits, checkins, timeEntries, activities, goals, tasks) {
+            ReviewRollup.compute(wStart, wEnd, dayLogs, questions, habits, checkins, timeEntries, activities, zone, System.currentTimeMillis(), goals, tasks)
         }
         val existing = remember(settings.weeklyReviewsJson, weeklyIso) { WeeklyReviews.forWeek(settings.weeklyReviewsJson, weeklyIso) }
         WeeklyReviewFlow(
@@ -955,6 +1008,7 @@ private fun CloseDayFlow(
     onSave: (rating: Int, energy: Int, reflection: String, mood: Int, highlight: String, gratitude: String, lesson: String, tomorrow: String) -> Unit,
     onSaveExtras: (good1: String, good2: String, good3: String, intentionOutcome: Int, promptAnswer: String) -> Unit,
     onSaveEmotion: (label: String) -> Unit,
+    onSaveTomorrowPlan: (obstacle: String, plan: String) -> Unit,
 ) {
     var full by remember { mutableStateOf(true) }
     var rating by remember { mutableIntStateOf(log?.dayRating ?: 0) }
@@ -965,6 +1019,9 @@ private fun CloseDayFlow(
     var gratitude by remember { mutableStateOf(log?.gratitude ?: "") }
     var lesson by remember { mutableStateOf(log?.lesson ?: "") }
     var tomorrow by remember { mutableStateOf(log?.tomorrowFocus ?: "") }
+    // Wave 2 — tomorrow's WOOP if-then (feature 7): the obstacle you expect + the implementation intention.
+    var obstacle by remember { mutableStateOf(log?.tomorrowObstacle ?: "") }
+    var plan by remember { mutableStateOf(log?.tomorrowPlan ?: "") }
     // Phase B — reflection-depth state.
     var good1 by remember { mutableStateOf(log?.good1 ?: "") }
     var good2 by remember { mutableStateOf(log?.good2 ?: "") }
@@ -1135,6 +1192,13 @@ private fun CloseDayFlow(
                     "tomorrow" -> {
                         Text("Pre-decide the one thing that matters, so tomorrow starts with the decision already made.", style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(bottom = 8.dp))
                         AppTextField(tomorrow, { tomorrow = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("🎯 Tomorrow's one thing") }, singleLine = true)
+                        // Wave 2 — a light WOOP if-then (feature 7): name the obstacle you expect, then pre-decide
+                        // your response. Both optional and secondary so the step stays fast.
+                        Spacer(Modifier.height(12.dp))
+                        Text("Anticipate what could get in the way — optional, but it helps.", style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(bottom = 4.dp))
+                        AppTextField(obstacle, { obstacle = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("🧱 The obstacle you expect") }, singleLine = true)
+                        Spacer(Modifier.height(6.dp))
+                        AppTextField(plan, { plan = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("🧭 If that happens, then I will…") }, singleLine = true)
                     }
                     else -> {
                         Spacer(Modifier.height(24.dp))
@@ -1165,6 +1229,8 @@ private fun CloseDayFlow(
                                 onSaveExtras(if (full) good1 else "", if (full) good2 else "", if (full) good3 else "", intentionOutcome, if (full) promptAnswer else "")
                                 // The precise emotion word is captured in the always-shown "feel" step, so save it in both flows.
                                 onSaveEmotion(emotionLabel)
+                                // Wave 2 — the tomorrow WOOP if-then; only today has a "tomorrow" step to plan for.
+                                if (isToday) onSaveTomorrowPlan(obstacle, plan)
                                 // Express never shows the align step, so leave any recorded alignment untouched there.
                                 if (full) onSaveAlignment(movedGoalIds.toList(), honoredValueIds.toList())
                             }
@@ -1364,6 +1430,7 @@ private fun ReflectDialog(
     onSave: (rating: Int, energy: Int, reflection: String, mood: Int, highlight: String, gratitude: String, lesson: String, tomorrow: String) -> Unit,
     onSaveExtras: (good1: String, good2: String, good3: String, intentionOutcome: Int, promptAnswer: String) -> Unit,
     onSaveEmotion: (label: String) -> Unit,
+    onSaveTomorrowPlan: (obstacle: String, plan: String) -> Unit,
 ) {
     var rating by remember { mutableIntStateOf(log?.dayRating ?: 0) }
     var energy by remember { mutableIntStateOf(log?.energy ?: 0) }
@@ -1374,6 +1441,9 @@ private fun ReflectDialog(
     var gratitude by remember { mutableStateOf(log?.gratitude ?: "") }
     var lesson by remember { mutableStateOf(log?.lesson ?: "") }
     var tomorrow by remember { mutableStateOf(log?.tomorrowFocus ?: "") }
+    // Wave 2 — tomorrow's WOOP if-then (feature 7): optional obstacle + implementation intention.
+    var obstacle by remember { mutableStateOf(log?.tomorrowObstacle ?: "") }
+    var plan by remember { mutableStateOf(log?.tomorrowPlan ?: "") }
     // Phase B — keep parity with the guided close: three good things + the day's rotating prompt.
     var good1 by remember { mutableStateOf(log?.good1 ?: "") }
     var good2 by remember { mutableStateOf(log?.good2 ?: "") }
@@ -1390,6 +1460,7 @@ private fun ReflectDialog(
                 onSave(rating, energy, reflection, pmMood, highlight, gratitude, lesson, tomorrow)
                 onSaveExtras(good1, good2, good3, intentionOutcome, promptAnswer)
                 onSaveEmotion(emotionLabel)
+                if (isToday) onSaveTomorrowPlan(obstacle, plan)
             }) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
@@ -1447,6 +1518,10 @@ private fun ReflectDialog(
                 if (isToday) {
                     Spacer(Modifier.height(6.dp))
                     AppTextField(tomorrow, { tomorrow = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("🎯 The one thing that matters tomorrow") }, singleLine = true)
+                    Spacer(Modifier.height(6.dp))
+                    AppTextField(obstacle, { obstacle = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("🧱 The obstacle you expect (optional)") }, singleLine = true)
+                    Spacer(Modifier.height(6.dp))
+                    AppTextField(plan, { plan = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("🧭 If that happens, then I will… (optional)") }, singleLine = true)
                 }
             }
         },
@@ -1548,6 +1623,7 @@ private fun RangeRollup(
     timeEntries: List<com.todocompanion.app.data.entity.TimeEntryEntity>,
     activities: List<com.todocompanion.app.data.entity.TimeActivityEntity>,
     goals: List<Goal>,
+    tasks: List<TaskEntity>,
     weeklyReviewsJson: String,
     onStartWeeklyReview: (isoWeek: String) -> Unit,
     onAnchorChange: (Long) -> Unit,
@@ -1590,8 +1666,12 @@ private fun RangeRollup(
         canNext = first < curFirst
     }
 
-    val rollup = remember(mode, start, end, dayLogs, questions, habits, checkins, timeEntries, activities, goals) {
-        ReviewRollup.compute(start, end, dayLogs, questions, habits, checkins, timeEntries, activities, zone, System.currentTimeMillis(), goals)
+    val rollup = remember(mode, start, end, dayLogs, questions, habits, checkins, timeEntries, activities, goals, tasks) {
+        ReviewRollup.compute(start, end, dayLogs, questions, habits, checkins, timeEntries, activities, zone, System.currentTimeMillis(), goals, tasks)
+    }
+    // Feature 5 — the on-device cross-stream patterns for this period (descriptive, never causal).
+    val insights = remember(mode, start, end, dayLogs, questions, habits, checkins, timeEntries, activities) {
+        ReviewInsights.compute(start, end, dayLogs, questions, habits, checkins, timeEntries, activities, zone, System.currentTimeMillis())
     }
 
     // ── Period navigator (mirrors the day navigator) ──
@@ -1725,6 +1805,9 @@ private fun RangeRollup(
                         Spacer(Modifier.width(8.dp))
                         Text(r.label, Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
+                    // Feature 6 — that day's numbers, so the note is never read without its context.
+                    val metrics = reflectionMetricsLine(r)
+                    if (metrics.isNotBlank()) Text(metrics, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 1.dp, bottom = 2.dp))
                     Text(r.text, style = MaterialTheme.typography.bodyMedium, maxLines = 4, overflow = TextOverflow.Ellipsis)
                 }
             }
@@ -1799,19 +1882,34 @@ private fun RangeRollup(
         }
     }
 
-    // ── 7. "Your best days share…" — descriptive, computed on-device ──
-    if (rollup.correlations.isNotEmpty()) {
+    // ── 7. Patterns — the on-device cross-stream correlation engine (feature 5). Replaces the old single
+    // "Your best days share…" line with a richer, ranked, honestly-gated set of descriptive findings. ──
+    if (insights.isNotEmpty()) {
         Spacer(Modifier.height(12.dp))
         AppCard {
-            SectionTitle("Your best days share…")
-            rollup.correlations.forEach { c ->
-                Row(Modifier.padding(vertical = 2.dp)) {
+            SectionTitle("Patterns")
+            insights.forEach { ins ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
                     Text("•", Modifier.width(16.dp), color = MaterialTheme.colorScheme.primary)
-                    Text(c, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    Column(Modifier.weight(1f)) {
+                        Text(ins.text, style = MaterialTheme.typography.bodyMedium)
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
+                            StrengthDots(ins.strength)
+                            Spacer(Modifier.width(6.dp))
+                            Text("${ins.confidence.label} signal · ${ins.sampleSize} days", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                        }
+                    }
                 }
             }
-            Text("A pattern in your reviews, not a cause — just what your higher-rated days had in common.",
+            Text("Descriptive, not a cause — patterns your reviews share, computed privately on your device.",
                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(top = 6.dp))
+        }
+    } else if (rollup.ratedDays in 1 until ReviewInsights.MIN_RATED_DAYS) {
+        Spacer(Modifier.height(12.dp))
+        AppCard {
+            SectionTitle("Patterns")
+            Text("Keep reviewing — patterns across your habits, time and mood appear after about ${ReviewInsights.MIN_RATED_DAYS} rated days.",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -1833,4 +1931,33 @@ private fun weekLabel(a: LocalDate, b: LocalDate): String {
 private fun dayChip(epochDay: Long): String {
     val d = LocalDate.ofEpochDay(epochDay)
     return d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()) + " " + d.dayOfMonth
+}
+
+/** Feature 5 — a compact three-dot strength meter for a pattern's confidence signal. */
+@Composable
+private fun StrengthDots(strength: Double) {
+    val filled = when {
+        strength >= 0.60 -> 3
+        strength >= 0.35 -> 2
+        else -> 1
+    }
+    val on = MaterialTheme.colorScheme.primary
+    val off = MaterialTheme.colorScheme.surfaceVariant
+    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        (1..3).forEach { i ->
+            Box(Modifier.size(6.dp).clip(CircleShape).background(if (i <= filled) on else off))
+        }
+    }
+}
+
+/** Feature 6 — a one-line "that day's numbers" caption for a reflection digest entry: rating stars,
+ *  mood face, tasks-done count and the top tracked activity, so a note keeps its context. */
+private fun reflectionMetricsLine(r: ReviewRollup.ReflectionEntry): String {
+    val parts = buildList {
+        if (r.rating in 1..5) add("★".repeat(r.rating) + "☆".repeat(5 - r.rating))
+        if (r.mood in 1..5) add(moodFace(r.mood))
+        if (r.tasksDone > 0) add("✓ ${r.tasksDone}")
+        r.topActivityName?.let { add((r.topActivityEmoji?.let { e -> "$e " } ?: "") + it) }
+    }
+    return parts.joinToString("  ·  ")
 }

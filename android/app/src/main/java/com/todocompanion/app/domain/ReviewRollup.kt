@@ -3,6 +3,7 @@ package com.todocompanion.app.domain
 import com.todocompanion.app.data.entity.DayLogEntity
 import com.todocompanion.app.data.entity.HabitCheckinEntity
 import com.todocompanion.app.data.entity.HabitEntity
+import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.data.entity.TimeActivityEntity
 import com.todocompanion.app.data.entity.TimeEntryEntity
 import com.todocompanion.app.domain.habit.HabitStats
@@ -37,8 +38,22 @@ object ReviewRollup {
     /** One aggregated "good thing", condensed across the period with how many days it recurred. */
     data class WinTally(val text: String, val count: Int)
 
-    /** One dated reflection fragment for the digest — a lesson, a prompt answer, or an evening reflection. */
-    data class ReflectionEntry(val epochDay: Long, val label: String, val text: String)
+    /**
+     * One dated reflection fragment for the digest — a lesson, a prompt answer, or an evening reflection —
+     * carried together with that day's key at-a-glance numbers (feature 6), so a note is never read
+     * without its context. [rating]/[mood] are 0 when unset; [topActivityName] is null when no time was
+     * tracked that day. All metrics are computed on the fly from the loaded data (no schema change).
+     */
+    data class ReflectionEntry(
+        val epochDay: Long,
+        val label: String,
+        val text: String,
+        val rating: Int = 0,
+        val mood: Int = 0,
+        val tasksDone: Int = 0,
+        val topActivityEmoji: String? = null,
+        val topActivityName: String? = null,
+    )
 
     /** Per-habit kept-vs-expected over the period. [pct] is the consistency percentage for the meter bar. */
     data class HabitConsistency(
@@ -112,6 +127,7 @@ object ReviewRollup {
         zone: ZoneId,
         now: Long,
         goals: List<Goal> = emptyList(),
+        tasks: List<TaskEntity> = emptyList(),
     ): Rollup {
         if (endDay < startDay) {
             return Rollup(startDay, endDay, 0, 0, 0, 0.0, emptyList(), emptyList(), 0, emptyList(), 0, emptyList(), emptyList(), emptyList(), emptyList())
@@ -148,12 +164,24 @@ object ReviewRollup {
         val moreWins = (allWins.size - wins.size).coerceAtLeast(0)
 
         // ── 3. Reflections digest: lessons, prompt answers and evening reflections, most-recent day first.
+        // Feature 6 — each entry carries that day's key numbers (rating, mood, tasks done, top tracked
+        // activity), computed on the fly, so the "why" always travels with the day it came from.
         val allReflections = buildList {
             for (d in endDay downTo startDay) {
                 val log = logByDay[d] ?: continue
-                if (log.lesson.isNotBlank()) add(ReflectionEntry(d, "💡 Lesson", log.lesson.trim()))
-                if (log.promptAnswer.isNotBlank()) add(ReflectionEntry(d, DayPrompts.promptFor(d), log.promptAnswer.trim()))
-                if (log.pmReflection.isNotBlank()) add(ReflectionEntry(d, "🌙 Reflection", log.pmReflection.trim()))
+                if (log.lesson.isBlank() && log.promptAnswer.isBlank() && log.pmReflection.isBlank()) continue
+                val (ws, we) = millisWindow(d, d, zone)
+                val tasksDone = tasks.count { it.completed && !it.trashed && it.completedAt != null && it.completedAt!! in ws until we }
+                val top = TimeTracking.totalsByActivity(timeEntries, ws, we, now).firstOrNull()
+                val topAct = top?.let { at -> activities.firstOrNull { it.id == at.activityId } }
+                fun entry(label: String, text: String) = ReflectionEntry(
+                    epochDay = d, label = label, text = text,
+                    rating = log.dayRating, mood = log.pmMood, tasksDone = tasksDone,
+                    topActivityEmoji = topAct?.emoji, topActivityName = topAct?.name,
+                )
+                if (log.lesson.isNotBlank()) add(entry("💡 Lesson", log.lesson.trim()))
+                if (log.promptAnswer.isNotBlank()) add(entry(DayPrompts.promptFor(d), log.promptAnswer.trim()))
+                if (log.pmReflection.isNotBlank()) add(entry("🌙 Reflection", log.pmReflection.trim()))
             }
         }
         val reflections = allReflections.take(MAX_REFLECTIONS)

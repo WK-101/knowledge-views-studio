@@ -154,6 +154,11 @@ data class DayLogEntity(
     // Wave 1 — an optional precise emotion word alongside the 5-face pmMood (affect-labeling; see
     // domain/EmotionWords.kt). "" = none named (so old backups round-trip).
     val emotionLabel: String = "",
+    // Wave 2 — tomorrow's WOOP if-then (implementation intention), sitting beside tomorrowFocus. Both
+    // optional; "" = unset (so old backups round-trip). tomorrowObstacle: the obstacle you expect;
+    // tomorrowPlan: "If <obstacle>, then I will…". See feature 7 (WOOP/MCII).
+    val tomorrowObstacle: String = "",
+    val tomorrowPlan: String = "",
     val updatedAt: Long = 0,
     val workspaceId: String = "default",
 )
