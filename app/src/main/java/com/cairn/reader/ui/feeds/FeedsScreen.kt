@@ -57,6 +57,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cairn.reader.data.db.SourceEntity
 import com.cairn.reader.ui.components.FeedSettingsSheet
+import com.cairn.reader.ui.util.formatAgo
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 @Composable
@@ -174,6 +175,25 @@ private fun FeedManageRow(source: SourceEntity, unread: Int, onClick: () -> Unit
         Column(Modifier.weight(1f)) {
             Text(source.title, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(host, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val failing = source.consecutiveErrors > 0
+            val status = when {
+                failing -> "Sync failing — tap to check"
+                source.lastSyncedAt != null -> formatAgo(source.lastSyncedAt)?.takeIf { it.isNotEmpty() }?.let { "Synced $it" }
+                else -> null
+            }
+            if (failing || status != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(6.dp).clip(CircleShape).background(if (failing) scheme.error else scheme.primary.copy(alpha = 0.6f)))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        status ?: "Sync failing",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (failing) scheme.error else scheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
         }
         if (unread > 0) {
             Spacer(Modifier.width(8.dp))

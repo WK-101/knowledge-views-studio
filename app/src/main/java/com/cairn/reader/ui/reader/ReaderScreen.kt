@@ -494,6 +494,8 @@ private fun ArticleBody(
                         data.author?.let { add(it) }
                         if (data.readingMinutes > 0) add("${data.readingMinutes} min read")
                         formatAgo(data.publishedAt).takeIf { it.isNotEmpty() }?.let { add(it) }
+                        if (data.cacheStatus == "PERMANENT") add("Saved offline")
+                        if (data.isArchived) add("Archived")
                     }.joinToString("  ·  ")
                     if (meta.isNotEmpty()) Text(meta, style = MaterialTheme.typography.labelMedium, color = palette.secondary)
                     Spacer(Modifier.height(16.dp))
