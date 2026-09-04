@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -72,6 +73,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -407,47 +410,101 @@ private fun ChaptersCard(chapters: List<com.todocompanion.app.domain.LifeReadMod
     }
 }
 
-/** #18 Life in weeks + #13 life-spent — a "4000 weeks" grid: one dot per week of an 80-year life,
- *  filled up to the weeks already lived. Rendered for a favourite/earliest birthday with a known year. */
+/** #18 Life in weeks + #13 life-spent — a "4000 weeks" grid: one rounded square per week of an 80-year
+ *  life, filled up to the weeks already lived. Redesigned (R107): decade bands with age labels down the
+ *  left, a bright "now" marker at the current week, and a legend — so it reads at a glance instead of as a
+ *  wall of dots. Rendered for a favourite/earliest birthday with a known year. */
 @Composable
 private fun LifeInWeeksCard(subject: CountdownEntity, today: LocalDate, trackedHoursThisYear: Int) {
     val lifeYears = 80
+    val cols = 52
     val lived = LifeEvent.weeksLived(subject, today)
-    val total = LifeEvent.totalLifeWeeks(lifeYears)
     val pct = LifeEvent.lifeSpentPct(subject, lifeYears, today) ?: 0
     val who = subject.personName.ifBlank { subject.title }
+    val yearsLeft = (lifeYears - (lived / 52)).coerceAtLeast(0)
     val filled = MaterialTheme.colorScheme.primary
-    val empty = MaterialTheme.colorScheme.onSurface.copy(alpha = .12f)
+    val filledSoft = MaterialTheme.colorScheme.primary.copy(alpha = .55f)
+    val empty = MaterialTheme.colorScheme.onSurface.copy(alpha = .10f)
+    val band = MaterialTheme.colorScheme.onSurface.copy(alpha = .035f)
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     // #33 life-clock: how far through this calendar year we are.
     val yearPct = ((today.dayOfYear.toFloat() / (if (today.isLeapYear) 366 else 365)) * 100).toInt()
-    Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f), modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(14.dp)) {
-            Text("▦ $who's life in weeks", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Text("Each dot is one week of an ${lifeYears}-year life — ${"%,d".format(lived)} lived, $pct%% spent.".replace("%%", "%"),
-                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            // #13 honest "life spent" from real tracked time · #33 the year's life-clock.
-            Text("This year: $yearPct% elapsed" + (if (trackedHoursThisYear > 0) " · ${"%,d".format(trackedHoursThisYear)} h you actually tracked" else ""),
+    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("▦  $who's life in weeks", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.primary.copy(alpha = .18f)) {
+                    Text("$pct% lived", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp))
+                }
+            }
+            Spacer(Modifier.height(2.dp))
+            Text("Each square is a week of an ${lifeYears}-year life · ${"%,d".format(lived)} lived · ~$yearsLeft years to go",
+                style = MaterialTheme.typography.labelSmall, color = labelColor)
+            Text("This year: $yearPct% elapsed" + (if (trackedHoursThisYear > 0) " · ${"%,d".format(trackedHoursThisYear)} h you tracked" else ""),
                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.height(8.dp))
-            val cols = 52
-            val rows = lifeYears
+            Spacer(Modifier.height(12.dp))
+            val gutter = 26f  // px reserved on the left for decade age labels
             androidx.compose.foundation.Canvas(
-                Modifier.fillMaxWidth().height((rows * 3.2f).dp)
+                Modifier.fillMaxWidth().height((lifeYears * 4.6f).dp)
             ) {
-                val gap = size.width / cols
-                val cell = gap * 0.62f
-                val r = cell / 2f
-                for (row in 0 until rows) {
+                val gridLeft = gutter
+                val gridW = size.width - gutter
+                val step = gridW / cols
+                val rowH = size.height / lifeYears
+                val cell = minOf(step, rowH) * 0.72f
+                val rad = cell * 0.28f
+                val nowRow = lived / cols
+                // Decade bands (alternate 10-year stripes) for readability.
+                for (decade in 0 until lifeYears step 20) {
+                    val top = decade * rowH
+                    drawRect(color = band, topLeft = androidx.compose.ui.geometry.Offset(gridLeft, top),
+                        size = androidx.compose.ui.geometry.Size(gridW, rowH * 10))
+                }
+                // Week cells.
+                for (row in 0 until lifeYears) {
                     for (col in 0 until cols) {
                         val idx = row * cols + col
-                        val cx = col * gap + gap / 2f
-                        val cy = row * (size.height / rows) + (size.height / rows) / 2f
-                        drawCircle(color = if (idx < lived) filled else empty, radius = r, center = androidx.compose.ui.geometry.Offset(cx, cy))
+                        val x = gridLeft + col * step + (step - cell) / 2f
+                        val y = row * rowH + (rowH - cell) / 2f
+                        val color = when {
+                            idx < lived && row == nowRow -> filled
+                            idx < lived -> filledSoft
+                            else -> empty
+                        }
+                        drawRoundRect(color = color, topLeft = androidx.compose.ui.geometry.Offset(x, y),
+                            size = androidx.compose.ui.geometry.Size(cell, cell),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(rad, rad))
                     }
                 }
+                // "Now" marker line under the current week row.
+                if (nowRow < lifeYears) {
+                    val ly = (nowRow + 1) * rowH
+                    drawLine(color = filled, start = androidx.compose.ui.geometry.Offset(gridLeft, ly),
+                        end = androidx.compose.ui.geometry.Offset(size.width, ly), strokeWidth = 3f)
+                }
+                // Decade age labels down the left gutter.
+                val paint = android.graphics.Paint().apply {
+                    isAntiAlias = true; color = labelColor.toArgb(); textSize = rowH * 1.3f; textAlign = android.graphics.Paint.Align.RIGHT
+                }
+                for (decade in 0..lifeYears step 20) {
+                    if (decade >= lifeYears) continue
+                    val ty = decade * rowH + rowH * 0.9f
+                    drawContext.canvas.nativeCanvas.drawText(decade.toString(), gutter - 6f, ty, paint)
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                LegendSwatch(filled); Text("this week", style = MaterialTheme.typography.labelSmall, color = labelColor)
+                Spacer(Modifier.width(6.dp)); LegendSwatch(filledSoft); Text("lived", style = MaterialTheme.typography.labelSmall, color = labelColor)
+                Spacer(Modifier.width(6.dp)); LegendSwatch(empty); Text("to come", style = MaterialTheme.typography.labelSmall, color = labelColor)
             }
         }
     }
+}
+
+@Composable
+private fun LegendSwatch(color: Color) {
+    Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(color))
 }
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -902,28 +959,154 @@ internal fun OccasionDetailsSheet(c: CountdownEntity, today: LocalDate, onDismis
                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .8f))
             Spacer(Modifier.height(16.dp))
             val ctx = androidx.compose.ui.platform.LocalContext.current
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                androidx.compose.material3.Button(onClick = { shareOccasionCard(ctx, c, today) }, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Filled.Share, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Share card")
+            var studioOpen by remember { mutableStateOf(false) }
+            if (studioOpen) {
+                OccasionCardStudio(c, today)
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { studioOpen = false }) { Text("Close studio") }
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = onEdit) { Text("Edit", fontWeight = FontWeight.SemiBold) }
                 }
-                TextButton(onClick = { shareOccasion(ctx, c) }) { Text("As text") }
-                TextButton(onClick = onEdit) { Text("Edit", fontWeight = FontWeight.SemiBold) }
+            } else {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.Button(onClick = { studioOpen = true }, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Filled.Share, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Design a card")
+                    }
+                    TextButton(onClick = { shareOccasion(ctx, c) }) { Text("As text") }
+                    TextButton(onClick = onEdit) { Text("Edit", fontWeight = FontWeight.SemiBold) }
+                }
             }
         }
     }
 }
 
-/** R52 — render a personalised occasion card (PNG) on-device and offer it via the OS share sheet. */
-private fun shareOccasionCard(ctx: android.content.Context, c: CountdownEntity, today: LocalDate) {
+/** R107 — the inline "Card Studio": pick a template, aspect ratio, accent, message and modular items, see
+ *  a live preview, then share or save the rendered PNG. All rendering is on-device (see [OccasionCards]). */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun OccasionCardStudio(c: CountdownEntity, today: LocalDate) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val type = LifeEvent.type(c)
+    val canAge = type.countsAge && c.yearKnown
+    val hasWeeks = type == LifeEvent.EventType.BIRTHDAY && c.yearKnown && !c.countUp
+    var template by remember { mutableStateOf(com.todocompanion.app.util.OccasionCards.Template.BLOOM) }
+    var ratio by remember { mutableStateOf(com.todocompanion.app.util.OccasionCards.Ratio.SQUARE) }
+    var accent by remember { mutableStateOf(c.colorArgb) }
+    var message by remember { mutableStateOf(c.notes) }
+    var mods by remember {
+        mutableStateOf(
+            com.todocompanion.app.util.OccasionCards.Modules(
+                age = canAge, zodiac = false, countdown = false, weeks = false,
+            )
+        )
+    }
+    val spec = com.todocompanion.app.util.OccasionCards.Spec(
+        template = template, ratio = ratio, accentArgb = accent,
+        message = message, modules = mods,
+    )
+    // Recompute the preview only when an input changes; render full-res, let the Image downscale.
+    val preview = remember(c.id, template, ratio, accent, message, mods) {
+        runCatching { com.todocompanion.app.util.OccasionCards.render(c, spec, today) }.getOrNull()
+    }
+
+    Column(Modifier.fillMaxWidth()) {
+        Text("Card studio", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(8.dp))
+        // Live preview.
+        Box(
+            Modifier.fillMaxWidth().heightIn(max = 420.dp).clip(RoundedCornerShape(14.dp))
+                .background(MaterialTheme.colorScheme.surface),
+            contentAlignment = Alignment.Center,
+        ) {
+            val bmp = preview
+            if (bmp != null) Image(bmp.asImageBitmap(), "Card preview", Modifier.fillMaxWidth(), contentScale = ContentScale.Fit)
+            else Text("Couldn't build the preview.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp))
+        }
+        Spacer(Modifier.height(12.dp))
+
+        // Template chips.
+        Text("Style", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        com.todocompanion.app.ui.components.OptionChips(
+            com.todocompanion.app.util.OccasionCards.Template.entries, template, { template = it }, spacing = 6,
+        ) { it.label }
+        Spacer(Modifier.height(8.dp))
+
+        // Aspect ratio.
+        Text("Shape", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        com.todocompanion.app.ui.components.OptionChips(
+            com.todocompanion.app.util.OccasionCards.Ratio.entries, ratio, { ratio = it }, spacing = 6,
+        ) { it.label }
+        Spacer(Modifier.height(8.dp))
+
+        // Modular items (only the ones this occasion supports).
+        Text("Show on the card", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(0.dp)) {
+            ModToggle("Name", mods.name) { mods = mods.copy(name = it) }
+            if (canAge) ModToggle("Age", mods.age) { mods = mods.copy(age = it) }
+            ModToggle("Date", mods.date) { mods = mods.copy(date = it) }
+            ModToggle("Countdown", mods.countdown) { mods = mods.copy(countdown = it) }
+            ModToggle("Message", mods.message) { mods = mods.copy(message = it) }
+            ModToggle("Milestone", mods.milestone) { mods = mods.copy(milestone = it) }
+            if (type == LifeEvent.EventType.BIRTHDAY) ModToggle("Zodiac", mods.zodiac) { mods = mods.copy(zodiac = it) }
+            if (hasWeeks) ModToggle("Life in weeks", mods.weeks) { mods = mods.copy(weeks = it) }
+        }
+        Spacer(Modifier.height(8.dp))
+
+        // Message.
+        if (mods.message) {
+            com.todocompanion.app.ui.components.AppTextField(
+                message, { message = it }, label = { Text("Your message") },
+                modifier = Modifier.fillMaxWidth(), minLines = 2, maxLines = 5,
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+
+        // Accent colour.
+        Text("Accent", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        com.todocompanion.app.ui.components.AppColorPicker(current = accent, onPick = { accent = it })
+        Spacer(Modifier.height(12.dp))
+
+        // Actions.
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.Button(onClick = { shareOccasionCard(ctx, c, spec, today) }, modifier = Modifier.weight(1f)) {
+                Icon(Icons.Filled.Share, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Share")
+            }
+            androidx.compose.material3.OutlinedButton(onClick = { saveOccasionCard(ctx, c, spec, today) }) { Text("Save image") }
+        }
+    }
+}
+
+@Composable
+private fun ModToggle(label: String, on: Boolean, onChange: (Boolean) -> Unit) {
+    FilterChip(selected = on, onClick = { onChange(!on) }, label = { Text(label) })
+}
+
+private fun cardFileName(c: CountdownEntity): String =
+    (c.personName.ifBlank { c.title }).ifBlank { "occasion" }.filter { it.isLetterOrDigit() || it == ' ' }.trim().replace(' ', '-').take(40).ifBlank { "occasion" } + "-card.png"
+
+/** R107 — render a Card-Studio [spec] on-device and offer it via the OS share sheet (permission-free). */
+private fun shareOccasionCard(ctx: android.content.Context, c: CountdownEntity, spec: com.todocompanion.app.util.OccasionCards.Spec, today: LocalDate) {
     runCatching {
-        val bmp = com.todocompanion.app.util.OccasionCardRenderer.render(c, today)
-        val safeName = (c.personName.ifBlank { c.title }).ifBlank { "occasion" }.filter { it.isLetterOrDigit() || it == ' ' }.trim().replace(' ', '-').take(40).ifBlank { "occasion" }
-        val res = com.todocompanion.app.util.ProgressCard.saveAndShareUri(ctx, bmp, "$safeName-card.png")
+        val bmp = com.todocompanion.app.util.OccasionCards.render(c, spec, today)
+        val res = com.todocompanion.app.util.ProgressCard.saveAndShareUri(ctx, bmp, cardFileName(c))
         val uri = res.shareUri
         if (uri != null) com.todocompanion.app.util.ProgressCard.share(ctx, uri)
         else android.widget.Toast.makeText(ctx, "Couldn't build the card.", android.widget.Toast.LENGTH_SHORT).show()
     }.onFailure {
         android.widget.Toast.makeText(ctx, "Couldn't build the card.", android.widget.Toast.LENGTH_SHORT).show()
+    }
+}
+
+/** Save the rendered card to Downloads only (no share sheet). */
+private fun saveOccasionCard(ctx: android.content.Context, c: CountdownEntity, spec: com.todocompanion.app.util.OccasionCards.Spec, today: LocalDate) {
+    runCatching {
+        val bmp = com.todocompanion.app.util.OccasionCards.render(c, spec, today)
+        val res = com.todocompanion.app.util.ProgressCard.saveAndShareUri(ctx, bmp, cardFileName(c))
+        val where = res.savedLocation
+        android.widget.Toast.makeText(ctx, if (where != null) "Saved to $where" else "Couldn't save the card.", android.widget.Toast.LENGTH_SHORT).show()
+    }.onFailure {
+        android.widget.Toast.makeText(ctx, "Couldn't save the card.", android.widget.Toast.LENGTH_SHORT).show()
     }
 }
 
