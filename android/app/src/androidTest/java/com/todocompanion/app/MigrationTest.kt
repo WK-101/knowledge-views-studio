@@ -57,15 +57,15 @@ class MigrationTest {
         for (i in 0 until steps.size - 1) {
             assertEquals("gap between ${steps[i]} and ${steps[i + 1]}", steps[i].second, steps[i + 1].first)
         }
-        // The chain ends on the DB's declared version (61). Bumping the version without adding a
+        // The chain ends on the DB's declared version (62). Bumping the version without adding a
         // migration — or vice-versa — trips this.
-        assertEquals("chain must end at the current schema version", 61, steps.last().second)
+        assertEquals("chain must end at the current schema version", 62, steps.last().second)
     }
 
     /** The exported latest schema JSON must describe a database SQLite can actually create. */
     @Test
     fun exportedLatestSchemaIsBuildable() {
-        helper.createDatabase(TEST_DB, 61).close()
+        helper.createDatabase(TEST_DB, 62).close()
     }
 
     /**

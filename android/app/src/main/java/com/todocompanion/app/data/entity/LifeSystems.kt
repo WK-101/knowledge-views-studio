@@ -144,6 +144,9 @@ data class DayLogEntity(
     val good3: String = "",
     val intentionOutcome: Int = 0, // did the morning intention land? 0 unset, 1 no, 2 partly, 3 yes
     val promptAnswer: String = "", // the answer to the day's rotating reflective prompt
+    // Phase C — self-scored Daily Questions: a JSON object mapping questionId -> score 1..5 for this day.
+    // "" = nothing scored yet (so old backups round-trip). See domain/DailyQuestions.kt.
+    val dailyScoresJson: String = "",
     val updatedAt: Long = 0,
     val workspaceId: String = "default",
 )

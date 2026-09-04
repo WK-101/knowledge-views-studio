@@ -16,6 +16,8 @@ import com.todocompanion.app.data.entity.TemplateEntity
 import com.todocompanion.app.data.entity.TagEntity
 import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.domain.AppSettings
+import com.todocompanion.app.domain.DailyQuestion
+import com.todocompanion.app.domain.DailyQuestions
 import com.todocompanion.app.domain.nlp.QuickAddParser
 import com.todocompanion.app.domain.priority.PriorityEngine
 import com.todocompanion.app.domain.priority.PriorityLevel
@@ -2640,6 +2642,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             intentionOutcome = intentionOutcome.coerceIn(0, 3), promptAnswer = promptAnswer.trim(),
             updatedAt = System.currentTimeMillis(),
         ))
+    }
+
+    // Phase C — self-scored Daily Questions. The active question list is a single settings JSON value
+    // (capped at DailyQuestions.MAX); each day's scores live on that day's DayLog.
+    fun saveDailyQuestions(list: List<DailyQuestion>) = viewModelScope.launch {
+        val cleaned = list.map { it.copy(text = it.text.trim()) }.filter { it.text.isNotBlank() }.take(DailyQuestions.MAX)
+        repo.saveSettings(settings.value.copy(dailyQuestionsJson = DailyQuestions.toJson(cleaned)))
+    }
+    // Score one question for a day (1..5). Read-modify-write the day's scores map, preserving all else.
+    fun saveDailyScore(day: Long, questionId: String, score: Int) = viewModelScope.launch {
+        val cur = repo.dayLogFor(day) ?: com.todocompanion.app.data.entity.DayLogEntity(day, workspaceId = activeWorkspace())
+        val scores = DailyQuestions.parseScores(cur.dailyScoresJson).toMutableMap()
+        scores[questionId] = score.coerceIn(1, 5)
+        repo.upsertDayLog(cur.copy(dailyScoresJson = DailyQuestions.scoresToJson(scores), updatedAt = System.currentTimeMillis()))
     }
 
     // ── R36 · fourth-wave actions ───────────────────────────────────────────────────────────────────

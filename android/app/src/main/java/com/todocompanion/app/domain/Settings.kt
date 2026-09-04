@@ -298,6 +298,10 @@ data class AppSettings(
     // the hour you're most likely to act, learned from your own completions. 0 / false = off.
     val taskWipLimit: Int = 0,
     val receptivityTiming: Boolean = false,
+    // Phase C — self-scored Daily Questions. A JSON array of {id,text} for the user's active
+    // "Did I do my best to…" questions (empty = none). Scores live per-day on the DayLog. See
+    // domain/DailyQuestions.kt.
+    val dailyQuestionsJson: String = "",
 ) {
     /** Effective tier for an optional editor field: user override, else its built-in default. */
     fun editorTier(f: EditorField): Int = editorFieldTiers[f.id] ?: f.defaultTier
@@ -483,6 +487,7 @@ data class AppSettings(
         Keys.TRANSITION_START to transitionStartDay.toString(),
         Keys.TASK_WIP_LIMIT to taskWipLimit.toString(),
         Keys.RECEPTIVITY_TIMING to receptivityTiming.toString(),
+        Keys.DAILY_QUESTIONS to dailyQuestionsJson,
     )
 
     object Keys {
@@ -646,6 +651,7 @@ data class AppSettings(
         const val TRANSITION_START = "transition_start"
         const val TASK_WIP_LIMIT = "task_wip_limit"
         const val RECEPTIVITY_TIMING = "receptivity_timing"
+        const val DAILY_QUESTIONS = "daily_questions"
     }
 
     companion object {
@@ -833,6 +839,7 @@ data class AppSettings(
             transitionStartDay = m[Keys.TRANSITION_START]?.toLongOrNull() ?: 0,
             taskWipLimit = m[Keys.TASK_WIP_LIMIT]?.toIntOrNull()?.coerceIn(0, 20) ?: 0,
             receptivityTiming = m[Keys.RECEPTIVITY_TIMING]?.toBooleanStrictOrNull() ?: false,
+            dailyQuestionsJson = m[Keys.DAILY_QUESTIONS] ?: "",
         )
     }
 }

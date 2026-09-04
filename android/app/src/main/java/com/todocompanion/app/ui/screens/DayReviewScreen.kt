@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -54,6 +55,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.todocompanion.app.domain.DailyQuestion
+import com.todocompanion.app.domain.DailyQuestions
 import com.todocompanion.app.domain.DayPrompts
 import com.todocompanion.app.domain.calendar.CalendarEngine
 import com.todocompanion.app.domain.done.DoneKind
@@ -93,6 +96,7 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
     var showReflect by remember { mutableStateOf(false) }
     var showShare by remember { mutableStateOf(false) }
     var showClose by remember { mutableStateOf(false) }
+    var showQuestions by remember { mutableStateOf(false) }
 
     val tasks by vm.tasks.collectAsState()
     val habits by vm.habits.collectAsState()
@@ -134,6 +138,17 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
     }
     val trackedTotal = tracked.values.sum()
     val bookend = dayLogs.firstOrNull { it.epochDay == day }
+
+    // Phase C — self-scored Daily Questions: the user's active questions (from settings) and this day's
+    // scores (from the day's log). The 14-day trend reads each recent day's own scores map.
+    val questions = remember(settings.dailyQuestionsJson) { DailyQuestions.parseQuestions(settings.dailyQuestionsJson) }
+    val todayScores = remember(bookend?.dailyScoresJson) { DailyQuestions.parseScores(bookend?.dailyScoresJson ?: "") }
+    val scores14 = remember(dayLogs, day) {
+        (13 downTo 0).map { back ->
+            val d0 = day - back
+            DailyQuestions.parseScores(dayLogs.firstOrNull { it.epochDay == d0 }?.dailyScoresJson ?: "")
+        }
+    }
 
     // At-a-glance context: vs your usual, and the review streak.
     val avg7 = remember(tasks, day) {
@@ -419,6 +434,34 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
                 }
             }
 
+            // ── Daily questions: self-scored effort on what you value (Marshall Goldsmith) ──
+            Spacer(Modifier.height(12.dp))
+            AppCard {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 2.dp)) {
+                    Text("Daily questions", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    if (questions.isNotEmpty()) TextButton(onClick = { showQuestions = true }) { Text("Edit questions") }
+                }
+                if (questions.isEmpty()) {
+                    Text("Score a few “Did I do my best to…” questions each night. Scoring your effort — not the outcome — keeps the win in your hands.",
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(8.dp))
+                    FilledTonalButton(onClick = { showQuestions = true }) { Text("Set up") }
+                } else {
+                    questions.forEachIndexed { i, q ->
+                        if (i > 0) Spacer(Modifier.height(12.dp))
+                        Text(q.text, style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            ScorePips(todayScores[q.id] ?: 0) { s -> vm.saveDailyScore(day, q.id, s) }
+                            Spacer(Modifier.width(10.dp))
+                            ScoreSparkline(scores14.map { it[q.id] }, Modifier.weight(1f))
+                        }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text("Last 14 days", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                }
+            }
+
             // ── Ready: tomorrow ──
             if (isToday) {
                 Spacer(Modifier.height(12.dp))
@@ -478,8 +521,17 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
         },
     )
 
+    if (showQuestions) DailyQuestionsDialog(
+        initial = questions,
+        onDismiss = { showQuestions = false },
+        onSave = { list -> vm.saveDailyQuestions(list); showQuestions = false },
+    )
+
     if (showClose) CloseDayFlow(
         day = day, isToday = isToday, log = bookend,
+        questions = questions,
+        initialScores = todayScores,
+        onScore = { qId, s -> vm.saveDailyScore(day, qId, s) },
         summary = if (nothing) "A quiet day — nothing tracked." else buildString {
             append("✓ ${tasksDone.size} done")
             if (habitsExpected > 0) append(" · 🔁 ${habitsKept.size}/$habitsExpected")
@@ -585,6 +637,40 @@ private fun MeterRow(leading: @Composable () -> Unit, name: String, trailing: St
     }
 }
 
+/** Phase C — a tappable 1–5 effort selector for a Daily Question, filled up to the chosen score.
+ *  Mirrors the energy ◆ row's diamond idiom; a score of 0 means "not scored yet". */
+@Composable
+private fun ScorePips(score: Int, onPick: (Int) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        (1..5).forEach { i ->
+            val filled = score >= i
+            Text(
+                if (filled) "◆" else "◇",
+                style = MaterialTheme.typography.titleLarge,
+                color = if (filled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                modifier = Modifier.clip(CircleShape).clickable { onPick(i) }.padding(horizontal = 3.dp, vertical = 2.dp),
+            )
+        }
+    }
+}
+
+/** Phase C — a thin trend of recent daily-question scores: one bar per day, height-scaled to score/5,
+ *  muted where no score was logged. Reuses the meter-bar drawing idiom. */
+@Composable
+private fun ScoreSparkline(scores: List<Int?>, modifier: Modifier = Modifier) {
+    val on = MaterialTheme.colorScheme.primary
+    val off = MaterialTheme.colorScheme.surfaceVariant
+    Row(modifier.height(26.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        scores.forEach { s ->
+            val frac = if (s != null) (s.coerceIn(1, 5) / 5f) else 0f
+            Box(
+                Modifier.weight(1f).fillMaxHeight(frac.coerceAtLeast(0.14f)).clip(RoundedCornerShape(2.dp))
+                    .background(if (s != null) on else off.copy(alpha = .5f)),
+            )
+        }
+    }
+}
+
 /** Phase A — the guided "Close the day" ritual: Recall → Feel → Reflect → Tomorrow → closed. Express hides
  *  the extra prose fields for a ~60-second close; Full keeps them. Reuses the existing DayLog fields. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -596,6 +682,9 @@ private fun CloseDayFlow(
     wins: List<String>,
     streak: Int,
     log: com.todocompanion.app.data.entity.DayLogEntity?,
+    questions: List<DailyQuestion>,
+    initialScores: Map<String, Int>,
+    onScore: (questionId: String, score: Int) -> Unit,
     onDismiss: () -> Unit,
     onSave: (rating: Int, energy: Int, reflection: String, mood: Int, highlight: String, gratitude: String, lesson: String, tomorrow: String) -> Unit,
     onSaveExtras: (good1: String, good2: String, good3: String, intentionOutcome: Int, promptAnswer: String) -> Unit,
@@ -615,10 +704,14 @@ private fun CloseDayFlow(
     var good3 by remember { mutableStateOf(log?.good3 ?: "") }
     var promptAnswer by remember { mutableStateOf(log?.promptAnswer ?: "") }
     var intentionOutcome by remember { mutableIntStateOf(log?.intentionOutcome ?: 0) }
+    // Phase C — the day's Daily-Question scores, edited in-flow and persisted immediately on each tap.
+    var scores by remember { mutableStateOf(initialScores) }
     val amIntention = log?.amIntention?.trim().orEmpty()
     val prompt = remember(day) { DayPrompts.promptFor(day) }
 
-    val steps = remember(isToday) { buildList { add("recall"); add("feel"); add("reflect"); if (isToday) add("tomorrow"); add("done") } }
+    val steps = remember(isToday, questions.isEmpty()) {
+        buildList { add("recall"); add("feel"); if (questions.isNotEmpty()) add("questions"); add("reflect"); if (isToday) add("tomorrow"); add("done") }
+    }
     var idx by remember { mutableIntStateOf(0) }
     val stepId = steps[idx]
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
@@ -643,7 +736,7 @@ private fun CloseDayFlow(
         },
         title = {
             Text(when (stepId) {
-                "recall" -> "Recall your day"; "feel" -> "How did it feel?"; "reflect" -> "Reflect"
+                "recall" -> "Recall your day"; "feel" -> "How did it feel?"; "questions" -> "Daily questions"; "reflect" -> "Reflect"
                 "tomorrow" -> "Ready for tomorrow"; else -> "Day closed"
             })
         },
@@ -691,6 +784,18 @@ private fun CloseDayFlow(
                                 Text(e, style = MaterialTheme.typography.headlineSmall,
                                     modifier = Modifier.clip(CircleShape).clickable { mood = if (mood == v) 0 else v }
                                         .background(if (mood == v) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent).padding(4.dp))
+                            }
+                        }
+                    }
+                    "questions" -> {
+                        Text("Did you do your best today? Score your effort, 1–5 — not whether it worked out.", style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(bottom = 10.dp))
+                        questions.forEachIndexed { i, q ->
+                            if (i > 0) Spacer(Modifier.height(10.dp))
+                            Text(q.text, style = MaterialTheme.typography.bodyMedium)
+                            Spacer(Modifier.height(2.dp))
+                            ScorePips(scores[q.id] ?: 0) { s ->
+                                scores = scores.toMutableMap().apply { this[q.id] = s }
+                                onScore(q.id, s)
                             }
                         }
                     }
@@ -817,6 +922,50 @@ private fun ReflectDialog(
                 if (isToday) {
                     Spacer(Modifier.height(6.dp))
                     AppTextField(tomorrow, { tomorrow = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("🎯 The one thing that matters tomorrow") }, singleLine = true)
+                }
+            }
+        },
+    )
+}
+
+/** Phase C — add / rename / remove up to [DailyQuestions.MAX] Daily Questions. When the user has none
+ *  yet, the editor is pre-filled with the suggested starters so they can keep, tweak, or clear them. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DailyQuestionsDialog(
+    initial: List<DailyQuestion>,
+    onDismiss: () -> Unit,
+    onSave: (List<DailyQuestion>) -> Unit,
+) {
+    val seed = remember(initial) {
+        if (initial.isNotEmpty()) initial
+        else DailyQuestions.SUGGESTED.map { DailyQuestion(java.util.UUID.randomUUID().toString(), it) }
+    }
+    var items by remember { mutableStateOf(seed) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = { onSave(items.filter { it.text.isNotBlank() }) }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Daily questions") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text("Up to ${DailyQuestions.MAX} “Did I do my best to…” questions, tied to what you value. Score your effort each night — the doing, not the result.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
+                items.forEachIndexed { i, q ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                        AppTextField(
+                            q.text,
+                            { t -> items = items.toMutableList().also { it[i] = q.copy(text = t) } },
+                            modifier = Modifier.weight(1f),
+                            placeholder = { Text("Did I do my best to…") },
+                        )
+                        TextButton(onClick = { items = items.toMutableList().also { it.removeAt(i) } }) { Text("Remove") }
+                    }
+                }
+                if (items.size < DailyQuestions.MAX) {
+                    Spacer(Modifier.height(4.dp))
+                    OutlinedButton(onClick = { items = items + DailyQuestion(java.util.UUID.randomUUID().toString(), "") }) { Text("Add question") }
                 }
             }
         },
