@@ -184,6 +184,7 @@ private class DoNextFactory(private val context: Context, private val widgetId: 
             setTextViewTextSize(R.id.dni_sub, android.util.TypedValue.COMPLEX_UNIT_SP, style.sp(12f))
             setTextViewTextSize(R.id.dni_check, android.util.TypedValue.COMPLEX_UNIT_SP, style.sp(17f))
             // R104 — tap the circle to tick it off in place; the rest of the row opens the task.
+            setContentDescription(R.id.dni_check, "Complete ${r.title}")
             setOnClickFillInIntent(R.id.dni_check, TaskWidgetReceiver.completeFill(r.id))
             setOnClickFillInIntent(R.id.dni_root, TaskWidgetReceiver.openFill("open_task:${r.id}"))
         }

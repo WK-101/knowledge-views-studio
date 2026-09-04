@@ -189,10 +189,12 @@ private class AgendaFactory(private val context: Context, private val widgetId: 
             if (r.isEvent) {
                 setTextViewText(R.id.item_check, "•")
                 setTextColor(R.id.item_check, style.info)
+                setContentDescription(R.id.item_check, "Open ${r.title}")
                 setOnClickFillInIntent(R.id.item_check, TaskWidgetReceiver.openFill("open_calendar"))
             } else {
                 setTextViewText(R.id.item_check, "○")
                 setTextColor(R.id.item_check, if (r.overdue) style.danger else style.accentText)
+                setContentDescription(R.id.item_check, "Complete ${r.title}")
                 setOnClickFillInIntent(R.id.item_check, TaskWidgetReceiver.completeFill(r.id))
             }
             // The rest of the row opens the task (or the calendar for an event).

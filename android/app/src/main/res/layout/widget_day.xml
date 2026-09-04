@@ -38,6 +38,7 @@
                 android:paddingTop="2dp"
                 android:paddingBottom="2dp"
                 android:text="‹"
+                android:contentDescription="Previous day"
                 android:textColor="@color/w_text_secondary"
                 android:textSize="20sp"
                 android:textStyle="bold" />
@@ -64,6 +65,7 @@
                 android:paddingTop="2dp"
                 android:paddingBottom="2dp"
                 android:text="›"
+                android:contentDescription="Next day"
                 android:textColor="@color/w_text_secondary"
                 android:textSize="20sp"
                 android:textStyle="bold" />

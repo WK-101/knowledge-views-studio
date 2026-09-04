@@ -130,6 +130,7 @@ private class HabitsFactory(private val context: Context) : RemoteViewsService.R
             setTextViewText(R.id.hi_check, if (r.done) "☑" else "☐")
             setTextViewText(R.id.hi_name, r.name)
             setTextViewText(R.id.hi_progress, r.progress)
+            setContentDescription(R.id.hi_root, (if (r.done) "Done: " else "Check off: ") + r.name)
             val fill = Intent().putExtra(HabitCheckReceiver.EXTRA_HABIT_ID, r.id)
             setOnClickFillInIntent(R.id.hi_root, fill)
         }
