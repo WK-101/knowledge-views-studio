@@ -16,10 +16,14 @@ android {
         applicationId = "com.cairn.reader"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "0.5.0"
+        versionCode = 6
+        versionName = "0.6.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
+        // On-device translation (ML Kit) ships native libraries per ABI. Restrict to the
+        // architectures real phones use so the sideloaded APK stays reasonably small;
+        // this drops the x86/x86_64 emulator variants.
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
 
     // Release signing is read from environment (CI) or a local keystore.properties.
