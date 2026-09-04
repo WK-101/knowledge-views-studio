@@ -21,6 +21,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.OfflinePin
+import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -31,10 +33,35 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.cairn.reader.data.db.ItemListRow
 import com.cairn.reader.ui.util.formatAgo
+
+/** True when the row carries any status worth a glyph (saved / PDF / offline copy). */
+internal fun ItemListRow.hasStatusGlyph(): Boolean =
+    isReadLater || type == "PDF" || cacheStatus == "PERMANENT"
+
+/**
+ * Compact status glyphs shared by every list cell: a Saved bookmark, a PDF marker, and a
+ * "saved offline" pin. Render inside a Row; nothing shows when the item has no status.
+ */
+@Composable
+internal fun StatusGlyphs(row: ItemListRow, size: Dp = 14.dp) {
+    val scheme = MaterialTheme.colorScheme
+    if (row.isReadLater) {
+        Icon(Icons.Filled.Bookmark, contentDescription = "Saved", tint = scheme.tertiary, modifier = Modifier.size(size))
+    }
+    if (row.type == "PDF") {
+        if (row.isReadLater) Spacer(Modifier.width(6.dp))
+        Icon(Icons.Outlined.PictureAsPdf, contentDescription = "PDF", tint = scheme.onSurfaceVariant, modifier = Modifier.size(size))
+    }
+    if (row.cacheStatus == "PERMANENT") {
+        if (row.isReadLater || row.type == "PDF") Spacer(Modifier.width(6.dp))
+        Icon(Icons.Outlined.OfflinePin, contentDescription = "Saved offline", tint = scheme.primary, modifier = Modifier.size(size))
+    }
+}
 
 /** The canonical list row for an item, shared across Inbox, Library, and search. */
 @Composable
@@ -114,16 +141,14 @@ fun ItemRow(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            if (row.readingMinutes > 0 || row.isReadLater) {
+            if (row.readingMinutes > 0 || row.hasStatusGlyph()) {
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (row.readingMinutes > 0) {
                         Text("${row.readingMinutes} min read", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
+                        if (row.hasStatusGlyph()) Spacer(Modifier.width(8.dp))
                     }
-                    if (row.isReadLater) {
-                        Spacer(Modifier.width(8.dp))
-                        Icon(Icons.Filled.Bookmark, contentDescription = "Saved", tint = scheme.tertiary, modifier = Modifier.size(14.dp))
-                    }
+                    StatusGlyphs(row)
                 }
             }
         }

@@ -309,6 +309,20 @@ class InboxViewModel @Inject constructor(
 
     fun unarchive(id: String) = viewModelScope.launch { itemRepository.setArchived(id, false) }
 
+    /** Make a permanent offline copy of an item from the list's long-press menu. */
+    fun saveOffline(id: String) = viewModelScope.launch {
+        _snacks.emit(Snack("Saving offline…"))
+        val result = feedRepository.saveOffline(id)
+        _snacks.emit(
+            Snack(
+                result.fold(
+                    onSuccess = { n -> if (n > 0) "Saved offline · $n image${if (n == 1) "" else "s"}" else "Saved offline" },
+                    onFailure = { it.message ?: "Couldn't save offline" },
+                ),
+            ),
+        )
+    }
+
     /** Perform a configurable swipe action on a row; each carries its own undo. */
     fun swipe(row: ItemListRow, action: com.cairn.reader.data.prefs.SwipeAction) {
         when (action) {

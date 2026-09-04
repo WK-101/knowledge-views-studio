@@ -96,8 +96,8 @@ private fun CompactCell(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        if (row.isReadLater) {
-            Icon(Icons.Filled.Bookmark, contentDescription = "Saved", tint = scheme.tertiary, modifier = Modifier.size(15.dp))
+        if (row.hasStatusGlyph()) {
+            Row(verticalAlignment = Alignment.CenterVertically) { StatusGlyphs(row, size = 15.dp) }
         }
         if (row.leadImage != null) {
             AsyncImage(
@@ -173,16 +173,14 @@ private fun MagazineCell(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        if (row.readingMinutes > 0 || row.isReadLater) {
+        if (row.readingMinutes > 0 || row.hasStatusGlyph()) {
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (row.readingMinutes > 0) {
                     Text("${row.readingMinutes} min read", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
+                    if (row.hasStatusGlyph()) Spacer(Modifier.width(8.dp))
                 }
-                if (row.isReadLater) {
-                    Spacer(Modifier.width(8.dp))
-                    Icon(Icons.Filled.Bookmark, contentDescription = "Saved", tint = scheme.tertiary, modifier = Modifier.size(14.dp))
-                }
+                StatusGlyphs(row)
             }
         }
     }

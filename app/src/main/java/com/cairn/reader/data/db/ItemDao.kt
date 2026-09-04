@@ -23,6 +23,7 @@ data class ItemListRow(
     val readingMinutes: Int,
     val extractStatus: String,
     val type: String,
+    val cacheStatus: String?,
     val isRead: Boolean,
     val isStarred: Boolean,
     val isReadLater: Boolean,
@@ -73,7 +74,7 @@ interface ItemDao {
         SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
                i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
                i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type,
+               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
                COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
                COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
         FROM items i
@@ -92,7 +93,7 @@ interface ItemDao {
         SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
                i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
                i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type,
+               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
                COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
                COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
         FROM items i
@@ -109,7 +110,7 @@ interface ItemDao {
         SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
                i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
                i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type,
+               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
                COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
                COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
         FROM items i
@@ -128,7 +129,7 @@ interface ItemDao {
         SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
                i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
                i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type,
+               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
                COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
                COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
         FROM items i
@@ -147,7 +148,7 @@ interface ItemDao {
         SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
                i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
                i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type,
+               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
                COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
                COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
         FROM items i
@@ -308,7 +309,7 @@ interface ItemDao {
         SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
                i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
                i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type,
+               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
                COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
                COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
         FROM item_fts
@@ -328,7 +329,7 @@ interface ItemDao {
         SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
                i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
                i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type,
+               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
                COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
                COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
         FROM items i
@@ -345,7 +346,7 @@ interface ItemDao {
         SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
                i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
                i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type,
+               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
                COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
                COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
         FROM items i
@@ -362,7 +363,7 @@ interface ItemDao {
         SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
                i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
                i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type,
+               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
                COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
                COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
         FROM items i
@@ -379,7 +380,7 @@ interface ItemDao {
         SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
                i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
                i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type,
+               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
                COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
                COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
         FROM items i
@@ -410,7 +411,7 @@ interface ItemDao {
         SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
                i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
                i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type,
+               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
                COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
                COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
         FROM items i
@@ -427,7 +428,7 @@ interface ItemDao {
         SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
                i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
                i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type,
+               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
                COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
                COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
         FROM items i

@@ -23,8 +23,10 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkRemove
+import androidx.compose.material.icons.outlined.DownloadForOffline
 import androidx.compose.material.icons.outlined.MarkEmailRead
 import androidx.compose.material.icons.outlined.MarkEmailUnread
+import androidx.compose.material.icons.outlined.OfflinePin
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
@@ -128,6 +130,7 @@ fun ItemActionSheet(
     onArchive: () -> Unit,
     onOpenOriginal: () -> Unit,
     onDismiss: () -> Unit,
+    onSaveOffline: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
@@ -163,6 +166,14 @@ fun ItemActionSheet(
             ) { onToggleSave(!row.isReadLater); onDismiss() }
 
             ActionItem(icon = Icons.Filled.Archive, label = "Archive") { onArchive(); onDismiss() }
+
+            if (onSaveOffline != null && row.type != "PDF") {
+                val permanent = row.cacheStatus == "PERMANENT"
+                ActionItem(
+                    icon = if (permanent) Icons.Outlined.OfflinePin else Icons.Outlined.DownloadForOffline,
+                    label = if (permanent) "Saved offline" else "Save offline",
+                ) { if (!permanent) onSaveOffline(); onDismiss() }
+            }
 
             ActionItem(icon = Icons.AutoMirrored.Outlined.OpenInNew, label = "Open original") { onOpenOriginal(); onDismiss() }
 

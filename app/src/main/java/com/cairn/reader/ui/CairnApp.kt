@@ -360,6 +360,7 @@ private fun InboxScreen(
             onArchive = { viewModel.archive(row.id) },
             onOpenOriginal = { onOpenWeb(row.url) },
             onDismiss = { sheetRow = null },
+            onSaveOffline = { viewModel.saveOffline(row.id) },
         )
     }
 }
