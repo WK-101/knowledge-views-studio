@@ -263,6 +263,37 @@ class FeedRepository @Inject constructor(
         return Result.success(itemId)
     }
 
+    /** Import a PDF into the library: store the file verbatim and create a PDF-type item
+     *  the reader opens with the on-device page renderer. Fully local — nothing is uploaded. */
+    suspend fun importPdf(displayName: String, bytes: ByteArray): Result<String> {
+        if (bytes.isEmpty()) return Result.failure(IllegalArgumentException("Empty file"))
+        val now = System.currentTimeMillis()
+        val title = displayName.removeSuffix(".pdf").removeSuffix(".PDF").trim().ifBlank { "Imported PDF" }
+        val itemId = deterministicId("pdf|$title|$now")
+        val path = runCatching { blobStore.writePdf(itemId, bytes) }.getOrElse {
+            return Result.failure(it)
+        }
+        itemDao.insertItemWithState(
+            ItemEntity(
+                id = itemId,
+                url = "file://$path",
+                title = title,
+                siteName = "PDF",
+                savedAt = now,
+                type = "PDF",
+                excerpt = "Imported PDF",
+                blobPath = path,
+                extractStatus = "OK",
+                contentSource = "PDF",
+                cacheStatus = "PERMANENT",
+            ),
+            now,
+        )
+        itemDao.setReadLater(itemId, true, now)
+        itemDao.indexItem(ItemFtsEntity(itemId = itemId, title = title, author = null, body = null))
+        return Result.success(itemId)
+    }
+
     /** Run Readability for an already-saved item (the reader's "load full article"). */
     suspend fun extractFull(itemId: String) {
         val item = itemDao.getItem(itemId) ?: return

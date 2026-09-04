@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FormatQuote
+import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -90,6 +91,20 @@ fun SettingsScreen(
             val text = runCatching { context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull()
             if (text != null) {
                 viewModel.importBackup(text) { summary -> Toast.makeText(context, summary, Toast.LENGTH_LONG).show() }
+            } else {
+                Toast.makeText(context, "Couldn't read that file", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    val pdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val bytes = runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()
+            val name = displayNameFor(context, uri) ?: "Imported PDF"
+            if (bytes != null && bytes.isNotEmpty()) {
+                viewModel.importPdf(name, bytes) { ok ->
+                    Toast.makeText(context, if (ok) "PDF added to your library" else "Couldn't import that PDF", Toast.LENGTH_SHORT).show()
+                }
             } else {
                 Toast.makeText(context, "Couldn't read that file", Toast.LENGTH_SHORT).show()
             }
@@ -172,6 +187,18 @@ fun SettingsScreen(
                 }
                 Text(
                     "A full JSON backup of your feeds, saved items, tags, collections and highlights — yours to keep.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+                Spacer(Modifier.height(16.dp))
+                OutlinedButton(onClick = { pdfLauncher.launch(arrayOf("application/pdf")) }) {
+                    Icon(Icons.Outlined.PictureAsPdf, contentDescription = null, modifier = Modifier.height(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Import PDF")
+                }
+                Text(
+                    "Add a PDF to your library and read it here, page by page — fully offline. Export any article to PDF from its ⋯ menu.",
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
@@ -352,7 +379,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(24.dp))
                 SectionLabel("ABOUT")
                 Spacer(Modifier.height(8.dp))
-                Text("Cairn 2.2.0", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
+                Text("Cairn 2.3.0", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
                 Text("One reader for everything you read.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
             }
         }
@@ -404,3 +431,10 @@ private fun SectionLabel(text: String) {
         fontWeight = FontWeight.Medium,
     )
 }
+
+/** Best-effort human-readable name for a picked document (falls back to the last path segment). */
+private fun displayNameFor(context: android.content.Context, uri: android.net.Uri): String? = runCatching {
+    context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+        if (c.moveToFirst()) c.getString(0)?.takeIf { it.isNotBlank() } else null
+    } ?: uri.lastPathSegment
+}.getOrNull()

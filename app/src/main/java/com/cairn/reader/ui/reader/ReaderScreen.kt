@@ -51,6 +51,7 @@ import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.OfflinePin
+import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.Unarchive
@@ -274,6 +275,16 @@ fun ReaderScreen(
                                 },
                                 onClick = { showMenu = false; viewModel.toggleArchive() },
                             )
+                            if (data?.type != "PDF") {
+                                DropdownMenuItem(
+                                    text = { Text("Export as PDF") },
+                                    leadingIcon = { Icon(Icons.Outlined.PictureAsPdf, contentDescription = null) },
+                                    onClick = {
+                                        showMenu = false
+                                        com.cairn.reader.ui.util.PdfExport.printArticle(context, data?.title.orEmpty(), data?.html)
+                                    },
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text("Open original") },
                                 leadingIcon = { Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null) },
@@ -331,6 +342,7 @@ fun ReaderScreen(
         when {
             state.loading -> Centered(padding) { CircularProgressIndicator() }
             data == null -> Centered(padding) { Text("This article couldn't be loaded.", color = palette.secondary) }
+            data.type == "PDF" -> PdfView(padding = padding, path = data.pdfPath, background = palette.background)
             else -> ArticleBody(
                 padding = padding,
                 state = state,

@@ -143,7 +143,7 @@ class LibraryViewModel @Inject constructor(
     fun unarchive(id: String) = viewModelScope.launch { itemRepository.setArchived(id, false) }
 
     companion object {
-        val TYPE_ORDER = listOf("ARTICLE", "LINK", "VIDEO", "AUDIO", "IMAGE")
+        val TYPE_ORDER = listOf("ARTICLE", "LINK", "VIDEO", "AUDIO", "IMAGE", "PDF")
     }
 
     fun setQuery(value: String) {

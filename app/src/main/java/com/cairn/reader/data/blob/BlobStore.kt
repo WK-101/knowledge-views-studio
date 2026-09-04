@@ -59,4 +59,15 @@ class BlobStore @Inject constructor(
         deleteArticle(blobPath)
         runCatching { mediaDir.listFiles { f -> f.name.startsWith("${itemId}_") }?.forEach { it.delete() } }
     }
+
+    // -- Imported PDFs: stored uncompressed so PdfRenderer can page them directly ----
+
+    private val pdfDir: File by lazy { File(context.filesDir, "pdfs").apply { mkdirs() } }
+
+    /** Store an imported PDF verbatim and return its on-disk path (kept in the item's blobPath). */
+    fun writePdf(itemId: String, bytes: ByteArray): String {
+        val file = File(pdfDir, "$itemId.pdf")
+        file.outputStream().buffered().use { it.write(bytes) }
+        return file.absolutePath
+    }
 }

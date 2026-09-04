@@ -38,6 +38,9 @@ data class ReaderData(
     val enclosureUrl: String?,
     val isArchived: Boolean,
     val cacheStatus: String?,
+    val type: String,
+    /** On-disk path of an imported PDF (only for PDF-type items); null otherwise. */
+    val pdfPath: String?,
     val html: String?,
 )
 
@@ -70,7 +73,10 @@ class ItemRepository @Inject constructor(
             enclosureUrl = e.enclosureUrl,
             isArchived = state?.isArchived == true,
             cacheStatus = e.cacheStatus,
-            html = blobStore.readArticle(e.blobPath),
+            type = e.type,
+            pdfPath = if (e.type == "PDF") e.blobPath else null,
+            // A PDF's blob is the raw file, not gzipped HTML, so don't try to read it as an article.
+            html = if (e.type == "PDF") null else blobStore.readArticle(e.blobPath),
         )
     }
 

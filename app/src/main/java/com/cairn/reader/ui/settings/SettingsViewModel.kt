@@ -60,6 +60,11 @@ class SettingsViewModel @Inject constructor(
 
     fun exportOpml(onReady: (String) -> Unit) = viewModelScope.launch { onReady(feedRepository.exportOpml()) }
 
+    fun importPdf(name: String, bytes: ByteArray, onResult: (Boolean) -> Unit) = viewModelScope.launch {
+        val ok = runCatching { feedRepository.importPdf(name, bytes) }.getOrNull()?.isSuccess == true
+        onResult(ok)
+    }
+
     fun exportBackup(onReady: (String) -> Unit) = viewModelScope.launch { onReady(backupManager.export()) }
 
     fun importBackup(text: String, onResult: (String) -> Unit) = viewModelScope.launch {
