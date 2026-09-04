@@ -138,6 +138,12 @@ data class DayLogEntity(
     val gratitude: String = "",   // one thing you're grateful for
     val lesson: String = "",      // one lesson / what you'd change
     val tomorrowFocus: String = "", // the one thing that matters tomorrow (MIT)
+    // Phase B — reflection depth. All optional; 0/"" = unset (so old backups round-trip).
+    val good1: String = "",       // three good things (savouring / after-action credit)
+    val good2: String = "",
+    val good3: String = "",
+    val intentionOutcome: Int = 0, // did the morning intention land? 0 unset, 1 no, 2 partly, 3 yes
+    val promptAnswer: String = "", // the answer to the day's rotating reflective prompt
     val updatedAt: Long = 0,
     val workspaceId: String = "default",
 )

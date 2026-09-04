@@ -2631,6 +2631,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val cur = repo.dayLogFor(day) ?: com.todocompanion.app.data.entity.DayLogEntity(day, workspaceId = activeWorkspace())
         repo.upsertDayLog(cur.copy(tomorrowFocus = text.trim(), updatedAt = System.currentTimeMillis()))
     }
+    // Phase B — the reflection-depth extras: three good things, the morning-intention outcome, and the
+    // answer to the day's rotating prompt. Read-modify-write, preserving every other field.
+    fun saveDayReflectExtras(day: Long, good1: String, good2: String, good3: String, intentionOutcome: Int, promptAnswer: String) = viewModelScope.launch {
+        val cur = repo.dayLogFor(day) ?: com.todocompanion.app.data.entity.DayLogEntity(day, workspaceId = activeWorkspace())
+        repo.upsertDayLog(cur.copy(
+            good1 = good1.trim(), good2 = good2.trim(), good3 = good3.trim(),
+            intentionOutcome = intentionOutcome.coerceIn(0, 3), promptAnswer = promptAnswer.trim(),
+            updatedAt = System.currentTimeMillis(),
+        ))
+    }
 
     // ── R36 · fourth-wave actions ───────────────────────────────────────────────────────────────────
     // FW-5 New-Habit WIP limiter.

@@ -54,6 +54,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.todocompanion.app.domain.DayPrompts
 import com.todocompanion.app.domain.calendar.CalendarEngine
 import com.todocompanion.app.domain.done.DoneKind
 import com.todocompanion.app.domain.done.DoneRecord
@@ -164,6 +165,7 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
     fun fmtHm(m: Int) = if (m >= 60) "${m / 60}h ${m % 60}m" else "${m}m"
     fun timeLabel(ms: Long) = Instant.ofEpochMilli(ms).atZone(zone).toLocalTime().let { "%02d:%02d".format(it.hour, it.minute) }
     fun mood(v: Int) = when (v) { 1 -> "😞"; 2 -> "🙁"; 3 -> "😐"; 4 -> "🙂"; 5 -> "😄"; else -> "" }
+    fun outcomeLabel(v: Int) = when (v) { 1 -> "Not yet"; 2 -> "Partly"; 3 -> "Done"; else -> "" }
     val reflectionLine = bookend?.let { it.highlight.ifBlank { it.pmReflection } } ?: ""
 
     Scaffold(topBar = {
@@ -344,6 +346,19 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
             Spacer(Modifier.height(12.dp))
             AppCard {
                 SectionTitle("Reflect")
+                // One-tap mood — sets today's evening mood immediately, mirroring the tappable rating stars below.
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    listOf(1 to "😞", 2 to "🙁", 3 to "😐", 4 to "🙂", 5 to "😄").forEach { (v, e) ->
+                        val sel = (bookend?.pmMood ?: 0) == v
+                        Text(
+                            e, style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.clip(CircleShape).clickable {
+                                val m = if ((bookend?.pmMood ?: 0) == v) 0 else v
+                                vm.saveEveningReflection(day, bookend?.pmReflection ?: "", m)
+                            }.background(if (sel) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent).padding(horizontal = 4.dp, vertical = 2.dp),
+                        )
+                    }
+                }
                 // Rating (tappable) — how the day felt overall.
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 2.dp)) {
                     (1..5).forEach { i ->
@@ -369,9 +384,14 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
                     else -> "about your usual ${avg7.roundToInt()}/day"
                 }
                 if (vs != null && !nothing) Text(vs, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
-                val hasProse = bookend != null && (bookend.pmReflection.isNotBlank() || bookend.highlight.isNotBlank() || bookend.gratitude.isNotBlank() || bookend.lesson.isNotBlank())
+                val hasProse = bookend != null && (bookend.pmReflection.isNotBlank() || bookend.highlight.isNotBlank() || bookend.gratitude.isNotBlank() || bookend.lesson.isNotBlank() ||
+                    bookend.good1.isNotBlank() || bookend.good2.isNotBlank() || bookend.good3.isNotBlank() || bookend.promptAnswer.isNotBlank())
                 if (bookend?.amIntention?.isNotBlank() == true) {
-                    Row(Modifier.padding(bottom = 4.dp)) { Text("🌅 ${mood(bookend.amMood)}", Modifier.width(48.dp)); Text(bookend.amIntention, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium) }
+                    val oc = outcomeLabel(bookend.intentionOutcome)
+                    Row(Modifier.padding(bottom = 4.dp)) {
+                        Text("🌅 ${mood(bookend.amMood)}", Modifier.width(48.dp))
+                        Text(bookend.amIntention + if (oc.isNotBlank()) " — $oc" else "", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    }
                 }
                 if (hasProse) {
                     bookend!!.let {
@@ -379,6 +399,15 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
                         if (it.highlight.isNotBlank()) ReflectLine("✨ Highlight", it.highlight)
                         if (it.gratitude.isNotBlank()) ReflectLine("🙏 Grateful for", it.gratitude)
                         if (it.lesson.isNotBlank()) ReflectLine("💡 Lesson", it.lesson)
+                        val goods = listOf(it.good1, it.good2, it.good3).filter { g -> g.isNotBlank() }
+                        if (goods.isNotEmpty()) {
+                            Text("Three good things", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                            goods.forEach { g -> Text("✓ $g", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 1.dp)) }
+                        }
+                        if (it.promptAnswer.isNotBlank()) {
+                            Text(DayPrompts.promptFor(day), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
+                            Text(it.promptAnswer, Modifier.padding(vertical = 1.dp), style = MaterialTheme.typography.bodyMedium)
+                        }
                         if (it.energy > 0) Text("Energy: ${"◆".repeat(it.energy)}${"◇".repeat(5 - it.energy)}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
                     }
                     Spacer(Modifier.height(6.dp))
@@ -444,10 +473,13 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
             if (isToday) vm.saveTomorrowFocus(day, tomorrow)
             showReflect = false
         },
+        onSaveExtras = { good1, good2, good3, intentionOutcome, promptAnswer ->
+            vm.saveDayReflectExtras(day, good1, good2, good3, intentionOutcome, promptAnswer)
+        },
     )
 
     if (showClose) CloseDayFlow(
-        isToday = isToday, log = bookend,
+        day = day, isToday = isToday, log = bookend,
         summary = if (nothing) "A quiet day — nothing tracked." else buildString {
             append("✓ ${tasksDone.size} done")
             if (habitsExpected > 0) append(" · 🔁 ${habitsKept.size}/$habitsExpected")
@@ -461,6 +493,9 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
             vm.saveEveningReflection(day, reflection, mood)
             vm.saveDayReflect(day, rating, energy, highlight, gratitude, lesson)
             if (isToday) vm.saveTomorrowFocus(day, tomorrow)
+        },
+        onSaveExtras = { good1, good2, good3, intentionOutcome, promptAnswer ->
+            vm.saveDayReflectExtras(day, good1, good2, good3, intentionOutcome, promptAnswer)
         },
     )
 
@@ -555,6 +590,7 @@ private fun MeterRow(leading: @Composable () -> Unit, name: String, trailing: St
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CloseDayFlow(
+    day: Long,
     isToday: Boolean,
     summary: String,
     wins: List<String>,
@@ -562,6 +598,7 @@ private fun CloseDayFlow(
     log: com.todocompanion.app.data.entity.DayLogEntity?,
     onDismiss: () -> Unit,
     onSave: (rating: Int, energy: Int, reflection: String, mood: Int, highlight: String, gratitude: String, lesson: String, tomorrow: String) -> Unit,
+    onSaveExtras: (good1: String, good2: String, good3: String, intentionOutcome: Int, promptAnswer: String) -> Unit,
 ) {
     var full by remember { mutableStateOf(true) }
     var rating by remember { mutableIntStateOf(log?.dayRating ?: 0) }
@@ -572,6 +609,14 @@ private fun CloseDayFlow(
     var gratitude by remember { mutableStateOf(log?.gratitude ?: "") }
     var lesson by remember { mutableStateOf(log?.lesson ?: "") }
     var tomorrow by remember { mutableStateOf(log?.tomorrowFocus ?: "") }
+    // Phase B — reflection-depth state.
+    var good1 by remember { mutableStateOf(log?.good1 ?: "") }
+    var good2 by remember { mutableStateOf(log?.good2 ?: "") }
+    var good3 by remember { mutableStateOf(log?.good3 ?: "") }
+    var promptAnswer by remember { mutableStateOf(log?.promptAnswer ?: "") }
+    var intentionOutcome by remember { mutableIntStateOf(log?.intentionOutcome ?: 0) }
+    val amIntention = log?.amIntention?.trim().orEmpty()
+    val prompt = remember(day) { DayPrompts.promptFor(day) }
 
     val steps = remember(isToday) { buildList { add("recall"); add("feel"); add("reflect"); if (isToday) add("tomorrow"); add("done") } }
     var idx by remember { mutableIntStateOf(0) }
@@ -585,7 +630,10 @@ private fun CloseDayFlow(
             else {
                 val nextIsDone = steps[idx + 1] == "done"
                 TextButton(onClick = {
-                    if (nextIsDone) onSave(rating, energy, reflection, mood, highlight, if (full) gratitude else "", if (full) lesson else "", tomorrow)
+                    if (nextIsDone) {
+                        onSave(rating, energy, reflection, mood, highlight, if (full) gratitude else "", if (full) lesson else "", tomorrow)
+                        onSaveExtras(if (full) good1 else "", if (full) good2 else "", if (full) good3 else "", intentionOutcome, if (full) promptAnswer else "")
+                    }
                     idx++
                 }) { Text(if (nextIsDone) "Close the day" else "Next") }
             }
@@ -615,6 +663,16 @@ private fun CloseDayFlow(
                         }
                     }
                     "feel" -> {
+                        // After-action compare: reckon with the morning's intention before rating the day.
+                        if (amIntention.isNotBlank()) {
+                            Text("This morning you meant to:", style = MaterialTheme.typography.labelMedium, color = muted)
+                            Text(amIntention, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 2.dp, bottom = 6.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 12.dp)) {
+                                listOf(1 to "No", 2 to "Partly", 3 to "Yes").forEach { (v, lbl) ->
+                                    FilterChip(selected = intentionOutcome == v, onClick = { intentionOutcome = if (intentionOutcome == v) 0 else v }, label = { Text(lbl) })
+                                }
+                            }
+                        }
                         Text("Rating", style = MaterialTheme.typography.labelMedium, color = muted)
                         Row(Modifier.padding(top = 2.dp, bottom = 10.dp)) {
                             (1..5).forEach { i -> Text(if (rating >= i) "★" else "☆", style = MaterialTheme.typography.headlineSmall,
@@ -645,6 +703,18 @@ private fun CloseDayFlow(
                             AppTextField(gratitude, { gratitude = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("🙏 One thing you're grateful for") }, singleLine = true)
                             Spacer(Modifier.height(6.dp))
                             AppTextField(lesson, { lesson = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("💡 One lesson / what you'd change") }, singleLine = true)
+                            Spacer(Modifier.height(12.dp))
+                            Text("Three good things", style = MaterialTheme.typography.labelMedium, color = muted)
+                            Spacer(Modifier.height(4.dp))
+                            AppTextField(good1, { good1 = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("✓ One good thing") }, singleLine = true)
+                            Spacer(Modifier.height(6.dp))
+                            AppTextField(good2, { good2 = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("✓ Another") }, singleLine = true)
+                            Spacer(Modifier.height(6.dp))
+                            AppTextField(good3, { good3 = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("✓ One more") }, singleLine = true)
+                            Spacer(Modifier.height(12.dp))
+                            Text(prompt, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(4.dp))
+                            AppTextField(promptAnswer, { promptAnswer = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Your answer") }, singleLine = true)
                         }
                     }
                     "tomorrow" -> {
@@ -671,6 +741,7 @@ private fun ReflectDialog(
     day: Long, isToday: Boolean, log: com.todocompanion.app.data.entity.DayLogEntity?,
     onDismiss: () -> Unit,
     onSave: (rating: Int, energy: Int, reflection: String, mood: Int, highlight: String, gratitude: String, lesson: String, tomorrow: String) -> Unit,
+    onSaveExtras: (good1: String, good2: String, good3: String, intentionOutcome: Int, promptAnswer: String) -> Unit,
 ) {
     var rating by remember { mutableIntStateOf(log?.dayRating ?: 0) }
     var energy by remember { mutableIntStateOf(log?.energy ?: 0) }
@@ -680,10 +751,22 @@ private fun ReflectDialog(
     var gratitude by remember { mutableStateOf(log?.gratitude ?: "") }
     var lesson by remember { mutableStateOf(log?.lesson ?: "") }
     var tomorrow by remember { mutableStateOf(log?.tomorrowFocus ?: "") }
+    // Phase B — keep parity with the guided close: three good things + the day's rotating prompt.
+    var good1 by remember { mutableStateOf(log?.good1 ?: "") }
+    var good2 by remember { mutableStateOf(log?.good2 ?: "") }
+    var good3 by remember { mutableStateOf(log?.good3 ?: "") }
+    var promptAnswer by remember { mutableStateOf(log?.promptAnswer ?: "") }
+    val intentionOutcome = log?.intentionOutcome ?: 0 // preserved as-is (set from the guided close's after-action step)
+    val prompt = remember(day) { DayPrompts.promptFor(day) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = { onSave(rating, energy, reflection, pmMood, highlight, gratitude, lesson, tomorrow) }) { Text("Save") } },
+        confirmButton = {
+            TextButton(onClick = {
+                onSave(rating, energy, reflection, pmMood, highlight, gratitude, lesson, tomorrow)
+                onSaveExtras(good1, good2, good3, intentionOutcome, promptAnswer)
+            }) { Text("Save") }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
         title = { Text("Reflect on the day") },
         text = {
@@ -719,6 +802,18 @@ private fun ReflectDialog(
                 AppTextField(gratitude, { gratitude = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("🙏 One thing you're grateful for") }, singleLine = true)
                 Spacer(Modifier.height(6.dp))
                 AppTextField(lesson, { lesson = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("💡 One lesson / what you'd change") }, singleLine = true)
+                Spacer(Modifier.height(10.dp))
+                Text("Three good things", style = MaterialTheme.typography.labelMedium)
+                Spacer(Modifier.height(4.dp))
+                AppTextField(good1, { good1 = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("✓ One good thing") }, singleLine = true)
+                Spacer(Modifier.height(6.dp))
+                AppTextField(good2, { good2 = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("✓ Another") }, singleLine = true)
+                Spacer(Modifier.height(6.dp))
+                AppTextField(good3, { good3 = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("✓ One more") }, singleLine = true)
+                Spacer(Modifier.height(10.dp))
+                Text(prompt, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(4.dp))
+                AppTextField(promptAnswer, { promptAnswer = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Your answer") }, singleLine = true)
                 if (isToday) {
                     Spacer(Modifier.height(6.dp))
                     AppTextField(tomorrow, { tomorrow = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("🎯 The one thing that matters tomorrow") }, singleLine = true)
