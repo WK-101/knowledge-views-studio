@@ -38,11 +38,14 @@ sealed interface DrawerSelection {
     data class Folder(val name: String) : DrawerSelection
 }
 
+enum class InboxSort(val label: String) { NEWEST("Newest first"), OLDEST("Oldest first") }
+
 data class InboxUiState(
     val loading: Boolean = true,
     val items: List<ItemListRow> = emptyList(),
     val unread: Int = 0,
     val filter: InboxFilter = InboxFilter.UNREAD,
+    val sort: InboxSort = InboxSort.NEWEST,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -64,6 +67,7 @@ class InboxViewModel @Inject constructor(
     fun setViewMode(mode: ListViewMode) = viewModelScope.launch { preferencesRepository.setListViewMode(mode) }
 
     private val _filter = MutableStateFlow(InboxFilter.UNREAD)
+    private val _sort = MutableStateFlow(InboxSort.NEWEST)
 
     /** What the drawer points the list at: All Articles, one feed, or a whole folder. */
     private val _selection = MutableStateFlow<DrawerSelection>(DrawerSelection.All)
@@ -94,13 +98,15 @@ class InboxViewModel @Inject constructor(
             }
         }
 
-    private val filteredRows = combine(rows, preferencesRepository.preferences) { list, prefs ->
-        applyContentFilters(list, prefs.blockedKeywords, prefs.hideDuplicates)
+    private val filteredRows = combine(rows, preferencesRepository.preferences, _sort) { list, prefs, sort ->
+        val filtered = applyContentFilters(list, prefs.blockedKeywords, prefs.hideDuplicates)
+        // The DAO returns newest-first; only OLDEST needs a reversal.
+        if (sort == InboxSort.OLDEST) filtered.reversed() else filtered
     }
 
     val state: StateFlow<InboxUiState> =
-        combine(filteredRows, itemRepository.unreadCount(), _filter) { items, unread, filter ->
-            InboxUiState(loading = false, items = items, unread = unread, filter = filter)
+        combine(filteredRows, itemRepository.unreadCount(), _filter, _sort) { items, unread, filter, sort ->
+            InboxUiState(loading = false, items = items, unread = unread, filter = filter, sort = sort)
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -109,6 +115,31 @@ class InboxViewModel @Inject constructor(
 
     fun setFilter(filter: InboxFilter) {
         _filter.value = filter
+    }
+
+    fun setSort(sort: InboxSort) {
+        _sort.value = sort
+    }
+
+    /** Mark every unread item in the current drawer scope read. */
+    fun markAllRead() = viewModelScope.launch {
+        val sel = _selection.value
+        itemRepository.markAllRead(
+            sourceId = (sel as? DrawerSelection.Feed)?.sourceId,
+            folder = (sel as? DrawerSelection.Folder)?.name,
+        )
+        _messages.emit("Marked all read")
+    }
+
+    /** Mark a specific feed or folder read from the drawer's long-press menu. */
+    fun markFeedRead(sourceId: String) = viewModelScope.launch {
+        itemRepository.markAllRead(sourceId = sourceId, folder = null)
+        _messages.emit("Marked all read")
+    }
+
+    fun markFolderRead(folder: String) = viewModelScope.launch {
+        itemRepository.markAllRead(sourceId = null, folder = folder)
+        _messages.emit("Marked all read")
     }
 
     /** All Articles — the whole inbox, unread first. */

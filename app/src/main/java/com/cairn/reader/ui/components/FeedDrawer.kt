@@ -2,8 +2,10 @@ package com.cairn.reader.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +28,8 @@ import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.StarOutline
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -35,7 +39,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,6 +70,8 @@ fun FeedDrawerContent(
     onStarred: () -> Unit,
     onSelectFeed: (FeedUnread) -> Unit,
     onSelectFolder: (String) -> Unit,
+    onMarkFeedRead: (String) -> Unit,
+    onMarkFolderRead: (String) -> Unit,
     onSaved: () -> Unit,
     onHighlights: () -> Unit,
     onSearch: () -> Unit,
@@ -154,6 +162,7 @@ fun FeedDrawerContent(
                     selected = folderSelected,
                     onClick = { onSelectFolder(folder) },
                     onToggle = { expanded[folder] = !isOpen },
+                    onMarkRead = { onMarkFolderRead(folder) },
                 )
                 AnimatedVisibility(visible = isOpen) {
                     Column {
@@ -163,6 +172,7 @@ fun FeedDrawerContent(
                                 selected = (selection as? DrawerSelection.Feed)?.sourceId == feed.sourceId,
                                 indent = true,
                                 onClick = { onSelectFeed(feed) },
+                                onMarkRead = { onMarkFeedRead(feed.sourceId) },
                             )
                         }
                     }
@@ -174,6 +184,7 @@ fun FeedDrawerContent(
                     selected = (selection as? DrawerSelection.Feed)?.sourceId == feed.sourceId,
                     indent = false,
                     onClick = { onSelectFeed(feed) },
+                    onMarkRead = { onMarkFeedRead(feed.sourceId) },
                 )
             }
         }
@@ -200,7 +211,9 @@ fun FeedDrawerContent(
     }
 }
 
-/** A folder header: tap the row to view the whole folder, tap the chevron to expand/collapse. */
+/** A folder header: tap to view the whole folder, tap the chevron to expand/collapse,
+ *  long-press for the mark-all-read menu. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun FolderRow(
     name: String,
@@ -209,19 +222,22 @@ private fun FolderRow(
     selected: Boolean,
     onClick: () -> Unit,
     onToggle: () -> Unit,
+    onMarkRead: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     val rotation by animateFloatAsState(if (expanded) 0f else -90f, label = "chevron")
+    var menu by remember { mutableStateOf(false) }
     Row(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 1.dp)
             .clip(RoundedCornerShape(28.dp))
             .background(if (selected) scheme.secondaryContainer else Color.Transparent)
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = { menu = true })
             .padding(start = 16.dp, end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        RowActionMenu(menu, unread, onDismiss = { menu = false }, onMarkRead = { menu = false; onMarkRead() })
         Icon(
             Icons.Outlined.Folder,
             contentDescription = null,
@@ -264,25 +280,30 @@ private fun FolderRow(
     }
 }
 
-/** A single feed row with a monogram dot, title and unread count. */
+/** A single feed row with a monogram dot, title and unread count.
+ *  Long-press opens a mark-all-read menu. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun FeedRow(
     feed: FeedUnread,
     selected: Boolean,
     indent: Boolean,
     onClick: () -> Unit,
+    onMarkRead: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
+    var menu by remember { mutableStateOf(false) }
     Row(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 1.dp)
             .clip(RoundedCornerShape(28.dp))
             .background(if (selected) scheme.secondaryContainer else Color.Transparent)
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = { menu = true })
             .padding(start = if (indent) 30.dp else 16.dp, end = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        RowActionMenu(menu, feed.unread, onDismiss = { menu = false }, onMarkRead = { menu = false; onMarkRead() })
         FeedMonogram(feed.title, dim = feed.unread == 0 && !selected)
         Spacer(Modifier.size(12.dp))
         Text(
@@ -304,6 +325,18 @@ private fun FeedRow(
                 color = if (selected) scheme.onSecondaryContainer else scheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/** The long-press menu shared by feed and folder rows. */
+@Composable
+private fun RowActionMenu(expanded: Boolean, unread: Int, onDismiss: () -> Unit, onMarkRead: () -> Unit) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        DropdownMenuItem(
+            text = { Text(if (unread > 0) "Mark all read ($unread)" else "Mark all read") },
+            enabled = unread > 0,
+            onClick = onMarkRead,
+        )
     }
 }
 

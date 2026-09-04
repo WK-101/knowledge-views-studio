@@ -118,6 +118,12 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
+    /** Mark this article unread again — pairs with the reader's UNREAD action. */
+    fun markUnread() {
+        if (itemId.isEmpty()) return
+        viewModelScope.launch { itemRepository.setRead(itemId, false) }
+    }
+
     fun setProgress(progress: Float) {
         if (itemId.isEmpty()) return
         viewModelScope.launch { itemRepository.setProgress(itemId, progress) }

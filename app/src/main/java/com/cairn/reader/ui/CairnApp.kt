@@ -20,9 +20,11 @@ import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material.icons.outlined.ViewAgenda
 import androidx.compose.material.icons.outlined.ViewCarousel
 import androidx.compose.material3.AlertDialog
@@ -134,6 +136,8 @@ fun CairnApp(
                     onStarred = { inboxViewModel.selectStarred(); selected = 0; scope.launch { drawerState.close() } },
                     onSelectFeed = { feed -> inboxViewModel.selectFeed(feed.sourceId, feed.title); selected = 0; scope.launch { drawerState.close() } },
                     onSelectFolder = { name -> inboxViewModel.selectFolder(name); selected = 0; scope.launch { drawerState.close() } },
+                    onMarkFeedRead = { sourceId -> inboxViewModel.markFeedRead(sourceId) },
+                    onMarkFolderRead = { name -> inboxViewModel.markFolderRead(name) },
                     onSaved = { selected = 1; scope.launch { drawerState.close() } },
                     onHighlights = { scope.launch { drawerState.close() }; onOpenNotebook() },
                     onSearch = { scope.launch { drawerState.close() }; onOpenSearch() },
@@ -164,11 +168,17 @@ fun CairnApp(
                 },
                 actions = {
                     if (current == Destination.Inbox) {
+                        if (inboxState.unread > 0) {
+                            IconButton(onClick = { inboxViewModel.markAllRead() }) {
+                                Icon(Icons.Outlined.DoneAll, contentDescription = "Mark all read")
+                            }
+                        }
                         Box {
                             IconButton(onClick = { showViewMenu = true }) {
-                                Icon(Icons.Outlined.ViewAgenda, contentDescription = "View mode")
+                                Icon(Icons.Outlined.ViewAgenda, contentDescription = "View and sort")
                             }
                             DropdownMenu(expanded = showViewMenu, onDismissRequest = { showViewMenu = false }) {
+                                MenuSectionLabel("VIEW")
                                 ViewModeItem("List", Icons.AutoMirrored.Outlined.ViewList, inboxViewMode == ListViewMode.LIST) {
                                     inboxViewModel.setViewMode(ListViewMode.LIST); showViewMenu = false
                                 }
@@ -177,6 +187,13 @@ fun CairnApp(
                                 }
                                 ViewModeItem("Magazine", Icons.Outlined.ViewCarousel, inboxViewMode == ListViewMode.MAGAZINE) {
                                     inboxViewModel.setViewMode(ListViewMode.MAGAZINE); showViewMenu = false
+                                }
+                                androidx.compose.material3.HorizontalDivider()
+                                MenuSectionLabel("SORT")
+                                com.cairn.reader.ui.inbox.InboxSort.entries.forEach { s ->
+                                    ViewModeItem(s.label, Icons.Outlined.SwapVert, inboxState.sort == s) {
+                                        inboxViewModel.setSort(s); showViewMenu = false
+                                    }
                                 }
                             }
                         }
@@ -330,6 +347,16 @@ private fun AddFeedDialog(onDismiss: () -> Unit, onAdd: (String) -> Unit) {
         },
         confirmButton = { TextButton(onClick = { onAdd(text) }, enabled = text.isNotBlank()) { Text("Add") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun MenuSectionLabel(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp),
     )
 }
 

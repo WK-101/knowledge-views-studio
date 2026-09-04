@@ -197,6 +197,21 @@ interface ItemDao {
     @Query("UPDATE item_states SET isRead = :read, updatedAt = :ts WHERE itemId = :id")
     suspend fun setRead(id: String, read: Boolean, ts: Long)
 
+    /** Mark every unread, non-archived item in a scope (all / one feed / one folder) as read. */
+    @Query(
+        """
+        UPDATE item_states SET isRead = 1, updatedAt = :ts
+        WHERE COALESCE(isRead, 0) = 0 AND COALESCE(isArchived, 0) = 0
+          AND itemId IN (
+            SELECT i.id FROM items i
+            LEFT JOIN sources src ON src.id = i.sourceId
+            WHERE (:sourceId IS NULL OR i.sourceId = :sourceId)
+              AND (:folder IS NULL OR src.folder = :folder)
+          )
+        """
+    )
+    suspend fun markScopeRead(sourceId: String?, folder: String?, ts: Long)
+
     @Query("UPDATE item_states SET isStarred = :starred, updatedAt = :ts WHERE itemId = :id")
     suspend fun setStarred(id: String, starred: Boolean, ts: Long)
 

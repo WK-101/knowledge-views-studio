@@ -93,6 +93,11 @@ class ItemRepository @Inject constructor(
         enqueue("setRead", id, read.toString(), now)
     }
 
+    /** Mark all unread items in the given scope read (null/null = everything). */
+    suspend fun markAllRead(sourceId: String?, folder: String?) {
+        itemDao.markScopeRead(sourceId, folder, clock())
+    }
+
     suspend fun setStarred(id: String, starred: Boolean) {
         val now = clock()
         itemDao.setStarred(id, starred, now)

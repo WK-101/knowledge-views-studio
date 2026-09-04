@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FolderOpen
@@ -237,13 +238,25 @@ fun ReaderScreen(
             )
         },
         bottomBar = {
-            if (ttsState.active) {
-                MiniPlayer(
-                    state = ttsState,
-                    onPlayPause = viewModel::toggleListen,
-                    onStop = viewModel::stopListen,
-                    onSpeed = viewModel::setListenSpeed,
-                )
+            Column {
+                if (ttsState.active) {
+                    MiniPlayer(
+                        state = ttsState,
+                        onPlayPause = viewModel::toggleListen,
+                        onStop = viewModel::stopListen,
+                        onSpeed = viewModel::setListenSpeed,
+                    )
+                }
+                if (data != null) {
+                    ReaderActionBar(
+                        isStarred = data.isStarred,
+                        onShare = { shareText(data.url, data.title) },
+                        onUnread = { viewModel.markUnread(); onBack() },
+                        onStar = viewModel::toggleStar,
+                        onTag = { showTags = true },
+                        onMore = { showMenu = true },
+                    )
+                }
             }
         },
     ) { padding ->
@@ -784,6 +797,55 @@ private fun MiniPlayer(
                 Icon(Icons.Filled.Close, contentDescription = "Stop", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+    }
+}
+
+/** The persistent reader triage bar — Inoreader-style: Share · Unread · Star · Tag · More. */
+@Composable
+private fun ReaderActionBar(
+    isStarred: Boolean,
+    onShare: () -> Unit,
+    onUnread: () -> Unit,
+    onStar: () -> Unit,
+    onTag: () -> Unit,
+    onMore: () -> Unit,
+) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = 2.dp, shadowElevation = 6.dp) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ReaderAction(Icons.Outlined.IosShare, "Share", onShare)
+            ReaderAction(Icons.Outlined.Circle, "Unread", onUnread)
+            ReaderAction(
+                if (isStarred) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                "Star",
+                onStar,
+                tint = if (isStarred) MaterialTheme.colorScheme.tertiary else null,
+            )
+            ReaderAction(Icons.Outlined.Label, "Tag", onTag)
+            ReaderAction(Icons.Outlined.MoreVert, "More", onMore)
+        }
+    }
+}
+
+@Composable
+private fun ReaderAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit, tint: Color? = null) {
+    val color = tint ?: MaterialTheme.colorScheme.onSurfaceVariant
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(icon, contentDescription = label, tint = color, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.height(3.dp))
+        Text(label, style = MaterialTheme.typography.labelSmall, color = color)
     }
 }
 
