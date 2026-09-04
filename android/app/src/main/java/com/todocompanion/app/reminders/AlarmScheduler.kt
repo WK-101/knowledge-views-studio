@@ -178,9 +178,11 @@ object AlarmScheduler {
     }
 
     // ---------- evening review ----------
-    fun scheduleEveningReview(context: Context, hour: Int, zone: ZoneId = ZoneId.systemDefault()) {
+    // Phase F — a [minute] component was added (default 0, so every existing caller is unchanged) so the
+    // adaptive-time layer can aim the nudge at any minute-of-day, not just the top of an hour.
+    fun scheduleEveningReview(context: Context, hour: Int, minute: Int = 0, zone: ZoneId = ZoneId.systemDefault()) {
         val now = System.currentTimeMillis()
-        var next = LocalDate.now(zone).atTime(LocalTime.of(hour.coerceIn(0, 23), 0))
+        var next = LocalDate.now(zone).atTime(LocalTime.of(hour.coerceIn(0, 23), minute.coerceIn(0, 59)))
             .atZone(zone).toInstant().toEpochMilli()
         if (next <= now) next += 86_400_000L
         setAlarm(context, next, broadcast(context, ACTION_EVENING, EVENING_REQ, emptyMap()))
@@ -189,6 +191,34 @@ object AlarmScheduler {
     fun cancelEveningReview(context: Context) {
         val am = context.getSystemService(AlarmManager::class.java) ?: return
         am.cancel(broadcast(context, ACTION_EVENING, EVENING_REQ, emptyMap()))
+    }
+
+    /**
+     * Phase F — (re)schedule the evening review honouring the adaptive-time setting. When the user opted
+     * to "adapt the reminder to when I usually close my day", aim it at the median of their recent close
+     * times (clamped to the evening window); otherwise keep the fixed [AppSettings.eveningReviewHour]
+     * exactly. Cancels when the nudge is off. The single scheduling entry point for the smart layer, called
+     * from the settings flow (via the ViewModel), the evening receiver's re-arm, and boot.
+     */
+    suspend fun scheduleEveningReviewSmart(context: Context, repo: AppRepository, zone: ZoneId = ZoneId.systemDefault()) {
+        val s = repo.settingsSnapshot()
+        if (!s.eveningReviewEnabled) { cancelEveningReview(context); return }
+        val fixed = s.eveningReviewHour.coerceIn(0, 23) * 60
+        val minuteOfDay = if (s.eveningReviewAdaptive) {
+            val closeMinutes = recentCloseMinutes(repo, zone)
+            com.todocompanion.app.domain.ReviewCadence.adaptiveReminderMinuteOfDay(closeMinutes, fixed)
+        } else fixed
+        scheduleEveningReview(context, minuteOfDay / 60, minuteOfDay % 60, zone)
+    }
+
+    /** Minute-of-day of each recent reviewed day's close (its DayLog's updatedAt), newest first. */
+    private suspend fun recentCloseMinutes(repo: AppRepository, zone: ZoneId): List<Int> {
+        val today = LocalDate.now(zone).toEpochDay()
+        return repo.dayLogsOnce()
+            .filter { com.todocompanion.app.domain.ReviewCadence.isReviewed(it) && it.updatedAt > 0L && it.epochDay <= today }
+            .sortedByDescending { it.epochDay }
+            .take(com.todocompanion.app.domain.ReviewCadence.SAMPLE_DAYS)
+            .map { Instant.ofEpochMilli(it.updatedAt).atZone(zone).let { z -> z.hour * 60 + z.minute } }
     }
 
     // ---------- Z4 · morning brief ----------

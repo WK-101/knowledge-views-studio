@@ -28,4 +28,6 @@
     <string name="sc_donext_long">Open Do-Next</string>
     <string name="sc_focus_short">Focus</string>
     <string name="sc_focus_long">Start focus</string>
+    <string name="sc_close_day_short">Close day</string>
+    <string name="sc_close_day_long">Close your day</string>
 </resources>

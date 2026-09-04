@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Typeface
+import kotlin.math.roundToInt
 
 /**
  * R106 — renders a shareable "My day" card to a PNG entirely on-device (android.graphics, no Compose
@@ -115,6 +116,96 @@ object DayCard {
         if (d.reflection.isNotBlank()) append("\n“${d.reflection}”\n")
         append("\n— via Kairo")
     }
+
+    // ── Phase F · the weekly roll-up share card ──────────────────────────────────────────────────────
+
+    /** Everything the weekly card needs, already computed by the caller from the Week roll-up. */
+    data class WeekData(
+        val rangeLabel: String,     // e.g. "1–7 Sep"
+        val reviewedDays: Int,
+        val periodDays: Int,
+        val avgRating: Double,      // 0 = none rated
+        val streak: Int,           // current review streak
+        val topWin: String,        // already privacy-safe; "" = omit
+        val accentArgb: Long?,
+    )
+
+    /**
+     * Render the week roll-up to a PNG in the same visual language as the day card (dark ground, accent
+     * eyebrow, big headline, stat lines, footer). Never throws / never blank: the whole draw is guarded
+     * and falls back to a minimal card, so a share can't crash or produce an empty image.
+     */
+    fun renderWeek(d: WeekData): Bitmap {
+        val accent = d.accentArgb?.toInt() ?: 0xFF6650A4.toInt()
+        val bg = 0xFF16121F.toInt()
+        val onBg = 0xFFEDE8F5.toInt()
+        val muted = 0xFF9B93AC.toInt()
+        val bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        c.drawColor(bg)
+        try {
+            val bold = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = onBg; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD) }
+            val reg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = muted; typeface = Typeface.DEFAULT }
+
+            reg.textSize = 38f; reg.color = accent
+            c.drawText("MY WEEK", 72f, 130f, reg)
+            bold.textSize = 72f; bold.color = onBg
+            c.drawText(ellipsize(d.rangeLabel, bold, (W - 144).toFloat()), 72f, 210f, bold)
+
+            var y = 320f
+            if (d.avgRating > 0) {
+                val r = d.avgRating.roundToInt().coerceIn(1, 5)
+                bold.textSize = 80f; bold.color = accent
+                c.drawText("★".repeat(r) + "☆".repeat(5 - r), 72f, y, bold)
+                reg.textSize = 34f; reg.color = muted
+                c.drawText("avg ${oneDp(d.avgRating)}", 72f + 470f, y - 18f, reg)
+                y += 60f
+            }
+            y += 40f
+
+            val tiles = buildList {
+                add("📆" to "${d.reviewedDays}/${d.periodDays} days reviewed")
+                if (d.streak > 0) add("🔥" to "${d.streak}-day streak")
+                if (d.avgRating > 0) add("★" to "${oneDp(d.avgRating)} avg rating")
+            }
+            bold.textSize = 52f; bold.color = onBg
+            tiles.forEach { (icon, label) ->
+                c.drawText("$icon  $label", 72f, y + 44f, bold)
+                y += 86f
+            }
+            y += 24f
+
+            if (d.topWin.isNotBlank()) {
+                reg.textSize = 34f; reg.color = accent
+                c.drawText("TOP WIN", 72f, y, reg); y += 56f
+                bold.textSize = 44f; bold.color = onBg
+                c.drawText(ellipsize("⭐  ${d.topWin}", bold, (W - 144).toFloat()), 72f, y, bold)
+            }
+
+            reg.textSize = 32f; reg.color = muted
+            c.drawText("Kairo · a week, reviewed · 100% offline", 72f, (H - 60).toFloat(), reg)
+        } catch (t: Throwable) {
+            // Minimal safe fallback so the card is never blank.
+            val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = onBg; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD); textSize = 64f }
+            c.drawText("My week", 72f, 160f, p)
+            p.textSize = 40f; p.color = muted
+            c.drawText("${d.reviewedDays}/${d.periodDays} days reviewed", 72f, 240f, p)
+        }
+        return bmp
+    }
+
+    /** Plain-text equivalent for the weekly card's "share as text" path. */
+    fun weekText(d: WeekData): String = buildString {
+        append("My week — ${d.rangeLabel}\n")
+        append("📆 ${d.reviewedDays}/${d.periodDays} days reviewed")
+        if (d.streak > 0) append(" · 🔥 ${d.streak}-day streak")
+        if (d.avgRating > 0) append(" · ★ ${oneDp(d.avgRating)} avg")
+        append("\n")
+        if (d.topWin.isNotBlank()) append("\n⭐ ${d.topWin}\n")
+        append("\n— via Kairo")
+    }
+
+    private fun oneDp(v: Double): String = String.format(java.util.Locale.US, "%.1f", v)
 
     private fun ellipsize(s: String, p: Paint, maxW: Float): String {
         if (p.measureText(s) <= maxW) return s

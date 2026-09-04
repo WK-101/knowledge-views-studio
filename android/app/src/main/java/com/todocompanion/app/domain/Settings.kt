@@ -115,6 +115,9 @@ data class AppSettings(
     // Evening review: an end-of-day nudge to plan tomorrow (opens Plan-your-day).
     val eveningReviewEnabled: Boolean = false,
     val eveningReviewHour: Int = 20,
+    // Phase F — adapt the evening reminder to when the user usually closes their day (median of recent
+    // close times, clamped to a sane evening window). Off = keep the fixed eveningReviewHour exactly.
+    val eveningReviewAdaptive: Boolean = false,
     // R59 (Wave 1) — reminder intensity default (0 Gentle · 1 Persistent · 2 Insistent-alarm), applied to
     // newly created reminders, and the snooze duration (minutes) every notification's Snooze action uses.
     val defaultReminderTier: Int = 0,
@@ -302,6 +305,13 @@ data class AppSettings(
     // "Did I do my best to…" questions (empty = none). Scores live per-day on the DayLog. See
     // domain/DailyQuestions.kt.
     val dailyQuestionsJson: String = "",
+    // Phase F — streak recovery ("never miss twice"). A capped, monthly allowance of "streak repairs":
+    // streakRepairTokens is the remaining count, streakRepairPeriod ("YYYY-MM") the month it was granted
+    // for (a new month refills to the cap), and repairedDaysCsv the epoch days the user deliberately
+    // repaired — a settings-side overlay counted when computing the streak (never fabricated in the DB).
+    val streakRepairTokens: Int = ReviewCadence.STREAK_REPAIR_CAP,
+    val streakRepairPeriod: String = "",
+    val repairedDaysCsv: String = "",
 ) {
     /** Effective tier for an optional editor field: user override, else its built-in default. */
     fun editorTier(f: EditorField): Int = editorFieldTiers[f.id] ?: f.defaultTier
@@ -393,6 +403,7 @@ data class AppSettings(
         Keys.SUMMARY_M to dailySummaryMinute.toString(),
         Keys.EVENING_ON to eveningReviewEnabled.toString(),
         Keys.EVENING_H to eveningReviewHour.toString(),
+        Keys.EVENING_ADAPTIVE to eveningReviewAdaptive.toString(),
         Keys.REMINDER_TIER to defaultReminderTier.toString(),
         Keys.SNOOZE_MIN to defaultSnoozeMin.toString(),
         Keys.QUIET_ON to quietHoursEnabled.toString(),
@@ -488,6 +499,9 @@ data class AppSettings(
         Keys.TASK_WIP_LIMIT to taskWipLimit.toString(),
         Keys.RECEPTIVITY_TIMING to receptivityTiming.toString(),
         Keys.DAILY_QUESTIONS to dailyQuestionsJson,
+        Keys.STREAK_REPAIR_TOKENS to streakRepairTokens.toString(),
+        Keys.STREAK_REPAIR_PERIOD to streakRepairPeriod,
+        Keys.REPAIRED_DAYS to repairedDaysCsv,
     )
 
     object Keys {
@@ -558,6 +572,7 @@ data class AppSettings(
         const val SUMMARY_M = "summary_m"
         const val EVENING_ON = "evening_on"
         const val EVENING_H = "evening_h"
+        const val EVENING_ADAPTIVE = "evening_adaptive"
         const val REMINDER_TIER = "reminder_tier"
         const val SNOOZE_MIN = "snooze_min"
         const val QUIET_ON = "quiet_on"
@@ -652,6 +667,9 @@ data class AppSettings(
         const val TASK_WIP_LIMIT = "task_wip_limit"
         const val RECEPTIVITY_TIMING = "receptivity_timing"
         const val DAILY_QUESTIONS = "daily_questions"
+        const val STREAK_REPAIR_TOKENS = "streak_repair_tokens"
+        const val STREAK_REPAIR_PERIOD = "streak_repair_period"
+        const val REPAIRED_DAYS = "repaired_days"
     }
 
     companion object {
@@ -795,6 +813,7 @@ data class AppSettings(
             dailySummaryMinute = m[Keys.SUMMARY_M]?.toIntOrNull() ?: 0,
             eveningReviewEnabled = m[Keys.EVENING_ON]?.toBooleanStrictOrNull() ?: false,
             eveningReviewHour = m[Keys.EVENING_H]?.toIntOrNull()?.coerceIn(0, 23) ?: 20,
+            eveningReviewAdaptive = m[Keys.EVENING_ADAPTIVE]?.toBooleanStrictOrNull() ?: false,
             defaultReminderTier = m[Keys.REMINDER_TIER]?.toIntOrNull()?.coerceIn(0, 2) ?: 0,
             defaultSnoozeMin = m[Keys.SNOOZE_MIN]?.toIntOrNull()?.coerceIn(1, 720) ?: 10,
             quietHoursEnabled = m[Keys.QUIET_ON]?.toBooleanStrictOrNull() ?: false,
@@ -840,6 +859,9 @@ data class AppSettings(
             taskWipLimit = m[Keys.TASK_WIP_LIMIT]?.toIntOrNull()?.coerceIn(0, 20) ?: 0,
             receptivityTiming = m[Keys.RECEPTIVITY_TIMING]?.toBooleanStrictOrNull() ?: false,
             dailyQuestionsJson = m[Keys.DAILY_QUESTIONS] ?: "",
+            streakRepairTokens = m[Keys.STREAK_REPAIR_TOKENS]?.toIntOrNull()?.coerceIn(0, ReviewCadence.STREAK_REPAIR_CAP) ?: ReviewCadence.STREAK_REPAIR_CAP,
+            streakRepairPeriod = m[Keys.STREAK_REPAIR_PERIOD] ?: "",
+            repairedDaysCsv = m[Keys.REPAIRED_DAYS] ?: "",
         )
     }
 }

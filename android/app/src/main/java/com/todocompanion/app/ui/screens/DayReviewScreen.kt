@@ -42,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -53,6 +54,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -65,6 +67,7 @@ import com.todocompanion.app.domain.DayAlignments
 import com.todocompanion.app.domain.DayPrompts
 import com.todocompanion.app.domain.Goal
 import com.todocompanion.app.domain.Goals
+import com.todocompanion.app.domain.ReviewCadence
 import com.todocompanion.app.domain.ReviewRollup
 import com.todocompanion.app.domain.calendar.CalendarEngine
 import com.todocompanion.app.domain.done.DoneKind
@@ -95,7 +98,7 @@ import kotlin.math.roundToInt
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> Unit, onBack: () -> Unit) {
+fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = false, onOpenTask: (String) -> Unit, onBack: () -> Unit) {
     BackHandler { onBack() }
     val ctx = LocalContext.current
     val zone = ZoneId.systemDefault()
@@ -106,6 +109,8 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
     var showShare by remember { mutableStateOf(false) }
     var showClose by remember { mutableStateOf(false) }
     var showQuestions by remember { mutableStateOf(false) }
+    // Phase F — opened via the "Close your day" shortcut / evening nudge: land straight in the close flow.
+    LaunchedEffect(startInClose) { if (startInClose) showClose = true }
     // Phase D — Day · Week · Month. Day keeps the full close-the-day screen; Week/Month roll the reviewed
     // period up into read-only aggregate cards.
     var mode by remember { mutableStateOf(ReviewRange.DAY) }
@@ -183,11 +188,18 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
                 it.highlight.isNotBlank() || it.gratitude.isNotBlank() || it.lesson.isNotBlank() || it.tomorrowFocus.isNotBlank()
         }.map { it.epochDay }.toHashSet()
     }
-    val reviewStreak = remember(reviewedDays) {
-        var s = 0; var d0 = if (todayEd in reviewedDays) todayEd else todayEd - 1
-        while (d0 in reviewedDays) { s++; d0-- }
-        s
+    // Phase F — streak recovery: repaired days (a settings-side overlay) count toward the streak, and a
+    // single missed day can be repaired with one of a capped, monthly allowance of "streak repairs".
+    val repairedDays = remember(settings.repairedDaysCsv) {
+        settings.repairedDaysCsv.split(",").mapNotNull { it.trim().toLongOrNull() }.toHashSet()
     }
+    val repairTokens = remember(settings.streakRepairTokens, settings.streakRepairPeriod, todayEd) {
+        ReviewCadence.tokensForPeriod(settings.streakRepairTokens, settings.streakRepairPeriod, ReviewCadence.periodKey(todayEd))
+    }
+    val streakState = remember(reviewedDays, repairedDays, repairTokens, todayEd) {
+        ReviewCadence.computeStreak(reviewedDays, repairedDays, todayEd, repairTokens)
+    }
+    val reviewStreak = streakState.streak
 
     // Reckon + Ready are anchored to *today* (carrying forward / planning a past day makes no sense).
     val openTasks = remember(tasks, isToday) { if (isToday) FourthWave.shutdownCarryForward(tasks, todayEd, zone) else emptyList() }
@@ -268,7 +280,8 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
                     }
                 }
                 Spacer(Modifier.height(if (nothing) 10.dp else 14.dp))
-                // Review-streak: a "don't break the chain" strip of the last 14 days.
+                // Review-streak: a "don't break the chain" strip of the last 14 days. A repaired day is
+                // shown in a distinct tertiary tint (not the same as a truly reviewed day) — honest by design.
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(if (reviewStreak > 0) "🔥 $reviewStreak-day streak" else "Reviewed days",
                         style = MaterialTheme.typography.labelMedium,
@@ -277,10 +290,28 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
                     Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                         (13 downTo 0).forEach { back ->
                             val d0 = todayEd - back
-                            val on = d0 in reviewedDays
+                            val reviewed = d0 in reviewedDays
+                            val repaired = !reviewed && d0 in repairedDays
                             Box(Modifier.size(if (d0 == day) 13.dp else 11.dp).clip(RoundedCornerShape(3.dp))
-                                .background(if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant))
+                                .background(when {
+                                    reviewed -> MaterialTheme.colorScheme.primary
+                                    repaired -> MaterialTheme.colorScheme.tertiary.copy(alpha = .55f)
+                                    else -> MaterialTheme.colorScheme.surfaceVariant
+                                }))
                         }
+                    }
+                }
+                // Phase F — a gentle, opt-in recovery when a single missed day just broke the streak. Never
+                // auto-consumed; the remaining allowance is shown plainly, and it's capped per month.
+                streakState.repairableDay?.let { repairDay ->
+                    Spacer(Modifier.height(10.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Missed yesterday — keep your streak going?", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
+                            Text("${streakState.tokensAvailable} streak repair${if (streakState.tokensAvailable == 1) "" else "s"} left this month", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        FilledTonalButton(onClick = { vm.keepStreak(repairDay) }) { Text("Keep my streak") }
                     }
                 }
             }
@@ -1160,6 +1191,8 @@ private fun RangeRollup(
 ) {
     val date = LocalDate.ofEpochDay(anchor)
     val today = LocalDate.ofEpochDay(todayEd)
+    val ctx = LocalContext.current
+    val accentArgb = MaterialTheme.colorScheme.primary.toArgb().toLong()
 
     // Resolve the window, label, relative caption and the prev/next anchors for this range.
     val start: Long
@@ -1205,6 +1238,27 @@ private fun RangeRollup(
             Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
         IconButton(onClick = { if (canNext) onAnchorChange(nextAnchor) }, enabled = canNext) { Icon(Icons.Filled.ChevronRight, "Next ${mode.label.lowercase()}") }
+        // Phase F — share this period as an on-device PNG card (permission-free), mirroring the day share.
+        if (rollup.hasData) {
+            IconButton(onClick = {
+                val reviewedSet = dayLogs.asSequence().filter { ReviewCadence.isReviewed(it) }.map { it.epochDay }.toSet()
+                val streak = ReviewCadence.computeStreak(reviewedSet, emptySet(), end, 0).streak
+                val wd = DayCard.WeekData(
+                    rangeLabel = label,
+                    reviewedDays = rollup.reviewedDays,
+                    periodDays = rollup.periodDays,
+                    avgRating = rollup.avgRating,
+                    streak = streak,
+                    topWin = rollup.wins.firstOrNull()?.text ?: "",
+                    accentArgb = accentArgb,
+                )
+                runCatching {
+                    val bmp = DayCard.renderWeek(wd)
+                    val res = ProgressCard.saveAndShareUri(ctx, bmp, "kairo-week-$start.png")
+                    res.shareUri?.let { ProgressCard.share(ctx, it) }
+                }
+            }) { Icon(Icons.Filled.Share, "Share ${mode.label.lowercase()}") }
+        }
     }
     Spacer(Modifier.height(12.dp))
 

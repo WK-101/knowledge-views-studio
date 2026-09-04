@@ -2644,6 +2644,28 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         ))
     }
 
+    // Phase F — (re)schedule the evening review through the smart layer (skip-if-done + adaptive time).
+    // Called from the settings flow whenever the nudge toggle, its hour, or the adaptive toggle changes.
+    fun rescheduleEveningReview() = viewModelScope.launch {
+        com.todocompanion.app.reminders.AlarmScheduler.scheduleEveningReviewSmart(appCtx, repo)
+    }
+
+    // Phase F — streak recovery: consume one repair token to cover a single missed day ([repairDay]).
+    // A deliberate opt-in tap only; never auto-consumed. Capped per month and gated on tokens remaining,
+    // so it can't be abused. Records the repaired day as a settings-side overlay (no DB day is fabricated).
+    fun keepStreak(repairDay: Long) = viewModelScope.launch {
+        val s = repo.settingsSnapshot()
+        val period = com.todocompanion.app.domain.ReviewCadence.periodKey(java.time.LocalDate.now().toEpochDay())
+        val available = com.todocompanion.app.domain.ReviewCadence.tokensForPeriod(s.streakRepairTokens, s.streakRepairPeriod, period)
+        if (available <= 0) return@launch
+        val repaired = (s.repairedDaysCsv.split(",").mapNotNull { it.trim().toLongOrNull() } + repairDay).distinct()
+        repo.saveSettings(s.copy(
+            streakRepairTokens = (available - 1).coerceAtLeast(0),
+            streakRepairPeriod = period,
+            repairedDaysCsv = repaired.joinToString(","),
+        ))
+    }
+
     // Phase C — self-scored Daily Questions. The active question list is a single settings JSON value
     // (capped at DailyQuestions.MAX); each day's scores live on that day's DayLog.
     fun saveDailyQuestions(list: List<DailyQuestion>) = viewModelScope.launch {

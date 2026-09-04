@@ -375,6 +375,8 @@ fun AppRoot(
         var showDone by remember { mutableStateOf(false) }   // R27 The Done Record
         var showPlan by remember { mutableStateOf(false) }
         var showDayReview by remember { mutableStateOf<Long?>(null) }   // R66 end-of-day review (holds the epoch-day, null = closed)
+        // Phase F — when opened via the "Close your day" shortcut / evening nudge, land straight in the close flow.
+        var dayReviewStartClose by remember { mutableStateOf(false) }
         // Tier Ω: the command palette, the any-period recap overlay, and the annual-report picker.
         var showPalette by remember { mutableStateOf(false) }
         var recapRange by remember { mutableStateOf<Triple<Long, Long, String>?>(null) }
@@ -455,8 +457,9 @@ fun AppRoot(
                 AlarmScheduler.scheduleDailySummary(context, hour, settings.dailySummaryMinute)
             } else AlarmScheduler.cancelDailySummary(context)
         }
-        LaunchedEffect(settings.eveningReviewEnabled, settings.eveningReviewHour) {
-            if (settings.eveningReviewEnabled) AlarmScheduler.scheduleEveningReview(context, settings.eveningReviewHour)
+        LaunchedEffect(settings.eveningReviewEnabled, settings.eveningReviewHour, settings.eveningReviewAdaptive) {
+            // Phase F — route through the smart scheduler (skip-if-done + adaptive time); it cancels when off.
+            if (settings.eveningReviewEnabled) vm.rescheduleEveningReview()
             else AlarmScheduler.cancelEveningReview(context)
         }
         // R46 Occasions — schedule/cancel the daily reflective nudge, and (re)post the ongoing "next
@@ -517,7 +520,9 @@ fun AppRoot(
                 a == "open_plan" -> { showPlan = true; launchAction.value = null }
                 a == "open_momentum" -> { showMomentum = true; launchAction.value = null }
                 a == "open_record" -> { showDone = true; launchAction.value = null }
-                a == "open_dayreview" -> { showDayReview = java.time.LocalDate.now().toEpochDay(); launchAction.value = null }
+                a == "open_dayreview" -> { dayReviewStartClose = false; showDayReview = java.time.LocalDate.now().toEpochDay(); launchAction.value = null }
+                // Phase F — the "Close your day" shortcut / evening nudge opens today's review in the close flow.
+                a == "open_close_day" -> { dayReviewStartClose = true; showDayReview = java.time.LocalDate.now().toEpochDay(); launchAction.value = null }
                 a == "open_time" -> { showTimeTracking = true; launchAction.value = null }
                 a == "open_calendar" -> { tab = Tab.CALENDAR; launchAction.value = null }
                 a != null && a.startsWith(com.todocompanion.app.MainActivity.ACTION_TRACK_ACTIVITY) -> {
@@ -982,7 +987,7 @@ fun AppRoot(
         if (showDone) com.todocompanion.app.ui.screens.DoneScreen(vm, onOpenTask = { showDone = false; openTask(it) }, onBack = { showDone = false })
         if (showPlan) com.todocompanion.app.ui.screens.PlanYourDayScreen(vm, onOpenTask = { showPlan = false; openTask(it) }, onBack = { showPlan = false })
         if (showReview) com.todocompanion.app.ui.screens.ReviewScreen(vm, onOpenTask = { showReview = false; openTask(it) }, onBack = { showReview = false })
-        showDayReview?.let { d -> com.todocompanion.app.ui.screens.DayReviewScreen(vm, d, onOpenTask = { showDayReview = null; openTask(it) }, onBack = { showDayReview = null }) }
+        showDayReview?.let { d -> com.todocompanion.app.ui.screens.DayReviewScreen(vm, d, startInClose = dayReviewStartClose, onOpenTask = { showDayReview = null; dayReviewStartClose = false; openTask(it) }, onBack = { showDayReview = null; dayReviewStartClose = false }) }
         if (showMomentum) com.todocompanion.app.ui.screens.MomentumScreen(vm, onBack = { showMomentum = false })
         if (showTimeTracking) com.todocompanion.app.ui.screens.TimeTrackingScreen(vm, onBack = { showTimeTracking = false })
         if (showTimeStats) com.todocompanion.app.ui.screens.TimeStatsScreen(vm, onBack = { showTimeStats = false })

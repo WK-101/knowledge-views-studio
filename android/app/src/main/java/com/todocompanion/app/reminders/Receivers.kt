@@ -137,14 +137,20 @@ class ReminderReceiver : BroadcastReceiver() {
                     try {
                         val zone = ZoneId.systemDefault()
                         val today = Instant.now().atZone(zone).toLocalDate()
-                        // Count today's open tasks left unfinished — the reason to sit down and plan tomorrow.
-                        val leftover = app.repository.wsTasksOnce().count {
-                            !it.completed && !it.trashed && !it.abandoned && it.dueDate != null &&
-                                !Instant.ofEpochMilli(it.dueDate!!).atZone(zone).toLocalDate().isAfter(today)
+                        // Phase F — smart nudge: skip entirely when today is already reviewed/closed, so a
+                        // done day gets no needless ping. (The re-arm below still fires for tomorrow.)
+                        val todayLog = app.repository.dayLogFor(today.toEpochDay())
+                        val alreadyClosed = todayLog != null && com.todocompanion.app.domain.ReviewCadence.isReviewed(todayLog)
+                        if (!alreadyClosed) {
+                            // Count today's open tasks left unfinished — the reason to sit down and plan tomorrow.
+                            val leftover = app.repository.wsTasksOnce().count {
+                                !it.completed && !it.trashed && !it.abandoned && it.dueDate != null &&
+                                    !Instant.ofEpochMilli(it.dueDate!!).atZone(zone).toLocalDate().isAfter(today)
+                            }
+                            Notifications.showEvening(context, leftover)
                         }
-                        Notifications.showEvening(context, leftover)
-                        val s = app.repository.settingsSnapshot()
-                        if (s.eveningReviewEnabled) AlarmScheduler.scheduleEveningReview(context, s.eveningReviewHour)
+                        // Re-arm for the next day, honouring the fixed-or-adaptive time setting.
+                        AlarmScheduler.scheduleEveningReviewSmart(context, app.repository)
                     } finally { pending.finish() }
                 }
             }
@@ -325,7 +331,7 @@ class BootReceiver : BroadcastReceiver() {
                 AlarmScheduler.scheduleHabitReminders(context, app.repository)
                 val s = app.repository.settingsSnapshot()
                 if (s.dailySummaryEnabled) AlarmScheduler.scheduleDailySummary(context, s.dailySummaryHour, s.dailySummaryMinute)
-                if (s.eveningReviewEnabled) AlarmScheduler.scheduleEveningReview(context, s.eveningReviewHour)
+                if (s.eveningReviewEnabled) AlarmScheduler.scheduleEveningReviewSmart(context, app.repository)
                 if (s.morningBriefEnabled) AlarmScheduler.scheduleMorningBrief(context, s.morningBriefHour)
                 if (s.occasionNudge) AlarmScheduler.scheduleOccasionNudge(context, s.occasionNudgeHour)
                 if (s.autoBackupEnabled && s.autoBackupFolder.isNotBlank()) AlarmScheduler.scheduleAutoBackup(context, s.autoBackupHour)

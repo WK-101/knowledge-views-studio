@@ -48,4 +48,17 @@
             android:targetClass="com.todocompanion.app.MainActivity"
             android:data="todocompanion://focus" />
     </shortcut>
+    <!-- Phase F — jump straight into today's "Close the day" flow. -->
+    <shortcut
+        android:shortcutId="close_day"
+        android:enabled="true"
+        android:icon="@drawable/sc_close_day"
+        android:shortcutShortLabel="@string/sc_close_day_short"
+        android:shortcutLongLabel="@string/sc_close_day_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.wkhan.kairo"
+            android:targetClass="com.todocompanion.app.MainActivity"
+            android:data="todocompanion://closeday" />
+    </shortcut>
 </shortcuts>

@@ -267,6 +267,10 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun deleteActivationItem(id: String) = activation.deleteById(id)
     val allDayLogs: Flow<List<com.todocompanion.app.data.entity.DayLogEntity>> = dayLogs.observeAll()
     suspend fun dayLogFor(day: Long): com.todocompanion.app.data.entity.DayLogEntity? = dayLogs.forDay(day, activeWs())
+    // Phase F — the active workspace's day logs (for the evening reminder's skip-if-done + adaptive-time layer).
+    suspend fun dayLogsOnce(): List<com.todocompanion.app.data.entity.DayLogEntity> {
+        val ws = activeWs(); return dayLogs.getAll().filter { it.workspaceId == ws }
+    }
     suspend fun upsertDayLog(d: com.todocompanion.app.data.entity.DayLogEntity) = dayLogs.upsert(d)
     // R36 — fourth-wave accessors.
     val allEscrows: Flow<List<com.todocompanion.app.data.entity.EscrowEntity>> = escrows.observeAll()

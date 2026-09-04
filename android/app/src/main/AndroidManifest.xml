@@ -96,7 +96,8 @@
             <meta-data
                 android:name="android.app.shortcuts"
                 android:resource="@xml/shortcuts" />
-            <!-- R17: deep links for the static shortcuts that open the app (Today/Do-Next/Focus). -->
+            <!-- R17: deep links for the static shortcuts that open the app (Today/Do-Next/Focus).
+                 Phase F adds "closeday" — the "Close your day" shortcut into today's close flow. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -104,6 +105,7 @@
                 <data android:scheme="todocompanion" android:host="today" />
                 <data android:scheme="todocompanion" android:host="donext" />
                 <data android:scheme="todocompanion" android:host="focus" />
+                <data android:scheme="todocompanion" android:host="closeday" />
             </intent-filter>
             <!-- H1: capture from the system share sheet — any app can share text into a new task. -->
             <intent-filter>
