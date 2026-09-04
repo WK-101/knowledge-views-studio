@@ -315,6 +315,12 @@ data class AppSettings(
     // Wave 1 — the guided Weekly Review store: a JSON object mapping an ISO-week key ("YYYY-Www") to that
     // week's reflection + next-week focus + life areas. "" = none reviewed yet. See domain/WeeklyReview.kt.
     val weeklyReviewsJson: String = "",
+    // Wave 3 (feature C) — the Drucker prediction loop store: a JSON list of predictions ("I expect that…
+    // will make me feel…") each with a resurface date + recorded outcome. "" = none. See domain/Predictions.kt.
+    val predictionsJson: String = "",
+    // Wave 3 (feature D) — keys of judgment-free single-day pattern nudges the user has dismissed, so a
+    // once-dismissed observation never returns. CSV of stable insight keys ("" = none). See ReviewInsights.
+    val nudgeDismissedCsv: String = "",
 ) {
     /** Effective tier for an optional editor field: user override, else its built-in default. */
     fun editorTier(f: EditorField): Int = editorFieldTiers[f.id] ?: f.defaultTier
@@ -506,6 +512,8 @@ data class AppSettings(
         Keys.STREAK_REPAIR_PERIOD to streakRepairPeriod,
         Keys.REPAIRED_DAYS to repairedDaysCsv,
         Keys.WEEKLY_REVIEWS to weeklyReviewsJson,
+        Keys.PREDICTIONS to predictionsJson,
+        Keys.NUDGE_DISMISSED to nudgeDismissedCsv,
     )
 
     object Keys {
@@ -675,6 +683,8 @@ data class AppSettings(
         const val STREAK_REPAIR_PERIOD = "streak_repair_period"
         const val REPAIRED_DAYS = "repaired_days"
         const val WEEKLY_REVIEWS = "weekly_reviews"
+        const val PREDICTIONS = "predictions"
+        const val NUDGE_DISMISSED = "nudge_dismissed"
     }
 
     companion object {
@@ -868,6 +878,8 @@ data class AppSettings(
             streakRepairPeriod = m[Keys.STREAK_REPAIR_PERIOD] ?: "",
             repairedDaysCsv = m[Keys.REPAIRED_DAYS] ?: "",
             weeklyReviewsJson = m[Keys.WEEKLY_REVIEWS] ?: "",
+            predictionsJson = m[Keys.PREDICTIONS] ?: "",
+            nudgeDismissedCsv = m[Keys.NUDGE_DISMISSED] ?: "",
         )
     }
 }

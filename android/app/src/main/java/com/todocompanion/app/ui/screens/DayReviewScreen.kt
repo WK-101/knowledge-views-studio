@@ -75,9 +75,13 @@ import com.todocompanion.app.domain.EmotionWords
 import com.todocompanion.app.domain.DayMemories
 import com.todocompanion.app.domain.Goal
 import com.todocompanion.app.domain.Goals
+import com.todocompanion.app.domain.Prediction
+import com.todocompanion.app.domain.Predictions
+import com.todocompanion.app.domain.ReflectionCompanion
 import com.todocompanion.app.domain.ReviewCadence
 import com.todocompanion.app.domain.ReviewInsights
 import com.todocompanion.app.domain.ReviewRollup
+import com.todocompanion.app.domain.YearReviewed
 import com.todocompanion.app.domain.WeeklyReview
 import com.todocompanion.app.domain.WeeklyReviews
 import com.todocompanion.app.domain.calendar.CalendarEngine
@@ -123,6 +127,14 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
     // Wave 1 — the guided Weekly Review (opened from the Week roll-up), and the ISO-week it targets.
     var showWeekly by remember { mutableStateOf(false) }
     var weeklyIso by remember { mutableStateOf("") }
+    // Wave 3 — sealed letter to future me (A), Drucker prediction loop (C), reflection companion (E),
+    // "Year, reviewed" (B). All local; the sealed store/crypto is reused from R32 via the VM.
+    var showWriteLetter by remember { mutableStateOf(false) }
+    var openLetter by remember { mutableStateOf<com.todocompanion.app.data.entity.SealedNoteEntity?>(null) }
+    var showAddPrediction by remember { mutableStateOf(false) }
+    var resolvePrediction by remember { mutableStateOf<Prediction?>(null) }
+    var showCompanion by remember { mutableStateOf(false) }
+    var showYear by remember { mutableStateOf(false) }
     // Wave 1 — deliberate rollover: ids the user chose to "let go" (everything else defaults to carry).
     var rolloverLetGo by remember { mutableStateOf(setOf<String>()) }
     // Phase F — opened via the "Close your day" shortcut / evening nudge: land straight in the close flow.
@@ -140,6 +152,7 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
     val dayLogs by vm.dayLogs.collectAsState()
     val settings by vm.settings.collectAsState()
     val coreValues by vm.coreValues.collectAsState()
+    val sealedNotes by vm.sealedNotes.collectAsState()
 
     val date = LocalDate.ofEpochDay(day)
     val dayStart = date.atStartOfDay(zone).toInstant().toEpochMilli()
@@ -240,6 +253,22 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
     // year/month, or a recent good moment worth savouring. Computed on-device from the loaded day logs.
     val memory = remember(dayLogs, day) { DayMemories.select(day, dayLogs) }
 
+    // Wave 3 (C) — predictions due to resurface today (the Drucker loop). Parsed from settings, like the
+    // Daily Questions / Weekly Reviews stores; only checked-in on today.
+    val predictions = remember(settings.predictionsJson) { Predictions.parseAll(settings.predictionsJson) }
+    val duePredictions = remember(predictions, todayEd, isToday) {
+        if (isToday) Predictions.dueToResurface(predictions, todayEd) else emptyList()
+    }
+    // Wave 3 (D) — at most one gentle, non-judgmental observation for today, mined over the trailing ~90
+    // days from the same engine as the Patterns card. Occasional by design (a strong, undismissed finding
+    // rarely stands out), and dismissible (remembered in settings).
+    val nudge = remember(dayLogs, questions, habits, checkins, timeEntries, activities, day, isToday, settings.nudgeDismissedCsv) {
+        if (!isToday) null else {
+            val dismissed = settings.nudgeDismissedCsv.split(",").map { it.trim() }.filter { it.isNotBlank() }.toSet()
+            ReviewInsights.nudge(day - 89, day, dayLogs, questions, habits, checkins, timeEntries, activities, zone, System.currentTimeMillis(), dismissed)
+        }
+    }
+
     Scaffold(topBar = {
         TopAppBar(
             expandedHeight = 52.dp,
@@ -267,6 +296,7 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
                     onStartWeeklyReview = { iso -> weeklyIso = iso; showWeekly = true },
                     onAnchorChange = { day = it },
                     onOpenDay = { d -> day = d; mode = ReviewRange.DAY },
+                    onOpenYearReview = { showYear = true },
                 )
                 Spacer(Modifier.height(24.dp))
                 return@Column
@@ -364,6 +394,54 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
                     }
                     Spacer(Modifier.height(6.dp))
                     Text("“${mem.text}”", style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                }
+            }
+
+            // ── Wave 3 (D) — a single gentle, judgment-free observation. Soft, dismissible, occasional. ──
+            nudge?.let { n ->
+                Spacer(Modifier.height(12.dp))
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .5f),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
+                        Text("🔎", Modifier.width(30.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(n.text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                            Text("An observation, not a verdict — computed privately on your device.",
+                                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                        }
+                        TextButton(onClick = { vm.dismissNudge(n.key) }) { Text("Dismiss") }
+                    }
+                }
+            }
+
+            // ── Wave 3 (C) — Drucker prediction loop: resurface a due prediction, and log a new one. ──
+            if (isToday) {
+                Spacer(Modifier.height(12.dp))
+                AppCard {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 2.dp)) {
+                        Text("🔮 Predictions", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        TextButton(onClick = { showAddPrediction = true }) { Text("Log one") }
+                    }
+                    if (duePredictions.isEmpty()) {
+                        Text("Predict how a change or a finish will make you feel, and set when to check back. When the day comes, you'll compare what you expected with what actually happened — Drucker's feedback analysis.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else {
+                        duePredictions.forEach { p ->
+                            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = .4f)).padding(12.dp)) {
+                                Text("${Predictions.sinceLabel(p.createdEpochDay, todayEd)} you predicted:",
+                                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                                Text("“${p.expectation}”", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 4.dp))
+                                Text("How did it actually turn out?", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(Modifier.height(6.dp))
+                                FilledTonalButton(onClick = { resolvePrediction = p }) { Text("Record the outcome") }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                        }
+                    }
                 }
             }
 
@@ -567,6 +645,15 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
                     Spacer(Modifier.height(8.dp))
                     FilledTonalButton(onClick = { showReflect = true }) { Text("Reflect on today") }
                 }
+                // Wave 3 (E) — an optional, rule-based reflection companion: a short chain of context-aware
+                // follow-ups picked on-device from the day's own mood/rating. No LLM, no model, no service.
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedButton(onClick = { showCompanion = true }) { Text("🫧  Go deeper") }
+                    Spacer(Modifier.width(10.dp))
+                    Text("A private guide — a few questions, all on your device. No AI service.",
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 // Phase E — the day's alignment, rendered back: goals advanced + values honored.
                 if (movedGoals.isNotEmpty() || honoredValues.isNotEmpty()) {
                     Spacer(Modifier.height(10.dp))
@@ -581,6 +668,15 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
                     }
                 }
             }
+
+            // ── Wave 3 (A) — a sealed letter to your future self. Reuses R32's sealed store + tamper-evident
+            // hash (via the VM); locked entries show only their date + a lock, never the body, until due. ──
+            Spacer(Modifier.height(12.dp))
+            SealedLettersReviewCard(
+                notes = sealedNotes, today = date,
+                onWrite = { showWriteLetter = true },
+                onOpen = { openLetter = it },
+            )
 
             // ── Daily questions: self-scored effort on what you value (Marshall Goldsmith) ──
             Spacer(Modifier.height(12.dp))
@@ -769,6 +865,55 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
             }
             showShare = false
         },
+    )
+
+    // ── Wave 3 (A) — write & seal a letter to future me. Reuses R32's VM path (sealed store + tamper-
+    // evident hash + SQLCipher-at-rest); nothing new is encrypted here. ──
+    if (showWriteLetter) WriteSealedLetterDialog(
+        today = date,
+        onDismiss = { showWriteLetter = false },
+        onSeal = { title, body, revealDay -> vm.sealLetter(title, body, revealDay); showWriteLetter = false },
+    )
+    openLetter?.let { n ->
+        SealedLetterRevealDialog(
+            note = n, ready = todayEd >= n.revealEpochDay, intact = vm.letterIntact(n),
+            onDismiss = { openLetter = null },
+            onAck = { vm.acknowledgeLetter(n); openLetter = null },
+            onDelete = { vm.deleteLetter(n.id); openLetter = null },
+        )
+    }
+
+    // ── Wave 3 (C) — log a new prediction, and record the outcome of one that resurfaced. ──
+    if (showAddPrediction) AddPredictionDialog(
+        today = date,
+        onDismiss = { showAddPrediction = false },
+        onAdd = { text, resurfaceDay -> vm.addPrediction(text, resurfaceDay); showAddPrediction = false },
+    )
+    resolvePrediction?.let { p ->
+        ResolvePredictionDialog(
+            prediction = p, today = todayEd,
+            onDismiss = { resolvePrediction = null },
+            onResolve = { note, matched -> vm.resolvePrediction(p.id, note, matched); resolvePrediction = null },
+            onForget = { vm.removePrediction(p.id); resolvePrediction = null },
+        )
+    }
+
+    // ── Wave 3 (E) — the rule-based reflection companion (no LLM); saves into the day's reflection field. ──
+    if (showCompanion) ReflectionCompanionDialog(
+        rating = bookend?.dayRating ?: 0,
+        mood = bookend?.pmMood ?: 0,
+        emotionLabel = bookend?.emotionLabel ?: "",
+        existingReflection = bookend?.pmReflection ?: "",
+        onDismiss = { showCompanion = false },
+        onSave = { merged -> vm.saveEveningReflection(day, merged, bookend?.pmMood ?: 0); showCompanion = false },
+    )
+
+    // ── Wave 3 (B) — the fully-local "Year, reviewed" recap, opened from the Month roll-up. ──
+    if (showYear) YearReviewedScreen(
+        anchorDay = day, todayEd = todayEd, zone = zone,
+        dayLogs = dayLogs, habits = habits, checkins = checkins, timeEntries = timeEntries, activities = activities,
+        accentArgb = settings.accentArgb.takeIf { it != 0L },
+        onBack = { showYear = false },
     )
 }
 
@@ -1628,6 +1773,7 @@ private fun RangeRollup(
     onStartWeeklyReview: (isoWeek: String) -> Unit,
     onAnchorChange: (Long) -> Unit,
     onOpenDay: (Long) -> Unit,
+    onOpenYearReview: () -> Unit,
 ) {
     val date = LocalDate.ofEpochDay(anchor)
     val today = LocalDate.ofEpochDay(todayEd)
@@ -1712,6 +1858,14 @@ private fun RangeRollup(
         val reviewed = WeeklyReviews.isReviewed(weeklyReviewsJson, weekIso)
         FilledTonalButton(onClick = { onStartWeeklyReview(weekIso) }, modifier = Modifier.fillMaxWidth()) {
             Text(if (reviewed) "🗓️  Weekly review ✓ — reopen" else "🗓️  Start weekly review")
+        }
+        Spacer(Modifier.height(12.dp))
+    }
+
+    // ── Wave 3 (B) — the fully-local "Year, reviewed" recap (Month roll-up only) ──
+    if (mode == ReviewRange.MONTH) {
+        FilledTonalButton(onClick = onOpenYearReview, modifier = Modifier.fillMaxWidth()) {
+            Text("📖  Year, reviewed")
         }
         Spacer(Modifier.height(12.dp))
     }
@@ -1960,4 +2114,402 @@ private fun reflectionMetricsLine(r: ReviewRollup.ReflectionEntry): String {
         r.topActivityName?.let { add((r.topActivityEmoji?.let { e -> "$e " } ?: "") + it) }
     }
     return parts.joinToString("  ·  ")
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════
+// Wave 3 — offline moats: sealed letters (A), Year-reviewed (B), prediction loop (C), companion (E).
+// ══════════════════════════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Wave 3 (A) — the day-review entry into R32's sealed "letter to your future self". A calm card that
+ * lists your sealed letters and opens the "write" flow. Reuses the existing sealed store + tamper-evident
+ * hash + SQLCipher-at-rest entirely (via the VM); NOTHING new is encrypted here. Locked letters show only
+ * their unlock date and a lock — never the title or body — until the date has passed.
+ */
+@Composable
+private fun SealedLettersReviewCard(
+    notes: List<com.todocompanion.app.data.entity.SealedNoteEntity>,
+    today: LocalDate,
+    onWrite: () -> Unit,
+    onOpen: (com.todocompanion.app.data.entity.SealedNoteEntity) -> Unit,
+) {
+    val todayDay = today.toEpochDay()
+    AppCard {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 2.dp)) {
+            Text("✉️ Letter to your future self", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            TextButton(onClick = onWrite) { Text("Write") }
+        }
+        if (notes.isEmpty()) {
+            Text("Write a letter today; it stays locked until a date you choose. Sealed on this device — no one, not even you, can read it before then.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            notes.sortedBy { it.revealEpochDay }.forEach { n ->
+                val ready = todayDay >= n.revealEpochDay
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 6.dp).clip(RoundedCornerShape(12.dp))
+                        .then(if (ready) Modifier.clickable { onOpen(n) } else Modifier)
+                        .background(if (ready) MaterialTheme.colorScheme.primaryContainer.copy(alpha = .4f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .35f))
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(if (ready) "📬" else "🔒", Modifier.width(30.dp), style = MaterialTheme.typography.titleMedium)
+                    Column(Modifier.weight(1f)) {
+                        // Never reveal the title or body while locked — only the date + lock (privacy promise).
+                        Text(if (ready) n.title else "A sealed letter", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val revealDate = LocalDate.ofEpochDay(n.revealEpochDay)
+                        Text(
+                            if (ready) "Ready to open" else "Opens $revealDate · ${n.revealEpochDay - todayDay} days",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (ready) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (ready) Icon(Icons.Filled.ChevronRight, "Open letter", tint = MaterialTheme.colorScheme.primary)
+                }
+            }
+        }
+    }
+}
+
+/** Wave 3 (A) — write & seal a letter, with an explicit "open on…" date picker. Sealed on save. */
+@Composable
+private fun WriteSealedLetterDialog(today: LocalDate, onDismiss: () -> Unit, onSeal: (String, String, Long) -> Unit) {
+    var title by remember { mutableStateOf("") }
+    var body by remember { mutableStateOf("") }
+    var revealDay by remember { mutableLongStateOf(today.plusMonths(6).toEpochDay()) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val revealDate = LocalDate.ofEpochDay(revealDay)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(enabled = body.isNotBlank(), onClick = { onSeal(title, body, revealDay) }) { Text("Seal it") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("A letter to future you") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                AppTextField(title, { title = it }, singleLine = true, placeholder = { Text("Title (optional)") }, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(8.dp))
+                AppTextField(body, { body = it }, minLines = 4, placeholder = { Text("What do you want to tell yourself?") }, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(10.dp))
+                Text("Open on…", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(4.dp))
+                OutlinedButton(onClick = { showDatePicker = true }) {
+                    Text("📅  " + revealDate.dayOfMonth + " " + revealDate.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()) + " " + revealDate.year)
+                }
+                Spacer(Modifier.height(10.dp))
+                Text("Sealed on this device and locked until that date. No one — not even you — can read it before then, and it can't be edited once sealed.",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+    )
+    if (showDatePicker) DateOnlyPickerDialog(
+        initial = revealDate.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+        allowFuture = true,
+        onDismiss = { showDatePicker = false },
+        onConfirm = { ms -> revealDay = Instant.ofEpochMilli(ms).atZone(ZoneOffset.UTC).toLocalDate().toEpochDay(); showDatePicker = false },
+    )
+}
+
+/** Wave 3 (A) — read a due letter (only reachable once its unlock date has passed), with its seal state. */
+@Composable
+private fun SealedLetterRevealDialog(
+    note: com.todocompanion.app.data.entity.SealedNoteEntity, ready: Boolean, intact: Boolean,
+    onDismiss: () -> Unit, onAck: () -> Unit, onDelete: () -> Unit,
+) {
+    val sealedOn = LocalDate.ofEpochDay(note.createdEpochDay)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onAck) { Text("Keep") } },
+        dismissButton = { TextButton(onClick = onDelete) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
+        title = { Text(if (ready) note.title else "A sealed letter") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                if (!ready) {
+                    Text("Still sealed — it opens on ${LocalDate.ofEpochDay(note.revealEpochDay)}.",
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    Text("Sealed on $sealedOn", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(6.dp))
+                    Text(note.body, style = MaterialTheme.typography.bodyLarge)
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        if (intact) "✓ Untouched since sealing (hash verified)." else "⚠ This letter's text no longer matches its seal.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (intact) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        },
+    )
+}
+
+/** Wave 3 (C) — log a prediction with a resurface horizon. */
+@Composable
+private fun AddPredictionDialog(today: LocalDate, onDismiss: () -> Unit, onAdd: (String, Long) -> Unit) {
+    var text by remember { mutableStateOf("") }
+    var daysOut by remember { mutableLongStateOf(30L) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(enabled = text.isNotBlank(), onClick = { onAdd(text, Predictions.resurfaceFor(today.toEpochDay(), daysOut)) }) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Log a prediction") },
+        text = {
+            Column {
+                Text("Write what you expect — a result, or how a change will make you feel — then pick when to check back. Comparing it to what actually happens is Drucker's feedback analysis.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(10.dp))
+                AppTextField(text, { text = it }, minLines = 2, placeholder = { Text("I expect that … will make me feel …") }, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(10.dp))
+                Text("Check back in…", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(4.dp))
+                OptionChips(Predictions.HORIZONS, Predictions.HORIZONS.firstOrNull { it.second == daysOut }, { daysOut = it.second }, wrap = false, spacing = 6) { it.first }
+            }
+        },
+    )
+}
+
+/** Wave 3 (C) — record the outcome of a resurfaced prediction: a note + a matched / not-matched marker. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ResolvePredictionDialog(
+    prediction: Prediction, today: Long,
+    onDismiss: () -> Unit, onResolve: (String, Int) -> Unit, onForget: () -> Unit,
+) {
+    var note by remember { mutableStateOf("") }
+    var matched by remember { mutableIntStateOf(Predictions.MATCH_UNSET) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = { onResolve(note, matched) }) { Text("Save outcome") } },
+        dismissButton = { TextButton(onClick = onForget) { Text("Forget it", color = MaterialTheme.colorScheme.error) } },
+        title = { Text("How did it turn out?") },
+        text = {
+            Column {
+                Text("${Predictions.sinceLabel(prediction.createdEpochDay, today)} you predicted:",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                Text("“${prediction.expectation}”", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 6.dp))
+                Text("Did it match what you expected?", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(4.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(Predictions.MATCH_YES to "Matched", Predictions.MATCH_NO to "Didn't").forEach { (v, lbl) ->
+                        FilterChip(selected = matched == v, onClick = { matched = if (matched == v) Predictions.MATCH_UNSET else v }, label = { Text(lbl) })
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                AppTextField(note, { note = it }, minLines = 2, placeholder = { Text("What actually happened?") }, modifier = Modifier.fillMaxWidth())
+            }
+        },
+    )
+}
+
+/** Wave 3 (E) — the rule-based reflection companion: walk a short chain of context-aware follow-ups
+ *  chosen on-device from the day's mood/rating, saving the answers into the day's reflection field. */
+@Composable
+private fun ReflectionCompanionDialog(
+    rating: Int, mood: Int, emotionLabel: String, existingReflection: String,
+    onDismiss: () -> Unit, onSave: (String) -> Unit,
+) {
+    val chain = remember(rating, mood, emotionLabel) { ReflectionCompanion.chainFor(rating, mood, emotionLabel) }
+    var answers by remember { mutableStateOf(List(chain.prompts.size) { "" }) }
+    var idx by remember { mutableIntStateOf(0) }
+    val last = idx >= chain.prompts.lastIndex
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = {
+                if (last) onSave(ReflectionCompanion.merge(existingReflection, ReflectionCompanion.compose(chain, answers)))
+                else idx++
+            }) { Text(if (last) "Save" else "Next") }
+        },
+        dismissButton = { TextButton(onClick = { if (idx > 0) idx-- else onDismiss() }) { Text(if (idx > 0) "Back" else "Cancel") } },
+        title = { Text("${chain.track.glyph}  ${chain.track.title}") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text(chain.intro, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(12.dp))
+                Text("Question ${idx + 1} of ${chain.prompts.size}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                Text(chain.prompts[idx], style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, modifier = Modifier.padding(vertical = 4.dp))
+                AppTextField(answers[idx], { v -> answers = answers.toMutableList().also { it[idx] = v } }, minLines = 2, placeholder = { Text("Your answer (optional)") }, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(10.dp))
+                Text("A private guide, all on your device — no AI service. Your answers save into today's reflection.",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+            }
+        },
+    )
+}
+
+/**
+ * Wave 3 (B) — the fully-local "Year, reviewed": a calm, multi-panel year-in-review computed on-device by
+ * [YearReviewed] over the rolling 365 days ending today, with a permission-free shareable PNG rendered
+ * through the existing DayCard/ProgressCard pipeline (guarded, never blank). Reachable from the Month
+ * roll-up. Nothing leaves the device.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun YearReviewedScreen(
+    anchorDay: Long, todayEd: Long, zone: ZoneId,
+    dayLogs: List<com.todocompanion.app.data.entity.DayLogEntity>,
+    habits: List<com.todocompanion.app.data.entity.HabitEntity>,
+    checkins: List<com.todocompanion.app.data.entity.HabitCheckinEntity>,
+    timeEntries: List<com.todocompanion.app.data.entity.TimeEntryEntity>,
+    activities: List<com.todocompanion.app.data.entity.TimeActivityEntity>,
+    accentArgb: Long?,
+    onBack: () -> Unit,
+) {
+    BackHandler(onBack = onBack)
+    val ctx = LocalContext.current
+    val end = todayEd
+    val start = todayEd - (YearReviewed.WINDOW_DAYS - 1)
+    val recap = remember(dayLogs, habits, checkins, timeEntries, activities, end) {
+        YearReviewed.compute(start, end, dayLogs, habits, checkins, timeEntries, activities, zone, System.currentTimeMillis())
+    }
+    val fromLabel = LocalDate.ofEpochDay(start)
+    val toLabel = LocalDate.ofEpochDay(end)
+    val windowLabel = "${fromLabel.dayOfMonth} ${fromLabel.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${fromLabel.year} – " +
+        "${toLabel.dayOfMonth} ${toLabel.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${toLabel.year}"
+
+    fun shareYear() {
+        runCatching {
+            val yd = DayCard.YearData(
+                yearLabel = "My year",
+                daysReviewed = recap.daysReviewed,
+                avgRating = recap.avgRating,
+                trackedHours = recap.trackedHours,
+                longestStreak = recap.longestStreakDays,
+                winsCount = recap.winsCount,
+                topActivity = recap.topActivities.firstOrNull()?.name ?: "",
+                topEmotion = recap.topEmotionWord,
+                highlight = recap.highlightText,
+                accentArgb = accentArgb,
+            )
+            val bmp = DayCard.renderYear(yd)
+            val res = ProgressCard.saveAndShareUri(ctx, bmp, "kairo-year-$end.png")
+            res.shareUri?.let { ProgressCard.share(ctx, it) }
+        }
+    }
+
+    Scaffold(topBar = {
+        TopAppBar(
+            expandedHeight = 52.dp,
+            title = { Text("Year, reviewed") },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+            actions = { if (recap.hasData) IconButton(onClick = { shareYear() }) { Icon(Icons.Filled.Share, "Share year") } },
+        )
+    }) { padding ->
+        Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
+            Spacer(Modifier.height(4.dp))
+            if (!recap.hasData) {
+                AppCard {
+                    Text("📖", style = MaterialTheme.typography.displaySmall)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Your year starts filling in as you review your days.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Spacer(Modifier.height(24.dp))
+                return@Column
+            }
+
+            // Header panel.
+            AppCard {
+                Text("The last 12 months", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                Text("${recap.daysReviewed} days reviewed", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text(windowLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                Spacer(Modifier.height(10.dp))
+                val tiles = buildList {
+                    if (recap.longestStreakDays > 0) add(Triple("🔥", "${recap.longestStreakDays}", "longest streak"))
+                    if (recap.winsCount > 0) add(Triple("⭐", "${recap.winsCount}", "good things"))
+                    if (recap.trackedMinutes > 0) add(Triple("⧗", "${recap.trackedHours}h", "tracked"))
+                }
+                if (tiles.isNotEmpty()) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        tiles.forEach { (icon, value, label) -> StatTile(icon, value, label, Modifier.weight(1f)) }
+                    }
+                }
+            }
+
+            // How the year felt: rating + mood, each with its monthly trend.
+            if (recap.ratedDays > 0 || recap.moodDays > 0) {
+                Spacer(Modifier.height(12.dp))
+                AppCard {
+                    SectionTitle("How your year felt")
+                    if (recap.ratedDays > 0) {
+                        val r = recap.avgRating.roundToInt().coerceIn(1, 5)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("★".repeat(r) + "☆".repeat(5 - r), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(8.dp))
+                            Text("${oneDp(recap.avgRating)} avg · ${recap.ratedDays} rated", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        ScoreSparkline(recap.ratingTrend, Modifier.fillMaxWidth())
+                    }
+                    if (recap.moodDays > 0) {
+                        if (recap.ratedDays > 0) Spacer(Modifier.height(14.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(moodFace(recap.avgMood.roundToInt()), style = MaterialTheme.typography.titleMedium)
+                            Spacer(Modifier.width(8.dp))
+                            Text("mood ${oneDp(recap.avgMood)} avg · ${recap.moodDays} days", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        MoodStrip(recap.moodTrend, Modifier.fillMaxWidth())
+                    }
+                    if (recap.topEmotionWord.isNotBlank() && recap.topEmotionCount >= 3) {
+                        Spacer(Modifier.height(10.dp))
+                        Text("Most often, you felt ${recap.topEmotionWord.lowercase(Locale.getDefault())} (${recap.topEmotionCount} days named it).",
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+            }
+
+            // Top activities.
+            if (recap.topActivities.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                AppCard {
+                    SectionTitle("Where your time went")
+                    val maxMin = (recap.topActivities.maxOfOrNull { it.minutes } ?: 1).coerceAtLeast(1)
+                    val fallback = MaterialTheme.colorScheme.primary
+                    recap.topActivities.forEach { a ->
+                        val col = a.colorArgb?.let { Color(it) } ?: fallback
+                        MeterRow(
+                            leading = { val e = a.emoji; if (e != null) Text(e) else Box(Modifier.size(12.dp).clip(CircleShape).background(col)) },
+                            name = a.name, trailing = formatHm(a.minutes), frac = a.minutes / maxMin.toFloat(), color = col,
+                        )
+                    }
+                }
+            }
+
+            // Habit consistency.
+            if (recap.habitConsistency.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                AppCard {
+                    SectionTitle("Habits, over the year")
+                    val tertiary = MaterialTheme.colorScheme.tertiary
+                    recap.habitConsistency.forEach { h ->
+                        MeterRow(
+                            leading = { Text(h.emoji ?: "🔁") },
+                            name = h.name, trailing = "${h.pct}% · ${h.kept}/${h.expected}", frac = h.pct / 100f, color = tertiary,
+                        )
+                    }
+                }
+            }
+
+            // A standout highlight.
+            if (recap.highlightText.isNotBlank()) {
+                Spacer(Modifier.height(12.dp))
+                AppCard {
+                    SectionTitle("✨ A highlight")
+                    Text("“${recap.highlightText}”", style = MaterialTheme.typography.bodyLarge)
+                    if (recap.highlightEpochDay > 0) {
+                        val d = LocalDate.ofEpochDay(recap.highlightEpochDay)
+                        Text(d.dayOfMonth.toString() + " " + d.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()) + " " + d.year +
+                            (if (recap.highlightRating in 1..5) "  ·  " + "★".repeat(recap.highlightRating) else ""),
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+            Button(onClick = { shareYear() }, modifier = Modifier.fillMaxWidth()) { Text("Share a summary") }
+            Spacer(Modifier.height(8.dp))
+            Text("Built entirely on your device from your private record. Nothing was sent anywhere.",
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(bottom = 24.dp))
+        }
+    }
 }

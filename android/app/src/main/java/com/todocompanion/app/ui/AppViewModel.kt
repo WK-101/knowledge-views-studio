@@ -2695,6 +2695,39 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.saveSettings(cur.copy(weeklyReviewsJson = com.todocompanion.app.domain.WeeklyReviews.upsert(cur.weeklyReviewsJson, review)))
     }
 
+    // ── Wave 3 (feature C) · the Drucker prediction loop ─────────────────────────────────────────────
+    // Log a prediction ("I expect that … will make me feel …") with a resurface date, resolve it when it
+    // comes back, or drop it. The whole store is ONE settings JSON list (no schema change). See Predictions.
+    fun addPrediction(expectation: String, resurfaceEpochDay: Long) = viewModelScope.launch {
+        val text = expectation.trim()
+        if (text.isBlank()) return@launch
+        val today = java.time.LocalDate.now().toEpochDay()
+        val p = com.todocompanion.app.domain.Prediction(
+            id = java.util.UUID.randomUUID().toString(), createdEpochDay = today,
+            resurfaceEpochDay = resurfaceEpochDay.coerceAtLeast(today + 1), expectation = text,
+        )
+        val cur = settings.value
+        repo.saveSettings(cur.copy(predictionsJson = com.todocompanion.app.domain.Predictions.upsert(cur.predictionsJson, p)))
+        toast("Prediction saved — I'll bring it back on ${java.time.LocalDate.ofEpochDay(p.resurfaceEpochDay)}")
+    }
+    fun resolvePrediction(id: String, outcomeNote: String, matched: Int) = viewModelScope.launch {
+        val today = java.time.LocalDate.now().toEpochDay()
+        val cur = settings.value
+        repo.saveSettings(cur.copy(predictionsJson = com.todocompanion.app.domain.Predictions.resolve(cur.predictionsJson, id, outcomeNote, matched, today)))
+    }
+    fun removePrediction(id: String) = viewModelScope.launch {
+        val cur = settings.value
+        repo.saveSettings(cur.copy(predictionsJson = com.todocompanion.app.domain.Predictions.remove(cur.predictionsJson, id)))
+    }
+
+    // ── Wave 3 (feature D) · dismiss a single-day judgment-free nudge, so that observation never returns ──
+    fun dismissNudge(key: String) = viewModelScope.launch {
+        if (key.isBlank()) return@launch
+        val cur = settings.value
+        val keys = (cur.nudgeDismissedCsv.split(",").map { it.trim() }.filter { it.isNotBlank() } + key).distinct()
+        repo.saveSettings(cur.copy(nudgeDismissedCsv = keys.joinToString(",")))
+    }
+
     // Phase F — (re)schedule the evening review through the smart layer (skip-if-done + adaptive time).
     // Called from the settings flow whenever the nudge toggle, its hour, or the adaptive toggle changes.
     fun rescheduleEveningReview() = viewModelScope.launch {

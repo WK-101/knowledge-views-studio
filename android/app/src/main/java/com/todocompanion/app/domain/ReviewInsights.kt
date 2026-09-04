@@ -125,6 +125,51 @@ object ReviewInsights {
             .take(MAX_INSIGHTS)
     }
 
+    // ── Wave 3 (feature D) · the single-day judgment-free nudge ──────────────────────────────────────
+
+    /**
+     * One gentle, non-judgmental observation for the single-day view. [key] is stable per finding so the
+     * UI can remember a dismissal; [text] is already softly framed ("observe yourself like a bug", never a
+     * verdict or a scold).
+     */
+    data class Nudge(val key: String, val text: String)
+
+    /** A finding must clear at least this confidence to become a nudge — kept genuinely occasional. */
+    private const val NUDGE_MIN_STRENGTH = 0.35
+
+    /**
+     * Pick at most ONE kindly-worded observation to surface on the single-day review, drawn from the same
+     * cross-stream engine as the Patterns card. Reuses [compute] over the trailing window, takes the
+     * strongest finding that clears [NUDGE_MIN_STRENGTH] and hasn't been dismissed, and wraps it in a soft,
+     * pressure-free frame. Returns null when nothing worth a nudge stands out — which is most days.
+     */
+    fun nudge(
+        startDay: Long,
+        endDay: Long,
+        dayLogs: List<DayLogEntity>,
+        questions: List<DailyQuestion>,
+        habits: List<HabitEntity>,
+        checkins: List<HabitCheckinEntity>,
+        timeEntries: List<TimeEntryEntity>,
+        activities: List<TimeActivityEntity>,
+        zone: ZoneId,
+        now: Long,
+        dismissedKeys: Set<String> = emptySet(),
+    ): Nudge? {
+        val findings = compute(startDay, endDay, dayLogs, questions, habits, checkins, timeEntries, activities, zone, now)
+        val pick = findings.firstOrNull { it.strength >= NUDGE_MIN_STRENGTH && keyOf(it) !in dismissedKeys } ?: return null
+        return Nudge(keyOf(pick), soften(pick.text))
+    }
+
+    /** A stable key for a finding (kind + text), so a dismissal sticks even as strengths drift slightly. */
+    fun keyOf(insight: Insight): String = "${insight.kind.name}:${insight.text.hashCode()}"
+
+    /** Wrap a descriptive finding in a calm, non-judgmental frame — an observation, never a verdict. */
+    private fun soften(text: String): String {
+        val body = text.trim().replaceFirstChar { it.lowercase(Locale.getDefault()) }
+        return "Just something I noticed, no pressure — $body"
+    }
+
     // ── Finding: best-rated days keep more habits than the rest (extends ReviewRollup's best-vs-rest split) ──
     private fun bestVsRestHabits(
         ratedDays: List<Long>,
