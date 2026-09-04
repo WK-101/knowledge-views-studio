@@ -32,8 +32,8 @@ class AgendaWidget : AppWidgetProvider() {
             views.setEmptyView(R.id.widget_list, R.id.widget_empty)
             views.setOnClickPendingIntent(R.id.widget_add, activityIntent(context, 1, MainActivity.ACTION_QUICK_ADD))
             views.setOnClickPendingIntent(R.id.widget_header, activityIntent(context, 0, null))
-            // Template for per-item taps; the factory supplies a fill-in intent with the task id.
-            views.setPendingIntentTemplate(R.id.widget_list, itemTemplate(context))
+            // R104 — one broadcast template; each row's fill-in either ticks the task off or opens it.
+            views.setPendingIntentTemplate(R.id.widget_list, TaskWidgetReceiver.template(context, 4201))
 
             // Per-widget title + theme (from the configuration screen).
             val scope = WidgetPrefs.scope(context, id)
@@ -59,11 +59,6 @@ class AgendaWidget : AppWidgetProvider() {
             if (action != null) putExtra(MainActivity.EXTRA_ACTION, action)
         }
         return PendingIntent.getActivity(context, code, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-    }
-
-    private fun itemTemplate(context: Context): PendingIntent {
-        val intent = Intent(context, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP }
-        return PendingIntent.getActivity(context, 2, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE)
     }
 
     companion object {
@@ -183,10 +178,20 @@ private class AgendaFactory(private val context: Context, private val widgetId: 
                 r.overdue -> style.danger
                 else -> style.textSecondary
             })
-            // Fill-in intent: a task opens that task; a calendar event opens the app to the calendar.
+            // R104 — the check circle: tasks tick off in place; an event shows a coloured dot and
+            // just opens the calendar (events aren't completable here).
+            if (r.isEvent) {
+                setTextViewText(R.id.item_check, "•")
+                setTextColor(R.id.item_check, style.info)
+                setOnClickFillInIntent(R.id.item_check, TaskWidgetReceiver.openFill("open_calendar"))
+            } else {
+                setTextViewText(R.id.item_check, "○")
+                setTextColor(R.id.item_check, if (r.overdue) style.danger else style.accentText)
+                setOnClickFillInIntent(R.id.item_check, TaskWidgetReceiver.completeFill(r.id))
+            }
+            // The rest of the row opens the task (or the calendar for an event).
             val action = if (r.isEvent) "open_calendar" else "open_task:${r.id}"
-            val fill = Intent().putExtra(MainActivity.EXTRA_ACTION, action)
-            setOnClickFillInIntent(R.id.item_root, fill)
+            setOnClickFillInIntent(R.id.item_root, TaskWidgetReceiver.openFill(action))
         }
     }
 }

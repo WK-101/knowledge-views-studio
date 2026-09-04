@@ -44,7 +44,7 @@ class DoNextWidget : AppWidgetProvider() {
         views.setEmptyView(R.id.dn_list, R.id.dn_empty)
         views.setOnClickPendingIntent(R.id.dn_add, activity(context, id * 10 + 1, MainActivity.ACTION_QUICK_ADD))
         views.setOnClickPendingIntent(R.id.dn_title, activity(context, id * 10 + 2, "open_donext"))
-        views.setPendingIntentTemplate(R.id.dn_list, itemTemplate(context, id))
+        views.setPendingIntentTemplate(R.id.dn_list, TaskWidgetReceiver.template(context, 4202))
 
         views.setTextViewText(R.id.dn_energy, energyLabel(WidgetPrefs.energy(context, id)))
         views.setTextViewText(R.id.dn_time, timeLabel(WidgetPrefs.time(context, id)))
@@ -61,11 +61,6 @@ class DoNextWidget : AppWidgetProvider() {
             if (action != null) putExtra(MainActivity.EXTRA_ACTION, action)
         }
         return PendingIntent.getActivity(context, code, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-    }
-
-    private fun itemTemplate(context: Context, id: Int): PendingIntent {
-        val intent = Intent(context, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP }
-        return PendingIntent.getActivity(context, id * 10 + 3, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE)
     }
 
     private fun filterIntent(context: Context, id: Int, which: Int): PendingIntent {
@@ -176,10 +171,11 @@ private class DoNextFactory(private val context: Context, private val widgetId: 
     override fun getViewAt(position: Int): RemoteViews {
         val r = rows[position]
         return RemoteViews(context.packageName, R.layout.widget_donext_item).apply {
-            setTextViewText(R.id.dni_rank, r.rank.toString())
             setTextViewText(R.id.dni_title, r.title)
             setTextViewText(R.id.dni_sub, r.sub)
-            setOnClickFillInIntent(R.id.dni_root, Intent().putExtra(MainActivity.EXTRA_ACTION, "open_task:${r.id}"))
+            // R104 — tap the circle to tick it off in place; the rest of the row opens the task.
+            setOnClickFillInIntent(R.id.dni_check, TaskWidgetReceiver.completeFill(r.id))
+            setOnClickFillInIntent(R.id.dni_root, TaskWidgetReceiver.openFill("open_task:${r.id}"))
         }
     }
 }

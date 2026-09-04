@@ -308,6 +308,9 @@
             android:exported="false" />
         <receiver android:name=".widget.HabitCheckReceiver" android:exported="false" />
 
+        <!-- R104 — check a task off / open it straight from a task-list widget. -->
+        <receiver android:name=".widget.TaskWidgetReceiver" android:exported="false" />
+
         <receiver android:name=".widget.DoNextWidget" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />

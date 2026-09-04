@@ -123,6 +123,9 @@ private class RecordFactory(private val context: Context, private val widgetId: 
             setTextViewText(R.id.item_sub, r.sub)
             setTextColor(R.id.item_title, style.textPrimary)
             setTextColor(R.id.item_sub, style.textSecondary)
+            // R104 — the shared row has a check glyph; here it's a done tick (these are finished tasks).
+            setTextViewText(R.id.item_check, "✓")
+            setTextColor(R.id.item_check, style.success)
             val fill = Intent().putExtra(MainActivity.EXTRA_ACTION, "open_task:${r.id}")
             setOnClickFillInIntent(R.id.item_root, fill)
         }
