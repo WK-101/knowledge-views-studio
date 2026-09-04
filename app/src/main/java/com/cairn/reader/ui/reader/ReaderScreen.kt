@@ -46,7 +46,9 @@ import androidx.compose.material.icons.outlined.FormatSize
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.outlined.Label
+import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -171,6 +173,17 @@ fun ReaderScreen(
             if (subject != null) putExtra(Intent.EXTRA_SUBJECT, subject)
         }
         runCatching { context.startActivity(Intent.createChooser(send, null)) }
+    }
+
+    // Search / Define stay inside Cairn's own WebView (a normal fetch of a public
+    // search page) — no app switch, nothing about the query leaves the device
+    // beyond the search itself, which the reader deliberately asked for.
+    fun webLookup(quote: String, define: Boolean) {
+        val q = quote.trim().take(300)
+        if (q.isEmpty()) return
+        val term = if (define) "define $q" else q
+        val url = "https://duckduckgo.com/?q=" + java.net.URLEncoder.encode(term, "UTF-8")
+        onOpenWeb(url)
     }
 
     Scaffold(
@@ -347,6 +360,8 @@ fun ReaderScreen(
                 viewModel.addHighlight(sel.blockIndex, sel.start, sel.end, sel.quote, color)
                 pending = null
             },
+            onSearch = { webLookup(sel.quote, define = false); pending = null },
+            onDefine = { webLookup(sel.quote, define = true); pending = null },
             onCopy = { clipboard.setText(AnnotatedString(sel.quote.trim())); pending = null },
             onShare = { shareText(sel.quote.trim(), data?.title); pending = null },
             onDismiss = { pending = null },
@@ -632,12 +647,14 @@ private fun HighlightableText(
     )
 }
 
-/** Shown when the reader long-presses unhighlighted text — the Inoreader-style contextual
- *  menu: pick a highlight colour, or copy / share the selected passage. */
+/** Shown when the reader long-presses unhighlighted text — the contextual menu:
+ *  Search / Define / Copy / Share, plus a row of highlight colours. */
 @Composable
 private fun SelectionSheet(
     quote: String,
     onHighlight: (Int) -> Unit,
+    onSearch: () -> Unit,
+    onDefine: () -> Unit,
     onCopy: () -> Unit,
     onShare: () -> Unit,
     onDismiss: () -> Unit,
@@ -652,8 +669,21 @@ private fun SelectionSheet(
                 overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(18.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SelectionAction(Icons.Outlined.Search, "Search", onSearch)
+                SelectionAction(Icons.Outlined.MenuBook, "Define", onDefine)
+                SelectionAction(Icons.Outlined.ContentCopy, "Copy", onCopy)
+                SelectionAction(Icons.Outlined.IosShare, "Share", onShare)
+            }
+            Spacer(Modifier.height(20.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            Spacer(Modifier.height(16.dp))
             Text("Highlight", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 HighlightColors.all.forEach { c ->
                     Box(
@@ -666,18 +696,23 @@ private fun SelectionSheet(
                     )
                 }
             }
-            Spacer(Modifier.height(20.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                OutlinedButton(onClick = onCopy) {
-                    Icon(Icons.Outlined.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp)); Text("Copy")
-                }
-                OutlinedButton(onClick = onShare) {
-                    Icon(Icons.Outlined.IosShare, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp)); Text("Share")
-                }
-            }
         }
+    }
+}
+
+/** One compact icon+label action in the selection menu. */
+@Composable
+private fun SelectionAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(24.dp))
+        Spacer(Modifier.height(6.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
