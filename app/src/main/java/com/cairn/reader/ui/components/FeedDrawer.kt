@@ -94,14 +94,14 @@ fun FeedDrawerContent(
         Modifier
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
-            .padding(vertical = 10.dp),
+            .padding(vertical = 6.dp),
     ) {
         // ---- Brand header -----------------------------------------------------
         Row(
-            Modifier.padding(start = 28.dp, end = 28.dp, top = 10.dp, bottom = 16.dp),
+            Modifier.padding(start = 28.dp, end = 28.dp, top = 6.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            CairnMark(size = 30.dp)
+            CairnMark(size = 28.dp)
             Spacer(Modifier.size(12.dp))
             Column {
                 Text("Cairn", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
@@ -254,7 +254,7 @@ private fun FolderRow(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .weight(1f)
-                .padding(vertical = 14.dp),
+                .padding(vertical = 11.dp),
         )
         if (unread > 0) {
             Text(
@@ -316,7 +316,7 @@ private fun FeedRow(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .weight(1f)
-                .padding(vertical = 12.dp),
+                .padding(vertical = 9.dp),
         )
         if (feed.unread > 0) {
             Text(
@@ -382,13 +382,13 @@ private val MONOGRAM_COLORS = listOf(
 )
 
 @Composable
-private fun DrawerLabel(text: String, top: androidx.compose.ui.unit.Dp = 14.dp) {
+private fun DrawerLabel(text: String, top: androidx.compose.ui.unit.Dp = 10.dp) {
     Text(
         text = text,
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         letterSpacing = 1.4.sp,
         fontWeight = FontWeight.Medium,
-        modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = top, bottom = 6.dp),
+        modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = top, bottom = 4.dp),
     )
 }

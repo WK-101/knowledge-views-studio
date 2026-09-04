@@ -69,9 +69,9 @@ private fun CompactCell(
             .fillMaxWidth()
             .background(scheme.surface)
             .combinedClickable(onClick = onOpen, onLongClick = onLongPress)
-            .padding(horizontal = 20.dp, vertical = 11.dp),
+            .padding(horizontal = 16.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         if (!row.isRead) {
             Box(Modifier.size(7.dp).clip(CircleShape).background(scheme.primary))
@@ -102,7 +102,7 @@ private fun CompactCell(
                 model = row.leadImage,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.size(52.dp).clip(RoundedCornerShape(9.dp)).background(scheme.secondaryContainer),
+                modifier = Modifier.size(46.dp).clip(RoundedCornerShape(9.dp)).background(scheme.secondaryContainer),
             )
         }
         Icon(
@@ -129,7 +129,7 @@ private fun MagazineCell(
             .fillMaxWidth()
             .background(scheme.surface)
             .combinedClickable(onClick = onOpen, onLongClick = onLongPress)
-            .padding(horizontal = 20.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 11.dp),
     ) {
         if (row.leadImage != null) {
             AsyncImage(
@@ -142,7 +142,7 @@ private fun MagazineCell(
                     .clip(RoundedCornerShape(14.dp))
                     .background(scheme.secondaryContainer),
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(10.dp))
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (!row.isRead) {

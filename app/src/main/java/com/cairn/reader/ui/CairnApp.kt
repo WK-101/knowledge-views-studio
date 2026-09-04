@@ -268,7 +268,7 @@ private fun InboxScreen(
             .padding(top = padding.calculateTopPadding()),
     ) {
         SingleChoiceSegmentedButtonRow(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
         ) {
             val filters = InboxFilter.entries
             filters.forEachIndexed { index, filter ->

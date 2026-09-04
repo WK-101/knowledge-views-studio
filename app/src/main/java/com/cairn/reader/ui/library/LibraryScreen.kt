@@ -109,7 +109,7 @@ fun LibraryScreen(
     Column(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
         // Search + (for a collection scope) manage overflow
         androidx.compose.foundation.layout.Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             OutlinedTextField(
@@ -382,7 +382,7 @@ private fun LibraryCoverCard(row: ItemListRow, fixedRatio: Boolean, selected: Bo
             .clip(RoundedCornerShape(14.dp))
             .background(if (selected) scheme.secondaryContainer else scheme.surfaceContainerLow)
             .combinedClickable(onClick = onClick, onLongClick = onLongPress)
-            .padding(bottom = 10.dp),
+            .padding(bottom = 8.dp),
     ) {
         Box {
             if (row.leadImage != null) {
@@ -402,7 +402,7 @@ private fun LibraryCoverCard(row: ItemListRow, fixedRatio: Boolean, selected: Bo
             }
             TypeBadge(row.type, Modifier.align(Alignment.TopStart).padding(8.dp))
         }
-        Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+        Column(Modifier.padding(horizontal = 10.dp, vertical = 7.dp)) {
             val source = row.sourceTitle ?: row.siteName ?: "Unknown"
             Text(source, style = MaterialTheme.typography.labelSmall, color = scheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(2.dp))
