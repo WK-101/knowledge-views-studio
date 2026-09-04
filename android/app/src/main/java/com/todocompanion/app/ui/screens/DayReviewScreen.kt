@@ -74,6 +74,8 @@ import com.todocompanion.app.domain.DayAlignment
 import com.todocompanion.app.domain.DayAlignments
 import com.todocompanion.app.domain.EmotionWords
 import com.todocompanion.app.domain.DayMemories
+import com.todocompanion.app.domain.ExecutionScore
+import com.todocompanion.app.domain.RetroLens
 import com.todocompanion.app.domain.Goal
 import com.todocompanion.app.domain.Goals
 import com.todocompanion.app.domain.Prediction
@@ -339,9 +341,16 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
                 // Review-streak: a "don't break the chain" strip of the last 14 days. A repaired day is
                 // shown in a distinct tertiary tint (not the same as a truly reviewed day) — honest by design.
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (reviewStreak > 0) "🔥 $reviewStreak-day streak" else "Reviewed days",
+                    // Track 2.7 — with streaks hidden, lead with consistency over the density strip, not a count.
+                    val reviewed14 = (13 downTo 0).count { val d0 = todayEd - it; d0 in reviewedDays || d0 in repairedDays }
+                    Text(
+                        when {
+                            settings.hideStreaks -> "$reviewed14 of last 14 days reviewed"
+                            reviewStreak > 0 -> "🔥 $reviewStreak-day streak"
+                            else -> "Reviewed days"
+                        },
                         style = MaterialTheme.typography.labelMedium,
-                        color = if (reviewStreak > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (!settings.hideStreaks && reviewStreak > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f))
                     Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                         (13 downTo 0).forEach { back ->
@@ -363,11 +372,12 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
                     Spacer(Modifier.height(10.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("Missed yesterday — keep your streak going?", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
-                            Text("${streakState.tokensAvailable} streak repair${if (streakState.tokensAvailable == 1) "" else "s"} left this month", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                            // Track 2.7 — "never miss twice": lead with recovery, not the loss of a streak.
+                            Text("Never miss twice — one tap gets you right back on track.", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
+                            Text("${streakState.tokensAvailable} recovery${if (streakState.tokensAvailable == 1) "" else " tokens"} left this month", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                         }
                         Spacer(Modifier.width(8.dp))
-                        FilledTonalButton(onClick = { vm.keepStreak(repairDay) }) { Text("Keep my streak") }
+                        FilledTonalButton(onClick = { vm.keepStreak(repairDay) }) { Text("Get back on track") }
                     }
                 }
             }
@@ -812,6 +822,12 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
         },
         wins = wins.map { it.title },
         streak = reviewStreak + (if (day !in reviewedDays) 1 else 0),
+        // Track 2.7 — cadence corrections. Gratitude is a weekly beat (only the week-start day) when
+        // gratitudeWeekly is on; the three-good-things prompt asks for a short "…and why" when on; and
+        // the streak line is hidden in favour of the consistency framing when hideStreaks is on.
+        showGratitude = !settings.gratitudeWeekly || weekStartOf(date, settings.weekStart) == date,
+        requireGoodWhy = settings.requireGoodThingWhy,
+        hideStreaks = settings.hideStreaks,
         onDismiss = { showClose = false },
         onSave = { rating, energy, reflection, mood, highlight, gratitude, lesson, tomorrow ->
             vm.saveEveningReflection(day, reflection, mood)
@@ -835,14 +851,25 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
             ReviewRollup.compute(wStart, wEnd, dayLogs, questions, habits, checkins, timeEntries, activities, zone, System.currentTimeMillis(), goals, tasks)
         }
         val existing = remember(settings.weeklyReviewsJson, weeklyIso) { WeeklyReviews.forWeek(settings.weeklyReviewsJson, weeklyIso) }
+        // Track 2.5 — close the loop: last week's focus, resurfaced at the start of this week's review.
+        val lastWeekFocus = remember(settings.weeklyReviewsJson, weeklyIso, ws) {
+            val prevIso = WeeklyReviews.isoWeekKey(ws.minusDays(7))
+            WeeklyReviews.forWeek(settings.weeklyReviewsJson, prevIso)?.nextFocus?.takeIf { it.isNotBlank() } ?: ""
+        }
+        // Track 2.1 — the execution score for this week (planned commitments vs done).
+        val execScore = remember(weekRollup, tasks) { ExecutionScore.fromRollup(weekRollup, tasks, zone) }
         WeeklyReviewFlow(
             isoWeek = weeklyIso,
             weekLabel = weekLabel(ws, ws.plusDays(6)),
             rollup = weekRollup,
+            execScore = execScore,
+            lastWeekFocus = lastWeekFocus,
             openTasks = allOpenTasks,
             existing = existing,
             onSaveRollover = { carryIds, letGoIds -> vm.reviewRollover(carryIds, letGoIds) },
-            onSave = { reflection, nextFocus, areas -> vm.saveWeeklyReview(weeklyIso, reflection, nextFocus, areas) },
+            onSave = { reflection, nextFocus, areas, lens, lensAnswers, focusRating ->
+                vm.saveWeeklyReview(weeklyIso, reflection, nextFocus, areas, lens, lensAnswers, focusRating)
+            },
             onDismiss = { showWeekly = false },
         )
     }
@@ -1126,6 +1153,11 @@ private fun CloseDayFlow(
     topValues: List<CoreValueEntity>,
     initialAlignment: DayAlignment,
     onSaveAlignment: (movedGoalIds: List<String>, honoredValueIds: List<String>) -> Unit,
+    // Track 2.7 — show the gratitude prompt (weekly beat vs daily), prompt each good thing for a "why",
+    // and whether the closing-step streak line is hidden.
+    showGratitude: Boolean = true,
+    requireGoodWhy: Boolean = false,
+    hideStreaks: Boolean = false,
     onDismiss: () -> Unit,
     onSave: (rating: Int, energy: Int, reflection: String, mood: Int, highlight: String, gratitude: String, lesson: String, tomorrow: String) -> Unit,
     onSaveExtras: (good1: String, good2: String, good3: String, intentionOutcome: Int, promptAnswer: String) -> Unit,
@@ -1144,10 +1176,14 @@ private fun CloseDayFlow(
     // Wave 2 — tomorrow's WOOP if-then (feature 7): the obstacle you expect + the implementation intention.
     var obstacle by remember { mutableStateOf(log?.tomorrowObstacle ?: "") }
     var plan by remember { mutableStateOf(log?.tomorrowPlan ?: "") }
-    // Phase B — reflection-depth state.
-    var good1 by remember { mutableStateOf(log?.good1 ?: "") }
-    var good2 by remember { mutableStateOf(log?.good2 ?: "") }
-    var good3 by remember { mutableStateOf(log?.good3 ?: "") }
+    // Phase B — reflection-depth state. Track 2.7 — the optional "…and why" is split out for editing and
+    // rejoined on save, so the day-log field is unchanged (no schema).
+    var good1 by remember { mutableStateOf(goodThingOf(log?.good1 ?: "")) }
+    var good2 by remember { mutableStateOf(goodThingOf(log?.good2 ?: "")) }
+    var good3 by remember { mutableStateOf(goodThingOf(log?.good3 ?: "")) }
+    var why1 by remember { mutableStateOf(goodWhyOf(log?.good1 ?: "")) }
+    var why2 by remember { mutableStateOf(goodWhyOf(log?.good2 ?: "")) }
+    var why3 by remember { mutableStateOf(goodWhyOf(log?.good3 ?: "")) }
     var promptAnswer by remember { mutableStateOf(log?.promptAnswer ?: "") }
     var intentionOutcome by remember { mutableIntStateOf(log?.intentionOutcome ?: 0) }
     // Wave 1 — an optional precise emotion word chosen in the "feel" step, alongside the mood face.
@@ -1284,18 +1320,32 @@ private fun CloseDayFlow(
                         if (full) {
                             Spacer(Modifier.height(6.dp))
                             AppTextField(highlight, { highlight = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("✨ Highlight of the day") }, singleLine = true)
-                            Spacer(Modifier.height(6.dp))
-                            AppTextField(gratitude, { gratitude = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("🙏 One thing you're grateful for") }, singleLine = true)
+                            // Track 2.7 — gratitude as a weekly beat: only shown on the week-start day when the
+                            // weekly-gratitude setting is on, so the daily close doesn't nag for it every night.
+                            if (showGratitude) {
+                                Spacer(Modifier.height(6.dp))
+                                AppTextField(gratitude, { gratitude = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("🙏 One thing you're grateful for") }, singleLine = true)
+                            }
                             Spacer(Modifier.height(6.dp))
                             AppTextField(lesson, { lesson = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("💡 One lesson / what you'd change") }, singleLine = true)
                             Spacer(Modifier.height(12.dp))
                             Text("Three good things", style = MaterialTheme.typography.labelMedium, color = muted)
+                            if (requireGoodWhy) Text("Add a short “…and why” — it makes the good things stick.", style = MaterialTheme.typography.bodySmall, color = muted)
                             Spacer(Modifier.height(4.dp))
-                            AppTextField(good1, { good1 = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("✓ One good thing") }, singleLine = true)
-                            Spacer(Modifier.height(6.dp))
-                            AppTextField(good2, { good2 = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("✓ Another") }, singleLine = true)
-                            Spacer(Modifier.height(6.dp))
-                            AppTextField(good3, { good3 = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("✓ One more") }, singleLine = true)
+                            listOf(
+                                Triple("✓ One good thing", good1, why1),
+                                Triple("✓ Another", good2, why2),
+                                Triple("✓ One more", good3, why3),
+                            ).forEachIndexed { i, (ph, thing, why) ->
+                                if (i > 0) Spacer(Modifier.height(6.dp))
+                                AppTextField(thing, { v -> when (i) { 0 -> good1 = v; 1 -> good2 = v; else -> good3 = v } },
+                                    modifier = Modifier.fillMaxWidth(), placeholder = { Text(ph) }, singleLine = true)
+                                if (requireGoodWhy) {
+                                    Spacer(Modifier.height(3.dp))
+                                    AppTextField(why, { v -> when (i) { 0 -> why1 = v; 1 -> why2 = v; else -> why3 = v } },
+                                        modifier = Modifier.fillMaxWidth().padding(start = 12.dp), placeholder = { Text("…and why") }, singleLine = true)
+                                }
+                            }
                             Spacer(Modifier.height(12.dp))
                             val pg = AdaptivePrompts.glyph(adaptive.kind)
                             Text((if (pg.isNotBlank()) "$pg  " else "") + adaptive.text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
@@ -1345,7 +1395,12 @@ private fun CloseDayFlow(
                             Spacer(Modifier.height(18.dp))
                             Text("The day is closed.", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(8.dp))
-                            Text("🔥 Reviewed $streak day${if (streak == 1) "" else "s"} in a row. Rest well.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                            // Track 2.7 — with streaks hidden, celebrate the act itself rather than the count.
+                            Text(
+                                if (hideStreaks) "Closed with intention — that's the whole point. Rest well."
+                                else "🔥 Reviewed $streak day${if (streak == 1) "" else "s"} in a row. Rest well.",
+                                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary,
+                            )
                         }
                     }
                 }
@@ -1362,7 +1417,12 @@ private fun CloseDayFlow(
                         Button(onClick = {
                             if (nextIsDone) {
                                 onSave(rating, energy, reflection, mood, highlight, if (full) gratitude else "", if (full) lesson else "", tomorrow)
-                                onSaveExtras(if (full) good1 else "", if (full) good2 else "", if (full) good3 else "", intentionOutcome, if (full) promptAnswer else "")
+                                onSaveExtras(
+                                    if (full) joinGoodWhy(good1, why1) else "",
+                                    if (full) joinGoodWhy(good2, why2) else "",
+                                    if (full) joinGoodWhy(good3, why3) else "",
+                                    intentionOutcome, if (full) promptAnswer else "",
+                                )
                                 // The precise emotion word is captured in the always-shown "feel" step, so save it in both flows.
                                 onSaveEmotion(emotionLabel)
                                 // Wave 2 — the tomorrow WOOP if-then; only today has a "tomorrow" step to plan for.
@@ -1390,10 +1450,12 @@ private fun WeeklyReviewFlow(
     isoWeek: String,
     weekLabel: String,
     rollup: ReviewRollup.Rollup,
+    execScore: ExecutionScore.Score,
+    lastWeekFocus: String,
     openTasks: List<TaskEntity>,
     existing: WeeklyReview?,
     onSaveRollover: (carryIds: List<String>, letGoIds: List<String>) -> Unit,
-    onSave: (reflection: String, nextFocus: String, areas: List<String>) -> Unit,
+    onSave: (reflection: String, nextFocus: String, areas: List<String>, lens: String, lensAnswers: Map<String, String>, focusRating: Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var reflection by remember { mutableStateOf(existing?.reflection ?: "") }
@@ -1401,6 +1463,11 @@ private fun WeeklyReviewFlow(
     var areas by remember { mutableStateOf(existing?.areas?.toSet() ?: emptySet()) }
     var letGo by remember { mutableStateOf(setOf<String>()) }
     var rolledOver by remember { mutableStateOf(false) }
+    // Track 2.4 — the chosen retrospective lens ("" = free-text reflection) and its per-field answers.
+    var lens by remember { mutableStateOf(existing?.lens ?: "") }
+    var lensAnswers by remember { mutableStateOf(existing?.lensAnswers ?: emptyMap()) }
+    // Track 2.5 — how last week's focus went, self-rated this week (0 none · 1 missed · 2 partly · 3 nailed).
+    var focusRating by remember { mutableIntStateOf(existing?.focusRating ?: 0) }
 
     val steps = remember(openTasks.isEmpty()) {
         buildList {
@@ -1468,6 +1535,25 @@ private fun WeeklyReviewFlow(
                         }
                     }
                     "current" -> {
+                        // Track 2.5 — close last week's loop before taking stock of this one.
+                        if (lastWeekFocus.isNotBlank()) {
+                            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .5f)).padding(12.dp)) {
+                                Text("Last week you wanted to focus on:", style = MaterialTheme.typography.labelMedium, color = muted)
+                                Text("“$lastWeekFocus”", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 2.dp, bottom = 6.dp))
+                                Text("How did that go?", style = MaterialTheme.typography.labelMedium, color = muted)
+                                Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    listOf(1 to "Missed it", 2 to "Partly", 3 to "Nailed it").forEach { (v, lbl) ->
+                                        FilterChip(selected = focusRating == v, onClick = { focusRating = if (focusRating == v) 0 else v }, label = { Text(lbl) })
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(14.dp))
+                        }
+                        // Track 2.1 — the execution score, framed as a lead measure vs the 85% target.
+                        if (execScore.hasData) {
+                            ExecutionScoreCard(execScore)
+                            Spacer(Modifier.height(14.dp))
+                        }
                         if (rollup.ratedDays > 0) {
                             val r = rollup.avgRating.roundToInt().coerceIn(1, 5)
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
@@ -1511,8 +1597,25 @@ private fun WeeklyReviewFlow(
                         }
                     }
                     "creative" -> {
-                        Text("Looking at the week, what do you want to try or change next week?", style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(bottom = 8.dp))
-                        AppTextField(reflection, { reflection = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("What to try or change") }, minLines = 3)
+                        // Track 2.4 — pick a retrospective lens, or free-write (the default). A light chip row.
+                        Text("Reflect your way — free-write, or pick a lens.", style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(bottom = 8.dp))
+                        val lensChips = remember { listOf("" to "✍️ Free write") + RetroLens.ALL.map { it.id to "${it.emoji} ${it.title}" } }
+                        SelectableChips(lensChips, setOf(lens)) { id -> lens = id }
+                        Spacer(Modifier.height(12.dp))
+                        val chosen = RetroLens.byId(lens)
+                        if (chosen == null) {
+                            AppTextField(reflection, { reflection = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("What to try or change") }, minLines = 3)
+                        } else {
+                            chosen.fields.forEachIndexed { i, f ->
+                                if (i > 0) Spacer(Modifier.height(8.dp))
+                                Text(f.label, style = MaterialTheme.typography.labelMedium, color = muted)
+                                Spacer(Modifier.height(2.dp))
+                                AppTextField(
+                                    lensAnswers[f.id] ?: "", { v -> lensAnswers = lensAnswers.toMutableMap().apply { this[f.id] = v } },
+                                    modifier = Modifier.fillMaxWidth(), placeholder = { Text(f.hint) }, minLines = 2,
+                                )
+                            }
+                        }
                         Spacer(Modifier.height(12.dp))
                         Text("Next week's focus", style = MaterialTheme.typography.labelMedium, color = muted)
                         Spacer(Modifier.height(4.dp))
@@ -1550,7 +1653,7 @@ private fun WeeklyReviewFlow(
                                 onSaveRollover(ids.filter { it !in letGo }, ids.filter { it in letGo })
                                 rolledOver = true
                             }
-                            if (nextIsDone) onSave(reflection, nextFocus, areas.toList())
+                            if (nextIsDone) onSave(reflection, nextFocus, areas.toList(), lens, lensAnswers, focusRating)
                             idx++
                         }) { Text(if (nextIsDone) "Finish review" else "Next") }
                     }
@@ -1873,6 +1976,15 @@ private fun RangeRollup(
         }
     }
 
+    // ── 1·2.1 — Execution score (Week only): a lead measure of planned commitments vs done, vs the 85% target ──
+    if (mode == ReviewRange.WEEK) {
+        val execScore = remember(rollup, tasks) { ExecutionScore.fromRollup(rollup, tasks, zone) }
+        if (execScore.hasData) {
+            Spacer(Modifier.height(12.dp))
+            ExecutionScoreCard(execScore)
+        }
+    }
+
     // ── 1a. How your days felt: rating + evening mood, each averaged over the period with its own trend ──
     if (rollup.ratedDays > 0 || rollup.moodCount > 0) {
         Spacer(Modifier.height(12.dp))
@@ -2059,6 +2171,48 @@ private fun RangeRollup(
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
+}
+
+/** Track 2.1 — the weekly execution score card: how much of what you planned you did, against the 85%
+ *  lead-measure target, with a progress bar and a target marker. Theme-correct; no cited source. */
+@Composable
+private fun ExecutionScoreCard(score: ExecutionScore.Score) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val verdict = when (score.verdict) {
+        ExecutionScore.Verdict.BELOW -> "Below your ${score.benchmark}% target — a lead measure, not a verdict."
+        ExecutionScore.Verdict.ON_TRACK -> "Right around your ${score.benchmark}% target — on track."
+        ExecutionScore.Verdict.ABOVE -> "Above your ${score.benchmark}% target. Strong week."
+    }
+    AppCard {
+        SectionTitle("Execution score")
+        Text("${score.pct}% of what you planned · target ${score.benchmark}%", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(8.dp))
+        Box(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+            Box(Modifier.fillMaxWidth((score.pct / 100f).coerceIn(0.02f, 1f)).fillMaxHeight().clip(RoundedCornerShape(5.dp)).background(MaterialTheme.colorScheme.primary))
+            // The 85% target marker.
+            Box(Modifier.fillMaxWidth((score.benchmark / 100f).coerceIn(0f, 1f)).fillMaxHeight(), contentAlignment = Alignment.CenterEnd) {
+                Box(Modifier.width(2.dp).fillMaxHeight().background(MaterialTheme.colorScheme.onSurface))
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text("${score.completed} of ${score.planned} planned — ${score.doneTasks}/${score.plannedTasks} tasks, ${score.keptHabits}/${score.expectedHabits} habits.",
+            style = MaterialTheme.typography.labelSmall, color = muted)
+        Text(verdict, style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(top = 2.dp))
+    }
+}
+
+// Track 2.7 — a "three good things" entry stores its optional "…and why" inline, joined by GOOD_WHY_SEP,
+// so no schema change is needed. These split a stored value back into its parts and rejoin them on save.
+private const val GOOD_WHY_SEP = " — "
+private fun goodThingOf(stored: String): String = stored.substringBefore(GOOD_WHY_SEP, stored)
+private fun goodWhyOf(stored: String): String {
+    val i = stored.indexOf(GOOD_WHY_SEP)
+    return if (i >= 0) stored.substring(i + GOOD_WHY_SEP.length) else ""
+}
+private fun joinGoodWhy(thing: String, why: String): String {
+    val t = thing.trim()
+    val w = why.trim()
+    return if (t.isBlank()) "" else if (w.isBlank()) t else "$t$GOOD_WHY_SEP$w"
 }
 
 private fun oneDp(v: Double): String = String.format(Locale.US, "%.1f", v)

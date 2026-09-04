@@ -720,6 +720,21 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
 
+        SettingsGroup(Icons.Filled.Schedule, "Review & reflection", open["review"] == true, { open["review"] = open["review"] != true }, keywords = "review reflection gratitude three good things why streak hide density consistency cadence weekly close the day") {
+            // Track 2.7 — evidence-led cadence corrections.
+            Toggle("Gratitude is a weekly beat", s.gratitudeWeekly) { on -> vm.saveSettings(s.copy(gratitudeWeekly = on)) }
+            Text("Surface the gratitude / “three good things” prompt once a week (on your week-start day) instead of every night — savouring works better when it isn't a daily chore.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+            Toggle("Ask “…and why” for good things", s.requireGoodThingWhy) { on -> vm.saveSettings(s.copy(requireGoodThingWhy = on)) }
+            Text("The “three good things” entries prompt for a short reason — naming why a good thing was good makes the practice stick.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+            Toggle("Hide streak counters", s.hideStreaks) { on -> vm.saveSettings(s.copy(hideStreaks = on)) }
+            Text("Hide the streak flame across the Day Review and The Record, leading with the density strip and consistency instead — recovery over an unbroken chain (never miss twice).",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
         SettingsSectionHeader("Editor & notifications")
         SettingsGroup(Icons.Filled.EditNote, "Task editor", open["editor"] == true, { open["editor"] = open["editor"] != true }, keywords = "fields tier always more hidden reorder reflection estimate energy flag attachments") {
             Text("The editor shows a lean set of fields first and reveals the rest under “More fields.” Choose when each appears, or drag the order to match how you work. A field you’ve already filled always shows, whatever you pick here.",

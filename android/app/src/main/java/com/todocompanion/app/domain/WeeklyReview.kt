@@ -21,9 +21,18 @@ data class WeeklyReview(
     val reflection: String = "",    // Get Creative: what to try or change next week
     val nextFocus: String = "",     // the one focus set for next week
     val areas: List<String> = emptyList(), // Sharpen the saw: the life areas touched on
+    // Track 2.4 — the optional retrospective lens: its id (see domain/RetroLens.kt) and the per-field
+    // answers keyed by RetroLens.Field.id. "" / empty = free-text reflection only (the default).
+    val lens: String = "",
+    val lensAnswers: Map<String, String> = emptyMap(),
+    // Track 2.5 — closing the weekly loop: how last week's focus went, self-rated this week.
+    // 0 = not rated · 1 = missed · 2 = partly · 3 = nailed it.
+    val focusRating: Int = 0,
     val updatedAt: Long = 0,
 ) {
-    val isEmpty: Boolean get() = reflection.isBlank() && nextFocus.isBlank() && areas.isEmpty()
+    val isEmpty: Boolean
+        get() = reflection.isBlank() && nextFocus.isBlank() && areas.isEmpty() &&
+            lensAnswers.values.all { it.isBlank() } && focusRating == 0
 }
 
 object WeeklyReviews {

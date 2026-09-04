@@ -28,18 +28,26 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.todocompanion.app.domain.ReviewRollup
+import com.todocompanion.app.domain.Trend
+import com.todocompanion.app.domain.WeekChanges
 import com.todocompanion.app.domain.habit.HabitStats
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.OptionChips
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,35 +60,74 @@ fun StatisticsScreen(vm: AppViewModel, onBack: () -> Unit) {
     val focus = remember(timeEntries, legacyFocus) { vm.focusViews() }
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
-    // Track 1.1 — the felt lane reads the day logs over the same 7-day window as "Completed per day".
     val dayLogs by vm.dayLogs.collectAsState()
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now()
     val todayEpoch = today.toEpochDay()
-    val felt = remember(dayLogs, todayEpoch) { vm.feltSummary(todayEpoch - 6, todayEpoch) }
 
-    fun dayOf(ms: Long) = Instant.ofEpochMilli(ms).atZone(zone).toLocalDate()
-    val completed = tasks.filter { it.completed && it.completedAt != null }
-    val last7 = completed.count { !dayOf(it.completedAt!!).isBefore(today.minusDays(6)) }
-    val last30 = completed.count { !dayOf(it.completedAt!!).isBefore(today.minusDays(29)) }
-    val perDay = (0..6).map { i -> val d = today.minusDays((6 - i).toLong()); d to completed.count { dayOf(it.completedAt!!) == d } }
+    // Track 2.2 — a real range picker driving the cards, mirroring The Record's OptionChips + STAT_RANGES idiom.
+    var range by remember { mutableIntStateOf(30) }
+    val rangeDays = if (range == YEAR) today.dayOfYear else range
+    val curStart = todayEpoch - (rangeDays - 1)
+    val baseStart = todayEpoch - (2 * rangeDays - 1)
+    val baseEnd = todayEpoch - rangeDays
 
-    val focus7 = focus.filter { it.epochDay >= todayEpoch - 6 }
-    val focusMin = focus7.sumOf { it.minutes }
-    val focusSessions = focus7.size
+    fun dayOf(ms: Long) = Instant.ofEpochMilli(ms).atZone(zone).toLocalDate().toEpochDay()
+    val completed = tasks.filter { it.completed && it.completedAt != null && !it.trashed }
+    val habitById = remember(habits) { habits.associateBy { it.id } }
 
-    val habitRates = habits.map { h ->
+    fun doneIn(s: Long, e: Long) = completed.count { dayOf(it.completedAt!!) in s..e }
+    fun focusMinIn(s: Long, e: Long) = focus.filter { it.epochDay in s..e }.sumOf { it.minutes }
+    fun habitDaysIn(s: Long, e: Long) = checkins.count { c ->
+        c.epochDay in s..e && c.status == "done" && habitById[c.habitId]?.let { HabitStats.meetsGoal(it, c.count) } == true
+    }
+    fun reviewedIn(s: Long, e: Long) = dayLogs.count { it.epochDay in s..e && ReviewRollup.isReviewed(it) }
+
+    // Track 2.2 — each headline metric drifts against its own baseline (the equal window just before).
+    data class Head(val label: String, val value: String, val metric: Trend.Metric)
+    val heads = remember(range, tasks, focus, habits, checkins, dayLogs, todayEpoch) {
+        fun head(label: String, cur: Double, base: Double, value: String) =
+            Head(label, value, Trend.Metric(label, Trend.analyze(cur, base, hasBaseline = true)))
+        listOf(
+            head("Tasks done", doneIn(curStart, todayEpoch).toDouble(), doneIn(baseStart, baseEnd).toDouble(), doneIn(curStart, todayEpoch).toString()),
+            head("Focus time", focusMinIn(curStart, todayEpoch).toDouble(), focusMinIn(baseStart, baseEnd).toDouble(), fmtMin(focusMinIn(curStart, todayEpoch))),
+            head("Habit days", habitDaysIn(curStart, todayEpoch).toDouble(), habitDaysIn(baseStart, baseEnd).toDouble(), habitDaysIn(curStart, todayEpoch).toString()),
+            head("Days reviewed", reviewedIn(curStart, todayEpoch).toDouble(), reviewedIn(baseStart, baseEnd).toDouble(), reviewedIn(curStart, todayEpoch).toString()),
+        )
+    }
+    val slipping = heads.filter { Trend.isSlipping(it.metric) }
+    val steady = heads.filter { !Trend.isSlipping(it.metric) }
+
+    // Track 2.3 — "what changed this week": movers over a 7-day window vs the prior week, plus factor-effects.
+    val changes = remember(tasks, focus, habits, checkins, dayLogs, todayEpoch) {
+        val cs = todayEpoch - 6; val bs = todayEpoch - 13; val be = todayEpoch - 7
+        val wk = listOf(
+            Trend.Metric("tasks done", Trend.analyze(doneIn(cs, todayEpoch).toDouble(), doneIn(bs, be).toDouble(), true)),
+            Trend.Metric("focus time", Trend.analyze(focusMinIn(cs, todayEpoch).toDouble(), focusMinIn(bs, be).toDouble(), true)),
+            Trend.Metric("habit days", Trend.analyze(habitDaysIn(cs, todayEpoch).toDouble(), habitDaysIn(bs, be).toDouble(), true)),
+            Trend.Metric("days reviewed", Trend.analyze(reviewedIn(cs, todayEpoch).toDouble(), reviewedIn(bs, be).toDouble(), true)),
+        )
+        WeekChanges.compute(wk, vm.reviewInsightsFor(todayEpoch - 89, todayEpoch))
+    }
+
+    // Track 1.1 — the felt lane follows the selected range now (rating + mood + emotion).
+    val felt = remember(dayLogs, curStart, todayEpoch) { vm.feltSummary(curStart, todayEpoch) }
+
+    // Per-day completed bar over the last 7 days (kept as a fixed weekly shape).
+    val perDay = (0..6).map { i -> val d = today.minusDays((6 - i).toLong()); d to completed.count { dayOf(it.completedAt!!) == d.toEpochDay() } }
+
+    val focusMin = focusMinIn(curStart, todayEpoch)
+    val focusSessions = focus.filter { it.epochDay in curStart..todayEpoch }.size
+    val avgHabit = if (habits.isEmpty()) 0f else habits.map { h ->
         val done = checkins.filter { it.habitId == h.id && it.count >= h.targetPerDay }.map { it.epochDay }.toSet()
         HabitStats.rate(done, todayEpoch)
-    }
-    val avgHabit = if (habitRates.isEmpty()) 0f else habitRates.average().toFloat()
+    }.average().toFloat()
 
     // ---- Gamification (all on-device) ----
     val totalDone = completed.size
     val totalFocusMin = focus.sumOf { it.minutes }
-    val doneDays = completed.map { dayOf(it.completedAt!!).toEpochDay() }.toSet()
+    val doneDays = completed.map { dayOf(it.completedAt!!) }.toSet()
     val streak = HabitStats.streak(doneDays, todayEpoch)
-    // Achievement score: tasks + focus + streak, in the spirit of TickTick's Achievement Score.
     val score = totalDone * 10 + totalFocusMin / 6 + streak * 15
     val level = 1 + score / 500
     val intoLevel = (score % 500) / 500f
@@ -94,14 +141,36 @@ fun StatisticsScreen(vm: AppViewModel, onBack: () -> Unit) {
     }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
             AchievementsCard(score, level, levelTitle, intoLevel, streak, totalDone, totalFocusMin)
+            // Track 2.3 — the story first: what changed this week, so the user reads it instead of scanning tiles.
+            if (changes.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                AppCard {
+                    Text("What changed this week", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(6.dp))
+                    changes.forEach { c ->
+                        Text("• ${c.text}", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 2.dp))
+                    }
+                }
+            }
             Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatTile("Done · 7 days", last7.toString(), Modifier.weight(1f))
-                StatTile("Done · 30 days", last30.toString(), Modifier.weight(1f))
+            // Track 2.2 — the range picker.
+            OptionChips(STAT_RANGES, STAT_RANGES.firstOrNull { it.first == range }, { range = it.first }, wrap = false, spacing = 6) { it.second }
+            // Track 2.2 — headline metrics as rate + drift-vs-baseline arrows, grouped Slipping / Holding steady.
+            if (slipping.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                Text("Slipping vs your baseline", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
+                Spacer(Modifier.height(6.dp))
+                MetricRows(slipping.map { Triple(it.label, it.value, it.metric.result) })
+            }
+            if (steady.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                Text("Holding steady", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(6.dp))
+                MetricRows(steady.map { Triple(it.label, it.value, it.metric.result) })
             }
             Spacer(Modifier.height(12.dp))
             AppCard {
-                Text("Completed per day", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Completed per day · 7 days", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(10.dp))
                 val max = (perDay.maxOfOrNull { it.second } ?: 0).coerceAtLeast(1)
                 Row(Modifier.fillMaxWidth().height(120.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
@@ -115,26 +184,26 @@ fun StatisticsScreen(vm: AppViewModel, onBack: () -> Unit) {
                     }
                 }
             }
-            // Track 1.1 — "How it felt" lane: the same 7-day window, but the felt side (rating + mood + emotion).
+            // Track 1.1 — "How it felt" lane over the selected range.
             if (felt.hasData) {
                 Spacer(Modifier.height(12.dp))
                 AppCard {
-                    Text("How it felt · 7 days", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("How it felt · ${rangeLabelStat(range)}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(10.dp))
                     FeltReadout(felt)
                 }
             }
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatTile("Focus · 7 days", "${focusMin}m", Modifier.weight(1f), sub = "$focusSessions sessions")
+                StatTile("Focus · ${rangeLabelStat(range)}", "${focusMin}m", Modifier.weight(1f), sub = "$focusSessions sessions")
                 StatTile("Habit rate", "${(avgHabit * 100).toInt()}%", Modifier.weight(1f), sub = "${habits.size} habits")
             }
-            // Focus time by list (last 30 days) — where your deep work actually went.
+            // Focus time by list, over the selected range — where your deep work actually went.
             val lists by vm.lists.collectAsState()
             val listById = lists.associateBy { it.id }
             val taskListOf = tasks.associate { it.id to it.listId }
-            val focus30 = focus.filter { it.epochDay >= todayEpoch - 29 }
-            val byList = focus30.filter { it.taskId != null }
+            val focusRange = focus.filter { it.epochDay in curStart..todayEpoch }
+            val byList = focusRange.filter { it.taskId != null }
                 .groupBy { taskListOf[it.taskId] }
                 .mapNotNull { (listId, sess) -> listId?.let { (listById[it]?.name ?: "List") to sess.sumOf { s -> s.minutes } } }
                 .filter { it.second > 0 }
@@ -142,7 +211,7 @@ fun StatisticsScreen(vm: AppViewModel, onBack: () -> Unit) {
             if (byList.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
                 AppCard {
-                    Text("Focus by list · 30 days", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Focus by list · ${rangeLabelStat(range)}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(8.dp))
                     val maxMin = byList.maxOf { it.second }.coerceAtLeast(1)
                     byList.take(6).forEach { (name, min) ->
@@ -206,7 +275,46 @@ fun StatisticsScreen(vm: AppViewModel, onBack: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(16.dp))
-            Text("All stats are computed on-device from your data.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("All stats are computed on-device from your data. Arrows compare each window to the one before it.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** Track 2.2 — the Statistics range picker windows. -1 = "This year" (Jan 1 → today). */
+private const val YEAR = -1
+private val STAT_RANGES = listOf(7 to "7 days", 30 to "30 days", 90 to "90 days", YEAR to "This year")
+private fun rangeLabelStat(range: Int): String = STAT_RANGES.firstOrNull { it.first == range }?.second ?: "$range days"
+private fun fmtMin(m: Int): String = if (m >= 60) "${m / 60}h ${m % 60}m" else "${m}m"
+
+/** Track 2.2 — render a set of headline metrics as trend tiles, two per row. */
+@Composable
+private fun MetricRows(items: List<Triple<String, String, Trend.Result>>) {
+    items.chunked(2).forEach { row ->
+        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            row.forEach { (label, value, result) -> TrendTile(label, value, result, Modifier.weight(1f)) }
+            if (row.size == 1) Spacer(Modifier.weight(1f))
+        }
+    }
+}
+
+/** Track 2.2 — one metric with its rate and a drift-vs-baseline arrow (▲ rising · ▼ easing · • level). */
+@Composable
+private fun TrendTile(label: String, value: String, r: Trend.Result, modifier: Modifier = Modifier) {
+    val primary = MaterialTheme.colorScheme.primary
+    val error = MaterialTheme.colorScheme.error
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val (arrow, tint) = when (r.direction) {
+        Trend.Direction.RISING -> "▲" to primary
+        Trend.Direction.EASING -> "▼" to error
+        Trend.Direction.LEVEL -> "•" to muted
+    }
+    AppCard(modifier) {
+        Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = primary)
+        Text(label, style = MaterialTheme.typography.labelMedium, color = muted)
+        if (r.hasBaseline && r.direction != Trend.Direction.LEVEL) {
+            Text("$arrow ${abs(r.deltaPct).roundToInt()}% vs baseline", style = MaterialTheme.typography.labelSmall, color = tint)
+        } else {
+            Text("$arrow holding", style = MaterialTheme.typography.labelSmall, color = muted)
         }
     }
 }

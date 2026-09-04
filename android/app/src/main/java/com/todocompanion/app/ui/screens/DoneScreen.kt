@@ -238,6 +238,12 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
                     IconButton(onClick = { exportMenu = true }) { Icon(Icons.Filled.EmojiEvents, "Export the record") }
                     androidx.compose.material3.DropdownMenu(expanded = exportMenu, onDismissRequest = { exportMenu = false }) {
                         androidx.compose.material3.DropdownMenuItem(text = { Text("Brag document…") }, onClick = { exportMenu = false; showBrag = true })
+                        // Track 2.6 — the Julia-Evans-structured brag doc over the current range, shared as Markdown.
+                        androidx.compose.material3.DropdownMenuItem(text = { Text("Brag document (structured)…") }, onClick = {
+                            exportMenu = false
+                            val md = DoneRecord.bragDocMarkdown(feed, listNameById, bounds.first, bounds.last, today)
+                            vm.exportBragDoc(md, "brag-document-structured.md") { loc -> android.widget.Toast.makeText(ctx, if (loc != null) "Brag document saved to $loc" else "Save failed", android.widget.Toast.LENGTH_LONG).show() }
+                        })
                         androidx.compose.material3.DropdownMenuItem(text = { Text("Résumé lines") }, onClick = {
                             exportMenu = false
                             val md = DoneRecord.resumeMarkdown(rangedFeed, listNameById)
@@ -283,7 +289,7 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
                 com.todocompanion.app.ui.components.OptionChips(RANGES, RANGES.firstOrNull { it.first == range }, { range = it.first }, wrap = false, spacing = 6) { it.second }
             }
             // Totals + personal bests, over the chosen range.
-            item(key = "stats") { LifetimeCard(stats, rangeLabel(range)) }
+            item(key = "stats") { LifetimeCard(stats, rangeLabel(range), settings.hideStreaks) }
             // R32 #1 — the done heatmap: a year of finishes at a glance.
             item(key = "heatmap") { HeatmapCard(heat, today) }
             // R32 #5 — year-in-review story launcher.
@@ -436,7 +442,7 @@ internal fun rangeBounds(k: String, today: LocalDate): LongRange = when (k) {
 }
 
 @Composable
-private fun LifetimeCard(s: com.todocompanion.app.domain.done.DoneStats, rangeLabel: String) {
+private fun LifetimeCard(s: com.todocompanion.app.domain.done.DoneStats, rangeLabel: String, hideStreaks: Boolean = false) {
     Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .35f), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
             Text(if (rangeLabel == "Lifetime") "Lifetime record" else "$rangeLabel · record", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
@@ -448,9 +454,14 @@ private fun LifetimeCard(s: com.todocompanion.app.domain.done.DoneStats, rangeLa
                 Stat("${s.goalsAchieved}", "goals")
             }
             Spacer(Modifier.size(12.dp))
+            // Track 2.7 — with streaks hidden, show consistency (active days) instead of the chain counters.
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Stat("🔥 ${s.currentStreakDays}", "day streak")
-                Stat("${s.longestStreakDays}", "best streak")
+                if (hideStreaks) {
+                    Stat("${s.activeDays}", "active days")
+                } else {
+                    Stat("🔥 ${s.currentStreakDays}", "day streak")
+                    Stat("${s.longestStreakDays}", "best streak")
+                }
                 Stat("${s.bestDayCount}", "best day")
                 Stat("${s.totalWins}", "wins")
             }

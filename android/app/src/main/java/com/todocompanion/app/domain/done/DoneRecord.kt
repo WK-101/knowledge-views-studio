@@ -230,6 +230,97 @@ object DoneRecord {
         return sb.toString()
     }
 
+    /**
+     * Track 2.6 — the brag document, assembled to a proven structure (Julia Evans' "Get your work
+     * recognized"): **Projects** (grouped by list, each item carrying the outcome — who it helped / why it
+     * mattered — its hours and any praise quote), **Collaboration & mentorship** (the compliments and
+     * thank-yous pinned to finished work), **What I learned** (the lessons captured on finishing), and
+     * **Goals advanced** (completed goals & projects), over the inclusive epoch-day window [start]..[end].
+     * Nothing is invented — every line comes from what the user actually recorded. Pure Markdown.
+     */
+    fun bragDocMarkdown(
+        items: List<Accomplishment>,
+        listNameById: Map<String, String>,
+        start: Long,
+        end: Long,
+        today: LocalDate = LocalDate.now(),
+    ): String {
+        val sb = StringBuilder()
+        val win = items.filter { it.epochDay in start..end }
+        sb.appendLine("# Brag document")
+        sb.appendLine()
+        sb.appendLine("_${LocalDate.ofEpochDay(start)} – ${LocalDate.ofEpochDay(end)} · assembled on-device from your finished work._")
+        sb.appendLine()
+        val taskCount = win.count { it.isTaskLike }
+        val focusMin = win.filter { it.kind == DoneKind.FOCUS }.sumOf { it.durationMin }
+        val habitDays = win.count { it.kind == DoneKind.HABIT }
+        val wins = win.count { it.isWin }
+        sb.appendLine("_$taskCount finished · $wins wins · ${focusMin / 60}h focused · $habitDays habit days_")
+        sb.appendLine()
+
+        // ── Projects: task-like work grouped by list, biggest project first ──
+        sb.appendLine("## Projects")
+        val taskLike = win.filter { it.isTaskLike }
+        val byList = taskLike.groupBy { it.listId?.let { id -> listNameById[id] } ?: "Other work" }
+            .toList().sortedByDescending { it.second.size }
+        if (byList.isEmpty()) {
+            sb.appendLine("_No projects recorded in this range yet._")
+        } else {
+            byList.forEach { (name, group) ->
+                sb.appendLine("### $name")
+                val hours = group.sumOf { it.durationMin }
+                val invested = if (hours >= 60) " · ${hours / 60}h invested" else ""
+                sb.appendLine("_${group.size} finished${invested}_")
+                group.sortedByDescending { it.whenMillis }.forEach { a ->
+                    val b = StringBuilder("- ")
+                    if (a.isWin) b.append("⭐ ")
+                    b.append(a.title)
+                    a.outcome?.let { b.append(" — $it") }   // who this helped / why it mattered
+                    if (a.durationMin >= 60) b.append(" _(${a.durationMin / 60}h)_")
+                    sb.appendLine(b.toString())
+                    a.praise?.let { sb.appendLine("  > “$it”") }
+                }
+                sb.appendLine()
+            }
+        }
+
+        // ── Collaboration & mentorship: the praise pinned to finished work ──
+        sb.appendLine("## Collaboration & mentorship")
+        val praised = win.filter { !it.praise.isNullOrBlank() }
+        if (praised.isEmpty()) {
+            sb.appendLine("_Pin a thank-you or compliment to a finished item and it lands here._")
+        } else {
+            praised.sortedByDescending { it.whenMillis }.forEach { a -> sb.appendLine("- On **${a.title}**: “${a.praise}”") }
+        }
+        sb.appendLine()
+
+        // ── What I learned: the lessons captured on finishing ──
+        sb.appendLine("## What I learned")
+        val learned = win.filter { !it.learned.isNullOrBlank() }
+        if (learned.isEmpty()) {
+            sb.appendLine("_Capture a lesson when you finish something and it collects here._")
+        } else {
+            learned.sortedByDescending { it.whenMillis }.forEach { a -> sb.appendLine("- ${a.learned} _(${a.title})_") }
+        }
+        sb.appendLine()
+
+        // ── Goals advanced: completed goals & projects ──
+        sb.appendLine("## Goals advanced")
+        val goals = win.filter { it.kind == DoneKind.GOAL || it.kind == DoneKind.PROJECT }
+        if (goals.isEmpty()) {
+            sb.appendLine("_Finish a goal or project and it's recognised here._")
+        } else {
+            goals.sortedByDescending { it.whenMillis }.forEach { a ->
+                val b = StringBuilder("- ${a.title}")
+                a.outcome?.let { b.append(" — $it") }
+                sb.appendLine(b.toString())
+            }
+        }
+        sb.appendLine()
+        sb.appendLine("_Generated $today · private, on-device._")
+        return sb.toString()
+    }
+
     /** R28 Phase 3 — the honesty ledger: how your estimates compare to the time actually invested on the
      *  tasks you finished. [trackedByTask] is minutes tracked per task id. */
     data class LedgerRow(val label: String, val estimateMin: Int, val actualMin: Int) {

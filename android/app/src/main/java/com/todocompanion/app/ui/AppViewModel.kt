@@ -2685,11 +2685,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // Wave 1 — the guided Weekly Review. Persist minimally: the week's reflection + next-week focus + the
     // life areas touched, in ONE settings JSON keyed by ISO week (no new Room table). Empty fields clear it.
-    fun saveWeeklyReview(isoWeek: String, reflection: String, nextFocus: String, areas: List<String>) = viewModelScope.launch {
+    fun saveWeeklyReview(
+        isoWeek: String, reflection: String, nextFocus: String, areas: List<String>,
+        // Track 2.4 — the chosen retrospective lens + its per-field answers. Track 2.5 — how last week's
+        // focus went (0 none · 1 missed · 2 partly · 3 nailed). All in the same settings JSON, no schema.
+        lens: String = "", lensAnswers: Map<String, String> = emptyMap(), focusRating: Int = 0,
+    ) = viewModelScope.launch {
         if (isoWeek.isBlank()) return@launch
         val review = com.todocompanion.app.domain.WeeklyReview(
             isoWeek = isoWeek, reflection = reflection.trim(), nextFocus = nextFocus.trim(),
-            areas = areas.distinct(), updatedAt = System.currentTimeMillis(),
+            areas = areas.distinct(),
+            lens = lens, lensAnswers = lensAnswers.mapValues { it.value.trim() }.filterValues { it.isNotBlank() },
+            focusRating = focusRating.coerceIn(0, 3),
+            updatedAt = System.currentTimeMillis(),
         )
         val cur = settings.value
         repo.saveSettings(cur.copy(weeklyReviewsJson = com.todocompanion.app.domain.WeeklyReviews.upsert(cur.weeklyReviewsJson, review)))

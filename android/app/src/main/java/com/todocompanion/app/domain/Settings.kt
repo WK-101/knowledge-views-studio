@@ -321,6 +321,13 @@ data class AppSettings(
     // Wave 3 (feature D) — keys of judgment-free single-day pattern nudges the user has dismissed, so a
     // once-dismissed observation never returns. CSV of stable insight keys ("" = none). See ReviewInsights.
     val nudgeDismissedCsv: String = "",
+    // Track 2.7 — evidence-led cadence corrections. gratitudeWeekly surfaces the gratitude / "three good
+    // things" beat WEEKLY (on the week-start day) rather than nagging daily; requireGoodThingWhy adds a
+    // short "…and why" line to each good thing (savouring works better with the reason); hideStreaks
+    // hides streak counters across Day Review / The Record in favour of the density / consistency view.
+    val gratitudeWeekly: Boolean = true,
+    val requireGoodThingWhy: Boolean = true,
+    val hideStreaks: Boolean = false,
 ) {
     /** Effective tier for an optional editor field: user override, else its built-in default. */
     fun editorTier(f: EditorField): Int = editorFieldTiers[f.id] ?: f.defaultTier
@@ -514,6 +521,9 @@ data class AppSettings(
         Keys.WEEKLY_REVIEWS to weeklyReviewsJson,
         Keys.PREDICTIONS to predictionsJson,
         Keys.NUDGE_DISMISSED to nudgeDismissedCsv,
+        Keys.GRATITUDE_WEEKLY to gratitudeWeekly.toString(),
+        Keys.REQUIRE_GOOD_WHY to requireGoodThingWhy.toString(),
+        Keys.HIDE_STREAKS to hideStreaks.toString(),
     )
 
     object Keys {
@@ -685,6 +695,9 @@ data class AppSettings(
         const val WEEKLY_REVIEWS = "weekly_reviews"
         const val PREDICTIONS = "predictions"
         const val NUDGE_DISMISSED = "nudge_dismissed"
+        const val GRATITUDE_WEEKLY = "gratitude_weekly"
+        const val REQUIRE_GOOD_WHY = "require_good_why"
+        const val HIDE_STREAKS = "hide_streaks"
     }
 
     companion object {
@@ -880,6 +893,9 @@ data class AppSettings(
             weeklyReviewsJson = m[Keys.WEEKLY_REVIEWS] ?: "",
             predictionsJson = m[Keys.PREDICTIONS] ?: "",
             nudgeDismissedCsv = m[Keys.NUDGE_DISMISSED] ?: "",
+            gratitudeWeekly = m[Keys.GRATITUDE_WEEKLY]?.toBooleanStrictOrNull() ?: true,
+            requireGoodThingWhy = m[Keys.REQUIRE_GOOD_WHY]?.toBooleanStrictOrNull() ?: true,
+            hideStreaks = m[Keys.HIDE_STREAKS]?.toBooleanStrictOrNull() ?: false,
         )
     }
 }
