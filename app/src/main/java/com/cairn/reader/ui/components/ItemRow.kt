@@ -1,7 +1,10 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.cairn.reader.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,13 +43,15 @@ fun ItemRow(
     onOpen: () -> Unit,
     onToggleSave: () -> Unit,
     modifier: Modifier = Modifier,
+    onLongPress: (() -> Unit)? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
     val source = row.sourceTitle ?: row.siteName ?: "Unknown"
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onOpen)
+            .background(scheme.surface)
+            .combinedClickable(onClick = onOpen, onLongClick = onLongPress)
             .padding(horizontal = 20.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {

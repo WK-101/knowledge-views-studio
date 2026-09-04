@@ -66,6 +66,8 @@ class ItemRepository @Inject constructor(
     }
 
     fun inbox(): Flow<List<ItemListRow>> = itemDao.observeInbox()
+    fun saved(): Flow<List<ItemListRow>> = itemDao.observeSaved()
+    fun all(): Flow<List<ItemListRow>> = itemDao.observeAll()
     fun library(): Flow<List<ItemListRow>> = itemDao.observeLibrary()
     fun unreadCount(): Flow<Int> = itemDao.observeUnreadCount()
 
