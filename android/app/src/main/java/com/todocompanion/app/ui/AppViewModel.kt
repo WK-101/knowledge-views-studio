@@ -2617,6 +2617,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val cur = repo.dayLogFor(day) ?: com.todocompanion.app.data.entity.DayLogEntity(day, workspaceId = activeWorkspace())
         repo.upsertDayLog(cur.copy(pmReflection = text.trim(), pmMood = mood.coerceIn(0, 5), updatedAt = System.currentTimeMillis()))
     }
+    // R106 — the richer daily-review reflection: overall rating, energy, highlight, gratitude, lesson.
+    fun saveDayReflect(day: Long, rating: Int, energy: Int, highlight: String, gratitude: String, lesson: String) = viewModelScope.launch {
+        val cur = repo.dayLogFor(day) ?: com.todocompanion.app.data.entity.DayLogEntity(day, workspaceId = activeWorkspace())
+        repo.upsertDayLog(cur.copy(
+            dayRating = rating.coerceIn(0, 5), energy = energy.coerceIn(0, 5),
+            highlight = highlight.trim(), gratitude = gratitude.trim(), lesson = lesson.trim(),
+            updatedAt = System.currentTimeMillis(),
+        ))
+    }
+    // R106 — the one thing that matters tomorrow (set from the Day Review "Ready" panel).
+    fun saveTomorrowFocus(day: Long, text: String) = viewModelScope.launch {
+        val cur = repo.dayLogFor(day) ?: com.todocompanion.app.data.entity.DayLogEntity(day, workspaceId = activeWorkspace())
+        repo.upsertDayLog(cur.copy(tomorrowFocus = text.trim(), updatedAt = System.currentTimeMillis()))
+    }
 
     // ── R36 · fourth-wave actions ───────────────────────────────────────────────────────────────────
     // FW-5 New-Habit WIP limiter.

@@ -83,7 +83,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         com.todocompanion.app.data.entity.EventCalendarEntity::class,
         com.todocompanion.app.data.entity.EventEntity::class,
     ],
-    version = 59,
+    version = 60,
     // R73 — export the schema JSON (to app/schemas/) on every build. With 54 hand-written migrations
     // this is the safety net: it lets an instrumented MigrationTest replay the whole chain in CI and
     // fail the build the moment a migration drifts from the entity definitions. Turned on from v59;
@@ -713,8 +713,20 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // R106 — richer daily-review reflection fields on day_logs.
+        private val MIGRATION_59_60 = object : Migration(59, 60) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `day_logs` ADD COLUMN `dayRating` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `day_logs` ADD COLUMN `energy` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `day_logs` ADD COLUMN `highlight` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `day_logs` ADD COLUMN `gratitude` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `day_logs` ADD COLUMN `lesson` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `day_logs` ADD COLUMN `tomorrowFocus` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         /**
-         * The complete, ordered v5→v59 migration chain. Exposed (and used by the builder below) so an
+         * The complete, ordered v5→v60 migration chain. Exposed (and used by the builder below) so an
          * instrumented [androidTest] MigrationTest can replay it against a real SQLite DB and assert the
          * result matches the exported schema — turning a silent migration bug into a failing build.
          */
@@ -728,6 +740,7 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_41_42, MIGRATION_42_43, MIGRATION_43_44, MIGRATION_44_45, MIGRATION_45_46, MIGRATION_46_47,
             MIGRATION_47_48, MIGRATION_48_49, MIGRATION_49_50, MIGRATION_50_51, MIGRATION_51_52, MIGRATION_52_53,
             MIGRATION_53_54, MIGRATION_54_55, MIGRATION_55_56, MIGRATION_56_57, MIGRATION_57_58, MIGRATION_58_59,
+            MIGRATION_59_60,
         )
 
         fun get(context: Context): AppDatabase =

@@ -131,6 +131,13 @@ data class DayLogEntity(
     val pmReflection: String = "",
     val amMood: Int = 0,          // 0 unset, 1–5
     val pmMood: Int = 0,
+    // R106 — richer daily-review reflection. All optional; 0/"" = unset.
+    val dayRating: Int = 0,       // 0 unset, 1–5 (how the day went overall)
+    val energy: Int = 0,          // 0 unset, 1–5 (energy level)
+    val highlight: String = "",   // the best moment / high point
+    val gratitude: String = "",   // one thing you're grateful for
+    val lesson: String = "",      // one lesson / what you'd change
+    val tomorrowFocus: String = "", // the one thing that matters tomorrow (MIT)
     val updatedAt: Long = 0,
     val workspaceId: String = "default",
 )
