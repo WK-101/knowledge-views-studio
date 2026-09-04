@@ -6,6 +6,7 @@
 
 package com.cairn.reader.ui.library
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +32,7 @@ import androidx.compose.foundation.lazy.staggeredgrid.items as staggeredItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Tune
@@ -82,16 +84,22 @@ fun LibraryScreen(
     val results by viewModel.results.collectAsStateWithLifecycle()
     val viewMode by viewModel.viewMode.collectAsStateWithLifecycle()
     val sort by viewModel.sort.collectAsStateWithLifecycle()
+    val selection by viewModel.selection.collectAsStateWithLifecycle()
 
     var showCreate by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf<Pair<String, String>?>(null) }
-    var moving by remember { mutableStateOf<ItemListRow?>(null) }
+    var showMove by remember { mutableStateOf(false) }
+    var showSave by remember { mutableStateOf(false) }
     var scopeMenu by remember { mutableStateOf(false) }
     var displayMenu by remember { mutableStateOf(false) }
 
+    val selectionActive = selection.isNotEmpty()
     val searching = query.isNotBlank()
     val showing = if (searching) results else items
 
+    BackHandler(enabled = selectionActive) { viewModel.clearSelection() }
+
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
         // Search + (for a collection scope) manage overflow
         androidx.compose.foundation.layout.Row(
@@ -180,6 +188,19 @@ fun LibraryScreen(
             }
         }
 
+        if (selectionActive) {
+            androidx.compose.foundation.layout.Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = { viewModel.clearSelection() }) { Icon(Icons.Outlined.Close, contentDescription = "Clear selection") }
+                Text("${selection.size} selected", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                TextButton(onClick = { showMove = true }) { Text("Move") }
+                TextButton(onClick = { viewModel.removeSelectedFromLibrary() }) { Text("Remove") }
+            }
+        }
+
         if (showing.isEmpty()) {
             Column(
                 modifier = Modifier.fillMaxSize().padding(32.dp),
@@ -198,17 +219,30 @@ fun LibraryScreen(
                 )
             }
         } else {
-            val bottomPad = padding.calculateBottomPadding() + 24.dp
+            val bottomPad = padding.calculateBottomPadding() + 88.dp
             val effectiveMode = if (searching) LibraryViewMode.LIST else viewMode
             LibraryContent(
                 items = showing,
                 mode = effectiveMode,
                 bottomPad = bottomPad,
-                onOpen = { onOpenItem(it) },
+                selected = selection,
+                onClick = { row -> if (selectionActive) viewModel.toggleSelect(row.id) else onOpenItem(row.id) },
+                onLongPress = { row -> viewModel.toggleSelect(row.id) },
                 onToggleSave = { row -> viewModel.toggleSave(row.id, !row.isReadLater) },
-                onLongPress = { moving = it },
             )
         }
+    }
+
+    if (!selectionActive) {
+        androidx.compose.material3.ExtendedFloatingActionButton(
+            onClick = { showSave = true },
+            icon = { Icon(Icons.Outlined.Add, contentDescription = null) },
+            text = { Text("Save link") },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 20.dp, bottom = padding.calculateBottomPadding() + 20.dp),
+        )
+    }
     }
 
     if (showCreate) {
@@ -217,13 +251,16 @@ fun LibraryScreen(
     renaming?.let { (id, name) ->
         NameDialog(title = "Rename collection", initial = name, confirmLabel = "Save", onConfirm = { viewModel.renameCollection(id, it); renaming = null }, onDismiss = { renaming = null })
     }
-    moving?.let { row ->
+    if (showSave) {
+        NameDialog(title = "Save a link", initial = "", confirmLabel = "Save", onConfirm = { viewModel.saveLink(it); showSave = false }, onDismiss = { showSave = false })
+    }
+    if (showMove) {
         CollectionPickerSheet(
             collections = collections,
             currentCollectionId = null,
-            onPick = { collectionId -> viewModel.moveItem(row.id, collectionId); moving = null },
+            onPick = { collectionId -> viewModel.moveSelected(collectionId); showMove = false },
             onCreate = { viewModel.createCollection(it) },
-            onDismiss = { moving = null },
+            onDismiss = { showMove = false },
         )
     }
 }
@@ -233,18 +270,19 @@ private fun LibraryContent(
     items: List<ItemListRow>,
     mode: LibraryViewMode,
     bottomPad: Dp,
-    onOpen: (String) -> Unit,
-    onToggleSave: (ItemListRow) -> Unit,
+    selected: Set<String>,
+    onClick: (ItemListRow) -> Unit,
     onLongPress: (ItemListRow) -> Unit,
+    onToggleSave: (ItemListRow) -> Unit,
 ) {
     when (mode) {
         LibraryViewMode.LIST -> LazyColumn(contentPadding = PaddingValues(top = 6.dp, bottom = bottomPad)) {
             items(items, key = { it.id }) { row ->
-                ItemRow(row = row, onOpen = { onOpen(row.id) }, onToggleSave = { onToggleSave(row) }, onLongPress = { onLongPress(row) })
+                ItemRow(row = row, onOpen = { onClick(row) }, onToggleSave = { onToggleSave(row) }, onLongPress = { onLongPress(row) }, selected = row.id in selected)
             }
         }
         LibraryViewMode.HEADLINES -> LazyColumn(contentPadding = PaddingValues(top = 6.dp, bottom = bottomPad)) {
-            items(items, key = { it.id }) { row -> HeadlineRow(row, { onOpen(row.id) }, { onLongPress(row) }) }
+            items(items, key = { it.id }) { row -> HeadlineRow(row, row.id in selected, { onClick(row) }, { onLongPress(row) }) }
         }
         LibraryViewMode.GRID -> LazyVerticalGrid(
             columns = GridCells.Fixed(2),
@@ -253,7 +291,7 @@ private fun LibraryContent(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             gridItems(items, key = { it.id }) { row ->
-                LibraryCoverCard(row, fixedRatio = true, onOpen = { onOpen(row.id) }, onLongPress = { onLongPress(row) })
+                LibraryCoverCard(row, fixedRatio = true, selected = row.id in selected, onClick = { onClick(row) }, onLongPress = { onLongPress(row) })
             }
         }
         LibraryViewMode.MASONRY -> LazyVerticalStaggeredGrid(
@@ -263,20 +301,20 @@ private fun LibraryContent(
             verticalItemSpacing = 10.dp,
         ) {
             staggeredItems(items, key = { it.id }) { row ->
-                LibraryCoverCard(row, fixedRatio = false, onOpen = { onOpen(row.id) }, onLongPress = { onLongPress(row) })
+                LibraryCoverCard(row, fixedRatio = false, selected = row.id in selected, onClick = { onClick(row) }, onLongPress = { onLongPress(row) })
             }
         }
     }
 }
 
 @Composable
-private fun LibraryCoverCard(row: ItemListRow, fixedRatio: Boolean, onOpen: () -> Unit, onLongPress: () -> Unit) {
+private fun LibraryCoverCard(row: ItemListRow, fixedRatio: Boolean, selected: Boolean, onClick: () -> Unit, onLongPress: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     Column(
         modifier = Modifier
             .clip(RoundedCornerShape(14.dp))
-            .background(scheme.surfaceContainerLow)
-            .combinedClickable(onClick = onOpen, onLongClick = onLongPress)
+            .background(if (selected) scheme.secondaryContainer else scheme.surfaceContainerLow)
+            .combinedClickable(onClick = onClick, onLongClick = onLongPress)
             .padding(bottom = 10.dp),
     ) {
         if (row.leadImage != null) {
@@ -301,12 +339,13 @@ private fun LibraryCoverCard(row: ItemListRow, fixedRatio: Boolean, onOpen: () -
 }
 
 @Composable
-private fun HeadlineRow(row: ItemListRow, onOpen: () -> Unit, onLongPress: () -> Unit) {
+private fun HeadlineRow(row: ItemListRow, selected: Boolean, onClick: () -> Unit, onLongPress: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .combinedClickable(onClick = onOpen, onLongClick = onLongPress)
+            .background(if (selected) scheme.secondaryContainer else scheme.surface)
+            .combinedClickable(onClick = onClick, onLongClick = onLongPress)
             .padding(horizontal = 20.dp, vertical = 10.dp),
     ) {
         Text(row.title, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)

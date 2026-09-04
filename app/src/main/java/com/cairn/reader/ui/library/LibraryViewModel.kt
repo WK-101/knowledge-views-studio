@@ -8,6 +8,7 @@ import com.cairn.reader.data.db.TagWithCount
 import com.cairn.reader.data.prefs.LibraryViewMode
 import com.cairn.reader.data.prefs.PreferencesRepository
 import com.cairn.reader.data.repo.CollectionRepository
+import com.cairn.reader.data.repo.FeedRepository
 import com.cairn.reader.data.repo.ItemRepository
 import com.cairn.reader.data.repo.TagRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -41,8 +42,12 @@ class LibraryViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
     private val collectionRepository: CollectionRepository,
     private val tagRepository: TagRepository,
+    private val feedRepository: FeedRepository,
     private val preferencesRepository: PreferencesRepository,
 ) : ViewModel() {
+
+    private val _selection = MutableStateFlow<Set<String>>(emptySet())
+    val selection: StateFlow<Set<String>> = _selection.asStateFlow()
 
     val collections: StateFlow<List<CollectionWithCount>> =
         collectionRepository.collections().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -111,4 +116,30 @@ class LibraryViewModel @Inject constructor(
     fun moveItem(itemId: String, collectionId: String?) = viewModelScope.launch { collectionRepository.moveItem(itemId, collectionId) }
 
     fun toggleSave(id: String, save: Boolean) = viewModelScope.launch { itemRepository.setReadLater(id, save) }
+
+    fun saveLink(url: String) = viewModelScope.launch { feedRepository.saveUrl(url) }
+
+    // -- Bulk selection --------------------------------------------------------
+
+    fun toggleSelect(id: String) {
+        _selection.value = _selection.value.let { if (id in it) it - id else it + id }
+    }
+
+    fun clearSelection() { _selection.value = emptySet() }
+
+    fun moveSelected(collectionId: String?) = viewModelScope.launch {
+        val ids = _selection.value
+        ids.forEach { collectionRepository.moveItem(it, collectionId) }
+        _selection.value = emptySet()
+    }
+
+    fun removeSelectedFromLibrary() = viewModelScope.launch {
+        val ids = _selection.value
+        ids.forEach { id ->
+            itemRepository.setReadLater(id, false)
+            itemRepository.setStarred(id, false)
+            collectionRepository.moveItem(id, null)
+        }
+        _selection.value = emptySet()
+    }
 }

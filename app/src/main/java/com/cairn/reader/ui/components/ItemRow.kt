@@ -44,13 +44,14 @@ fun ItemRow(
     onToggleSave: () -> Unit,
     modifier: Modifier = Modifier,
     onLongPress: (() -> Unit)? = null,
+    selected: Boolean = false,
 ) {
     val scheme = MaterialTheme.colorScheme
     val source = row.sourceTitle ?: row.siteName ?: "Unknown"
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(scheme.surface)
+            .background(if (selected) scheme.secondaryContainer else scheme.surface)
             .combinedClickable(onClick = onOpen, onLongClick = onLongPress)
             .padding(horizontal = 20.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
