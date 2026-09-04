@@ -77,12 +77,16 @@ object ReviewRollup {
         val correlations: List<String>,
         // Phase E — goals the user marked as advanced during the period, most-advanced first ([count] = days).
         val goalsMoved: List<WinTally> = emptyList(),
+        // Mood aggregation (evening mood 1–5): average, per-day trend (null = none), and how many days logged.
+        val avgMood: Double = 0.0,
+        val moodTrend: List<Int?> = emptyList(),
+        val moodCount: Int = 0,
     ) {
         /** True when there is anything worth rendering beyond an empty-period hint. */
         val hasData: Boolean
             get() = reviewedDays > 0 || wins.isNotEmpty() || reflections.isNotEmpty() ||
                 habitConsistency.isNotEmpty() || topActivities.isNotEmpty() || questionAverages.isNotEmpty() ||
-                goalsMoved.isNotEmpty()
+                goalsMoved.isNotEmpty() || moodCount > 0
     }
 
     /** A day counts as "reviewed" once any close-the-day field is filled — mirrors the Day Review's own tally. */
@@ -123,6 +127,11 @@ object ReviewRollup {
         val ratingTrend = (startDay..endDay).map { d -> logByDay[d]?.dayRating?.takeIf { it > 0 } }
         val ratings = ratingTrend.filterNotNull()
         val avgRating = if (ratings.isEmpty()) 0.0 else ratings.average()
+
+        // ── 1b. Mood: evening mood (1–5) averaged over the days it was logged, plus a per-day trend.
+        val moodTrend = (startDay..endDay).map { d -> logByDay[d]?.pmMood?.takeIf { it in 1..5 } }
+        val moods = moodTrend.filterNotNull()
+        val avgMood = if (moods.isEmpty()) 0.0 else moods.average()
 
         // ── 2. Wins: every "good thing" across the period, condensed case-insensitively, recurrences counted.
         val winsByKey = LinkedHashMap<String, WinTally>()
@@ -203,7 +212,8 @@ object ReviewRollup {
             ratedDays = ratings.size, avgRating = avgRating, ratingTrend = ratingTrend,
             wins = wins, moreWins = moreWins, reflections = reflections, moreReflections = moreReflections,
             habitConsistency = habitConsistency, topActivities = topActivities,
-            questionAverages = questionAverages, correlations = correlations, goalsMoved = goalsMoved,
+            questionAverages = questionAverages, correlations = correlations,
+            avgMood = avgMood, moodTrend = moodTrend, moodCount = moods.size, goalsMoved = goalsMoved,
         )
     }
 
