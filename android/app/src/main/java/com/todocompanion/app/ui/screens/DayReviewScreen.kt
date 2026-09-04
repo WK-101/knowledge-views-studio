@@ -29,6 +29,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -90,6 +91,7 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
     var showPicker by remember { mutableStateOf(false) }
     var showReflect by remember { mutableStateOf(false) }
     var showShare by remember { mutableStateOf(false) }
+    var showClose by remember { mutableStateOf(false) }
 
     val tasks by vm.tasks.collectAsState()
     val habits by vm.habits.collectAsState()
@@ -137,11 +139,15 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
         val since = dayStart - 7L * 86_400_000L
         tasks.count { it.completed && !it.trashed && it.completedAt != null && it.completedAt!! in since until dayStart } / 7.0
     }
-    val reviewStreak = remember(dayLogs) {
-        val reviewed = dayLogs.filter { it.pmReflection.isNotBlank() || it.dayRating > 0 || it.amIntention.isNotBlank() }
-            .map { it.epochDay }.toHashSet()
-        var s = 0; var d0 = if (todayEd in reviewed) todayEd else todayEd - 1
-        while (d0 in reviewed) { s++; d0-- }
+    val reviewedDays = remember(dayLogs) {
+        dayLogs.filter {
+            it.pmReflection.isNotBlank() || it.dayRating > 0 || it.amIntention.isNotBlank() ||
+                it.highlight.isNotBlank() || it.gratitude.isNotBlank() || it.lesson.isNotBlank() || it.tomorrowFocus.isNotBlank()
+        }.map { it.epochDay }.toHashSet()
+    }
+    val reviewStreak = remember(reviewedDays) {
+        var s = 0; var d0 = if (todayEd in reviewedDays) todayEd else todayEd - 1
+        while (d0 in reviewedDays) { s++; d0-- }
         s
     }
 
@@ -205,11 +211,29 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
                         tiles.forEach { (icon, value, label) -> StatTile(icon, value, label, Modifier.weight(1f)) }
                     }
                 }
-                if (reviewStreak > 0) {
-                    Spacer(Modifier.height(if (nothing) 8.dp else 12.dp))
-                    Text("🔥 Reviewed $reviewStreak day${if (reviewStreak == 1) "" else "s"} in a row",
-                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(if (nothing) 10.dp else 14.dp))
+                // Review-streak: a "don't break the chain" strip of the last 14 days.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(if (reviewStreak > 0) "🔥 $reviewStreak-day streak" else "Reviewed days",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (reviewStreak > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f))
+                    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        (13 downTo 0).forEach { back ->
+                            val d0 = todayEd - back
+                            val on = d0 in reviewedDays
+                            Box(Modifier.size(if (d0 == day) 13.dp else 11.dp).clip(RoundedCornerShape(3.dp))
+                                .background(if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant))
+                        }
+                    }
                 }
+            }
+
+            // ── Close the day: the guided ritual (Recall → Feel → Reflect → Tomorrow → done) ──
+            Spacer(Modifier.height(12.dp))
+            val closedToday = day in reviewedDays
+            FilledTonalButton(onClick = { showClose = true }, modifier = Modifier.fillMaxWidth()) {
+                Text(if (closedToday) "🌙  Review the close" else "🌙  Close the day")
             }
 
             // ── Recap cards ──
@@ -422,6 +446,24 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, onOpenTask: (String) -> 
         },
     )
 
+    if (showClose) CloseDayFlow(
+        isToday = isToday, log = bookend,
+        summary = if (nothing) "A quiet day — nothing tracked." else buildString {
+            append("✓ ${tasksDone.size} done")
+            if (habitsExpected > 0) append(" · 🔁 ${habitsKept.size}/$habitsExpected")
+            if (focusMin > 0) append(" · 🎯 ${fmtHm(focusMin)}")
+            if (trackedTotal > 0) append(" · ⧗ ${fmtHm(trackedTotal)}")
+        },
+        wins = wins.map { it.title },
+        streak = reviewStreak + (if (day !in reviewedDays) 1 else 0),
+        onDismiss = { showClose = false },
+        onSave = { rating, energy, reflection, mood, highlight, gratitude, lesson, tomorrow ->
+            vm.saveEveningReflection(day, reflection, mood)
+            vm.saveDayReflect(day, rating, energy, highlight, gratitude, lesson)
+            if (isToday) vm.saveTomorrowFocus(day, tomorrow)
+        },
+    )
+
     if (showShare) ShareDialog(
         onDismiss = { showShare = false },
         onShare = { includeTitles, includeReflection, asImage ->
@@ -506,6 +548,121 @@ private fun MeterRow(leading: @Composable () -> Unit, name: String, trailing: St
             Box(Modifier.fillMaxWidth(frac.coerceIn(0.03f, 1f)).height(8.dp).clip(RoundedCornerShape(4.dp)).background(color))
         }
     }
+}
+
+/** Phase A — the guided "Close the day" ritual: Recall → Feel → Reflect → Tomorrow → closed. Express hides
+ *  the extra prose fields for a ~60-second close; Full keeps them. Reuses the existing DayLog fields. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CloseDayFlow(
+    isToday: Boolean,
+    summary: String,
+    wins: List<String>,
+    streak: Int,
+    log: com.todocompanion.app.data.entity.DayLogEntity?,
+    onDismiss: () -> Unit,
+    onSave: (rating: Int, energy: Int, reflection: String, mood: Int, highlight: String, gratitude: String, lesson: String, tomorrow: String) -> Unit,
+) {
+    var full by remember { mutableStateOf(true) }
+    var rating by remember { mutableIntStateOf(log?.dayRating ?: 0) }
+    var energy by remember { mutableIntStateOf(log?.energy ?: 0) }
+    var mood by remember { mutableIntStateOf(log?.pmMood ?: 0) }
+    var reflection by remember { mutableStateOf(log?.pmReflection ?: "") }
+    var highlight by remember { mutableStateOf(log?.highlight ?: "") }
+    var gratitude by remember { mutableStateOf(log?.gratitude ?: "") }
+    var lesson by remember { mutableStateOf(log?.lesson ?: "") }
+    var tomorrow by remember { mutableStateOf(log?.tomorrowFocus ?: "") }
+
+    val steps = remember(isToday) { buildList { add("recall"); add("feel"); add("reflect"); if (isToday) add("tomorrow"); add("done") } }
+    var idx by remember { mutableIntStateOf(0) }
+    val stepId = steps[idx]
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            if (stepId == "done") TextButton(onClick = onDismiss) { Text("Done") }
+            else {
+                val nextIsDone = steps[idx + 1] == "done"
+                TextButton(onClick = {
+                    if (nextIsDone) onSave(rating, energy, reflection, mood, highlight, if (full) gratitude else "", if (full) lesson else "", tomorrow)
+                    idx++
+                }) { Text(if (nextIsDone) "Close the day" else "Next") }
+            }
+        },
+        dismissButton = {
+            if (stepId != "done") TextButton(onClick = { if (idx > 0) idx-- else onDismiss() }) { Text(if (idx > 0) "Back" else "Cancel") }
+        },
+        title = {
+            Text(when (stepId) {
+                "recall" -> "Recall your day"; "feel" -> "How did it feel?"; "reflect" -> "Reflect"
+                "tomorrow" -> "Ready for tomorrow"; else -> "Day closed"
+            })
+        },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                if (stepId != "done") Text("Step ${idx + 1} of ${steps.size - 1}", style = MaterialTheme.typography.labelSmall, color = muted, modifier = Modifier.padding(bottom = 8.dp))
+                when (stepId) {
+                    "recall" -> {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 10.dp)) {
+                            FilterChip(selected = !full, onClick = { full = false }, label = { Text("Express · 60s") })
+                            FilterChip(selected = full, onClick = { full = true }, label = { Text("Full") })
+                        }
+                        Text(summary, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                        if (wins.isNotEmpty()) {
+                            Spacer(Modifier.height(8.dp))
+                            wins.take(3).forEach { Text("⭐  $it", style = MaterialTheme.typography.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        }
+                    }
+                    "feel" -> {
+                        Text("Rating", style = MaterialTheme.typography.labelMedium, color = muted)
+                        Row(Modifier.padding(top = 2.dp, bottom = 10.dp)) {
+                            (1..5).forEach { i -> Text(if (rating >= i) "★" else "☆", style = MaterialTheme.typography.headlineSmall,
+                                color = if (rating >= i) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                                modifier = Modifier.clip(CircleShape).clickable { rating = if (rating == i) 0 else i }.padding(horizontal = 3.dp)) }
+                        }
+                        Text("Energy", style = MaterialTheme.typography.labelMedium, color = muted)
+                        Row(Modifier.padding(top = 2.dp, bottom = 10.dp)) {
+                            (1..5).forEach { i -> Text(if (energy >= i) "◆" else "◇", style = MaterialTheme.typography.titleLarge,
+                                color = if (energy >= i) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                                modifier = Modifier.clip(CircleShape).clickable { energy = if (energy == i) 0 else i }.padding(horizontal = 3.dp)) }
+                        }
+                        Text("Mood", style = MaterialTheme.typography.labelMedium, color = muted)
+                        Row(Modifier.padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            listOf(1 to "😞", 2 to "🙁", 3 to "😐", 4 to "🙂", 5 to "😄").forEach { (v, e) ->
+                                Text(e, style = MaterialTheme.typography.headlineSmall,
+                                    modifier = Modifier.clip(CircleShape).clickable { mood = if (mood == v) 0 else v }
+                                        .background(if (mood == v) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent).padding(4.dp))
+                            }
+                        }
+                    }
+                    "reflect" -> {
+                        AppTextField(reflection, { reflection = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("How did the day go?") }, minLines = 2)
+                        if (full) {
+                            Spacer(Modifier.height(6.dp))
+                            AppTextField(highlight, { highlight = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("✨ Highlight of the day") }, singleLine = true)
+                            Spacer(Modifier.height(6.dp))
+                            AppTextField(gratitude, { gratitude = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("🙏 One thing you're grateful for") }, singleLine = true)
+                            Spacer(Modifier.height(6.dp))
+                            AppTextField(lesson, { lesson = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("💡 One lesson / what you'd change") }, singleLine = true)
+                        }
+                    }
+                    "tomorrow" -> {
+                        Text("Pre-decide the one thing that matters, so tomorrow starts with the decision already made.", style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(bottom = 8.dp))
+                        AppTextField(tomorrow, { tomorrow = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("🎯 Tomorrow's one thing") }, singleLine = true)
+                    }
+                    else -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            DoneTick(); Spacer(Modifier.width(10.dp))
+                            Text("The day is closed.", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text("🔥 Reviewed $streak day${if (streak == 1) "" else "s"} in a row. Rest well.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+        },
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
