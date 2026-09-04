@@ -59,6 +59,10 @@ class LibraryViewModel @Inject constructor(
         preferencesRepository.preferences.map { it.libraryViewMode }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryViewMode.GRID)
 
+    val savedSearches: StateFlow<List<String>> =
+        preferencesRepository.preferences.map { it.savedSearches.sorted() }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     private val _sort = MutableStateFlow(LibrarySort.NEWEST)
     val sort: StateFlow<LibrarySort> = _sort.asStateFlow()
 
@@ -93,6 +97,8 @@ class LibraryViewModel @Inject constructor(
 
     fun setScope(scope: LibraryScope) { _scope.value = scope }
     fun setSort(sort: LibrarySort) { _sort.value = sort }
+    fun saveSearch(query: String) = viewModelScope.launch { preferencesRepository.addSavedSearch(query) }
+    fun removeSavedSearch(query: String) = viewModelScope.launch { preferencesRepository.removeSavedSearch(query) }
     fun setViewMode(mode: LibraryViewMode) = viewModelScope.launch { preferencesRepository.setLibraryViewMode(mode) }
 
     fun setQuery(value: String) {

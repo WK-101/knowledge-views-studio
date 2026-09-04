@@ -8,6 +8,7 @@ package com.cairn.reader.ui.library
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -32,6 +34,7 @@ import androidx.compose.foundation.lazy.staggeredgrid.items as staggeredItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.BookmarkAdd
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Search
@@ -84,6 +87,7 @@ fun LibraryScreen(
     val results by viewModel.results.collectAsStateWithLifecycle()
     val viewMode by viewModel.viewMode.collectAsStateWithLifecycle()
     val sort by viewModel.sort.collectAsStateWithLifecycle()
+    val savedSearches by viewModel.savedSearches.collectAsStateWithLifecycle()
     val selection by viewModel.selection.collectAsStateWithLifecycle()
 
     var showCreate by remember { mutableStateOf(false) }
@@ -111,6 +115,13 @@ fun LibraryScreen(
                 onValueChange = viewModel::setQuery,
                 singleLine = true,
                 leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (query.isNotBlank()) {
+                        IconButton(onClick = { viewModel.saveSearch(query) }) {
+                            Icon(Icons.Outlined.BookmarkAdd, contentDescription = "Save search")
+                        }
+                    }
+                },
                 placeholder = { Text("Search everything you've saved") },
                 modifier = Modifier.weight(1f),
             )
@@ -182,6 +193,33 @@ fun LibraryScreen(
                             selected = scope.let { it is LibraryScope.Tag && it.id == tag.id },
                             onClick = { viewModel.setScope(LibraryScope.Tag(tag.id, tag.name)) },
                             label = { Text(if (tag.count > 0) "#${tag.name} · ${tag.count}" else "#${tag.name}") },
+                        )
+                    }
+                }
+            }
+            if (savedSearches.isNotEmpty()) {
+                Text(
+                    "SAVED SEARCHES",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 18.dp, top = 12.dp, bottom = 2.dp),
+                )
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    savedSearches.forEach { q ->
+                        androidx.compose.material3.InputChip(
+                            selected = false,
+                            onClick = { viewModel.setQuery(q) },
+                            label = { Text(q) },
+                            trailingIcon = {
+                                Icon(
+                                    Icons.Outlined.Close,
+                                    contentDescription = "Remove",
+                                    modifier = Modifier.size(16.dp).clickable { viewModel.removeSavedSearch(q) },
+                                )
+                            },
                         )
                     }
                 }
