@@ -232,6 +232,12 @@ interface ItemDao {
     @Query("UPDATE items SET type = :type WHERE id = :id")
     suspend fun setType(id: String, type: String)
 
+    @Query("UPDATE items SET cacheStatus = :status WHERE id = :id")
+    suspend fun setCacheStatus(id: String, status: String?)
+
+    @Query("UPDATE items SET leadImage = :leadImage WHERE id = :id")
+    suspend fun setLeadImage(id: String, leadImage: String?)
+
     @Query("UPDATE items SET collectionId = :collectionId WHERE id = :id")
     suspend fun setCollection(id: String, collectionId: String?)
 
@@ -320,6 +326,23 @@ interface ItemDao {
         """
     )
     fun observeUnsorted(): Flow<List<ItemListRow>>
+
+    @Query(
+        """
+        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
+               i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
+               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
+               i.extractStatus AS extractStatus, i.type AS type,
+               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
+               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
+        FROM items i
+        LEFT JOIN item_states s ON s.itemId = i.id
+        LEFT JOIN sources src ON src.id = i.sourceId
+        WHERE COALESCE(s.isArchived, 0) = 1
+        ORDER BY s.updatedAt DESC, i.savedAt DESC
+        """
+    )
+    fun observeArchived(): Flow<List<ItemListRow>>
 
     @Query(
         """

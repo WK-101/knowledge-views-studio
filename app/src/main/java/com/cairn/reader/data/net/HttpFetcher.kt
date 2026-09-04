@@ -55,4 +55,20 @@ class HttpFetcher @Inject constructor(
             )
         }
     }
+
+    /** Raw bytes for a binary resource (used to cache article images for the offline copy),
+     *  paired with the reported content type. Null on any failure or an oversized body. */
+    suspend fun fetchBytes(
+        url: String,
+        maxBytes: Long = 5L * 1024 * 1024,
+    ): Pair<ByteArray, String?>? = withContext(Dispatchers.IO) {
+        runCatching {
+            client.newCall(Request.Builder().url(url).get().build()).execute().use { response ->
+                if (!response.isSuccessful) return@use null
+                val contentType = response.header("Content-Type")
+                val bytes = response.peekBody(maxBytes).bytes()
+                if (bytes.isEmpty()) null else bytes to contentType
+            }
+        }.getOrNull()
+    }
 }

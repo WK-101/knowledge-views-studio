@@ -37,10 +37,12 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.DownloadForOffline
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.FormatSize
 import androidx.compose.material.icons.outlined.Headphones
@@ -48,8 +50,10 @@ import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.OfflinePin
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material.icons.outlined.Unarchive
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -73,6 +77,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -146,6 +151,7 @@ fun ReaderScreen(
     val highlights by viewModel.highlights.collectAsStateWithLifecycle()
     val ttsState by viewModel.tts.collectAsStateWithLifecycle()
     val audioState by viewModel.audio.collectAsStateWithLifecycle()
+    val savingOffline by viewModel.savingOffline.collectAsStateWithLifecycle()
     val collections by viewModel.collections.collectAsStateWithLifecycle()
     val itemTags by viewModel.itemTags.collectAsStateWithLifecycle()
     val allTags by viewModel.allTags.collectAsStateWithLifecycle()
@@ -160,6 +166,12 @@ fun ReaderScreen(
     val clipboard = LocalClipboardManager.current
 
     val palette = readerPalette(prefs.readerTheme)
+
+    LaunchedEffect(Unit) {
+        viewModel.messages.collect { msg ->
+            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
 
     fun openOriginal() {
         val url = data?.url ?: return
@@ -231,6 +243,36 @@ fun ReaderScreen(
                                 text = { Text("Listen") },
                                 leadingIcon = { Icon(Icons.Outlined.Headphones, contentDescription = null) },
                                 onClick = { showMenu = false; viewModel.toggleListen() },
+                            )
+                            val permanent = data?.cacheStatus == "PERMANENT"
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        when {
+                                            savingOffline -> "Saving offline…"
+                                            permanent -> "Saved offline ✓"
+                                            else -> "Save offline"
+                                        },
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        if (permanent) Icons.Outlined.OfflinePin else Icons.Outlined.DownloadForOffline,
+                                        contentDescription = null,
+                                    )
+                                },
+                                enabled = !savingOffline && !permanent,
+                                onClick = { showMenu = false; viewModel.saveOffline() },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(if (data?.isArchived == true) "Unarchive" else "Archive") },
+                                leadingIcon = {
+                                    Icon(
+                                        if (data?.isArchived == true) Icons.Outlined.Unarchive else Icons.Outlined.Archive,
+                                        contentDescription = null,
+                                    )
+                                },
+                                onClick = { showMenu = false; viewModel.toggleArchive() },
                             )
                             DropdownMenuItem(
                                 text = { Text("Open original") },

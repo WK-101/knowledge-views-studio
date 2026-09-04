@@ -38,4 +38,25 @@ class BlobStore @Inject constructor(
         if (path.isNullOrBlank()) return
         runCatching { File(path).delete() }
     }
+
+    // -- Permanent offline copy: article images cached beside the body ---------
+
+    private val mediaDir: File by lazy { File(context.filesDir, "media").apply { mkdirs() } }
+
+    /**
+     * Store one image belonging to [itemId] and return a `file://` URI the reader (and
+     * list thumbnails) can load with Coil while fully offline. Files are named by item so
+     * the whole set can be dropped when the offline copy is discarded.
+     */
+    fun writeImage(itemId: String, index: Int, bytes: ByteArray, extension: String): String {
+        val file = File(mediaDir, "${itemId}_$index.$extension")
+        file.outputStream().buffered().use { it.write(bytes) }
+        return android.net.Uri.fromFile(file).toString()
+    }
+
+    /** Remove an item's cached body and every image saved for its offline copy. */
+    fun deleteAllFor(itemId: String, blobPath: String?) {
+        deleteArticle(blobPath)
+        runCatching { mediaDir.listFiles { f -> f.name.startsWith("${itemId}_") }?.forEach { it.delete() } }
+    }
 }

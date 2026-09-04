@@ -28,6 +28,7 @@ import javax.inject.Inject
 sealed interface LibraryScope {
     data object All : LibraryScope
     data object Unsorted : LibraryScope
+    data object Archive : LibraryScope
     data class Collection(val id: String, val name: String) : LibraryScope
     data class Tag(val id: String, val name: String) : LibraryScope
 }
@@ -80,6 +81,7 @@ class LibraryViewModel @Inject constructor(
             when (scope) {
                 LibraryScope.All -> itemRepository.libraryAll()
                 LibraryScope.Unsorted -> itemRepository.unsorted()
+                LibraryScope.Archive -> itemRepository.archived()
                 is LibraryScope.Collection -> itemRepository.collectionItems(scope.id)
                 is LibraryScope.Tag -> itemRepository.byTag(scope.id)
             }
@@ -122,9 +124,13 @@ class LibraryViewModel @Inject constructor(
     private fun scopeKey(scope: LibraryScope): String = when (scope) {
         LibraryScope.All -> "all"
         LibraryScope.Unsorted -> "unsorted"
+        LibraryScope.Archive -> "archive"
         is LibraryScope.Collection -> "col:${scope.id}"
         is LibraryScope.Tag -> "tag:${scope.id}"
     }
+
+    /** Restore an archived item back to the reading flow (from the Archive scope). */
+    fun unarchive(id: String) = viewModelScope.launch { itemRepository.setArchived(id, false) }
 
     companion object {
         val TYPE_ORDER = listOf("ARTICLE", "LINK", "VIDEO", "AUDIO", "IMAGE")

@@ -23,9 +23,11 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import org.jsoup.Jsoup
 import java.text.BreakIterator
 import java.util.Locale
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -70,6 +72,14 @@ class ReaderViewModel @Inject constructor(
 
     private val _state = MutableStateFlow(ReaderUiState())
     val state = _state.asStateFlow()
+
+    /** One-shot user feedback (archive / offline-save results), shown as a brief message. */
+    private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 4)
+    val messages = _messages.asSharedFlow()
+
+    /** True while the permanent offline copy is being downloaded. */
+    private val _savingOffline = MutableStateFlow(false)
+    val savingOffline: StateFlow<Boolean> = _savingOffline.asStateFlow()
 
     val preferences: StateFlow<AppPreferences> =
         preferencesRepository.preferences.stateIn(viewModelScope, SharingStarted.Eagerly, AppPreferences())
@@ -118,6 +128,34 @@ class ReaderViewModel @Inject constructor(
         viewModelScope.launch {
             itemRepository.setReadLater(itemId, !current.isReadLater)
             _state.update { it.copy(data = it.data?.copy(isReadLater = !current.isReadLater)) }
+        }
+    }
+
+    fun toggleArchive() {
+        val current = _state.value.data ?: return
+        val target = !current.isArchived
+        viewModelScope.launch {
+            itemRepository.setArchived(itemId, target)
+            _state.update { it.copy(data = it.data?.copy(isArchived = target)) }
+            _messages.emit(if (target) "Archived" else "Removed from Archive")
+        }
+    }
+
+    /** Download a permanent, self-contained offline copy (full text + every image). */
+    fun saveOffline() {
+        if (_savingOffline.value || itemId.isEmpty()) return
+        viewModelScope.launch {
+            _savingOffline.value = true
+            val result = feedRepository.saveOffline(itemId)
+            val data = itemRepository.reader(itemId) // reload: cacheStatus + localized images
+            _savingOffline.value = false
+            _state.update { it.copy(data = data) }
+            _messages.emit(
+                result.fold(
+                    onSuccess = { n -> if (n > 0) "Saved offline · $n image${if (n == 1) "" else "s"} cached" else "Saved offline" },
+                    onFailure = { it.message ?: "Couldn't save offline" },
+                ),
+            )
         }
     }
 

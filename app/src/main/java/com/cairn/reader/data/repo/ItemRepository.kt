@@ -36,6 +36,8 @@ data class ReaderData(
     val isReadLater: Boolean,
     val collectionId: String?,
     val enclosureUrl: String?,
+    val isArchived: Boolean,
+    val cacheStatus: String?,
     val html: String?,
 )
 
@@ -66,6 +68,8 @@ class ItemRepository @Inject constructor(
             isReadLater = state?.isReadLater == true,
             collectionId = e.collectionId,
             enclosureUrl = e.enclosureUrl,
+            isArchived = state?.isArchived == true,
+            cacheStatus = e.cacheStatus,
             html = blobStore.readArticle(e.blobPath),
         )
     }
@@ -88,6 +92,7 @@ class ItemRepository @Inject constructor(
     fun library(): Flow<List<ItemListRow>> = itemDao.observeLibrary()
     fun libraryAll(): Flow<List<ItemListRow>> = itemDao.observeLibraryAll()
     fun unsorted(): Flow<List<ItemListRow>> = itemDao.observeUnsorted()
+    fun archived(): Flow<List<ItemListRow>> = itemDao.observeArchived()
     fun collectionItems(collectionId: String): Flow<List<ItemListRow>> = itemDao.observeCollection(collectionId)
     fun byTag(tagId: String): Flow<List<ItemListRow>> = itemDao.observeByTag(tagId)
     fun unreadCount(): Flow<Int> = itemDao.observeUnreadCount()

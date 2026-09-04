@@ -266,6 +266,74 @@ class FeedRepository @Inject constructor(
         }
     }
 
+    /**
+     * Make a permanent, self-contained offline copy of an item: ensure the full article is
+     * extracted, download every image it references into the local blob store, rewrite the
+     * HTML to point at those local files, and mark the item PERMANENT. The article then reads
+     * fully offline and survives the source editing or deleting it. Returns the number of
+     * images cached. Best-effort per image — a failed image keeps its remote URL rather than
+     * aborting the whole save.
+     */
+    suspend fun saveOffline(itemId: String): Result<Int> {
+        val item = itemDao.getItem(itemId) ?: return Result.failure(IllegalStateException("Item not found"))
+        // Ensure we have the full readable body first (a summary-only item gets promoted).
+        if (item.extractStatus != "OK" || item.blobPath.isNullOrBlank()) {
+            runCatching { extractInto(itemId, item.url) }
+        }
+        val fresh = itemDao.getItem(itemId) ?: return Result.failure(IllegalStateException("Item not found"))
+        val html = blobStore.readArticle(fresh.blobPath)
+            ?: return Result.failure(IllegalStateException("No article content to save"))
+        val doc = runCatching { Jsoup.parse(html, fresh.url) }.getOrNull()
+            ?: return Result.failure(IllegalStateException("Couldn't read the article"))
+
+        var index = 0
+        var cached = 0
+        val seen = HashMap<String, String>() // remote URL → local file URI, deduped within the article
+        val maxImages = 60
+
+        suspend fun localize(remote: String): String? {
+            if (remote.isBlank() || remote.startsWith("file:") || remote.startsWith("data:")) return null
+            seen[remote]?.let { return it }
+            if (cached >= maxImages) return null
+            val (bytes, contentType) = fetcher.fetchBytes(remote) ?: return null
+            val local = runCatching { blobStore.writeImage(itemId, index++, bytes, imageExtension(contentType, remote)) }
+                .getOrNull() ?: return null
+            seen[remote] = local
+            cached++
+            return local
+        }
+
+        doc.select("img").forEach { img ->
+            val remote = img.absUrl("src").takeIf { it.isNotBlank() } ?: img.attr("src")
+            val local = if (remote.isNotBlank()) localize(remote) else null
+            if (local != null) {
+                img.attr("src", local)
+                img.removeAttr("srcset"); img.removeAttr("data-src"); img.removeAttr("data-srcset"); img.removeAttr("loading")
+            }
+        }
+
+        blobStore.writeArticle(itemId, doc.body().html()) // overwrites the same item-keyed blob
+        // Cache the lead image too, so list thumbnails and the reader header survive offline.
+        fresh.leadImage?.let { lead ->
+            if (!lead.startsWith("file:")) localize(lead)?.let { itemDao.setLeadImage(itemId, it) }
+        }
+        itemDao.setCacheStatus(itemId, "PERMANENT")
+        return Result.success(cached)
+    }
+
+    /** Pick a sensible file extension for a downloaded image from its content type, then URL. */
+    private fun imageExtension(contentType: String?, url: String): String = when (contentType?.substringBefore(';')?.trim()?.lowercase()) {
+        "image/jpeg", "image/jpg" -> "jpg"
+        "image/png" -> "png"
+        "image/gif" -> "gif"
+        "image/webp" -> "webp"
+        "image/svg+xml" -> "svg"
+        "image/bmp" -> "bmp"
+        "image/avif" -> "avif"
+        else -> url.substringBefore('?').substringAfterLast('.', "").lowercase()
+            .takeIf { it.length in 2..4 && it.all(Char::isLetterOrDigit) } ?: "img"
+    }
+
     /** Classify an item into a Raindrop-style type from its URL and whether it carries an
      *  article body. Video and image are detected by host/extension; a feed item with real
      *  content is an ARTICLE; a bare saved link with no body is a LINK. */
