@@ -68,6 +68,12 @@ data class ItemEntity(
     val extractStatus: String = "NONE",
     val contentSource: String = "FEED",
     val guid: String? = null,
+    // v0.4 (Raindrop-style library): a single "home" collection, page domain, and
+    // whether a permanent offline copy exists. All nullable so the v1→v2 migration is
+    // a plain ALTER ADD COLUMN and no existing data is touched.
+    val collectionId: String? = null,
+    val domain: String? = null,
+    val cacheStatus: String? = null,
 )
 
 @Entity(
@@ -124,6 +130,8 @@ data class CollectionEntity(
     val kind: String = "manual",
     val query: String? = null,
     val sortOrder: Int = 0,
+    val icon: String? = null,
+    val viewMode: String? = null,
 )
 
 @Entity(

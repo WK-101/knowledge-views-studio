@@ -89,6 +89,52 @@ interface HighlightDao {
     suspend fun forItemWithArticle(itemId: String): List<HighlightWithArticle>
 }
 
+/** A collection with the number of items filed directly in it, for the library tree. */
+data class CollectionWithCount(
+    val id: String,
+    val name: String,
+    val parentId: String?,
+    val icon: String?,
+    val viewMode: String?,
+    val sortOrder: Int,
+    val count: Int,
+)
+
+@Dao
+interface CollectionDao {
+    @Upsert
+    suspend fun upsert(collection: CollectionEntity)
+
+    @Query("SELECT * FROM collections ORDER BY sortOrder, name COLLATE NOCASE")
+    fun observeAll(): Flow<List<CollectionEntity>>
+
+    @Query(
+        """
+        SELECT c.id AS id, c.name AS name, c.parentId AS parentId, c.icon AS icon,
+               c.viewMode AS viewMode, c.sortOrder AS sortOrder,
+               (SELECT COUNT(*) FROM items i WHERE i.collectionId = c.id) AS count
+        FROM collections c
+        ORDER BY c.sortOrder, c.name COLLATE NOCASE
+        """
+    )
+    fun observeWithCounts(): Flow<List<CollectionWithCount>>
+
+    @Query("SELECT * FROM collections WHERE id = :id")
+    suspend fun get(id: String): CollectionEntity?
+
+    @Query("UPDATE collections SET name = :name WHERE id = :id")
+    suspend fun rename(id: String, name: String)
+
+    @Query("UPDATE collections SET parentId = :parentId WHERE id = :id")
+    suspend fun setParent(id: String, parentId: String?)
+
+    @Query("UPDATE collections SET viewMode = :mode WHERE id = :id")
+    suspend fun setViewMode(id: String, mode: String)
+
+    @Query("DELETE FROM collections WHERE id = :id")
+    suspend fun delete(id: String)
+}
+
 @Dao
 interface SyncDao {
     @Insert

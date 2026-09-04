@@ -3,8 +3,10 @@ package com.cairn.reader.di
 import android.content.Context
 import androidx.room.Room
 import com.cairn.reader.data.db.CairnDatabase
+import com.cairn.reader.data.db.CollectionDao
 import com.cairn.reader.data.db.HighlightDao
 import com.cairn.reader.data.db.ItemDao
+import com.cairn.reader.data.db.MIGRATION_1_2
 import com.cairn.reader.data.db.SourceDao
 import com.cairn.reader.data.db.SyncDao
 import com.cairn.reader.data.db.TagDao
@@ -23,6 +25,7 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): CairnDatabase =
         Room.databaseBuilder(context, CairnDatabase::class.java, "cairn.db")
+            .addMigrations(MIGRATION_1_2)
             .fallbackToDestructiveMigration()
             .build()
 
@@ -34,6 +37,9 @@ object DatabaseModule {
 
     @Provides
     fun provideTagDao(db: CairnDatabase): TagDao = db.tagDao()
+
+    @Provides
+    fun provideCollectionDao(db: CairnDatabase): CollectionDao = db.collectionDao()
 
     @Provides
     fun provideHighlightDao(db: CairnDatabase): HighlightDao = db.highlightDao()

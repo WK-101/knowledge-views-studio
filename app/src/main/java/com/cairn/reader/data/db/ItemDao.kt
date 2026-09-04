@@ -179,6 +179,9 @@ interface ItemDao {
     @Query("UPDATE items SET extractStatus = :status WHERE id = :id")
     suspend fun setExtractStatus(id: String, status: String)
 
+    @Query("UPDATE items SET collectionId = :collectionId WHERE id = :id")
+    suspend fun setCollection(id: String, collectionId: String?)
+
     @Query("UPDATE items SET title = :title, author = COALESCE(:author, author), siteName = COALESCE(:siteName, siteName) WHERE id = :id")
     suspend fun updateMeta(id: String, title: String, author: String?, siteName: String?)
 
