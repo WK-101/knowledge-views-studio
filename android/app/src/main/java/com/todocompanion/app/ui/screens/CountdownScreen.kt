@@ -1013,14 +1013,13 @@ private fun OccasionCardStudio(c: CountdownEntity, today: LocalDate) {
     Column(Modifier.fillMaxWidth()) {
         Text("Card studio", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(8.dp))
-        // Live preview.
+        // Live preview — the whole card is always shown (letterboxed for tall shapes), never cropped.
         Box(
-            Modifier.fillMaxWidth().heightIn(max = 420.dp).clip(RoundedCornerShape(14.dp))
-                .background(MaterialTheme.colorScheme.surface),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surface),
             contentAlignment = Alignment.Center,
         ) {
             val bmp = preview
-            if (bmp != null) Image(bmp.asImageBitmap(), "Card preview", Modifier.fillMaxWidth(), contentScale = ContentScale.Fit)
+            if (bmp != null) Image(bmp.asImageBitmap(), "Card preview", Modifier.fillMaxWidth().heightIn(max = 460.dp), contentScale = ContentScale.Fit)
             else Text("Couldn't build the preview.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp))
         }
         Spacer(Modifier.height(12.dp))
@@ -1050,6 +1049,7 @@ private fun OccasionCardStudio(c: CountdownEntity, today: LocalDate) {
             ModToggle("Milestone", mods.milestone) { mods = mods.copy(milestone = it) }
             if (type == LifeEvent.EventType.BIRTHDAY) ModToggle("Zodiac", mods.zodiac) { mods = mods.copy(zodiac = it) }
             if (hasWeeks) ModToggle("Life in weeks", mods.weeks) { mods = mods.copy(weeks = it) }
+            ModToggle("Kairo mark", mods.footer) { mods = mods.copy(footer = it) }
         }
         Spacer(Modifier.height(8.dp))
 
