@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- R67 — rounder, calmer accent pill for the header add button. -->
+<!-- R104 — filled accent pill for the header add button; @color/w_accent (deep purple,
+     same in both themes so the white on-accent text always has contrast). -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
     <corners android:radius="22dp" />
-    <solid android:color="#6D5AC4" />
+    <solid android:color="@color/w_accent" />
 </shape>

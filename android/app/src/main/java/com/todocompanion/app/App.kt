@@ -70,6 +70,9 @@ class App : Application() {
                 com.todocompanion.app.widget.MatrixWidget.refresh(this@App)
                 com.todocompanion.app.widget.DoNextWidget.refresh(this@App)
                 com.todocompanion.app.widget.Next7Widget.refresh(this@App)
+                // R104 — these were previously only poll-refreshed and could go stale.
+                com.todocompanion.app.widget.RecordWidget.refresh(this@App)
+                com.todocompanion.app.widget.MomentumWidget.refresh(this@App)
             }
         }
     }

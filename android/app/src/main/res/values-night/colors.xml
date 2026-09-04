@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ============================================================================
+         R104 — Shared home-screen-widget palette (DARK). Mirrors values/colors.xml;
+         the system swaps to these automatically in dark mode for theme = "auto".
+         Same token names → every widget layout stays theme-correct with no code.
+         ============================================================================ -->
+    <color name="w_surface">#F01A1B26</color>          <!-- softly translucent dark card -->
+    <color name="w_surface_variant">#24273A</color>    <!-- inner tile (matrix quadrants) -->
+    <color name="w_chip">#2AFFFFFF</color>             <!-- filter / activity chip -->
+    <color name="w_text_primary">#FFFFFF</color>
+    <color name="w_text_secondary">#B9B4D0</color>
+    <color name="w_text_tertiary">#8A8699</color>
+    <color name="w_on_accent">#FFFFFF</color>          <!-- text/icon on a filled accent (never flips) -->
+    <color name="w_accent">#6D5AC4</color>             <!-- filled accent (add pill, progress) -->
+    <color name="w_accent_text">#B9A6EC</color>        <!-- accent-coloured text on the card -->
+    <color name="w_teal">#12A594</color>               <!-- time / habit brand teal -->
+    <color name="w_danger">#FF9A8B</color>             <!-- overdue / over-capacity -->
+    <color name="w_warning">#F59E0B</color>            <!-- amber -->
+    <color name="w_info">#3E7BFA</color>               <!-- blue accent -->
+    <color name="w_success">#5BD6A0</color>            <!-- done / on-track green -->
+    <color name="w_divider">#22FFFFFF</color>
+    <color name="w_stroke">#22FFFFFF</color>
+</resources>

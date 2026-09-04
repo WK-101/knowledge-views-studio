@@ -2,4 +2,28 @@
 <resources>
     <!-- Kairo brand ground: deep indigo (matches the adaptive-icon gradient start + the splash). -->
     <color name="ic_launcher_background">#2B2050</color>
+
+    <!-- ============================================================================
+         R104 — Shared home-screen-widget palette (LIGHT). The dark variants live in
+         values-night/colors.xml and are swapped automatically by the system when the
+         phone is in dark mode (theme = "auto"). WidgetStyle.kt resolves forced
+         light/dark per-widget on top of these. Every widget references only these
+         tokens so the whole fleet is one coherent, theme-correct system.
+         ============================================================================ -->
+    <color name="w_surface">#F7FBFAFF</color>          <!-- rounded card ground -->
+    <color name="w_surface_variant">#EFEBF7</color>    <!-- inner tile (matrix quadrants) -->
+    <color name="w_chip">#14000000</color>             <!-- filter / activity chip -->
+    <color name="w_text_primary">#1A1B26</color>
+    <color name="w_text_secondary">#5B5870</color>
+    <color name="w_text_tertiary">#8A8798</color>
+    <color name="w_on_accent">#FFFFFF</color>          <!-- text/icon on a filled accent (never flips) -->
+    <color name="w_accent">#6D5AC4</color>             <!-- filled accent (add pill, progress) -->
+    <color name="w_accent_text">#6D5AC4</color>        <!-- accent-coloured text on the card -->
+    <color name="w_teal">#0E8577</color>               <!-- time / habit brand teal -->
+    <color name="w_danger">#C4361F</color>             <!-- overdue / over-capacity -->
+    <color name="w_warning">#B26A00</color>            <!-- amber -->
+    <color name="w_info">#2563EB</color>               <!-- blue accent -->
+    <color name="w_success">#12A05C</color>            <!-- done / on-track green -->
+    <color name="w_divider">#14000000</color>
+    <color name="w_stroke">#14000000</color>
 </resources>

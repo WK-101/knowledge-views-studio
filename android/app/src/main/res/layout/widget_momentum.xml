@@ -13,7 +13,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="MOMENTUM"
-        android:textColor="#9B93AC"
+        android:textColor="@color/w_text_tertiary"
         android:textSize="11sp"
         android:letterSpacing="0.08"
         android:textStyle="bold" />
@@ -23,7 +23,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="0"
-        android:textColor="#FFFFFF"
+        android:textColor="@color/w_text_primary"
         android:textSize="34sp"
         android:textStyle="bold" />
 
@@ -32,7 +32,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text=""
-        android:textColor="#B9A6EC"
+        android:textColor="@color/w_accent_text"
         android:textSize="12sp"
         android:maxLines="1"
         android:ellipsize="end" />

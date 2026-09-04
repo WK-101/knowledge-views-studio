@@ -20,7 +20,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Today"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/w_text_primary"
             android:textSize="12sp"
             android:textStyle="bold" />
 
@@ -28,7 +28,7 @@
             android:id="@+id/widget_date"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#B9B4D0"
+            android:textColor="@color/w_text_secondary"
             android:textSize="12sp" />
     </LinearLayout>
 
@@ -46,7 +46,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="0"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/w_text_primary"
             android:textSize="30sp"
             android:textStyle="bold" />
 
@@ -55,14 +55,14 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="tasks due"
-            android:textColor="#B9B4D0"
+            android:textColor="@color/w_text_secondary"
             android:textSize="13sp" />
 
         <TextView
             android:id="@+id/widget_overdue"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#FF9A8B"
+            android:textColor="@color/w_danger"
             android:textSize="12sp"
             android:paddingTop="2dp"
             android:visibility="gone" />
@@ -77,7 +77,7 @@
         android:paddingTop="7dp"
         android:paddingBottom="7dp"
         android:text="＋ Add task"
-        android:textColor="#FFFFFF"
+        android:textColor="@color/w_on_accent"
         android:textSize="14sp"
         android:textStyle="bold" />
 </LinearLayout>

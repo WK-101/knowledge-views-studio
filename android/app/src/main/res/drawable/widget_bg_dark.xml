@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- R104 — FIXED dark card, used only when a widget's theme is forced to "dark" (the adaptive
+     widget_bg follows the system, so a forced choice needs a non-adaptive drawable). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <corners android:radius="26dp" />
+    <solid android:color="#F01A1B26" />
+</shape>

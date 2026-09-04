@@ -3496,6 +3496,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private fun refreshHabitWidgets() {
         com.todocompanion.app.widget.HabitsWidget.refresh(appCtx)
         com.todocompanion.app.widget.HabitStatsWidget.refresh(appCtx)
+        // R104 — the momentum score folds in habit strength, so keep it live on habit changes too.
+        com.todocompanion.app.widget.MomentumWidget.refresh(appCtx)
     }
 
     // ---------- deep-work coach (H4) ----------

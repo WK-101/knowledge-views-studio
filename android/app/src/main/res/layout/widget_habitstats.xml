@@ -8,12 +8,12 @@
     android:background="@drawable/widget_bg"
     android:padding="12dp">
     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="TODAY'S HABITS" android:textColor="#B9B4D0" android:textSize="11sp" android:letterSpacing="0.08" />
+        android:text="TODAY'S HABITS" android:textColor="@color/w_text_secondary" android:textSize="11sp" android:letterSpacing="0.08" />
     <TextView android:id="@+id/hs_done" android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="0/0" android:textColor="#FFFFFF" android:textSize="30sp" android:textStyle="bold" />
+        android:text="0/0" android:textColor="@color/w_text_primary" android:textSize="30sp" android:textStyle="bold" />
     <TextView android:id="@+id/hs_streak" android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:layout_marginTop="2dp" android:text="" android:textColor="#43C7B0" android:textSize="11sp" android:textStyle="bold" />
+        android:layout_marginTop="2dp" android:text="" android:textColor="@color/w_teal" android:textSize="11sp" android:textStyle="bold" />
     <TextView android:id="@+id/hs_brief" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:layout_marginTop="6dp" android:text="" android:textColor="#EDE8F5" android:textSize="12sp"
+        android:layout_marginTop="6dp" android:text="" android:textColor="@color/w_text_primary" android:textSize="12sp"
         android:maxLines="3" android:ellipsize="end" />
 </LinearLayout>

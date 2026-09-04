@@ -22,7 +22,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Agenda"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/w_text_primary"
             android:textSize="16sp"
             android:textStyle="bold" />
 
@@ -36,7 +36,7 @@
             android:paddingTop="6dp"
             android:paddingBottom="6dp"
             android:text="＋"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/w_on_accent"
             android:textSize="16sp"
             android:textStyle="bold" />
     </LinearLayout>
@@ -48,7 +48,7 @@
         android:layout_weight="1"
         android:gravity="center"
         android:text="Nothing due — enjoy the day"
-        android:textColor="#B9B4D0"
+        android:textColor="@color/w_text_secondary"
         android:textSize="13sp"
         android:visibility="gone" />
 

@@ -8,11 +8,11 @@
     android:background="@drawable/widget_bg"
     android:padding="12dp">
     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="TODAY" android:textColor="#B9B4D0" android:textSize="11sp" android:letterSpacing="0.1" />
+        android:text="TODAY" android:textColor="@color/w_text_secondary" android:textSize="11sp" android:letterSpacing="0.1" />
     <TextView android:id="@+id/st_done" android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="0" android:textColor="#FFFFFF" android:textSize="30sp" android:textStyle="bold" />
+        android:text="0" android:textColor="@color/w_text_primary" android:textSize="30sp" android:textStyle="bold" />
     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="done" android:textColor="#B9B4D0" android:textSize="12sp" />
+        android:text="done" android:textColor="@color/w_text_secondary" android:textSize="12sp" />
     <TextView android:id="@+id/st_due" android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:layout_marginTop="4dp" android:text="" android:textColor="#12A594" android:textSize="12sp" />
+        android:layout_marginTop="4dp" android:text="" android:textColor="@color/w_teal" android:textSize="12sp" />
 </LinearLayout>

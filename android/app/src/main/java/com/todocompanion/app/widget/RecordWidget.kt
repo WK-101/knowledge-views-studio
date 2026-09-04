@@ -37,20 +37,10 @@ class RecordWidget : AppWidgetProvider() {
 
             views.setTextViewText(R.id.widget_title, WidgetPrefs.title(context, id).ifBlank { "The Record" })
             views.setTextViewText(R.id.widget_empty, "Finish something to see it here")
-            val light = when (WidgetPrefs.theme(context, id)) {
-                "light" -> true
-                "dark" -> false
-                else -> (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) != android.content.res.Configuration.UI_MODE_NIGHT_YES
-            }
-            if (light) {
-                views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_bg_light)
-                views.setTextColor(R.id.widget_title, 0xFF1B1B2F.toInt())
-                views.setTextColor(R.id.widget_empty, 0xFF6B6880.toInt())
-            } else {
-                views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_bg)
-                views.setTextColor(R.id.widget_title, 0xFFFFFFFF.toInt())
-                views.setTextColor(R.id.widget_empty, 0xFFB9B4D0.toInt())
-            }
+            val s = WidgetStyle.resolve(context, id)
+            WidgetStyle.applyCardBackground(views, R.id.widget_root, context, id)
+            views.setTextColor(R.id.widget_title, s.textPrimary)
+            views.setTextColor(R.id.widget_empty, s.textSecondary)
             manager.updateAppWidget(id, views)
             manager.notifyAppWidgetViewDataChanged(id, R.id.widget_list)
         }
@@ -86,13 +76,16 @@ class RecordWidget : AppWidgetProvider() {
 }
 
 class RecordWidgetService : RemoteViewsService() {
-    override fun onGetViewFactory(intent: Intent): RemoteViewsFactory = RecordFactory(applicationContext)
+    override fun onGetViewFactory(intent: Intent): RemoteViewsFactory {
+        val id = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+        return RecordFactory(applicationContext, id)
+    }
 }
 
-private class RecordFactory(private val context: Context) : RemoteViewsService.RemoteViewsFactory {
+private class RecordFactory(private val context: Context, private val widgetId: Int) : RemoteViewsService.RemoteViewsFactory {
     private data class Row(val id: String, val title: String, val sub: String)
     private var rows: List<Row> = emptyList()
-    private var light = false
+    private var style: WidgetStyle = WidgetStyle.resolve(context)
 
     override fun onCreate() {}
     override fun onDestroy() {}
@@ -106,7 +99,7 @@ private class RecordFactory(private val context: Context) : RemoteViewsService.R
         val app = context.applicationContext as App
         val zone = ZoneId.systemDefault()
         val today = LocalDate.now(zone)
-        light = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) != android.content.res.Configuration.UI_MODE_NIGHT_YES
+        style = WidgetStyle.resolve(context, widgetId)
 
         val done = runBlocking { app.repository.wsTasksOnce() }
             .filter { it.completed && !it.trashed && it.completedAt != null }
@@ -128,8 +121,8 @@ private class RecordFactory(private val context: Context) : RemoteViewsService.R
         return RemoteViews(context.packageName, R.layout.widget_agenda_item).apply {
             setTextViewText(R.id.item_title, r.title)
             setTextViewText(R.id.item_sub, r.sub)
-            setTextColor(R.id.item_title, if (light) 0xFF1B1B2F.toInt() else 0xFFFFFFFF.toInt())
-            setTextColor(R.id.item_sub, if (light) 0xFF6B6880.toInt() else 0xFFB9B4D0.toInt())
+            setTextColor(R.id.item_title, style.textPrimary)
+            setTextColor(R.id.item_sub, style.textSecondary)
             val fill = Intent().putExtra(MainActivity.EXTRA_ACTION, "open_task:${r.id}")
             setOnClickFillInIntent(R.id.item_root, fill)
         }

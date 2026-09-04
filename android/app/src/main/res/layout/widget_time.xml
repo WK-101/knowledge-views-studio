@@ -19,7 +19,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Not tracking"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/w_text_primary"
             android:textSize="15sp"
             android:textStyle="bold"
             android:maxLines="1"
@@ -29,7 +29,7 @@
             android:id="@+id/tw_timer"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#B9A6EC"
+            android:textColor="@color/w_accent_text"
             android:textSize="15sp"
             android:textStyle="bold"
             android:visibility="gone" />
@@ -52,7 +52,7 @@
             android:paddingVertical="7dp"
             android:gravity="center"
             android:text="—"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/w_text_primary"
             android:textSize="12sp"
             android:maxLines="1"
             android:ellipsize="end" />
@@ -68,7 +68,7 @@
             android:paddingVertical="7dp"
             android:gravity="center"
             android:text="—"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/w_text_primary"
             android:textSize="12sp"
             android:maxLines="1"
             android:ellipsize="end" />
@@ -84,7 +84,7 @@
             android:paddingVertical="7dp"
             android:gravity="center"
             android:text="—"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/w_text_primary"
             android:textSize="12sp"
             android:maxLines="1"
             android:ellipsize="end" />
@@ -98,7 +98,7 @@
             android:paddingVertical="7dp"
             android:gravity="center"
             android:text="■"
-            android:textColor="#F07189"
+            android:textColor="@color/w_danger"
             android:textSize="13sp"
             android:textStyle="bold"
             android:visibility="gone" />

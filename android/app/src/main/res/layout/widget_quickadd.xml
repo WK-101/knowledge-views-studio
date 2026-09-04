@@ -16,7 +16,7 @@
         android:background="@drawable/widget_add_bg"
         android:contentDescription="Add task"
         android:text="＋"
-        android:textColor="#FFFFFF"
+        android:textColor="@color/w_on_accent"
         android:textSize="30sp"
         android:textStyle="bold" />
 </FrameLayout>

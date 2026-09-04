@@ -39,20 +39,11 @@ class AgendaWidget : AppWidgetProvider() {
             val scope = WidgetPrefs.scope(context, id)
             val title = WidgetPrefs.title(context, id).ifBlank { WidgetPrefs.defaultTitle(scope) }
             views.setTextViewText(R.id.widget_title, title)
-            val light = when (WidgetPrefs.theme(context, id)) {
-                "light" -> true
-                "dark" -> false
-                else -> (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) != android.content.res.Configuration.UI_MODE_NIGHT_YES
-            }
-            if (light) {
-                views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_bg_light)
-                views.setTextColor(R.id.widget_title, 0xFF1B1B2F.toInt())
-                views.setTextColor(R.id.widget_empty, 0xFF6B6880.toInt())
-            } else {
-                views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_bg)
-                views.setTextColor(R.id.widget_title, 0xFFFFFFFF.toInt())
-                views.setTextColor(R.id.widget_empty, 0xFFB9B4D0.toInt())
-            }
+            // R104 — theme via the shared WidgetStyle: adaptive card for "auto", fixed for a forced choice.
+            val s = WidgetStyle.resolve(context, id)
+            WidgetStyle.applyCardBackground(views, R.id.widget_root, context, id)
+            views.setTextColor(R.id.widget_title, s.textPrimary)
+            views.setTextColor(R.id.widget_empty, s.textSecondary)
             manager.updateAppWidget(id, views)
             manager.notifyAppWidgetViewDataChanged(id, R.id.widget_list)
         }
@@ -115,7 +106,7 @@ private class AgendaFactory(private val context: Context, private val widgetId: 
     override fun hasStableIds() = false
     override fun getLoadingView(): RemoteViews? = null
 
-    private var light = false
+    private var style: WidgetStyle = WidgetStyle.resolve(context)
 
     override fun onDataSetChanged() {
         val app = context.applicationContext as App
@@ -126,11 +117,7 @@ private class AgendaFactory(private val context: Context, private val widgetId: 
         val endWeek = today.plusDays(7).atStartOfDay(zone).toInstant().toEpochMilli()
 
         val scope = WidgetPrefs.scope(context, widgetId)
-        light = when (WidgetPrefs.theme(context, widgetId)) {
-            "light" -> true
-            "dark" -> false
-            else -> (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) != android.content.res.Configuration.UI_MODE_NIGHT_YES
-        }
+        style = WidgetStyle.resolve(context, widgetId)
         val listId = if (scope.startsWith("list:")) scope.removePrefix("list:") else null
 
         val tasks = runBlocking { app.repository.wsTasksOnce() }
@@ -190,12 +177,11 @@ private class AgendaFactory(private val context: Context, private val widgetId: 
         return RemoteViews(context.packageName, R.layout.widget_agenda_item).apply {
             setTextViewText(R.id.item_title, r.title)
             setTextViewText(R.id.item_sub, r.sub)
-            setTextColor(R.id.item_title, if (light) 0xFF1B1B2F.toInt() else 0xFFFFFFFF.toInt())
+            setTextColor(R.id.item_title, style.textPrimary)
             setTextColor(R.id.item_sub, when {
-                r.isEvent -> 0xFF4F46E5.toInt()
-                r.overdue -> 0xFFE5484D.toInt()
-                light -> 0xFF6B6880.toInt()
-                else -> 0xFFB9B4D0.toInt()
+                r.isEvent -> style.info
+                r.overdue -> style.danger
+                else -> style.textSecondary
             })
             // Fill-in intent: a task opens that task; a calendar event opens the app to the calendar.
             val action = if (r.isEvent) "open_calendar" else "open_task:${r.id}"

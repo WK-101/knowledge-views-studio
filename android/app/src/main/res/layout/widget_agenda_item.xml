@@ -17,7 +17,7 @@
         android:maxLines="1"
         android:ellipsize="end"
         android:text="Task"
-        android:textColor="#FFFFFF"
+        android:textColor="@color/w_text_primary"
         android:textSize="14sp" />
 
     <TextView
@@ -26,6 +26,6 @@
         android:layout_height="wrap_content"
         android:paddingStart="10dp"
         android:text=""
-        android:textColor="#B9B4D0"
+        android:textColor="@color/w_text_secondary"
         android:textSize="12sp" />
 </LinearLayout>

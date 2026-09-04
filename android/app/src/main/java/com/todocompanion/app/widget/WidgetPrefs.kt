@@ -26,10 +26,45 @@ object WidgetPrefs {
             .putString("scope_$id", scope).putString("title_$id", title).putString("theme_$id", theme).apply()
     }
 
+    // ---- R104: shared appearance prefs, honoured by WidgetStyle for every widget ----
+
+    /** Card opacity 0..100 (100 = as designed). */
+    fun opacity(ctx: Context, id: Int): Int =
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getInt("opacity_$id", 100).coerceIn(0, 100)
+
+    /** Text-size multiplier ×100 stored as Int; exposed as Float 0.85..1.15. */
+    fun fontScale(ctx: Context, id: Int): Float =
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getInt("font_$id", 100).coerceIn(70, 130) / 100f
+
+    /** Compact rows (denser list, smaller paddings). */
+    fun compact(ctx: Context, id: Int): Boolean =
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getBoolean("compact_$id", false)
+
+    /** Whether a list widget shows its header toolbar (add / open). Default on. */
+    fun showToolbar(ctx: Context, id: Int): Boolean =
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getBoolean("toolbar_$id", true)
+
+    /** Persist the full appearance set from the shared config surface. */
+    fun saveAppearance(ctx: Context, id: Int, opacity: Int, fontScalePct: Int, compact: Boolean, showToolbar: Boolean) {
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
+            .putInt("opacity_$id", opacity.coerceIn(0, 100))
+            .putInt("font_$id", fontScalePct.coerceIn(70, 130))
+            .putBoolean("compact_$id", compact)
+            .putBoolean("toolbar_$id", showToolbar)
+            .apply()
+    }
+
+    /** Persist just the theme (auto/light/dark) — used by widgets whose config is theme-only. */
+    fun saveTheme(ctx: Context, id: Int, theme: String) {
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putString("theme_$id", theme).apply()
+    }
+
     fun clear(ctx: Context, id: Int) {
         ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
             .remove("scope_$id").remove("title_$id").remove("theme_$id")
-            .remove("energy_$id").remove("time_$id").apply()
+            .remove("energy_$id").remove("time_$id")
+            .remove("opacity_$id").remove("font_$id").remove("compact_$id").remove("toolbar_$id")
+            .apply()
     }
 
     // Do-Next widget filters. energy: 0 Any, 1 Low, 2 Medium, 3 High ("I have this much energy").
