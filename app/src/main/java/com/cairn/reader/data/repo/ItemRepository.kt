@@ -93,6 +93,8 @@ class ItemRepository @Inject constructor(
     fun libraryAll(): Flow<List<ItemListRow>> = itemDao.observeLibraryAll()
     fun unsorted(): Flow<List<ItemListRow>> = itemDao.observeUnsorted()
     fun archived(): Flow<List<ItemListRow>> = itemDao.observeArchived()
+    fun favorites(): Flow<List<ItemListRow>> = itemDao.observeFavorites()
+    fun libraryCounts(): Flow<com.cairn.reader.data.db.LibraryCounts> = itemDao.observeLibraryCounts()
     fun collectionItems(collectionId: String): Flow<List<ItemListRow>> = itemDao.observeCollection(collectionId)
     fun byTag(tagId: String): Flow<List<ItemListRow>> = itemDao.observeByTag(tagId)
     fun unreadCount(): Flow<Int> = itemDao.observeUnreadCount()

@@ -283,7 +283,7 @@ fun CairnApp(
         Crossfade(targetState = current, label = "destination") { dest ->
             when (dest) {
                 Destination.Inbox -> InboxScreen(padding, inboxViewModel, onOpenItem, onOpenWeb, inboxViewMode)
-                Destination.Library -> LibraryScreen(padding, onOpenItem)
+                Destination.Library -> LibraryScreen(padding, onOpenItem, onOpenHighlights = onOpenNotebook)
                 Destination.Settings -> SettingsScreen(padding, onOpenNotebook = onOpenNotebook)
             }
         }

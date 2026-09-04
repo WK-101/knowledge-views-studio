@@ -28,6 +28,7 @@ import javax.inject.Inject
 sealed interface LibraryScope {
     data object All : LibraryScope
     data object Unsorted : LibraryScope
+    data object Favorites : LibraryScope
     data object Archive : LibraryScope
     data class Collection(val id: String, val name: String) : LibraryScope
     data class Tag(val id: String, val name: String) : LibraryScope
@@ -56,6 +57,13 @@ class LibraryViewModel @Inject constructor(
     val tags: StateFlow<List<TagWithCount>> =
         tagRepository.allWithCounts().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** Live counts on the system scopes (All / Unsorted / Favorites / Archive), Raindrop-style. */
+    val counts: StateFlow<com.cairn.reader.data.db.LibraryCounts> =
+        itemRepository.libraryCounts().stateIn(
+            viewModelScope, SharingStarted.WhileSubscribed(5_000),
+            com.cairn.reader.data.db.LibraryCounts(0, 0, 0, 0),
+        )
+
     private val _scope = MutableStateFlow<LibraryScope>(LibraryScope.All)
     val scope: StateFlow<LibraryScope> = _scope.asStateFlow()
 
@@ -81,6 +89,7 @@ class LibraryViewModel @Inject constructor(
             when (scope) {
                 LibraryScope.All -> itemRepository.libraryAll()
                 LibraryScope.Unsorted -> itemRepository.unsorted()
+                LibraryScope.Favorites -> itemRepository.favorites()
                 LibraryScope.Archive -> itemRepository.archived()
                 is LibraryScope.Collection -> itemRepository.collectionItems(scope.id)
                 is LibraryScope.Tag -> itemRepository.byTag(scope.id)
@@ -124,6 +133,7 @@ class LibraryViewModel @Inject constructor(
     private fun scopeKey(scope: LibraryScope): String = when (scope) {
         LibraryScope.All -> "all"
         LibraryScope.Unsorted -> "unsorted"
+        LibraryScope.Favorites -> "favorites"
         LibraryScope.Archive -> "archive"
         is LibraryScope.Collection -> "col:${scope.id}"
         is LibraryScope.Tag -> "tag:${scope.id}"

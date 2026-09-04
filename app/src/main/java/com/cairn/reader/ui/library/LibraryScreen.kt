@@ -37,8 +37,10 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.BookmarkAdd
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -78,10 +80,12 @@ import com.cairn.reader.ui.components.ItemRow
 fun LibraryScreen(
     padding: PaddingValues,
     onOpenItem: (String) -> Unit,
+    onOpenHighlights: () -> Unit = {},
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
     val collections by viewModel.collections.collectAsStateWithLifecycle()
     val tags by viewModel.tags.collectAsStateWithLifecycle()
+    val counts by viewModel.counts.collectAsStateWithLifecycle()
     val scope by viewModel.scope.collectAsStateWithLifecycle()
     val items by viewModel.items.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
@@ -182,9 +186,21 @@ fun LibraryScreen(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                FilterChip(selected = scope is LibraryScope.All, onClick = { viewModel.setScope(LibraryScope.All) }, label = { Text("All") })
-                FilterChip(selected = scope is LibraryScope.Unsorted, onClick = { viewModel.setScope(LibraryScope.Unsorted) }, label = { Text("Unsorted") })
-                FilterChip(selected = scope is LibraryScope.Archive, onClick = { viewModel.setScope(LibraryScope.Archive) }, label = { Text("Archive") })
+                fun countLabel(name: String, n: Int) = if (n > 0) "$name · $n" else name
+                FilterChip(selected = scope is LibraryScope.All, onClick = { viewModel.setScope(LibraryScope.All) }, label = { Text(countLabel("All", counts.allCount)) })
+                FilterChip(selected = scope is LibraryScope.Unsorted, onClick = { viewModel.setScope(LibraryScope.Unsorted) }, label = { Text(countLabel("Unsorted", counts.unsortedCount)) })
+                FilterChip(
+                    selected = scope is LibraryScope.Favorites,
+                    onClick = { viewModel.setScope(LibraryScope.Favorites) },
+                    label = { Text(countLabel("Favorites", counts.favoritesCount)) },
+                    leadingIcon = { Icon(Icons.Outlined.StarBorder, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                )
+                FilterChip(selected = scope is LibraryScope.Archive, onClick = { viewModel.setScope(LibraryScope.Archive) }, label = { Text(countLabel("Archive", counts.archiveCount)) })
+                AssistChip(
+                    onClick = onOpenHighlights,
+                    label = { Text("Highlights") },
+                    leadingIcon = { Icon(Icons.Outlined.FormatQuote, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                )
                 collections.forEach { c ->
                     FilterChip(
                         selected = scope.let { it is LibraryScope.Collection && it.id == c.id },
@@ -281,6 +297,7 @@ fun LibraryScreen(
                 scope is LibraryScope.Collection -> Triple(Icons.Outlined.Add, "This collection is empty", "Open any article's menu and choose “Move to collection” to file it here.")
                 scope is LibraryScope.Tag -> Triple(Icons.Outlined.Add, "No items with this tag", "Add this tag to an article from its menu and it will show up here.")
                 scope is LibraryScope.Unsorted -> Triple(Icons.Outlined.BookmarkAdd, "Nothing unsorted", "Saved items that aren't in a collection gather here, ready to file.")
+                scope is LibraryScope.Favorites -> Triple(Icons.Outlined.StarBorder, "No favorites yet", "Star an article from its menu or the reader and it collects here — your best-of, always one tap away.")
                 scope is LibraryScope.Archive -> Triple(Icons.Outlined.Archive, "Archive is empty", "Swipe an item to archive it, or use an article's menu. Archived items leave your lists but stay searchable here.")
                 else -> Triple(Icons.Outlined.BookmarkAdd, "Your library is empty", "Save or star an article, or file it into a collection, and it lives here — offline and yours.")
             }

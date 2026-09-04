@@ -37,6 +37,14 @@ data class FeedUnread(
     val unread: Int,
 )
 
+/** Live counts for the library's system scopes (Raindrop shows a count on each). */
+data class LibraryCounts(
+    val allCount: Int,
+    val unsortedCount: Int,
+    val favoritesCount: Int,
+    val archiveCount: Int,
+)
+
 @Dao
 interface ItemDao {
 
@@ -343,6 +351,37 @@ interface ItemDao {
         """
     )
     fun observeArchived(): Flow<List<ItemListRow>>
+
+    @Query(
+        """
+        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
+               i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
+               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
+               i.extractStatus AS extractStatus, i.type AS type,
+               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
+               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
+        FROM items i
+        LEFT JOIN item_states s ON s.itemId = i.id
+        LEFT JOIN sources src ON src.id = i.sourceId
+        WHERE COALESCE(s.isStarred, 0) = 1 AND COALESCE(s.isArchived, 0) = 0
+        ORDER BY i.savedAt DESC
+        """
+    )
+    fun observeFavorites(): Flow<List<ItemListRow>>
+
+    @Query(
+        """
+        SELECT
+          (SELECT COUNT(*) FROM items i LEFT JOIN item_states s ON s.itemId = i.id
+            WHERE COALESCE(s.isReadLater, 0) = 1 OR COALESCE(s.isStarred, 0) = 1 OR i.collectionId IS NOT NULL) AS allCount,
+          (SELECT COUNT(*) FROM items i LEFT JOIN item_states s ON s.itemId = i.id
+            WHERE i.collectionId IS NULL AND (COALESCE(s.isReadLater, 0) = 1 OR COALESCE(s.isStarred, 0) = 1)) AS unsortedCount,
+          (SELECT COUNT(*) FROM items i LEFT JOIN item_states s ON s.itemId = i.id
+            WHERE COALESCE(s.isStarred, 0) = 1 AND COALESCE(s.isArchived, 0) = 0) AS favoritesCount,
+          (SELECT COUNT(*) FROM item_states s WHERE COALESCE(s.isArchived, 0) = 1) AS archiveCount
+        """
+    )
+    fun observeLibraryCounts(): Flow<LibraryCounts>
 
     @Query(
         """
