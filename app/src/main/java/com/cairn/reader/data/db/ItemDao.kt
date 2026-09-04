@@ -157,6 +157,12 @@ interface ItemDao {
     @Query("SELECT * FROM item_states WHERE itemId = :id")
     suspend fun getState(id: String): ItemStateEntity?
 
+    @Query("SELECT * FROM items")
+    suspend fun allItems(): List<ItemEntity>
+
+    @Query("SELECT * FROM item_states")
+    suspend fun allStates(): List<ItemStateEntity>
+
     // -- Mutations -------------------------------------------------------------
 
     @Query("UPDATE item_states SET isRead = :read, updatedAt = :ts WHERE itemId = :id")

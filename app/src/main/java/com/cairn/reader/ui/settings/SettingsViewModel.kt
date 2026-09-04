@@ -8,6 +8,7 @@ import com.cairn.reader.data.prefs.PreferencesRepository
 import com.cairn.reader.data.prefs.ReaderFont
 import com.cairn.reader.data.prefs.ReaderTheme
 import com.cairn.reader.data.prefs.ThemeMode
+import com.cairn.reader.data.backup.BackupManager
 import com.cairn.reader.data.repo.FeedRepository
 import com.cairn.reader.data.repo.HighlightRepository
 import com.cairn.reader.data.repo.SourceRepository
@@ -23,6 +24,7 @@ class SettingsViewModel @Inject constructor(
     private val sourceRepository: SourceRepository,
     private val feedRepository: FeedRepository,
     private val preferencesRepository: PreferencesRepository,
+    private val backupManager: BackupManager,
     highlightRepository: HighlightRepository,
 ) : ViewModel() {
 
@@ -52,6 +54,13 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun exportOpml(onReady: (String) -> Unit) = viewModelScope.launch { onReady(feedRepository.exportOpml()) }
+
+    fun exportBackup(onReady: (String) -> Unit) = viewModelScope.launch { onReady(backupManager.export()) }
+
+    fun importBackup(text: String, onResult: (String) -> Unit) = viewModelScope.launch {
+        val summary = runCatching { backupManager.import(text) }.getOrElse { "Couldn't read that backup file" }
+        onResult(summary)
+    }
 
     fun addBlockedKeyword(term: String) = viewModelScope.launch { preferencesRepository.addBlockedKeyword(term) }
     fun removeBlockedKeyword(term: String) = viewModelScope.launch { preferencesRepository.removeBlockedKeyword(term) }

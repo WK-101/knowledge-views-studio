@@ -40,6 +40,12 @@ interface TagDao {
     @Query("SELECT t.* FROM tags t JOIN item_tags it ON it.tagId = t.id WHERE it.itemId = :itemId ORDER BY t.name COLLATE NOCASE")
     suspend fun tagsForItem(itemId: String): List<TagEntity>
 
+    @Query("SELECT * FROM tags")
+    suspend fun allTags(): List<TagEntity>
+
+    @Query("SELECT * FROM item_tags")
+    suspend fun allCrossRefs(): List<ItemTagCrossRef>
+
     @Query("SELECT t.* FROM tags t JOIN item_tags it ON it.tagId = t.id WHERE it.itemId = :itemId ORDER BY t.name COLLATE NOCASE")
     fun observeTagsForItem(itemId: String): Flow<List<TagEntity>>
 
@@ -78,6 +84,9 @@ interface HighlightDao {
 
     @Query("DELETE FROM highlights WHERE id = :id")
     suspend fun delete(id: String)
+
+    @Query("SELECT * FROM highlights")
+    suspend fun all(): List<HighlightEntity>
 
     @Query("SELECT COUNT(*) FROM highlights")
     fun observeCount(): Flow<Int>
@@ -146,6 +155,9 @@ interface CollectionDao {
 
     @Query("SELECT * FROM collections WHERE id = :id")
     suspend fun get(id: String): CollectionEntity?
+
+    @Query("SELECT * FROM collections")
+    suspend fun all(): List<CollectionEntity>
 
     @Query("UPDATE collections SET name = :name WHERE id = :id")
     suspend fun rename(id: String, name: String)

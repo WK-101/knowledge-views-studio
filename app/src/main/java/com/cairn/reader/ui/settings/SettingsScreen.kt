@@ -82,6 +82,17 @@ fun SettingsScreen(
         }
     }
 
+    val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val text = runCatching { context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull()
+            if (text != null) {
+                viewModel.importBackup(text) { summary -> Toast.makeText(context, summary, Toast.LENGTH_LONG).show() }
+            } else {
+                Toast.makeText(context, "Couldn't read that file", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
@@ -137,6 +148,27 @@ fun SettingsScreen(
                 }
                 Text(
                     "Bring subscriptions in from Inoreader/Feedly, or take yours out.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+                Spacer(Modifier.height(16.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(onClick = {
+                        viewModel.exportBackup { json ->
+                            val send = Intent(Intent.ACTION_SEND).apply {
+                                type = "application/json"
+                                putExtra(Intent.EXTRA_TITLE, "cairn-backup.json")
+                                putExtra(Intent.EXTRA_SUBJECT, "Cairn backup")
+                                putExtra(Intent.EXTRA_TEXT, json)
+                            }
+                            runCatching { context.startActivity(Intent.createChooser(send, "Back up Cairn")) }
+                        }
+                    }) { Text("Back up") }
+                    OutlinedButton(onClick = { restoreLauncher.launch(arrayOf("*/*")) }) { Text("Restore") }
+                }
+                Text(
+                    "A full JSON backup of your feeds, saved items, tags, collections and highlights — yours to keep.",
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
