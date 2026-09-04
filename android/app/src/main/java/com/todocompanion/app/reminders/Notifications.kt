@@ -155,7 +155,7 @@ object Notifications {
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
-            .setContentIntent(openAppRoute(context, "open_plan", 918_276))
+            .setContentIntent(openAppRoute(context, "open_dayreview", 918_276))
             .build()
         post(context, EVENING_ID, n)
     }
