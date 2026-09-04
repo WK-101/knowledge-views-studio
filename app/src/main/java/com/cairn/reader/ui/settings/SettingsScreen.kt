@@ -1,5 +1,6 @@
 package com.cairn.reader.ui.settings
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -14,10 +15,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,6 +32,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cairn.reader.data.prefs.ReaderFont
+import com.cairn.reader.data.prefs.ReaderTheme
+import com.cairn.reader.data.prefs.ThemeMode
 
 @Composable
 fun SettingsScreen(
@@ -36,6 +42,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val sources by viewModel.sources.collectAsStateWithLifecycle()
+    val prefs by viewModel.preferences.collectAsStateWithLifecycle()
     val scheme = MaterialTheme.colorScheme
 
     LazyColumn(
@@ -73,6 +80,42 @@ fun SettingsScreen(
                 }
             }
         }
+
+        item {
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+                SectionLabel("APPEARANCE")
+                Spacer(Modifier.height(12.dp))
+                LabeledChips(
+                    label = "Theme",
+                    options = ThemeMode.entries.map { it to it.name.lowercase().replaceFirstChar(Char::uppercase) },
+                    selected = prefs.themeMode,
+                    onSelect = viewModel::setThemeMode,
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Dynamic color", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text("Use wallpaper colors (Android 12+)", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                    }
+                    Switch(checked = prefs.dynamicColor, onCheckedChange = viewModel::setDynamicColor)
+                }
+                Spacer(Modifier.height(10.dp))
+                LabeledChips(
+                    label = "Reading font",
+                    options = listOf(ReaderFont.SERIF to "Serif", ReaderFont.SANS to "Sans"),
+                    selected = prefs.readerFont,
+                    onSelect = viewModel::setReaderFont,
+                )
+                Spacer(Modifier.height(10.dp))
+                LabeledChips(
+                    label = "Reader theme",
+                    options = listOf(ReaderTheme.DEFAULT to "Default", ReaderTheme.SEPIA to "Sepia", ReaderTheme.BLACK to "Black"),
+                    selected = prefs.readerTheme,
+                    onSelect = viewModel::setReaderTheme,
+                )
+            }
+        }
+
         item {
             Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
                 SectionLabel("PRIVACY")
@@ -85,9 +128,29 @@ fun SettingsScreen(
                 Spacer(Modifier.height(24.dp))
                 SectionLabel("ABOUT")
                 Spacer(Modifier.height(8.dp))
-                Text("Cairn 0.1.0", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
+                Text("Cairn 0.2.0", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
                 Text("One reader for everything you read.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
             }
+        }
+    }
+}
+
+@Composable
+private fun <T> LabeledChips(
+    label: String,
+    options: List<Pair<T, String>>,
+    selected: T,
+    onSelect: (T) -> Unit,
+) {
+    Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
+    Spacer(Modifier.height(6.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        options.forEach { (value, text) ->
+            FilterChip(
+                selected = value == selected,
+                onClick = { onSelect(value) },
+                label = { Text(text) },
+            )
         }
     }
 }

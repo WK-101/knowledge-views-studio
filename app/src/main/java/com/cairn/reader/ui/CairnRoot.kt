@@ -1,26 +1,43 @@
 package com.cairn.reader.ui
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.cairn.reader.data.prefs.ThemeMode
 import com.cairn.reader.ui.reader.ReaderScreen
+import com.cairn.reader.ui.theme.CairnTheme
 
-/** Top-level navigation: the tabbed home shell and the full-screen reader. */
+/** Applies the user's theme preference, then hosts navigation. */
 @Composable
 fun CairnRoot() {
-    val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = "home") {
-        composable("home") {
-            CairnApp(onOpenItem = { itemId -> navController.navigate("reader/$itemId") })
-        }
-        composable(
-            route = "reader/{itemId}",
-            arguments = listOf(navArgument("itemId") { type = NavType.StringType }),
-        ) {
-            ReaderScreen(onBack = { navController.popBackStack() })
+    val appViewModel: AppViewModel = hiltViewModel()
+    val prefs by appViewModel.preferences.collectAsStateWithLifecycle()
+
+    val dark = when (prefs.themeMode) {
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+    }
+
+    CairnTheme(darkTheme = dark, dynamicColor = prefs.dynamicColor) {
+        val navController = rememberNavController()
+        NavHost(navController = navController, startDestination = "home") {
+            composable("home") {
+                CairnApp(onOpenItem = { itemId -> navController.navigate("reader/$itemId") })
+            }
+            composable(
+                route = "reader/{itemId}",
+                arguments = listOf(navArgument("itemId") { type = NavType.StringType }),
+            ) {
+                ReaderScreen(onBack = { navController.popBackStack() })
+            }
         }
     }
 }
