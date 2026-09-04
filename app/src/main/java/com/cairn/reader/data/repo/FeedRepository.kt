@@ -1,6 +1,7 @@
 package com.cairn.reader.data.repo
 
 import com.cairn.reader.data.blob.BlobStore
+import com.cairn.reader.data.opml.Opml
 import com.cairn.reader.data.db.ItemDao
 import com.cairn.reader.data.db.ItemEntity
 import com.cairn.reader.data.db.ItemFtsEntity
@@ -79,6 +80,34 @@ class FeedRepository @Inject constructor(
         return true
     }
 
+    /** Subscribe to every feed in an OPML document, preserving folders and skipping
+     *  feeds already subscribed. Returns how many new sources were added. */
+    suspend fun importOpml(xml: String): Int {
+        val feeds = Opml.parse(xml)
+        var added = 0
+        feeds.forEachIndexed { index, f ->
+            val existing = sourceDao.getByFeedUrl(f.xmlUrl)
+            if (existing == null) {
+                sourceDao.upsert(
+                    SourceEntity(
+                        id = deterministicId(f.xmlUrl),
+                        kind = "RSS",
+                        feedUrl = f.xmlUrl,
+                        title = f.title.ifBlank { hostOf(f.xmlUrl) },
+                        folder = f.folder,
+                        sortOrder = index,
+                    ),
+                )
+                added++
+            } else if (existing.folder.isNullOrBlank() && !f.folder.isNullOrBlank()) {
+                sourceDao.setFolder(existing.id, f.folder)
+            }
+        }
+        return added
+    }
+
+    suspend fun exportOpml(): String = Opml.build(sourceDao.getAll())
+
     suspend fun syncAll() {
         val now = System.currentTimeMillis()
         sourceDao.getAll().forEach { source ->
@@ -106,6 +135,7 @@ class FeedRepository @Inject constructor(
         val key = p.guid ?: p.link ?: p.title ?: UUID.randomUUID().toString()
         val itemId = deterministicId("${source.id}|$key")
         if (syncDao.isTombstoned(itemId)) return
+        val isNew = itemDao.getItem(itemId) == null
 
         val content = p.contentHtml ?: p.summary
         val plain = content?.let { runCatching { Jsoup.parse(it).text() }.getOrDefault("") } ?: ""
@@ -141,6 +171,11 @@ class FeedRepository @Inject constructor(
         itemDao.indexItem(
             ItemFtsEntity(itemId = itemId, title = p.title ?: "", author = p.author, body = plain.take(20_000)),
         )
+        // Per-feed "full text on sync": fetch the whole article for new items so they're
+        // complete and offline before they're ever opened. Opt-in, so most feeds stay cheap.
+        if (isNew && source.fullTextByDefault) {
+            p.link?.takeIf { it.isNotBlank() }?.let { runCatching { extractInto(itemId, it) } }
+        }
     }
 
     /** Save an arbitrary URL to the library and extract a clean, offline copy. */

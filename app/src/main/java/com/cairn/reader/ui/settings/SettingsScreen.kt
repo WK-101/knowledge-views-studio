@@ -1,5 +1,9 @@
 package com.cairn.reader.ui.settings
 
+import android.content.Intent
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -29,17 +33,23 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cairn.reader.data.db.SourceEntity
 import com.cairn.reader.data.prefs.ReaderFont
 import com.cairn.reader.data.prefs.ReaderTheme
 import com.cairn.reader.data.prefs.ThemeMode
+import com.cairn.reader.ui.components.FeedSettingsSheet
 
 @Composable
 fun SettingsScreen(
@@ -50,7 +60,23 @@ fun SettingsScreen(
     val sources by viewModel.sources.collectAsStateWithLifecycle()
     val prefs by viewModel.preferences.collectAsStateWithLifecycle()
     val highlightCount by viewModel.highlightCount.collectAsStateWithLifecycle()
+    val folders by viewModel.folders.collectAsStateWithLifecycle()
     val scheme = MaterialTheme.colorScheme
+    val context = LocalContext.current
+    var feedSettings by remember { mutableStateOf<SourceEntity?>(null) }
+
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val text = runCatching { context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull()
+            if (text != null) {
+                viewModel.importOpml(text) { added ->
+                    Toast.makeText(context, if (added > 0) "Imported $added feeds" else "No new feeds found", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                Toast.makeText(context, "Couldn't read that file", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -75,16 +101,42 @@ fun SettingsScreen(
         }
         items(sources, key = { it.id }) { source ->
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
+                modifier = Modifier.fillMaxWidth().clickable { feedSettings = source }.padding(horizontal = 20.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
                     Text(source.title, style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(source.feedUrl, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    val sub = source.folder?.takeIf { it.isNotBlank() }?.let { "$it · ${source.feedUrl}" } ?: source.feedUrl
+                    Text(sub, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                IconButton(onClick = { viewModel.removeSource(source.id) }) {
-                    Icon(Icons.Outlined.DeleteOutline, contentDescription = "Remove", tint = scheme.onSurfaceVariant)
+                Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = scheme.onSurfaceVariant)
+            }
+        }
+
+        item {
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
+                SectionLabel("IMPORT / EXPORT")
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(onClick = { importLauncher.launch(arrayOf("*/*")) }) { Text("Import OPML") }
+                    OutlinedButton(onClick = {
+                        viewModel.exportOpml { xml ->
+                            val send = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/xml"
+                                putExtra(Intent.EXTRA_TITLE, "cairn-subscriptions.opml")
+                                putExtra(Intent.EXTRA_SUBJECT, "Cairn subscriptions")
+                                putExtra(Intent.EXTRA_TEXT, xml)
+                            }
+                            runCatching { context.startActivity(Intent.createChooser(send, "Export OPML")) }
+                        }
+                    }) { Text("Export OPML") }
                 }
+                Text(
+                    "Bring subscriptions in from Inoreader/Feedly, or take yours out.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
             }
         }
 
@@ -163,6 +215,18 @@ fun SettingsScreen(
                 Text("One reader for everything you read.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
             }
         }
+    }
+
+    feedSettings?.let { source ->
+        FeedSettingsSheet(
+            source = source,
+            folders = folders,
+            onFolder = { viewModel.setFolder(source.id, it) },
+            onFullText = { viewModel.setFullText(source.id, it) },
+            onNotify = { viewModel.setNotify(source.id, it) },
+            onRemove = { viewModel.removeSource(source.id) },
+            onDismiss = { feedSettings = null },
+        )
     }
 }
 

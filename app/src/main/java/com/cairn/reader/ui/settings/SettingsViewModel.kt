@@ -35,8 +35,23 @@ class SettingsViewModel @Inject constructor(
     val preferences: StateFlow<AppPreferences> =
         preferencesRepository.preferences.stateIn(viewModelScope, SharingStarted.Eagerly, AppPreferences())
 
+    val folders: StateFlow<List<String>> =
+        sourceRepository.folders().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     fun removeSource(id: String) = viewModelScope.launch { sourceRepository.delete(id) }
     fun syncNow() = viewModelScope.launch { runCatching { feedRepository.syncAll() } }
+
+    fun setFolder(id: String, folder: String?) = viewModelScope.launch { sourceRepository.setFolder(id, folder) }
+    fun setFullText(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setFullText(id, enabled) }
+    fun setNotify(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setNotify(id, enabled) }
+
+    fun importOpml(text: String, onResult: (Int) -> Unit) = viewModelScope.launch {
+        val added = runCatching { feedRepository.importOpml(text) }.getOrDefault(0)
+        onResult(added)
+        if (added > 0) runCatching { feedRepository.syncAll() }
+    }
+
+    fun exportOpml(onReady: (String) -> Unit) = viewModelScope.launch { onReady(feedRepository.exportOpml()) }
 
     fun setThemeMode(mode: ThemeMode) = viewModelScope.launch { preferencesRepository.setThemeMode(mode) }
     fun setDynamicColor(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setDynamicColor(enabled) }
