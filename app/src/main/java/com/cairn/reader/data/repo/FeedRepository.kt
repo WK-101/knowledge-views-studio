@@ -273,6 +273,7 @@ class FeedRepository @Inject constructor(
         val path = runCatching { blobStore.writePdf(itemId, bytes) }.getOrElse {
             return Result.failure(it)
         }
+        val thumb = renderPdfThumbnail(itemId, path)
         itemDao.insertItemWithState(
             ItemEntity(
                 id = itemId,
@@ -282,6 +283,7 @@ class FeedRepository @Inject constructor(
                 savedAt = now,
                 type = "PDF",
                 excerpt = "Imported PDF",
+                leadImage = thumb,
                 blobPath = path,
                 extractStatus = "OK",
                 contentSource = "PDF",
@@ -389,6 +391,26 @@ class FeedRepository @Inject constructor(
         itemDao.setCacheStatus(itemId, "PERMANENT")
         return Result.success(cached)
     }
+
+    /** Render a PDF's first page to a small cover image so it has a real thumbnail in lists. */
+    private fun renderPdfThumbnail(itemId: String, pdfPath: String): String? = runCatching {
+        android.os.ParcelFileDescriptor.open(java.io.File(pdfPath), android.os.ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
+            android.graphics.pdf.PdfRenderer(fd).use { renderer ->
+                if (renderer.pageCount == 0) return null
+                renderer.openPage(0).use { page ->
+                    val targetW = 600
+                    val scale = targetW.toFloat() / page.width.coerceAtLeast(1)
+                    val h = (page.height * scale).toInt().coerceAtLeast(1)
+                    val bmp = android.graphics.Bitmap.createBitmap(targetW, h, android.graphics.Bitmap.Config.ARGB_8888)
+                    bmp.eraseColor(android.graphics.Color.WHITE)
+                    page.render(bmp, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                    val out = java.io.ByteArrayOutputStream()
+                    bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, out)
+                    blobStore.writeImage(itemId, 0, out.toByteArray(), "jpg")
+                }
+            }
+        }
+    }.getOrNull()
 
     /** Pick a sensible file extension for a downloaded image from its content type, then URL. */
     private fun imageExtension(contentType: String?, url: String): String = when (contentType?.substringBefore(';')?.trim()?.lowercase()) {

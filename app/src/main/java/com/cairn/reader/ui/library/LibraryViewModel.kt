@@ -184,6 +184,13 @@ class LibraryViewModel @Inject constructor(
         _selection.value = emptySet()
     }
 
+    /** Archive the selection (or unarchive it when viewing the Archive scope). */
+    fun archiveSelected() = viewModelScope.launch {
+        val archive = _scope.value != LibraryScope.Archive
+        _selection.value.forEach { itemRepository.setArchived(it, archive) }
+        _selection.value = emptySet()
+    }
+
     fun removeSelectedFromLibrary() = viewModelScope.launch {
         val ids = _selection.value
         ids.forEach { id ->

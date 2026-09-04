@@ -287,6 +287,9 @@ fun LibraryScreen(
                 Text("${selection.size} selected", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
                 androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
                 TextButton(onClick = { showMove = true }) { Text("Move") }
+                TextButton(onClick = { viewModel.archiveSelected() }) {
+                    Text(if (scope is LibraryScope.Archive) "Unarchive" else "Archive")
+                }
                 TextButton(onClick = { viewModel.removeSelectedFromLibrary() }) { Text("Remove") }
             }
         }
