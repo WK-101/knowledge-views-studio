@@ -1,7 +1,5 @@
 package com.cairn.reader.ui
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -53,7 +51,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -79,6 +76,7 @@ private enum class Destination(val label: String, val icon: ImageVector) {
 fun CairnApp(
     onOpenItem: (String) -> Unit = {},
     onOpenNotebook: () -> Unit = {},
+    onOpenWeb: (String) -> Unit = {},
 ) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
     var showAddFeed by remember { mutableStateOf(false) }
@@ -136,7 +134,7 @@ fun CairnApp(
     ) { padding ->
         Crossfade(targetState = current, label = "destination") { dest ->
             when (dest) {
-                Destination.Inbox -> InboxScreen(padding, inboxViewModel, onOpenItem)
+                Destination.Inbox -> InboxScreen(padding, inboxViewModel, onOpenItem, onOpenWeb)
                 Destination.Library -> LibraryScreen(padding, onOpenItem)
                 Destination.Settings -> SettingsScreen(padding, onOpenNotebook = onOpenNotebook)
             }
@@ -160,17 +158,11 @@ private fun InboxScreen(
     padding: PaddingValues,
     viewModel: InboxViewModel,
     onOpenItem: (String) -> Unit,
+    onOpenWeb: (String) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
-    val context = LocalContext.current
     var sheetRow by remember { mutableStateOf<ItemListRow?>(null) }
-
-    fun openOriginal(url: String) {
-        runCatching {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        }
-    }
 
     Column(
         modifier = Modifier
@@ -224,7 +216,7 @@ private fun InboxScreen(
             onToggleStar = { starred -> viewModel.toggleStar(row.id, starred) },
             onToggleSave = { save -> viewModel.toggleSave(row.id, save) },
             onArchive = { viewModel.archive(row.id) },
-            onOpenOriginal = { openOriginal(row.url) },
+            onOpenOriginal = { onOpenWeb(row.url) },
             onDismiss = { sheetRow = null },
         )
     }

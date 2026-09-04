@@ -14,6 +14,8 @@ import com.cairn.reader.data.prefs.ThemeMode
 import com.cairn.reader.ui.notebook.NotebookScreen
 import com.cairn.reader.ui.reader.ReaderScreen
 import com.cairn.reader.ui.theme.CairnTheme
+import com.cairn.reader.ui.web.WebRoute
+import com.cairn.reader.ui.web.WebScreen
 
 /** Applies the user's theme preference, then hosts navigation. */
 @Composable
@@ -29,23 +31,37 @@ fun CairnRoot() {
 
     CairnTheme(darkTheme = dark, dynamicColor = prefs.dynamicColor) {
         val navController = rememberNavController()
+        val openWeb: (String) -> Unit = { url -> navController.navigate("web/${WebRoute.encode(url)}") }
         NavHost(navController = navController, startDestination = "home") {
             composable("home") {
                 CairnApp(
                     onOpenItem = { itemId -> navController.navigate("reader/$itemId") },
                     onOpenNotebook = { navController.navigate("notebook") },
+                    onOpenWeb = openWeb,
                 )
             }
             composable(
                 route = "reader/{itemId}",
                 arguments = listOf(navArgument("itemId") { type = NavType.StringType }),
             ) {
-                ReaderScreen(onBack = { navController.popBackStack() })
+                ReaderScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenWeb = openWeb,
+                )
             }
             composable("notebook") {
                 NotebookScreen(
                     onBack = { navController.popBackStack() },
                     onOpenItem = { itemId -> navController.navigate("reader/$itemId") },
+                )
+            }
+            composable(
+                route = "web/{data}",
+                arguments = listOf(navArgument("data") { type = NavType.StringType }),
+            ) { entry ->
+                WebScreen(
+                    url = WebRoute.decode(entry.arguments?.getString("data").orEmpty()),
+                    onBack = { navController.popBackStack() },
                 )
             }
         }

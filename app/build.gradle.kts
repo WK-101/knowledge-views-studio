@@ -94,6 +94,7 @@ dependencies {
 
     // Storage / networking / images / parsing
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.webkit)
     implementation(libs.coil.compose)
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)

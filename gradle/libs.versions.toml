@@ -13,6 +13,7 @@ hilt = "2.52"
 hiltExt = "1.2.0"
 datastore = "1.1.1"
 coil = "2.7.0"
+webkit = "1.12.1"
 okhttp = "4.12.0"
 coroutines = "1.9.0"
 rssparser = "6.1.8"
@@ -61,6 +62,7 @@ androidx-datastore-preferences = { group = "androidx.datastore", name = "datasto
 
 # Networking / images / parsing
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "webkit" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }

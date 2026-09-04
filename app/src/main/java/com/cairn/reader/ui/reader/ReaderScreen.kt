@@ -3,7 +3,6 @@
 package com.cairn.reader.ui.reader
 
 import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -121,6 +120,7 @@ private fun readerPalette(theme: ReaderTheme): ReaderPalette {
 @Composable
 fun ReaderScreen(
     onBack: () -> Unit,
+    onOpenWeb: (String) -> Unit = {},
     viewModel: ReaderViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -137,9 +137,7 @@ fun ReaderScreen(
 
     fun openOriginal() {
         val url = data?.url ?: return
-        runCatching {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        }
+        onOpenWeb(url)
     }
 
     fun shareText(text: String, subject: String?) {
