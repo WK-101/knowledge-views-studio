@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">Cairn</string>
+
+    <!-- Navigation destinations -->
+    <string name="nav_inbox">Inbox</string>
+    <string name="nav_library">Library</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Inbox -->
+    <string name="inbox_title">Inbox</string>
+    <string name="inbox_empty_title">You\'re all caught up</string>
+    <string name="inbox_empty_body">New articles from your feeds will land here. Add a feed or share a link to Cairn to get started.</string>
+
+    <!-- Common actions -->
+    <string name="action_add_feed">Add feed</string>
+    <string name="action_mark_read">Mark read</string>
+    <string name="action_save">Save</string>
+    <string name="action_archive">Archive</string>
+    <string name="action_search">Search</string>
+</resources>
