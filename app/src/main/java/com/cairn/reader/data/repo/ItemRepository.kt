@@ -1,0 +1,122 @@
+package com.cairn.reader.data.repo
+
+import com.cairn.reader.data.db.ItemDao
+import com.cairn.reader.data.db.ItemEntity
+import com.cairn.reader.data.db.ItemFtsEntity
+import com.cairn.reader.data.db.ItemListRow
+import com.cairn.reader.data.db.SourceDao
+import com.cairn.reader.data.db.SourceEntity
+import com.cairn.reader.data.db.SyncDao
+import com.cairn.reader.data.db.SyncOpEntity
+import kotlinx.coroutines.flow.Flow
+import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
+
+/**
+ * The app's read/write gateway for items. Mutations update local state immediately and
+ * append a [SyncOpEntity] to the outbox, so an optional remote backend can reconcile
+ * later without changing any calling code (the design proven by Capy/Wallabag).
+ */
+@Singleton
+class ItemRepository @Inject constructor(
+    private val itemDao: ItemDao,
+    private val sourceDao: SourceDao,
+    private val syncDao: SyncDao,
+) {
+    private val clock: () -> Long = { System.currentTimeMillis() }
+
+    fun inbox(): Flow<List<ItemListRow>> = itemDao.observeInbox()
+    fun library(): Flow<List<ItemListRow>> = itemDao.observeLibrary()
+    fun unreadCount(): Flow<Int> = itemDao.observeUnreadCount()
+
+    suspend fun search(query: String): List<ItemListRow> {
+        val sanitized = query.trim()
+        if (sanitized.isBlank()) return emptyList()
+        // Prefix match on each term for a forgiving search-as-you-type feel.
+        val match = sanitized.split(Regex("\\s+")).joinToString(" ") { "$it*" }
+        return runCatching { itemDao.search(match) }.getOrDefault(emptyList())
+    }
+
+    suspend fun setRead(id: String, read: Boolean) {
+        val now = clock()
+        itemDao.setRead(id, read, now)
+        enqueue("setRead", id, read.toString(), now)
+    }
+
+    suspend fun setStarred(id: String, starred: Boolean) {
+        val now = clock()
+        itemDao.setStarred(id, starred, now)
+        enqueue("setStarred", id, starred.toString(), now)
+    }
+
+    suspend fun setReadLater(id: String, readLater: Boolean) {
+        val now = clock()
+        itemDao.setReadLater(id, readLater, now)
+        enqueue("setReadLater", id, readLater.toString(), now)
+    }
+
+    suspend fun setArchived(id: String, archived: Boolean) {
+        val now = clock()
+        itemDao.setArchived(id, archived, now)
+        enqueue("setArchived", id, archived.toString(), now)
+    }
+
+    suspend fun setProgress(id: String, progress: Float) {
+        itemDao.setProgress(id, progress.coerceIn(0f, 1f), clock())
+    }
+
+    private suspend fun enqueue(op: String, itemId: String, fields: String?, now: Long) {
+        syncDao.enqueue(
+            SyncOpEntity(id = UUID.randomUUID().toString(), op = op, itemId = itemId, fields = fields, createdAt = now),
+        )
+    }
+
+    /** Seeds a small starter library the first time the app runs, so the UI has real
+     *  content before the feed pipeline is wired in. Replaced by real sync soon. */
+    suspend fun seedIfEmpty() {
+        if (sourceDao.getAll().isNotEmpty()) return
+        val now = clock()
+        val sources = listOf(
+            SourceEntity(id = "seed-tns", kind = "RSS", feedUrl = "https://thenewstack.io/feed/", siteUrl = "https://thenewstack.io", title = "The New Stack"),
+            SourceEntity(id = "seed-ala", kind = "RSS", feedUrl = "https://alistapart.com/main/feed/", siteUrl = "https://alistapart.com", title = "A List Apart"),
+            SourceEntity(id = "seed-cabel", kind = "RSS", feedUrl = "https://cabel.com/feed/", siteUrl = "https://cabel.com", title = "Cabel's Blog"),
+        )
+        sources.forEach { sourceDao.upsert(it) }
+
+        data class Seed(val src: String, val title: String, val author: String?, val minutes: Int, val agoMin: Long, val excerpt: String)
+        val seeds = listOf(
+            Seed("seed-tns", "The quiet return of the personal archive", "Ellen Park", 6, 120,
+                "After a decade of feeds that forget, a wave of tools is betting that the things you read should be yours to keep — searchable, offline, and free of the churn."),
+            Seed("seed-ala", "How Readability actually decides what matters", "Marco Reyes", 9, 300,
+                "A walk through the scoring heuristics that turn a cluttered page into a clean article, and where they still fall down."),
+            Seed("seed-tns", "Designing for the second read", "Priya Nair", 4, 1440,
+                "Highlights, notes, and the case for treating saved articles as a library rather than an inbox."),
+            Seed("seed-cabel", "RSS never died. It just went quiet.", "Cabel Sasser", 5, 2880,
+                "Why the humble feed is the most durable format on the web, and how to bend it around sites that pretend not to have one."),
+        )
+        seeds.forEachIndexed { index, s ->
+            val id = "seed-item-$index"
+            itemDao.insertItemWithState(
+                ItemEntity(
+                    id = id,
+                    url = "https://example.com/$id",
+                    title = s.title,
+                    author = s.author,
+                    siteName = sources.first { it.id == s.src }.title,
+                    publishedAt = now - s.agoMin * 60_000,
+                    savedAt = now - s.agoMin * 60_000,
+                    sourceId = s.src,
+                    type = "ARTICLE",
+                    excerpt = s.excerpt,
+                    readingMinutes = s.minutes,
+                    extractStatus = "NONE",
+                    contentSource = "FEED",
+                    guid = id,
+                ),
+                now,
+            )
+            itemDao.indexItem(ItemFtsEntity(itemId = id, title = s.title, author = s.author, body = s.excerpt))
+        }
+    }
+}
