@@ -1,27 +1,46 @@
-@file:OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@file:OptIn(
+    ExperimentalMaterial3Api::class,
+    androidx.compose.foundation.layout.ExperimentalLayoutApi::class,
+    androidx.compose.foundation.ExperimentalFoundationApi::class,
+)
 
 package com.cairn.reader.ui.library
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.items as staggeredItems
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -35,10 +54,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.cairn.reader.data.db.ItemListRow
+import com.cairn.reader.data.prefs.LibraryViewMode
 import com.cairn.reader.ui.components.CollectionPickerSheet
 import com.cairn.reader.ui.components.ItemRow
 
@@ -54,11 +80,14 @@ fun LibraryScreen(
     val items by viewModel.items.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
     val results by viewModel.results.collectAsStateWithLifecycle()
+    val viewMode by viewModel.viewMode.collectAsStateWithLifecycle()
+    val sort by viewModel.sort.collectAsStateWithLifecycle()
 
     var showCreate by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf<Pair<String, String>?>(null) }
     var moving by remember { mutableStateOf<ItemListRow?>(null) }
     var scopeMenu by remember { mutableStateOf(false) }
+    var displayMenu by remember { mutableStateOf(false) }
 
     val searching = query.isNotBlank()
     val showing = if (searching) results else items
@@ -77,6 +106,26 @@ fun LibraryScreen(
                 placeholder = { Text("Search everything you've saved") },
                 modifier = Modifier.weight(1f),
             )
+            Box {
+                IconButton(onClick = { displayMenu = true }) { Icon(Icons.Outlined.Tune, contentDescription = "View and sort") }
+                DropdownMenu(expanded = displayMenu, onDismissRequest = { displayMenu = false }) {
+                    Text("VIEW", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
+                    LibraryViewMode.entries.forEach { m ->
+                        DropdownMenuItem(
+                            text = { Text(m.name.lowercase().replaceFirstChar(Char::uppercase), fontWeight = if (m == viewMode) FontWeight.SemiBold else FontWeight.Normal) },
+                            onClick = { viewModel.setViewMode(m); displayMenu = false },
+                        )
+                    }
+                    HorizontalDivider()
+                    Text("SORT", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
+                    LibrarySort.entries.forEach { s ->
+                        DropdownMenuItem(
+                            text = { Text(s.label, fontWeight = if (s == sort) FontWeight.SemiBold else FontWeight.Normal) },
+                            onClick = { viewModel.setSort(s); displayMenu = false },
+                        )
+                    }
+                }
+            }
             val current = scope
             if (current is LibraryScope.Collection) {
                 Box {
@@ -149,16 +198,16 @@ fun LibraryScreen(
                 )
             }
         } else {
-            LazyColumn(contentPadding = PaddingValues(top = 6.dp, bottom = padding.calculateBottomPadding() + 24.dp)) {
-                items(showing, key = { it.id }) { row ->
-                    ItemRow(
-                        row = row,
-                        onOpen = { onOpenItem(row.id) },
-                        onToggleSave = { viewModel.toggleSave(row.id, !row.isReadLater) },
-                        onLongPress = { moving = row },
-                    )
-                }
-            }
+            val bottomPad = padding.calculateBottomPadding() + 24.dp
+            val effectiveMode = if (searching) LibraryViewMode.LIST else viewMode
+            LibraryContent(
+                items = showing,
+                mode = effectiveMode,
+                bottomPad = bottomPad,
+                onOpen = { onOpenItem(it) },
+                onToggleSave = { row -> viewModel.toggleSave(row.id, !row.isReadLater) },
+                onLongPress = { moving = it },
+            )
         }
     }
 
@@ -176,6 +225,92 @@ fun LibraryScreen(
             onCreate = { viewModel.createCollection(it) },
             onDismiss = { moving = null },
         )
+    }
+}
+
+@Composable
+private fun LibraryContent(
+    items: List<ItemListRow>,
+    mode: LibraryViewMode,
+    bottomPad: Dp,
+    onOpen: (String) -> Unit,
+    onToggleSave: (ItemListRow) -> Unit,
+    onLongPress: (ItemListRow) -> Unit,
+) {
+    when (mode) {
+        LibraryViewMode.LIST -> LazyColumn(contentPadding = PaddingValues(top = 6.dp, bottom = bottomPad)) {
+            items(items, key = { it.id }) { row ->
+                ItemRow(row = row, onOpen = { onOpen(row.id) }, onToggleSave = { onToggleSave(row) }, onLongPress = { onLongPress(row) })
+            }
+        }
+        LibraryViewMode.HEADLINES -> LazyColumn(contentPadding = PaddingValues(top = 6.dp, bottom = bottomPad)) {
+            items(items, key = { it.id }) { row -> HeadlineRow(row, { onOpen(row.id) }, { onLongPress(row) }) }
+        }
+        LibraryViewMode.GRID -> LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = bottomPad),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            gridItems(items, key = { it.id }) { row ->
+                LibraryCoverCard(row, fixedRatio = true, onOpen = { onOpen(row.id) }, onLongPress = { onLongPress(row) })
+            }
+        }
+        LibraryViewMode.MASONRY -> LazyVerticalStaggeredGrid(
+            columns = StaggeredGridCells.Fixed(2),
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = bottomPad),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalItemSpacing = 10.dp,
+        ) {
+            staggeredItems(items, key = { it.id }) { row ->
+                LibraryCoverCard(row, fixedRatio = false, onOpen = { onOpen(row.id) }, onLongPress = { onLongPress(row) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun LibraryCoverCard(row: ItemListRow, fixedRatio: Boolean, onOpen: () -> Unit, onLongPress: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(scheme.surfaceContainerLow)
+            .combinedClickable(onClick = onOpen, onLongClick = onLongPress)
+            .padding(bottom = 10.dp),
+    ) {
+        if (row.leadImage != null) {
+            AsyncImage(
+                model = row.leadImage,
+                contentDescription = null,
+                contentScale = if (fixedRatio) ContentScale.Crop else ContentScale.FillWidth,
+                modifier = if (fixedRatio) {
+                    Modifier.fillMaxWidth().aspectRatio(16f / 10f)
+                } else {
+                    Modifier.fillMaxWidth().heightIn(min = 100.dp, max = 320.dp)
+                },
+            )
+        }
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+            val source = row.sourceTitle ?: row.siteName ?: "Unknown"
+            Text(source, style = MaterialTheme.typography.labelSmall, color = scheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(2.dp))
+            Text(row.title, style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold, maxLines = 3, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+private fun HeadlineRow(row: ItemListRow, onOpen: () -> Unit, onLongPress: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(onClick = onOpen, onLongClick = onLongPress)
+            .padding(horizontal = 20.dp, vertical = 10.dp),
+    ) {
+        Text(row.title, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(row.sourceTitle ?: row.siteName ?: "", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1)
     }
 }
 

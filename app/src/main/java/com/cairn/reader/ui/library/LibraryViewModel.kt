@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.cairn.reader.data.db.CollectionWithCount
 import com.cairn.reader.data.db.ItemListRow
 import com.cairn.reader.data.db.TagWithCount
+import com.cairn.reader.data.prefs.LibraryViewMode
+import com.cairn.reader.data.prefs.PreferencesRepository
 import com.cairn.reader.data.repo.CollectionRepository
 import com.cairn.reader.data.repo.ItemRepository
 import com.cairn.reader.data.repo.TagRepository
@@ -14,7 +16,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -27,12 +31,17 @@ sealed interface LibraryScope {
     data class Tag(val id: String, val name: String) : LibraryScope
 }
 
+enum class LibrarySort(val label: String) {
+    NEWEST("Newest"), OLDEST("Oldest"), TITLE("Title A–Z"), SITE("Source")
+}
+
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
     private val collectionRepository: CollectionRepository,
     private val tagRepository: TagRepository,
+    private val preferencesRepository: PreferencesRepository,
 ) : ViewModel() {
 
     val collections: StateFlow<List<CollectionWithCount>> =
@@ -41,16 +50,33 @@ class LibraryViewModel @Inject constructor(
     val tags: StateFlow<List<TagWithCount>> =
         tagRepository.allWithCounts().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    val viewMode: StateFlow<LibraryViewMode> =
+        preferencesRepository.preferences.map { it.libraryViewMode }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryViewMode.GRID)
+
+    private val _sort = MutableStateFlow(LibrarySort.NEWEST)
+    val sort: StateFlow<LibrarySort> = _sort.asStateFlow()
+
     private val _scope = MutableStateFlow<LibraryScope>(LibraryScope.All)
     val scope: StateFlow<LibraryScope> = _scope.asStateFlow()
 
-    val items: StateFlow<List<ItemListRow>> =
+    private val scopeRows: kotlinx.coroutines.flow.Flow<List<ItemListRow>> =
         _scope.flatMapLatest { scope ->
             when (scope) {
                 LibraryScope.All -> itemRepository.libraryAll()
                 LibraryScope.Unsorted -> itemRepository.unsorted()
                 is LibraryScope.Collection -> itemRepository.collectionItems(scope.id)
                 is LibraryScope.Tag -> itemRepository.byTag(scope.id)
+            }
+        }
+
+    val items: StateFlow<List<ItemListRow>> =
+        combine(scopeRows, _sort) { rows, sort ->
+            when (sort) {
+                LibrarySort.NEWEST -> rows.sortedByDescending { it.publishedAt ?: it.savedAt }
+                LibrarySort.OLDEST -> rows.sortedBy { it.publishedAt ?: it.savedAt }
+                LibrarySort.TITLE -> rows.sortedBy { it.title.lowercase() }
+                LibrarySort.SITE -> rows.sortedBy { (it.sourceTitle ?: it.siteName ?: "").lowercase() }
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -61,6 +87,8 @@ class LibraryViewModel @Inject constructor(
     val results: StateFlow<List<ItemListRow>> = _results.asStateFlow()
 
     fun setScope(scope: LibraryScope) { _scope.value = scope }
+    fun setSort(sort: LibrarySort) { _sort.value = sort }
+    fun setViewMode(mode: LibraryViewMode) = viewModelScope.launch { preferencesRepository.setLibraryViewMode(mode) }
 
     fun setQuery(value: String) {
         _query.value = value
