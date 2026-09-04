@@ -157,6 +157,12 @@ interface ItemDao {
     @Query("SELECT * FROM item_states WHERE itemId = :id")
     suspend fun getState(id: String): ItemStateEntity?
 
+    @Query("SELECT COUNT(*) FROM items i LEFT JOIN item_states s ON s.itemId = i.id WHERE COALESCE(s.isRead, 0) = 0 AND COALESCE(s.isArchived, 0) = 0")
+    suspend fun unreadCountOnce(): Int
+
+    @Query("SELECT i.title FROM items i LEFT JOIN item_states s ON s.itemId = i.id WHERE COALESCE(s.isRead, 0) = 0 AND COALESCE(s.isArchived, 0) = 0 ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC LIMIT 1")
+    suspend fun latestInboxTitle(): String?
+
     @Query("SELECT * FROM items")
     suspend fun allItems(): List<ItemEntity>
 

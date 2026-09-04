@@ -13,6 +13,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.cairn.reader.data.repo.FeedRepository
+import com.cairn.reader.widget.CairnWidgetProvider
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.util.concurrent.TimeUnit
@@ -20,13 +21,16 @@ import java.util.concurrent.TimeUnit
 /** Refreshes every subscribed feed (conditional GET; unchanged feeds cost nothing). */
 @HiltWorker
 class SyncWorker @AssistedInject constructor(
-    @Assisted context: Context,
+    @Assisted private val context: Context,
     @Assisted params: WorkerParameters,
     private val feedRepository: FeedRepository,
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result =
         runCatching { feedRepository.syncAll() }
-            .fold(onSuccess = { Result.success() }, onFailure = { Result.retry() })
+            .fold(
+                onSuccess = { CairnWidgetProvider.refresh(context); Result.success() },
+                onFailure = { Result.retry() },
+            )
 }
 
 /** Saves a shared/pasted URL and extracts a clean offline copy. */

@@ -46,6 +46,17 @@
             </intent-filter>
         </activity>
 
+        <receiver
+            android:name=".widget.CairnWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/cairn_widget_info" />
+        </receiver>
+
         <!-- Use Hilt's WorkerFactory instead of WorkManager's default initializer. -->
         <provider
             android:name="androidx.startup.InitializationProvider"
