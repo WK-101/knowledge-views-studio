@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -54,6 +55,15 @@ data class AppPreferences(
     val swipeRight: SwipeAction = SwipeAction.SAVE,
     val swipeLeft: SwipeAction = SwipeAction.MARK_READ,
     val compactDensity: Boolean = false,
+    // Offline & storage policy.
+    /** Automatic background sync only runs on un-metered (Wi-Fi) networks. Manual refresh always runs. */
+    val syncWifiOnly: Boolean = false,
+    /** "Save offline" downloads the article's images for a true self-contained copy. */
+    val cacheImagesOffline: Boolean = true,
+    /** Only download offline-copy images on un-metered networks (text is always saved). */
+    val imagesWifiOnly: Boolean = true,
+    /** Keep at most this many items per feed (older, un-engaged ones are pruned). 0 = keep everything. */
+    val maxItemsPerFeed: Int = 0,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -79,6 +89,10 @@ class PreferencesRepository @Inject constructor(
         val SWIPE_RIGHT = stringPreferencesKey("swipe_right")
         val SWIPE_LEFT = stringPreferencesKey("swipe_left")
         val COMPACT_DENSITY = booleanPreferencesKey("compact_density")
+        val SYNC_WIFI_ONLY = booleanPreferencesKey("sync_wifi_only")
+        val CACHE_IMAGES = booleanPreferencesKey("cache_images_offline")
+        val IMAGES_WIFI_ONLY = booleanPreferencesKey("images_wifi_only")
+        val MAX_ITEMS_PER_FEED = intPreferencesKey("max_items_per_feed")
     }
 
     /** Per-scope view entries are stored as "scopeKey<sep>MODE" in a string set. */
@@ -107,6 +121,10 @@ class PreferencesRepository @Inject constructor(
             swipeRight = p[Keys.SWIPE_RIGHT]?.let { runCatching { SwipeAction.valueOf(it) }.getOrNull() } ?: SwipeAction.SAVE,
             swipeLeft = p[Keys.SWIPE_LEFT]?.let { runCatching { SwipeAction.valueOf(it) }.getOrNull() } ?: SwipeAction.MARK_READ,
             compactDensity = p[Keys.COMPACT_DENSITY] ?: false,
+            syncWifiOnly = p[Keys.SYNC_WIFI_ONLY] ?: false,
+            cacheImagesOffline = p[Keys.CACHE_IMAGES] ?: true,
+            imagesWifiOnly = p[Keys.IMAGES_WIFI_ONLY] ?: true,
+            maxItemsPerFeed = p[Keys.MAX_ITEMS_PER_FEED] ?: 0,
         )
     }
 
@@ -125,6 +143,11 @@ class PreferencesRepository @Inject constructor(
     suspend fun setReaderJustify(justify: Boolean) = context.dataStore.edit { it[Keys.READER_JUSTIFY] = justify }
 
     suspend fun setHideDuplicates(enabled: Boolean) = context.dataStore.edit { it[Keys.HIDE_DUP] = enabled }
+
+    suspend fun setSyncWifiOnly(enabled: Boolean) = context.dataStore.edit { it[Keys.SYNC_WIFI_ONLY] = enabled }
+    suspend fun setCacheImagesOffline(enabled: Boolean) = context.dataStore.edit { it[Keys.CACHE_IMAGES] = enabled }
+    suspend fun setImagesWifiOnly(enabled: Boolean) = context.dataStore.edit { it[Keys.IMAGES_WIFI_ONLY] = enabled }
+    suspend fun setMaxItemsPerFeed(max: Int) = context.dataStore.edit { it[Keys.MAX_ITEMS_PER_FEED] = max.coerceAtLeast(0) }
 
     /** Remember the library view mode for a specific scope, and make it the global default too,
      *  so scopes you haven't customised inherit your latest choice. */

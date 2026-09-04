@@ -9,11 +9,14 @@ import com.cairn.reader.data.prefs.ReaderFont
 import com.cairn.reader.data.prefs.ReaderTheme
 import com.cairn.reader.data.prefs.SwipeAction
 import com.cairn.reader.data.prefs.ThemeMode
+import android.content.Context
 import com.cairn.reader.data.backup.BackupManager
 import com.cairn.reader.data.repo.FeedRepository
 import com.cairn.reader.data.repo.HighlightRepository
 import com.cairn.reader.data.repo.SourceRepository
+import com.cairn.reader.work.CairnWork
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -26,6 +29,7 @@ class SettingsViewModel @Inject constructor(
     private val feedRepository: FeedRepository,
     private val preferencesRepository: PreferencesRepository,
     private val backupManager: BackupManager,
+    @ApplicationContext private val context: Context,
     highlightRepository: HighlightRepository,
 ) : ViewModel() {
 
@@ -76,4 +80,16 @@ class SettingsViewModel @Inject constructor(
     fun setCompactDensity(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setCompactDensity(enabled) }
     fun setReaderJustify(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setReaderJustify(enabled) }
     fun setReaderFontScale(scale: Float) = viewModelScope.launch { preferencesRepository.setReaderFontScale(scale) }
+
+    // -- Offline & storage policy ---------------------------------------------
+
+    fun setSyncWifiOnly(enabled: Boolean) = viewModelScope.launch {
+        preferencesRepository.setSyncWifiOnly(enabled)
+        // Re-schedule the background sync so the new network constraint takes effect immediately.
+        CairnWork.schedulePeriodicSync(context, enabled)
+    }
+
+    fun setCacheImagesOffline(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setCacheImagesOffline(enabled) }
+    fun setImagesWifiOnly(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setImagesWifiOnly(enabled) }
+    fun setMaxItemsPerFeed(max: Int) = viewModelScope.launch { preferencesRepository.setMaxItemsPerFeed(max) }
 }

@@ -56,22 +56,25 @@ object CairnWork {
     private const val UNIQUE_PERIODIC = "cairn-periodic-sync"
     private const val UNIQUE_SYNC_NOW = "cairn-sync-now"
 
-    private val connected = Constraints.Builder()
-        .setRequiredNetworkType(NetworkType.CONNECTED)
+    private fun constraints(wifiOnly: Boolean) = Constraints.Builder()
+        .setRequiredNetworkType(if (wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED)
         .build()
 
-    fun schedulePeriodicSync(context: Context) {
+    /** (Re)schedule the 6-hourly background sync. UPDATE lets a changed Wi-Fi-only preference
+     *  replace the constraint on the existing work without losing its schedule. */
+    fun schedulePeriodicSync(context: Context, wifiOnly: Boolean = false) {
         val request = PeriodicWorkRequestBuilder<SyncWorker>(6, TimeUnit.HOURS)
-            .setConstraints(connected)
+            .setConstraints(constraints(wifiOnly))
             .setBackoffCriteria(androidx.work.BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
         WorkManager.getInstance(context)
-            .enqueueUniquePeriodicWork(UNIQUE_PERIODIC, ExistingPeriodicWorkPolicy.KEEP, request)
+            .enqueueUniquePeriodicWork(UNIQUE_PERIODIC, ExistingPeriodicWorkPolicy.UPDATE, request)
     }
 
     fun syncNow(context: Context) {
+        // A manual sync is intentional, so it runs on any connection regardless of the Wi-Fi-only policy.
         val request = OneTimeWorkRequestBuilder<SyncWorker>()
-            .setConstraints(connected)
+            .setConstraints(constraints(false))
             .build()
         WorkManager.getInstance(context)
             .enqueueUniqueWork(UNIQUE_SYNC_NOW, ExistingWorkPolicy.KEEP, request)
@@ -79,7 +82,7 @@ object CairnWork {
 
     fun saveUrl(context: Context, url: String) {
         val request = OneTimeWorkRequestBuilder<SaveUrlWorker>()
-            .setConstraints(connected)
+            .setConstraints(constraints(false))
             .setInputData(workDataOf(SaveUrlWorker.KEY_URL to url))
             .build()
         WorkManager.getInstance(context).enqueue(request)

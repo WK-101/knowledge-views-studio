@@ -16,6 +16,7 @@ import com.cairn.reader.ui.notebook.NotebookScreen
 import com.cairn.reader.ui.onboarding.OnboardingScreen
 import com.cairn.reader.ui.reader.ReaderScreen
 import com.cairn.reader.ui.search.SearchScreen
+import com.cairn.reader.ui.settings.OfflineScreen
 import com.cairn.reader.ui.theme.CairnTheme
 import com.cairn.reader.ui.web.WebRoute
 import com.cairn.reader.ui.web.WebScreen
@@ -47,6 +48,7 @@ fun CairnRoot() {
                     onOpenWeb = openWeb,
                     onOpenSearch = { navController.navigate("search") },
                     onOpenFeeds = { navController.navigate("feeds") },
+                    onOpenOffline = { navController.navigate("offline") },
                 )
             }
             composable(
@@ -75,6 +77,9 @@ fun CairnRoot() {
                     onBack = { navController.popBackStack() },
                     onOpenWeb = openWeb,
                 )
+            }
+            composable("offline") {
+                OfflineScreen(onBack = { navController.popBackStack() })
             }
             composable(
                 route = "web/{data}",

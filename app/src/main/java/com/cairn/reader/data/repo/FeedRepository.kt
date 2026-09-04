@@ -1,5 +1,8 @@
 package com.cairn.reader.data.repo
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import com.cairn.reader.data.blob.BlobStore
 import com.cairn.reader.data.opml.Opml
 import com.cairn.reader.data.db.ItemDao
@@ -8,11 +11,15 @@ import com.cairn.reader.data.db.ItemFtsEntity
 import com.cairn.reader.data.db.SourceDao
 import com.cairn.reader.data.db.SourceEntity
 import com.cairn.reader.data.db.SyncDao
+import com.cairn.reader.data.db.TombstoneEntity
+import com.cairn.reader.data.prefs.PreferencesRepository
 import com.cairn.reader.domain.extract.ArticleExtractor
 import com.cairn.reader.domain.feed.FeedDiscovery
 import com.cairn.reader.domain.feed.FeedParser
 import com.cairn.reader.domain.feed.ParsedItem
 import com.cairn.reader.data.net.HttpFetcher
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.first
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.jsoup.Jsoup
 import java.util.UUID
@@ -36,6 +43,8 @@ class FeedRepository @Inject constructor(
     private val fetcher: HttpFetcher,
     private val extractor: ArticleExtractor,
     private val blobStore: BlobStore,
+    private val preferencesRepository: PreferencesRepository,
+    @ApplicationContext private val context: Context,
 ) {
     private val whitespace = Regex("\\s+")
 
@@ -139,10 +148,34 @@ class FeedRepository @Inject constructor(
 
     suspend fun syncAll() {
         val now = System.currentTimeMillis()
+        val limit = runCatching { preferencesRepository.preferences.first().maxItemsPerFeed }.getOrDefault(0)
         sourceDao.getAll().forEach { source ->
             runCatching { syncSource(source, now) }
+            if (limit > 0) runCatching { pruneSource(source.id, limit) }
         }
     }
+
+    /** Enforce the per-feed retention cap: drop the oldest items the user never engaged with,
+     *  freeing their offline blobs and tombstoning them so a re-sync won't resurrect them. */
+    private suspend fun pruneSource(sourceId: String, limit: Int) {
+        val over = itemDao.countBySource(sourceId) - limit
+        if (over <= 0) return
+        itemDao.prunableOldestFirst(sourceId).take(over).forEach { id ->
+            val e = itemDao.getItem(id)
+            blobStore.deleteAllFor(id, e?.blobPath)
+            itemDao.deleteFts(id)
+            itemDao.deleteItem(id)
+            syncDao.tombstone(TombstoneEntity(itemId = id, deletedAt = System.currentTimeMillis()))
+        }
+    }
+
+    /** True when the active network is un-metered (Wi-Fi/Ethernet). Defaults to true if unknown,
+     *  so an unclear network never silently blocks a save the user asked for. */
+    private fun isUnmetered(): Boolean = runCatching {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return true
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return true
+        caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+    }.getOrDefault(true)
 
     private suspend fun syncSource(source: SourceEntity, now: Long) {
         val res = fetcher.fetch(source.feedUrl, source.etag, source.lastModified)
@@ -286,12 +319,17 @@ class FeedRepository @Inject constructor(
         val doc = runCatching { Jsoup.parse(html, fresh.url) }.getOrNull()
             ?: return Result.failure(IllegalStateException("Couldn't read the article"))
 
+        // Honour the offline-image policy: images are optional, and may be restricted to Wi-Fi.
+        val prefs = runCatching { preferencesRepository.preferences.first() }.getOrNull()
+        val downloadImages = (prefs?.cacheImagesOffline ?: true) && (!(prefs?.imagesWifiOnly ?: true) || isUnmetered())
+
         var index = 0
         var cached = 0
         val seen = HashMap<String, String>() // remote URL → local file URI, deduped within the article
         val maxImages = 60
 
         suspend fun localize(remote: String): String? {
+            if (!downloadImages) return null
             if (remote.isBlank() || remote.startsWith("file:") || remote.startsWith("data:")) return null
             seen[remote]?.let { return it }
             if (cached >= maxImages) return null

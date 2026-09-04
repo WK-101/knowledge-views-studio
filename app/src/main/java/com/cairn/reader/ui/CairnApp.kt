@@ -101,6 +101,7 @@ fun CairnApp(
     onOpenWeb: (String) -> Unit = {},
     onOpenSearch: () -> Unit = {},
     onOpenFeeds: () -> Unit = {},
+    onOpenOffline: () -> Unit = {},
 ) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
     var showAddFeed by remember { mutableStateOf(false) }
@@ -284,7 +285,7 @@ fun CairnApp(
             when (dest) {
                 Destination.Inbox -> InboxScreen(padding, inboxViewModel, onOpenItem, onOpenWeb, inboxViewMode)
                 Destination.Library -> LibraryScreen(padding, onOpenItem, onOpenHighlights = onOpenNotebook)
-                Destination.Settings -> SettingsScreen(padding, onOpenNotebook = onOpenNotebook)
+                Destination.Settings -> SettingsScreen(padding, onOpenNotebook = onOpenNotebook, onOpenOffline = onOpenOffline)
             }
         }
     }

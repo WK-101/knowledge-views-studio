@@ -243,6 +243,28 @@ interface ItemDao {
     @Query("UPDATE items SET cacheStatus = :status WHERE id = :id")
     suspend fun setCacheStatus(id: String, status: String?)
 
+    @Query("SELECT COUNT(*) FROM items WHERE sourceId = :sourceId")
+    suspend fun countBySource(sourceId: String): Int
+
+    /** Items in a feed eligible for retention pruning (nothing the user engaged with),
+     *  oldest first — starred / saved / archived / filed / highlighted / offline copies are kept. */
+    @Query(
+        """
+        SELECT i.id FROM items i
+        LEFT JOIN item_states s ON s.itemId = i.id
+        WHERE i.sourceId = :sourceId
+          AND COALESCE(s.isStarred, 0) = 0 AND COALESCE(s.isReadLater, 0) = 0
+          AND COALESCE(s.isArchived, 0) = 0 AND i.collectionId IS NULL
+          AND (i.cacheStatus IS NULL OR i.cacheStatus <> 'PERMANENT')
+          AND NOT EXISTS (SELECT 1 FROM highlights h WHERE h.itemId = i.id)
+        ORDER BY COALESCE(i.publishedAt, i.savedAt) ASC
+        """
+    )
+    suspend fun prunableOldestFirst(sourceId: String): List<String>
+
+    @Query("DELETE FROM items WHERE id = :id")
+    suspend fun deleteItem(id: String)
+
     @Query("UPDATE items SET leadImage = :leadImage WHERE id = :id")
     suspend fun setLeadImage(id: String, leadImage: String?)
 

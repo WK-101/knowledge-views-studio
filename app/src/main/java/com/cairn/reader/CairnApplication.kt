@@ -3,8 +3,11 @@ package com.cairn.reader
 import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.cairn.reader.data.prefs.PreferencesRepository
 import com.cairn.reader.work.CairnWork
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 
 /**
@@ -17,6 +20,9 @@ class CairnApplication : Application(), Configuration.Provider {
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
 
+    @Inject
+    lateinit var preferencesRepository: PreferencesRepository
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
@@ -24,6 +30,10 @@ class CairnApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
-        CairnWork.schedulePeriodicSync(this)
+        // Reading one value from DataStore at startup is quick; it lets the background
+        // sync respect the user's Wi-Fi-only preference from the first schedule.
+        val wifiOnly = runCatching { runBlocking { preferencesRepository.preferences.first().syncWifiOnly } }
+            .getOrDefault(false)
+        CairnWork.schedulePeriodicSync(this, wifiOnly)
     }
 }

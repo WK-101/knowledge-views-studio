@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FormatQuote
@@ -60,6 +61,7 @@ import com.cairn.reader.ui.components.FeedSettingsSheet
 fun SettingsScreen(
     padding: PaddingValues,
     onOpenNotebook: () -> Unit = {},
+    onOpenOffline: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val sources by viewModel.sources.collectAsStateWithLifecycle()
@@ -198,6 +200,29 @@ fun SettingsScreen(
                     }
                     Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = scheme.onSurfaceVariant)
                 }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onOpenOffline)
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Outlined.CloudDownload, contentDescription = null, tint = scheme.primary)
+                    Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Offline & storage", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(
+                            buildString {
+                                append(if (prefs.syncWifiOnly) "Sync on Wi-Fi only" else "Sync on any network")
+                                append(" · ")
+                                append(if (prefs.maxItemsPerFeed == 0) "keep all" else "keep ${prefs.maxItemsPerFeed}/feed")
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = scheme.onSurfaceVariant,
+                        )
+                    }
+                    Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = scheme.onSurfaceVariant)
+                }
             }
         }
 
@@ -327,7 +352,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(24.dp))
                 SectionLabel("ABOUT")
                 Spacer(Modifier.height(8.dp))
-                Text("Cairn 2.1.0", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
+                Text("Cairn 2.2.0", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
                 Text("One reader for everything you read.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
             }
         }
