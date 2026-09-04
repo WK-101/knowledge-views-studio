@@ -3,6 +3,7 @@ package com.cairn.reader.ui.reader
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.cairn.reader.audio.TtsReader
 import com.cairn.reader.data.db.HighlightEntity
 import com.cairn.reader.data.prefs.AppPreferences
 import com.cairn.reader.data.prefs.PreferencesRepository
@@ -13,6 +14,9 @@ import com.cairn.reader.data.repo.HighlightRepository
 import com.cairn.reader.data.repo.ItemRepository
 import com.cairn.reader.data.repo.ReaderData
 import dagger.hilt.android.lifecycle.HiltViewModel
+import org.jsoup.Jsoup
+import java.text.BreakIterator
+import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -34,10 +38,13 @@ class ReaderViewModel @Inject constructor(
     private val feedRepository: FeedRepository,
     private val preferencesRepository: PreferencesRepository,
     private val highlightRepository: HighlightRepository,
+    private val ttsReader: TtsReader,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
     private val itemId: String = savedStateHandle.get<String>("itemId").orEmpty()
+
+    val tts: StateFlow<TtsReader.State> = ttsReader.state
 
     private val _state = MutableStateFlow(ReaderUiState())
     val state = _state.asStateFlow()
@@ -102,5 +109,48 @@ class ReaderViewModel @Inject constructor(
     /** Builds the shareable Markdown for this article's highlights off the main thread. */
     fun exportHighlights(onReady: (String) -> Unit) {
         viewModelScope.launch { onReady(highlightRepository.exportItem(itemId)) }
+    }
+
+    // -- Read aloud -----------------------------------------------------------
+
+    fun toggleListen() {
+        if (tts.value.active) {
+            ttsReader.togglePlayPause()
+        } else {
+            val data = _state.value.data ?: return
+            ttsReader.start(buildSpeechChunks(data))
+        }
+    }
+
+    fun stopListen() = ttsReader.stop()
+    fun setListenSpeed(speed: Float) = ttsReader.setSpeed(speed)
+
+    private fun buildSpeechChunks(data: ReaderData): List<String> {
+        val chunks = ArrayList<String>()
+        data.title.takeIf { it.isNotBlank() }?.let { chunks += it }
+        data.html?.let { html ->
+            val text = runCatching { Jsoup.parse(html).text() }.getOrDefault("")
+            chunks += splitSentences(text)
+        }
+        return chunks
+    }
+
+    private fun splitSentences(text: String): List<String> {
+        if (text.isBlank()) return emptyList()
+        val iterator = BreakIterator.getSentenceInstance(Locale.getDefault())
+        iterator.setText(text)
+        val out = ArrayList<String>()
+        var start = iterator.first()
+        var end = iterator.next()
+        while (end != BreakIterator.DONE) {
+            text.substring(start, end).trim().takeIf { it.isNotEmpty() }?.let { out += it }
+            start = end
+            end = iterator.next()
+        }
+        return out
+    }
+
+    override fun onCleared() {
+        ttsReader.stop()
     }
 }

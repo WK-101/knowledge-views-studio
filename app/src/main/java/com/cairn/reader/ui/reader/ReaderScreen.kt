@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,10 +33,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FormatSize
+import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.StarBorder
@@ -54,6 +59,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -120,6 +126,7 @@ fun ReaderScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val prefs by viewModel.preferences.collectAsStateWithLifecycle()
     val highlights by viewModel.highlights.collectAsStateWithLifecycle()
+    val ttsState by viewModel.tts.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val data = state.data
     var showTypography by remember { mutableStateOf(false) }
@@ -176,6 +183,11 @@ fun ReaderScreen(
                         }
                         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                             DropdownMenuItem(
+                                text = { Text("Listen") },
+                                leadingIcon = { Icon(Icons.Outlined.Headphones, contentDescription = null) },
+                                onClick = { showMenu = false; viewModel.toggleListen() },
+                            )
+                            DropdownMenuItem(
                                 text = { Text("Open original") },
                                 leadingIcon = { Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null) },
                                 onClick = { showMenu = false; openOriginal() },
@@ -194,6 +206,16 @@ fun ReaderScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = palette.background),
             )
+        },
+        bottomBar = {
+            if (ttsState.active) {
+                MiniPlayer(
+                    state = ttsState,
+                    onPlayPause = viewModel::toggleListen,
+                    onStop = viewModel::stopListen,
+                    onSpeed = viewModel::setListenSpeed,
+                )
+            }
         },
     ) { padding ->
         when {
@@ -565,6 +587,55 @@ private fun TypographySheet(
                 FilterChip(selected = readerTheme == ReaderTheme.BLACK, onClick = { onReaderTheme(ReaderTheme.BLACK) }, label = { Text("Black") })
             }
             Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+private val ListenSpeeds = listOf(0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
+
+private fun nextSpeed(current: Float): Float {
+    val i = ListenSpeeds.indexOfFirst { kotlin.math.abs(it - current) < 0.01f }
+    return if (i == -1) 1.0f else ListenSpeeds[(i + 1) % ListenSpeeds.size]
+}
+
+private fun speedLabel(speed: Float): String =
+    if (speed == speed.toInt().toFloat()) "${speed.toInt()}×" else "$speed×"
+
+@Composable
+private fun MiniPlayer(
+    state: com.cairn.reader.audio.TtsReader.State,
+    onPlayPause: () -> Unit,
+    onStop: () -> Unit,
+    onSpeed: (Float) -> Unit,
+) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, tonalElevation = 3.dp, shadowElevation = 8.dp) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(start = 8.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onPlayPause) {
+                Icon(
+                    imageVector = if (state.playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    contentDescription = if (state.playing) "Pause" else "Play",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+            Column(Modifier.weight(1f).padding(horizontal = 4.dp)) {
+                Text("Listening", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
+                Spacer(Modifier.height(4.dp))
+                val fraction = if (state.total > 0) (state.index + 1f) / state.total else 0f
+                LinearProgressIndicator(
+                    progress = { fraction.coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth().height(3.dp),
+                )
+            }
+            TextButton(onClick = { onSpeed(nextSpeed(state.speed)) }) { Text(speedLabel(state.speed)) }
+            IconButton(onClick = onStop) {
+                Icon(Icons.Filled.Close, contentDescription = "Stop", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }
