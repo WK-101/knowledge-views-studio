@@ -64,6 +64,22 @@ data class WidgetStyle(
             }
         }
 
+        /**
+         * Apply theme + opacity to a list widget's card ImageView layer: pick the light/dark/auto
+         * card shape and fade it to the per-widget opacity (imageAlpha multiplies the shape's own
+         * alpha, so 100 = as designed, 0 = fully transparent).
+         */
+        fun applyListCard(views: RemoteViews, cardId: Int, ctx: Context, widgetId: Int) {
+            val res = when (WidgetPrefs.theme(ctx, widgetId)) {
+                "light" -> R.drawable.widget_bg_light
+                "dark" -> R.drawable.widget_bg_dark
+                else -> R.drawable.widget_bg
+            }
+            views.setImageViewResource(cardId, res)
+            val alpha = (WidgetPrefs.opacity(ctx, widgetId) * 255 / 100).coerceIn(0, 255)
+            views.setInt(cardId, "setImageAlpha", alpha)
+        }
+
         /** Resolve the style for a placed widget (id ≥ 0) or a neutral default (id < 0). */
         fun resolve(ctx: Context, widgetId: Int = -1): WidgetStyle {
             val themePref = if (widgetId >= 0) WidgetPrefs.theme(ctx, widgetId) else "auto"

@@ -51,6 +51,9 @@ class DoNextWidget : AppWidgetProvider() {
         views.setOnClickPendingIntent(R.id.dn_energy, filterIntent(context, id, DoNextFilterReceiver.WHICH_ENERGY))
         views.setOnClickPendingIntent(R.id.dn_time, filterIntent(context, id, DoNextFilterReceiver.WHICH_TIME))
 
+        // R104 — theme + opacity on the card layer (config).
+        WidgetStyle.applyListCard(views, R.id.dn_card, context, id)
+
         manager.updateAppWidget(id, views)
         manager.notifyAppWidgetViewDataChanged(id, R.id.dn_list)
     }
@@ -124,6 +127,7 @@ class DoNextWidgetService : RemoteViewsService() {
 private class DoNextFactory(private val context: Context, private val widgetId: Int) : RemoteViewsService.RemoteViewsFactory {
     private data class Row(val id: String, val rank: Int, val title: String, val sub: String)
     private var rows: List<Row> = emptyList()
+    private var style: WidgetStyle = WidgetStyle.resolve(context)
 
     override fun onCreate() {}
     override fun onDestroy() {}
@@ -138,6 +142,7 @@ private class DoNextFactory(private val context: Context, private val widgetId: 
     override fun onDataSetChanged() {
         val app = context.applicationContext as App
         val now = System.currentTimeMillis()
+        style = WidgetStyle.resolve(context, widgetId)
         val energy = WidgetPrefs.energy(context, widgetId)   // 0 any, 1..3
         val timeCap = WidgetPrefs.time(context, widgetId)     // 0 any, else minutes
 
@@ -173,6 +178,11 @@ private class DoNextFactory(private val context: Context, private val widgetId: 
         return RemoteViews(context.packageName, R.layout.widget_donext_item).apply {
             setTextViewText(R.id.dni_title, r.title)
             setTextViewText(R.id.dni_sub, r.sub)
+            val vpad = (((if (style.compact) 4 else 7)) * context.resources.displayMetrics.density).toInt()
+            setViewPadding(R.id.dni_root, 0, vpad, 0, vpad)
+            setTextViewTextSize(R.id.dni_title, android.util.TypedValue.COMPLEX_UNIT_SP, style.sp(14f))
+            setTextViewTextSize(R.id.dni_sub, android.util.TypedValue.COMPLEX_UNIT_SP, style.sp(12f))
+            setTextViewTextSize(R.id.dni_check, android.util.TypedValue.COMPLEX_UNIT_SP, style.sp(17f))
             // R104 — tap the circle to tick it off in place; the rest of the row opens the task.
             setOnClickFillInIntent(R.id.dni_check, TaskWidgetReceiver.completeFill(r.id))
             setOnClickFillInIntent(R.id.dni_root, TaskWidgetReceiver.openFill("open_task:${r.id}"))

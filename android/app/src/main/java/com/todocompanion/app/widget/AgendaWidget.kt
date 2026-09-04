@@ -39,9 +39,9 @@ class AgendaWidget : AppWidgetProvider() {
             val scope = WidgetPrefs.scope(context, id)
             val title = WidgetPrefs.title(context, id).ifBlank { WidgetPrefs.defaultTitle(scope) }
             views.setTextViewText(R.id.widget_title, title)
-            // R104 — theme via the shared WidgetStyle: adaptive card for "auto", fixed for a forced choice.
+            // R104 — theme + opacity on the card layer; text colours from the shared style.
             val s = WidgetStyle.resolve(context, id)
-            WidgetStyle.applyCardBackground(views, R.id.widget_root, context, id)
+            WidgetStyle.applyListCard(views, R.id.widget_card, context, id)
             views.setTextColor(R.id.widget_title, s.textPrimary)
             views.setTextColor(R.id.widget_empty, s.textSecondary)
             manager.updateAppWidget(id, views)
@@ -172,6 +172,12 @@ private class AgendaFactory(private val context: Context, private val widgetId: 
         return RemoteViews(context.packageName, R.layout.widget_agenda_item).apply {
             setTextViewText(R.id.item_title, r.title)
             setTextViewText(R.id.item_sub, r.sub)
+            // R104 — per-widget font scale + compact density (config).
+            val vpad = (((if (style.compact) 4 else 8)) * context.resources.displayMetrics.density).toInt()
+            setViewPadding(R.id.item_root, 0, vpad, 0, vpad)
+            setTextViewTextSize(R.id.item_title, android.util.TypedValue.COMPLEX_UNIT_SP, style.sp(14f))
+            setTextViewTextSize(R.id.item_sub, android.util.TypedValue.COMPLEX_UNIT_SP, style.sp(12f))
+            setTextViewTextSize(R.id.item_check, android.util.TypedValue.COMPLEX_UNIT_SP, style.sp(17f))
             setTextColor(R.id.item_title, style.textPrimary)
             setTextColor(R.id.item_sub, when {
                 r.isEvent -> style.info
