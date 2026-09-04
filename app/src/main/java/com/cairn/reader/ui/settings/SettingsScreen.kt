@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -131,7 +133,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(10.dp))
                 LabeledChips(
                     label = "Reading font",
-                    options = listOf(ReaderFont.SERIF to "Serif", ReaderFont.SANS to "Sans"),
+                    options = ReaderFont.entries.map { it to it.label },
                     selected = prefs.readerFont,
                     onSelect = viewModel::setReaderFont,
                 )
@@ -173,7 +175,10 @@ private fun <T> LabeledChips(
 ) {
     Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
     Spacer(Modifier.height(6.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+    ) {
         options.forEach { (value, text) ->
             FilterChip(
                 selected = value == selected,

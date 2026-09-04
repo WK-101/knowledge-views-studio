@@ -88,6 +88,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -104,6 +105,13 @@ import java.text.BreakIterator
 import java.util.Locale
 
 private val ReaderHPad = 22.dp
+
+private fun readerFontFamily(font: ReaderFont): FontFamily = when (font) {
+    ReaderFont.SERIF -> ReadingSerif
+    ReaderFont.SANS -> InterFamily
+    ReaderFont.SYSTEM -> FontFamily.Serif
+    ReaderFont.MONO -> FontFamily.Monospace
+}
 
 private data class ReaderPalette(val background: Color, val text: Color, val secondary: Color)
 
@@ -224,8 +232,9 @@ fun ReaderScreen(
                 state = state,
                 palette = palette,
                 highlights = highlights,
-                fontFamily = if (prefs.readerFont == ReaderFont.SERIF) ReadingSerif else InterFamily,
+                fontFamily = readerFontFamily(prefs.readerFont),
                 scale = prefs.readerFontScale,
+                justify = prefs.readerJustify,
                 onLoadFull = viewModel::loadFullArticle,
                 onOpenOriginal = ::openOriginal,
                 onSaveProgress = viewModel::setProgress,
@@ -240,9 +249,11 @@ fun ReaderScreen(
             fontScale = prefs.readerFontScale,
             readerFont = prefs.readerFont,
             readerTheme = prefs.readerTheme,
+            justify = prefs.readerJustify,
             onFontScale = viewModel::setFontScale,
             onReaderFont = viewModel::setReaderFont,
             onReaderTheme = viewModel::setReaderTheme,
+            onJustify = viewModel::setReaderJustify,
             onDismiss = { showTypography = false },
         )
     }
@@ -266,6 +277,7 @@ private fun ArticleBody(
     highlights: List<HighlightEntity>,
     fontFamily: FontFamily,
     scale: Float,
+    justify: Boolean,
     onLoadFull: () -> Unit,
     onOpenOriginal: () -> Unit,
     onSaveProgress: (Float) -> Unit,
@@ -364,6 +376,7 @@ private fun ArticleBody(
                     blockIndex = index,
                     bodyStyle = bodyStyle,
                     palette = palette,
+                    justify = justify,
                     highlights = byBlock[index].orEmpty(),
                     onAddHighlight = onAddHighlight,
                     onManageHighlight = onManageHighlight,
@@ -379,6 +392,7 @@ private fun BlockView(
     blockIndex: Int,
     bodyStyle: TextStyle,
     palette: ReaderPalette,
+    justify: Boolean,
     highlights: List<HighlightEntity>,
     onAddHighlight: (blockIndex: Int, start: Int, end: Int, quote: String) -> Unit,
     onManageHighlight: (HighlightEntity) -> Unit,
@@ -398,7 +412,7 @@ private fun BlockView(
         )
         is ReaderBlock.Paragraph -> HighlightableText(
             base = block.text,
-            style = bodyStyle,
+            style = bodyStyle.copy(textAlign = if (justify) TextAlign.Justify else TextAlign.Start),
             highlights = highlights,
             onAdd = { s, e, q -> onAddHighlight(blockIndex, s, e, q) },
             onManage = onManageHighlight,
@@ -556,9 +570,11 @@ private fun TypographySheet(
     fontScale: Float,
     readerFont: ReaderFont,
     readerTheme: ReaderTheme,
+    justify: Boolean,
     onFontScale: (Float) -> Unit,
     onReaderFont: (ReaderFont) -> Unit,
     onReaderTheme: (ReaderTheme) -> Unit,
+    onJustify: (Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
@@ -578,9 +594,17 @@ private fun TypographySheet(
             Spacer(Modifier.height(8.dp))
             Text("Font", style = MaterialTheme.typography.labelLarge)
             Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = readerFont == ReaderFont.SERIF, onClick = { onReaderFont(ReaderFont.SERIF) }, label = { Text("Serif") })
-                FilterChip(selected = readerFont == ReaderFont.SANS, onClick = { onReaderFont(ReaderFont.SANS) }, label = { Text("Sans") })
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+            ) {
+                ReaderFont.entries.forEach { font ->
+                    FilterChip(
+                        selected = readerFont == font,
+                        onClick = { onReaderFont(font) },
+                        label = { Text(font.label, fontFamily = readerFontFamily(font)) },
+                    )
+                }
             }
             Spacer(Modifier.height(12.dp))
             Text("Theme", style = MaterialTheme.typography.labelLarge)
@@ -589,6 +613,11 @@ private fun TypographySheet(
                 FilterChip(selected = readerTheme == ReaderTheme.DEFAULT, onClick = { onReaderTheme(ReaderTheme.DEFAULT) }, label = { Text("Default") })
                 FilterChip(selected = readerTheme == ReaderTheme.SEPIA, onClick = { onReaderTheme(ReaderTheme.SEPIA) }, label = { Text("Sepia") })
                 FilterChip(selected = readerTheme == ReaderTheme.BLACK, onClick = { onReaderTheme(ReaderTheme.BLACK) }, label = { Text("Black") })
+            }
+            Spacer(Modifier.height(14.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Justify text", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                androidx.compose.material3.Switch(checked = justify, onCheckedChange = onJustify)
             }
             Spacer(Modifier.height(24.dp))
         }

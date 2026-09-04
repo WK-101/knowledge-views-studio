@@ -16,7 +16,13 @@ import javax.inject.Singleton
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 enum class ReaderTheme { DEFAULT, SEPIA, BLACK }
-enum class ReaderFont { SERIF, SANS }
+
+/** Reading typeface. SERIF/SANS are the bundled Newsreader/Inter; SYSTEM and MONO
+ *  use device fonts (no APK weight). */
+enum class ReaderFont(val label: String) {
+    SERIF("Newsreader"), SANS("Inter"), SYSTEM("System"), MONO("Mono")
+}
+
 enum class ListViewMode { LIST, CARD, MAGAZINE }
 
 data class AppPreferences(
@@ -26,6 +32,7 @@ data class AppPreferences(
     val readerFontScale: Float = 1.0f,
     val readerTheme: ReaderTheme = ReaderTheme.DEFAULT,
     val readerFont: ReaderFont = ReaderFont.SERIF,
+    val readerJustify: Boolean = false,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -41,6 +48,7 @@ class PreferencesRepository @Inject constructor(
         val FONT_SCALE = floatPreferencesKey("reader_font_scale")
         val READER_THEME = stringPreferencesKey("reader_theme")
         val READER_FONT = stringPreferencesKey("reader_font")
+        val READER_JUSTIFY = booleanPreferencesKey("reader_justify")
     }
 
     val preferences: Flow<AppPreferences> = context.dataStore.data.map { p ->
@@ -51,6 +59,7 @@ class PreferencesRepository @Inject constructor(
             readerFontScale = p[Keys.FONT_SCALE] ?: 1.0f,
             readerTheme = p[Keys.READER_THEME]?.let { runCatching { ReaderTheme.valueOf(it) }.getOrNull() } ?: ReaderTheme.DEFAULT,
             readerFont = p[Keys.READER_FONT]?.let { runCatching { ReaderFont.valueOf(it) }.getOrNull() } ?: ReaderFont.SERIF,
+            readerJustify = p[Keys.READER_JUSTIFY] ?: false,
         )
     }
 
@@ -60,4 +69,5 @@ class PreferencesRepository @Inject constructor(
     suspend fun setReaderFontScale(scale: Float) = context.dataStore.edit { it[Keys.FONT_SCALE] = scale.coerceIn(0.8f, 1.8f) }
     suspend fun setReaderTheme(theme: ReaderTheme) = context.dataStore.edit { it[Keys.READER_THEME] = theme.name }
     suspend fun setReaderFont(font: ReaderFont) = context.dataStore.edit { it[Keys.READER_FONT] = font.name }
+    suspend fun setReaderJustify(justify: Boolean) = context.dataStore.edit { it[Keys.READER_JUSTIFY] = justify }
 }
