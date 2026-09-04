@@ -62,6 +62,8 @@ data class HighlightWithArticle(
     val itemId: String,
     val articleTitle: String,
     val articleUrl: String,
+    val articleImage: String?,
+    val articleSite: String?,
     val quote: String,
     val note: String?,
     val color: Int,
@@ -94,6 +96,7 @@ interface HighlightDao {
     @Query(
         """
         SELECT h.id AS id, h.itemId AS itemId, i.title AS articleTitle, i.url AS articleUrl,
+               i.leadImage AS articleImage, i.siteName AS articleSite,
                h.quote AS quote, h.note AS note, h.color AS color, h.createdAt AS createdAt
         FROM highlights h JOIN items i ON i.id = h.itemId
         ORDER BY h.createdAt DESC
@@ -104,6 +107,7 @@ interface HighlightDao {
     @Query(
         """
         SELECT h.id AS id, h.itemId AS itemId, i.title AS articleTitle, i.url AS articleUrl,
+               i.leadImage AS articleImage, i.siteName AS articleSite,
                h.quote AS quote, h.note AS note, h.color AS color, h.createdAt AS createdAt
         FROM highlights h JOIN items i ON i.id = h.itemId
         ORDER BY i.title COLLATE NOCASE, h.startSelector, h.startOffset
@@ -114,6 +118,7 @@ interface HighlightDao {
     @Query(
         """
         SELECT h.id AS id, h.itemId AS itemId, i.title AS articleTitle, i.url AS articleUrl,
+               i.leadImage AS articleImage, i.siteName AS articleSite,
                h.quote AS quote, h.note AS note, h.color AS color, h.createdAt AS createdAt
         FROM highlights h JOIN items i ON i.id = h.itemId
         WHERE h.itemId = :itemId

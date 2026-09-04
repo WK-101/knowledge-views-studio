@@ -17,6 +17,8 @@ data class NotebookGroup(
     val itemId: String,
     val title: String,
     val url: String,
+    val image: String?,
+    val site: String?,
     val highlights: List<HighlightWithArticle>,
 )
 
@@ -33,6 +35,8 @@ class NotebookViewModel @Inject constructor(
                         itemId = itemId,
                         title = items.first().articleTitle,
                         url = items.first().articleUrl,
+                        image = items.first().articleImage,
+                        site = items.first().articleSite,
                         highlights = items,
                     )
                 }

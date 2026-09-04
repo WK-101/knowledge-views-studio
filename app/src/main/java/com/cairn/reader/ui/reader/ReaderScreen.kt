@@ -6,6 +6,7 @@ import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -551,28 +552,58 @@ private fun HighlightableText(
     modifier: Modifier = Modifier,
 ) {
     val plain = base.text
-    val rendered = remember(base, highlights) { applyHighlights(base, highlights) }
     val layoutState = remember { mutableStateOf<TextLayoutResult?>(null) }
     val currentSelect by rememberUpdatedState(onSelect)
     val currentManage by rememberUpdatedState(onManage)
     val currentHighlights by rememberUpdatedState(highlights)
+    val selColor = MaterialTheme.colorScheme.primary
+
+    // Live drag selection: long-press anchors on a word, drag extends across words.
+    var anchor by remember { mutableStateOf<Int?>(null) }
+    var focus by remember { mutableStateOf<Int?>(null) }
+
+    val rendered = remember(base, highlights, anchor, focus) {
+        val withHl = applyHighlights(base, highlights)
+        val a = anchor; val f = focus
+        if (a != null && f != null && a != f) {
+            buildAnnotatedString {
+                append(withHl)
+                addStyle(SpanStyle(background = selColor.copy(alpha = 0.28f)), minOf(a, f), maxOf(a, f))
+            }
+        } else withHl
+    }
+
+    fun offsetAt(pos: androidx.compose.ui.geometry.Offset): Int =
+        (layoutState.value?.getOffsetForPosition(pos) ?: 0).coerceIn(0, plain.length)
+
     Text(
         text = rendered,
         style = style,
         onTextLayout = { layoutState.value = it },
         modifier = modifier.pointerInput(plain) {
-            detectTapGestures(
-                onLongPress = { pos ->
-                    val layout = layoutState.value ?: return@detectTapGestures
-                    val offset = layout.getOffsetForPosition(pos).coerceIn(0, plain.length)
-                    val hit = currentHighlights.firstOrNull { offset >= it.startOffset && offset < it.endOffset }
-                    if (hit != null) {
-                        currentManage(hit)
-                    } else {
-                        sentenceRangeAt(plain, offset)?.let { r ->
-                            currentSelect(r.first, r.last + 1, plain.substring(r.first, r.last + 1))
-                        }
-                    }
+            detectDragGesturesAfterLongPress(
+                onDragStart = { pos ->
+                    val o = offsetAt(pos)
+                    // Anchor to the whole word first — a plain long-press then selects one word.
+                    val w = wordRangeAt(plain, o)
+                    anchor = w?.first ?: o
+                    focus = w?.let { it.last + 1 } ?: o
+                },
+                onDrag = { change, _ -> focus = offsetAt(change.position) },
+                onDragCancel = { anchor = null; focus = null },
+                onDragEnd = {
+                    val a = anchor; val f = focus
+                    anchor = null; focus = null
+                    if (a == null || f == null) return@detectDragGesturesAfterLongPress
+                    var s = minOf(a, f); var e = maxOf(a, f)
+                    // A tap that landed on an existing highlight (no real drag) manages it.
+                    val hit = currentHighlights.firstOrNull { s >= it.startOffset && s < it.endOffset }
+                    if (hit != null && e - s <= (hit.endOffset - hit.startOffset)) { currentManage(hit); return@detectDragGesturesAfterLongPress }
+                    if (e <= s) return@detectDragGesturesAfterLongPress
+                    // trim surrounding whitespace
+                    while (e > s && plain[e - 1].isWhitespace()) e--
+                    while (s < e && plain[s].isWhitespace()) s++
+                    if (e > s) currentSelect(s, e, plain.substring(s, e))
                 },
             )
         },
@@ -870,6 +901,18 @@ private fun applyHighlights(base: AnnotatedString, highlights: List<HighlightEnt
             if (e > s) addStyle(SpanStyle(background = Color(h.color).copy(alpha = 0.42f)), s, e)
         }
     }
+}
+
+/** The character range of the word containing [offset] (letters/digits), or null on whitespace. */
+private fun wordRangeAt(text: String, offset: Int): IntRange? {
+    if (text.isBlank()) return null
+    val probe = offset.coerceIn(0, text.length - 1)
+    if (!text[probe].isLetterOrDigit()) return null
+    var s = probe
+    while (s > 0 && text[s - 1].isLetterOrDigit()) s--
+    var e = probe
+    while (e < text.length && text[e].isLetterOrDigit()) e++
+    return if (e > s) s..(e - 1) else null
 }
 
 /** The character range of the sentence containing [offset], trimmed of surrounding space. */
