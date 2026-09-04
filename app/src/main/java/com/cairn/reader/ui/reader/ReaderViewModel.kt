@@ -18,6 +18,7 @@ import com.cairn.reader.data.repo.HighlightRepository
 import com.cairn.reader.data.repo.ItemRepository
 import com.cairn.reader.data.repo.ReaderData
 import com.cairn.reader.data.repo.TagRepository
+import com.cairn.reader.domain.translate.TranslateEngine
 import dagger.hilt.android.lifecycle.HiltViewModel
 import org.jsoup.Jsoup
 import java.text.BreakIterator
@@ -45,6 +46,7 @@ class ReaderViewModel @Inject constructor(
     private val highlightRepository: HighlightRepository,
     private val collectionRepository: CollectionRepository,
     private val tagRepository: TagRepository,
+    private val translateEngine: TranslateEngine,
     private val ttsReader: TtsReader,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
@@ -52,6 +54,11 @@ class ReaderViewModel @Inject constructor(
     private val itemId: String = savedStateHandle.get<String>("itemId").orEmpty()
 
     val tts: StateFlow<TtsReader.State> = ttsReader.state
+
+    private val _translate = MutableStateFlow(false)
+    val translate: StateFlow<Boolean> = _translate.asStateFlow()
+    fun toggleTranslate() { _translate.value = !_translate.value }
+    suspend fun translateText(text: String): String = translateEngine.translate(text)
 
     val collections: StateFlow<List<CollectionWithCount>> =
         collectionRepository.collections().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
