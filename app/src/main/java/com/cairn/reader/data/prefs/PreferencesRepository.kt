@@ -64,6 +64,8 @@ data class AppPreferences(
     val imagesWifiOnly: Boolean = true,
     /** Keep at most this many items per feed (older, un-engaged ones are pruned). 0 = keep everything. */
     val maxItemsPerFeed: Int = 0,
+    /** Which bottom-nav tabs are enabled, by destination name. Empty falls back to a sane default. */
+    val bottomTabs: Set<String> = setOf("Inbox", "Library", "Discover", "Settings"),
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -93,6 +95,7 @@ class PreferencesRepository @Inject constructor(
         val CACHE_IMAGES = booleanPreferencesKey("cache_images_offline")
         val IMAGES_WIFI_ONLY = booleanPreferencesKey("images_wifi_only")
         val MAX_ITEMS_PER_FEED = intPreferencesKey("max_items_per_feed")
+        val BOTTOM_TABS = stringSetPreferencesKey("bottom_tabs")
     }
 
     /** Per-scope view entries are stored as "scopeKey<sep>MODE" in a string set. */
@@ -125,6 +128,7 @@ class PreferencesRepository @Inject constructor(
             cacheImagesOffline = p[Keys.CACHE_IMAGES] ?: true,
             imagesWifiOnly = p[Keys.IMAGES_WIFI_ONLY] ?: true,
             maxItemsPerFeed = p[Keys.MAX_ITEMS_PER_FEED] ?: 0,
+            bottomTabs = (p[Keys.BOTTOM_TABS] ?: setOf("Inbox", "Library", "Discover", "Settings")),
         )
     }
 
@@ -148,6 +152,13 @@ class PreferencesRepository @Inject constructor(
     suspend fun setCacheImagesOffline(enabled: Boolean) = context.dataStore.edit { it[Keys.CACHE_IMAGES] = enabled }
     suspend fun setImagesWifiOnly(enabled: Boolean) = context.dataStore.edit { it[Keys.IMAGES_WIFI_ONLY] = enabled }
     suspend fun setMaxItemsPerFeed(max: Int) = context.dataStore.edit { it[Keys.MAX_ITEMS_PER_FEED] = max.coerceAtLeast(0) }
+
+    /** Enable/disable a bottom-nav tab by destination name; never lets the bar drop below one tab. */
+    suspend fun setBottomTab(name: String, enabled: Boolean) = context.dataStore.edit { p ->
+        val current = p[Keys.BOTTOM_TABS] ?: setOf("Inbox", "Library", "Discover", "Settings")
+        val next = if (enabled) current + name else current - name
+        p[Keys.BOTTOM_TABS] = if (next.isEmpty()) setOf("Inbox") else next
+    }
 
     /** Remember the library view mode for a specific scope, and make it the global default too,
      *  so scopes you haven't customised inherit your latest choice. */

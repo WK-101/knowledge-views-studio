@@ -255,6 +255,35 @@ fun SettingsScreen(
 
         item {
             Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+                SectionLabel("BOTTOM BAR")
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Choose which tabs appear in the bottom bar. Everything stays reachable from the drawer.",
+                    style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(6.dp))
+                val tabs = listOf("Inbox", "Library", "Discover", "Settings")
+                val enabled = prefs.bottomTabs
+                tabs.forEach { name ->
+                    val isOn = name in enabled
+                    val isLastOn = isOn && enabled.size <= 1
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(name, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, modifier = Modifier.weight(1f))
+                        androidx.compose.material3.Switch(
+                            checked = isOn,
+                            onCheckedChange = { viewModel.setBottomTab(name, it) },
+                            enabled = !isLastOn,
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
                 SectionLabel("APPEARANCE")
                 Spacer(Modifier.height(12.dp))
                 LabeledChips(
@@ -379,7 +408,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(24.dp))
                 SectionLabel("ABOUT")
                 Spacer(Modifier.height(8.dp))
-                Text("Cairn 2.9.0", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
+                Text("Cairn 3.1.0", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
                 Text("One reader for everything you read.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
             }
         }

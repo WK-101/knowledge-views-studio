@@ -100,6 +100,8 @@ class SettingsViewModel @Inject constructor(
     fun setImagesWifiOnly(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setImagesWifiOnly(enabled) }
     fun setMaxItemsPerFeed(max: Int) = viewModelScope.launch { preferencesRepository.setMaxItemsPerFeed(max) }
 
+    fun setBottomTab(name: String, enabled: Boolean) = viewModelScope.launch { preferencesRepository.setBottomTab(name, enabled) }
+
     /** Bytes on disk used by cached article bodies, offline images, and imported PDFs. */
     suspend fun storageBytes(): Long = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { blobStore.storageBytes() }
 }

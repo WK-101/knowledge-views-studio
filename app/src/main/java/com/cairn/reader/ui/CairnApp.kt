@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material.icons.outlined.DoneAll
+import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Inbox
@@ -90,6 +91,7 @@ import com.cairn.reader.ui.settings.SettingsScreen
 private enum class Destination(val label: String, val icon: ImageVector) {
     Inbox("Inbox", Icons.Outlined.Inbox),
     Library("Library", Icons.AutoMirrored.Outlined.LibraryBooks),
+    Discover("Discover", Icons.Outlined.Explore),
     Settings("Settings", Icons.Outlined.Settings),
 }
 
@@ -104,10 +106,16 @@ fun CairnApp(
     onOpenOffline: () -> Unit = {},
     onOpenDiscover: () -> Unit = {},
 ) {
-    var selected by rememberSaveable { mutableIntStateOf(0) }
     var showAddFeed by remember { mutableStateOf(false) }
-    val destinations = remember { Destination.entries }
-    val current = destinations[selected]
+    val appViewModel: AppViewModel = hiltViewModel()
+    val appPrefs by appViewModel.preferences.collectAsStateWithLifecycle()
+    // The bar shows the user's chosen subset, in a fixed canonical order; never empty.
+    val tabs = remember(appPrefs.bottomTabs) {
+        Destination.entries.filter { it.name in appPrefs.bottomTabs }.ifEmpty { listOf(Destination.Inbox) }
+    }
+    var currentName by rememberSaveable { mutableStateOf(Destination.Inbox.name) }
+    // current is any destination — a drawer pick may open one that isn't a bar tab; all four render.
+    val current = Destination.entries.firstOrNull { it.name == currentName } ?: tabs.first()
 
     val inboxViewModel: InboxViewModel = hiltViewModel()
     val inboxViewMode by inboxViewModel.viewMode.collectAsStateWithLifecycle()
@@ -141,18 +149,18 @@ fun CairnApp(
                     feeds = feeds,
                     selection = selection,
                     filter = inboxState.filter,
-                    onAllArticles = { inboxViewModel.selectAll(); selected = 0; scope.launch { drawerState.close() } },
-                    onStarred = { inboxViewModel.selectStarred(); selected = 0; scope.launch { drawerState.close() } },
-                    onSelectFeed = { feed -> inboxViewModel.selectFeed(feed.sourceId, feed.title); selected = 0; scope.launch { drawerState.close() } },
-                    onSelectFolder = { name -> inboxViewModel.selectFolder(name); selected = 0; scope.launch { drawerState.close() } },
+                    onAllArticles = { inboxViewModel.selectAll(); currentName = Destination.Inbox.name; scope.launch { drawerState.close() } },
+                    onStarred = { inboxViewModel.selectStarred(); currentName = Destination.Inbox.name; scope.launch { drawerState.close() } },
+                    onSelectFeed = { feed -> inboxViewModel.selectFeed(feed.sourceId, feed.title); currentName = Destination.Inbox.name; scope.launch { drawerState.close() } },
+                    onSelectFolder = { name -> inboxViewModel.selectFolder(name); currentName = Destination.Inbox.name; scope.launch { drawerState.close() } },
                     onMarkFeedRead = { sourceId -> inboxViewModel.markFeedRead(sourceId) },
                     onMarkFolderRead = { name -> inboxViewModel.markFolderRead(name) },
-                    onSaved = { selected = 1; scope.launch { drawerState.close() } },
+                    onSaved = { currentName = Destination.Library.name; scope.launch { drawerState.close() } },
                     onHighlights = { scope.launch { drawerState.close() }; onOpenNotebook() },
                     onSearch = { scope.launch { drawerState.close() }; onOpenSearch() },
-                    onDiscover = { scope.launch { drawerState.close() }; onOpenDiscover() },
+                    onDiscover = { currentName = Destination.Discover.name; scope.launch { drawerState.close() } },
                     onManageFeeds = { scope.launch { drawerState.close() }; onOpenFeeds() },
-                    onSettings = { selected = 2; scope.launch { drawerState.close() } },
+                    onSettings = { currentName = Destination.Settings.name; scope.launch { drawerState.close() } },
                 )
             }
         },
@@ -260,10 +268,10 @@ fun CairnApp(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
                     modifier = Modifier.height(64.dp),
                 ) {
-                    destinations.forEachIndexed { index, dest ->
+                    tabs.forEach { dest ->
                         NavigationBarItem(
-                            selected = selected == index,
-                            onClick = { selected = index },
+                            selected = current == dest,
+                            onClick = { currentName = dest.name },
                             icon = { Icon(dest.icon, contentDescription = dest.label) },
                             label = { Text(dest.label, style = MaterialTheme.typography.labelSmall) },
                             alwaysShowLabel = false,
@@ -287,6 +295,7 @@ fun CairnApp(
             when (dest) {
                 Destination.Inbox -> InboxScreen(padding, inboxViewModel, onOpenItem, onOpenWeb, inboxViewMode)
                 Destination.Library -> LibraryScreen(padding, onOpenItem, onOpenHighlights = onOpenNotebook)
+                Destination.Discover -> com.cairn.reader.ui.discover.DiscoverContent(padding)
                 Destination.Settings -> SettingsScreen(padding, onOpenNotebook = onOpenNotebook, onOpenOffline = onOpenOffline)
             }
         }
