@@ -178,6 +178,9 @@ class SettingsViewModel @Inject constructor(
     fun setShowExcerpt(on: Boolean) = viewModelScope.launch { preferencesRepository.setShowExcerpt(on) }
     fun setShowReadingTime(on: Boolean) = viewModelScope.launch { preferencesRepository.setShowReadingTime(on) }
     fun setStickyDateHeaders(on: Boolean) = viewModelScope.launch { preferencesRepository.setStickyDateHeaders(on) }
+    fun setForceSingleColumn(on: Boolean) = viewModelScope.launch { preferencesRepository.setForceSingleColumn(on) }
+    fun setTapZonePaging(on: Boolean) = viewModelScope.launch { preferencesRepository.setTapZonePaging(on) }
+    fun setVolumeKeyPaging(on: Boolean) = viewModelScope.launch { preferencesRepository.setVolumeKeyPaging(on) }
     fun setTrashRetentionDays(days: Int) = viewModelScope.launch { preferencesRepository.setTrashRetentionDays(days) }
     fun moveBottomTab(name: String, up: Boolean) = viewModelScope.launch { preferencesRepository.moveBottomTab(name, up) }
 

@@ -6,6 +6,7 @@ import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateZoom
@@ -141,6 +142,7 @@ import com.cairn.reader.ui.components.TagEditorSheet
 import com.cairn.reader.ui.theme.InterFamily
 import com.cairn.reader.ui.theme.ReadingSerif
 import com.cairn.reader.ui.util.formatAgo
+import com.cairn.reader.ui.util.formatDateTime
 import java.text.BreakIterator
 import java.util.Locale
 
@@ -528,6 +530,8 @@ fun ReaderScreen(
                 paragraphSpacing = prefs.readerParagraphSpacing,
                 measure = prefs.readerMeasure,
                 bionic = prefs.bionicReading,
+                tapZonePaging = prefs.tapZonePaging,
+                volumeKeyPaging = prefs.volumeKeyPaging,
             )
         }
     }
@@ -683,6 +687,8 @@ private fun ArticleBody(
     paragraphSpacing: Int = 8,
     measure: Int = 0,
     bionic: Boolean = false,
+    tapZonePaging: Boolean = false,
+    volumeKeyPaging: Boolean = false,
 ) {
     val data = state.data ?: return
     val linkColor = MaterialTheme.colorScheme.primary
@@ -710,6 +716,22 @@ private fun ArticleBody(
     }
     val latestProgress = rememberUpdatedState(progress)
     DisposableEffect(Unit) { onDispose { onSaveProgress(latestProgress.value) } }
+
+    // Page-turn helpers (opt-in): scroll ~85% of the viewport up or down.
+    val pageScope = rememberCoroutineScope()
+    fun pageBy(down: Boolean) {
+        val vp = (listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset)
+        val delta = (vp * 0.85f).coerceAtLeast(1f)
+        pageScope.launch { listState.animateScrollBy(if (down) delta else -delta) }
+    }
+    // Register the volume-key handler with the Activity only while volume paging is on and this
+    // reader is composed; clear it on dispose so the volume keys behave normally elsewhere.
+    if (volumeKeyPaging) {
+        DisposableEffect(Unit) {
+            ReaderPaging.handler = { down -> pageBy(down); true }
+            onDispose { ReaderPaging.handler = null }
+        }
+    }
 
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
@@ -771,11 +793,13 @@ private fun ArticleBody(
                         color = palette.text,
                     )
                     Spacer(Modifier.height(10.dp))
+                    val readerCtx = LocalContext.current
                     val meta = buildList {
                         data.siteName?.let { add(it) }
                         data.author?.let { add(it) }
                         if (data.readingMinutes > 0) add("${data.readingMinutes} min read")
-                        formatAgo(data.publishedAt).takeIf { it.isNotEmpty() }?.let { add(it) }
+                        // Absolute published date + time, honoring the device's 12/24-hour clock.
+                        formatDateTime(readerCtx, data.publishedAt).takeIf { it.isNotEmpty() }?.let { add(it) }
                         if (data.cacheStatus == "PERMANENT") add("Saved offline")
                         if (data.isArchived) add("Archived")
                     }.joinToString("  ·  ")
@@ -885,6 +909,23 @@ private fun ArticleBody(
             }
         }
     }
+        // Tap-zone paging (opt-in): narrow strips at the left/right edges page up/down on tap.
+        if (tapZonePaging) {
+            Box(
+                Modifier
+                    .align(Alignment.CenterStart)
+                    .fillMaxHeight()
+                    .width(44.dp)
+                    .pointerInput(Unit) { detectTapGestures { pageBy(down = false) } },
+            )
+            Box(
+                Modifier
+                    .align(Alignment.CenterEnd)
+                    .fillMaxHeight()
+                    .width(44.dp)
+                    .pointerInput(Unit) { detectTapGestures { pageBy(down = true) } },
+            )
+        }
         // A floating badge shows the live text size while pinching, then fades out.
         androidx.compose.animation.AnimatedVisibility(
             visible = zooming,

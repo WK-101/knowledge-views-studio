@@ -3,6 +3,8 @@
 package com.cairn.reader.ui
 
 import androidx.compose.animation.Crossfade
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -77,6 +79,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -167,8 +170,9 @@ fun CairnApp(
     // current is always a pane; the only non-pane (Starred) just re-scopes the Inbox.
     val current = Destination.entries.firstOrNull { it.name == currentName && it.isPane } ?: Destination.Inbox
 
-    // On wide screens (tablets, unfolded foldables) show list + reader side by side.
-    val wide = LocalConfiguration.current.screenWidthDp >= 720
+    // On wide screens (tablets, unfolded foldables) show list + reader side by side,
+    // unless the user has asked to keep the single-column phone layout everywhere.
+    val wide = !appPrefs.forceSingleColumn && LocalConfiguration.current.screenWidthDp >= 720
     val detailNav = rememberNavController()
 
     val inboxViewModel: InboxViewModel = hiltViewModel()
@@ -547,6 +551,7 @@ private fun InboxScreen(
         }
     }
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val listScope = rememberCoroutineScope()
 
     // Mark-as-read-on-scroll: as items pass above the top of the list, mark them read (no undo
     // spam). LazyColumn's key-based anchoring keeps the visible content from jumping when read
@@ -695,6 +700,22 @@ private fun InboxScreen(
                         }
                     } else {
                         items(state.items, key = { it.id }) { row -> inboxRow(row) }
+                    }
+                }
+            }
+            // Scroll-to-top FAB: appears once the list is scrolled a few rows down, above the "+" FAB.
+            val showScrollTop by remember { derivedStateOf { listState.firstVisibleItemIndex > 4 } }
+            if (showScrollTop) {
+                Box(Modifier.fillMaxSize()) {
+                    SmallFloatingActionButton(
+                        onClick = { listScope.launch { listState.animateScrollToItem(0) } },
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(end = 4.dp, bottom = 80.dp),
+                    ) {
+                        Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Scroll to top")
                     }
                 }
             }

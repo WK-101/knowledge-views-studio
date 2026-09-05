@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -41,6 +42,24 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         intent.getStringExtra(EXTRA_OPEN_ITEM)?.let { pendingItem.value = it }
+    }
+
+    // Volume-key page turns in the reader (opt-in). When no reader handler is registered these
+    // fall through to the system so volume behaves normally everywhere else.
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        when (keyCode) {
+            KeyEvent.KEYCODE_VOLUME_DOWN -> if (com.cairn.reader.ui.reader.ReaderPaging.onVolumeKey(down = true)) return true
+            KeyEvent.KEYCODE_VOLUME_UP -> if (com.cairn.reader.ui.reader.ReaderPaging.onVolumeKey(down = false)) return true
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    // Swallow the matching key-up so the system doesn't play the volume-change sound / show the slider.
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        if ((keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || keyCode == KeyEvent.KEYCODE_VOLUME_UP) &&
+            com.cairn.reader.ui.reader.ReaderPaging.handler != null
+        ) return true
+        return super.onKeyUp(keyCode, event)
     }
 
     private fun maybeRequestNotifications() {

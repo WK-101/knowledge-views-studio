@@ -462,6 +462,13 @@ fun SettingsScreen(
                     }
                     androidx.compose.material3.Switch(checked = prefs.stickyDateHeaders, onCheckedChange = { viewModel.setStickyDateHeaders(it) })
                 }
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Single column on tablets", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text("Keep the phone layout on big screens instead of the two-pane list + reader.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                    }
+                    androidx.compose.material3.Switch(checked = prefs.forceSingleColumn, onCheckedChange = { viewModel.setForceSingleColumn(it) })
+                }
             }
         }
 
@@ -657,6 +664,22 @@ fun SettingsScreen(
                         Text("Straighten the right edge of articles", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                     Switch(checked = prefs.readerJustify, onCheckedChange = viewModel::setReaderJustify)
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Tap edges to turn pages", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text("In the reader, tap the left / right edge to page up / down.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                    }
+                    Switch(checked = prefs.tapZonePaging, onCheckedChange = viewModel::setTapZonePaging)
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Volume keys turn pages", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text("While reading, the volume keys page down / up instead of changing volume.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                    }
+                    Switch(checked = prefs.volumeKeyPaging, onCheckedChange = viewModel::setVolumeKeyPaging)
                 }
             }
         }

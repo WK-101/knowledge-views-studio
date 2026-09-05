@@ -146,6 +146,12 @@ data class AppPreferences(
     val showReadingTime: Boolean = true,
     /** Sticky Today / Yesterday / date headers in the Inbox list. */
     val stickyDateHeaders: Boolean = false,
+    /** Force a single-column layout even on tablets / unfolded foldables, for people who prefer
+     *  the phone layout on a big screen. Off = use the two-pane layout when wide enough. */
+    val forceSingleColumn: Boolean = false,
+    /** Reader page-turn helpers: tap the left/right edge, or the volume keys, to page up/down. */
+    val tapZonePaging: Boolean = false,
+    val volumeKeyPaging: Boolean = false,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -212,6 +218,9 @@ class PreferencesRepository @Inject constructor(
         val SHOW_EXCERPT = booleanPreferencesKey("show_excerpt")
         val SHOW_READING_TIME = booleanPreferencesKey("show_reading_time")
         val STICKY_DATE_HEADERS = booleanPreferencesKey("sticky_date_headers")
+        val FORCE_SINGLE_COLUMN = booleanPreferencesKey("force_single_column")
+        val TAP_ZONE_PAGING = booleanPreferencesKey("tap_zone_paging")
+        val VOLUME_KEY_PAGING = booleanPreferencesKey("volume_key_paging")
     }
 
     /** Per-scope view entries are stored as "scopeKey<sep>MODE" in a string set. */
@@ -284,6 +293,9 @@ class PreferencesRepository @Inject constructor(
             showExcerpt = p[Keys.SHOW_EXCERPT] ?: true,
             showReadingTime = p[Keys.SHOW_READING_TIME] ?: true,
             stickyDateHeaders = p[Keys.STICKY_DATE_HEADERS] ?: false,
+            forceSingleColumn = p[Keys.FORCE_SINGLE_COLUMN] ?: false,
+            tapZonePaging = p[Keys.TAP_ZONE_PAGING] ?: false,
+            volumeKeyPaging = p[Keys.VOLUME_KEY_PAGING] ?: false,
         )
     }
 
@@ -440,6 +452,9 @@ class PreferencesRepository @Inject constructor(
     suspend fun setShowExcerpt(on: Boolean) = context.dataStore.edit { it[Keys.SHOW_EXCERPT] = on }
     suspend fun setShowReadingTime(on: Boolean) = context.dataStore.edit { it[Keys.SHOW_READING_TIME] = on }
     suspend fun setStickyDateHeaders(on: Boolean) = context.dataStore.edit { it[Keys.STICKY_DATE_HEADERS] = on }
+    suspend fun setForceSingleColumn(on: Boolean) = context.dataStore.edit { it[Keys.FORCE_SINGLE_COLUMN] = on }
+    suspend fun setTapZonePaging(on: Boolean) = context.dataStore.edit { it[Keys.TAP_ZONE_PAGING] = on }
+    suspend fun setVolumeKeyPaging(on: Boolean) = context.dataStore.edit { it[Keys.VOLUME_KEY_PAGING] = on }
 
     // -- Settings backup -------------------------------------------------------
     //
@@ -505,6 +520,9 @@ class PreferencesRepository @Inject constructor(
             put("showExcerpt", p.showExcerpt)
             put("showReadingTime", p.showReadingTime)
             put("stickyDateHeaders", p.stickyDateHeaders)
+            put("forceSingleColumn", p.forceSingleColumn)
+            put("tapZonePaging", p.tapZonePaging)
+            put("volumeKeyPaging", p.volumeKeyPaging)
         }
     }
 
@@ -567,6 +585,9 @@ class PreferencesRepository @Inject constructor(
             if (json.has("showExcerpt")) e[Keys.SHOW_EXCERPT] = json.getBoolean("showExcerpt")
             if (json.has("showReadingTime")) e[Keys.SHOW_READING_TIME] = json.getBoolean("showReadingTime")
             if (json.has("stickyDateHeaders")) e[Keys.STICKY_DATE_HEADERS] = json.getBoolean("stickyDateHeaders")
+            if (json.has("forceSingleColumn")) e[Keys.FORCE_SINGLE_COLUMN] = json.getBoolean("forceSingleColumn")
+            if (json.has("tapZonePaging")) e[Keys.TAP_ZONE_PAGING] = json.getBoolean("tapZonePaging")
+            if (json.has("volumeKeyPaging")) e[Keys.VOLUME_KEY_PAGING] = json.getBoolean("volumeKeyPaging")
         }
     }
 }
