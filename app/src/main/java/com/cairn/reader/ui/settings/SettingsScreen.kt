@@ -35,6 +35,8 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
@@ -346,37 +348,65 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(6.dp))
-                // Pairs of (stored name = Destination.name, display label).
-                val tabs = listOf(
-                    "Inbox" to "Inbox",
-                    "Library" to "Library",
-                    "Discover" to "Discover",
-                    "Starred" to "Starred",
-                    "ReadLater" to "Read Later",
-                    "Highlights" to "Highlights",
-                    "Feeds" to "Feeds",
-                    "Search" to "Search",
-                    "Trash" to "Trash",
-                    "Offline" to "Offline",
-                    "Settings" to "Settings",
+                // Canonical (name -> label) for every possible tab.
+                val labels = linkedMapOf(
+                    "Inbox" to "Inbox", "Library" to "Library", "Discover" to "Discover",
+                    "Starred" to "Starred", "ReadLater" to "Read Later", "Highlights" to "Highlights",
+                    "Feeds" to "Feeds", "Search" to "Search", "Trash" to "Trash",
+                    "Offline" to "Offline", "Settings" to "Settings",
                 )
                 val enabled = prefs.bottomTabs
                 val atCap = enabled.size >= 6
-                tabs.forEach { (name, label) ->
-                    val isOn = name in enabled
-                    val isLastOn = isOn && enabled.size <= 1
+                // Enabled tabs shown in the user's order (with reorder arrows); then the rest.
+                val orderedEnabled = (prefs.bottomTabsOrder.filter { it in enabled } +
+                    labels.keys.filter { it in enabled && it !in prefs.bottomTabsOrder })
+                val disabled = labels.keys.filter { it !in enabled }
+                Text("In the bar — use arrows to reorder", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 4.dp))
+                orderedEnabled.forEachIndexed { index, name ->
+                    val isLastOn = enabled.size <= 1
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(label, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, modifier = Modifier.weight(1f))
+                        Text("${index + 1}", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.width(20.dp))
+                        Text(labels[name] ?: name, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, modifier = Modifier.weight(1f))
+                        IconButton(onClick = { viewModel.moveBottomTab(name, up = true) }, enabled = index > 0) {
+                            Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "Move up")
+                        }
+                        IconButton(onClick = { viewModel.moveBottomTab(name, up = false) }, enabled = index < orderedEnabled.size - 1) {
+                            Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = "Move down")
+                        }
                         androidx.compose.material3.Switch(
-                            checked = isOn,
-                            onCheckedChange = { viewModel.setBottomTab(name, it) },
-                            // Can't turn off the last one, and can't turn a new one on once five are picked.
-                            enabled = if (isOn) !isLastOn else !atCap,
+                            checked = true,
+                            onCheckedChange = { viewModel.setBottomTab(name, false) },
+                            enabled = !isLastOn,
                         )
                     }
+                }
+                if (disabled.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text("Available", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 4.dp))
+                    disabled.forEach { name ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(labels[name] ?: name, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, modifier = Modifier.weight(1f))
+                            androidx.compose.material3.Switch(
+                                checked = false,
+                                onCheckedChange = { viewModel.setBottomTab(name, true) },
+                                enabled = !atCap,
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Listen (text-to-speech)", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text("Read articles aloud. Off hides the Listen buttons everywhere.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                    }
+                    androidx.compose.material3.Switch(checked = prefs.ttsEnabled, onCheckedChange = { viewModel.setTtsEnabled(it) })
                 }
             }
         }

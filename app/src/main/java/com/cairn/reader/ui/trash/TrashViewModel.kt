@@ -39,10 +39,16 @@ enum class TrashReadState(val label: String) { ANY("All"), UNREAD("Unread"), REA
 @HiltViewModel
 class TrashViewModel @Inject constructor(
     private val feedRepository: FeedRepository,
+    private val preferencesRepository: com.cairn.reader.data.prefs.PreferencesRepository,
 ) : ViewModel() {
 
-    /** Days a trashed item is kept before auto-purge (shown in the empty-trash copy). */
-    val retentionDays: Int = feedRepository.trashRetentionDays
+    /** User-set days a trashed item is kept before auto-purge (0 = never). Shown in the empty-state
+     *  copy and adjustable from the Trash menu. */
+    val retentionDays: StateFlow<Int> =
+        preferencesRepository.preferences.map { it.trashRetentionDays }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 30)
+
+    fun setRetentionDays(days: Int) = viewModelScope.launch { preferencesRepository.setTrashRetentionDays(days) }
 
     // Raw list preserves the DAO order (most-recently-trashed first), which the default sort keeps.
     private val raw: StateFlow<List<ItemListRow>> =

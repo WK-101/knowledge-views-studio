@@ -148,8 +148,14 @@ fun CairnApp(
     val appPrefs by appViewModel.preferences.collectAsStateWithLifecycle()
     // The bar shows the user's chosen subset, in a fixed canonical order; never empty. Capped at
     // six so the bar stays legible even if the user enables everything.
-    val tabs = remember(appPrefs.bottomTabs) {
-        Destination.entries.filter { it.name in appPrefs.bottomTabs }.ifEmpty { listOf(Destination.Inbox) }.take(6)
+    val tabs = remember(appPrefs.bottomTabs, appPrefs.bottomTabsOrder) {
+        val members = appPrefs.bottomTabs
+        // Honour the user's chosen order; any enabled tab missing from the order (e.g. just added)
+        // falls in at the end in the app's canonical order.
+        val orderedNames = appPrefs.bottomTabsOrder.filter { it in members } +
+            Destination.entries.map { it.name }.filter { it in members && it !in appPrefs.bottomTabsOrder }
+        orderedNames.mapNotNull { n -> Destination.entries.firstOrNull { it.name == n } }
+            .ifEmpty { listOf(Destination.Inbox) }.take(6)
     }
     var currentName by rememberSaveable { mutableStateOf(Destination.Inbox.name) }
     // current is always a pane; the only non-pane (Starred) just re-scopes the Inbox.
@@ -269,7 +275,7 @@ fun CairnApp(
                                 Icon(Icons.Outlined.Search, contentDescription = "Search these entries")
                             }
                         }
-                        if (inboxState.items.isNotEmpty() && !ttsState.active) {
+                        if (appPrefs.ttsEnabled && inboxState.items.isNotEmpty() && !ttsState.active) {
                             IconButton(onClick = { inboxViewModel.listenAll() }) {
                                 Icon(Icons.Outlined.Headphones, contentDescription = "Listen to all")
                             }
@@ -378,7 +384,9 @@ fun CairnApp(
                             },
                             icon = { Icon(dest.icon, contentDescription = dest.label, modifier = Modifier.size(22.dp)) },
                             label = { Text(dest.label, style = MaterialTheme.typography.labelSmall, maxLines = 1) },
-                            alwaysShowLabel = false,
+                            // Always show labels so the icon never shifts up/down as selection changes
+                            // (the jump when a label appears only on the selected tab looks unpolished).
+                            alwaysShowLabel = true,
                         )
                     }
                 }

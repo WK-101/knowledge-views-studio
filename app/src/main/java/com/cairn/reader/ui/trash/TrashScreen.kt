@@ -41,6 +41,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -88,6 +89,8 @@ fun TrashScreen(
     var overflowMenu by remember { mutableStateOf(false) }
     var sourceMenu by remember { mutableStateOf(false) }
     var confirmEmpty by remember { mutableStateOf(false) }
+    var showGrace by remember { mutableStateOf(false) }
+    val retentionDays by viewModel.retentionDays.collectAsStateWithLifecycle()
     var confirmForever by remember { mutableStateOf<ItemListRow?>(null) }
     var viewMode by remember { mutableStateOf(com.cairn.reader.data.prefs.ListViewMode.CARD) }
 
@@ -154,6 +157,10 @@ fun TrashScreen(
                                     leadingIcon = { Icon(Icons.Outlined.DeleteForever, contentDescription = null, tint = scheme.error) },
                                     enabled = totalCount > 0,
                                     onClick = { overflowMenu = false; confirmEmpty = true },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(if (retentionDays > 0) "Auto-clear: ${retentionDays}d" else "Auto-clear: off") },
+                                    onClick = { overflowMenu = false; showGrace = true },
                                 )
                                 if (filtersActive) {
                                     DropdownMenuItem(
@@ -230,7 +237,8 @@ fun TrashScreen(
                         Text("Trash is empty", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            "Deleted articles land here — hidden from your feeds and Library but kept intact. Restore anything you want back, or empty the Trash to erase it for good. Items auto-clear after ${viewModel.retentionDays} days.",
+                            if (retentionDays > 0) "Deleted articles land here — hidden from your feeds and Library but kept intact. Restore anything you want back, or empty the Trash to erase it for good. Items auto-clear after $retentionDays days."
+                            else "Deleted articles land here — hidden from your feeds and Library but kept intact. Restore anything you want back, or empty the Trash to erase it for good. Auto-clear is off — items stay until you empty the Trash.",
                             style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center,
                         )
                     }
@@ -298,6 +306,31 @@ fun TrashScreen(
                 }
             },
             dismissButton = { TextButton(onClick = { confirmForever = null }) { Text("Cancel") } },
+        )
+    }
+
+    if (showGrace) {
+        val options = listOf(0, 7, 14, 30, 90, 180, 365)
+        AlertDialog(
+            onDismissRequest = { showGrace = false },
+            title = { Text("Auto-clear Trash after") },
+            text = {
+                Column {
+                    Text("Trashed items are permanently erased on sync once they're older than this. Kept items are never touched.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                    Spacer(Modifier.height(8.dp))
+                    options.forEach { d ->
+                        Row(
+                            Modifier.fillMaxWidth().clickable { viewModel.setRetentionDays(d); showGrace = false }.padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            androidx.compose.material3.RadioButton(selected = retentionDays == d, onClick = { viewModel.setRetentionDays(d); showGrace = false })
+                            Spacer(Modifier.width(8.dp))
+                            Text(if (d == 0) "Never (keep until emptied)" else "$d days", style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showGrace = false }) { Text("Done") } },
         )
     }
 }

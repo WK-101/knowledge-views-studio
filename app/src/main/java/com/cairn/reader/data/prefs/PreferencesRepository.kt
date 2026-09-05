@@ -91,12 +91,20 @@ data class AppPreferences(
     val keepUnread: Boolean = false,
     /** Which bottom-nav tabs are enabled, by destination name. Empty falls back to a sane default. */
     val bottomTabs: Set<String> = setOf("Inbox", "Library", "Discover", "Settings"),
+    /** The user's chosen order of bottom-nav tabs (names). Membership is [bottomTabs]; this just
+     *  orders them. Empty = fall back to the app's canonical order. */
+    val bottomTabsOrder: List<String> = emptyList(),
     /** SAF tree URI where automatic backups are written; null = not configured. */
     val backupFolderUri: String? = null,
     /** How often to auto-back-up, in hours. 0 = off. */
     val backupFrequencyHours: Int = 0,
     /** Whether scheduled backups bundle offline article copies (a larger .zip) or stay data-only (.json). */
     val backupIncludeOffline: Boolean = false,
+    /** Days a trashed item is kept before auto-purge on sync. 0 = keep until emptied manually. */
+    val trashRetentionDays: Int = 30,
+    /** Whether text-to-speech (Listen) is offered at all — the Inbox "Listen to all" button and the
+     *  reader's read-aloud. Off hides those controls for people who never use them. */
+    val ttsEnabled: Boolean = true,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -142,6 +150,9 @@ class PreferencesRepository @Inject constructor(
         val BACKUP_FOLDER = stringPreferencesKey("backup_folder_uri")
         val BACKUP_FREQ = intPreferencesKey("backup_frequency_hours")
         val BACKUP_INCLUDE_OFFLINE = booleanPreferencesKey("backup_include_offline")
+        val TRASH_RETENTION_DAYS = intPreferencesKey("trash_retention_days")
+        val TTS_ENABLED = booleanPreferencesKey("tts_enabled")
+        val BOTTOM_TABS_ORDER = stringPreferencesKey("bottom_tabs_order")
     }
 
     /** Per-scope view entries are stored as "scopeKey<sep>MODE" in a string set. */
@@ -190,8 +201,12 @@ class PreferencesRepository @Inject constructor(
             maxAgeDays = p[Keys.MAX_AGE_DAYS] ?: 0,
             keepUnread = p[Keys.KEEP_UNREAD] ?: false,
             bottomTabs = (p[Keys.BOTTOM_TABS] ?: setOf("Inbox", "Library", "Discover", "Settings")),
+            bottomTabsOrder = p[Keys.BOTTOM_TABS_ORDER]?.split(",")?.filter { it.isNotBlank() } ?: emptyList(),
             backupFolderUri = p[Keys.BACKUP_FOLDER],
             backupFrequencyHours = p[Keys.BACKUP_FREQ] ?: 0,
+            backupIncludeOffline = p[Keys.BACKUP_INCLUDE_OFFLINE] ?: false,
+            trashRetentionDays = p[Keys.TRASH_RETENTION_DAYS] ?: 30,
+            ttsEnabled = p[Keys.TTS_ENABLED] ?: true,
         )
     }
 
@@ -233,11 +248,32 @@ class PreferencesRepository @Inject constructor(
     }
     suspend fun setBackupFrequency(hours: Int) = context.dataStore.edit { it[Keys.BACKUP_FREQ] = hours.coerceAtLeast(0) }
 
-    /** Enable/disable a bottom-nav tab by destination name; never lets the bar drop below one tab. */
+    private val DEFAULT_TABS = listOf("Inbox", "Library", "Discover", "Settings")
+
+    /** Enable/disable a bottom-nav tab by destination name; never lets the bar drop below one tab.
+     *  Keeps the ordered list in sync (append on enable, drop on disable). */
     suspend fun setBottomTab(name: String, enabled: Boolean) = context.dataStore.edit { p ->
-        val current = p[Keys.BOTTOM_TABS] ?: setOf("Inbox", "Library", "Discover", "Settings")
+        val current = p[Keys.BOTTOM_TABS] ?: DEFAULT_TABS.toSet()
         val next = if (enabled) current + name else current - name
-        p[Keys.BOTTOM_TABS] = if (next.isEmpty()) setOf("Inbox") else next
+        val members = if (next.isEmpty()) setOf("Inbox") else next
+        p[Keys.BOTTOM_TABS] = members
+        // Maintain order: start from the stored order (or default), keep members, append new ones.
+        val order = (p[Keys.BOTTOM_TABS_ORDER]?.split(",")?.filter { it.isNotBlank() } ?: DEFAULT_TABS)
+        val reordered = order.filter { it in members } + members.filter { it !in order }
+        p[Keys.BOTTOM_TABS_ORDER] = reordered.joinToString(",")
+    }
+
+    /** Move a bottom-nav tab one slot earlier ([up]) or later within the ordered bar. */
+    suspend fun moveBottomTab(name: String, up: Boolean) = context.dataStore.edit { p ->
+        val members = p[Keys.BOTTOM_TABS] ?: DEFAULT_TABS.toSet()
+        val order = (p[Keys.BOTTOM_TABS_ORDER]?.split(",")?.filter { it.isNotBlank() } ?: DEFAULT_TABS)
+            .filter { it in members }.toMutableList()
+        val i = order.indexOf(name)
+        if (i < 0) return@edit
+        val j = if (up) i - 1 else i + 1
+        if (j < 0 || j >= order.size) return@edit
+        order[i] = order[j].also { order[j] = order[i] }
+        p[Keys.BOTTOM_TABS_ORDER] = order.joinToString(",")
     }
 
     /** Remember the library view mode for a specific scope, and make it the global default too,
@@ -271,6 +307,12 @@ class PreferencesRepository @Inject constructor(
 
     suspend fun setBackupIncludeOffline(enabled: Boolean) =
         context.dataStore.edit { it[Keys.BACKUP_INCLUDE_OFFLINE] = enabled }
+
+    suspend fun setTrashRetentionDays(days: Int) =
+        context.dataStore.edit { it[Keys.TRASH_RETENTION_DAYS] = days.coerceAtLeast(0) }
+
+    suspend fun setTtsEnabled(enabled: Boolean) =
+        context.dataStore.edit { it[Keys.TTS_ENABLED] = enabled }
 
     // -- Settings backup -------------------------------------------------------
     //

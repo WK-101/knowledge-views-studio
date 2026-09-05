@@ -3,8 +3,10 @@
 package com.cairn.reader.ui.notebook
 
 import android.content.Intent
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
@@ -24,8 +26,11 @@ import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -34,6 +39,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -68,6 +74,8 @@ fun NotebookScreen(
     val context = LocalContext.current
     val scheme = MaterialTheme.colorScheme
     var shareGroup by remember { mutableStateOf<NotebookGroup?>(null) }
+    var actionGroup by remember { mutableStateOf<NotebookGroup?>(null) }
+    var confirmDelete by remember { mutableStateOf<NotebookGroup?>(null) }
 
     fun send(text: String, subject: String) {
         val intent = Intent(Intent.ACTION_SEND).apply {
@@ -123,7 +131,12 @@ fun NotebookScreen(
                 verticalItemSpacing = 10.dp,
             ) {
                 items(groups, key = { it.itemId }) { group ->
-                    AnnotationCard(group, onClick = { onOpenItem(group.itemId) }, onShare = { shareGroup = group })
+                    AnnotationCard(
+                        group,
+                        onClick = { onOpenItem(group.itemId) },
+                        onLongClick = { actionGroup = group },
+                        onShare = { shareGroup = group },
+                    )
                 }
             }
         }
@@ -136,6 +149,84 @@ fun NotebookScreen(
             onShareHighlight = { h, fmt -> send(viewModel.renderHighlight(h, fmt), group.title) },
             onDismiss = { shareGroup = null },
         )
+    }
+
+    // Long-press on a card → per-entry actions.
+    actionGroup?.let { group ->
+        NotebookEntrySheet(
+            group = group,
+            onOpen = { onOpenItem(group.itemId); actionGroup = null },
+            onShare = { actionGroup = null; shareGroup = group },
+            onDelete = { actionGroup = null; confirmDelete = group },
+            onDismiss = { actionGroup = null },
+        )
+    }
+
+    confirmDelete?.let { group ->
+        val n = group.highlights.size
+        AlertDialog(
+            onDismissRequest = { confirmDelete = null },
+            title = { Text("Delete annotations?") },
+            text = {
+                Text("Remove all $n highlight${if (n == 1) "" else "s"} and note${if (n == 1) "" else "s"} from “${group.title}”. This can't be undone.")
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.removeGroup(group); confirmDelete = null }) {
+                    Text("Delete", color = scheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text("Cancel") } },
+        )
+    }
+}
+
+/** Long-press actions for one annotated entry: open it, share, or delete its annotations. */
+@Composable
+private fun NotebookEntrySheet(
+    group: NotebookGroup,
+    onOpen: () -> Unit,
+    onShare: () -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
+        Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+            Text(
+                group.title,
+                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
+                maxLines = 2, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 2.dp),
+            )
+            Text(
+                "${group.highlights.size} annotation${if (group.highlights.size == 1) "" else "s"}" +
+                    (group.site?.let { " · $it" } ?: ""),
+                style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
+            Spacer(Modifier.height(12.dp))
+            NotebookActionRow(Icons.AutoMirrored.Outlined.OpenInNew, "Open article", scheme.onSurface, onOpen)
+            NotebookActionRow(Icons.Outlined.IosShare, "Share annotations", scheme.onSurface, onShare)
+            NotebookActionRow(Icons.Outlined.DeleteOutline, "Delete annotations", scheme.error, onDelete)
+        }
+    }
+}
+
+@Composable
+private fun NotebookActionRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    tint: Color,
+    onClick: () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(20.dp),
+    ) {
+        Icon(icon, contentDescription = null, tint = tint)
+        Text(label, style = MaterialTheme.typography.bodyLarge, color = tint)
     }
 }
 
@@ -211,8 +302,9 @@ private fun AnnotationShareSheet(
 }
 
 /** One card per annotated article: cover, source, title, the top highlight, and a count. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AnnotationCard(group: NotebookGroup, onClick: () -> Unit, onShare: () -> Unit) {
+private fun AnnotationCard(group: NotebookGroup, onClick: () -> Unit, onLongClick: () -> Unit, onShare: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     // Guard against an empty group so composition never throws (was a NoSuchElementException).
     val top = group.highlights.firstOrNull() ?: return
@@ -220,7 +312,7 @@ private fun AnnotationCard(group: NotebookGroup, onClick: () -> Unit, onShare: (
         modifier = Modifier
             .clip(RoundedCornerShape(14.dp))
             .background(scheme.surfaceContainerLow)
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(bottom = 12.dp),
     ) {
         if (group.image != null) {

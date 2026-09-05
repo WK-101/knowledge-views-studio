@@ -45,6 +45,11 @@ class NotebookViewModel @Inject constructor(
 
     fun remove(id: String, itemId: String) = viewModelScope.launch { highlightRepository.remove(id, itemId) }
 
+    /** Remove every highlight belonging to one article (the whole notebook card). */
+    fun removeGroup(group: NotebookGroup) = viewModelScope.launch {
+        group.highlights.forEach { highlightRepository.remove(it.id, group.itemId) }
+    }
+
     /** Builds shareable Markdown for every highlight, off the main thread. */
     fun exportAll(onReady: (String) -> Unit) {
         viewModelScope.launch { onReady(highlightRepository.exportAll()) }

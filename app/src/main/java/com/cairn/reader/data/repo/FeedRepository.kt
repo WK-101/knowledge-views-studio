@@ -362,9 +362,12 @@ class FeedRepository @Inject constructor(
     /** Empty the Trash: permanently erase everything currently in it. */
     suspend fun emptyTrash() = itemDao.allTrashedIds().forEach { deleteItemFully(it) }
 
-    /** Auto-purge: permanently erase items that have been in the Trash past the grace period. */
+    /** Auto-purge: permanently erase items that have been in the Trash past the grace period.
+     *  The window is user-configurable; 0 means "never auto-purge — keep until emptied by hand". */
     suspend fun purgeExpiredTrash() {
-        val cutoff = System.currentTimeMillis() - trashRetentionDays * 86_400_000L
+        val days = runCatching { preferencesRepository.preferences.first().trashRetentionDays }.getOrDefault(trashRetentionDays)
+        if (days <= 0) return
+        val cutoff = System.currentTimeMillis() - days * 86_400_000L
         itemDao.trashedOlderThan(cutoff).forEach { deleteItemFully(it) }
     }
 

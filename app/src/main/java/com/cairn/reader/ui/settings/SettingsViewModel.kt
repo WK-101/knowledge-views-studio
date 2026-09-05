@@ -154,6 +154,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setBottomTab(name: String, enabled: Boolean) = viewModelScope.launch { preferencesRepository.setBottomTab(name, enabled) }
 
+    fun setTtsEnabled(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setTtsEnabled(enabled) }
+    fun setTrashRetentionDays(days: Int) = viewModelScope.launch { preferencesRepository.setTrashRetentionDays(days) }
+    fun moveBottomTab(name: String, up: Boolean) = viewModelScope.launch { preferencesRepository.moveBottomTab(name, up) }
+
     /** Point automatic backups at a folder the user picked (SAF tree URI), default to daily, run one now. */
     fun setBackupFolder(uri: String) = viewModelScope.launch {
         preferencesRepository.setBackupFolder(uri)

@@ -46,6 +46,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -214,94 +215,97 @@ fun ItemActionSheet(
     onDelete: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
+    val scheme = MaterialTheme.colorScheme
+    // Build every applicable action as data, then lay them out as compact cards, four per row,
+    // so the whole sheet stays short instead of a long column of full-width rows.
+    val actions = buildList {
+        add(SheetAction(
+            if (row.isRead) Icons.Outlined.MarkEmailUnread else Icons.Outlined.MarkEmailRead,
+            if (row.isRead) "Unread" else "Read",
+        ) { onMarkRead(!row.isRead); onDismiss() })
+        add(SheetAction(
+            if (row.isStarred) Icons.Outlined.Star else Icons.Outlined.StarBorder,
+            if (row.isStarred) "Unstar" else "Star",
+        ) { onToggleStar(!row.isStarred); onDismiss() })
+        add(SheetAction(
+            if (row.isReadLater) Icons.Filled.Bookmark else Icons.Outlined.Bookmark,
+            if (row.isReadLater) "Unsave" else "Save",
+        ) { onToggleSave(!row.isReadLater); onDismiss() })
+        add(SheetAction(Icons.Filled.Archive, "Archive") { onArchive(); onDismiss() })
+        if (onSaveOffline != null && row.type != "PDF") {
+            val permanent = row.cacheStatus == "PERMANENT"
+            add(SheetAction(
+                if (permanent) Icons.Outlined.OfflinePin else Icons.Outlined.DownloadForOffline,
+                if (permanent) "Offline ✓" else "Offline",
+            ) { if (!permanent) onSaveOffline(); onDismiss() })
+        }
+        if (onMarkAbove != null) add(SheetAction(Icons.Outlined.KeyboardArrowUp, "Read up") { onMarkAbove(); onDismiss() })
+        if (onMarkBelow != null) add(SheetAction(Icons.Outlined.KeyboardArrowDown, "Read down") { onMarkBelow(); onDismiss() })
+        add(SheetAction(Icons.AutoMirrored.Outlined.OpenInNew, "Original") { onOpenOriginal(); onDismiss() })
+        add(SheetAction(Icons.Outlined.Share, "Share") {
+            val share = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"; putExtra(Intent.EXTRA_TEXT, row.url); putExtra(Intent.EXTRA_SUBJECT, row.title)
+            }
+            runCatching { context.startActivity(Intent.createChooser(share, null)) }
+            onDismiss()
+        })
+        if (onDelete != null) add(SheetAction(Icons.Outlined.DeleteOutline, "Trash", destructive = true) { onDelete(); onDismiss() })
+    }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
-        Column(Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+        Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 20.dp)) {
             Text(
                 text = row.title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             )
             (row.sourceTitle ?: row.siteName)?.let {
-                Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp))
+                Text(it, style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
             }
-            Spacer(Modifier.height(8.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(8.dp))
-
-            ActionItem(
-                icon = if (row.isRead) Icons.Outlined.MarkEmailUnread else Icons.Outlined.MarkEmailRead,
-                label = if (row.isRead) "Mark as unread" else "Mark as read",
-            ) { onMarkRead(!row.isRead); onDismiss() }
-
-            if (onMarkAbove != null) {
-                ActionItem(icon = Icons.Outlined.KeyboardArrowUp, label = "Mark newer as read") { onMarkAbove(); onDismiss() }
-            }
-            if (onMarkBelow != null) {
-                ActionItem(icon = Icons.Outlined.KeyboardArrowDown, label = "Mark older as read") { onMarkBelow(); onDismiss() }
-            }
-
-            ActionItem(
-                icon = if (row.isStarred) Icons.Outlined.Star else Icons.Outlined.StarBorder,
-                label = if (row.isStarred) "Remove star" else "Star",
-            ) { onToggleStar(!row.isStarred); onDismiss() }
-
-            ActionItem(
-                icon = if (row.isReadLater) Icons.Filled.Bookmark else Icons.Outlined.Bookmark,
-                label = if (row.isReadLater) "Remove from Saved" else "Save for later",
-            ) { onToggleSave(!row.isReadLater); onDismiss() }
-
-            ActionItem(icon = Icons.Filled.Archive, label = "Archive") { onArchive(); onDismiss() }
-
-            if (onSaveOffline != null && row.type != "PDF") {
-                val permanent = row.cacheStatus == "PERMANENT"
-                ActionItem(
-                    icon = if (permanent) Icons.Outlined.OfflinePin else Icons.Outlined.DownloadForOffline,
-                    label = if (permanent) "Saved offline" else "Save offline",
-                ) { if (!permanent) onSaveOffline(); onDismiss() }
-            }
-
-            ActionItem(icon = Icons.AutoMirrored.Outlined.OpenInNew, label = "Open original") { onOpenOriginal(); onDismiss() }
-
-            ActionItem(icon = Icons.Outlined.Share, label = "Share link") {
-                val share = Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_TEXT, row.url)
-                    putExtra(Intent.EXTRA_SUBJECT, row.title)
+            Spacer(Modifier.height(12.dp))
+            // Four-column grid of action cards.
+            actions.chunked(4).forEach { rowActions ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    rowActions.forEach { a ->
+                        ActionCard(a, Modifier.weight(1f))
+                    }
+                    // Pad the final row so cards keep a consistent width.
+                    repeat(4 - rowActions.size) { Spacer(Modifier.weight(1f)) }
                 }
-                runCatching { context.startActivity(Intent.createChooser(share, null)) }
-                onDismiss()
-            }
-
-            if (onDelete != null) {
-                HorizontalDivider(Modifier.padding(vertical = 4.dp))
-                ActionItem(
-                    icon = Icons.Outlined.DeleteOutline,
-                    label = "Move to Trash",
-                    tint = MaterialTheme.colorScheme.error,
-                    textColor = MaterialTheme.colorScheme.error,
-                ) { onDelete(); onDismiss() }
             }
         }
     }
 }
 
+private class SheetAction(
+    val icon: ImageVector,
+    val label: String,
+    val destructive: Boolean = false,
+    val onClick: () -> Unit,
+)
+
 @Composable
-private fun ActionItem(
-    icon: ImageVector,
-    label: String,
-    tint: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurfaceVariant,
-    textColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(20.dp),
+private fun ActionCard(action: SheetAction, modifier: Modifier = Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    val content = if (action.destructive) scheme.error else scheme.onSurfaceVariant
+    Column(
+        modifier = modifier
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+            .background(scheme.surfaceContainerHighest)
+            .clickable(onClick = action.onClick)
+            .padding(vertical = 12.dp, horizontal = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp), tint = tint)
-        Text(label, style = MaterialTheme.typography.bodyLarge, color = textColor)
+        Icon(action.icon, contentDescription = null, modifier = Modifier.size(22.dp), tint = content)
+        Text(
+            action.label,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (action.destructive) scheme.error else scheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
