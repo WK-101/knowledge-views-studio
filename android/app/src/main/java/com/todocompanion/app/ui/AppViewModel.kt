@@ -3997,6 +3997,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- settings ----------
     fun saveSettings(s: AppSettings) = viewModelScope.launch { repo.saveSettings(s) }
 
+    /** Persist the daily-review SHARE config — the modular "what to include in my shared day card" model.
+     *  One settings JSON value (no schema change); the Share dialog calls this as the user toggles sections. */
+    fun saveDayShareConfig(config: com.todocompanion.app.domain.DayShareConfig) = viewModelScope.launch {
+        repo.saveSettings(settings.value.copy(dayShareConfigJson = com.todocompanion.app.domain.DayShareConfigs.encode(config)))
+    }
+
     /** R58 — record a colour into the shared recent-colours list (most-recent first, deduped, capped at 12),
      * so every unified colour picker across the app remembers what you last used. */
     fun rememberRecentColor(argb: Long) = viewModelScope.launch {

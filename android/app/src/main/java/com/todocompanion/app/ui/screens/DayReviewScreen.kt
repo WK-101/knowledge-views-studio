@@ -1,6 +1,7 @@
 package com.todocompanion.app.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -30,7 +32,6 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Button
@@ -39,11 +40,13 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -60,7 +63,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -72,6 +77,11 @@ import com.todocompanion.app.domain.DailyQuestion
 import com.todocompanion.app.domain.DailyQuestions
 import com.todocompanion.app.domain.DayAlignment
 import com.todocompanion.app.domain.DayAlignments
+import com.todocompanion.app.domain.DayShareConfig
+import com.todocompanion.app.domain.DayShareConfigs
+import com.todocompanion.app.domain.HabitDetail
+import com.todocompanion.app.domain.TaskDetail
+import com.todocompanion.app.domain.TimeDetail
 import com.todocompanion.app.domain.EmotionWords
 import com.todocompanion.app.domain.DayMemories
 import com.todocompanion.app.domain.ExecutionScore
@@ -252,7 +262,6 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
     fun timeLabel(ms: Long) = Instant.ofEpochMilli(ms).atZone(zone).toLocalTime().let { "%02d:%02d".format(it.hour, it.minute) }
     fun mood(v: Int) = when (v) { 1 -> "😞"; 2 -> "🙁"; 3 -> "😐"; 4 -> "🙂"; 5 -> "😄"; else -> "" }
     fun outcomeLabel(v: Int) = when (v) { 1 -> "Not yet"; 2 -> "Partly"; 3 -> "Done"; else -> "" }
-    val reflectionLine = bookend?.let { it.highlight.ifBlank { it.pmReflection } } ?: ""
 
     // Wave 2 (feature 8) — local memory resurfacing: one past moment from the same date in a prior
     // year/month, or a recent good moment worth savouring. Computed on-device from the loaded day logs.
@@ -906,31 +915,86 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
         )
     }
 
+    // ── The redesigned modular day share ──
+    // Themes / pattern are computed on the fly from the day's own data (no schema change). Themes are the
+    // salient content words of the day's reflection texts; the pattern is one soft, non-causal observation
+    // mined from the trailing window (ReviewInsights.nudge), computed for the shared day (not just today).
+    val shareThemes = remember(bookend) {
+        val docs = listOfNotNull(
+            bookend?.pmReflection, bookend?.highlight, bookend?.lesson, bookend?.gratitude,
+            bookend?.good1, bookend?.good2, bookend?.good3, bookend?.promptAnswer,
+        ).filter { it.isNotBlank() }
+        TextInsights.themes(docs, topN = 3, minDocuments = 1).map { it.display }
+    }
+    val sharePattern = remember(day, dayLogs, questions, habits, checkins, timeEntries, activities) {
+        ReviewInsights.nudge(day - 89, day, dayLogs, questions, habits, checkins, timeEntries, activities, zone, System.currentTimeMillis())?.text ?: ""
+    }
+    val shareData = remember(
+        date, bookend, wins, tasksDone, expected, checkins, habitsKept, habitsExpected, tracked, activities,
+        trackedTotal, questions, todayScores, movedGoals, honoredValues, shareThemes, sharePattern, settings.accentArgb, day,
+    ) {
+        DayCard.DayShareData(
+            dateLabel = date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault()) + ", " + date.dayOfMonth + " " + date.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
+            rating = bookend?.dayRating ?: 0,
+            moodEmoji = mood(bookend?.pmMood ?: 0),
+            energy = bookend?.energy ?: 0,
+            emotion = bookend?.emotionLabel ?: "",
+            wins = wins.map { it.title },
+            highlight = bookend?.highlight ?: "",
+            gratitude = listOfNotNull(bookend?.good1, bookend?.good2, bookend?.good3).filter { it.isNotBlank() }
+                .ifEmpty { listOfNotNull(bookend?.gratitude).filter { it.isNotBlank() } },
+            lesson = bookend?.lesson ?: "",
+            reflection = bookend?.pmReflection ?: "",
+            themes = shareThemes,
+            taskTitles = tasksDone.map { it.title },
+            taskCount = tasksDone.size,
+            habits = expected.map { h ->
+                val cnt = checkins.firstOrNull { it.habitId == h.id && it.epochDay == day }?.count ?: 0
+                val target = h.targetPerDay.coerceAtLeast(1)
+                DayCard.HabitLine(
+                    name = h.name,
+                    kept = HabitStats.meetsGoal(h, cnt),
+                    detail = if (target > 1) "$cnt/$target${h.unit?.let { " $it" } ?: ""}" else "",
+                )
+            },
+            habitsKept = habitsKept.size,
+            habitsExpected = habitsExpected,
+            activities = tracked.entries.sortedByDescending { it.value }.map { (actId, min) ->
+                DayCard.ActivityLine(activities.firstOrNull { it.id == actId }?.name ?: "—", min)
+            },
+            trackedMin = trackedTotal,
+            questions = questions.mapNotNull { q ->
+                val s = todayScores[q.id] ?: 0
+                if (s in 1..5) DayCard.QuestionLine(q.text, s) else null
+            },
+            goalsAdvanced = movedGoals.map { "${it.emoji} ${it.name}" },
+            valuesHonored = honoredValues.map { v -> (v.emoji?.let { "$it " } ?: "") + v.name },
+            tomorrowFocus = bookend?.tomorrowFocus ?: "",
+            woopObstacle = bookend?.tomorrowObstacle ?: "",
+            woopPlan = bookend?.tomorrowPlan ?: "",
+            pattern = sharePattern,
+            accentArgb = settings.accentArgb.takeIf { it != 0L },
+        )
+    }
+    val shareCfg = remember(settings.dayShareConfigJson) { DayShareConfigs.parse(settings.dayShareConfigJson) }
     if (showShare) ShareDialog(
-        onDismiss = { showShare = false },
-        onShare = { includeTitles, includeReflection, asImage ->
-            val data = DayCard.Data(
-                dateLabel = date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault()) + ", " + date.dayOfMonth + " " + date.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
-                rating = bookend?.dayRating ?: 0,
-                done = tasksDone.size, habitsKept = habitsKept.size, habitsExpected = habitsExpected,
-                focusMin = focusMin, trackedMin = trackedTotal,
-                wins = if (includeTitles) wins.map { it.title } else emptyList(),
-                reflection = if (includeReflection) reflectionLine else "",
-                moodEmoji = mood(bookend?.pmMood ?: 0),
-                accentArgb = settings.accentArgb.takeIf { it != 0L },
-            )
-            if (asImage) {
-                val bmp = DayCard.render(data)
-                val res = ProgressCard.saveAndShareUri(ctx, bmp, "kairo-day-$day.png")
-                res.shareUri?.let { ProgressCard.share(ctx, it) }
-            } else {
-                val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                    type = "text/plain"; putExtra(android.content.Intent.EXTRA_TEXT, DayCard.text(data))
-                }
-                runCatching { ctx.startActivity(android.content.Intent.createChooser(send, "Share my day").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
-            }
+        initial = shareCfg,
+        data = shareData,
+        onPersist = { vm.saveDayShareConfig(it) },
+        onShareImage = { cfg ->
+            val bmp = DayCard.renderShare(shareData, cfg)
+            val res = ProgressCard.saveAndShareUri(ctx, bmp, "kairo-day-$day.png")
+            res.shareUri?.let { ProgressCard.share(ctx, it) }
             showShare = false
         },
+        onShareText = { cfg ->
+            val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "text/plain"; putExtra(android.content.Intent.EXTRA_TEXT, DayCard.shareText(shareData, cfg))
+            }
+            runCatching { ctx.startActivity(android.content.Intent.createChooser(send, "Share my day").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            showShare = false
+        },
+        onDismiss = { showShare = false },
     )
 
     // ── Wave 3 (A) — write & seal a letter to future me. Reuses R32's VM path (sealed store + tamper-
@@ -1853,28 +1917,153 @@ private fun DailyQuestionsDialog(
     )
 }
 
+/**
+ * The redesigned modular share dialog. Reads the persisted [DayShareConfig], shows grouped section
+ * controls (a Switch per boolean section, a segmented [OptionChips] for the three tri-state choices), and
+ * a LIVE bitmap preview that re-renders as the config changes. Sections with no data for the day are
+ * greyed / hinted, and the renderer skips any enabled-but-empty section so the preview never shows a gap.
+ * Every change is persisted immediately (so the choices are remembered), and the actions build the card /
+ * text from the day's data and hand off to the FileProvider + ACTION_SEND path (image) or ACTION_SEND
+ * text/plain (text). Theme-correct: only MaterialTheme.colorScheme tokens (the card image keeps its own
+ * fixed dark palette — it's a rendered PNG).
+ */
 @Composable
-private fun ShareDialog(onDismiss: () -> Unit, onShare: (includeTitles: Boolean, includeReflection: Boolean, asImage: Boolean) -> Unit) {
-    var includeTitles by remember { mutableStateOf(true) }
-    var includeReflection by remember { mutableStateOf(true) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = { onShare(includeTitles, includeReflection, true) }) { Text("Share image") } },
-        dismissButton = { TextButton(onClick = { onShare(includeTitles, includeReflection, false) }) { Text("Share text") } },
-        title = { Text("Share your day") },
-        text = {
-            Column {
-                Text("Choose what to include. Everything stays on your device until you pick where to send it.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(8.dp))
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { includeTitles = !includeTitles }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(includeTitles, { includeTitles = it }); Text("Include win titles")
+private fun ShareDialog(
+    initial: DayShareConfig,
+    data: DayCard.DayShareData,
+    onPersist: (DayShareConfig) -> Unit,
+    onShareImage: (DayShareConfig) -> Unit,
+    onShareText: (DayShareConfig) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var cfg by remember { mutableStateOf(initial) }
+    fun update(next: DayShareConfig) { cfg = next; onPersist(next) }
+    // Live preview — a cheap Canvas draw, recomputed whenever the config (or day's data) changes.
+    val preview = remember(cfg, data) { DayCard.renderShare(data, cfg).asImageBitmap() }
+
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp,
+            modifier = Modifier.fillMaxWidth(0.94f).fillMaxHeight(0.9f),
+        ) {
+            Column(Modifier.fillMaxSize().padding(20.dp)) {
+                Text("Share your day", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text("Choose what to include. Everything stays on your device until you pick where to send it.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(12.dp))
+                // Live preview of the rendered card.
+                Box(
+                    Modifier.fillMaxWidth().heightIn(max = 240.dp).clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Image(
+                        bitmap = preview, contentDescription = "Card preview",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp).padding(8.dp),
+                    )
                 }
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { includeReflection = !includeReflection }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(includeReflection, { includeReflection = it }); Text("Include a line of reflection")
+                Spacer(Modifier.height(12.dp))
+                // Grouped, scrollable section controls.
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                    ShareGroup("Felt state") {
+                        ShareToggle("Rating", "★ stars", cfg.rating, data.rating in 1..5) { update(cfg.copy(rating = it)) }
+                        ShareToggle("Mood & emotion", "mood, energy, feeling", cfg.moodEnergyEmotion,
+                            data.moodEmoji.isNotBlank() || data.emotion.isNotBlank() || data.energy in 1..5) { update(cfg.copy(moodEnergyEmotion = it)) }
+                    }
+                    ShareGroup("Highlights") {
+                        ShareToggle("Wins", null, cfg.wins, data.wins.isNotEmpty()) { update(cfg.copy(wins = it)) }
+                        ShareToggle("Highlight", null, cfg.highlight, data.highlight.isNotBlank()) { update(cfg.copy(highlight = it)) }
+                        ShareToggle("Grateful for", "three good things", cfg.gratitude, data.gratitude.isNotEmpty()) { update(cfg.copy(gratitude = it)) }
+                        ShareToggle("Lesson", null, cfg.lesson, data.lesson.isNotBlank()) { update(cfg.copy(lesson = it)) }
+                    }
+                    ShareGroup("Reflection") {
+                        ShareToggle("Reflection", null, cfg.reflection, data.reflection.isNotBlank()) { update(cfg.copy(reflection = it)) }
+                        ShareToggle("Themes", "recurring words", cfg.themes, data.themes.isNotEmpty()) { update(cfg.copy(themes = it)) }
+                    }
+                    ShareGroup("Tasks") {
+                        ShareTriState(TaskDetail.entries, cfg.tasks, data.taskCount > 0, "No tasks completed",
+                            { when (it) { TaskDetail.OFF -> "Off"; TaskDetail.COUNT -> "Count"; TaskDetail.FULL -> "Full list" } }) { update(cfg.copy(tasks = it)) }
+                    }
+                    ShareGroup("Habits") {
+                        ShareTriState(HabitDetail.entries, cfg.habits, data.habitsExpected > 0, "No habits due",
+                            { when (it) { HabitDetail.OFF -> "Off"; HabitDetail.COUNT -> "Count"; HabitDetail.DETAILED -> "Detailed" } }) { update(cfg.copy(habits = it)) }
+                    }
+                    ShareGroup("Tracked time") {
+                        ShareTriState(TimeDetail.entries, cfg.time, data.trackedMin > 0, "Nothing tracked",
+                            { when (it) { TimeDetail.OFF -> "Off"; TimeDetail.TOTAL -> "Total"; TimeDetail.DETAILED -> "Detailed" } }) { update(cfg.copy(time = it)) }
+                    }
+                    ShareGroup("Assessments") {
+                        ShareToggle("Daily questions", "answered + scores", cfg.dailyQuestions, data.questions.isNotEmpty()) { update(cfg.copy(dailyQuestions = it)) }
+                        ShareToggle("Alignment", "goals & values", cfg.alignment, data.goalsAdvanced.isNotEmpty() || data.valuesHonored.isNotEmpty()) { update(cfg.copy(alignment = it)) }
+                    }
+                    ShareGroup("Tomorrow") {
+                        ShareToggle("Focus", "the one thing", cfg.tomorrowFocus, data.tomorrowFocus.isNotBlank()) { update(cfg.copy(tomorrowFocus = it)) }
+                        ShareToggle("If-then plan", "obstacle + plan", cfg.woop, data.woopObstacle.isNotBlank() || data.woopPlan.isNotBlank()) { update(cfg.copy(woop = it)) }
+                    }
+                    ShareGroup("Insights") {
+                        ShareToggle("A pattern", "a soft observation", cfg.pattern, data.pattern.isNotBlank()) { update(cfg.copy(pattern = it)) }
+                    }
+                    ShareGroup("Footer") {
+                        ShareToggle("Tagline", "Kairo · 100% offline", cfg.footerTagline, true) { update(cfg.copy(footerTagline = it)) }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = onDismiss) { Text("Cancel") }
+                    Spacer(Modifier.width(4.dp))
+                    OutlinedButton(onClick = { onShareText(cfg) }) { Text("Share text") }
+                    Spacer(Modifier.width(8.dp))
+                    Button(onClick = { onShareImage(cfg) }) { Text("Share image") }
                 }
             }
-        },
-    )
+        }
+    }
+}
+
+/** A titled group of share-section controls, closed with a subtle divider — the calm grouping idiom. */
+@Composable
+private fun ShareGroup(title: String, content: @Composable () -> Unit) {
+    Text(title.uppercase(Locale.getDefault()), style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
+    content()
+    HorizontalDivider(Modifier.padding(top = 6.dp), color = MaterialTheme.colorScheme.outlineVariant)
+}
+
+/** One boolean share section: a tappable row with a title, an optional hint, and a Switch. When the day
+ *  has no data for it the row is greyed, hinted "Nothing recorded", and the Switch is disabled. */
+@Composable
+private fun ShareToggle(title: String, subtitle: String?, checked: Boolean, enabled: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+            .then(if (enabled) Modifier.clickable { onCheckedChange(!checked) } else Modifier)
+            .padding(vertical = 6.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyMedium,
+                color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+            val sub = if (!enabled) "Nothing recorded" else subtitle
+            if (sub != null) Text(sub, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(checked = checked && enabled, onCheckedChange = onCheckedChange, enabled = enabled)
+    }
+}
+
+/** One tri-state share section: a segmented [OptionChips] selector, or a greyed hint when the day has no
+ *  data for it (so the preview can never show an empty section). */
+@Composable
+private fun <T> ShareTriState(options: List<T>, selected: T, enabled: Boolean, emptyHint: String, label: (T) -> String, onSelect: (T) -> Unit) {
+    if (!enabled) {
+        Text(emptyHint, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp))
+        return
+    }
+    OptionChips(options = options, selected = selected, onSelect = onSelect, wrap = false, label = label,
+        modifier = Modifier.padding(vertical = 4.dp))
 }
 
 /** Phase D — the Day Review's range mode. Day is the full close-the-day screen; Week/Month roll up. */

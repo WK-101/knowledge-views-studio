@@ -4,6 +4,10 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Typeface
+import com.todocompanion.app.domain.DayShareConfig
+import com.todocompanion.app.domain.HabitDetail
+import com.todocompanion.app.domain.TaskDetail
+import com.todocompanion.app.domain.TimeDetail
 import kotlin.math.roundToInt
 
 /**
@@ -115,6 +119,289 @@ object DayCard {
         if (d.wins.isNotEmpty()) { append("\nWins:\n"); d.wins.take(3).forEach { append("⭐ $it\n") } }
         if (d.reflection.isNotBlank()) append("\n“${d.reflection}”\n")
         append("\n— via Kairo")
+    }
+
+    // ── Daily-review SHARE redesign · a config-driven, variable-height "My day" card ──────────────────
+    //
+    // The redesigned day share is modular: [DayShareData] carries every optional block the day can offer,
+    // and [DayShareConfig] (domain/) decides which blocks are drawn. [renderShare] lays the enabled blocks
+    // out top-to-bottom on a VARIABLE-HEIGHT bitmap (width fixed at 1080, height measured from the content
+    // and clamped to a sane maximum), keeping the existing dark palette + visual language (accent eyebrow,
+    // bold headline, accent section labels, footer). The old fixed-height [render]/[text] paths are
+    // untouched, so week/year/recap keep working. A block never renders when its data is empty, so an
+    // enabled-but-empty section can never leave a gap in the card or its preview.
+
+    /** One habit line for the DETAILED habits block: its name, whether it was kept, and an optional
+     *  numeric detail ("3/5 glasses"). */
+    data class HabitLine(val name: String, val kept: Boolean, val detail: String)
+
+    /** One activity line for the DETAILED tracked-time block: its name and minutes tracked. */
+    data class ActivityLine(val name: String, val minutes: Int)
+
+    /** One answered daily-question line: the (shortened) question and its 1–5 effort score. */
+    data class QuestionLine(val label: String, val score: Int)
+
+    /**
+     * Everything the redesigned day card can show — the superset of blocks. The caller fills every field
+     * from the day's data; [DayShareConfig] then selects which are actually drawn. Anything blank/empty is
+     * simply skipped, so the same data object serves any config.
+     */
+    data class DayShareData(
+        val dateLabel: String,
+        val rating: Int,                 // 0 unset, 1–5
+        val moodEmoji: String,           // "" = none
+        val energy: Int,                 // 0 unset, 1–5
+        val emotion: String,             // the named emotion word; "" = none
+        val wins: List<String>,
+        val highlight: String,
+        val gratitude: List<String>,     // three good things (each may carry its inline "…and why")
+        val lesson: String,
+        val reflection: String,
+        val themes: List<String>,        // top recurring theme words
+        val taskTitles: List<String>,
+        val taskCount: Int,
+        val habits: List<HabitLine>,
+        val habitsKept: Int,
+        val habitsExpected: Int,
+        val activities: List<ActivityLine>,
+        val trackedMin: Int,
+        val questions: List<QuestionLine>,
+        val goalsAdvanced: List<String>,
+        val valuesHonored: List<String>,
+        val tomorrowFocus: String,
+        val woopObstacle: String,
+        val woopPlan: String,
+        val pattern: String,             // a single soft, non-causal observation ("" = none)
+        val accentArgb: Long?,
+    )
+
+    /** One laid-out block: how much vertical space it takes, and how to draw itself with its top at [y]. */
+    private class Block(val h: Float, val draw: (Canvas, Float) -> Unit)
+
+    private const val SHARE_MAX_H = 6000
+
+    /** Render the day card honouring [cfg], drawing only the enabled, non-empty blocks on a variable-height
+     *  bitmap. Never throws / never blank — guarded end-to-end with a minimal fallback. */
+    fun renderShare(d: DayShareData, cfg: DayShareConfig): Bitmap {
+        val accent = d.accentArgb?.toInt() ?: 0xFF6650A4.toInt()
+        val bg = 0xFF16121F.toInt()
+        val onBg = 0xFFEDE8F5.toInt()
+        val muted = 0xFF9B93AC.toInt()
+        try {
+            val bold = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = onBg; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD) }
+            val reg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = muted; typeface = Typeface.DEFAULT }
+            val left = 72f
+            val contentW = (W - 144).toFloat()
+
+            val blocks = mutableListOf<Block>()
+            var used = 0f
+            fun add(b: Block) { blocks.add(b); used += b.h }
+            fun gap(h: Float) = add(Block(h) { _, _ -> })
+
+            fun label(text: String) = add(Block(52f) { c, top ->
+                reg.textSize = 34f; reg.color = accent; reg.typeface = Typeface.DEFAULT
+                c.drawText(text, left, top + 38f, reg)
+            })
+            fun statLine(text: String, size: Float = 50f, color: Int = onBg, rowH: Float = 82f) = add(Block(rowH) { c, top ->
+                bold.textSize = size; bold.color = color; bold.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                c.drawText(ellipsize(text, bold, contentW), left, top + size * 0.86f, bold)
+            })
+            fun paragraph(text: String, size: Float = 42f, italic: Boolean = true, maxLines: Int = 6) {
+                val face = Typeface.create(Typeface.DEFAULT, if (italic) Typeface.ITALIC else Typeface.BOLD)
+                bold.textSize = size; bold.typeface = face
+                val lines = wrap(text, bold, contentW).take(maxLines)
+                if (lines.isEmpty()) return
+                val lineH = size * 1.38f
+                add(Block(lines.size * lineH) { c, top ->
+                    bold.textSize = size; bold.color = onBg; bold.typeface = face
+                    var y = top + size
+                    lines.forEach { ln -> c.drawText(ln, left, y, bold); y += lineH }
+                    bold.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                })
+            }
+            // A labelled list: as many rows as fit under the height cap, then a "+N more" line for the rest.
+            fun listSection(labelText: String, items: List<String>, rowH: Float = 60f, size: Float = 42f) {
+                if (items.isEmpty()) return
+                label(labelText)
+                val budget = (SHARE_MAX_H - used - 240f).coerceAtLeast(rowH)
+                val maxRows = (budget / rowH).toInt().coerceAtLeast(1)
+                val shown = if (items.size <= maxRows) items else items.take((maxRows - 1).coerceAtLeast(1))
+                shown.forEach { row ->
+                    add(Block(rowH) { c, top ->
+                        bold.textSize = size; bold.color = onBg; bold.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                        c.drawText(ellipsize(row, bold, contentW), left, top + size * 0.9f, bold)
+                    })
+                }
+                val remaining = items.size - shown.size
+                if (remaining > 0) add(Block(rowH) { c, top ->
+                    reg.textSize = 34f; reg.color = muted; reg.typeface = Typeface.DEFAULT
+                    c.drawText("+$remaining more", left, top + 30f, reg)
+                })
+            }
+
+            // ── Header ──
+            gap(72f)
+            label("MY DAY")
+            add(Block(96f) { c, top ->
+                bold.textSize = 72f; bold.color = onBg; bold.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                c.drawText(ellipsize(d.dateLabel, bold, contentW), left, top + 74f, bold)
+            })
+            gap(24f)
+
+            // ── Felt state ──
+            if (cfg.rating && d.rating in 1..5) add(Block(96f) { c, top ->
+                bold.textSize = 80f; bold.color = accent; bold.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                c.drawText("★".repeat(d.rating) + "☆".repeat(5 - d.rating), left, top + 74f, bold)
+            })
+            if (cfg.moodEnergyEmotion) {
+                val moodEmotion = listOf(d.moodEmoji, d.emotion).filter { it.isNotBlank() }.joinToString("   ")
+                if (moodEmotion.isNotBlank()) statLine(moodEmotion, size = 56f, rowH = 86f)
+                if (d.energy in 1..5) add(Block(56f) { c, top ->
+                    reg.textSize = 38f; reg.color = muted; reg.typeface = Typeface.DEFAULT
+                    c.drawText("Energy  " + "◆".repeat(d.energy) + "◇".repeat(5 - d.energy), left, top + 40f, reg)
+                })
+            }
+            gap(20f)
+
+            // ── Compact counts (tasks / habits / time in their count-mode) ──
+            val counts = buildList {
+                if (cfg.tasks == TaskDetail.COUNT) add("✓  ${d.taskCount} done")
+                if (cfg.habits == HabitDetail.COUNT && d.habitsExpected > 0) add("🔁  ${d.habitsKept}/${d.habitsExpected} habits")
+                if (cfg.time == TimeDetail.TOTAL && d.trackedMin > 0) add("⧗  ${hm(d.trackedMin)} tracked")
+            }
+            counts.forEach { statLine(it) }
+            if (counts.isNotEmpty()) gap(14f)
+
+            // ── Highlights ──
+            if (cfg.wins && d.wins.isNotEmpty()) { listSection("WINS", d.wins.map { "⭐  $it" }, rowH = 64f, size = 44f); gap(12f) }
+            if (cfg.highlight && d.highlight.isNotBlank()) { label("HIGHLIGHT"); paragraph(d.highlight, size = 42f, italic = false, maxLines = 3); gap(12f) }
+            if (cfg.gratitude && d.gratitude.isNotEmpty()) { listSection("GRATEFUL FOR", d.gratitude.map { "🙏  $it" }, rowH = 64f, size = 42f); gap(12f) }
+            if (cfg.lesson && d.lesson.isNotBlank()) { label("LESSON"); paragraph(d.lesson, size = 42f, italic = false, maxLines = 3); gap(12f) }
+
+            // ── Reflection ──
+            if (cfg.reflection && d.reflection.isNotBlank()) { label("REFLECTION"); paragraph(d.reflection, size = 42f, italic = true, maxLines = 6); gap(8f) }
+            if (cfg.themes && d.themes.isNotEmpty()) {
+                add(Block(60f) { c, top ->
+                    reg.textSize = 36f; reg.color = accent; reg.typeface = Typeface.DEFAULT
+                    c.drawText(ellipsize("Themes · " + d.themes.joinToString(" · "), reg, contentW), left, top + 40f, reg)
+                })
+                gap(12f)
+            }
+
+            // ── Tasks (FULL) · Habits (DETAILED) · Tracked time (DETAILED) ──
+            if (cfg.tasks == TaskDetail.FULL && d.taskTitles.isNotEmpty()) {
+                listSection("COMPLETED · ${d.taskCount}", d.taskTitles.map { "✓  $it" }, rowH = 56f, size = 40f); gap(12f)
+            }
+            if (cfg.habits == HabitDetail.DETAILED && d.habits.isNotEmpty()) {
+                val rows = d.habits.map { h -> (if (h.kept) "✓" else "○") + "  " + h.name + (if (h.detail.isNotBlank()) "   ${h.detail}" else "") }
+                listSection("HABITS · ${d.habitsKept}/${d.habitsExpected}", rows, rowH = 56f, size = 40f); gap(12f)
+            }
+            if (cfg.time == TimeDetail.DETAILED && d.activities.isNotEmpty()) {
+                val rows = d.activities.map { "${it.name}   ${hm(it.minutes)}" }
+                listSection("TIME · ${hm(d.trackedMin)}", rows, rowH = 56f, size = 40f); gap(12f)
+            }
+
+            // ── Assessments ──
+            if (cfg.dailyQuestions && d.questions.isNotEmpty()) {
+                val rows = d.questions.map { q -> "★".repeat(q.score.coerceIn(0, 5)) + "  " + q.label }
+                listSection("DAILY QUESTIONS", rows, rowH = 58f, size = 38f); gap(12f)
+            }
+            if (cfg.alignment && (d.goalsAdvanced.isNotEmpty() || d.valuesHonored.isNotEmpty())) {
+                label("ALIGNMENT")
+                if (d.goalsAdvanced.isNotEmpty()) statLine("🎯  " + d.goalsAdvanced.joinToString(", "), size = 40f, rowH = 60f)
+                if (d.valuesHonored.isNotEmpty()) statLine("🧭  " + d.valuesHonored.joinToString(", "), size = 40f, rowH = 60f)
+                gap(12f)
+            }
+
+            // ── Tomorrow ──
+            val showTomorrow = (cfg.tomorrowFocus && d.tomorrowFocus.isNotBlank()) ||
+                (cfg.woop && (d.woopObstacle.isNotBlank() || d.woopPlan.isNotBlank()))
+            if (showTomorrow) {
+                label("TOMORROW")
+                if (cfg.tomorrowFocus && d.tomorrowFocus.isNotBlank()) paragraph("🎯  ${d.tomorrowFocus}", size = 42f, italic = false, maxLines = 2)
+                if (cfg.woop && d.woopObstacle.isNotBlank()) paragraph("🧱  ${d.woopObstacle}", size = 38f, italic = false, maxLines = 2)
+                if (cfg.woop && d.woopPlan.isNotBlank()) paragraph("🧭  ${d.woopPlan}", size = 38f, italic = false, maxLines = 2)
+                gap(12f)
+            }
+
+            // ── Insights ──
+            if (cfg.pattern && d.pattern.isNotBlank()) { label("A PATTERN"); paragraph(d.pattern, size = 38f, italic = true, maxLines = 4); gap(8f) }
+
+            // ── Footer ──
+            if (cfg.footerTagline) {
+                gap(24f)
+                add(Block(70f) { c, top ->
+                    reg.textSize = 32f; reg.color = muted; reg.typeface = Typeface.DEFAULT
+                    c.drawText("Kairo · a day, closed · 100% offline", left, top + 40f, reg)
+                })
+            } else gap(48f)
+
+            val h = used.roundToInt().coerceIn(360, SHARE_MAX_H)
+            val bmp = Bitmap.createBitmap(W, h, Bitmap.Config.ARGB_8888)
+            val c = Canvas(bmp)
+            c.drawColor(bg)
+            var y = 0f
+            for (b in blocks) { runCatching { b.draw(c, y) }; y += b.h }
+            return bmp
+        } catch (t: Throwable) {
+            // Minimal safe fallback so a share can never crash or produce a blank image.
+            val bmp = Bitmap.createBitmap(W, 360, Bitmap.Config.ARGB_8888)
+            val c = Canvas(bmp); c.drawColor(bg)
+            val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = onBg; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD); textSize = 64f }
+            c.drawText("My day", 72f, 160f, p)
+            p.textSize = 40f; p.color = muted; p.typeface = Typeface.DEFAULT
+            c.drawText(ellipsize(d.dateLabel, p, (W - 144).toFloat()), 72f, 230f, p)
+            return bmp
+        }
+    }
+
+    /** The plain-text equivalent of [renderShare], honouring the same [cfg]. */
+    fun shareText(d: DayShareData, cfg: DayShareConfig): String = buildString {
+        append("My day — ${d.dateLabel}\n")
+        if (cfg.rating && d.rating in 1..5) append("★".repeat(d.rating) + "☆".repeat(5 - d.rating) + "\n")
+        if (cfg.moodEnergyEmotion) {
+            val parts = buildList {
+                if (d.moodEmoji.isNotBlank()) add(d.moodEmoji)
+                if (d.emotion.isNotBlank()) add(d.emotion)
+                if (d.energy in 1..5) add("energy " + "◆".repeat(d.energy) + "◇".repeat(5 - d.energy))
+            }
+            if (parts.isNotEmpty()) append(parts.joinToString("  ") + "\n")
+        }
+        val counts = buildList {
+            if (cfg.tasks == TaskDetail.COUNT) add("✓ ${d.taskCount} done")
+            if (cfg.habits == HabitDetail.COUNT && d.habitsExpected > 0) add("🔁 ${d.habitsKept}/${d.habitsExpected} habits")
+            if (cfg.time == TimeDetail.TOTAL && d.trackedMin > 0) add("⧗ ${hm(d.trackedMin)} tracked")
+        }
+        if (counts.isNotEmpty()) append(counts.joinToString(" · ") + "\n")
+        if (cfg.wins && d.wins.isNotEmpty()) { append("\nWins:\n"); d.wins.forEach { append("⭐ $it\n") } }
+        if (cfg.highlight && d.highlight.isNotBlank()) append("\n✨ ${d.highlight}\n")
+        if (cfg.gratitude && d.gratitude.isNotEmpty()) { append("\nGrateful for:\n"); d.gratitude.forEach { append("🙏 $it\n") } }
+        if (cfg.lesson && d.lesson.isNotBlank()) append("\n💡 ${d.lesson}\n")
+        if (cfg.reflection && d.reflection.isNotBlank()) append("\n“${d.reflection}”\n")
+        if (cfg.themes && d.themes.isNotEmpty()) append("\nThemes: ${d.themes.joinToString(", ")}\n")
+        if (cfg.tasks == TaskDetail.FULL && d.taskTitles.isNotEmpty()) { append("\nCompleted:\n"); d.taskTitles.forEach { append("✓ $it\n") } }
+        if (cfg.habits == HabitDetail.DETAILED && d.habits.isNotEmpty()) {
+            append("\nHabits:\n"); d.habits.forEach { append((if (it.kept) "✓" else "○") + " " + it.name + (if (it.detail.isNotBlank()) " · ${it.detail}" else "") + "\n") }
+        }
+        if (cfg.time == TimeDetail.DETAILED && d.activities.isNotEmpty()) {
+            append("\nTime tracked:\n"); d.activities.forEach { append("• ${it.name} · ${hm(it.minutes)}\n") }
+        }
+        if (cfg.dailyQuestions && d.questions.isNotEmpty()) {
+            append("\nDaily questions:\n"); d.questions.forEach { append("${it.label} — ${it.score}/5\n") }
+        }
+        if (cfg.alignment && (d.goalsAdvanced.isNotEmpty() || d.valuesHonored.isNotEmpty())) {
+            append("\n")
+            if (d.goalsAdvanced.isNotEmpty()) append("🎯 Moved: ${d.goalsAdvanced.joinToString(", ")}\n")
+            if (d.valuesHonored.isNotEmpty()) append("🧭 Honored: ${d.valuesHonored.joinToString(", ")}\n")
+        }
+        if ((cfg.tomorrowFocus && d.tomorrowFocus.isNotBlank()) || (cfg.woop && (d.woopObstacle.isNotBlank() || d.woopPlan.isNotBlank()))) {
+            append("\nTomorrow:\n")
+            if (cfg.tomorrowFocus && d.tomorrowFocus.isNotBlank()) append("🎯 ${d.tomorrowFocus}\n")
+            if (cfg.woop && d.woopObstacle.isNotBlank()) append("🧱 ${d.woopObstacle}\n")
+            if (cfg.woop && d.woopPlan.isNotBlank()) append("🧭 ${d.woopPlan}\n")
+        }
+        if (cfg.pattern && d.pattern.isNotBlank()) append("\n${d.pattern}\n")
+        if (cfg.footerTagline) append("\n— via Kairo")
     }
 
     // ── Phase F · the weekly roll-up share card ──────────────────────────────────────────────────────
