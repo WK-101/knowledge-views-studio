@@ -1,5 +1,7 @@
 package com.cairn.reader.data.repo
 
+import com.cairn.reader.data.blob.BlobStore
+import com.cairn.reader.data.db.ItemDao
 import com.cairn.reader.data.db.SourceDao
 import com.cairn.reader.data.db.SourceEntity
 import kotlinx.coroutines.flow.Flow
@@ -9,6 +11,8 @@ import javax.inject.Singleton
 @Singleton
 class SourceRepository @Inject constructor(
     private val sourceDao: SourceDao,
+    private val itemDao: ItemDao,
+    private val blobStore: BlobStore,
 ) {
     fun sources(): Flow<List<SourceEntity>> = sourceDao.observeAll()
     fun folders(): Flow<List<String>> = sourceDao.observeFolders()
@@ -31,5 +35,19 @@ class SourceRepository @Inject constructor(
         sourceDao.setFeedUrl(id, url)
     }
 
-    suspend fun delete(id: String) = sourceDao.delete(id)
+    /**
+     * Unsubscribe from a feed. Remove its own articles (blob + search index + row) so they stop
+     * cluttering the Inbox, but keep anything the user explicitly kept — starred, saved, archived,
+     * filed in a collection, highlighted, or a permanent offline copy — which detaches from the
+     * (now-deleted) source and remains available in the Library.
+     */
+    suspend fun delete(id: String) {
+        itemDao.unkeptIdsBySource(id).forEach { itemId ->
+            val e = itemDao.getItem(itemId)
+            runCatching { blobStore.deleteAllFor(itemId, e?.blobPath) }
+            itemDao.deleteFts(itemId)
+            itemDao.deleteItem(itemId)
+        }
+        sourceDao.delete(id)
+    }
 }

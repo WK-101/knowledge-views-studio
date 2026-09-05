@@ -363,6 +363,22 @@ interface ItemDao {
     @Query("DELETE FROM items WHERE id = :id")
     suspend fun deleteItem(id: String)
 
+    /** Items of a feed that the user hasn't explicitly kept (not starred / saved / archived /
+     *  filed in a collection / highlighted / permanent) — deleted when the feed is unsubscribed,
+     *  so the Inbox doesn't keep showing a removed feed's articles. Kept items detach instead. */
+    @Query(
+        """
+        SELECT i.id FROM items i
+        LEFT JOIN item_states s ON s.itemId = i.id
+        WHERE i.sourceId = :sourceId
+          AND COALESCE(s.isStarred, 0) = 0 AND COALESCE(s.isReadLater, 0) = 0
+          AND COALESCE(s.isArchived, 0) = 0 AND i.collectionId IS NULL
+          AND (i.cacheStatus IS NULL OR i.cacheStatus <> 'PERMANENT')
+          AND NOT EXISTS (SELECT 1 FROM highlights h WHERE h.itemId = i.id)
+        """
+    )
+    suspend fun unkeptIdsBySource(sourceId: String): List<String>
+
     @Query("UPDATE items SET leadImage = :leadImage WHERE id = :id")
     suspend fun setLeadImage(id: String, leadImage: String?)
 

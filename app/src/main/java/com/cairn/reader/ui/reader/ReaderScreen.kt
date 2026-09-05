@@ -239,7 +239,11 @@ fun ReaderScreen(
     // display to the text and scrolling back up brings everything back. Restore on leave.
     val window = (context as? android.app.Activity)?.window
     val hideSystemBars = fullScreen || (immersive && !barsVisible)
-    LaunchedEffect(hideSystemBars, window) {
+    // A ModalBottomSheet / Dialog opens in its own window that shows the system bars; when it
+    // dismisses the reader must reclaim full-screen. Re-run whenever such an overlay opens or
+    // closes so immersive mode is re-asserted and doesn't get stuck "out of full screen".
+    val overlayOpen = lookup != null || pending != null || showTypography || showCollections || showTags || managed != null || lightbox != null
+    LaunchedEffect(hideSystemBars, window, overlayOpen) {
         val controller = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, it.decorView) } ?: return@LaunchedEffect
         controller.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         if (hideSystemBars) controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())

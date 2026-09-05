@@ -32,6 +32,7 @@ class SettingsViewModel @Inject constructor(
     private val preferencesRepository: PreferencesRepository,
     private val backupManager: BackupManager,
     private val blobStore: BlobStore,
+    private val storageManager: com.cairn.reader.data.blob.StorageManager,
     @ApplicationContext private val context: Context,
     highlightRepository: HighlightRepository,
 ) : ViewModel() {
@@ -248,4 +249,11 @@ class SettingsViewModel @Inject constructor(
 
     /** Bytes on disk used by cached article bodies, offline images, and imported PDFs. */
     suspend fun storageBytes(): Long = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { blobStore.storageBytes() }
+
+    /** Full storage breakdown for the Settings storage dashboard. */
+    suspend fun storageBreakdown(): com.cairn.reader.data.blob.StorageManager.Breakdown = storageManager.breakdown()
+
+    /** Reclaim space: delete orphaned blobs, clear the image cache, and compact the database. */
+    fun optimizeStorage(onDone: (com.cairn.reader.data.blob.StorageManager.OptimizeResult) -> Unit) =
+        viewModelScope.launch { onDone(storageManager.optimize()) }
 }

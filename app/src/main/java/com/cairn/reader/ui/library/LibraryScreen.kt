@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -72,6 +73,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -653,8 +655,15 @@ private fun LibraryHome(
     onNewCollection: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
-    val topCollections = collections.filter { it.parentId == null }
-    val childCount = collections.groupingBy { it.parentId }.eachCount()
+    // Foldable sections (Raindrop-style), each remembered; default open.
+    var quickOpen by remember { mutableStateOf(true) }
+    var collectionsOpen by remember { mutableStateOf(true) }
+    var tagsOpen by remember { mutableStateOf(true) }
+    // Which tree nodes are collapsed (value == true means collapsed / children hidden).
+    val collapsedCol = remember { mutableStateMapOf<String, Boolean>() }
+    val collapsedTag = remember { mutableStateMapOf<String, Boolean>() }
+    val colRows = flattenCollections(collections, collapsedCol.filterValues { it }.keys)
+    val tagRows = buildTagTree(tags, collapsedTag.filterValues { it }.keys)
 
     data class Bucket(val icon: androidx.compose.ui.graphics.vector.ImageVector, val label: String, val count: Int?, val onClick: () -> Unit)
     val buckets = listOf(
@@ -669,67 +678,145 @@ private fun LibraryHome(
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = bottomPad),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        item { HomeSectionLabel("QUICK ACCESS") }
-        items(buckets.chunked(2)) { pair ->
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                pair.forEach { b -> HomeTile(b.icon, b.label, b.count, Modifier.weight(1f), b.onClick) }
-                if (pair.size == 1) Spacer(Modifier.weight(1f))
-            }
-        }
-
-        item {
-            Row(
-                Modifier.fillMaxWidth().padding(top = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                HomeSectionLabel("COLLECTIONS", Modifier.weight(1f))
-                IconButton(onClick = onNewCollection, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Outlined.Add, contentDescription = "New collection", tint = scheme.primary)
-                }
-            }
-        }
-        if (topCollections.isEmpty()) {
-            item {
-                Text(
-                    "No collections yet. Tap + to create one, then file saved items into it.",
-                    style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 4.dp),
-                )
-            }
-        } else {
-            items(topCollections.chunked(2)) { pair ->
+        item { FoldableSectionHeader("QUICK ACCESS", quickOpen, onToggle = { quickOpen = !quickOpen }) }
+        if (quickOpen) {
+            items(buckets.chunked(2)) { pair ->
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    pair.forEach { c ->
-                        HomeCollectionTile(
-                            name = c.name,
-                            count = c.count,
-                            subCount = childCount[c.id] ?: 0,
-                            modifier = Modifier.weight(1f),
-                            onClick = { onScope(LibraryScope.Collection(c.id, c.name)) },
-                        )
-                    }
+                    pair.forEach { b -> HomeTile(b.icon, b.label, b.count, Modifier.weight(1f), b.onClick) }
                     if (pair.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
         }
 
-        if (tags.isNotEmpty()) {
-            item { HomeSectionLabel("TAGS", Modifier.padding(top = 14.dp)) }
-            item {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    tags.take(40).forEach { t ->
-                        FilterChip(
-                            selected = false,
-                            onClick = { onScope(LibraryScope.Tag(t.id, t.name)) },
-                            leadingIcon = { Icon(Icons.Outlined.Label, contentDescription = null, modifier = Modifier.size(16.dp)) },
-                            label = { Text("${t.name.substringAfterLast('/')} · ${t.count}") },
-                        )
+        item {
+            FoldableSectionHeader(
+                "COLLECTIONS", collectionsOpen, onToggle = { collectionsOpen = !collectionsOpen },
+                trailing = {
+                    IconButton(onClick = onNewCollection, modifier = Modifier.size(30.dp)) {
+                        Icon(Icons.Outlined.Add, contentDescription = "New collection", tint = scheme.primary)
                     }
+                },
+            )
+        }
+        if (collectionsOpen) {
+            if (colRows.isEmpty()) {
+                item {
+                    Text(
+                        "No collections yet. Tap + to create one, then file saved items into it.",
+                        style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 4.dp, horizontal = 4.dp),
+                    )
+                }
+            } else {
+                items(colRows, key = { it.id }) { r ->
+                    CollectionTreeItem(
+                        name = r.name, count = r.count, depth = r.depth,
+                        hasChildren = r.hasChildren, collapsed = collapsedCol[r.id] == true,
+                        onToggle = { collapsedCol[r.id] = !(collapsedCol[r.id] ?: false) },
+                        onOpen = { onScope(LibraryScope.Collection(r.id, r.name)) },
+                    )
                 }
             }
         }
+
+        if (tagRows.isNotEmpty()) {
+            item { FoldableSectionHeader("TAGS", tagsOpen, onToggle = { tagsOpen = !tagsOpen }) }
+            if (tagsOpen) {
+                items(tagRows, key = { it.path }) { r ->
+                    TagTreeItem(
+                        label = r.label, count = r.totalCount, depth = r.depth,
+                        hasChildren = r.hasChildren, collapsed = collapsedTag[r.path] == true,
+                        onToggle = { collapsedTag[r.path] = !(collapsedTag[r.path] ?: false) },
+                        onOpen = if (r.exists && r.tagId != null) ({ onScope(LibraryScope.Tag(r.tagId, r.path)) }) else null,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** A collapsible section header with a chevron and an optional trailing action. */
+@Composable
+private fun FoldableSectionHeader(
+    title: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable(onClick = onToggle).padding(top = 12.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            if (expanded) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = if (expanded) "Collapse" else "Expand",
+            tint = scheme.primary, modifier = Modifier.size(20.dp),
+        )
+        Spacer(Modifier.width(2.dp))
+        Text(title, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = scheme.primary, modifier = Modifier.weight(1f))
+        if (trailing != null) trailing()
+    }
+}
+
+/** One row of the collections tree: indent by depth, chevron to expand, tap to open. */
+@Composable
+private fun CollectionTreeItem(
+    name: String, count: Int, depth: Int, hasChildren: Boolean, collapsed: Boolean,
+    onToggle: () -> Unit, onOpen: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(onClick = onOpen)
+            .padding(start = (8 + depth * 18).dp, top = 10.dp, bottom = 10.dp, end = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (hasChildren) {
+            IconButton(onClick = onToggle, modifier = Modifier.size(28.dp)) {
+                Icon(
+                    if (collapsed) Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.Filled.KeyboardArrowDown,
+                    contentDescription = if (collapsed) "Expand" else "Collapse", tint = scheme.onSurfaceVariant, modifier = Modifier.size(20.dp),
+                )
+            }
+        } else {
+            Spacer(Modifier.size(28.dp))
+        }
+        Icon(Icons.Outlined.FolderOpen, contentDescription = null, tint = scheme.secondary, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(10.dp))
+        Text(name, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        Text("$count", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
+    }
+}
+
+/** One row of the nested-tag tree. [onOpen] is null for a synthesized parent (expand-only). */
+@Composable
+private fun TagTreeItem(
+    label: String, count: Int, depth: Int, hasChildren: Boolean, collapsed: Boolean,
+    onToggle: () -> Unit, onOpen: (() -> Unit)?,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+            .clickable(enabled = onOpen != null || hasChildren, onClick = { onOpen?.invoke() ?: onToggle() })
+            .padding(start = (8 + depth * 18).dp, top = 9.dp, bottom = 9.dp, end = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (hasChildren) {
+            IconButton(onClick = onToggle, modifier = Modifier.size(28.dp)) {
+                Icon(
+                    if (collapsed) Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.Filled.KeyboardArrowDown,
+                    contentDescription = if (collapsed) "Expand" else "Collapse", tint = scheme.onSurfaceVariant, modifier = Modifier.size(20.dp),
+                )
+            }
+        } else {
+            Spacer(Modifier.size(28.dp))
+        }
+        Icon(Icons.Outlined.Label, contentDescription = null, tint = scheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(10.dp))
+        Text(label, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        if (count > 0) Text("$count", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
     }
 }
 

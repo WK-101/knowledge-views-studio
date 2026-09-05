@@ -1,11 +1,13 @@
 package com.cairn.reader.domain.lookup
 
-import com.cairn.reader.data.net.HttpFetcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.json.JSONArray
 import java.io.IOException
 import java.net.URLEncoder
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,11 +27,26 @@ data class DictionaryEntry(
  * Looks a word up in the free, key-less Dictionary API (dictionaryapi.dev), which returns both
  * definitions and thesaurus data (synonyms / antonyms). Online-only — there is no bundled
  * dictionary — so it fails cleanly when offline, and only the single looked-up word is sent.
+ *
+ * A small in-memory cache makes repeat look-ups instant, and a dedicated short-timeout HTTP client
+ * (10s, no redirect/UA overhead) keeps a single lookup snappy instead of inheriting the 45s
+ * article-fetch timeout — so a slow or missing word fails fast rather than hanging the sheet.
  */
 @Singleton
 class DictionaryRepository @Inject constructor(
-    private val fetcher: HttpFetcher,
+    client: OkHttpClient,
 ) {
+    private val http: OkHttpClient = client.newBuilder()
+        .connectTimeout(6, TimeUnit.SECONDS)
+        .readTimeout(8, TimeUnit.SECONDS)
+        .callTimeout(10, TimeUnit.SECONDS)
+        .build()
+
+    // Bounded LRU cache of recent successful look-ups, keyed by the normalized word.
+    private val cache = object : LinkedHashMap<String, DictionaryEntry>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, DictionaryEntry>?) = size > 200
+    }
+
     suspend fun define(raw: String): Result<DictionaryEntry> = withContext(Dispatchers.IO) {
         // Only a single word makes sense for a dictionary; take the first token of a selection.
         val word = raw.trim().split(Regex("\\s+")).firstOrNull()
@@ -38,12 +55,16 @@ class DictionaryRepository @Inject constructor(
             ?.takeIf { it.isNotEmpty() }
             ?: return@withContext Result.failure(IllegalArgumentException("No word to look up"))
 
+        synchronized(cache) { cache[word] }?.let { return@withContext Result.success(it) }
+
         val url = "https://api.dictionaryapi.dev/api/v2/entries/en/" + URLEncoder.encode(word, "UTF-8")
-        val res = runCatching { fetcher.fetch(url) }.getOrNull()
-        if (res == null || !res.isSuccess || res.body.isNullOrBlank()) {
-            return@withContext Result.failure(IOException("No definition found for “$word”"))
-        }
-        runCatching { parse(res.body!!) }.getOrElse { Result.failure(it) }
+        val body = runCatching {
+            http.newCall(Request.Builder().url(url).header("Accept", "application/json").get().build())
+                .execute().use { r -> if (r.isSuccessful) r.body?.string() else null }
+        }.getOrNull()
+        if (body.isNullOrBlank()) return@withContext Result.failure(IOException("No definition found for “$word”"))
+
+        parse(body).onSuccess { entry -> synchronized(cache) { cache[word] = entry } }
     }
 
     private fun parse(body: String): Result<DictionaryEntry> {

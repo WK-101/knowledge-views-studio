@@ -22,9 +22,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.AssistChip
@@ -40,9 +43,13 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -97,32 +104,59 @@ fun SearchScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = scheme.surface),
             )
         Column(Modifier.fillMaxSize()) {
-            // Advanced filters — state, recency, and type — applied over the local index.
+            // Advanced filters (state, recency, type) — collapsed behind one compact row by default
+            // so results get the vertical space; the row shows how many filters are active.
             if (state.hasSearched) {
-                FlowRow(
-                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
+                var filtersOpen by remember { mutableStateOf(false) }
+                val activeCount = (if (filterState != SearchState.ALL) 1 else 0) +
+                    (if (since != SearchSince.ANY) 1 else 0) +
+                    (if (typeFilter != null) 1 else 0)
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { filtersOpen = !filtersOpen }
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    SearchState.entries.forEach { s ->
-                        FilterChip(selected = filterState == s, onClick = { viewModel.setState(s) }, label = { Text(s.label) })
+                    Icon(Icons.Outlined.Tune, contentDescription = null, tint = scheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                    Text(
+                        if (activeCount > 0) "Filters · $activeCount" else "Filters",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (activeCount > 0) scheme.primary else scheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (activeCount > 0 && !filtersOpen) {
+                        TextButton(onClick = { viewModel.setState(SearchState.ALL); viewModel.setSince(SearchSince.ANY); viewModel.setType(null) }) { Text("Clear") }
                     }
+                    Icon(if (filtersOpen) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, contentDescription = null, tint = scheme.onSurfaceVariant)
                 }
-                FlowRow(
-                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    SearchSince.entries.forEach { s ->
-                        FilterChip(selected = since == s, onClick = { viewModel.setSince(s) }, label = { Text(s.label) })
-                    }
-                }
-                if (availableTypes.size >= 2) {
+                if (filtersOpen) {
                     FlowRow(
                         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        FilterChip(selected = typeFilter == null, onClick = { viewModel.setType(null) }, label = { Text("Any type") })
-                        availableTypes.forEach { t ->
-                            FilterChip(selected = typeFilter == t, onClick = { viewModel.setType(if (typeFilter == t) null else t) }, label = { Text(typeLabel(t)) })
+                        SearchState.entries.forEach { s ->
+                            FilterChip(selected = filterState == s, onClick = { viewModel.setState(s) }, label = { Text(s.label) })
+                        }
+                    }
+                    FlowRow(
+                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        SearchSince.entries.forEach { s ->
+                            FilterChip(selected = since == s, onClick = { viewModel.setSince(s) }, label = { Text(s.label) })
+                        }
+                    }
+                    if (availableTypes.size >= 2) {
+                        FlowRow(
+                            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            FilterChip(selected = typeFilter == null, onClick = { viewModel.setType(null) }, label = { Text("Any type") })
+                            availableTypes.forEach { t ->
+                                FilterChip(selected = typeFilter == t, onClick = { viewModel.setType(if (typeFilter == t) null else t) }, label = { Text(typeLabel(t)) })
+                            }
                         }
                     }
                 }

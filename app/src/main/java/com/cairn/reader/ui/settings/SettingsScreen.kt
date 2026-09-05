@@ -33,6 +33,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.CloudSync
+import androidx.compose.material.icons.outlined.CleaningServices
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FormatQuote
@@ -54,6 +55,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -326,6 +328,14 @@ fun SettingsScreen(
                     color = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
                 )
+            }
+        }
+
+        item {
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+                SectionLabel("STORAGE")
+                Spacer(Modifier.height(10.dp))
+                StorageSection(viewModel)
             }
         }
 
@@ -980,6 +990,80 @@ private fun WebDavBackupSection(
             ) { Text("Off") }
         }
     }
+}
+
+/**
+ * Storage dashboard: shows exactly where on-disk space goes (offline article bodies, cached images,
+ * imported PDFs, the database, the image cache, and orphaned leftovers) and offers a one-tap
+ * Optimize that deletes orphans, clears the image cache, and compacts the database. This answers the
+ * "0 articles readable offline but N MB used" confusion by naming every consumer of space.
+ */
+@Composable
+private fun StorageSection(viewModel: SettingsViewModel) {
+    val scheme = MaterialTheme.colorScheme
+    val context = LocalContext.current
+    var data by remember { mutableStateOf<com.cairn.reader.data.blob.StorageManager.Breakdown?>(null) }
+    var refresh by remember { mutableStateOf(0) }
+    var busy by remember { mutableStateOf(false) }
+    LaunchedEffect(refresh) { data = runCatching { viewModel.storageBreakdown() }.getOrNull() }
+
+    fun fmt(bytes: Long): String = android.text.format.Formatter.formatShortFileSize(context, bytes)
+
+    val d = data
+    if (d == null) {
+        Text("Calculating…", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
+        return
+    }
+
+    @Composable
+    fun Line(label: String, sub: String?, bytes: Long) {
+        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(label, style = MaterialTheme.typography.bodyMedium, color = scheme.onSurface)
+                if (sub != null) Text(sub, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+            }
+            Text(fmt(bytes), style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
+        }
+    }
+
+    Text(
+        "${fmt(d.total)} used on this device",
+        style = MaterialTheme.typography.titleMedium, color = scheme.onSurface, fontWeight = FontWeight.SemiBold,
+    )
+    Spacer(Modifier.height(8.dp))
+    Line("Offline article copies", if (d.articleCount > 0) "${d.articleCount} files" else "none", d.articleBytes)
+    Line("Cached images", if (d.imageCount > 0) "${d.imageCount} files" else "none", d.imageBytes)
+    Line("Imported PDFs", if (d.pdfCount > 0) "${d.pdfCount} files" else "none", d.pdfBytes)
+    Line("Database", "feeds, items, tags, highlights", d.databaseBytes)
+    Line("Image cache", "thumbnails; safe to clear", d.imageCacheBytes)
+    if (d.orphanCount > 0) {
+        Line("Leftover / orphaned files", "${d.orphanCount} files with no article — reclaimable", d.orphanBytes)
+    }
+    Spacer(Modifier.height(12.dp))
+    OutlinedButton(
+        enabled = !busy,
+        onClick = {
+            busy = true
+            viewModel.optimizeStorage { r ->
+                busy = false
+                refresh++
+                android.widget.Toast.makeText(
+                    context,
+                    if (r.bytesFreed > 0) "Freed ${fmt(r.bytesFreed)} (${r.filesDeleted} files)" else "Already optimized — nothing to reclaim",
+                    android.widget.Toast.LENGTH_LONG,
+                ).show()
+            }
+        },
+    ) {
+        Icon(Icons.Outlined.CleaningServices, contentDescription = null, modifier = Modifier.height(18.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(if (busy) "Optimizing…" else "Optimize storage")
+    }
+    Text(
+        if (d.reclaimable > 0) "Reclaims about ${fmt(d.reclaimable)}: deletes orphaned files, clears the image cache, and compacts the database."
+        else "Deletes orphaned files, clears the image cache, and compacts the database.",
+        style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp),
+    )
 }
 
 @Composable
