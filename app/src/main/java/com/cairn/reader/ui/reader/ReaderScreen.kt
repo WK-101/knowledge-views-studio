@@ -73,6 +73,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -198,6 +202,7 @@ fun ReaderScreen(
     var pending by remember { mutableStateOf<PendingSelection?>(null) }
     var lookup by remember { mutableStateOf<String?>(null) }
     var translatePage by remember { mutableStateOf(false) }
+    var lightbox by remember { mutableStateOf<String?>(null) }
     val clipboard = LocalClipboardManager.current
 
     val palette = readerPalette(prefs.readerTheme)
@@ -263,6 +268,16 @@ fun ReaderScreen(
             type = "text/plain"
             putExtra(Intent.EXTRA_TEXT, text)
             if (subject != null) putExtra(Intent.EXTRA_SUBJECT, subject)
+        }
+        runCatching { context.startActivity(Intent.createChooser(send, null)) }
+    }
+
+    // Share a downloaded image/media file out via the FileProvider (also the pre-Android-10 save path).
+    fun shareMediaUri(uri: android.net.Uri, mime: String) {
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = mime
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         runCatching { context.startActivity(Intent.createChooser(send, null)) }
     }
@@ -504,6 +519,8 @@ fun ReaderScreen(
                 onPlayEpisode = viewModel::playEpisode,
                 onWatch = ::watchVideo,
                 onScaleCommit = viewModel::setFontScale,
+                onImageClick = { url -> lightbox = url },
+                onSaveMedia = { url -> if (viewModel.canSaveMediaDirectly) viewModel.saveMedia(url) else viewModel.shareMedia(url) { uri, mime -> shareMediaUri(uri, mime) } },
             )
         }
     }
@@ -590,6 +607,16 @@ fun ReaderScreen(
         )
     }
 
+    lightbox?.let { url ->
+        ImageLightbox(
+            url = url,
+            canSave = viewModel.canSaveMediaDirectly,
+            onSave = { viewModel.saveImage(url) },
+            onShare = { viewModel.shareMedia(url) { uri, mime -> shareMediaUri(uri, mime) } },
+            onDismiss = { lightbox = null },
+        )
+    }
+
     if (translatePage) {
         TranslatePageSheet(
             targetLanguage = viewModel.translateLanguageName(),
@@ -639,6 +666,8 @@ private fun ArticleBody(
     showImages: Boolean = true,
     listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState(),
     onScaleCommit: (Float) -> Unit = {},
+    onImageClick: (String) -> Unit = {},
+    onSaveMedia: (String) -> Unit = {},
 ) {
     val data = state.data ?: return
     val linkColor = MaterialTheme.colorScheme.primary
@@ -710,7 +739,7 @@ private fun ArticleBody(
                         model = data.leadImage,
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxWidth().height(220.dp),
+                        modifier = Modifier.fillMaxWidth().height(220.dp).clickable { onImageClick(data.leadImage!!) },
                     )
                 }
                 Column(Modifier.padding(horizontal = ReaderHPad)) {
@@ -755,10 +784,17 @@ private fun ArticleBody(
                         }
                     }
                     if (data.enclosureUrl != null) {
-                        OutlinedButton(onClick = onPlayEpisode) {
-                            Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Play episode")
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedButton(onClick = onPlayEpisode) {
+                                Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("Play episode")
+                            }
+                            OutlinedButton(onClick = { onSaveMedia(data.enclosureUrl!!) }) {
+                                Icon(Icons.Outlined.DownloadForOffline, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("Save")
+                            }
                         }
                         Spacer(Modifier.height(12.dp))
                     }
@@ -802,6 +838,7 @@ private fun ArticleBody(
                     highlights = byBlock[index].orEmpty(),
                     onSelectText = onSelectText,
                     onManageHighlight = onManageHighlight,
+                    onImageClick = onImageClick,
                 )
             }
         }
@@ -836,6 +873,7 @@ private fun BlockView(
     highlights: List<HighlightEntity>,
     onSelectText: (blockIndex: Int, start: Int, end: Int, quote: String, yInWindow: Float) -> Unit,
     onManageHighlight: (HighlightEntity) -> Unit,
+    onImageClick: (String) -> Unit = {},
 ) {
     when (block) {
         is ReaderBlock.Heading -> HighlightableText(
@@ -863,7 +901,8 @@ private fun BlockView(
                 model = block.url,
                 contentDescription = block.caption,
                 contentScale = ContentScale.FillWidth,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = ReaderHPad).clip(RoundedCornerShape(12.dp)),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = ReaderHPad).clip(RoundedCornerShape(12.dp))
+                    .clickable { onImageClick(block.url) },
             )
             if (!block.caption.isNullOrBlank()) {
                 Spacer(Modifier.height(6.dp))
@@ -1164,6 +1203,68 @@ private fun LookupSheet(
                 translated?.isFailure == true -> {
                     Spacer(Modifier.height(10.dp))
                     Text(translated!!.exceptionOrNull()?.message ?: "Couldn't translate.", style = MaterialTheme.typography.labelMedium, color = scheme.error)
+                }
+            }
+        }
+    }
+}
+
+/** Full-screen image viewer: pinch/drag to zoom and pan, with Save and Share. */
+@Composable
+private fun ImageLightbox(
+    url: String,
+    canSave: Boolean,
+    onSave: () -> Unit,
+    onShare: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        var scale by remember { mutableStateOf(1f) }
+        var offset by remember { mutableStateOf(Offset.Zero) }
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .pointerInput(Unit) {
+                    detectTransformGestures { _, pan, zoom, _ ->
+                        scale = (scale * zoom).coerceIn(1f, 6f)
+                        offset = if (scale <= 1f) Offset.Zero else offset + pan
+                    }
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            AsyncImage(
+                model = url,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer(
+                        scaleX = scale,
+                        scaleY = scale,
+                        translationX = offset.x,
+                        translationY = offset.y,
+                    ),
+            )
+            Row(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                if (canSave) {
+                    IconButton(onClick = onSave) {
+                        Icon(Icons.Outlined.DownloadForOffline, contentDescription = "Save image", tint = Color.White)
+                    }
+                }
+                IconButton(onClick = onShare) {
+                    Icon(Icons.Outlined.IosShare, contentDescription = "Share image", tint = Color.White)
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Filled.Close, contentDescription = "Close", tint = Color.White)
                 }
             }
         }

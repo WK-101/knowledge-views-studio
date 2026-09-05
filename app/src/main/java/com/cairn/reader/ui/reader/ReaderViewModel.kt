@@ -52,6 +52,7 @@ class ReaderViewModel @Inject constructor(
     private val audioPlayer: AudioPlayer,
     private val dictionaryRepository: com.cairn.reader.domain.lookup.DictionaryRepository,
     private val translator: com.cairn.reader.domain.translate.Translator,
+    private val mediaSaver: com.cairn.reader.domain.media.MediaSaver,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -196,6 +197,32 @@ class ReaderViewModel @Inject constructor(
     }
 
     fun translateLanguageName(): String = translator.displayName(translator.defaultTarget())
+
+    // -- Images / media --------------------------------------------------------
+
+    /** True on Android 10+, where saving to Photos/Downloads needs no storage permission. */
+    val canSaveMediaDirectly: Boolean get() = mediaSaver.canSaveDirectly
+
+    fun saveImage(url: String) = viewModelScope.launch {
+        _messages.emit("Saving image…")
+        val r = mediaSaver.saveImageToGallery(url)
+        _messages.emit(r.fold(onSuccess = { "Image saved to Photos" }, onFailure = { it.message ?: "Couldn't save image" }))
+    }
+
+    fun saveMedia(url: String) = viewModelScope.launch {
+        _messages.emit("Saving…")
+        val r = mediaSaver.saveMediaToDownloads(url)
+        _messages.emit(r.fold(onSuccess = { "Saved to Downloads" }, onFailure = { it.message ?: "Couldn't save" }))
+    }
+
+    /** Download a file and hand back a shareable URI (for the system share sheet). */
+    fun shareMedia(url: String, onReady: (android.net.Uri, String) -> Unit) = viewModelScope.launch {
+        _messages.emit("Preparing…")
+        mediaSaver.stageForShare(url).fold(
+            onSuccess = { (uri, mime) -> onReady(uri, mime) },
+            onFailure = { _messages.emit(it.message ?: "Couldn't prepare the file") },
+        )
+    }
 
     /** Mark this article unread again — pairs with the reader's UNREAD action. */
     fun markUnread() {

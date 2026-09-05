@@ -2,4 +2,6 @@
 <paths>
     <!-- Imported PDFs live in filesDir/pdfs; shared out through the FileProvider. -->
     <files-path name="pdfs" path="pdfs/" />
+    <!-- Downloaded article images / media staged in cacheDir/media before saving or sharing. -->
+    <cache-path name="media" path="media/" />
 </paths>
