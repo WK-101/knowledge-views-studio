@@ -29,7 +29,10 @@ import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Inbox
+import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material.icons.outlined.RssFeed
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.SwapVert
@@ -101,10 +104,21 @@ import com.cairn.reader.ui.inbox.InboxViewModel
 import com.cairn.reader.ui.library.LibraryScreen
 import com.cairn.reader.ui.settings.SettingsScreen
 
-private enum class Destination(val label: String, val icon: ImageVector) {
+/**
+ * A bottom-bar destination. Pane destinations (isPane) render their own content in place; the
+ * rest are shortcuts that navigate to an existing route (Search, Read Later, Highlights, Manage
+ * Feeds) or re-scope the Inbox (Starred). The canonical order here is the order they appear in
+ * the bar. All are opt-in from Settings except the four defaults.
+ */
+private enum class Destination(val label: String, val icon: ImageVector, val isPane: Boolean = true) {
     Inbox("Inbox", Icons.Outlined.Inbox),
     Library("Library", Icons.AutoMirrored.Outlined.LibraryBooks),
     Discover("Discover", Icons.Outlined.Explore),
+    Starred("Starred", Icons.Outlined.StarBorder, isPane = false),
+    ReadLater("Read Later", Icons.Outlined.Bookmark, isPane = false),
+    Highlights("Highlights", Icons.Outlined.FormatQuote, isPane = false),
+    Feeds("Feeds", Icons.Outlined.RssFeed, isPane = false),
+    Search("Search", Icons.Outlined.Search, isPane = false),
     Settings("Settings", Icons.Outlined.Settings),
 }
 
@@ -123,13 +137,15 @@ fun CairnApp(
     var showAddFeed by remember { mutableStateOf(false) }
     val appViewModel: AppViewModel = hiltViewModel()
     val appPrefs by appViewModel.preferences.collectAsStateWithLifecycle()
-    // The bar shows the user's chosen subset, in a fixed canonical order; never empty.
+    // The bar shows the user's chosen subset, in a fixed canonical order; never empty. Capped at
+    // five so the bar stays legible even if the user enables everything.
     val tabs = remember(appPrefs.bottomTabs) {
-        Destination.entries.filter { it.name in appPrefs.bottomTabs }.ifEmpty { listOf(Destination.Inbox) }
+        Destination.entries.filter { it.name in appPrefs.bottomTabs }.ifEmpty { listOf(Destination.Inbox) }.take(5)
     }
     var currentName by rememberSaveable { mutableStateOf(Destination.Inbox.name) }
-    // current is any destination — a drawer pick may open one that isn't a bar tab; all four render.
-    val current = Destination.entries.firstOrNull { it.name == currentName } ?: tabs.first()
+    // current is always a pane (Inbox/Library/Discover/Settings): action tabs navigate away or
+    // re-scope the Inbox rather than becoming the rendered content, so they never own `current`.
+    val current = Destination.entries.firstOrNull { it.name == currentName && it.isPane } ?: Destination.Inbox
 
     // On wide screens (tablets, unfolded foldables) show list + reader side by side.
     val wide = LocalConfiguration.current.screenWidthDp >= 720
@@ -307,9 +323,24 @@ fun CairnApp(
                     modifier = Modifier.height(56.dp),
                 ) {
                     tabs.forEach { dest ->
+                        val selected = when {
+                            dest.isPane -> current == dest && currentName == dest.name
+                            dest == Destination.Starred ->
+                                currentName == Destination.Inbox.name && inboxState.filter == InboxFilter.STARRED
+                            else -> false
+                        }
                         NavigationBarItem(
-                            selected = current == dest,
-                            onClick = { currentName = dest.name },
+                            selected = selected,
+                            onClick = {
+                                when (dest) {
+                                    Destination.Starred -> { inboxViewModel.selectStarred(); currentName = Destination.Inbox.name }
+                                    Destination.ReadLater -> onOpenReadLater()
+                                    Destination.Highlights -> onOpenNotebook()
+                                    Destination.Feeds -> onOpenFeeds()
+                                    Destination.Search -> onOpenSearch()
+                                    else -> currentName = dest.name
+                                }
+                            },
                             icon = { Icon(dest.icon, contentDescription = dest.label, modifier = Modifier.size(22.dp)) },
                             label = { Text(dest.label, style = MaterialTheme.typography.labelSmall, maxLines = 1) },
                             alwaysShowLabel = false,
@@ -329,10 +360,11 @@ fun CairnApp(
     ) { padding ->
         val renderDest: @Composable (Destination, (String) -> Unit) -> Unit = { dest, open ->
             when (dest) {
-                Destination.Inbox -> InboxScreen(padding, inboxViewModel, open, onOpenWeb, inboxViewMode)
                 Destination.Library -> LibraryScreen(padding, open, onOpenHighlights = onOpenNotebook, onOpenDrawer = { scope.launch { drawerState.open() } })
                 Destination.Discover -> com.cairn.reader.ui.discover.DiscoverContent(padding, onOpenDrawer = { scope.launch { drawerState.open() } })
                 Destination.Settings -> SettingsScreen(padding, onOpenNotebook = onOpenNotebook, onOpenOffline = onOpenOffline)
+                // Inbox and any non-pane fallthrough render the Inbox.
+                else -> InboxScreen(padding, inboxViewModel, open, onOpenWeb, inboxViewMode)
             }
         }
         if (wide) {

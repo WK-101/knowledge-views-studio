@@ -304,24 +304,37 @@ fun SettingsScreen(
                 SectionLabel("BOTTOM BAR")
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "Choose which tabs appear in the bottom bar. Everything stays reachable from the drawer.",
+                    "Choose which destinations appear in the bottom bar — up to five show at once. Everything stays reachable from the drawer.",
                     style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(6.dp))
-                val tabs = listOf("Inbox", "Library", "Discover", "Settings")
+                // Pairs of (stored name = Destination.name, display label).
+                val tabs = listOf(
+                    "Inbox" to "Inbox",
+                    "Library" to "Library",
+                    "Discover" to "Discover",
+                    "Starred" to "Starred",
+                    "ReadLater" to "Read Later",
+                    "Highlights" to "Highlights",
+                    "Feeds" to "Feeds",
+                    "Search" to "Search",
+                    "Settings" to "Settings",
+                )
                 val enabled = prefs.bottomTabs
-                tabs.forEach { name ->
+                val atCap = enabled.size >= 5
+                tabs.forEach { (name, label) ->
                     val isOn = name in enabled
                     val isLastOn = isOn && enabled.size <= 1
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(name, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, modifier = Modifier.weight(1f))
+                        Text(label, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, modifier = Modifier.weight(1f))
                         androidx.compose.material3.Switch(
                             checked = isOn,
                             onCheckedChange = { viewModel.setBottomTab(name, it) },
-                            enabled = !isLastOn,
+                            // Can't turn off the last one, and can't turn a new one on once five are picked.
+                            enabled = if (isOn) !isLastOn else !atCap,
                         )
                     }
                 }
@@ -511,7 +524,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(24.dp))
                 SectionLabel("ABOUT")
                 Spacer(Modifier.height(8.dp))
-                Text("Cairn 3.32.0", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
+                Text("Cairn 3.33.0", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
                 Text("One reader for everything you read.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
             }
         }
