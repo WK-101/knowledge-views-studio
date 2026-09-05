@@ -166,7 +166,7 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
                     SegmentedButton(selected = !pomo, onClick = { if (!running && bankedSec == 0) { pomo = false } }, shape = SegmentedButtonDefaults.itemShape(1, 2)) { Text("Stopwatch") }
                 }
             }
-            androidx.compose.material3.IconButton(onClick = onOpenStats) { androidx.compose.material3.Icon(Icons.Filled.BarChart, "Statistics") }
+            androidx.compose.material3.IconButton(onClick = onOpenStats) { androidx.compose.material3.Icon(Icons.Filled.BarChart, "Time stats") }
         }
         // ---- Deep-work coach: today's focused minutes vs goal, streak, and a one-tap next block ----
         val dwSettings by vm.settings.collectAsState()

@@ -51,7 +51,6 @@ import com.todocompanion.app.domain.nlp.SmartCapture
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -242,9 +241,11 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     // R4: announce the score to screen readers (the ring itself is a bare Canvas).
                     Box(Modifier.size(88.dp).semantics { contentDescription = "Momentum $momentum out of 100" }, contentAlignment = Alignment.Center) {
+                        // The unfilled ring track — a theme token (read here, outside the Canvas draw scope).
+                        val trackColor = MaterialTheme.colorScheme.surfaceVariant
                         androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
                             val stroke = 11.dp.toPx()
-                            drawArc(Color(0x33888888), -90f, 360f, false, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+                            drawArc(trackColor, -90f, 360f, false, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round))
                         }
                         val accent = MaterialTheme.colorScheme.primary
                         // PC1: the ring fills with a gentle sweep on open — snapped instantly when Reduce motion is on.
@@ -569,8 +570,14 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                         style = MaterialTheme.typography.bodyMedium)
                     pa.calibration?.let { cal ->
                         Spacer(Modifier.height(6.dp))
-                        val pct = ((cal - 1.0) * 100).toInt()
-                        val phrase = when { pct > 10 -> "You run about $pct% over your estimates — the app will pad future ones."; pct < -10 -> "You finish about ${-pct}% under your estimates."; else -> "Your estimates are well-calibrated." }
+                        // Track 1.4 — verdict from the one shared Calibration engine (the unified VERDICT_TOLERANCE),
+                        // replacing the ad-hoc ±10% thresholds so all three surfaces agree on over / under / on-point.
+                        val pct = com.todocompanion.app.domain.Calibration.percentOff(cal)
+                        val phrase = when (com.todocompanion.app.domain.Calibration.classify(cal, com.todocompanion.app.domain.Calibration.VERDICT_TOLERANCE)) {
+                            com.todocompanion.app.domain.Calibration.Verdict.OVER -> "You run about $pct% over your estimates — the app will pad future ones."
+                            com.todocompanion.app.domain.Calibration.Verdict.UNDER -> "You finish about ${-pct}% under your estimates."
+                            com.todocompanion.app.domain.Calibration.Verdict.ON_POINT -> "Your estimates are well-calibrated."
+                        }
                         Text("⚖️ $phrase", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                     }
                     Spacer(Modifier.height(8.dp))
@@ -674,12 +681,13 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                 }
             }
 
-            // W7 — the self-writing weekly review, drafted from unified data; share or copy it.
+            // W7 — the self-writing weekly note, drafted from unified data; share or copy it. Named "Weekly
+            // note" so nothing outside the actual Weekly Review flow reuses the "weekly review" label.
             var reviewText by remember { mutableStateOf<String?>(null) }
             AppCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Weekly review", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text("Weekly note", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                         Text("Drafted from your week across all three modules.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     TextButton(onClick = { reviewText = if (reviewText == null) vm.weeklyReviewText() else null }) { Text(if (reviewText == null) "Write it" else "Hide") }
@@ -690,7 +698,7 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                     Spacer(Modifier.height(6.dp))
                     TextButton(onClick = {
                         val cm = shareCtx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
-                        cm?.setPrimaryClip(android.content.ClipData.newPlainText("Weekly review", txt))
+                        cm?.setPrimaryClip(android.content.ClipData.newPlainText("Weekly note", txt))
                         android.widget.Toast.makeText(shareCtx, "Copied", android.widget.Toast.LENGTH_SHORT).show()
                     }) { Text("Copy") }
                 }

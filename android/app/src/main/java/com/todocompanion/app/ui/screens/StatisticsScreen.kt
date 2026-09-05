@@ -238,11 +238,11 @@ fun StatisticsScreen(vm: AppViewModel, onBack: () -> Unit) {
             if (calibs.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
                 AppCard {
-                    // Track 1.4 — ratio + verdict come from the one shared Calibration engine (15% tolerance here).
+                    // Track 1.4 — ratio + verdict come from the one shared Calibration engine (the unified VERDICT_TOLERANCE).
                     val ratio = com.todocompanion.app.domain.Calibration.overallRatio(
                         calibs.map { com.todocompanion.app.domain.Calibration.Pair(it.est, it.actual) }) ?: 1.0
                     val off = com.todocompanion.app.domain.Calibration.percentOff(ratio)
-                    val verdict = when (com.todocompanion.app.domain.Calibration.classify(ratio, 0.15)) {
+                    val verdict = when (com.todocompanion.app.domain.Calibration.classify(ratio, com.todocompanion.app.domain.Calibration.VERDICT_TOLERANCE)) {
                         com.todocompanion.app.domain.Calibration.Verdict.OVER -> "You take about ${off}% longer than you estimate — pad your estimates."
                         com.todocompanion.app.domain.Calibration.Verdict.UNDER -> "You finish about ${-off}% faster than you estimate — you can commit to more."
                         com.todocompanion.app.domain.Calibration.Verdict.ON_POINT -> "Your estimates are on point (within 15%). Nice calibration."
@@ -325,10 +325,15 @@ private fun AchievementsCard(score: Int, level: Int, levelTitle: String, intoLev
         Badge("✅", "10 done", totalDone >= 10),
         Badge("🏅", "50 done", totalDone >= 50),
         Badge("🏆", "100 done", totalDone >= 100),
-        Badge("🔥", "7-day streak", streak >= 7),
+        Badge("🔥", "7-day finishing streak", streak >= 7),
         Badge("⏳", "10h focus", totalFocusMin >= 600),
     )
     AppCard {
+        // Track 1.4 — framed as a local gamification level (task & focus milestones), not an overall
+        // score: the Momentum ring is the single headline "how am I doing" number.
+        Text("Achievements", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Text("Task & focus milestones — a local level, not an overall score.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(52.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
                 Text(level.toString(), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
@@ -336,7 +341,7 @@ private fun AchievementsCard(score: Int, level: Int, levelTitle: String, intoLev
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text("Level $level · $levelTitle", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text("$score pts" + if (streak > 0) " · 🔥 $streak-day streak" else "", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("$score pts" + if (streak > 0) " · 🔥 $streak-day finishing streak" else "", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         Spacer(Modifier.height(10.dp))

@@ -14,6 +14,14 @@ object Calibration {
     /** Momentum needs at least this many two-sided items before its median factor is trustworthy. */
     const val MIN_ITEMS_FOR_FACTOR = 3
 
+    /**
+     * The ONE tolerance band the estimate-vs-actual *verdict* uses on every surface — Statistics'
+     * "Estimation calibration", The Record's "Estimate vs. actual" honesty ledger, and Momentum's
+     * "Planned vs actual". Unified (±15% around a perfect estimate) so the same over / under / on-point
+     * call reads identically everywhere; [classify]'s own default stays looser for other callers.
+     */
+    const val VERDICT_TOLERANCE = 0.15
+
     /** One planned/actual pair in minutes. Only pairs with both > 0 count toward a ratio. */
     data class Pair(val plannedMin: Int, val actualMin: Int)
 

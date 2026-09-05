@@ -468,8 +468,8 @@ private fun LifetimeCard(s: com.todocompanion.app.domain.done.DoneStats, rangeLa
                 if (hideStreaks) {
                     Stat("${s.activeDays}", "active days")
                 } else {
-                    Stat("🔥 ${s.currentStreakDays}", "day streak")
-                    Stat("${s.longestStreakDays}", "best streak")
+                    Stat("🔥 ${s.currentStreakDays}", "active-day streak")
+                    Stat("${s.longestStreakDays}", "best active-day")
                 }
                 Stat("${s.bestDayCount}", "best day")
                 Stat("${s.totalWins}", "wins")
@@ -495,12 +495,12 @@ private fun HonestyCard(overall: com.todocompanion.app.domain.done.DoneRecord.Le
         Column(Modifier.padding(16.dp)) {
             Text("⚖️ Estimate vs. actual", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.size(4.dp))
-            // Track 1.4 — verdict from the one shared Calibration engine (10% tolerance), presentation unchanged.
+            // Track 1.4 — verdict from the one shared Calibration engine (the unified VERDICT_TOLERANCE), presentation unchanged.
             val ratio = overall.ratio.toDouble()
             val pct = (ratio * 100).toInt()
             val over = com.todocompanion.app.domain.Calibration.percentOff(ratio)
             Text(
-                when (com.todocompanion.app.domain.Calibration.classify(ratio, 0.10)) {
+                when (com.todocompanion.app.domain.Calibration.classify(ratio, com.todocompanion.app.domain.Calibration.VERDICT_TOLERANCE)) {
                     com.todocompanion.app.domain.Calibration.Verdict.ON_POINT -> "Your estimates are on the money — finished work took ${pct}% of the estimate."
                     com.todocompanion.app.domain.Calibration.Verdict.OVER -> "Finished work runs long: ${pct}% of your estimate on average. Pad by ~${over}%."
                     com.todocompanion.app.domain.Calibration.Verdict.UNDER -> "You beat your estimates — work took only ${pct}% of what you planned."
@@ -525,7 +525,8 @@ private fun HonestyCard(overall: com.todocompanion.app.domain.done.DoneRecord.Le
 private fun Stat(value: String, label: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(76.dp)) {
         Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        // Two lines so the distinct "active-day streak" / "best active-day" labels wrap instead of truncating.
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -556,7 +557,7 @@ private fun TrophyCase(wins: List<Accomplishment>, onOpen: (String) -> Unit) {
                 Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .5f),
                     modifier = Modifier.width(150.dp).clickable { onOpen(a.refId) }) {
                     Column(Modifier.padding(12.dp)) {
-                        Icon(Icons.Filled.Star, null, tint = Color(0xFFF5A623), modifier = Modifier.size(18.dp))
+                        Icon(Icons.Filled.Star, null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.size(6.dp))
                         Text(a.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         a.outcome?.let { Spacer(Modifier.size(3.dp)); Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis) }
@@ -621,7 +622,7 @@ private fun AccomplishmentRow(a: Accomplishment, listName: String?, onOpen: () -
             }
             if (onToggleWin != null) IconButton(onClick = onToggleWin) {
                 Icon(if (a.isWin) Icons.Filled.Star else Icons.Filled.StarBorder, "Mark as a win",
-                    tint = if (a.isWin) Color(0xFFF5A623) else MaterialTheme.colorScheme.outline)
+                    tint = if (a.isWin) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.outline)
             }
         }
     }
@@ -1276,7 +1277,7 @@ private fun WrappedScreen(feed: List<Accomplishment>, today: LocalDate, recap: c
         add(Slide("🏁", "${recap.tasksFinished}", "tasks finished", tertiary))
         if (recap.focusMinutesDone >= 60) add(Slide("🎯", "${recap.focusHoursDone}h", "of focused time", secondary))
         if (recap.habitDaysKept > 0) add(Slide("🔁", "${recap.habitDaysKept}", "habit days kept", primary))
-        if (recap.longestActiveStreakDays >= 3) add(Slide("🔥", "${recap.longestActiveStreakDays}", "day longest streak", tertiary))
+        if (recap.longestActiveStreakDays >= 3) add(Slide("🔥", "${recap.longestActiveStreakDays}", "longest active-day streak", tertiary))
         if (recap.biggestMonthValue in 1..12) add(Slide("📅", java.time.Month.of(recap.biggestMonthValue).getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault()), "was your biggest month · ${recap.biggestMonthCount} done", secondary))
         if (recap.winsMarked > 0) add(Slide("⭐", "${recap.winsMarked}", "moments you marked a win", primary))
         add(Slide("🏅", "${recap.activeDays}", "days you showed up", tertiary))

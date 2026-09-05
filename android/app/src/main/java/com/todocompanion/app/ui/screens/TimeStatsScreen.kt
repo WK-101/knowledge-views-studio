@@ -62,6 +62,10 @@ import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.time.ZoneId
 
+// An intentional categorical DATA-VIZ palette for the distribution donut/legend only — one fixed, high-contrast
+// hue per activity slice (used solely by `colorOf` below as the fallback when an activity has no custom colour).
+// These are deliberately theme-independent so adjacent slices stay distinguishable in either light or dark; they
+// are not app chrome and are not derived from MaterialTheme on purpose.
 private val STAT_PALETTE = listOf(0xFF3E7BFAL, 0xFFE5484DL, 0xFFF59E0BL, 0xFF16A34AL, 0xFF8B5CF6L, 0xFF0EA5E9L, 0xFFEC4899L, 0xFF64748BL, 0xFF12A594L, 0xFF6366F1L)
 private fun sfmt(min: Int): String = when {
     min <= 0 -> "0m"; min < 60 -> "${min}m"; min % 60 == 0 -> "${min / 60}h"; else -> "${min / 60}h ${min % 60}m"
@@ -94,7 +98,7 @@ fun TimeStatsScreen(vm: AppViewModel, onBack: () -> Unit) {
     val canNext = TimeStats.window(range, anchor).second.isBefore(today)
 
     Scaffold(topBar = {
-        TopAppBar(expandedHeight = 52.dp, title = { Text("Statistics") },
+        TopAppBar(expandedHeight = 52.dp, title = { Text("Time stats") },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } })
     }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp),

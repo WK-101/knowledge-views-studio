@@ -810,7 +810,7 @@ fun AppRoot(
                                     }
                                 }
                                 Tab.MATRIX -> IconButton(onClick = { matrixSettings = true }) { Icon(Icons.Filled.Tune, "Matrix settings") }
-                                Tab.TIME -> IconButton(onClick = { showTimeStats = true }) { Icon(Icons.Filled.BarChart, "Statistics") }
+                                Tab.TIME -> IconButton(onClick = { showTimeStats = true }) { Icon(Icons.Filled.BarChart, "Time stats") }
                                 Tab.SEARCH -> if (searchQuery.isNotEmpty()) IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Filled.Close, "Clear") }
                                 else -> {}
                             }

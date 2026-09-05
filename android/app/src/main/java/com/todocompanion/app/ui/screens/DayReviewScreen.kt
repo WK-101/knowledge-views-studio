@@ -385,7 +385,7 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
                     Text(
                         when {
                             settings.hideStreaks -> "$reviewed14 of last 14 days reviewed"
-                            reviewStreak > 0 -> "🔥 $reviewStreak-day streak"
+                            reviewStreak > 0 -> "🔥 $reviewStreak-day review streak"
                             else -> "Reviewed days"
                         },
                         style = MaterialTheme.typography.labelMedium,
@@ -2972,7 +2972,7 @@ private fun YearReviewedScreen(
                 Text(windowLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                 Spacer(Modifier.height(10.dp))
                 val tiles = buildList {
-                    if (recap.longestStreakDays > 0) add(Triple("🔥", "${recap.longestStreakDays}", "longest streak"))
+                    if (recap.longestStreakDays > 0) add(Triple("🔥", "${recap.longestStreakDays}", "review streak"))
                     if (recap.winsCount > 0) add(Triple("⭐", "${recap.winsCount}", "good things"))
                     if (recap.trackedMinutes > 0) add(Triple("⧗", "${recap.trackedHours}h", "tracked"))
                 }

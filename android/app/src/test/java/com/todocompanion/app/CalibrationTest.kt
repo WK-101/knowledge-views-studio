@@ -47,4 +47,12 @@ class CalibrationTest {
         assertEquals(25, Calibration.percentOff(1.25))
         assertEquals(-20, Calibration.percentOff(0.80))
     }
+
+    @Test fun verdictToleranceIsUnifiedAcrossSurfaces() {
+        // Statistics, The Record and Momentum all classify the estimate-vs-actual verdict with this one band.
+        assertEquals(0.15, Calibration.VERDICT_TOLERANCE, 1e-9)
+        assertEquals(Calibration.Verdict.ON_POINT, Calibration.classify(1.12, Calibration.VERDICT_TOLERANCE))
+        assertEquals(Calibration.Verdict.OVER, Calibration.classify(1.16, Calibration.VERDICT_TOLERANCE))
+        assertEquals(Calibration.Verdict.UNDER, Calibration.classify(0.84, Calibration.VERDICT_TOLERANCE))
+    }
 }
