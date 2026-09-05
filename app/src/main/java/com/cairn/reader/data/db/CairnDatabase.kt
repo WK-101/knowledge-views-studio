@@ -20,7 +20,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SyncOpEntity::class,
         RuleEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = true,
 )
 abstract class CairnDatabase : RoomDatabase() {
@@ -134,5 +134,12 @@ val MIGRATION_11_12 = object : Migration(11, 12) {
                 "stopAfter INTEGER NOT NULL DEFAULT 0, sortOrder INTEGER NOT NULL DEFAULT 0, " +
                 "createdAt INTEGER NOT NULL)"
         )
+    }
+}
+
+/** v3.74: WebSub hub URL on feeds (real-time-aware). Nullable, additive. */
+val MIGRATION_12_13 = object : Migration(12, 13) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE sources ADD COLUMN hubUrl TEXT")
     }
 }

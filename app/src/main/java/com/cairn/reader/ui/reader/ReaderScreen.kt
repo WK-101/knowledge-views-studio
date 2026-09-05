@@ -57,6 +57,7 @@ import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.FormatSize
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Hub
+import androidx.compose.material.icons.outlined.Notes
 import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.MenuBook
@@ -211,6 +212,7 @@ fun ReaderScreen(
     var managed by remember { mutableStateOf<HighlightEntity?>(null) }
     var showRsvp by remember { mutableStateOf(false) }
     var showRelated by remember { mutableStateOf(false) }
+    var showSummary by remember { mutableStateOf(false) }
     var pending by remember { mutableStateOf<PendingSelection?>(null) }
     var lookup by remember { mutableStateOf<String?>(null) }
     var lightbox by remember { mutableStateOf<String?>(null) }
@@ -247,7 +249,7 @@ fun ReaderScreen(
     // A ModalBottomSheet / Dialog opens in its own window that shows the system bars; when it
     // dismisses the reader must reclaim full-screen. Re-run whenever such an overlay opens or
     // closes so immersive mode is re-asserted and doesn't get stuck "out of full screen".
-    val overlayOpen = lookup != null || pending != null || showTypography || showCollections || showTags || managed != null || lightbox != null || showRsvp || showRelated
+    val overlayOpen = lookup != null || pending != null || showTypography || showCollections || showTags || managed != null || lightbox != null || showRsvp || showRelated || showSummary
     LaunchedEffect(hideSystemBars, window, overlayOpen) {
         val controller = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, it.decorView) } ?: return@LaunchedEffect
         controller.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -390,6 +392,11 @@ fun ReaderScreen(
                                     text = { Text("Speed read") },
                                     leadingIcon = { Icon(Icons.Outlined.Bolt, contentDescription = null) },
                                     onClick = { showMenu = false; showRsvp = true },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Summarize") },
+                                    leadingIcon = { Icon(Icons.Outlined.Notes, contentDescription = null) },
+                                    onClick = { showMenu = false; viewModel.loadSummary(); showSummary = true },
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Related articles") },
@@ -607,6 +614,38 @@ fun ReaderScreen(
             onBionic = viewModel::setBionicReading,
             onDismiss = { showTypography = false },
         )
+    }
+
+    if (showSummary) {
+        val summary by viewModel.summary.collectAsStateWithLifecycle()
+        androidx.compose.material3.ModalBottomSheet(onDismissRequest = { showSummary = false }) {
+            androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 32.dp)) {
+                Text(
+                    "Key points",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                    modifier = Modifier.padding(vertical = 8.dp),
+                )
+                when {
+                    summary == null -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                    summary!!.isEmpty() -> Text("Not enough article text to summarize. Try loading the full article first.", style = MaterialTheme.typography.bodyMedium, color = palette.secondary)
+                    else -> summary!!.forEach { s ->
+                        androidx.compose.foundation.layout.Row(Modifier.padding(vertical = 6.dp)) {
+                            Text("•  ", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
+                            Text(s, style = MaterialTheme.typography.bodyLarge, color = palette.text)
+                        }
+                    }
+                }
+                if (summary?.isNotEmpty() == true) {
+                    Text(
+                        "Extracted on-device from the article — a starting point, not a substitute for reading.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = palette.secondary,
+                        modifier = Modifier.padding(top = 12.dp),
+                    )
+                }
+            }
+        }
     }
 
     if (showRelated) {

@@ -25,6 +25,7 @@ class XmlFeedParser @Inject constructor() : FeedParser {
         val parser = factory.newPullParser().apply { setInput(StringReader(xml)) }
         var feedTitle: String? = null
         var siteUrl: String? = null
+        var hubUrl: String? = null
         val items = mutableListOf<ParsedItem>()
 
         var event = parser.eventType
@@ -33,15 +34,21 @@ class XmlFeedParser @Inject constructor() : FeedParser {
                 when (local(parser.name)) {
                     "item", "entry" -> items += readItem(parser, local(parser.name))
                     "title" -> if (feedTitle == null) feedTitle = safeText(parser)
-                    "link" -> if (siteUrl == null) {
+                    "link" -> {
+                        val rel = attr(parser, "rel")
                         val href = attr(parser, "href")
-                        siteUrl = if (!href.isNullOrBlank()) href else safeText(parser)
+                        when {
+                            // WebSub (PubSubHubbub) hub declaration.
+                            rel == "hub" && !href.isNullOrBlank() -> if (hubUrl == null) hubUrl = href
+                            // The canonical site link: a bare <link> or rel="alternate", never hub/self.
+                            siteUrl == null && rel != "self" -> siteUrl = if (!href.isNullOrBlank()) href else safeText(parser)
+                        }
                     }
                 }
             }
             event = parser.next()
         }
-        return ParsedFeed(feedTitle?.trim(), siteUrl?.trim(), items)
+        return ParsedFeed(feedTitle?.trim(), siteUrl?.trim(), items, hubUrl?.trim())
     }
 
     private fun readItem(parser: XmlPullParser, endTag: String): ParsedItem {

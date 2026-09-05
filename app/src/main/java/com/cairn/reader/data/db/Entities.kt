@@ -44,6 +44,10 @@ data class SourceEntity(
     /** v3.64: muted feeds keep syncing but are hidden from the main Inbox / All river and the
      *  unread badge; they're still reachable by opening the feed directly. Migration 9→10 adds it. */
     val muted: Boolean = false,
+    /** v3.74: WebSub (PubSubHubbub) hub declared by the feed, if any. Non-null marks a feed capable
+     *  of real-time push; Cairn is serverless so it can't host a callback, but treats hub-enabled
+     *  feeds as "live" and syncs them ahead of the rest. Migration 12→13 adds it. */
+    val hubUrl: String? = null,
 )
 
 @Entity(

@@ -26,6 +26,9 @@ interface SourceDao {
     @Query("UPDATE sources SET etag = :etag, lastModified = :lastModified, lastSyncedAt = :syncedAt, consecutiveErrors = 0 WHERE id = :id")
     suspend fun markSynced(id: String, etag: String?, lastModified: String?, syncedAt: Long)
 
+    @Query("UPDATE sources SET hubUrl = :hubUrl WHERE id = :id")
+    suspend fun setHubUrl(id: String, hubUrl: String?)
+
     @Query("UPDATE sources SET consecutiveErrors = consecutiveErrors + 1, retryAfter = :retryAfter WHERE id = :id")
     suspend fun markError(id: String, retryAfter: Long?)
 

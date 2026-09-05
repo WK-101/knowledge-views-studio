@@ -55,6 +55,7 @@ class ReaderViewModel @Inject constructor(
     private val dictionaryRepository: com.cairn.reader.domain.lookup.DictionaryRepository,
     private val mediaSaver: com.cairn.reader.domain.media.MediaSaver,
     private val semanticRepository: com.cairn.reader.data.repo.SemanticRepository,
+    private val summarizer: com.cairn.reader.domain.summary.Summarizer,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -66,6 +67,18 @@ class ReaderViewModel @Inject constructor(
     fun loadRelated() {
         if (_related.value != null || itemId.isEmpty()) return
         viewModelScope.launch { _related.value = runCatching { semanticRepository.related(itemId, 8) }.getOrDefault(emptyList()) }
+    }
+
+    /** Extractive TL;DR (on-device), loaded lazily when the summary sheet is opened. */
+    private val _summary = MutableStateFlow<List<String>?>(null)
+    val summary: StateFlow<List<String>?> = _summary.asStateFlow()
+    fun loadSummary() {
+        if (_summary.value != null || itemId.isEmpty()) return
+        viewModelScope.launch {
+            val body = runCatching { itemRepository.articleText(itemId)?.second }.getOrNull()
+            _summary.value = if (body.isNullOrBlank()) emptyList()
+            else runCatching { summarizer.summarize(body, 5) }.getOrDefault(emptyList())
+        }
     }
 
     /** Neighbours in the reading queue, so the reader can flow to the previous/next article

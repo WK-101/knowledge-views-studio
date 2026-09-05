@@ -68,6 +68,7 @@ class FeedRepository @Inject constructor(
             feedUrl = result.feedUrl,
             siteUrl = result.feed.siteUrl,
             title = result.feed.title?.takeIf { it.isNotBlank() } ?: hostOf(result.feedUrl),
+            hubUrl = result.feed.hubUrl,
         )
         sourceDao.upsert(source)
         result.feed.items.forEach { insertParsed(source, it, now) }
@@ -270,7 +271,9 @@ class FeedRepository @Inject constructor(
         val maxAgeDays = prefs?.maxAgeDays ?: 0
         val keepUnread = if (prefs?.keepUnread == true) 1 else 0
         val fresh = mutableListOf<com.cairn.reader.notifications.NewArticle>()
-        sourceDao.getAll().forEach { source ->
+        // WebSub-aware ordering: feeds that declare a real-time hub sync first, so "live" sources
+        // are the freshest even though a serverless client can't hold a push callback.
+        sourceDao.getAll().sortedByDescending { it.hubUrl != null }.forEach { source ->
             runCatching { syncSource(source, now, if (source.notify) fresh else null) }
             // Per-feed override wins: null → global cap, 0 → keep everything, N → keep newest N.
             val effLimit = source.maxItems ?: limit
@@ -436,6 +439,10 @@ class FeedRepository @Inject constructor(
             return
         }
         feed.items.forEach { insertParsed(source, it, now, newItems) }
+        // Learn / refresh the WebSub hub declaration so the feed is marked real-time-aware.
+        if (!feed.hubUrl.isNullOrBlank() && feed.hubUrl != source.hubUrl) {
+            runCatching { sourceDao.setHubUrl(source.id, feed.hubUrl) }
+        }
         sourceDao.markSynced(source.id, res.etag, res.lastModified, now)
     }
 

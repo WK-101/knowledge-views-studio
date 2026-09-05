@@ -5,6 +5,8 @@ data class ParsedFeed(
     val title: String?,
     val siteUrl: String?,
     val items: List<ParsedItem>,
+    /** WebSub (PubSubHubbub) hub URL, if the feed declares one via <link rel="hub">. */
+    val hubUrl: String? = null,
 )
 
 data class ParsedItem(
