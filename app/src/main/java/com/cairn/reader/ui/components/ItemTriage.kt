@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Bookmark
@@ -143,6 +144,10 @@ private fun swipeIcon(action: SwipeAction, row: ItemListRow): ImageVector = when
     SwipeAction.STAR -> if (row.isStarred) Icons.Filled.Star else Icons.Outlined.Star
     SwipeAction.ARCHIVE -> Icons.Outlined.Archive
     SwipeAction.DELETE -> Icons.Outlined.DeleteOutline
+    SwipeAction.SAVE_OFFLINE -> Icons.Outlined.DownloadForOffline
+    SwipeAction.LIBRARY -> Icons.AutoMirrored.Outlined.LibraryBooks
+    SwipeAction.OPEN_ORIGINAL -> Icons.AutoMirrored.Outlined.OpenInNew
+    SwipeAction.SHARE -> Icons.Outlined.Share
     SwipeAction.NONE -> Icons.Outlined.Archive
 }
 

@@ -496,6 +496,24 @@ private fun InboxScreen(
     val picked by viewModel.picked.collectAsStateWithLifecycle()
     val selecting = picked.isNotEmpty()
     var sheetRow by remember { mutableStateOf<ItemListRow?>(null) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    // A swipe action that needs UI context (share / open in browser) is handled here; the rest
+    // are pure data changes the ViewModel owns.
+    fun onSwipe(row: ItemListRow, action: com.cairn.reader.data.prefs.SwipeAction) {
+        when (action) {
+            com.cairn.reader.data.prefs.SwipeAction.OPEN_ORIGINAL -> onOpenWeb(row.url)
+            com.cairn.reader.data.prefs.SwipeAction.SHARE -> {
+                val share = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(android.content.Intent.EXTRA_TEXT, row.url)
+                    putExtra(android.content.Intent.EXTRA_SUBJECT, row.title)
+                }
+                runCatching { context.startActivity(android.content.Intent.createChooser(share, null)) }
+            }
+            else -> viewModel.swipe(row, action)
+        }
+    }
 
     androidx.activity.compose.BackHandler(enabled = selecting) { viewModel.clearPicks() }
 
@@ -586,7 +604,7 @@ private fun InboxScreen(
                             rightFull = swipeCfg.rightFull,
                             leftHalf = swipeCfg.leftHalf,
                             leftFull = swipeCfg.leftFull,
-                            onAction = { action -> viewModel.swipe(row, action) },
+                            onAction = { action -> onSwipe(row, action) },
                             mode = viewMode,
                             compact = compact,
                             onOpenSource = { sid -> viewModel.selectFeed(sid, row.sourceTitle ?: row.siteName ?: "Feed") },

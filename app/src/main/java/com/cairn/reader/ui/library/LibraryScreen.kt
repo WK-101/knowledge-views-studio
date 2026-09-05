@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.Add
@@ -131,6 +132,10 @@ fun LibraryScreen(
     val showing = if (searching) results else items
 
     BackHandler(enabled = selectionActive) { viewModel.clearSelection() }
+    // Inside a scope, Back steps up to the browse home rather than leaving the Library.
+    BackHandler(enabled = !selectionActive && !searchOpen && scope !is LibraryScope.Home) {
+        viewModel.setScope(LibraryScope.Home)
+    }
 
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
@@ -138,7 +143,14 @@ fun LibraryScreen(
         // the scope name (or a search field when open), and Search / Filter / View actions.
         TopAppBar(
             navigationIcon = {
-                IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = "Open navigation") }
+                // At the browse home the nav icon opens the drawer; inside any scope it steps back home.
+                if (scope is LibraryScope.Home || searchOpen) {
+                    IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = "Open navigation") }
+                } else {
+                    IconButton(onClick = { viewModel.setScope(LibraryScope.Home) }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Library home")
+                    }
+                }
             },
             title = {
                 if (searchOpen) {
@@ -254,7 +266,17 @@ fun LibraryScreen(
             }
         }
 
-        if (showing.isEmpty()) {
+        if (scope is LibraryScope.Home && !searching) {
+            LibraryHome(
+                counts = counts,
+                collections = collections,
+                tags = tags,
+                bottomPad = padding.calculateBottomPadding() + 88.dp,
+                onScope = { viewModel.setScope(it) },
+                onOpenHighlights = onOpenHighlights,
+                onNewCollection = { showCreate = "" },
+            )
+        } else if (showing.isEmpty()) {
             val (emptyIcon, emptyTitle, emptyBody) = when {
                 searching -> Triple(Icons.Outlined.Search, "No matches", "Nothing matched that search. Try a different or shorter term.")
                 scope is LibraryScope.Collection -> Triple(Icons.Outlined.Add, "This collection is empty", "Open any article's menu and choose “Move to collection” to file it here.")
@@ -610,8 +632,175 @@ private fun EntryDivider() {
     )
 }
 
+/**
+ * The storage-first browse home (Raindrop-style): you land here on the Library, not on a flat list.
+ * Quick-access buckets first, then your collections as cards, then tags — everything one tap into its
+ * own scope.
+ */
+@Composable
+private fun LibraryHome(
+    counts: LibraryCounts,
+    collections: List<CollectionWithCount>,
+    tags: List<TagWithCount>,
+    bottomPad: Dp,
+    onScope: (LibraryScope) -> Unit,
+    onOpenHighlights: () -> Unit,
+    onNewCollection: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val topCollections = collections.filter { it.parentId == null }
+    val childCount = collections.groupingBy { it.parentId }.eachCount()
+
+    data class Bucket(val icon: androidx.compose.ui.graphics.vector.ImageVector, val label: String, val count: Int?, val onClick: () -> Unit)
+    val buckets = listOf(
+        Bucket(Icons.Outlined.CollectionsBookmark, "All items", counts.allCount) { onScope(LibraryScope.All) },
+        Bucket(Icons.Outlined.Inbox, "Unsorted", counts.unsortedCount) { onScope(LibraryScope.Unsorted) },
+        Bucket(Icons.Outlined.StarBorder, "Favorites", counts.favoritesCount) { onScope(LibraryScope.Favorites) },
+        Bucket(Icons.Outlined.FormatQuote, "Highlights", null, onOpenHighlights),
+        Bucket(Icons.Outlined.OfflinePin, "Offline", counts.offlineCount) { onScope(LibraryScope.Offline) },
+        Bucket(Icons.Outlined.Archive, "Archive", counts.archiveCount) { onScope(LibraryScope.Archive) },
+    )
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = bottomPad),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item { HomeSectionLabel("QUICK ACCESS") }
+        items(buckets.chunked(2)) { pair ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                pair.forEach { b -> HomeTile(b.icon, b.label, b.count, Modifier.weight(1f), b.onClick) }
+                if (pair.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+
+        item {
+            Row(
+                Modifier.fillMaxWidth().padding(top = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                HomeSectionLabel("COLLECTIONS", Modifier.weight(1f))
+                IconButton(onClick = onNewCollection, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Outlined.Add, contentDescription = "New collection", tint = scheme.primary)
+                }
+            }
+        }
+        if (topCollections.isEmpty()) {
+            item {
+                Text(
+                    "No collections yet. Tap + to create one, then file saved items into it.",
+                    style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+            }
+        } else {
+            items(topCollections.chunked(2)) { pair ->
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    pair.forEach { c ->
+                        HomeCollectionTile(
+                            name = c.name,
+                            count = c.count,
+                            subCount = childCount[c.id] ?: 0,
+                            modifier = Modifier.weight(1f),
+                            onClick = { onScope(LibraryScope.Collection(c.id, c.name)) },
+                        )
+                    }
+                    if (pair.size == 1) Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+
+        if (tags.isNotEmpty()) {
+            item { HomeSectionLabel("TAGS", Modifier.padding(top = 14.dp)) }
+            item {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    tags.take(40).forEach { t ->
+                        FilterChip(
+                            selected = false,
+                            onClick = { onScope(LibraryScope.Tag(t.id, t.name)) },
+                            leadingIcon = { Icon(Icons.Outlined.Label, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                            label = { Text("${t.name.substringAfterLast('/')} · ${t.count}") },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeSectionLabel(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = modifier.padding(bottom = 2.dp),
+    )
+}
+
+@Composable
+private fun HomeTile(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    count: Int?,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(scheme.surfaceContainerLow)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(icon, contentDescription = null, tint = scheme.primary, modifier = Modifier.size(22.dp))
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (count != null) {
+                Text(if (count == 1) "1 item" else "$count items", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeCollectionTile(
+    name: String,
+    count: Int,
+    subCount: Int,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(scheme.surfaceContainerLow)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(Icons.Outlined.FolderOpen, contentDescription = null, tint = scheme.secondary, modifier = Modifier.size(22.dp))
+        Column(Modifier.weight(1f)) {
+            Text(name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val meta = buildString {
+                append(if (count == 1) "1 item" else "$count items")
+                if (subCount > 0) append(" · $subCount sub")
+            }
+            Text(meta, style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
+        }
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = scheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+    }
+}
+
 private fun scopeTitle(scope: LibraryScope): String = when (scope) {
-    LibraryScope.All -> "Library"
+    LibraryScope.Home -> "Library"
+    LibraryScope.All -> "All items"
     LibraryScope.Unsorted -> "Unsorted"
     LibraryScope.Favorites -> "Favorites"
     LibraryScope.Archive -> "Archive"

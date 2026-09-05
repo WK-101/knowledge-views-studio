@@ -26,6 +26,8 @@ import javax.inject.Inject
 
 /** Which slice of the library is showing. */
 sealed interface LibraryScope {
+    /** The storage-first browse home: quick-access buckets + collections + tags, no flat list. */
+    data object Home : LibraryScope
     data object All : LibraryScope
     data object Unsorted : LibraryScope
     data object Favorites : LibraryScope
@@ -65,7 +67,8 @@ class LibraryViewModel @Inject constructor(
             com.cairn.reader.data.db.LibraryCounts(0, 0, 0, 0),
         )
 
-    private val _scope = MutableStateFlow<LibraryScope>(LibraryScope.All)
+    // Open on the storage-first browse home (Raindrop-style), not a flat list.
+    private val _scope = MutableStateFlow<LibraryScope>(LibraryScope.Home)
     val scope: StateFlow<LibraryScope> = _scope.asStateFlow()
 
     /** null = every type; otherwise one of ARTICLE / LINK / VIDEO / IMAGE. */
@@ -88,6 +91,7 @@ class LibraryViewModel @Inject constructor(
     private val scopeRows: kotlinx.coroutines.flow.Flow<List<ItemListRow>> =
         _scope.flatMapLatest { scope ->
             when (scope) {
+                LibraryScope.Home -> kotlinx.coroutines.flow.flowOf(emptyList())
                 LibraryScope.All -> itemRepository.libraryAll()
                 LibraryScope.Unsorted -> itemRepository.unsorted()
                 LibraryScope.Favorites -> itemRepository.favorites()
@@ -134,6 +138,7 @@ class LibraryViewModel @Inject constructor(
     }
 
     private fun scopeKey(scope: LibraryScope): String = when (scope) {
+        LibraryScope.Home -> "home"
         LibraryScope.All -> "all"
         LibraryScope.Unsorted -> "unsorted"
         LibraryScope.Favorites -> "favorites"

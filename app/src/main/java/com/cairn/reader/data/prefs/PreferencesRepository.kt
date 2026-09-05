@@ -39,6 +39,10 @@ enum class SwipeAction(val label: String) {
     STAR("Star"),
     ARCHIVE("Archive"),
     DELETE("Delete"),
+    SAVE_OFFLINE("Save offline"),
+    LIBRARY("Save to Library"),
+    OPEN_ORIGINAL("Open original"),
+    SHARE("Share"),
 }
 
 data class AppPreferences(

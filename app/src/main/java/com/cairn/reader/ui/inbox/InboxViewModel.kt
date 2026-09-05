@@ -457,7 +457,14 @@ class InboxViewModel @Inject constructor(
         )
     }
 
-    /** Perform a configurable swipe action on a row; each carries its own undo. */
+    /** Star an item and file it into the Library (Favorites), so a swipe can promote it. */
+    fun saveToLibrary(id: String) = viewModelScope.launch {
+        itemRepository.setStarred(id, true)
+        _snacks.emit(Snack("Saved to Library", "Undo") { viewModelScope.launch { itemRepository.setStarred(id, false) } })
+    }
+
+    /** Perform a configurable swipe action on a row; each carries its own undo where it applies.
+     *  SHARE and OPEN_ORIGINAL need UI context, so the list host intercepts those before delegating. */
     fun swipe(row: ItemListRow, action: com.cairn.reader.data.prefs.SwipeAction) {
         when (action) {
             com.cairn.reader.data.prefs.SwipeAction.MARK_READ -> markRead(row.id, !row.isRead)
@@ -465,6 +472,11 @@ class InboxViewModel @Inject constructor(
             com.cairn.reader.data.prefs.SwipeAction.STAR -> toggleStar(row.id, !row.isStarred)
             com.cairn.reader.data.prefs.SwipeAction.ARCHIVE -> archive(row.id)
             com.cairn.reader.data.prefs.SwipeAction.DELETE -> delete(row.id)
+            com.cairn.reader.data.prefs.SwipeAction.SAVE_OFFLINE -> saveOffline(row.id)
+            com.cairn.reader.data.prefs.SwipeAction.LIBRARY -> saveToLibrary(row.id)
+            // Handled by the UI layer (need Context / navigation); no-op here.
+            com.cairn.reader.data.prefs.SwipeAction.OPEN_ORIGINAL -> Unit
+            com.cairn.reader.data.prefs.SwipeAction.SHARE -> Unit
             com.cairn.reader.data.prefs.SwipeAction.NONE -> Unit
         }
     }
