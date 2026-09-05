@@ -339,6 +339,16 @@ class InboxViewModel @Inject constructor(
 
     fun unarchive(id: String) = viewModelScope.launch { itemRepository.setArchived(id, false) }
 
+    /** Permanently delete an item (with a brief Undo). Feeds keep everything otherwise. */
+    fun delete(id: String) = viewModelScope.launch {
+        val snapshot = feedRepository.deleteItem(id)
+        _snacks.emit(
+            Snack("Deleted", if (snapshot != null) "Undo" else null) {
+                if (snapshot != null) viewModelScope.launch { feedRepository.restoreItem(snapshot) }
+            },
+        )
+    }
+
     /** Make a permanent offline copy of an item from the list's long-press menu. */
     fun saveOffline(id: String) = viewModelScope.launch {
         _snacks.emit(Snack("Saving offline…"))
@@ -360,6 +370,7 @@ class InboxViewModel @Inject constructor(
             com.cairn.reader.data.prefs.SwipeAction.SAVE -> toggleSave(row.id, !row.isReadLater)
             com.cairn.reader.data.prefs.SwipeAction.STAR -> toggleStar(row.id, !row.isStarred)
             com.cairn.reader.data.prefs.SwipeAction.ARCHIVE -> archive(row.id)
+            com.cairn.reader.data.prefs.SwipeAction.DELETE -> delete(row.id)
             com.cairn.reader.data.prefs.SwipeAction.NONE -> Unit
         }
     }

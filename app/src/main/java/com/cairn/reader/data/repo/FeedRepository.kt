@@ -284,6 +284,33 @@ class FeedRepository @Inject constructor(
         syncDao.tombstone(TombstoneEntity(itemId = id, deletedAt = System.currentTimeMillis()))
     }
 
+    /**
+     * User-initiated permanent delete of a single item. Removes its offline copy and index and
+     * tombstones it, so the next sync won't resurrect it from the feed. This is the only thing
+     * that removes an item — feeds otherwise keep accumulating (retention defaults to "keep
+     * everything"), so nothing disappears unless the user deletes it or sets a retention cap.
+     *
+     * Returns the item's pre-delete row so the caller can offer a brief Undo; pass it back to
+     * [restoreItem]. (The offline blob is gone, so a restored item re-extracts on next open.)
+     */
+    suspend fun deleteItem(id: String): ItemEntity? {
+        val snapshot = itemDao.getItem(id)
+        deleteItemFully(id)
+        return snapshot
+    }
+
+    /** Delete several items at once (bulk multi-select). */
+    suspend fun deleteItems(ids: Collection<String>) = ids.forEach { deleteItemFully(it) }
+
+    /** Undo a [deleteItem]: lift the tombstone and re-insert the item (content re-extracts on open). */
+    suspend fun restoreItem(snapshot: ItemEntity) {
+        syncDao.clearTombstone(snapshot.id)
+        itemDao.insertItemWithState(
+            snapshot.copy(blobPath = null, extractStatus = if (snapshot.extractStatus == "OK") "NONE" else snapshot.extractStatus),
+            System.currentTimeMillis(),
+        )
+    }
+
     /** True when the active network is un-metered (Wi-Fi/Ethernet). Defaults to true if unknown,
      *  so an unclear network never silently blocks a save the user asked for. */
     private fun isUnmetered(): Boolean = runCatching {

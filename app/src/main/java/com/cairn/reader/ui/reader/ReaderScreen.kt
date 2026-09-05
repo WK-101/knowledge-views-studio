@@ -59,6 +59,7 @@ import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.Unarchive
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -177,6 +178,7 @@ fun ReaderScreen(
     val data = state.data
     var showTypography by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
     var showCollections by remember { mutableStateOf(false) }
     var showTags by remember { mutableStateOf(false) }
     var managed by remember { mutableStateOf<HighlightEntity?>(null) }
@@ -406,6 +408,11 @@ fun ReaderScreen(
                                     }
                                 },
                             )
+                            DropdownMenuItem(
+                                text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                                leadingIcon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                                onClick = { showMenu = false; confirmDelete = true },
+                            )
                         }
                     }
                 },
@@ -479,6 +486,21 @@ fun ReaderScreen(
                 onScaleCommit = viewModel::setFontScale,
             )
         }
+    }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            icon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Delete this article?") },
+            text = { Text("It's removed permanently and won't come back on the next sync. Everything else in the feed is kept.") },
+            confirmButton = {
+                TextButton(onClick = { confirmDelete = false; viewModel.deleteArticle(onBack) }) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+        )
     }
 
     if (showTypography && data != null) {

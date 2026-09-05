@@ -187,6 +187,15 @@ class ReaderViewModel @Inject constructor(
         viewModelScope.launch { itemRepository.setRead(itemId, false) }
     }
 
+    /** Permanently delete the article being read, then leave the reader. */
+    fun deleteArticle(onDone: () -> Unit) {
+        if (itemId.isEmpty()) return
+        viewModelScope.launch {
+            feedRepository.deleteItem(itemId)
+            onDone()
+        }
+    }
+
     fun setProgress(progress: Float) {
         if (itemId.isEmpty()) return
         viewModelScope.launch { itemRepository.setProgress(itemId, progress) }

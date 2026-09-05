@@ -106,7 +106,7 @@ fun OfflineScreen(
                 Text("Keep per feed", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    "Older items you haven't starred, saved, archived, filed, highlighted, or saved offline are pruned as new ones arrive.",
+                    "“All” (the default) keeps every item forever — feeds keep compiling until you delete an item yourself. Pick a number to cap each feed; older items you haven't starred, saved, archived, filed, highlighted, or saved offline are then pruned as new ones arrive.",
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
                 )

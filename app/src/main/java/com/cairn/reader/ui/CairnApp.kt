@@ -479,6 +479,7 @@ private fun InboxScreen(
             onSaveOffline = { viewModel.saveOffline(row.id) },
             onMarkAbove = { viewModel.markAboveRead(row) },
             onMarkBelow = { viewModel.markBelowRead(row) },
+            onDelete = { viewModel.delete(row.id) },
         )
     }
 }

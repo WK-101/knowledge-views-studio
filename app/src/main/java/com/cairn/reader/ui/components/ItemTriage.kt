@@ -33,6 +33,7 @@ import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.MarkEmailRead
 import androidx.compose.material.icons.outlined.MarkEmailUnread
 import androidx.compose.material.icons.outlined.OfflinePin
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
@@ -134,6 +135,7 @@ private fun swipeIcon(action: SwipeAction, row: ItemListRow): ImageVector = when
     SwipeAction.SAVE -> if (row.isReadLater) Icons.Outlined.BookmarkRemove else Icons.Outlined.Bookmark
     SwipeAction.STAR -> if (row.isStarred) Icons.Filled.Star else Icons.Outlined.Star
     SwipeAction.ARCHIVE -> Icons.Outlined.Archive
+    SwipeAction.DELETE -> Icons.Outlined.DeleteOutline
     SwipeAction.NONE -> Icons.Outlined.Archive
 }
 
@@ -160,10 +162,25 @@ private fun SwipeBackground(
         else -> if (leftHalf != SwipeAction.NONE) leftHalf else leftFull
     }
     // The colour deepens once the full threshold is crossed, so the two stages read distinctly.
-    val base = if (toRight) scheme.tertiaryContainer else scheme.secondaryContainer
-    val deep = if (toRight) scheme.tertiary else scheme.secondary
+    // A destructive delete always reads in the error palette so it can't be confused with a save.
+    val destructive = action == SwipeAction.DELETE
+    val base = when {
+        destructive -> scheme.errorContainer
+        toRight -> scheme.tertiaryContainer
+        else -> scheme.secondaryContainer
+    }
+    val deep = when {
+        destructive -> scheme.error
+        toRight -> scheme.tertiary
+        else -> scheme.secondary
+    }
     val bg = if (past) deep else base
-    val fg = if (past) (if (toRight) scheme.onTertiary else scheme.onSecondary) else scheme.onSurfaceVariant
+    val fg = when {
+        destructive && past -> scheme.onError
+        destructive -> scheme.onErrorContainer
+        past -> if (toRight) scheme.onTertiary else scheme.onSecondary
+        else -> scheme.onSurfaceVariant
+    }
     Box(
         Modifier.fillMaxSize().background(bg).padding(horizontal = 24.dp),
         contentAlignment = if (toRight) Alignment.CenterStart else Alignment.CenterEnd,
@@ -190,6 +207,7 @@ fun ItemActionSheet(
     onSaveOffline: (() -> Unit)? = null,
     onMarkAbove: (() -> Unit)? = null,
     onMarkBelow: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
@@ -252,18 +270,34 @@ fun ItemActionSheet(
                 runCatching { context.startActivity(Intent.createChooser(share, null)) }
                 onDismiss()
             }
+
+            if (onDelete != null) {
+                HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                ActionItem(
+                    icon = Icons.Outlined.DeleteOutline,
+                    label = "Delete",
+                    tint = MaterialTheme.colorScheme.error,
+                    textColor = MaterialTheme.colorScheme.error,
+                ) { onDelete(); onDismiss() }
+            }
         }
     }
 }
 
 @Composable
-private fun ActionItem(icon: ImageVector, label: String, onClick: () -> Unit) {
+private fun ActionItem(
+    icon: ImageVector,
+    label: String,
+    tint: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    textColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface,
+    onClick: () -> Unit,
+) {
     Row(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+        Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp), tint = tint)
+        Text(label, style = MaterialTheme.typography.bodyLarge, color = textColor)
     }
 }

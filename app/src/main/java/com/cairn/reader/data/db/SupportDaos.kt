@@ -196,4 +196,7 @@ interface SyncDao {
 
     @Query("SELECT EXISTS(SELECT 1 FROM tombstones WHERE itemId = :itemId)")
     suspend fun isTombstoned(itemId: String): Boolean
+
+    @Query("DELETE FROM tombstones WHERE itemId = :itemId")
+    suspend fun clearTombstone(itemId: String)
 }
