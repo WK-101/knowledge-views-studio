@@ -39,6 +39,7 @@ class FeedRepository @Inject constructor(
     private val itemDao: ItemDao,
     private val syncDao: SyncDao,
     private val discovery: FeedDiscovery,
+    private val siteFeedBuilder: com.cairn.reader.domain.feed.SiteFeedBuilder,
     private val parser: FeedParser,
     private val fetcher: HttpFetcher,
     private val extractor: ArticleExtractor,
@@ -52,7 +53,9 @@ class FeedRepository @Inject constructor(
     suspend fun addFeedByUrl(rawUrl: String): Result<String> {
         val result = when (val outcome = discovery.discover(rawUrl)) {
             is com.cairn.reader.domain.feed.Discovery.Found -> outcome.result
-            is com.cairn.reader.domain.feed.Discovery.NotFound -> return Result.failure(IllegalStateException(outcome.reason))
+            // No declared feed — fall back to building one from the site's sitemap (P0 collector).
+            is com.cairn.reader.domain.feed.Discovery.NotFound ->
+                return followViaSitemap(rawUrl, outcome.reason)
         }
         val now = System.currentTimeMillis()
         val sourceId = deterministicId(result.feedUrl)
@@ -89,6 +92,27 @@ class FeedRepository @Inject constructor(
             feedUrl = gUrl,
             siteUrl = "https://$host",
             title = "$host · via Google News",
+        )
+        sourceDao.upsert(source)
+        feed.items.forEach { insertParsed(source, it, now) }
+        return Result.success(sourceId)
+    }
+
+    /** Build and subscribe to a synthetic feed from a site's sitemap (P0 collector fallback).
+     *  [reason] is the discovery failure to report if even the sitemap yields nothing. */
+    suspend fun followViaSitemap(rawUrl: String, reason: String = "No feed found there."): Result<String> {
+        val url = normalize(rawUrl) ?: return Result.failure(IllegalStateException("That doesn't look like a valid web address."))
+        val feed = runCatching { siteFeedBuilder.build(url) }.getOrNull()
+            ?: return Result.failure(IllegalStateException(reason))
+        val now = System.currentTimeMillis()
+        val origin = url.toHttpUrlOrNull()?.let { "${it.scheme}://${it.host}" } ?: url
+        val sourceId = deterministicId("sitemap|$origin")
+        val source = SourceEntity(
+            id = sourceId,
+            kind = "SITEMAP",
+            feedUrl = origin,
+            siteUrl = feed.siteUrl ?: origin,
+            title = (feed.title?.takeIf { it.isNotBlank() } ?: hostOf(origin)) + " · via sitemap",
         )
         sourceDao.upsert(source)
         feed.items.forEach { insertParsed(source, it, now) }
@@ -212,6 +236,14 @@ class FeedRepository @Inject constructor(
         now: Long,
         newItems: MutableList<com.cairn.reader.notifications.NewArticle>? = null,
     ) {
+        // Sitemap-derived feeds are rebuilt from the site's sitemap each sync (no RSS to poll).
+        if (source.kind == "SITEMAP") {
+            val feed = runCatching { siteFeedBuilder.build(source.feedUrl) }.getOrNull()
+            if (feed == null) { sourceDao.markError(source.id, null); return }
+            feed.items.forEach { insertParsed(source, it, now, newItems) }
+            sourceDao.markSynced(source.id, null, null, now)
+            return
+        }
         val res = fetcher.fetch(source.feedUrl, source.etag, source.lastModified)
         if (res.notModified) {
             sourceDao.markSynced(source.id, source.etag, source.lastModified, now)
