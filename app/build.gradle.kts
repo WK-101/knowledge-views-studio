@@ -16,8 +16,8 @@ android {
         applicationId = "com.cairn.reader"
         minSdk = 26
         targetSdk = 36
-        versionCode = 60
-        versionName = "3.34.0"
+        versionCode = 61
+        versionName = "3.35.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
     }
@@ -106,6 +106,11 @@ dependencies {
     implementation(libs.readability4j)
     implementation(libs.jsoup)
     implementation("androidx.documentfile:documentfile:1.0.1")
+
+    // On-device translation (downloadable language models, no account, nothing uploaded) +
+    // language identification so we know what to translate from.
+    implementation("com.google.mlkit:translate:17.0.3")
+    implementation("com.google.mlkit:language-id:17.0.6")
 
     testImplementation(libs.junit)
 }

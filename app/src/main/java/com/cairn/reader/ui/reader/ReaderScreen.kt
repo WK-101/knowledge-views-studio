@@ -44,6 +44,7 @@ import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.DownloadForOffline
@@ -60,6 +61,12 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.Unarchive
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
@@ -189,6 +196,8 @@ fun ReaderScreen(
     var showTags by remember { mutableStateOf(false) }
     var managed by remember { mutableStateOf<HighlightEntity?>(null) }
     var pending by remember { mutableStateOf<PendingSelection?>(null) }
+    var lookup by remember { mutableStateOf<String?>(null) }
+    var translatePage by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
 
     val palette = readerPalette(prefs.readerTheme)
@@ -401,6 +410,11 @@ fun ReaderScreen(
                                     leadingIcon = { Icon(Icons.Outlined.Code, contentDescription = null) },
                                     onClick = { showMenu = false; viewModel.loadWithJavaScript() },
                                 )
+                                DropdownMenuItem(
+                                    text = { Text("Translate article") },
+                                    leadingIcon = { Icon(Icons.Outlined.Translate, contentDescription = null) },
+                                    onClick = { showMenu = false; translatePage = true },
+                                )
                             }
                             DropdownMenuItem(
                                 text = { Text(if (highlights.isEmpty()) "Share article" else "Export highlights") },
@@ -566,6 +580,25 @@ fun ReaderScreen(
         if (listState.isScrollInProgress) pending = null
     }
 
+    lookup?.let { term ->
+        LookupSheet(
+            term = term,
+            targetLanguage = viewModel.translateLanguageName(),
+            onDefine = { viewModel.define(it) },
+            onTranslate = { viewModel.translate(it) },
+            onDismiss = { lookup = null },
+        )
+    }
+
+    if (translatePage) {
+        TranslatePageSheet(
+            targetLanguage = viewModel.translateLanguageName(),
+            source = { viewModel.articlePlainText() },
+            translate = { viewModel.translate(it) },
+            onDismiss = { translatePage = false },
+        )
+    }
+
     pending?.let { sel ->
         SelectionPill(
             yInWindow = sel.yInWindow,
@@ -574,7 +607,7 @@ fun ReaderScreen(
                 pending = null
             },
             onSearch = { webLookup(sel.quote, define = false); pending = null },
-            onDefine = { webLookup(sel.quote, define = true); pending = null },
+            onDefine = { lookup = sel.quote; pending = null },
             onCopy = { clipboard.setText(AnnotatedString(sel.quote.trim())); pending = null },
             onShare = { shareText(sel.quote.trim(), data?.title); pending = null },
             onDismiss = { pending = null },
@@ -1027,6 +1060,153 @@ private fun PillAction(icon: androidx.compose.ui.graphics.vector.ImageVector, la
             .padding(8.dp),
     ) {
         Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(22.dp))
+    }
+}
+
+/** In-app dictionary + thesaurus for the selected word, with an on-device translate option. */
+@Composable
+private fun LookupSheet(
+    term: String,
+    targetLanguage: String,
+    onDefine: suspend (String) -> Result<com.cairn.reader.domain.lookup.DictionaryEntry>,
+    onTranslate: suspend (String) -> Result<String>,
+    onDismiss: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(max = 560.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 28.dp),
+        ) {
+            val entry by produceState<Result<com.cairn.reader.domain.lookup.DictionaryEntry>?>(null, term) {
+                value = onDefine(term)
+            }
+            val result = entry
+            when {
+                result == null -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text("Looking up…", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
+                }
+                result.isSuccess -> {
+                    val e = result.getOrThrow()
+                    Text(e.word, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
+                    e.phonetic?.let {
+                        Spacer(Modifier.height(2.dp))
+                        Text(it, style = MaterialTheme.typography.titleSmall, color = scheme.onSurfaceVariant)
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    e.senses.forEachIndexed { i, s ->
+                        Row(Modifier.padding(bottom = 10.dp)) {
+                            Text("${i + 1}.", style = MaterialTheme.typography.bodyMedium, color = scheme.primary, modifier = Modifier.width(24.dp))
+                            Column {
+                                if (s.partOfSpeech.isNotBlank()) {
+                                    Text(s.partOfSpeech, style = MaterialTheme.typography.labelMedium.copy(fontStyle = FontStyle.Italic), color = scheme.onSurfaceVariant)
+                                }
+                                Text(s.definition, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                                s.example?.let {
+                                    Text("“$it”", style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic), color = scheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                    if (e.synonyms.isNotEmpty()) {
+                        Spacer(Modifier.height(6.dp))
+                        Text("Synonyms", style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant)
+                        Text(e.synonyms.joinToString(", "), style = MaterialTheme.typography.bodyMedium, color = scheme.onSurface)
+                    }
+                    if (e.antonyms.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        Text("Antonyms", style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant)
+                        Text(e.antonyms.joinToString(", "), style = MaterialTheme.typography.bodyMedium, color = scheme.onSurface)
+                    }
+                }
+                else -> Text(
+                    result.exceptionOrNull()?.message ?: "No definition found.",
+                    style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant,
+                )
+            }
+
+            // Translate the selection on demand (also works for a phrase, not just one word).
+            Spacer(Modifier.height(18.dp))
+            HorizontalDivider(color = scheme.outlineVariant.copy(alpha = 0.5f))
+            Spacer(Modifier.height(14.dp))
+            val scope = rememberCoroutineScope()
+            var translating by remember { mutableStateOf(false) }
+            var translated by remember { mutableStateOf<Result<String>?>(null) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Translate", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface, modifier = Modifier.weight(1f))
+                Button(
+                    enabled = !translating,
+                    onClick = {
+                        translating = true
+                        scope.launch { translated = onTranslate(term); translating = false }
+                    },
+                ) {
+                    Icon(Icons.Outlined.Translate, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("To $targetLanguage")
+                }
+            }
+            when {
+                translating -> {
+                    Spacer(Modifier.height(10.dp))
+                    Text("Translating… the first time downloads a small language model.", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
+                }
+                translated?.isSuccess == true -> {
+                    Spacer(Modifier.height(10.dp))
+                    Text(translated!!.getOrThrow(), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                }
+                translated?.isFailure == true -> {
+                    Spacer(Modifier.height(10.dp))
+                    Text(translated!!.exceptionOrNull()?.message ?: "Couldn't translate.", style = MaterialTheme.typography.labelMedium, color = scheme.error)
+                }
+            }
+        }
+    }
+}
+
+/** Translates the whole article on-device and shows the result in a scrollable sheet. */
+@Composable
+private fun TranslatePageSheet(
+    targetLanguage: String,
+    source: suspend () -> String,
+    translate: suspend (String) -> Result<String>,
+    onDismiss: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(max = 640.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 28.dp),
+        ) {
+            Text("Translation · $targetLanguage", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
+            Spacer(Modifier.height(14.dp))
+            val result by produceState<Result<String>?>(null) {
+                val text = source()
+                value = if (text.isBlank()) Result.failure(IllegalStateException("Nothing to translate")) else translate(text)
+            }
+            when (val r = result) {
+                null -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text("Translating… the first time downloads a small language model.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
+                }
+                else -> if (r.isSuccess) {
+                    Text(r.getOrThrow(), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                } else {
+                    Text(r.exceptionOrNull()?.message ?: "Couldn't translate this article.", style = MaterialTheme.typography.bodyMedium, color = scheme.error)
+                }
+            }
+        }
     }
 }
 
