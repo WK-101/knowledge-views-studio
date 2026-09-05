@@ -66,6 +66,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Today
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -154,6 +155,7 @@ fun AppDrawer(
     onOpenTime: () -> Unit = {},
     onOpenRecap: () -> Unit = {},
     onOpenAnnual: () -> Unit = {},
+    onOpenDayReview: () -> Unit = {},
 ) {
     val folders by vm.folders.collectAsState()
     val lists by vm.lists.collectAsState()
@@ -231,6 +233,7 @@ fun AppDrawer(
                         ref == "more:review" -> onOpenReview()
                         ref == "more:recap" -> onOpenRecap()
                         ref == "more:annual" -> onOpenAnnual()
+                        ref == "more:dayreview" -> onOpenDayReview()
                     }
                 },
                 open = open("fav"), onToggle = { toggle("fav") })
@@ -381,17 +384,30 @@ fun AppDrawer(
             SectionHeader("More", open = open("more"), onToggle = { toggle("more") })
             if (open("more")) {
                 // E4: long-press any "More" item to pin it to Favourites (token "more:key").
-                if ("momentum" !in hidden) DrawerRow(Icons.Filled.Insights, "Momentum", pinned = vm.isPinned("more:momentum"), onLongClick = { vm.togglePinnedRef("more:momentum") }, onClick = onOpenMomentum)
+                // Utility rows stay at the top of More, untouched. Below them the seven review/analytics
+                // surfaces are grouped by JOB into three homes: Review (reflective input — you write),
+                // Insights (analytics — you read) and Record (artifacts — you keep / share). Each header
+                // only shows when at least one of its rows is visible, so a fully-hidden group leaves no
+                // orphan label (mirrors the old "Insights" sub-label guard).
                 if ("templates" !in hidden) DrawerRow(Icons.Filled.ContentCopy, "Templates", pinned = vm.isPinned("more:templates"), onLongClick = { vm.togglePinnedRef("more:templates") }, onClick = onOpenTemplates)
                 if ("countdowns" !in hidden) DrawerRow(Icons.Filled.Cake, "Occasions", pinned = vm.isPinned("more:countdowns"), onLongClick = { vm.togglePinnedRef("more:countdowns") }, onClick = onOpenCountdowns)
                 if ("attachments" !in hidden) DrawerRow(Icons.Filled.AttachFile, "Attachments", pinned = vm.isPinned("more:attachments"), onLongClick = { vm.togglePinnedRef("more:attachments") }, onClick = onOpenAttachments)
-                if ("done" !in hidden) DrawerRow(Icons.Filled.EmojiEvents, "The Record", pinned = vm.isPinned("more:done"), onLongClick = { vm.togglePinnedRef("more:done") }, onClick = onOpenDone)
-                // R32 — Statistics (charts) and Recap (period narrative) sit together under one "Insights"
-                // sub-label: different jobs, same shelf, so the analytics surfaces don't read as scattered.
-                if (("statistics" !in hidden) || ("recap" !in hidden)) SubLabel("Insights")
-                if ("statistics" !in hidden) DrawerRow(Icons.Filled.BarChart, "Statistics", pinned = vm.isPinned("more:statistics"), onLongClick = { vm.togglePinnedRef("more:statistics") }, onClick = onOpenStats)
-                if ("recap" !in hidden) DrawerRow(Icons.Filled.AutoAwesome, "Recap", pinned = vm.isPinned("more:recap"), onLongClick = { vm.togglePinnedRef("more:recap") }, onClick = onOpenRecap)
+
+                // REVIEW — reflective input you write. Day review is new here; it reuses the same open
+                // path the FAB / command palette use (onOpenDayReview → showDayReview = today).
+                if (("dayreview" !in hidden) || ("review" !in hidden)) SubLabel("Review")
+                if ("dayreview" !in hidden) DrawerRow(Icons.Filled.WbSunny, "Day review", pinned = vm.isPinned("more:dayreview"), onLongClick = { vm.togglePinnedRef("more:dayreview") }, onClick = onOpenDayReview)
                 if ("review" !in hidden) DrawerRow(Icons.Filled.ChecklistRtl, "Weekly review", pinned = vm.isPinned("more:review"), onLongClick = { vm.togglePinnedRef("more:review") }, onClick = onOpenReview)
+
+                // INSIGHTS — analytics you read.
+                if (("momentum" !in hidden) || ("statistics" !in hidden)) SubLabel("Insights")
+                if ("momentum" !in hidden) DrawerRow(Icons.Filled.Insights, "Momentum", pinned = vm.isPinned("more:momentum"), onLongClick = { vm.togglePinnedRef("more:momentum") }, onClick = onOpenMomentum)
+                if ("statistics" !in hidden) DrawerRow(Icons.Filled.BarChart, "Statistics", pinned = vm.isPinned("more:statistics"), onLongClick = { vm.togglePinnedRef("more:statistics") }, onClick = onOpenStats)
+
+                // RECORD — artifacts you keep / share.
+                if (("done" !in hidden) || ("recap" !in hidden) || ("annual" !in hidden)) SubLabel("Record")
+                if ("done" !in hidden) DrawerRow(Icons.Filled.EmojiEvents, "The Record", pinned = vm.isPinned("more:done"), onLongClick = { vm.togglePinnedRef("more:done") }, onClick = onOpenDone)
+                if ("recap" !in hidden) DrawerRow(Icons.Filled.AutoAwesome, "Recap", pinned = vm.isPinned("more:recap"), onLongClick = { vm.togglePinnedRef("more:recap") }, onClick = onOpenRecap)
                 if ("annual" !in hidden) DrawerRow(Icons.Filled.EmojiEvents, "Year in review", pinned = vm.isPinned("more:annual"), onLongClick = { vm.togglePinnedRef("more:annual") }, onClick = onOpenAnnual)
             }
             }
@@ -648,6 +664,7 @@ private fun PinnedFavourites(
         "templates" -> Icons.Filled.ContentCopy to "Templates"; "countdowns" -> Icons.Filled.Cake to "Occasions"
         "attachments" -> Icons.Filled.AttachFile to "Attachments"; "statistics" -> Icons.Filled.BarChart to "Statistics"
         "review" -> Icons.Filled.ChecklistRtl to "Weekly review"
+        "dayreview" -> Icons.Filled.WbSunny to "Day review"
         "recap" -> Icons.Filled.AutoAwesome to "Recap"; "annual" -> Icons.Filled.EmojiEvents to "Year in review"; else -> null
     }
     val resolved = refs.mapNotNull { ref ->

@@ -643,6 +643,8 @@ fun AppRoot(
                     onOpenTime = { showTimeTracking = true; scope.launch { drawerState.close() } },
                     onOpenRecap = { val t = java.time.LocalDate.now(); val ws = com.todocompanion.app.ui.screens.weekStartOf(t, settings.weekStart); recapRange = Triple(ws.toEpochDay(), t.toEpochDay(), "This week"); scope.launch { drawerState.close() } },
                     onOpenAnnual = { showAnnual = true; scope.launch { drawerState.close() } },
+                    // Same open path the FAB "Day review" and the "day review" command use (R66).
+                    onOpenDayReview = { showDayReview = java.time.LocalDate.now().toEpochDay(); scope.launch { drawerState.close() } },
                 )
             },
         ) {
