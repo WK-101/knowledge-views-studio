@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -103,6 +104,15 @@ class ReaderViewModel @Inject constructor(
                     _state.update { it.copy(extracting = true) }
                     feedRepository.extractFull(itemId)
                     _state.update { ReaderUiState(loading = false, extracting = false, data = itemRepository.reader(itemId)) }
+                }
+                // Auto-cache what you read so it stays readable offline later. Runs quietly in the
+                // background; saveOffline honours the image Wi-Fi-only policy (text always cached),
+                // and marking the copy permanent keeps retention from pruning it away.
+                val fresh = itemRepository.reader(itemId)
+                if (fresh != null && fresh.type != "PDF" && fresh.cacheStatus != "PERMANENT" &&
+                    preferencesRepository.preferences.first().cacheOnOpen
+                ) {
+                    launch { runCatching { feedRepository.saveOffline(itemId) } }
                 }
             }
         }

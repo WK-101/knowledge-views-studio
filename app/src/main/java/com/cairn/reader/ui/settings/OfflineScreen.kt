@@ -76,6 +76,12 @@ fun OfflineScreen(
 
             SectionHeader("OFFLINE COPIES")
             ToggleRow(
+                title = "Keep what you read",
+                subtitle = "Every article you open is cached so it stays readable offline later — text always, images per the settings below.",
+                checked = prefs.cacheOnOpen,
+                onCheckedChange = viewModel::setCacheOnOpen,
+            )
+            ToggleRow(
                 title = "Download images",
                 subtitle = "“Save offline” fetches every image so the article is a true self-contained copy. Off = text only.",
                 checked = prefs.cacheImagesOffline,

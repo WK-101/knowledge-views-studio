@@ -107,6 +107,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun setCacheImagesOffline(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setCacheImagesOffline(enabled) }
+    fun setCacheOnOpen(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setCacheOnOpen(enabled) }
     fun setImagesWifiOnly(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setImagesWifiOnly(enabled) }
     fun setMaxItemsPerFeed(max: Int) = viewModelScope.launch { preferencesRepository.setMaxItemsPerFeed(max) }
     fun setMaxAgeDays(days: Int) = viewModelScope.launch { preferencesRepository.setMaxAgeDays(days) }

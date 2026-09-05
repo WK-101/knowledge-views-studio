@@ -78,6 +78,8 @@ data class AppPreferences(
     val cacheImagesOffline: Boolean = true,
     /** Only download offline-copy images on un-metered networks (text is always saved). */
     val imagesWifiOnly: Boolean = true,
+    /** Keep every article you open readable offline later (caches text now, images per policy). */
+    val cacheOnOpen: Boolean = true,
     /** Keep at most this many items per feed (older, un-engaged ones are pruned). 0 = keep everything. */
     val maxItemsPerFeed: Int = 0,
     /** Also drop un-engaged items older than this many days on sync. 0 = no age limit. */
@@ -126,6 +128,7 @@ class PreferencesRepository @Inject constructor(
         val COMPACT_DENSITY = booleanPreferencesKey("compact_density")
         val SYNC_WIFI_ONLY = booleanPreferencesKey("sync_wifi_only")
         val CACHE_IMAGES = booleanPreferencesKey("cache_images_offline")
+        val CACHE_ON_OPEN = booleanPreferencesKey("cache_on_open")
         val IMAGES_WIFI_ONLY = booleanPreferencesKey("images_wifi_only")
         val MAX_ITEMS_PER_FEED = intPreferencesKey("max_items_per_feed")
         val MAX_AGE_DAYS = intPreferencesKey("max_age_days")
@@ -175,6 +178,7 @@ class PreferencesRepository @Inject constructor(
             compactDensity = p[Keys.COMPACT_DENSITY] ?: false,
             syncWifiOnly = p[Keys.SYNC_WIFI_ONLY] ?: false,
             cacheImagesOffline = p[Keys.CACHE_IMAGES] ?: true,
+            cacheOnOpen = p[Keys.CACHE_ON_OPEN] ?: true,
             imagesWifiOnly = p[Keys.IMAGES_WIFI_ONLY] ?: true,
             maxItemsPerFeed = p[Keys.MAX_ITEMS_PER_FEED] ?: 0,
             maxAgeDays = p[Keys.MAX_AGE_DAYS] ?: 0,
@@ -212,6 +216,7 @@ class PreferencesRepository @Inject constructor(
 
     suspend fun setSyncWifiOnly(enabled: Boolean) = context.dataStore.edit { it[Keys.SYNC_WIFI_ONLY] = enabled }
     suspend fun setCacheImagesOffline(enabled: Boolean) = context.dataStore.edit { it[Keys.CACHE_IMAGES] = enabled }
+    suspend fun setCacheOnOpen(enabled: Boolean) = context.dataStore.edit { it[Keys.CACHE_ON_OPEN] = enabled }
     suspend fun setImagesWifiOnly(enabled: Boolean) = context.dataStore.edit { it[Keys.IMAGES_WIFI_ONLY] = enabled }
     suspend fun setMaxItemsPerFeed(max: Int) = context.dataStore.edit { it[Keys.MAX_ITEMS_PER_FEED] = max.coerceAtLeast(0) }
     suspend fun setMaxAgeDays(days: Int) = context.dataStore.edit { it[Keys.MAX_AGE_DAYS] = days.coerceAtLeast(0) }
