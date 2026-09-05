@@ -279,7 +279,7 @@ fun ItemActionSheet(
                 HorizontalDivider(Modifier.padding(vertical = 4.dp))
                 ActionItem(
                     icon = Icons.Outlined.DeleteOutline,
-                    label = "Delete",
+                    label = "Move to Trash",
                     tint = MaterialTheme.colorScheme.error,
                     textColor = MaterialTheme.colorScheme.error,
                 ) { onDelete(); onDismiss() }

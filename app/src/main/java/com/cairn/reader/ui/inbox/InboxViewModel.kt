@@ -76,6 +76,10 @@ class InboxViewModel @Inject constructor(
     /** Unsubscribe from a feed straight from the drawer's long-press menu. */
     fun unsubscribe(sourceId: String) = viewModelScope.launch { sourceRepository.delete(sourceId) }
 
+    /** Live count of items in the Trash, for the drawer badge. */
+    val trashCount: StateFlow<Int> =
+        feedRepository.observeTrashCount().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
     // -- Per-feed settings from the drawer long-press ("Feed settings & folder") -----------
     val folders: StateFlow<List<String>> =
         sourceRepository.folders().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -369,12 +373,13 @@ class InboxViewModel @Inject constructor(
 
     fun unarchive(id: String) = viewModelScope.launch { itemRepository.setArchived(id, false) }
 
-    /** Permanently delete an item (with a brief Undo). Feeds keep everything otherwise. */
+    /** Move an item to the Trash (with a brief Undo). It stays restorable from the Trash
+     *  until the user empties it or the grace period elapses — nothing is erased outright. */
     fun delete(id: String) = viewModelScope.launch {
-        val snapshot = feedRepository.deleteItem(id)
+        feedRepository.trashItem(id)
         _snacks.emit(
-            Snack("Deleted", if (snapshot != null) "Undo" else null) {
-                if (snapshot != null) viewModelScope.launch { feedRepository.restoreItem(snapshot) }
+            Snack("Moved to Trash", "Undo") {
+                viewModelScope.launch { feedRepository.restoreFromTrash(id) }
             },
         )
     }

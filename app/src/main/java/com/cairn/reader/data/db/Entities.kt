@@ -83,6 +83,9 @@ data class ItemEntity(
     val cacheStatus: String? = null,
     // v1.6: audio enclosure URL for podcast items (nullable → v2→v3 migration adds it).
     val enclosureUrl: String? = null,
+    // v3.44: soft-delete. Non-null = the item is in the Trash (hidden everywhere but the Trash
+    // screen, restorable, auto-purged after a grace period). Migration 7→8 adds the column.
+    val trashedAt: Long? = null,
 )
 
 @Entity(

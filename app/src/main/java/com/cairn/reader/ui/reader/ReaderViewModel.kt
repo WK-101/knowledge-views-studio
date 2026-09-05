@@ -229,11 +229,11 @@ class ReaderViewModel @Inject constructor(
         viewModelScope.launch { itemRepository.setRead(itemId, false) }
     }
 
-    /** Permanently delete the article being read, then leave the reader. */
+    /** Move the article being read to the Trash, then leave the reader. Restorable from the Trash. */
     fun deleteArticle(onDone: () -> Unit) {
         if (itemId.isEmpty()) return
         viewModelScope.launch {
-            feedRepository.deleteItem(itemId)
+            feedRepository.trashItem(itemId)
             onDone()
         }
     }

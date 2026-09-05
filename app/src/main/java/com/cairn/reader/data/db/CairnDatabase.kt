@@ -18,7 +18,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TombstoneEntity::class,
         SyncOpEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 abstract class CairnDatabase : RoomDatabase() {
@@ -75,5 +75,12 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
 val MIGRATION_6_7 = object : Migration(6, 7) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE sources ADD COLUMN scrapeSelector TEXT")
+    }
+}
+
+/** v3.44: the Trash. A nullable timestamp on items; non-null means soft-deleted. */
+val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE items ADD COLUMN trashedAt INTEGER")
     }
 }

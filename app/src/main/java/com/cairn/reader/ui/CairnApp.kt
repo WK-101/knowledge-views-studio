@@ -134,6 +134,7 @@ fun CairnApp(
     onOpenOffline: () -> Unit = {},
     onOpenDiscover: () -> Unit = {},
     onOpenReadLater: () -> Unit = {},
+    onOpenTrash: () -> Unit = {},
 ) {
     var showAddFeed by remember { mutableStateOf(false) }
     var manageFeed by remember { mutableStateOf<com.cairn.reader.data.db.SourceEntity?>(null) }
@@ -158,6 +159,7 @@ fun CairnApp(
     val inboxState by inboxViewModel.state.collectAsStateWithLifecycle()
     val feeds by inboxViewModel.feeds.collectAsStateWithLifecycle()
     val selection by inboxViewModel.selection.collectAsStateWithLifecycle()
+    val trashCount by inboxViewModel.trashCount.collectAsStateWithLifecycle()
     val ttsState by inboxViewModel.tts.collectAsStateWithLifecycle()
     val audioState by inboxViewModel.audio.collectAsStateWithLifecycle()
     var showViewMenu by remember { mutableStateOf(false) }
@@ -202,6 +204,8 @@ fun CairnApp(
                     onSearch = { scope.launch { drawerState.close() }; onOpenSearch() },
                     onDiscover = { currentName = Destination.Discover.name; scope.launch { drawerState.close() } },
                     onManageFeeds = { scope.launch { drawerState.close() }; onOpenFeeds() },
+                    onTrash = { scope.launch { drawerState.close() }; onOpenTrash() },
+                    trashCount = trashCount,
                     onSettings = { currentName = Destination.Settings.name; scope.launch { drawerState.close() } },
                 )
             }

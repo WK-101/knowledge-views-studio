@@ -523,11 +523,11 @@ fun ReaderScreen(
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             icon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-            title = { Text("Delete this article?") },
-            text = { Text("It's removed permanently and won't come back on the next sync. Everything else in the feed is kept.") },
+            title = { Text("Move to Trash?") },
+            text = { Text("It's moved to the Trash — hidden from your feeds but kept intact. You can restore it from Trash, or empty the Trash to erase it for good.") },
             confirmButton = {
                 TextButton(onClick = { confirmDelete = false; viewModel.deleteArticle(onBack) }) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                    Text("Move to Trash", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },

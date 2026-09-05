@@ -64,6 +64,7 @@ fun CairnRoot(
                     onOpenOffline = { navController.navigate("offline") },
                     onOpenDiscover = { navController.navigate("discover") },
                     onOpenReadLater = { navController.navigate("readlater") },
+                    onOpenTrash = { navController.navigate("trash") },
                 )
             }
             composable(
@@ -113,6 +114,12 @@ fun CairnRoot(
             }
             composable("readlater") {
                 com.cairn.reader.ui.readlater.ReadLaterScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenItem = { itemId -> navController.navigate("reader/$itemId") },
+                )
+            }
+            composable("trash") {
+                com.cairn.reader.ui.trash.TrashScreen(
                     onBack = { navController.popBackStack() },
                     onOpenItem = { itemId -> navController.navigate("reader/$itemId") },
                 )

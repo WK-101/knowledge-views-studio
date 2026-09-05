@@ -83,7 +83,7 @@ interface ItemDao {
         FROM items i
         LEFT JOIN item_states s ON s.itemId = i.id
         LEFT JOIN sources src ON src.id = i.sourceId
-        WHERE COALESCE(s.isArchived, 0) = 0 AND COALESCE(s.isRead, 0) = 0
+        WHERE i.trashedAt IS NULL AND COALESCE(s.isArchived, 0) = 0 AND COALESCE(s.isRead, 0) = 0
           AND (:sourceId IS NULL OR i.sourceId = :sourceId)
           AND (:folder IS NULL OR src.folder = :folder)
         ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC
@@ -102,7 +102,7 @@ interface ItemDao {
         FROM items i
         LEFT JOIN item_states s ON s.itemId = i.id
         LEFT JOIN sources src ON src.id = i.sourceId
-        WHERE COALESCE(s.isStarred, 0) = 1 OR COALESCE(s.isArchived, 0) = 1 OR COALESCE(s.isReadLater, 0) = 1
+        WHERE i.trashedAt IS NULL AND (COALESCE(s.isStarred, 0) = 1 OR COALESCE(s.isArchived, 0) = 1 OR COALESCE(s.isReadLater, 0) = 1)
         ORDER BY i.savedAt DESC
         """
     )
@@ -119,7 +119,7 @@ interface ItemDao {
         FROM items i
         LEFT JOIN item_states s ON s.itemId = i.id
         LEFT JOIN sources src ON src.id = i.sourceId
-        WHERE COALESCE(s.isArchived, 0) = 0 AND COALESCE(s.isReadLater, 0) = 1
+        WHERE i.trashedAt IS NULL AND COALESCE(s.isArchived, 0) = 0 AND COALESCE(s.isReadLater, 0) = 1
           AND (:sourceId IS NULL OR i.sourceId = :sourceId)
           AND (:folder IS NULL OR src.folder = :folder)
         ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC
@@ -138,7 +138,7 @@ interface ItemDao {
         FROM items i
         LEFT JOIN item_states s ON s.itemId = i.id
         LEFT JOIN sources src ON src.id = i.sourceId
-        WHERE COALESCE(s.isArchived, 0) = 0
+        WHERE i.trashedAt IS NULL AND COALESCE(s.isArchived, 0) = 0
           AND (:sourceId IS NULL OR i.sourceId = :sourceId)
           AND (:folder IS NULL OR src.folder = :folder)
         ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC
@@ -157,7 +157,7 @@ interface ItemDao {
         FROM items i
         LEFT JOIN item_states s ON s.itemId = i.id
         LEFT JOIN sources src ON src.id = i.sourceId
-        WHERE COALESCE(s.isArchived, 0) = 0 AND COALESCE(s.isStarred, 0) = 1
+        WHERE i.trashedAt IS NULL AND COALESCE(s.isArchived, 0) = 0 AND COALESCE(s.isStarred, 0) = 1
           AND (:sourceId IS NULL OR i.sourceId = :sourceId)
           AND (:folder IS NULL OR src.folder = :folder)
         ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC
@@ -169,7 +169,7 @@ interface ItemDao {
         """
         SELECT COUNT(*) FROM items i
         LEFT JOIN item_states s ON s.itemId = i.id
-        WHERE COALESCE(s.isRead, 0) = 0 AND COALESCE(s.isArchived, 0) = 0
+        WHERE i.trashedAt IS NULL AND COALESCE(s.isRead, 0) = 0 AND COALESCE(s.isArchived, 0) = 0
         """
     )
     fun observeUnreadCount(): Flow<Int>
@@ -179,7 +179,7 @@ interface ItemDao {
         SELECT src.id AS sourceId, src.title AS title, src.folder AS folder,
                (SELECT COUNT(*) FROM items i
                 LEFT JOIN item_states s ON s.itemId = i.id
-                WHERE i.sourceId = src.id AND COALESCE(s.isRead, 0) = 0 AND COALESCE(s.isArchived, 0) = 0) AS unread
+                WHERE i.sourceId = src.id AND i.trashedAt IS NULL AND COALESCE(s.isRead, 0) = 0 AND COALESCE(s.isArchived, 0) = 0) AS unread
         FROM sources src
         ORDER BY src.sortOrder, src.title COLLATE NOCASE
         """
@@ -192,10 +192,10 @@ interface ItemDao {
     @Query("SELECT * FROM item_states WHERE itemId = :id")
     suspend fun getState(id: String): ItemStateEntity?
 
-    @Query("SELECT COUNT(*) FROM items i LEFT JOIN item_states s ON s.itemId = i.id WHERE COALESCE(s.isRead, 0) = 0 AND COALESCE(s.isArchived, 0) = 0")
+    @Query("SELECT COUNT(*) FROM items i LEFT JOIN item_states s ON s.itemId = i.id WHERE i.trashedAt IS NULL AND COALESCE(s.isRead, 0) = 0 AND COALESCE(s.isArchived, 0) = 0")
     suspend fun unreadCountOnce(): Int
 
-    @Query("SELECT i.title FROM items i LEFT JOIN item_states s ON s.itemId = i.id WHERE COALESCE(s.isRead, 0) = 0 AND COALESCE(s.isArchived, 0) = 0 ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC LIMIT 1")
+    @Query("SELECT i.title FROM items i LEFT JOIN item_states s ON s.itemId = i.id WHERE i.trashedAt IS NULL AND COALESCE(s.isRead, 0) = 0 AND COALESCE(s.isArchived, 0) = 0 ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC LIMIT 1")
     suspend fun latestInboxTitle(): String?
 
     @Query("SELECT * FROM items")
@@ -363,7 +363,7 @@ interface ItemDao {
         JOIN items i ON i.id = item_fts.itemId
         LEFT JOIN item_states s ON s.itemId = i.id
         LEFT JOIN sources src ON src.id = i.sourceId
-        WHERE item_fts MATCH :query
+        WHERE i.trashedAt IS NULL AND item_fts MATCH :query
         ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC
         """
     )
@@ -382,7 +382,7 @@ interface ItemDao {
         FROM items i
         LEFT JOIN item_states s ON s.itemId = i.id
         LEFT JOIN sources src ON src.id = i.sourceId
-        WHERE COALESCE(s.isStarred, 0) = 1 OR i.collectionId IS NOT NULL
+        WHERE i.trashedAt IS NULL AND (COALESCE(s.isStarred, 0) = 1 OR i.collectionId IS NOT NULL)
         ORDER BY i.savedAt DESC
         """
     )
@@ -399,7 +399,7 @@ interface ItemDao {
         FROM items i
         LEFT JOIN item_states s ON s.itemId = i.id
         LEFT JOIN sources src ON src.id = i.sourceId
-        WHERE i.collectionId IS NULL AND COALESCE(s.isStarred, 0) = 1
+        WHERE i.trashedAt IS NULL AND i.collectionId IS NULL AND COALESCE(s.isStarred, 0) = 1
         ORDER BY i.savedAt DESC
         """
     )
@@ -416,7 +416,7 @@ interface ItemDao {
         FROM items i
         LEFT JOIN item_states s ON s.itemId = i.id
         LEFT JOIN sources src ON src.id = i.sourceId
-        WHERE COALESCE(s.isArchived, 0) = 1
+        WHERE i.trashedAt IS NULL AND COALESCE(s.isArchived, 0) = 1
         ORDER BY s.updatedAt DESC, i.savedAt DESC
         """
     )
@@ -433,7 +433,7 @@ interface ItemDao {
         FROM items i
         LEFT JOIN item_states s ON s.itemId = i.id
         LEFT JOIN sources src ON src.id = i.sourceId
-        WHERE COALESCE(s.isStarred, 0) = 1 AND COALESCE(s.isArchived, 0) = 0
+        WHERE i.trashedAt IS NULL AND COALESCE(s.isStarred, 0) = 1 AND COALESCE(s.isArchived, 0) = 0
         ORDER BY i.savedAt DESC
         """
     )
@@ -450,7 +450,7 @@ interface ItemDao {
         FROM items i
         LEFT JOIN item_states s ON s.itemId = i.id
         LEFT JOIN sources src ON src.id = i.sourceId
-        WHERE i.cacheStatus = 'PERMANENT'
+        WHERE i.trashedAt IS NULL AND i.cacheStatus = 'PERMANENT'
         ORDER BY i.savedAt DESC
         """
     )
@@ -460,15 +460,16 @@ interface ItemDao {
         """
         SELECT
           (SELECT COUNT(*) FROM items i LEFT JOIN item_states s ON s.itemId = i.id
-            WHERE COALESCE(s.isStarred, 0) = 1 OR i.collectionId IS NOT NULL) AS allCount,
+            WHERE i.trashedAt IS NULL AND (COALESCE(s.isStarred, 0) = 1 OR i.collectionId IS NOT NULL)) AS allCount,
           (SELECT COUNT(*) FROM items i LEFT JOIN item_states s ON s.itemId = i.id
-            WHERE i.collectionId IS NULL AND COALESCE(s.isStarred, 0) = 1) AS unsortedCount,
+            WHERE i.trashedAt IS NULL AND i.collectionId IS NULL AND COALESCE(s.isStarred, 0) = 1) AS unsortedCount,
           (SELECT COUNT(*) FROM items i LEFT JOIN item_states s ON s.itemId = i.id
-            WHERE COALESCE(s.isStarred, 0) = 1 AND COALESCE(s.isArchived, 0) = 0) AS favoritesCount,
-          (SELECT COUNT(*) FROM item_states s WHERE COALESCE(s.isArchived, 0) = 1) AS archiveCount,
-          (SELECT COUNT(*) FROM items i WHERE i.cacheStatus = 'PERMANENT') AS offlineCount,
+            WHERE i.trashedAt IS NULL AND COALESCE(s.isStarred, 0) = 1 AND COALESCE(s.isArchived, 0) = 0) AS favoritesCount,
           (SELECT COUNT(*) FROM items i LEFT JOIN item_states s ON s.itemId = i.id
-            WHERE COALESCE(s.isReadLater, 0) = 1 AND COALESCE(s.isArchived, 0) = 0) AS readLaterCount
+            WHERE i.trashedAt IS NULL AND COALESCE(s.isArchived, 0) = 1) AS archiveCount,
+          (SELECT COUNT(*) FROM items i WHERE i.trashedAt IS NULL AND i.cacheStatus = 'PERMANENT') AS offlineCount,
+          (SELECT COUNT(*) FROM items i LEFT JOIN item_states s ON s.itemId = i.id
+            WHERE i.trashedAt IS NULL AND COALESCE(s.isReadLater, 0) = 1 AND COALESCE(s.isArchived, 0) = 0) AS readLaterCount
         """
     )
     fun observeLibraryCounts(): Flow<LibraryCounts>
@@ -484,7 +485,7 @@ interface ItemDao {
         FROM items i
         LEFT JOIN item_states s ON s.itemId = i.id
         LEFT JOIN sources src ON src.id = i.sourceId
-        WHERE i.collectionId = :collectionId
+        WHERE i.trashedAt IS NULL AND i.collectionId = :collectionId
         ORDER BY i.savedAt DESC
         """
     )
@@ -502,9 +503,49 @@ interface ItemDao {
         JOIN item_tags it ON it.itemId = i.id
         LEFT JOIN item_states s ON s.itemId = i.id
         LEFT JOIN sources src ON src.id = i.sourceId
-        WHERE it.tagId = :tagId
+        WHERE i.trashedAt IS NULL AND it.tagId = :tagId
         ORDER BY i.savedAt DESC
         """
     )
     fun observeByTag(tagId: String): Flow<List<ItemListRow>>
+
+    // -- Trash (soft-delete) ---------------------------------------------------
+
+    /** Everything currently in the Trash, most-recently-trashed first. */
+    @Query(
+        """
+        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
+               i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
+               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
+               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
+               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
+               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
+        FROM items i
+        LEFT JOIN item_states s ON s.itemId = i.id
+        LEFT JOIN sources src ON src.id = i.sourceId
+        WHERE i.trashedAt IS NOT NULL
+        ORDER BY i.trashedAt DESC
+        """
+    )
+    fun observeTrash(): Flow<List<ItemListRow>>
+
+    /** Live count of items in the Trash, for the nav badge. */
+    @Query("SELECT COUNT(*) FROM items WHERE trashedAt IS NOT NULL")
+    fun observeTrashCount(): Flow<Int>
+
+    /** Move an item to the Trash (non-null timestamp) or restore it (null). */
+    @Query("UPDATE items SET trashedAt = :ts WHERE id = :id")
+    suspend fun setTrashed(id: String, ts: Long?)
+
+    /** The trashed-at timestamp for an item, or null if it is not trashed. */
+    @Query("SELECT trashedAt FROM items WHERE id = :id")
+    suspend fun trashedAtOf(id: String): Long?
+
+    /** IDs of items trashed before [cutoff] — the auto-purge grace window. */
+    @Query("SELECT id FROM items WHERE trashedAt IS NOT NULL AND trashedAt < :cutoff")
+    suspend fun trashedOlderThan(cutoff: Long): List<String>
+
+    /** Every id currently in the Trash, for "empty trash". */
+    @Query("SELECT id FROM items WHERE trashedAt IS NOT NULL")
+    suspend fun allTrashedIds(): List<String>
 }

@@ -275,6 +275,8 @@ class FeedRepository @Inject constructor(
             if (effLimit > 0) runCatching { pruneSource(source.id, effLimit, keepUnread) }
         }
         if (maxAgeDays > 0) runCatching { pruneOlderThan(now - maxAgeDays * 86_400_000L, keepUnread) }
+        // Empty out anything that has sat in the Trash past the grace period.
+        runCatching { purgeExpiredTrash() }
         return fresh
     }
 
@@ -325,6 +327,49 @@ class FeedRepository @Inject constructor(
             System.currentTimeMillis(),
         )
     }
+
+    // -- Trash (soft-delete) ---------------------------------------------------
+    //
+    // The default delete now moves an item to the Trash instead of erasing it: the row and its
+    // offline copy are kept, the item is hidden everywhere but the Trash screen, and it can be
+    // restored intact. Items sit in the Trash until the user empties it or the grace period
+    // ([trashRetentionDays]) elapses, at which point [purgeTrashOlderThan] erases them for good.
+
+    /** How long a trashed item is kept before auto-purge. Kept generous so nothing is lost by surprise. */
+    val trashRetentionDays: Int = 30
+
+    /** Move an item to the Trash (reversible). */
+    suspend fun trashItem(id: String) = itemDao.setTrashed(id, System.currentTimeMillis())
+
+    /** Move several items to the Trash at once (bulk multi-select). */
+    suspend fun trashItems(ids: Collection<String>) {
+        val now = System.currentTimeMillis()
+        ids.forEach { itemDao.setTrashed(it, now) }
+    }
+
+    /** Restore an item from the Trash, intact (offline copy and all). */
+    suspend fun restoreFromTrash(id: String) = itemDao.setTrashed(id, null)
+
+    /** Restore several items from the Trash. */
+    suspend fun restoreFromTrash(ids: Collection<String>) = ids.forEach { itemDao.setTrashed(it, null) }
+
+    /** Permanently erase a single item that is in the Trash (blob + index + tombstone). */
+    suspend fun deleteForever(id: String) = deleteItemFully(id)
+
+    /** Permanently erase several items from the Trash. */
+    suspend fun deleteForever(ids: Collection<String>) = ids.forEach { deleteItemFully(it) }
+
+    /** Empty the Trash: permanently erase everything currently in it. */
+    suspend fun emptyTrash() = itemDao.allTrashedIds().forEach { deleteItemFully(it) }
+
+    /** Auto-purge: permanently erase items that have been in the Trash past the grace period. */
+    suspend fun purgeExpiredTrash() {
+        val cutoff = System.currentTimeMillis() - trashRetentionDays * 86_400_000L
+        itemDao.trashedOlderThan(cutoff).forEach { deleteItemFully(it) }
+    }
+
+    fun observeTrash() = itemDao.observeTrash()
+    fun observeTrashCount() = itemDao.observeTrashCount()
 
     /** True when the active network is un-metered (Wi-Fi/Ethernet). Defaults to true if unknown,
      *  so an unclear network never silently blocks a save the user asked for. */
@@ -380,7 +425,11 @@ class FeedRepository @Inject constructor(
         val key = p.guid ?: p.link ?: p.title ?: UUID.randomUUID().toString()
         val itemId = deterministicId("${source.id}|$key")
         if (syncDao.isTombstoned(itemId)) return
-        val isNew = itemDao.getItem(itemId) == null
+        val existing = itemDao.getItem(itemId)
+        // A trashed item stays in the Trash until restored or purged — never let a re-sync
+        // resurrect it by upserting a fresh row (which would reset trashedAt back to null).
+        if (existing?.trashedAt != null) return
+        val isNew = existing == null
 
         val content = p.contentHtml ?: p.summary
         val plain = content?.let { runCatching { Jsoup.parse(it).text() }.getOrDefault("") } ?: ""

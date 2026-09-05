@@ -24,6 +24,7 @@ import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Folder
@@ -83,6 +84,8 @@ fun FeedDrawerContent(
     onSearch: () -> Unit,
     onDiscover: () -> Unit,
     onManageFeeds: () -> Unit,
+    onTrash: () -> Unit,
+    trashCount: Int = 0,
     onSettings: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
@@ -238,6 +241,14 @@ fun FeedDrawerContent(
             selected = false,
             icon = { Icon(Icons.Outlined.RssFeed, contentDescription = null) },
             onClick = onManageFeeds,
+            modifier = Modifier.padding(itemPad),
+        )
+        NavigationDrawerItem(
+            label = { Text("Trash") },
+            selected = false,
+            icon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null) },
+            badge = { if (trashCount > 0) Text("$trashCount") },
+            onClick = onTrash,
             modifier = Modifier.padding(itemPad),
         )
         NavigationDrawerItem(
