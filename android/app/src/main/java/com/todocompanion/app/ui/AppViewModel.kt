@@ -1801,6 +1801,35 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun runRoutineByName(name: String) = viewModelScope.launch {
         com.todocompanion.app.domain.Routines.byName(routines(), name)?.let { runRoutine(it) }
     }
+    // ── Routines · press-play sequences (add/edit/delete, run history, cross-module tick) ────────────
+    /** Insert or replace a routine by id, then persist. */
+    fun upsertRoutine(r: com.todocompanion.app.domain.Routine) {
+        val list = routines()
+        val idx = list.indexOfFirst { it.id == r.id }
+        saveRoutines(if (idx >= 0) list.toMutableList().also { it[idx] = r } else list + r)
+    }
+    fun deleteRoutine(id: String) = saveRoutines(routines().filterNot { it.id == id })
+    /** Capped press-play run history (adherence, keystone, on-this-day). */
+    fun routineRuns(): List<com.todocompanion.app.domain.RoutineRun> =
+        com.todocompanion.app.domain.RoutineRuns.parse(settings.value.routineRunsJson)
+    /** Tick a habit for today — the same check-off path the Habits screen uses (setHabitValue). */
+    fun completeHabitToday(habitId: String) {
+        val h = habits.value.firstOrNull { it.id == habitId } ?: return
+        setHabitValue(h, java.time.LocalDate.now(zone).toEpochDay(), h.targetPerDay.coerceAtLeast(1))
+    }
+    /** Log a run and, for every completed step, tick its linked habit (today) / complete its linked
+     *  task — the cross-module magic where one press-play flows across habits, tasks and the tracker. */
+    fun logRoutineRun(run: com.todocompanion.app.domain.RoutineRun) = viewModelScope.launch {
+        routines().firstOrNull { it.id == run.routineId }?.steps
+            ?.filter { it.id in run.completedStepIds }
+            ?.forEach { step ->
+                step.linkedHabitId?.let { completeHabitToday(it) }
+                step.linkedTaskId?.let { tid -> repo.getTask(tid)?.let { if (!it.completed) toggleComplete(it) } }
+            }
+        repo.saveSettings(settings.value.copy(
+            routineRunsJson = com.todocompanion.app.domain.RoutineRuns.encode(
+                com.todocompanion.app.domain.RoutineRuns.append(routineRuns(), run))))
+    }
 
     // ── W3 · Plan my day — auto-block, then measure the loop ────────────────────────────────────
     /** Lay today's estimated do-next tasks into time-blocks (rhythm-aware), and turn on the

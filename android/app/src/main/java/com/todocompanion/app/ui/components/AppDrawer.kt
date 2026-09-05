@@ -63,6 +63,7 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.ChecklistRtl
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.PlayCircleOutline
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
@@ -158,6 +159,7 @@ fun AppDrawer(
     onOpenAnnual: () -> Unit = {},
     onOpenDayReview: () -> Unit = {},
     onOpenWeeklyReview: () -> Unit = {},
+    onOpenRoutines: () -> Unit = {},
 ) {
     val folders by vm.folders.collectAsState()
     val lists by vm.lists.collectAsState()
@@ -237,6 +239,7 @@ fun AppDrawer(
                         ref == "more:recap" -> onOpenRecap()
                         ref == "more:annual" -> onOpenAnnual()
                         ref == "more:dayreview" -> onOpenDayReview()
+                        ref == "more:routines" -> onOpenRoutines()
                     }
                 },
                 open = open("fav"), onToggle = { toggle("fav") })
@@ -392,6 +395,7 @@ fun AppDrawer(
                 // Insights (analytics — you read) and Record (artifacts — you keep / share). Each header
                 // only shows when at least one of its rows is visible, so a fully-hidden group leaves no
                 // orphan label (mirrors the old "Insights" sub-label guard).
+                if ("routines" !in hidden) DrawerRow(Icons.Filled.PlayCircleOutline, "Routines", pinned = vm.isPinned("more:routines"), onLongClick = { vm.togglePinnedRef("more:routines") }, onClick = onOpenRoutines)
                 if ("templates" !in hidden) DrawerRow(Icons.Filled.ContentCopy, "Templates", pinned = vm.isPinned("more:templates"), onLongClick = { vm.togglePinnedRef("more:templates") }, onClick = onOpenTemplates)
                 if ("countdowns" !in hidden) DrawerRow(Icons.Filled.Cake, "Occasions", pinned = vm.isPinned("more:countdowns"), onLongClick = { vm.togglePinnedRef("more:countdowns") }, onClick = onOpenCountdowns)
                 if ("attachments" !in hidden) DrawerRow(Icons.Filled.AttachFile, "Attachments", pinned = vm.isPinned("more:attachments"), onLongClick = { vm.togglePinnedRef("more:attachments") }, onClick = onOpenAttachments)
@@ -667,6 +671,7 @@ private fun PinnedFavourites(
     fun moreMeta(key: String): Pair<ImageVector, String>? = when (key) {
         "momentum" -> Icons.Filled.Insights to "Momentum"
         "time" -> Icons.Filled.Timer to "Time"
+        "routines" -> Icons.Filled.PlayCircleOutline to "Routines"
         "templates" -> Icons.Filled.ContentCopy to "Templates"; "countdowns" -> Icons.Filled.Cake to "Occasions"
         "attachments" -> Icons.Filled.AttachFile to "Attachments"; "statistics" -> Icons.Filled.BarChart to "Statistics"
         "review" -> Icons.Filled.ChecklistRtl to "Weekly cleanup"

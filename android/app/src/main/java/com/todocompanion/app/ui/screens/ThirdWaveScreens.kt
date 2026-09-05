@@ -2,7 +2,6 @@ package com.todocompanion.app.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,9 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -51,10 +48,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import com.todocompanion.app.ui.components.MiniCheck
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.todocompanion.app.domain.habit.HabitStats
 import com.todocompanion.app.domain.habit.ThirdWave
 import com.todocompanion.app.ui.AppViewModel
 import java.time.LocalDate
@@ -71,7 +66,6 @@ fun ThirdWaveScreen(vm: AppViewModel, route: String, onBack: () -> Unit, onOpenH
         "experiments" -> ExperimentsScreen(vm, onBack, onOpenHabit)
         "valuestime" -> ValuesTimeScreen(vm, onBack)
         "activation" -> ActivationScreen(vm, onBack)
-        "runner" -> RoutineRunnerScreen(vm, onBack)
         "focuslock" -> FocusLockScreen(vm, onBack)
         "heatmap" -> LifeHeatmapScreen(vm, onBack)
         "companion" -> CompanionScreen(vm, onBack)
@@ -267,74 +261,6 @@ private fun ActivationScreen(vm: AppViewModel, onBack: () -> Unit) {
             } },
             confirmButton = { TextButton(onClick = { vm.rateActivation(item, pleasure, mastery); rating = null }) { Text("Save") } },
             dismissButton = { TextButton(onClick = { rating = null }) { Text("Cancel") } })
-    }
-}
-
-// ── TW-E · routine runner ─────────────────────────────────────────────────────────────────────────
-@Composable
-private fun RoutineRunnerScreen(vm: AppViewModel, onBack: () -> Unit) {
-    val habits by vm.habits.collectAsState()
-    val checkins by vm.habitCheckins.collectAsState()
-    val today = LocalDate.now().toEpochDay()
-    // The run set: build habits due today, ordered by anchor chains then sort order.
-    val due = remember(habits, checkins, today) {
-        habits.filter { h ->
-            if (h.paused || h.archived || h.habitType == "break") return@filter false
-            val hc = checkins.filter { it.habitId == h.id }
-            val done = hc.filter { it.status == "done" && HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
-            HabitStats.dueToday(h, today, done, hc.firstOrNull { it.epochDay == today }?.count ?: 0)
-        }
-    }
-    var running by remember { mutableStateOf(false) }
-    var idx by remember { mutableIntStateOf(0) }
-    var secs by remember { mutableIntStateOf(0) }
-    LaunchedEffect(running, idx) { if (running) { secs = 0; while (running) { kotlinx.coroutines.delay(1000); secs++ } } }
-    TWScaffold("Routine runner", onBack) { pad ->
-        Column(Modifier.padding(pad).fillMaxSize().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            if (due.isEmpty()) { TWEmpty("🎉", "Nothing due to run", "Every habit for today is already done — enjoy the free time."); return@Column }
-            if (!running) {
-                Text("Press play and move through today's habits one at a time — no re-deciding, just momentum. ${due.size} to go.",
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(16.dp))
-                due.forEachIndexed { i, h ->
-                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("${i + 1}", Modifier.width(24.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text((h.emoji?.plus(" ") ?: "") + h.name, style = MaterialTheme.typography.bodyLarge)
-                    }
-                }
-                Spacer(Modifier.height(20.dp))
-                Button(onClick = { idx = 0; running = true }, modifier = Modifier.fillMaxWidth()) { Text("▶  Run my routine") }
-            } else {
-                val h = due.getOrNull(idx)
-                if (h == null) { running = false; return@Column }
-                val color = h.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
-                Spacer(Modifier.height(20.dp))
-                Text("Step ${idx + 1} of ${due.size}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(20.dp))
-                Box(Modifier.size(150.dp).clip(CircleShape).background(color.copy(alpha = .14f)).border(3.dp, color, CircleShape), contentAlignment = Alignment.Center) {
-                    Text(h.emoji ?: "✓", fontSize = 56.sp)
-                }
-                Spacer(Modifier.height(16.dp))
-                Text(h.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
-                if (h.cueContext.isNotBlank()) Text(h.cueContext, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("${secs / 60}:${(secs % 60).toString().padStart(2, '0')}", style = MaterialTheme.typography.displaySmall, color = color, modifier = Modifier.padding(top = 12.dp))
-                Spacer(Modifier.height(20.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    FilledTonalButton(onClick = { if (idx < due.lastIndex) idx++ else running = false }) { Text("Skip") }
-                    Button(onClick = {
-                        vm.setHabitValue(h, today, h.targetPerDay.coerceAtLeast(1))
-                        if (idx < due.lastIndex) idx++ else running = false
-                    }) {
-                        // The modern completion mark, not a raw "✓".
-                        MiniCheck()
-                        Spacer(Modifier.width(6.dp))
-                        Text("Done · Next")
-                    }
-                }
-                Spacer(Modifier.height(10.dp))
-                TextButton(onClick = { running = false }) { Text("End run") }
-            }
-        }
     }
 }
 

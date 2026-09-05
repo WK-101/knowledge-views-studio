@@ -85,7 +85,8 @@ fun LifeSystemsScreen(vm: AppViewModel, route: String, onBack: () -> Unit, onOpe
         "reviews" -> ReviewsScreen(vm, onBack)
         "ledger" -> IdentityLedgerScreen(vm, onBack)
         "buddies" -> BuddiesScreen(vm, onBack)
-        "experiments", "activation", "heatmap", "valuestime", "runner", "companion", "focuslock" ->
+        "runner" -> RoutinesScreen(vm, onBack)
+        "experiments", "activation", "heatmap", "valuestime", "companion", "focuslock" ->
             ThirdWaveScreen(vm, route, onBack, onOpenHabit)
         "loadbalancer" -> LoadBalancerScreen(vm, onBack)
         "causal" -> CausalGraphScreen(vm, onBack, onOpenHabit)
@@ -123,7 +124,7 @@ private fun HubScreen(vm: AppViewModel, onBack: () -> Unit, listState: androidx.
         Entry("experiments", "🔬", "Causal Life Lab", "Run an n-of-1 experiment — prove which habit actually moves your mood."),
         Entry("valuestime", "⚖️", "Values-time mirror", "Stated vs revealed: where your tracked hours really went."),
         Entry("activation", "🌤️", "Behavioral activation", "Schedule small, values-linked wins; rate pleasure & mastery. Act first."),
-        Entry("runner", "▶️", "Routine runner", "Press play on a stack of habits and ride the momentum, step by step."),
+        Entry("runner", "▶️", "Routines", "Named, timed rituals you press play on — each step guides you, and finishing ticks the linked habits & tasks."),
         Entry("focuslock", "🔒", "Focus lock", "A self-imposed focus session with rising exit friction — no server."),
         Entry("heatmap", "🟩", "Life heatmap", "Your whole practice in one year-in-pixels grid, plus a memory from years past."),
         Entry("companion", "🌳", "Your garden", "A plant that grows from consistency — never shamed. A calm alternative to numbers."),
