@@ -47,12 +47,13 @@ fun FeedItemCell(
     onLongPress: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     compact: Boolean = false,
+    selected: Boolean = false,
     onOpenSource: ((String) -> Unit)? = null,
 ) {
     when (mode) {
-        ListViewMode.CARD -> ItemRow(row, onOpen, {}, modifier, onLongPress, compact = compact, onOpenSource = onOpenSource)
-        ListViewMode.LIST -> CompactCell(row, onOpen, onLongPress, modifier, onOpenSource)
-        ListViewMode.MAGAZINE -> MagazineCell(row, onOpen, onLongPress, modifier, onOpenSource)
+        ListViewMode.CARD -> ItemRow(row, onOpen, {}, modifier, onLongPress, selected = selected, compact = compact, onOpenSource = onOpenSource)
+        ListViewMode.LIST -> CompactCell(row, onOpen, onLongPress, modifier, selected, onOpenSource)
+        ListViewMode.MAGAZINE -> MagazineCell(row, onOpen, onLongPress, modifier, selected, onOpenSource)
     }
 }
 
@@ -92,13 +93,14 @@ private fun CompactCell(
     onOpen: () -> Unit,
     onLongPress: (() -> Unit)?,
     modifier: Modifier,
+    selected: Boolean = false,
     onOpenSource: ((String) -> Unit)? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(scheme.surface)
+            .background(if (selected) scheme.secondaryContainer else scheme.surface)
             .combinedClickable(onClick = onOpen, onLongClick = onLongPress)
             .padding(horizontal = 16.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -150,13 +152,14 @@ private fun MagazineCell(
     onOpen: () -> Unit,
     onLongPress: (() -> Unit)?,
     modifier: Modifier,
+    selected: Boolean = false,
     onOpenSource: ((String) -> Unit)? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(scheme.surface)
+            .background(if (selected) scheme.secondaryContainer else scheme.surface)
             .combinedClickable(onClick = onOpen, onLongClick = onLongPress)
             .padding(horizontal = 16.dp, vertical = 11.dp),
     ) {

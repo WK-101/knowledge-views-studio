@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkRemove
+import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.DownloadForOffline
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
@@ -78,14 +79,16 @@ fun SwipeableItemRow(
     modifier: Modifier = Modifier,
     mode: ListViewMode = ListViewMode.CARD,
     compact: Boolean = false,
+    selected: Boolean = false,
+    swipeEnabled: Boolean = true,
     onOpenSource: ((String) -> Unit)? = null,
 ) {
     val density = androidx.compose.ui.platform.LocalDensity.current
     val halfPx = with(density) { 76.dp.toPx() }
     val fullPx = with(density) { 200.dp.toPx() }
     val offset = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(0f) }
-    val rightEnabled = rightHalf != SwipeAction.NONE || rightFull != SwipeAction.NONE
-    val leftEnabled = leftHalf != SwipeAction.NONE || leftFull != SwipeAction.NONE
+    val rightEnabled = swipeEnabled && (rightHalf != SwipeAction.NONE || rightFull != SwipeAction.NONE)
+    val leftEnabled = swipeEnabled && (leftHalf != SwipeAction.NONE || leftFull != SwipeAction.NONE)
     val maxRight = if (rightEnabled) fullPx * 1.1f else 0f
     val minLeft = if (leftEnabled) -fullPx * 1.1f else 0f
 
@@ -111,7 +114,7 @@ fun SwipeableItemRow(
                     if (action != SwipeAction.NONE) onAction(action)
                 },
         ) {
-            FeedItemCell(row = row, mode = mode, onOpen = onOpen, onLongPress = onLongPress, compact = compact, onOpenSource = onOpenSource)
+            FeedItemCell(row = row, mode = mode, onOpen = onOpen, onLongPress = onLongPress, compact = compact, selected = selected, onOpenSource = onOpenSource)
         }
     }
 }
@@ -213,12 +216,14 @@ fun ItemActionSheet(
     onMarkAbove: (() -> Unit)? = null,
     onMarkBelow: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
+    onSelect: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val scheme = MaterialTheme.colorScheme
     // Build every applicable action as data, then lay them out as compact cards, four per row,
     // so the whole sheet stays short instead of a long column of full-width rows.
     val actions = buildList {
+        if (onSelect != null) add(SheetAction(Icons.Outlined.Checklist, "Select") { onSelect(); onDismiss() })
         add(SheetAction(
             if (row.isRead) Icons.Outlined.MarkEmailUnread else Icons.Outlined.MarkEmailRead,
             if (row.isRead) "Unread" else "Read",

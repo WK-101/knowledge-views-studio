@@ -22,6 +22,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Article
+import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Menu
@@ -68,10 +69,14 @@ fun OfflineScreen(
 ) {
     val items by viewModel.items.collectAsStateWithLifecycle()
     val storage by viewModel.storageBytes.collectAsStateWithLifecycle()
+    val picked by viewModel.picked.collectAsStateWithLifecycle()
+    val selecting = picked.isNotEmpty()
     val scheme = MaterialTheme.colorScheme
     var actionRow by remember { mutableStateOf<com.cairn.reader.data.db.ItemListRow?>(null) }
     var showSettings by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf<com.cairn.reader.data.db.ItemListRow?>(null) }
+
+    androidx.activity.compose.BackHandler(enabled = selecting) { viewModel.clearPicks() }
 
     Column(Modifier.fillMaxSize()) {
         TopAppBar(
@@ -86,15 +91,27 @@ fun OfflineScreen(
             },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = scheme.surface),
         )
-        Text(
-            text = when {
-                storage < 0 -> "Measuring storage…"
-                else -> "${items.size} article${if (items.size == 1) "" else "s"} readable offline · ${formatBytes(storage)} on this device"
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = scheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-        )
+        if (selecting) {
+            com.cairn.reader.ui.components.SelectionActionBar(
+                count = picked.size,
+                onClose = { viewModel.clearPicks() },
+                onSelectAll = { viewModel.pickAll() },
+            ) {
+                TextButton(onClick = { viewModel.makePermanentPicked() }) { Text("Save offline") }
+                TextButton(onClick = { viewModel.removeCachePicked() }) { Text("Remove") }
+                TextButton(onClick = { viewModel.deleteEntriesPicked() }) { Text("Delete", color = scheme.error) }
+            }
+        } else {
+            Text(
+                text = when {
+                    storage < 0 -> "Measuring storage…"
+                    else -> "${items.size} article${if (items.size == 1) "" else "s"} readable offline · ${formatBytes(storage)} on this device"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = scheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+            )
+        }
         if (items.isEmpty()) {
             Column(
                 Modifier.fillMaxSize().padding(horizontal = 32.dp),
@@ -120,8 +137,9 @@ fun OfflineScreen(
                     com.cairn.reader.ui.components.FeedItemCell(
                         row = row,
                         mode = com.cairn.reader.data.prefs.ListViewMode.LIST,
-                        onOpen = { onOpenItem(row.id) },
-                        onLongPress = { actionRow = row },
+                        onOpen = { if (selecting) viewModel.togglePick(row.id) else onOpenItem(row.id) },
+                        onLongPress = { if (selecting) viewModel.togglePick(row.id) else actionRow = row },
+                        selected = row.id in picked,
                     )
                     HorizontalDivider(
                         modifier = Modifier.padding(start = 16.dp),
@@ -147,6 +165,7 @@ fun OfflineScreen(
                 HorizontalDivider()
                 Spacer(Modifier.height(6.dp))
                 OfflineAction(Icons.AutoMirrored.Outlined.Article, "Open") { onOpenItem(row.id); actionRow = null }
+                OfflineAction(Icons.Outlined.Checklist, "Select") { viewModel.togglePick(row.id); actionRow = null }
                 if (!permanent) {
                     OfflineAction(Icons.Outlined.OfflinePin, "Save offline (permanent)") { viewModel.makePermanent(row.id); actionRow = null }
                 }

@@ -56,4 +56,28 @@ class OfflineViewModel @Inject constructor(
         feedRepository.saveOffline(id)
         refreshStorage()
     }
+
+    // -- Multi-select (bulk actions) -------------------------------------------
+    private val _picked = MutableStateFlow<Set<String>>(emptySet())
+    val picked: StateFlow<Set<String>> = _picked.asStateFlow()
+
+    fun togglePick(id: String) { _picked.value = _picked.value.let { if (id in it) it - id else it + id } }
+    fun clearPicks() { _picked.value = emptySet() }
+    fun pickAll() { _picked.value = items.value.map { it.id }.toSet() }
+    private fun consumePicks(): Set<String> = _picked.value.also { _picked.value = emptySet() }
+
+    fun makePermanentPicked() = viewModelScope.launch {
+        consumePicks().forEach { feedRepository.saveOffline(it) }
+        refreshStorage()
+    }
+
+    fun removeCachePicked() = viewModelScope.launch {
+        consumePicks().forEach { feedRepository.removeOfflineCopy(it) }
+        refreshStorage()
+    }
+
+    fun deleteEntriesPicked() = viewModelScope.launch {
+        feedRepository.trashItems(consumePicks())
+        refreshStorage()
+    }
 }

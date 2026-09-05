@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.DeleteForever
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Close
@@ -80,9 +81,14 @@ fun TrashScreen(
     val starredOnly by viewModel.starredOnly.collectAsStateWithLifecycle()
     val availableTypes by viewModel.availableTypes.collectAsStateWithLifecycle()
     val availableSources by viewModel.availableSources.collectAsStateWithLifecycle()
+    val picked by viewModel.picked.collectAsStateWithLifecycle()
+    val selecting = picked.isNotEmpty()
     val scheme = MaterialTheme.colorScheme
 
+    androidx.activity.compose.BackHandler(enabled = selecting) { viewModel.clearPicks() }
+
     var actionRow by remember { mutableStateOf<ItemListRow?>(null) }
+    var confirmForeverBulk by remember { mutableStateOf(false) }
     var searchOpen by remember { mutableStateOf(false) }
     var sortMenu by remember { mutableStateOf(false) }
     var viewMenu by remember { mutableStateOf(false) }
@@ -175,8 +181,18 @@ fun TrashScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = scheme.surface),
             )
         Column(Modifier.fillMaxSize()) {
+            if (selecting) {
+                com.cairn.reader.ui.components.SelectionActionBar(
+                    count = picked.size,
+                    onClose = { viewModel.clearPicks() },
+                    onSelectAll = { viewModel.pickAll() },
+                ) {
+                    TextButton(onClick = { viewModel.restorePicked() }) { Text("Restore") }
+                    TextButton(onClick = { confirmForeverBulk = true }) { Text("Delete", color = scheme.error) }
+                }
+            }
             // Advanced filter chips: type + read-state + offline + starred + source.
-            if (totalCount > 0) {
+            if (!selecting && totalCount > 0) {
                 FlowRow(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -251,8 +267,9 @@ fun TrashScreen(
                     items(items, key = { it.id }) { row ->
                         com.cairn.reader.ui.components.FeedItemCell(
                             row = row, mode = viewMode,
-                            onOpen = { onOpenItem(row.id) },
-                            onLongPress = { actionRow = row },
+                            onOpen = { if (selecting) viewModel.togglePick(row.id) else onOpenItem(row.id) },
+                            onLongPress = { if (selecting) viewModel.togglePick(row.id) else actionRow = row },
+                            selected = row.id in picked,
                         )
                         if (viewMode != com.cairn.reader.data.prefs.ListViewMode.MAGAZINE) {
                             HorizontalDivider(
@@ -273,10 +290,27 @@ fun TrashScreen(
                 Text(row.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp))
                 HorizontalDivider()
                 Spacer(Modifier.height(6.dp))
+                ActionRow(Icons.Outlined.Checklist, "Select") { viewModel.togglePick(row.id); actionRow = null }
                 ActionRow(Icons.Outlined.RestoreFromTrash, "Restore") { viewModel.restore(row.id); actionRow = null }
                 ActionRow(Icons.Outlined.DeleteForever, "Delete forever", destructive = true) { confirmForever = row; actionRow = null }
             }
         }
+    }
+
+    if (confirmForeverBulk) {
+        val n = picked.size
+        AlertDialog(
+            onDismissRequest = { confirmForeverBulk = false },
+            icon = { Icon(Icons.Outlined.DeleteForever, contentDescription = null, tint = scheme.error) },
+            title = { Text("Delete forever?") },
+            text = { Text("$n item${if (n == 1) "" else "s"} will be erased permanently, along with their offline copies. This can't be undone.") },
+            confirmButton = {
+                TextButton(onClick = { confirmForeverBulk = false; viewModel.deletePickedForever() }) {
+                    Text("Delete forever", color = scheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmForeverBulk = false }) { Text("Cancel") } },
+        )
     }
 
     if (confirmEmpty) {

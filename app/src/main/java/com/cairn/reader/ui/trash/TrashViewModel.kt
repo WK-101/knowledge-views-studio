@@ -149,4 +149,16 @@ class TrashViewModel @Inject constructor(
 
     /** Empty the whole Trash, permanently. */
     fun emptyTrash() = viewModelScope.launch { feedRepository.emptyTrash() }
+
+    // -- Multi-select (bulk actions) -------------------------------------------
+    private val _picked = MutableStateFlow<Set<String>>(emptySet())
+    val picked: StateFlow<Set<String>> = _picked.asStateFlow()
+
+    fun togglePick(id: String) { _picked.value = _picked.value.let { if (id in it) it - id else it + id } }
+    fun clearPicks() { _picked.value = emptySet() }
+    fun pickAll() { _picked.value = items.value.map { it.id }.toSet() }
+    private fun consumePicks(): Set<String> = _picked.value.also { _picked.value = emptySet() }
+
+    fun restorePicked() = viewModelScope.launch { feedRepository.restoreFromTrash(consumePicks()) }
+    fun deletePickedForever() = viewModelScope.launch { feedRepository.deleteForever(consumePicks()) }
 }

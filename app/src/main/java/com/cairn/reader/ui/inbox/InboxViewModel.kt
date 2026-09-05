@@ -280,6 +280,65 @@ class InboxViewModel @Inject constructor(
         _selection.value = DrawerSelection.Folder(name)
     }
 
+    // -- Multi-select (bulk actions) -------------------------------------------
+    // Distinct from the drawer [selection] scope above: this is the set of items the
+    // user has tick-selected in the list to act on together.
+    private val _picked = MutableStateFlow<Set<String>>(emptySet())
+    val picked: StateFlow<Set<String>> = _picked.asStateFlow()
+
+    fun togglePick(id: String) {
+        _picked.value = _picked.value.let { if (id in it) it - id else it + id }
+    }
+
+    fun clearPicks() { _picked.value = emptySet() }
+
+    /** Select every item currently shown in the list. */
+    fun pickAll() { _picked.value = state.value.items.map { it.id }.toSet() }
+
+    private fun consumePicks(): Set<String> = _picked.value.also { _picked.value = emptySet() }
+
+    fun markPickedRead(read: Boolean) = viewModelScope.launch {
+        val ids = consumePicks()
+        ids.forEach { itemRepository.setRead(it, read) }
+        _snacks.emit(Snack(if (read) "Marked ${ids.size} read" else "Marked ${ids.size} unread"))
+    }
+
+    fun starPicked(starred: Boolean) = viewModelScope.launch {
+        val ids = consumePicks()
+        ids.forEach { itemRepository.setStarred(it, starred) }
+        _snacks.emit(Snack(if (starred) "Starred ${ids.size}" else "Unstarred ${ids.size}"))
+    }
+
+    fun savePicked(save: Boolean) = viewModelScope.launch {
+        val ids = consumePicks()
+        ids.forEach { itemRepository.setReadLater(it, save) }
+        _snacks.emit(Snack(if (save) "Saved ${ids.size} for later" else "Removed ${ids.size} from Saved"))
+    }
+
+    fun archivePicked() = viewModelScope.launch {
+        val ids = consumePicks()
+        ids.forEach { itemRepository.setArchived(it, true) }
+        _snacks.emit(Snack("Archived ${ids.size}", "Undo") {
+            viewModelScope.launch { ids.forEach { itemRepository.setArchived(it, false) } }
+        })
+    }
+
+    fun deletePicked() = viewModelScope.launch {
+        val ids = consumePicks()
+        feedRepository.trashItems(ids)
+        _snacks.emit(Snack("Moved ${ids.size} to Trash", "Undo") {
+            viewModelScope.launch { feedRepository.restoreFromTrash(ids) }
+        })
+    }
+
+    fun savePickedOffline() = viewModelScope.launch {
+        val ids = consumePicks()
+        _snacks.emit(Snack("Saving ${ids.size} offline…"))
+        var ok = 0
+        ids.forEach { if (feedRepository.saveOffline(it).isSuccess) ok++ }
+        _snacks.emit(Snack("Saved $ok of ${ids.size} offline"))
+    }
+
     fun refresh() {
         viewModelScope.launch {
             _refreshing.value = true

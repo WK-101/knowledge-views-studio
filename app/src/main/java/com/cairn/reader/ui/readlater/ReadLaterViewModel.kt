@@ -105,4 +105,25 @@ class ReadLaterViewModel @Inject constructor(
     fun archive(id: String) = viewModelScope.launch { itemRepository.setArchived(id, true) }
 
     fun saveLink(url: String) = viewModelScope.launch { feedRepository.saveUrl(url) }
+
+    // -- Multi-select (bulk actions) -------------------------------------------
+    private val _picked = MutableStateFlow<Set<String>>(emptySet())
+    val picked: StateFlow<Set<String>> = _picked.asStateFlow()
+
+    fun togglePick(id: String) { _picked.value = _picked.value.let { if (id in it) it - id else it + id } }
+    fun clearPicks() { _picked.value = emptySet() }
+    fun pickAll() { _picked.value = items.value.map { it.id }.toSet() }
+    private fun consumePicks(): Set<String> = _picked.value.also { _picked.value = emptySet() }
+
+    fun markPickedRead(read: Boolean) = viewModelScope.launch { consumePicks().forEach { itemRepository.setRead(it, read) } }
+    fun archivePicked() = viewModelScope.launch { consumePicks().forEach { itemRepository.setArchived(it, true) } }
+    fun removePicked() = viewModelScope.launch { consumePicks().forEach { itemRepository.setReadLater(it, false) } }
+    fun deletePicked() = viewModelScope.launch { feedRepository.trashItems(consumePicks()) }
+    fun saveToLibraryPicked() = viewModelScope.launch {
+        consumePicks().forEach { id ->
+            itemRepository.setStarred(id, true)
+            itemRepository.setReadLater(id, false)
+        }
+    }
+    fun savePickedOffline() = viewModelScope.launch { consumePicks().forEach { feedRepository.saveOffline(it) } }
 }

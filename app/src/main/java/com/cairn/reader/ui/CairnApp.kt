@@ -37,6 +37,8 @@ import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.RssFeed
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.MarkEmailRead
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material.icons.outlined.ViewAgenda
@@ -491,7 +493,11 @@ private fun InboxScreen(
     val compact by viewModel.compact.collectAsStateWithLifecycle()
     val feeds by viewModel.feeds.collectAsStateWithLifecycle()
     val selection by viewModel.selection.collectAsStateWithLifecycle()
+    val picked by viewModel.picked.collectAsStateWithLifecycle()
+    val selecting = picked.isNotEmpty()
     var sheetRow by remember { mutableStateOf<ItemListRow?>(null) }
+
+    androidx.activity.compose.BackHandler(enabled = selecting) { viewModel.clearPicks() }
 
     // Ordered folders (with summed unread) for the quick folder switcher.
     val folders = remember(feeds) {
@@ -505,7 +511,35 @@ private fun InboxScreen(
             .fillMaxSize()
             .padding(top = padding.calculateTopPadding()),
     ) {
-        if (folders.isNotEmpty()) {
+        if (selecting) {
+            com.cairn.reader.ui.components.SelectionActionBar(
+                count = picked.size,
+                onClose = { viewModel.clearPicks() },
+                onSelectAll = { viewModel.pickAll() },
+            ) {
+                IconButton(onClick = { viewModel.markPickedRead(true) }) {
+                    Icon(Icons.Outlined.MarkEmailRead, contentDescription = "Mark read")
+                }
+                IconButton(onClick = { viewModel.starPicked(true) }) {
+                    Icon(Icons.Outlined.StarBorder, contentDescription = "Star")
+                }
+                IconButton(onClick = { viewModel.savePicked(true) }) {
+                    Icon(Icons.Outlined.Bookmark, contentDescription = "Save for later")
+                }
+                Box {
+                    var more by remember { mutableStateOf(false) }
+                    IconButton(onClick = { more = true }) {
+                        Icon(Icons.Outlined.MoreVert, contentDescription = "More actions")
+                    }
+                    DropdownMenu(expanded = more, onDismissRequest = { more = false }) {
+                        DropdownMenuItem(text = { Text("Mark unread") }, onClick = { more = false; viewModel.markPickedRead(false) })
+                        DropdownMenuItem(text = { Text("Save offline") }, onClick = { more = false; viewModel.savePickedOffline() })
+                        DropdownMenuItem(text = { Text("Archive") }, onClick = { more = false; viewModel.archivePicked() })
+                        DropdownMenuItem(text = { Text("Move to Trash") }, onClick = { more = false; viewModel.deletePicked() })
+                    }
+                }
+            }
+        } else if (folders.isNotEmpty()) {
             val allSelected = selection is com.cairn.reader.ui.inbox.DrawerSelection.All
             Row(
                 modifier = Modifier
@@ -544,8 +578,10 @@ private fun InboxScreen(
                     items(state.items, key = { it.id }) { row ->
                         SwipeableItemRow(
                             row = row,
-                            onOpen = { onOpenItem(row.id) },
-                            onLongPress = { sheetRow = row },
+                            onOpen = { if (selecting) viewModel.togglePick(row.id) else onOpenItem(row.id) },
+                            onLongPress = { if (selecting) viewModel.togglePick(row.id) else sheetRow = row },
+                            selected = row.id in picked,
+                            swipeEnabled = !selecting,
                             rightHalf = swipeCfg.rightHalf,
                             rightFull = swipeCfg.rightFull,
                             leftHalf = swipeCfg.leftHalf,
@@ -581,6 +617,7 @@ private fun InboxScreen(
             onMarkAbove = { viewModel.markAboveRead(row) },
             onMarkBelow = { viewModel.markBelowRead(row) },
             onDelete = { viewModel.delete(row.id) },
+            onSelect = { viewModel.togglePick(row.id) },
         )
     }
 }

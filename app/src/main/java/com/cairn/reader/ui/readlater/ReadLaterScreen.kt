@@ -25,10 +25,13 @@ import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.BookmarkRemove
+import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.outlined.MailOutline
+import androidx.compose.material.icons.outlined.MarkEmailRead
 import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Search
@@ -83,7 +86,11 @@ fun ReadLaterScreen(
     val unreadOnly by viewModel.unreadOnly.collectAsStateWithLifecycle()
     val offlineOnly by viewModel.offlineOnly.collectAsStateWithLifecycle()
     val availableTypes by viewModel.availableTypes.collectAsStateWithLifecycle()
+    val picked by viewModel.picked.collectAsStateWithLifecycle()
+    val selecting = picked.isNotEmpty()
     val scheme = MaterialTheme.colorScheme
+
+    androidx.activity.compose.BackHandler(enabled = selecting) { viewModel.clearPicks() }
 
     var actionRow by remember { mutableStateOf<ItemListRow?>(null) }
     var moveRow by remember { mutableStateOf<ItemListRow?>(null) }
@@ -153,8 +160,35 @@ fun ReadLaterScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = scheme.surface),
             )
         Column(Modifier.fillMaxSize()) {
+            if (selecting) {
+                com.cairn.reader.ui.components.SelectionActionBar(
+                    count = picked.size,
+                    onClose = { viewModel.clearPicks() },
+                    onSelectAll = { viewModel.pickAll() },
+                ) {
+                    IconButton(onClick = { viewModel.markPickedRead(true) }) {
+                        Icon(Icons.Outlined.MarkEmailRead, contentDescription = "Mark read")
+                    }
+                    IconButton(onClick = { viewModel.saveToLibraryPicked() }) {
+                        Icon(Icons.AutoMirrored.Outlined.LibraryBooks, contentDescription = "Save to Library")
+                    }
+                    IconButton(onClick = { viewModel.removePicked() }) {
+                        Icon(Icons.Outlined.BookmarkRemove, contentDescription = "Remove from Read Later")
+                    }
+                    Box {
+                        var more by remember { mutableStateOf(false) }
+                        IconButton(onClick = { more = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "More actions") }
+                        DropdownMenu(expanded = more, onDismissRequest = { more = false }) {
+                            DropdownMenuItem(text = { Text("Mark unread") }, onClick = { more = false; viewModel.markPickedRead(false) })
+                            DropdownMenuItem(text = { Text("Save offline") }, onClick = { more = false; viewModel.savePickedOffline() })
+                            DropdownMenuItem(text = { Text("Archive") }, onClick = { more = false; viewModel.archivePicked() })
+                            DropdownMenuItem(text = { Text("Move to Trash") }, onClick = { more = false; viewModel.deletePicked() })
+                        }
+                    }
+                }
+            }
             // Advanced filter chips: type + unread + offline.
-            if (availableTypes.size >= 2 || filtersActive) {
+            if (!selecting && (availableTypes.size >= 2 || filtersActive)) {
                 FlowRow(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -206,8 +240,9 @@ fun ReadLaterScreen(
                     items(items, key = { it.id }) { row ->
                         com.cairn.reader.ui.components.FeedItemCell(
                             row = row, mode = viewMode,
-                            onOpen = { onOpenItem(row.id) },
-                            onLongPress = { actionRow = row },
+                            onOpen = { if (selecting) viewModel.togglePick(row.id) else onOpenItem(row.id) },
+                            onLongPress = { if (selecting) viewModel.togglePick(row.id) else actionRow = row },
+                            selected = row.id in picked,
                         )
                         if (viewMode != com.cairn.reader.data.prefs.ListViewMode.MAGAZINE) {
                             HorizontalDivider(
@@ -228,6 +263,7 @@ fun ReadLaterScreen(
                 Text(row.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp))
                 HorizontalDivider()
                 Spacer(Modifier.height(6.dp))
+                ActionRow(Icons.Outlined.Checklist, "Select") { viewModel.togglePick(row.id); actionRow = null }
                 ActionRow(Icons.AutoMirrored.Outlined.LibraryBooks, "Save to Library…") { moveRow = row; actionRow = null }
                 ActionRow(Icons.Outlined.Archive, "Archive") { viewModel.archive(row.id); actionRow = null }
                 ActionRow(Icons.Outlined.BookmarkRemove, "Remove from Read Later") { viewModel.remove(row.id); actionRow = null }
