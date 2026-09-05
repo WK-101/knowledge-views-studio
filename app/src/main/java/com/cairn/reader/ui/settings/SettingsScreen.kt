@@ -36,6 +36,7 @@ import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FormatQuote
+import androidx.compose.material.icons.outlined.GridOn
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
@@ -254,6 +255,28 @@ fun SettingsScreen(
                     color = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
                 )
+                Spacer(Modifier.height(14.dp))
+                OutlinedButton(onClick = {
+                    viewModel.exportCsv { csv ->
+                        val send = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/csv"
+                            putExtra(Intent.EXTRA_TITLE, "cairn-items.csv")
+                            putExtra(Intent.EXTRA_SUBJECT, "Cairn items (CSV)")
+                            putExtra(Intent.EXTRA_TEXT, csv)
+                        }
+                        runCatching { context.startActivity(Intent.createChooser(send, "Export CSV")) }
+                    }
+                }) {
+                    Icon(Icons.Outlined.GridOn, contentDescription = null, modifier = Modifier.height(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Export CSV")
+                }
+                Text(
+                    "A spreadsheet of every item — title, link, source, dates, reading time, read/star/save state, tags and any comments link. For spreadsheets and other tools; the JSON backup above is what restores the app.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
                 Spacer(Modifier.height(16.dp))
                 Text("Automatic backup", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
                 Text(
@@ -446,6 +469,18 @@ fun SettingsScreen(
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Show thumbnails", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, modifier = Modifier.weight(1f))
                     androidx.compose.material3.Switch(checked = prefs.showThumbnail, onCheckedChange = { viewModel.setShowThumbnail(it) })
+                }
+                if (prefs.showThumbnail) {
+                    OutlinedButton(onClick = {
+                        Toast.makeText(context, "Fetching thumbnails…", Toast.LENGTH_SHORT).show()
+                        viewModel.backfillThumbnails { n ->
+                            Toast.makeText(context, if (n > 0) "Added $n thumbnails" else "No new thumbnails found", Toast.LENGTH_LONG).show()
+                        }
+                    }) { Text("Back-fill missing thumbnails") }
+                    Text(
+                        "Fetch cover images for older items that arrived without one (uses the network).",
+                        style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp, bottom = 4.dp),
+                    )
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Show excerpts", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, modifier = Modifier.weight(1f))

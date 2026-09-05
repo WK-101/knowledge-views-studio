@@ -52,6 +52,43 @@ class BackupManager @Inject constructor(
     private val preferencesRepository: PreferencesRepository,
     private val webDavClient: WebDavClient,
 ) {
+    /**
+     * A spreadsheet-friendly CSV of every item — title, link, source, dates, reading time, state,
+     * tags and any comments link. Portable to Pocket/Instapaper-style tools and plain spreadsheets;
+     * complements the full JSON/zip backup (which alone can restore the app).
+     */
+    suspend fun exportCsv(): String {
+        val sourceTitles = sourceDao.getAll().associate { it.id to it.title }
+        val states = itemDao.allStates().associateBy { it.itemId }
+        val tagNames = tagDao.allTags().associate { it.id to it.name }
+        val tagsByItem = tagDao.allCrossRefs().groupBy({ it.itemId }, { tagNames[it.tagId] ?: "" })
+        val dateFmt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US)
+        fun ts(v: Long?): String = if (v == null || v <= 0L) "" else dateFmt.format(java.util.Date(v))
+
+        val sb = StringBuilder()
+        sb.append("Title,URL,Source,Author,Published,Saved,Reading minutes,Read,Starred,Read later,Archived,Tags,Comments URL\n")
+        itemDao.allItems().sortedByDescending { it.publishedAt ?: it.savedAt }.forEach { i ->
+            val s = states[i.id]
+            val tags = tagsByItem[i.id]?.filter { it.isNotBlank() }?.joinToString("; ").orEmpty()
+            val row = listOf(
+                i.title, i.url, sourceTitles[i.sourceId] ?: i.siteName ?: "", i.author ?: "",
+                ts(i.publishedAt), ts(i.savedAt), i.readingMinutes.toString(),
+                yesNo(s?.isRead), yesNo(s?.isStarred), yesNo(s?.isReadLater), yesNo(s?.isArchived),
+                tags, i.commentsUrl ?: "",
+            )
+            sb.append(row.joinToString(",") { csvCell(it) }).append('\n')
+        }
+        return sb.toString()
+    }
+
+    private fun yesNo(b: Boolean?): String = if (b == true) "yes" else "no"
+
+    /** RFC-4180 CSV escaping: quote when the value has a comma, quote or newline; double inner quotes. */
+    private fun csvCell(raw: String): String {
+        val v = raw.replace("\r\n", " ").replace('\n', ' ').replace('\r', ' ')
+        return if (v.any { it == ',' || it == '"' }) "\"" + v.replace("\"", "\"\"") + "\"" else v
+    }
+
     suspend fun export(): String {
         val root = JSONObject()
         root.put("version", 3)

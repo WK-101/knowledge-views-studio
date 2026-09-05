@@ -236,6 +236,17 @@ interface ItemDao {
     @Query("SELECT * FROM items")
     suspend fun allItems(): List<ItemEntity>
 
+    /** Non-PDF items with no thumbnail yet, newest first — candidates for lead-image back-fill. */
+    @Query(
+        """
+        SELECT * FROM items
+        WHERE (leadImage IS NULL OR leadImage = '') AND trashedAt IS NULL AND type != 'PDF' AND url != ''
+        ORDER BY COALESCE(publishedAt, savedAt) DESC
+        LIMIT :limit
+        """
+    )
+    suspend fun itemsMissingThumbnail(limit: Int): List<ItemEntity>
+
     @Query("SELECT * FROM item_states")
     suspend fun allStates(): List<ItemStateEntity>
 

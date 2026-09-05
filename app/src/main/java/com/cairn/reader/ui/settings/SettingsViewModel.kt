@@ -70,6 +70,14 @@ class SettingsViewModel @Inject constructor(
 
     fun exportBackup(onReady: (String) -> Unit) = viewModelScope.launch { onReady(backupManager.export()) }
 
+    /** Build a spreadsheet-friendly CSV of every item and hand it back to be written to a file. */
+    fun exportCsv(onReady: (String) -> Unit) = viewModelScope.launch { onReady(backupManager.exportCsv()) }
+
+    /** Fetch og:image thumbnails for items that arrived without one. Reports how many were filled. */
+    fun backfillThumbnails(onDone: (Int) -> Unit) = viewModelScope.launch {
+        onDone(runCatching { feedRepository.backfillThumbnails() }.getOrDefault(0))
+    }
+
     fun importBackup(text: String, onResult: (String) -> Unit) = viewModelScope.launch {
         val summary = runCatching { backupManager.import(text) }.getOrElse { "Couldn't read that backup file" }
         onResult(summary)
