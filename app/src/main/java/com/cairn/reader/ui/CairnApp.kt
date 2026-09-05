@@ -1,6 +1,8 @@
 package com.cairn.reader.ui
 
 import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +40,7 @@ import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -326,13 +329,46 @@ private fun InboxScreen(
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
     val (rightAction, leftAction) = viewModel.swipeActions.collectAsStateWithLifecycle().value
     val compact by viewModel.compact.collectAsStateWithLifecycle()
+    val feeds by viewModel.feeds.collectAsStateWithLifecycle()
+    val selection by viewModel.selection.collectAsStateWithLifecycle()
     var sheetRow by remember { mutableStateOf<ItemListRow?>(null) }
+
+    // Ordered folders (with summed unread) for the quick folder switcher.
+    val folders = remember(feeds) {
+        feeds.filter { !it.folder.isNullOrBlank() }
+            .groupBy { it.folder!! }
+            .map { (name, fs) -> name to fs.sumOf { it.unread } }
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(top = padding.calculateTopPadding()),
     ) {
+        if (folders.isNotEmpty()) {
+            val allSelected = selection is com.cairn.reader.ui.inbox.DrawerSelection.All
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilterChip(
+                    selected = allSelected,
+                    onClick = { viewModel.selectAll() },
+                    label = { Text("All") },
+                )
+                folders.forEach { (name, unread) ->
+                    val sel = selection.let { it is com.cairn.reader.ui.inbox.DrawerSelection.Folder && it.name == name }
+                    FilterChip(
+                        selected = sel,
+                        onClick = { viewModel.selectFolder(name) },
+                        label = { Text(if (unread > 0) "$name · $unread" else name) },
+                    )
+                }
+            }
+        }
         PullToRefreshBox(
             isRefreshing = refreshing,
             onRefresh = viewModel::refresh,
