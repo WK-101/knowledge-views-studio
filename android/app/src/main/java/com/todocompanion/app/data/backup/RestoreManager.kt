@@ -56,7 +56,10 @@ class RestoreManager(
         val folder = settings().autoBackupFolder.ifBlank { settings().syncFolder }
         if (folder.isBlank()) { onDone(false); return }
         val stamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
-        onDone(SyncEngine.backup(context, repo, folder, "todo-backup-$stamp.json", settings().syncPassphrase))
+        val ok = SyncEngine.backup(context, repo, folder, "todo-backup-$stamp.json", settings().syncPassphrase)
+        // Stamp the last-backup time so the Momentum data-safety card reflects manual backups too.
+        if (ok) saveSettings(settings().copy(lastBackupAt = System.currentTimeMillis()))
+        onDone(ok)
     }
 
     /** Import tasks from a Todoist/TickTick CSV or MLO OPML/.mlobak file. */

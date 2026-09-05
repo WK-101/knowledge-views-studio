@@ -4501,7 +4501,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun exportToDownloads(kind: String, onDone: (String?) -> Unit) = viewModelScope.launch {
         val loc = backup.downloadExport(kind)
         // U10: a successful full backup stamps the "last backup" time the Momentum data-safety card reads.
-        if (kind == "json" && loc != null) repo.saveSettings(settings.value.copy(lastSyncAt = System.currentTimeMillis()))
+        if (kind == "json" && loc != null) repo.saveSettings(settings.value.copy(lastBackupAt = System.currentTimeMillis(), lastSyncAt = System.currentTimeMillis()))
         onDone(loc)
     }
     fun importHabitsCsv(uri: Uri, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
@@ -4568,8 +4568,27 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         )
     }
     fun setSyncFolder(uri: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(syncFolder = uri, syncEnabled = uri.isNotBlank())) }
-    fun setAutoBackupFolder(uri: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(autoBackupFolder = uri, autoBackupEnabled = uri.isNotBlank())) }
-    fun setAutoBackupEnabled(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(autoBackupEnabled = on)) }
+    /** Re-arm (or cancel) the auto-backup alarm from the latest settings, so enabling/retiming takes
+     *  effect immediately rather than waiting for the next app launch or boot. */
+    private fun rearmAutoBackup(s: com.todocompanion.app.domain.AppSettings) {
+        if (s.autoBackupEnabled && s.autoBackupFolder.ifBlank { s.syncFolder }.isNotBlank())
+            com.todocompanion.app.reminders.AlarmScheduler.scheduleAutoBackup(appCtx, s.autoBackupHour, s.autoBackupIntervalDays, s.lastBackupAt)
+        else com.todocompanion.app.reminders.AlarmScheduler.cancelAutoBackup(appCtx)
+    }
+    fun setAutoBackupFolder(uri: String) = viewModelScope.launch {
+        val s = settings.value.copy(autoBackupFolder = uri, autoBackupEnabled = uri.isNotBlank()); repo.saveSettings(s); rearmAutoBackup(s)
+    }
+    fun setAutoBackupEnabled(on: Boolean) = viewModelScope.launch {
+        val s = settings.value.copy(autoBackupEnabled = on); repo.saveSettings(s); rearmAutoBackup(s)
+    }
+    /** How often the automatic backup runs (days: 1 daily · 7 weekly · 30 monthly). */
+    fun setAutoBackupInterval(days: Int) = viewModelScope.launch {
+        val s = settings.value.copy(autoBackupIntervalDays = days.coerceIn(1, 30)); repo.saveSettings(s); rearmAutoBackup(s)
+    }
+    /** The hour of day (0–23) the automatic backup fires. */
+    fun setAutoBackupHour(hour: Int) = viewModelScope.launch {
+        val s = settings.value.copy(autoBackupHour = hour.coerceIn(0, 23)); repo.saveSettings(s); rearmAutoBackup(s)
+    }
     fun setSyncEnabled(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(syncEnabled = on)) }
     fun markOnboarded() = viewModelScope.launch { repo.saveSettings(settings.value.copy(onboarded = true)) }
     fun replayOnboarding() = viewModelScope.launch { repo.saveSettings(settings.value.copy(onboarded = false)) }

@@ -1369,6 +1369,11 @@ class AppRepository(private val db: AppDatabase) {
 
     suspend fun importJsonReplace(text: String) {
         val b = Backup.decode(text)
+        // The sync/backup-file passphrase is a device-local secret that never travels in a backup
+        // (exportableSettings drops it). Preserve THIS device's passphrase across a replace-restore so a
+        // restore doesn't silently blank it — otherwise encrypted-folder users would suddenly write
+        // plaintext backups and fail to read their encrypted sync folder until they re-entered it.
+        val keepPass = settings.getAll().firstOrNull { it.key == com.todocompanion.app.domain.AppSettings.Keys.SYNC_PASS }
         tasks.clear(); folders.clear(); lists.clear(); checklist.clear()
         tags.clear(); tags.clearCrossRefs(); contexts.clear(); contexts.clearCrossRefs()
         reminders.clear(); deps.clear(); settings.clear(); workspaces.clear(); filters.clear()
@@ -1386,6 +1391,8 @@ class AppRepository(private val db: AppDatabase) {
         reminders.upsertAll(b.reminders)
         deps.addAll(b.dependencies)
         settings.putAll(b.settings)
+        // Restore the preserved device passphrase unless the backup itself carried one (it never does today).
+        if (keepPass != null && b.settings.none { it.key == com.todocompanion.app.domain.AppSettings.Keys.SYNC_PASS }) settings.putAll(listOf(keepPass))
         workspaces.upsertAll(b.workspaces)
         filters.upsertAll(b.filters)
         habits.upsertAll(b.habits); habits.upsertCheckins(b.habitCheckins)

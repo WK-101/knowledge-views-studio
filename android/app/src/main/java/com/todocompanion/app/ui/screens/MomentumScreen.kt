@@ -596,7 +596,9 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
             AppCard {
                 Text("Your data is safe", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
-                val lastBk = settings.lastSyncAt
+                // The most recent time data left the app — an automatic/manual backup OR a folder sync.
+                // (Auto-backup stamps lastBackupAt; folder sync stamps lastSyncAt.)
+                val lastBk = maxOf(settings.lastBackupAt, settings.lastSyncAt)
                 val ageTxt = if (lastBk <= 0L) "No backup yet." else {
                     val days = ((nowMs - lastBk) / 86_400_000L).toInt()
                     when { days <= 0 -> "Last backup today."; days == 1 -> "Last backup yesterday."; else -> "Last backup $days days ago." }

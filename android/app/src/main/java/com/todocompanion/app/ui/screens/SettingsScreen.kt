@@ -113,6 +113,7 @@ import com.todocompanion.app.ui.components.MiniCheck
 import com.todocompanion.app.ui.components.FLAG_COLORS
 import com.todocompanion.app.ui.components.FlagIcons
 import com.todocompanion.app.ui.components.OptionChips
+import com.todocompanion.app.ui.components.HourStepper
 import java.time.ZoneId
 
 /** R28 #7 — the live settings-search query, read by every [SettingsGroup] so it can hide/expand itself. */
@@ -1098,7 +1099,16 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 if (s.autoBackupFolder == com.todocompanion.app.data.sync.SyncEngine.DOWNLOADS_FOLDER)
                     Action("Use Device Downloads (no picker)") { vm.setAutoBackupFolder(com.todocompanion.app.data.sync.SyncEngine.DOWNLOADS_FOLDER) }
                 else Action("Reset to Device Downloads (no picker)") { vm.setAutoBackupFolder(com.todocompanion.app.data.sync.SyncEngine.DOWNLOADS_FOLDER) }
-                Text("A dated JSON copy is written daily around ${"%02d:00".format(s.autoBackupHour)}. Choose a synced folder (Drive / Dropbox / Syncthing) to keep copies off-device.",
+                // How often + when the automatic backup runs.
+                Text("How often", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp, bottom = 2.dp))
+                OptionChips(listOf(1, 7, 30), s.autoBackupIntervalDays, { vm.setAutoBackupInterval(it) }, spacing = 6) { when (it) { 1 -> "Daily"; 7 -> "Weekly"; else -> "Monthly" } }
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
+                    Text("Around", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                    Spacer(Modifier.width(8.dp))
+                    HourStepper(s.autoBackupHour) { vm.setAutoBackupHour(it) }
+                }
+                val freqWord = when (s.autoBackupIntervalDays) { 1 -> "daily"; 7 -> "weekly"; 30 -> "monthly"; else -> "every ${s.autoBackupIntervalDays} days" }
+                Text("A dated JSON copy is written $freqWord around ${"%02d:00".format(s.autoBackupHour)}. Choose a synced folder (Drive / Dropbox / Syncthing) to keep copies off-device.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Action("Back up now") { vm.runBackupNow { ok -> Toast.makeText(context, if (ok) "Backed up" else "Choose a folder first", Toast.LENGTH_SHORT).show() } }

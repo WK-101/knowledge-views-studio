@@ -159,6 +159,11 @@ data class AppSettings(
     val autoBackupEnabled: Boolean = false,
     val autoBackupFolder: String = "",
     val autoBackupHour: Int = 2,
+    // How often the automatic backup runs, in days: 1 = daily, 7 = weekly, 30 = monthly.
+    val autoBackupIntervalDays: Int = 1,
+    // When the last successful backup (auto, "Back up now", or a Downloads export) completed, so the
+    // Momentum data-safety card can show a real "last backup" age even without folder sync.
+    val lastBackupAt: Long = 0L,
     val syncEnabled: Boolean = false,
     val syncFolder: String = "",
     val deviceId: String = "",          // stable per-install id, seeded on first sync
@@ -446,6 +451,8 @@ data class AppSettings(
         Keys.AUTOBK_ON to autoBackupEnabled.toString(),
         Keys.AUTOBK_DIR to autoBackupFolder,
         Keys.AUTOBK_H to autoBackupHour.toString(),
+        Keys.AUTOBK_EVERY to autoBackupIntervalDays.toString(),
+        Keys.LAST_BACKUP to lastBackupAt.toString(),
         Keys.SYNC_ON to syncEnabled.toString(),
         Keys.SYNC_DIR to syncFolder,
         Keys.DEVICE_ID to deviceId,
@@ -623,6 +630,8 @@ data class AppSettings(
         const val AUTOBK_ON = "autobackup_on"
         const val AUTOBK_DIR = "autobackup_dir"
         const val AUTOBK_H = "autobackup_h"
+        const val AUTOBK_EVERY = "autobackup_every_days"
+        const val LAST_BACKUP = "last_backup_at"
         const val SYNC_ON = "sync_on"
         const val SYNC_DIR = "sync_dir"
         const val DEVICE_ID = "device_id"
@@ -872,6 +881,8 @@ data class AppSettings(
             autoBackupEnabled = m[Keys.AUTOBK_ON]?.toBooleanStrictOrNull() ?: false,
             autoBackupFolder = m[Keys.AUTOBK_DIR] ?: "",
             autoBackupHour = m[Keys.AUTOBK_H]?.toIntOrNull()?.coerceIn(0, 23) ?: 2,
+            autoBackupIntervalDays = m[Keys.AUTOBK_EVERY]?.toIntOrNull()?.coerceIn(1, 30) ?: 1,
+            lastBackupAt = m[Keys.LAST_BACKUP]?.toLongOrNull() ?: 0L,
             syncEnabled = m[Keys.SYNC_ON]?.toBooleanStrictOrNull() ?: false,
             syncFolder = m[Keys.SYNC_DIR] ?: "",
             deviceId = m[Keys.DEVICE_ID] ?: "",

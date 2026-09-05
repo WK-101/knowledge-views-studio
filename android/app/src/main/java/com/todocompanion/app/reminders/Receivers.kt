@@ -207,8 +207,12 @@ class ReminderReceiver : BroadcastReceiver() {
                         val folder = s.autoBackupFolder.ifBlank { s.syncFolder }
                         if (s.autoBackupEnabled && folder.isNotBlank()) {
                             val stamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
-                            com.todocompanion.app.data.sync.SyncEngine.backup(context, app.repository, folder, "todo-backup-$stamp.json", s.syncPassphrase)
-                            AlarmScheduler.scheduleAutoBackup(context, s.autoBackupHour)
+                            val ok = com.todocompanion.app.data.sync.SyncEngine.backup(context, app.repository, folder, "todo-backup-$stamp.json", s.syncPassphrase)
+                            // Stamp the last-backup time (Momentum's data-safety card reads it) and re-arm the
+                            // next run honouring the chosen interval; on failure keep the old stamp but still re-arm.
+                            val stampedAt = if (ok) System.currentTimeMillis() else s.lastBackupAt
+                            if (ok) app.repository.saveSettings(app.repository.settingsSnapshot().copy(lastBackupAt = stampedAt))
+                            AlarmScheduler.scheduleAutoBackup(context, s.autoBackupHour, s.autoBackupIntervalDays, stampedAt)
                         }
                     } finally { pending.finish() }
                 }
@@ -363,7 +367,7 @@ class BootReceiver : BroadcastReceiver() {
                 if (s.eveningReviewEnabled) AlarmScheduler.scheduleEveningReviewSmart(context, app.repository)
                 if (s.morningBriefEnabled) AlarmScheduler.scheduleMorningBrief(context, s.morningBriefHour)
                 if (s.occasionNudge) AlarmScheduler.scheduleOccasionNudge(context, s.occasionNudgeHour)
-                if (s.autoBackupEnabled && s.autoBackupFolder.isNotBlank()) AlarmScheduler.scheduleAutoBackup(context, s.autoBackupHour)
+                if (s.autoBackupEnabled && s.autoBackupFolder.isNotBlank()) AlarmScheduler.scheduleAutoBackup(context, s.autoBackupHour, s.autoBackupIntervalDays, s.lastBackupAt)
                 if (s.autoTrackPrompt) AlarmScheduler.scheduleTrackPrompts(context, app.repository)
                 AlarmScheduler.rescheduleEventAlerts(context, app.repository)
                 AlarmScheduler.rescheduleSealedLetters(context, app.repository)   // Track 3.4

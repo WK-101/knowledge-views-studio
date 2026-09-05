@@ -290,10 +290,16 @@ object AlarmScheduler {
     }
 
     // ---------- automatic backup ----------
-    fun scheduleAutoBackup(context: Context, hour: Int, zone: ZoneId = ZoneId.systemDefault()) {
+    /** Schedule the next auto-backup at [hour] on the first eligible day: at least [intervalDays] after
+     *  the last backup (daily=1, weekly=7, monthly=30), and never in the past. */
+    fun scheduleAutoBackup(context: Context, hour: Int, intervalDays: Int = 1, lastBackupAt: Long = 0L, zone: ZoneId = ZoneId.systemDefault()) {
         val now = System.currentTimeMillis()
-        var next = LocalDate.now(zone).atTime(LocalTime.of(hour.coerceIn(0, 23), 0)).atZone(zone).toInstant().toEpochMilli()
-        if (next <= now) next += 86_400_000L
+        val every = intervalDays.coerceIn(1, 30).toLong()
+        val today = LocalDate.now(zone)
+        val lastDay = if (lastBackupAt > 0L) java.time.Instant.ofEpochMilli(lastBackupAt).atZone(zone).toLocalDate() else today.minusDays(every)
+        var day = maxOf(today, lastDay.plusDays(every))
+        var next = day.atTime(LocalTime.of(hour.coerceIn(0, 23), 0)).atZone(zone).toInstant().toEpochMilli()
+        if (next <= now) next += every * 86_400_000L
         setAlarm(context, next, broadcast(context, ACTION_AUTO_BACKUP, AUTOBACKUP_REQ, emptyMap()))
     }
     fun cancelAutoBackup(context: Context) {
