@@ -174,6 +174,9 @@ class ReaderViewModel @Inject constructor(
     fun setReaderTheme(theme: ReaderTheme) = viewModelScope.launch { preferencesRepository.setReaderTheme(theme) }
     fun setReaderFont(font: ReaderFont) = viewModelScope.launch { preferencesRepository.setReaderFont(font) }
     fun setReaderJustify(justify: Boolean) = viewModelScope.launch { preferencesRepository.setReaderJustify(justify) }
+    fun setReaderShowImages(show: Boolean) = viewModelScope.launch { preferencesRepository.setReaderShowImages(show) }
+    fun setReaderImmersive(on: Boolean) = viewModelScope.launch { preferencesRepository.setReaderImmersive(on) }
+    fun setReaderFullScreen(on: Boolean) = viewModelScope.launch { preferencesRepository.setReaderFullScreen(on) }
 
     fun addHighlight(blockIndex: Int, start: Int, end: Int, quote: String, color: Int = HighlightColors.Default) {
         if (itemId.isEmpty() || quote.isBlank()) return

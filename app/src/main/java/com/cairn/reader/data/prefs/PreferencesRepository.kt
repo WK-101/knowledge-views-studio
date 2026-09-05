@@ -46,6 +46,12 @@ data class AppPreferences(
     val readerTheme: ReaderTheme = ReaderTheme.DEFAULT,
     val readerFont: ReaderFont = ReaderFont.SERIF,
     val readerJustify: Boolean = false,
+    /** Show images inside the reader (lead image + inline). */
+    val readerShowImages: Boolean = true,
+    /** Auto-hide the reader's bars while scrolling down, reveal on scroll up. */
+    val readerImmersive: Boolean = true,
+    /** Full-screen reading: also hide the system status/navigation bars. */
+    val readerFullScreen: Boolean = false,
     val blockedKeywords: Set<String> = emptySet(),
     val hideDuplicates: Boolean = false,
     val savedSearches: Set<String> = emptySet(),
@@ -89,6 +95,9 @@ class PreferencesRepository @Inject constructor(
         val READER_THEME = stringPreferencesKey("reader_theme")
         val READER_FONT = stringPreferencesKey("reader_font")
         val READER_JUSTIFY = booleanPreferencesKey("reader_justify")
+        val READER_IMAGES = booleanPreferencesKey("reader_show_images")
+        val READER_IMMERSIVE = booleanPreferencesKey("reader_immersive")
+        val READER_FULLSCREEN = booleanPreferencesKey("reader_fullscreen")
         val BLOCKED = stringSetPreferencesKey("blocked_keywords")
         val HIDE_DUP = booleanPreferencesKey("hide_duplicates")
         val SAVED_SEARCHES = stringSetPreferencesKey("saved_searches")
@@ -120,6 +129,9 @@ class PreferencesRepository @Inject constructor(
             readerTheme = p[Keys.READER_THEME]?.let { runCatching { ReaderTheme.valueOf(it) }.getOrNull() } ?: ReaderTheme.DEFAULT,
             readerFont = p[Keys.READER_FONT]?.let { runCatching { ReaderFont.valueOf(it) }.getOrNull() } ?: ReaderFont.SERIF,
             readerJustify = p[Keys.READER_JUSTIFY] ?: false,
+            readerShowImages = p[Keys.READER_IMAGES] ?: true,
+            readerImmersive = p[Keys.READER_IMMERSIVE] ?: true,
+            readerFullScreen = p[Keys.READER_FULLSCREEN] ?: false,
             blockedKeywords = p[Keys.BLOCKED] ?: emptySet(),
             hideDuplicates = p[Keys.HIDE_DUP] ?: false,
             savedSearches = p[Keys.SAVED_SEARCHES] ?: emptySet(),
@@ -157,6 +169,9 @@ class PreferencesRepository @Inject constructor(
     suspend fun setReaderTheme(theme: ReaderTheme) = context.dataStore.edit { it[Keys.READER_THEME] = theme.name }
     suspend fun setReaderFont(font: ReaderFont) = context.dataStore.edit { it[Keys.READER_FONT] = font.name }
     suspend fun setReaderJustify(justify: Boolean) = context.dataStore.edit { it[Keys.READER_JUSTIFY] = justify }
+    suspend fun setReaderShowImages(show: Boolean) = context.dataStore.edit { it[Keys.READER_IMAGES] = show }
+    suspend fun setReaderImmersive(on: Boolean) = context.dataStore.edit { it[Keys.READER_IMMERSIVE] = on }
+    suspend fun setReaderFullScreen(on: Boolean) = context.dataStore.edit { it[Keys.READER_FULLSCREEN] = on }
 
     suspend fun setHideDuplicates(enabled: Boolean) = context.dataStore.edit { it[Keys.HIDE_DUP] = enabled }
 

@@ -88,6 +88,9 @@ class SettingsViewModel @Inject constructor(
     fun setCompactDensity(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setCompactDensity(enabled) }
     fun setReaderJustify(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setReaderJustify(enabled) }
     fun setReaderFontScale(scale: Float) = viewModelScope.launch { preferencesRepository.setReaderFontScale(scale) }
+    fun setReaderShowImages(show: Boolean) = viewModelScope.launch { preferencesRepository.setReaderShowImages(show) }
+    fun setReaderImmersive(on: Boolean) = viewModelScope.launch { preferencesRepository.setReaderImmersive(on) }
+    fun setReaderFullScreen(on: Boolean) = viewModelScope.launch { preferencesRepository.setReaderFullScreen(on) }
 
     // -- Offline & storage policy ---------------------------------------------
 

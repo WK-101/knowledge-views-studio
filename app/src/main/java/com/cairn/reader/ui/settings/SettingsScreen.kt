@@ -347,6 +347,41 @@ fun SettingsScreen(
                     selected = prefs.readerTheme,
                     onSelect = viewModel::setReaderTheme,
                 )
+                Spacer(Modifier.height(10.dp))
+                LabeledChips(
+                    label = "Text size",
+                    options = listOf(0.9f to "Small", 1.0f to "Default", 1.2f to "Large", 1.5f to "Larger"),
+                    selected = prefs.readerFontScale,
+                    onSelect = viewModel::setReaderFontScale,
+                )
+                Text(
+                    "You can also pinch to size text while reading.",
+                    style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Show images", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text("Off gives a text-only, data-light read", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                    }
+                    Switch(checked = prefs.readerShowImages, onCheckedChange = viewModel::setReaderShowImages)
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Immersive scroll", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text("Hide the bars as you read; scroll up to bring them back", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                    }
+                    Switch(checked = prefs.readerImmersive, onCheckedChange = viewModel::setReaderImmersive)
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Full screen", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text("Use the entire display for text", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                    }
+                    Switch(checked = prefs.readerFullScreen, onCheckedChange = viewModel::setReaderFullScreen)
+                }
             }
         }
 
@@ -441,7 +476,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(24.dp))
                 SectionLabel("ABOUT")
                 Spacer(Modifier.height(8.dp))
-                Text("Cairn 3.7.0", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
+                Text("Cairn 3.9.0", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
                 Text("One reader for everything you read.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
             }
         }

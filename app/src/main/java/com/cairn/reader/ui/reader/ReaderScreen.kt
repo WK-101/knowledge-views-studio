@@ -6,6 +6,9 @@ import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
@@ -168,6 +171,38 @@ fun ReaderScreen(
 
     val palette = readerPalette(prefs.readerTheme)
 
+    // Immersive / full-screen reading: the chrome auto-hides on scroll and reappears near the
+    // top or when scrolling up. A shared list state lets the screen watch scroll direction.
+    val listState = rememberLazyListState()
+    val immersive = prefs.readerImmersive
+    val fullScreen = prefs.readerFullScreen
+    var barsVisible by remember { mutableStateOf(true) }
+    LaunchedEffect(fullScreen) { barsVisible = !fullScreen }
+    LaunchedEffect(listState, immersive, fullScreen) {
+        if (!immersive && !fullScreen) { barsVisible = true; return@LaunchedEffect }
+        var li = listState.firstVisibleItemIndex
+        var lo = listState.firstVisibleItemScrollOffset
+        androidx.compose.runtime.snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
+            .collect { (i, o) ->
+                when {
+                    i == 0 && o < 16 -> barsVisible = true
+                    i > li || (i == li && o > lo + 8) -> barsVisible = false
+                    i < li || (i == li && o < lo - 8) -> barsVisible = true
+                }
+                li = i; lo = o
+            }
+    }
+    // True full-screen also hides the system status/navigation bars while in the reader.
+    val window = (context as? android.app.Activity)?.window
+    DisposableEffect(fullScreen, window) {
+        val controller = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, it.decorView) }
+        if (fullScreen && controller != null) {
+            controller.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        }
+        onDispose { controller?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars()) }
+    }
+
     LaunchedEffect(Unit) {
         viewModel.messages.collect { msg ->
             android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
@@ -225,6 +260,11 @@ fun ReaderScreen(
     Scaffold(
         containerColor = palette.background,
         topBar = {
+          androidx.compose.animation.AnimatedVisibility(
+              visible = barsVisible,
+              enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
+              exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut(),
+          ) {
             TopAppBar(
                 title = {},
                 navigationIcon = {
@@ -336,8 +376,14 @@ fun ReaderScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = palette.background),
             )
+          }
         },
         bottomBar = {
+          androidx.compose.animation.AnimatedVisibility(
+              visible = barsVisible,
+              enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
+              exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut(),
+          ) {
             Column {
                 if (ttsState.active) {
                     com.cairn.reader.ui.components.ListenBar(
@@ -369,6 +415,7 @@ fun ReaderScreen(
                     )
                 }
             }
+          }
         },
     ) { padding ->
         when {
@@ -383,6 +430,8 @@ fun ReaderScreen(
                 fontFamily = readerFontFamily(prefs.readerFont),
                 scale = prefs.readerFontScale,
                 justify = prefs.readerJustify,
+                showImages = prefs.readerShowImages,
+                listState = listState,
                 onLoadFull = viewModel::loadFullArticle,
                 onOpenOriginal = ::openOriginal,
                 onSaveProgress = viewModel::setProgress,
@@ -390,6 +439,7 @@ fun ReaderScreen(
                 onManageHighlight = { managed = it },
                 onPlayEpisode = viewModel::playEpisode,
                 onWatch = ::watchVideo,
+                onScaleCommit = viewModel::setFontScale,
             )
         }
     }
@@ -400,10 +450,16 @@ fun ReaderScreen(
             readerFont = prefs.readerFont,
             readerTheme = prefs.readerTheme,
             justify = prefs.readerJustify,
+            showImages = prefs.readerShowImages,
+            immersive = prefs.readerImmersive,
+            fullScreen = prefs.readerFullScreen,
             onFontScale = viewModel::setFontScale,
             onReaderFont = viewModel::setReaderFont,
             onReaderTheme = viewModel::setReaderTheme,
             onJustify = viewModel::setReaderJustify,
+            onShowImages = viewModel::setReaderShowImages,
+            onImmersive = viewModel::setReaderImmersive,
+            onFullScreen = viewModel::setReaderFullScreen,
             onDismiss = { showTypography = false },
         )
     }
@@ -475,16 +531,21 @@ private fun ArticleBody(
     onManageHighlight: (HighlightEntity) -> Unit,
     onPlayEpisode: () -> Unit,
     onWatch: () -> Unit = {},
+    showImages: Boolean = true,
+    listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState(),
+    onScaleCommit: (Float) -> Unit = {},
 ) {
     val data = state.data ?: return
     val linkColor = MaterialTheme.colorScheme.primary
-    val blocks = remember(data.html, linkColor) {
-        data.html?.let { HtmlLinearizer.linearize(it, data.url, linkColor) }.orEmpty()
+    val blocks = remember(data.html, linkColor, showImages) {
+        val all = data.html?.let { HtmlLinearizer.linearize(it, data.url, linkColor) }.orEmpty()
+        if (showImages) all else all.filterNot { it is ReaderBlock.Image }
     }
-    val bodyStyle = TextStyle(fontFamily = fontFamily, fontSize = (18 * scale).sp, lineHeight = (30 * scale).sp, color = palette.text)
+    // Pinch-to-zoom drives a live scale seeded from the saved preference; commit on release.
+    var liveScale by remember(scale) { androidx.compose.runtime.mutableFloatStateOf(scale) }
+    val bodyStyle = TextStyle(fontFamily = fontFamily, fontSize = (18 * liveScale).sp, lineHeight = (30 * liveScale).sp, color = palette.text)
     val byBlock = remember(highlights) { highlights.groupBy { it.startSelector?.toIntOrNull() ?: -1 } }
 
-    val listState = rememberLazyListState()
     val progress by remember {
         derivedStateOf {
             val total = listState.layoutInfo.totalItemsCount
@@ -503,11 +564,32 @@ private fun ArticleBody(
         )
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                // Pinch-to-zoom text: only two-finger gestures are consumed, so ordinary
+                // single-finger scrolling passes straight through to the list.
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        var pinched = false
+                        do {
+                            val event = awaitPointerEvent()
+                            if (event.changes.size >= 2) {
+                                val zoom = event.calculateZoom()
+                                if (zoom != 1f) {
+                                    liveScale = (liveScale * zoom).coerceIn(0.7f, 2.6f)
+                                    pinched = true
+                                    event.changes.forEach { it.consume() }
+                                }
+                            }
+                        } while (event.changes.any { it.pressed })
+                        if (pinched) onScaleCommit(liveScale)
+                    }
+                },
             contentPadding = PaddingValues(bottom = padding.calculateBottomPadding() + 48.dp),
         ) {
             item {
-                if (data.leadImage != null) {
+                if (showImages && data.leadImage != null) {
                     AsyncImage(
                         model = data.leadImage,
                         contentDescription = null,
@@ -519,7 +601,7 @@ private fun ArticleBody(
                     Spacer(Modifier.height(16.dp))
                     Text(
                         text = data.title,
-                        style = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.SemiBold, fontSize = (28 * scale).sp, lineHeight = (34 * scale).sp),
+                        style = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.SemiBold, fontSize = (28 * liveScale).sp, lineHeight = (34 * liveScale).sp),
                         color = palette.text,
                     )
                     Spacer(Modifier.height(10.dp))
@@ -884,10 +966,16 @@ private fun TypographySheet(
     readerFont: ReaderFont,
     readerTheme: ReaderTheme,
     justify: Boolean,
+    showImages: Boolean,
+    immersive: Boolean,
+    fullScreen: Boolean,
     onFontScale: (Float) -> Unit,
     onReaderFont: (ReaderFont) -> Unit,
     onReaderTheme: (ReaderTheme) -> Unit,
     onJustify: (Boolean) -> Unit,
+    onShowImages: (Boolean) -> Unit,
+    onImmersive: (Boolean) -> Unit,
+    onFullScreen: (Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
@@ -932,6 +1020,42 @@ private fun TypographySheet(
                 Text("Justify text", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                 androidx.compose.material3.Switch(checked = justify, onCheckedChange = onJustify)
             }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Show images", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                androidx.compose.material3.Switch(checked = showImages, onCheckedChange = onShowImages)
+            }
+            HorizontalDivider(Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.outlineVariant)
+            Column {
+                Text("Immersive scroll", style = MaterialTheme.typography.bodyLarge)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Hide the bars as you read; they return when you scroll up.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f).padding(end = 12.dp),
+                    )
+                    androidx.compose.material3.Switch(checked = immersive, onCheckedChange = onImmersive)
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            Column {
+                Text("Full screen", style = MaterialTheme.typography.bodyLarge)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Use the whole display for text — hides the status and navigation bars too.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f).padding(end = 12.dp),
+                    )
+                    androidx.compose.material3.Switch(checked = fullScreen, onCheckedChange = onFullScreen)
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Tip: pinch anywhere in the article to size the text.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Spacer(Modifier.height(24.dp))
         }
     }
