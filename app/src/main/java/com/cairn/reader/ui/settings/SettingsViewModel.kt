@@ -85,6 +85,10 @@ class SettingsViewModel @Inject constructor(
     fun setReaderTheme(theme: ReaderTheme) = viewModelScope.launch { preferencesRepository.setReaderTheme(theme) }
     fun setSwipeRight(action: SwipeAction) = viewModelScope.launch { preferencesRepository.setSwipeRight(action) }
     fun setSwipeLeft(action: SwipeAction) = viewModelScope.launch { preferencesRepository.setSwipeLeft(action) }
+    fun setSwipeRightHalf(action: SwipeAction) = viewModelScope.launch { preferencesRepository.setSwipeRightHalf(action) }
+    fun setSwipeRightFull(action: SwipeAction) = viewModelScope.launch { preferencesRepository.setSwipeRightFull(action) }
+    fun setSwipeLeftHalf(action: SwipeAction) = viewModelScope.launch { preferencesRepository.setSwipeLeftHalf(action) }
+    fun setSwipeLeftFull(action: SwipeAction) = viewModelScope.launch { preferencesRepository.setSwipeLeftFull(action) }
     fun setCompactDensity(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setCompactDensity(enabled) }
     fun setReaderJustify(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setReaderJustify(enabled) }
     fun setReaderFontScale(scale: Float) = viewModelScope.launch { preferencesRepository.setReaderFontScale(scale) }

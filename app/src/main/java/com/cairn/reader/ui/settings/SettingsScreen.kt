@@ -396,18 +396,37 @@ fun SettingsScreen(
                     onSelect = viewModel::setCompactDensity,
                 )
                 Spacer(Modifier.height(10.dp))
+                Text(
+                    "Swipe an entry a little for the half action, or all the way for the full action.",
+                    style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
                 LabeledChips(
-                    label = "Swipe right",
+                    label = "Swipe right · half",
                     options = SwipeAction.entries.map { it to it.label },
-                    selected = prefs.swipeRight,
-                    onSelect = viewModel::setSwipeRight,
+                    selected = prefs.swipeRightHalf,
+                    onSelect = viewModel::setSwipeRightHalf,
                 )
                 Spacer(Modifier.height(10.dp))
                 LabeledChips(
-                    label = "Swipe left",
+                    label = "Swipe right · full",
                     options = SwipeAction.entries.map { it to it.label },
-                    selected = prefs.swipeLeft,
-                    onSelect = viewModel::setSwipeLeft,
+                    selected = prefs.swipeRightFull,
+                    onSelect = viewModel::setSwipeRightFull,
+                )
+                Spacer(Modifier.height(10.dp))
+                LabeledChips(
+                    label = "Swipe left · half",
+                    options = SwipeAction.entries.map { it to it.label },
+                    selected = prefs.swipeLeftHalf,
+                    onSelect = viewModel::setSwipeLeftHalf,
+                )
+                Spacer(Modifier.height(10.dp))
+                LabeledChips(
+                    label = "Swipe left · full",
+                    options = SwipeAction.entries.map { it to it.label },
+                    selected = prefs.swipeLeftFull,
+                    onSelect = viewModel::setSwipeLeftFull,
                 )
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -476,7 +495,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(24.dp))
                 SectionLabel("ABOUT")
                 Spacer(Modifier.height(8.dp))
-                Text("Cairn 3.16.0", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
+                Text("Cairn 3.17.0", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
                 Text("One reader for everything you read.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
             }
         }

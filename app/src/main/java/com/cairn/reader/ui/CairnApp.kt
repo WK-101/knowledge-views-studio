@@ -385,7 +385,7 @@ private fun InboxScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
-    val (rightAction, leftAction) = viewModel.swipeActions.collectAsStateWithLifecycle().value
+    val swipeCfg by viewModel.swipeActions.collectAsStateWithLifecycle()
     val compact by viewModel.compact.collectAsStateWithLifecycle()
     val feeds by viewModel.feeds.collectAsStateWithLifecycle()
     val selection by viewModel.selection.collectAsStateWithLifecycle()
@@ -444,8 +444,10 @@ private fun InboxScreen(
                             row = row,
                             onOpen = { onOpenItem(row.id) },
                             onLongPress = { sheetRow = row },
-                            rightAction = rightAction,
-                            leftAction = leftAction,
+                            rightHalf = swipeCfg.rightHalf,
+                            rightFull = swipeCfg.rightFull,
+                            leftHalf = swipeCfg.leftHalf,
+                            leftFull = swipeCfg.leftFull,
                             onAction = { action -> viewModel.swipe(row, action) },
                             mode = viewMode,
                             compact = compact,

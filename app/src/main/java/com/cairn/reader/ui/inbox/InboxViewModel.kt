@@ -43,6 +43,14 @@ sealed interface DrawerSelection {
 
 enum class InboxSort(val label: String) { NEWEST("Newest first"), OLDEST("Oldest first") }
 
+/** The two-stage swipe configuration surfaced to the list rows. */
+data class SwipeConfig(
+    val rightHalf: com.cairn.reader.data.prefs.SwipeAction = com.cairn.reader.data.prefs.SwipeAction.STAR,
+    val rightFull: com.cairn.reader.data.prefs.SwipeAction = com.cairn.reader.data.prefs.SwipeAction.SAVE,
+    val leftHalf: com.cairn.reader.data.prefs.SwipeAction = com.cairn.reader.data.prefs.SwipeAction.MARK_READ,
+    val leftFull: com.cairn.reader.data.prefs.SwipeAction = com.cairn.reader.data.prefs.SwipeAction.ARCHIVE,
+)
+
 /** A transient snackbar; when [onAction] is set the UI shows an action button (usually "Undo"). */
 data class Snack(val message: String, val actionLabel: String? = null, val onAction: (() -> Unit)? = null)
 
@@ -115,14 +123,11 @@ class InboxViewModel @Inject constructor(
         preferencesRepository.preferences.map { it.compactDensity }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
-    /** (right, left) swipe actions from preferences. */
-    val swipeActions: StateFlow<Pair<com.cairn.reader.data.prefs.SwipeAction, com.cairn.reader.data.prefs.SwipeAction>> =
+    /** The four two-stage swipe actions (right-half, right-full, left-half, left-full). */
+    val swipeActions: StateFlow<SwipeConfig> =
         preferencesRepository.preferences
-            .map { it.swipeRight to it.swipeLeft }
-            .stateIn(
-                viewModelScope, SharingStarted.WhileSubscribed(5_000),
-                com.cairn.reader.data.prefs.SwipeAction.SAVE to com.cairn.reader.data.prefs.SwipeAction.MARK_READ,
-            )
+            .map { SwipeConfig(it.swipeRightHalf, it.swipeRightFull, it.swipeLeftHalf, it.swipeLeftFull) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SwipeConfig())
 
     private val _filter = MutableStateFlow(InboxFilter.UNREAD)
     private val _sort = MutableStateFlow(InboxSort.NEWEST)

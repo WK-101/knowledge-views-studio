@@ -5,6 +5,9 @@ package com.cairn.reader.ui.components
 import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -37,15 +41,12 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -54,42 +55,77 @@ import androidx.compose.ui.unit.dp
 import com.cairn.reader.data.db.ItemListRow
 import com.cairn.reader.data.prefs.ListViewMode
 import com.cairn.reader.data.prefs.SwipeAction
+import kotlinx.coroutines.launch
 
 /**
- * A list row with user-configurable swipe actions (right = [rightAction], left = [leftAction]).
- * Both snap back; a mark-read in the Unread view then drops out via the reactive query.
- * Every action carries its own Undo via the snackbar.
+ * A list row with two-stage, user-configurable swipe actions per direction: a short (half)
+ * swipe fires the "half" action, a long (full) swipe fires the "full" action. The row is
+ * dragged directly (not M3 SwipeToDismiss) so the two thresholds and their live icon/colour
+ * feedback are precise. The row always springs back; every action carries Undo via the snackbar.
  */
 @Composable
 fun SwipeableItemRow(
     row: ItemListRow,
     onOpen: () -> Unit,
     onLongPress: () -> Unit,
-    rightAction: SwipeAction,
-    leftAction: SwipeAction,
+    rightHalf: SwipeAction,
+    rightFull: SwipeAction,
+    leftHalf: SwipeAction,
+    leftFull: SwipeAction,
     onAction: (SwipeAction) -> Unit,
     modifier: Modifier = Modifier,
     mode: ListViewMode = ListViewMode.CARD,
     compact: Boolean = false,
 ) {
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            when (value) {
-                SwipeToDismissBoxValue.StartToEnd -> { if (rightAction != SwipeAction.NONE) onAction(rightAction); false }
-                SwipeToDismissBoxValue.EndToStart -> { if (leftAction != SwipeAction.NONE) onAction(leftAction); false }
-                SwipeToDismissBoxValue.Settled -> false
-            }
-        },
-    )
-    SwipeToDismissBox(
-        state = dismissState,
-        modifier = modifier,
-        enableDismissFromStartToEnd = rightAction != SwipeAction.NONE,
-        enableDismissFromEndToStart = leftAction != SwipeAction.NONE,
-        backgroundContent = { SwipeBackground(dismissState.dismissDirection, row, rightAction, leftAction) },
-    ) {
-        FeedItemCell(row = row, mode = mode, onOpen = onOpen, onLongPress = onLongPress, compact = compact)
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val halfPx = with(density) { 76.dp.toPx() }
+    val fullPx = with(density) { 200.dp.toPx() }
+    val offset = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(0f) }
+    val rightEnabled = rightHalf != SwipeAction.NONE || rightFull != SwipeAction.NONE
+    val leftEnabled = leftHalf != SwipeAction.NONE || leftFull != SwipeAction.NONE
+    val maxRight = if (rightEnabled) fullPx * 1.1f else 0f
+    val minLeft = if (leftEnabled) -fullPx * 1.1f else 0f
+
+    fun pick(primary: SwipeAction, fallback: SwipeAction) = if (primary != SwipeAction.NONE) primary else fallback
+
+    Box(modifier.fillMaxWidth()) {
+        SwipeBackground(offset.value, halfPx, fullPx, row, rightHalf, rightFull, leftHalf, leftFull)
+        Box(
+            Modifier
+                .offset { androidx.compose.ui.unit.IntOffset(offset.value.toInt(), 0) }
+                .androidxDraggable(offset, minLeft, maxRight) {
+                    val o = offset.value
+                    val action = when {
+                        o >= fullPx -> pick(rightFull, rightHalf)
+                        o >= halfPx -> pick(rightHalf, rightFull)
+                        o <= -fullPx -> pick(leftFull, leftHalf)
+                        o <= -halfPx -> pick(leftHalf, leftFull)
+                        else -> SwipeAction.NONE
+                    }
+                    offset.animateTo(0f, androidx.compose.animation.core.tween(220))
+                    if (action != SwipeAction.NONE) onAction(action)
+                },
+        ) {
+            FeedItemCell(row = row, mode = mode, onOpen = onOpen, onLongPress = onLongPress, compact = compact)
+        }
     }
+}
+
+/** Horizontal drag wired to an [Animatable], clamped to the enabled directions. */
+private fun Modifier.androidxDraggable(
+    offset: androidx.compose.animation.core.Animatable<Float, *>,
+    minLeft: Float,
+    maxRight: Float,
+    onStopped: suspend (Float) -> Unit,
+): Modifier = composed {
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    draggable(
+        state = rememberDraggableState { delta ->
+            scope.launch { offset.snapTo((offset.value + delta).coerceIn(minLeft, maxRight)) }
+        },
+        orientation = Orientation.Horizontal,
+        onDragStopped = { velocity -> onStopped(velocity) },
+    )
 }
 
 @Composable
@@ -102,22 +138,41 @@ private fun swipeIcon(action: SwipeAction, row: ItemListRow): ImageVector = when
 }
 
 @Composable
-private fun SwipeBackground(direction: SwipeToDismissBoxValue, row: ItemListRow, rightAction: SwipeAction, leftAction: SwipeAction) {
+private fun SwipeBackground(
+    offset: Float,
+    halfPx: Float,
+    fullPx: Float,
+    row: ItemListRow,
+    rightHalf: SwipeAction,
+    rightFull: SwipeAction,
+    leftHalf: SwipeAction,
+    leftFull: SwipeAction,
+) {
+    if (offset == 0f) return
     val scheme = MaterialTheme.colorScheme
-    val (color, icon, alignment) = when (direction) {
-        SwipeToDismissBoxValue.StartToEnd ->
-            Triple(scheme.tertiaryContainer, swipeIcon(rightAction, row), Alignment.CenterStart)
-        SwipeToDismissBoxValue.EndToStart ->
-            Triple(scheme.secondaryContainer, swipeIcon(leftAction, row), Alignment.CenterEnd)
-        SwipeToDismissBoxValue.Settled ->
-            Triple(Color.Transparent, Icons.Outlined.Archive, Alignment.Center)
+    val toRight = offset > 0
+    val mag = kotlin.math.abs(offset)
+    val past = mag >= fullPx
+    val action = when {
+        toRight && past -> if (rightFull != SwipeAction.NONE) rightFull else rightHalf
+        toRight -> if (rightHalf != SwipeAction.NONE) rightHalf else rightFull
+        past -> if (leftFull != SwipeAction.NONE) leftFull else leftHalf
+        else -> if (leftHalf != SwipeAction.NONE) leftHalf else leftFull
     }
+    // The colour deepens once the full threshold is crossed, so the two stages read distinctly.
+    val base = if (toRight) scheme.tertiaryContainer else scheme.secondaryContainer
+    val deep = if (toRight) scheme.tertiary else scheme.secondary
+    val bg = if (past) deep else base
+    val fg = if (past) (if (toRight) scheme.onTertiary else scheme.onSecondary) else scheme.onSurfaceVariant
     Box(
-        Modifier.fillMaxSize().background(color).padding(horizontal = 28.dp),
-        contentAlignment = alignment,
+        Modifier.fillMaxSize().background(bg).padding(horizontal = 24.dp),
+        contentAlignment = if (toRight) Alignment.CenterStart else Alignment.CenterEnd,
     ) {
-        if (direction != SwipeToDismissBoxValue.Settled) {
-            Icon(icon, contentDescription = null, tint = scheme.onSurfaceVariant)
+        if (mag > 12f) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(swipeIcon(action, row), contentDescription = null, tint = fg, modifier = Modifier.size(22.dp))
+                if (mag >= halfPx) Text(action.label, style = MaterialTheme.typography.labelLarge, color = fg, fontWeight = FontWeight.SemiBold)
+            }
         }
     }
 }

@@ -60,6 +60,11 @@ data class AppPreferences(
     val seenOnboarding: Boolean = false,
     val swipeRight: SwipeAction = SwipeAction.SAVE,
     val swipeLeft: SwipeAction = SwipeAction.MARK_READ,
+    // Two-stage swipe: a short (half) swipe and a long (full) swipe per direction, for finer control.
+    val swipeRightHalf: SwipeAction = SwipeAction.STAR,
+    val swipeRightFull: SwipeAction = SwipeAction.SAVE,
+    val swipeLeftHalf: SwipeAction = SwipeAction.MARK_READ,
+    val swipeLeftFull: SwipeAction = SwipeAction.ARCHIVE,
     val compactDensity: Boolean = false,
     // Offline & storage policy.
     /** Automatic background sync only runs on un-metered (Wi-Fi) networks. Manual refresh always runs. */
@@ -105,6 +110,10 @@ class PreferencesRepository @Inject constructor(
         val SEEN_ONBOARDING = booleanPreferencesKey("seen_onboarding")
         val SWIPE_RIGHT = stringPreferencesKey("swipe_right")
         val SWIPE_LEFT = stringPreferencesKey("swipe_left")
+        val SWIPE_RIGHT_HALF = stringPreferencesKey("swipe_right_half")
+        val SWIPE_RIGHT_FULL = stringPreferencesKey("swipe_right_full")
+        val SWIPE_LEFT_HALF = stringPreferencesKey("swipe_left_half")
+        val SWIPE_LEFT_FULL = stringPreferencesKey("swipe_left_full")
         val COMPACT_DENSITY = booleanPreferencesKey("compact_density")
         val SYNC_WIFI_ONLY = booleanPreferencesKey("sync_wifi_only")
         val CACHE_IMAGES = booleanPreferencesKey("cache_images_offline")
@@ -144,6 +153,13 @@ class PreferencesRepository @Inject constructor(
             seenOnboarding = p[Keys.SEEN_ONBOARDING] ?: false,
             swipeRight = p[Keys.SWIPE_RIGHT]?.let { runCatching { SwipeAction.valueOf(it) }.getOrNull() } ?: SwipeAction.SAVE,
             swipeLeft = p[Keys.SWIPE_LEFT]?.let { runCatching { SwipeAction.valueOf(it) }.getOrNull() } ?: SwipeAction.MARK_READ,
+            // Full defaults to the old single-swipe choice so existing users keep their behavior.
+            swipeRightHalf = p[Keys.SWIPE_RIGHT_HALF]?.let { runCatching { SwipeAction.valueOf(it) }.getOrNull() } ?: SwipeAction.STAR,
+            swipeRightFull = p[Keys.SWIPE_RIGHT_FULL]?.let { runCatching { SwipeAction.valueOf(it) }.getOrNull() }
+                ?: p[Keys.SWIPE_RIGHT]?.let { runCatching { SwipeAction.valueOf(it) }.getOrNull() } ?: SwipeAction.SAVE,
+            swipeLeftHalf = p[Keys.SWIPE_LEFT_HALF]?.let { runCatching { SwipeAction.valueOf(it) }.getOrNull() } ?: SwipeAction.MARK_READ,
+            swipeLeftFull = p[Keys.SWIPE_LEFT_FULL]?.let { runCatching { SwipeAction.valueOf(it) }.getOrNull() }
+                ?: p[Keys.SWIPE_LEFT]?.let { runCatching { SwipeAction.valueOf(it) }.getOrNull() } ?: SwipeAction.ARCHIVE,
             compactDensity = p[Keys.COMPACT_DENSITY] ?: false,
             syncWifiOnly = p[Keys.SYNC_WIFI_ONLY] ?: false,
             cacheImagesOffline = p[Keys.CACHE_IMAGES] ?: true,
@@ -159,6 +175,10 @@ class PreferencesRepository @Inject constructor(
     suspend fun setSeenOnboarding(seen: Boolean) = context.dataStore.edit { it[Keys.SEEN_ONBOARDING] = seen }
     suspend fun setSwipeRight(action: SwipeAction) = context.dataStore.edit { it[Keys.SWIPE_RIGHT] = action.name }
     suspend fun setSwipeLeft(action: SwipeAction) = context.dataStore.edit { it[Keys.SWIPE_LEFT] = action.name }
+    suspend fun setSwipeRightHalf(action: SwipeAction) = context.dataStore.edit { it[Keys.SWIPE_RIGHT_HALF] = action.name }
+    suspend fun setSwipeRightFull(action: SwipeAction) = context.dataStore.edit { it[Keys.SWIPE_RIGHT_FULL] = action.name }
+    suspend fun setSwipeLeftHalf(action: SwipeAction) = context.dataStore.edit { it[Keys.SWIPE_LEFT_HALF] = action.name }
+    suspend fun setSwipeLeftFull(action: SwipeAction) = context.dataStore.edit { it[Keys.SWIPE_LEFT_FULL] = action.name }
     suspend fun setCompactDensity(enabled: Boolean) = context.dataStore.edit { it[Keys.COMPACT_DENSITY] = enabled }
 
     suspend fun setThemeMode(mode: ThemeMode) = context.dataStore.edit { it[Keys.THEME_MODE] = mode.name }
