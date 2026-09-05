@@ -75,6 +75,45 @@ class SettingsViewModel @Inject constructor(
         onResult(summary)
     }
 
+    /** Write a full `.zip` archive (data + offline copies) to a document the user picked. */
+    fun exportArchive(uri: android.net.Uri, onDone: (Boolean) -> Unit) = viewModelScope.launch {
+        val ok = runCatching {
+            context.contentResolver.openOutputStream(uri)?.use { backupManager.exportArchive(it) } ?: error("no output stream")
+        }.isSuccess
+        onDone(ok)
+    }
+
+    /** Restore from a file the user picked — auto-detecting a `.zip` archive vs a `.json` data backup. */
+    fun importFrom(uri: android.net.Uri, onResult: (String) -> Unit) = viewModelScope.launch {
+        val summary = runCatching {
+            val name = queryDisplayName(uri).orEmpty().lowercase()
+            val isZip = name.endsWith(".zip") || firstBytesAreZip(uri)
+            if (isZip) {
+                context.contentResolver.openInputStream(uri)?.use { backupManager.importArchive(it) } ?: error("no stream")
+            } else {
+                val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: error("no stream")
+                backupManager.import(text)
+            }
+        }.getOrElse { "Couldn't read that backup" }
+        onResult(summary)
+    }
+
+    private fun queryDisplayName(uri: android.net.Uri): String? = runCatching {
+        context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+            if (c.moveToFirst()) c.getString(0) else null
+        }
+    }.getOrNull()
+
+    /** Peek the magic bytes so a renamed / extension-less pick is still detected as a zip ("PK"). */
+    private fun firstBytesAreZip(uri: android.net.Uri): Boolean = runCatching {
+        context.contentResolver.openInputStream(uri)?.use { s ->
+            val b = ByteArray(4)
+            s.read(b) == 4 && b[0] == 0x50.toByte() && b[1] == 0x4B.toByte()
+        } ?: false
+    }.getOrDefault(false)
+
+    fun setBackupIncludeOffline(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setBackupIncludeOffline(enabled) }
+
     fun addBlockedKeyword(term: String) = viewModelScope.launch { preferencesRepository.addBlockedKeyword(term) }
     fun removeBlockedKeyword(term: String) = viewModelScope.launch { preferencesRepository.removeBlockedKeyword(term) }
     fun setHideDuplicates(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setHideDuplicates(enabled) }

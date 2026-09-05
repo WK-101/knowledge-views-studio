@@ -50,16 +50,22 @@ class BackupWorker @AssistedInject constructor(
     private val preferencesRepository: com.cairn.reader.data.prefs.PreferencesRepository,
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        val uriStr = preferencesRepository.preferences.first().backupFolderUri
-            ?: return Result.success()
+        val prefs = preferencesRepository.preferences.first()
+        val uriStr = prefs.backupFolderUri ?: return Result.success()
         return runCatching {
             val tree = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, android.net.Uri.parse(uriStr))
             if (tree == null || !tree.canWrite()) return Result.success()
-            val json = backupManager.export()
             val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US).format(java.util.Date())
-            val file = tree.createFile("application/json", "cairn-backup-$stamp.json") ?: return Result.retry()
-            context.contentResolver.openOutputStream(file.uri)?.use { it.write(json.toByteArray()) }
-            // Keep only the most recent few backups.
+            if (prefs.backupIncludeOffline) {
+                // Full archive: data + every offline copy, in one .zip.
+                val file = tree.createFile("application/zip", "cairn-backup-$stamp.zip") ?: return Result.retry()
+                context.contentResolver.openOutputStream(file.uri)?.use { backupManager.exportArchive(it) }
+            } else {
+                val json = backupManager.export()
+                val file = tree.createFile("application/json", "cairn-backup-$stamp.json") ?: return Result.retry()
+                context.contentResolver.openOutputStream(file.uri)?.use { it.write(json.toByteArray()) }
+            }
+            // Keep only the most recent few backups (either extension).
             tree.listFiles()
                 .filter { it.name?.startsWith("cairn-backup-") == true }
                 .sortedBy { it.name }

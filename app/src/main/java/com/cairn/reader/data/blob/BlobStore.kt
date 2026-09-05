@@ -77,4 +77,42 @@ class BlobStore @Inject constructor(
             d.walkTopDown().filter { it.isFile }.sumOf { it.length() }
         }
     }.getOrDefault(0L)
+
+    // -- Full-archive backup support ------------------------------------------
+
+    /** The app's private files root — the prefix embedded in stored blobPath / file:// image URIs.
+     *  A full-archive restore rewrites this prefix so offline copies resolve on the new install. */
+    fun filesRoot(): File = context.filesDir
+
+    /** The blob directories, each paired with the archive-relative name it is zipped under. */
+    fun archiveDirs(): List<Pair<String, File>> = listOf("articles" to dir, "media" to mediaDir, "pdfs" to pdfDir)
+
+    /** Resolve an archive-relative blob path ("articles/<id>.html.gz") to a real file, creating
+     *  the parent directory. Used when unpacking a full archive. Returns null for an unknown prefix. */
+    fun resolveArchivePath(relative: String): File? {
+        val slash = relative.indexOf('/')
+        if (slash <= 0) return null
+        val root = when (relative.substring(0, slash)) {
+            "articles" -> dir; "media" -> mediaDir; "pdfs" -> pdfDir; else -> return null
+        }
+        val name = relative.substring(slash + 1)
+        // Guard against path traversal: keep the file directly inside its root.
+        if (name.isBlank() || name.contains('/') || name.contains("..")) return null
+        return File(root, name)
+    }
+
+    /** After unpacking an archive from another device, rewrite the old files-root prefix inside every
+     *  cached article's HTML (image `file://` URIs) so offline images resolve here. No-op if equal. */
+    fun rewriteArticleBase(oldBase: String, newBase: String) {
+        if (oldBase.isBlank() || oldBase == newBase) return
+        dir.listFiles()?.forEach { f ->
+            val html = readArticle(f.absolutePath) ?: return@forEach
+            if (html.contains(oldBase)) {
+                runCatching {
+                    GZIPOutputStream(f.outputStream().buffered()).bufferedWriter(Charsets.UTF_8)
+                        .use { it.write(html.replace(oldBase, newBase)) }
+                }
+            }
+        }
+    }
 }

@@ -34,6 +34,7 @@ import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FormatQuote
+import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
@@ -99,11 +100,17 @@ fun SettingsScreen(
 
     val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            val text = runCatching { context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull()
-            if (text != null) {
-                viewModel.importBackup(text) { summary -> Toast.makeText(context, summary, Toast.LENGTH_LONG).show() }
-            } else {
-                Toast.makeText(context, "Couldn't read that file", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Restoring…", Toast.LENGTH_SHORT).show()
+            // Auto-detects a .zip full archive (data + offline copies) vs a .json data backup.
+            viewModel.importFrom(uri) { summary -> Toast.makeText(context, summary, Toast.LENGTH_LONG).show() }
+        }
+    }
+
+    val archiveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        if (uri != null) {
+            Toast.makeText(context, "Writing archive…", Toast.LENGTH_SHORT).show()
+            viewModel.exportArchive(uri) { ok ->
+                Toast.makeText(context, if (ok) "Full archive saved" else "Couldn't write the archive", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -215,11 +222,26 @@ fun SettingsScreen(
                             }
                             runCatching { context.startActivity(Intent.createChooser(send, "Back up Cairn")) }
                         }
-                    }) { Text("Back up") }
+                    }) { Text("Back up data") }
                     OutlinedButton(onClick = { restoreLauncher.launch(arrayOf("*/*")) }) { Text("Restore") }
                 }
                 Text(
-                    "A full JSON backup of your feeds, saved items, tags, collections and highlights — yours to keep.",
+                    "A complete JSON backup — feeds and every per-feed setting, saved items, read/star/trash state, tags, collections, highlights and all your app settings. Restore accepts either a data backup or a full archive.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+                Spacer(Modifier.height(14.dp))
+                OutlinedButton(onClick = {
+                    val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US).format(java.util.Date())
+                    archiveLauncher.launch("cairn-archive-$stamp.zip")
+                }) {
+                    Icon(Icons.Outlined.Inventory2, contentDescription = null, modifier = Modifier.height(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Full archive (.zip)")
+                }
+                Text(
+                    "Everything above plus every offline article copy, cached image and imported PDF — one self-contained file so nothing is lost, readable offline the moment it's restored.",
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
@@ -228,7 +250,7 @@ fun SettingsScreen(
                 Text("Automatic backup", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
                 Text(
                     if (prefs.backupFolderUri == null) "Off — pick a folder and Cairn writes a dated backup there on a schedule."
-                    else "On — writing to your chosen folder ${if (prefs.backupFrequencyHours >= 168) "weekly" else "daily"}; the last few are kept.",
+                    else "On — writing a dated ${if (prefs.backupIncludeOffline) "full archive" else "data backup"} to your chosen folder ${if (prefs.backupFrequencyHours >= 168) "weekly" else "daily"}; the last few are kept.",
                     style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp),
                 )
                 Spacer(Modifier.height(8.dp))
@@ -240,6 +262,16 @@ fun SettingsScreen(
                         FilterChip(selected = prefs.backupFrequencyHours in 1..47, onClick = { viewModel.setBackupFrequency(24) }, label = { Text("Daily") })
                         FilterChip(selected = prefs.backupFrequencyHours >= 48, onClick = { viewModel.setBackupFrequency(168) }, label = { Text("Weekly") })
                         TextButton(onClick = { viewModel.disableBackup() }) { Text("Off") }
+                    }
+                }
+                if (prefs.backupFolderUri != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Include offline copies", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurface)
+                            Text("Scheduled backups write a full .zip archive (larger, nothing lost).", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                        }
+                        Switch(checked = prefs.backupIncludeOffline, onCheckedChange = { viewModel.setBackupIncludeOffline(it) })
                     }
                 }
 

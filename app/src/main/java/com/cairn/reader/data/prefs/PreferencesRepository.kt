@@ -12,7 +12,10 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import org.json.JSONArray
+import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -92,6 +95,8 @@ data class AppPreferences(
     val backupFolderUri: String? = null,
     /** How often to auto-back-up, in hours. 0 = off. */
     val backupFrequencyHours: Int = 0,
+    /** Whether scheduled backups bundle offline article copies (a larger .zip) or stay data-only (.json). */
+    val backupIncludeOffline: Boolean = false,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -136,6 +141,7 @@ class PreferencesRepository @Inject constructor(
         val BOTTOM_TABS = stringSetPreferencesKey("bottom_tabs")
         val BACKUP_FOLDER = stringPreferencesKey("backup_folder_uri")
         val BACKUP_FREQ = intPreferencesKey("backup_frequency_hours")
+        val BACKUP_INCLUDE_OFFLINE = booleanPreferencesKey("backup_include_offline")
     }
 
     /** Per-scope view entries are stored as "scopeKey<sep>MODE" in a string set. */
@@ -262,4 +268,94 @@ class PreferencesRepository @Inject constructor(
 
     suspend fun removeSavedSearch(query: String) =
         context.dataStore.edit { it[Keys.SAVED_SEARCHES] = (it[Keys.SAVED_SEARCHES] ?: emptySet()) - query }
+
+    suspend fun setBackupIncludeOffline(enabled: Boolean) =
+        context.dataStore.edit { it[Keys.BACKUP_INCLUDE_OFFLINE] = enabled }
+
+    // -- Settings backup -------------------------------------------------------
+    //
+    // A full backup includes every app setting so a restore reproduces the app exactly. The
+    // device-specific auto-backup folder grant (a SAF URI that can't transfer) is intentionally
+    // left out; everything else — appearance, reader, swipe, retention, tabs, keywords,
+    // saved searches, per-scope view modes — is captured and restored.
+
+    /** Serialize all app settings to a JSON object for inclusion in a backup. */
+    suspend fun exportSettings(): JSONObject {
+        val p = preferences.first()
+        return JSONObject().apply {
+            put("themeMode", p.themeMode.name)
+            put("dynamicColor", p.dynamicColor)
+            put("appAccent", p.appAccent)
+            put("trueBlack", p.trueBlack)
+            put("listViewMode", p.listViewMode.name)
+            put("libraryViewMode", p.libraryViewMode.name)
+            put("readerFontScale", p.readerFontScale.toDouble())
+            put("readerTheme", p.readerTheme.name)
+            put("readerFont", p.readerFont.name)
+            put("readerJustify", p.readerJustify)
+            put("readerShowImages", p.readerShowImages)
+            put("readerImmersive", p.readerImmersive)
+            put("readerFullScreen", p.readerFullScreen)
+            put("blockedKeywords", JSONArray(p.blockedKeywords.toList()))
+            put("hideDuplicates", p.hideDuplicates)
+            put("savedSearches", JSONArray(p.savedSearches.toList()))
+            put("libraryViewByScope", JSONObject().apply { p.libraryViewByScope.forEach { (k, v) -> put(k, v.name) } })
+            put("swipeRightHalf", p.swipeRightHalf.name)
+            put("swipeRightFull", p.swipeRightFull.name)
+            put("swipeLeftHalf", p.swipeLeftHalf.name)
+            put("swipeLeftFull", p.swipeLeftFull.name)
+            put("compactDensity", p.compactDensity)
+            put("syncWifiOnly", p.syncWifiOnly)
+            put("cacheImagesOffline", p.cacheImagesOffline)
+            put("imagesWifiOnly", p.imagesWifiOnly)
+            put("cacheOnOpen", p.cacheOnOpen)
+            put("maxItemsPerFeed", p.maxItemsPerFeed)
+            put("maxAgeDays", p.maxAgeDays)
+            put("keepUnread", p.keepUnread)
+            put("bottomTabs", JSONArray(p.bottomTabs.toList()))
+            put("backupFrequencyHours", p.backupFrequencyHours)
+            put("backupIncludeOffline", p.backupIncludeOffline)
+        }
+    }
+
+    /** Restore app settings from a backup's settings object. Unknown/missing keys keep the
+     *  current value. Enums that fail to parse are skipped rather than crashing the restore. */
+    suspend fun importSettings(json: JSONObject) {
+        context.dataStore.edit { e ->
+            if (json.has("themeMode")) json.optString("themeMode").let { e[Keys.THEME_MODE] = it }
+            if (json.has("dynamicColor")) e[Keys.DYNAMIC] = json.getBoolean("dynamicColor")
+            if (json.has("appAccent")) e[Keys.APP_ACCENT] = json.getString("appAccent")
+            if (json.has("trueBlack")) e[Keys.TRUE_BLACK] = json.getBoolean("trueBlack")
+            if (json.has("listViewMode")) e[Keys.LIST_VIEW] = json.getString("listViewMode")
+            if (json.has("libraryViewMode")) e[Keys.LIBRARY_VIEW] = json.getString("libraryViewMode")
+            if (json.has("readerFontScale")) e[Keys.FONT_SCALE] = json.getDouble("readerFontScale").toFloat().coerceIn(0.8f, 1.8f)
+            if (json.has("readerTheme")) e[Keys.READER_THEME] = json.getString("readerTheme")
+            if (json.has("readerFont")) e[Keys.READER_FONT] = json.getString("readerFont")
+            if (json.has("readerJustify")) e[Keys.READER_JUSTIFY] = json.getBoolean("readerJustify")
+            if (json.has("readerShowImages")) e[Keys.READER_IMAGES] = json.getBoolean("readerShowImages")
+            if (json.has("readerImmersive")) e[Keys.READER_IMMERSIVE] = json.getBoolean("readerImmersive")
+            if (json.has("readerFullScreen")) e[Keys.READER_FULLSCREEN] = json.getBoolean("readerFullScreen")
+            json.optJSONArray("blockedKeywords")?.let { arr -> e[Keys.BLOCKED] = (0 until arr.length()).map { arr.getString(it) }.toSet() }
+            if (json.has("hideDuplicates")) e[Keys.HIDE_DUP] = json.getBoolean("hideDuplicates")
+            json.optJSONArray("savedSearches")?.let { arr -> e[Keys.SAVED_SEARCHES] = (0 until arr.length()).map { arr.getString(it) }.toSet() }
+            json.optJSONObject("libraryViewByScope")?.let { obj ->
+                e[Keys.LIBRARY_VIEW_BY_SCOPE] = obj.keys().asSequence().map { k -> "$k=${obj.getString(k)}" }.toSet()
+            }
+            if (json.has("swipeRightHalf")) e[Keys.SWIPE_RIGHT_HALF] = json.getString("swipeRightHalf")
+            if (json.has("swipeRightFull")) e[Keys.SWIPE_RIGHT_FULL] = json.getString("swipeRightFull")
+            if (json.has("swipeLeftHalf")) e[Keys.SWIPE_LEFT_HALF] = json.getString("swipeLeftHalf")
+            if (json.has("swipeLeftFull")) e[Keys.SWIPE_LEFT_FULL] = json.getString("swipeLeftFull")
+            if (json.has("compactDensity")) e[Keys.COMPACT_DENSITY] = json.getBoolean("compactDensity")
+            if (json.has("syncWifiOnly")) e[Keys.SYNC_WIFI_ONLY] = json.getBoolean("syncWifiOnly")
+            if (json.has("cacheImagesOffline")) e[Keys.CACHE_IMAGES] = json.getBoolean("cacheImagesOffline")
+            if (json.has("imagesWifiOnly")) e[Keys.IMAGES_WIFI_ONLY] = json.getBoolean("imagesWifiOnly")
+            if (json.has("cacheOnOpen")) e[Keys.CACHE_ON_OPEN] = json.getBoolean("cacheOnOpen")
+            if (json.has("maxItemsPerFeed")) e[Keys.MAX_ITEMS_PER_FEED] = json.getInt("maxItemsPerFeed").coerceAtLeast(0)
+            if (json.has("maxAgeDays")) e[Keys.MAX_AGE_DAYS] = json.getInt("maxAgeDays").coerceAtLeast(0)
+            if (json.has("keepUnread")) e[Keys.KEEP_UNREAD] = json.getBoolean("keepUnread")
+            json.optJSONArray("bottomTabs")?.let { arr -> e[Keys.BOTTOM_TABS] = (0 until arr.length()).map { arr.getString(it) }.toSet() }
+            if (json.has("backupFrequencyHours")) e[Keys.BACKUP_FREQ] = json.getInt("backupFrequencyHours").coerceAtLeast(0)
+            if (json.has("backupIncludeOffline")) e[Keys.BACKUP_INCLUDE_OFFLINE] = json.getBoolean("backupIncludeOffline")
+        }
+    }
 }

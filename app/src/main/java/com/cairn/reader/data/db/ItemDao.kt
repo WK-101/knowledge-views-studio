@@ -316,6 +316,10 @@ interface ItemDao {
     @Query("UPDATE items SET leadImage = :leadImage WHERE id = :id")
     suspend fun setLeadImage(id: String, leadImage: String?)
 
+    /** Point an item at a restored on-disk blob (used by full-archive restore). */
+    @Query("UPDATE items SET blobPath = :blobPath WHERE id = :id")
+    suspend fun setBlobPath(id: String, blobPath: String?)
+
     @Query("UPDATE items SET collectionId = :collectionId WHERE id = :id")
     suspend fun setCollection(id: String, collectionId: String?)
 
