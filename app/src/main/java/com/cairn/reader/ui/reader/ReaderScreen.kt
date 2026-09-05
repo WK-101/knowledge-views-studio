@@ -179,6 +179,12 @@ fun ReaderScreen(
         onOpenWeb(url)
     }
 
+    // Video items (e.g. YouTube) open in whatever app handles the watch URL, not the reader WebView.
+    fun watchVideo() {
+        val url = data?.url ?: return
+        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
+    }
+
     fun shareText(text: String, subject: String?) {
         val send = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
@@ -383,6 +389,7 @@ fun ReaderScreen(
                 onSelectText = { b, s, e, q -> pending = PendingSelection(b, s, e, q) },
                 onManageHighlight = { managed = it },
                 onPlayEpisode = viewModel::playEpisode,
+                onWatch = ::watchVideo,
             )
         }
     }
@@ -467,6 +474,7 @@ private fun ArticleBody(
     onSelectText: (blockIndex: Int, start: Int, end: Int, quote: String) -> Unit,
     onManageHighlight: (HighlightEntity) -> Unit,
     onPlayEpisode: () -> Unit,
+    onWatch: () -> Unit = {},
 ) {
     val data = state.data ?: return
     val linkColor = MaterialTheme.colorScheme.primary
@@ -546,6 +554,14 @@ private fun ArticleBody(
                             Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
                             Text("Play episode")
+                        }
+                        Spacer(Modifier.height(12.dp))
+                    }
+                    if (data.type == "VIDEO") {
+                        OutlinedButton(onClick = onWatch) {
+                            Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Watch video")
                         }
                         Spacer(Modifier.height(12.dp))
                     }
