@@ -198,10 +198,12 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
     }
     if (showWrapped) {
         // Track 1.3 — Wrapped reads the unified year spine (felt + achievement counts) for the calendar year.
-        val yearRecap = remember(feed, today) {
-            vm.yearReviewed(today.withDayOfYear(1).toEpochDay(), today.withMonth(12).withDayOfMonth(31).toEpochDay())
-        }
-        WrappedScreen(feed, today, yearRecap, onBack = { showWrapped = false })
+        val yStart = today.withDayOfYear(1).toEpochDay()
+        val yEnd = today.withMonth(12).withDayOfMonth(31).toEpochDay()
+        val yearRecap = remember(feed, today) { vm.yearReviewed(yStart, yEnd) }
+        // The Wrapped story shares as a PNG through the modular DayCard year card (professional-capable),
+        // honouring the saved period-share style — the one card system every review surface now shares.
+        WrappedScreen(feed, today, yearRecap, onShare = { vm.shareYearReview(yStart, yEnd) }, onBack = { showWrapped = false })
         return
     }
 
@@ -1259,7 +1261,7 @@ private fun LetterRevealDialog(
  *  the achievement counts AND the "how your year felt" slides both read from the one [YearReviewed] spine. */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun WrappedScreen(feed: List<Accomplishment>, today: LocalDate, recap: com.todocompanion.app.domain.YearReviewed.Recap, onBack: () -> Unit) {
+private fun WrappedScreen(feed: List<Accomplishment>, today: LocalDate, recap: com.todocompanion.app.domain.YearReviewed.Recap, onShare: () -> Unit, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
     val year = today.year
     val ofYear = remember(feed) { feed.filter { LocalDate.ofEpochDay(it.epochDay).year == year } }
@@ -1286,7 +1288,8 @@ private fun WrappedScreen(feed: List<Accomplishment>, today: LocalDate, recap: c
     }
     Scaffold(topBar = {
         TopAppBar(expandedHeight = 52.dp, title = { Text("$year, wrapped") },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } })
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+            actions = { if (ofYear.isNotEmpty()) IconButton(onClick = onShare) { Icon(Icons.Filled.Share, "Share your year") } })
     }) { padding ->
         if (ofYear.isEmpty()) {
             Column(Modifier.padding(padding).fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -1308,7 +1311,10 @@ private fun WrappedScreen(feed: List<Accomplishment>, today: LocalDate, recap: c
                     }
                 }
             }
-            Text("Generated on your device from your private record. Share a screenshot if you like — it never left the phone.",
+            androidx.compose.material3.FilledTonalButton(onClick = onShare, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Filled.Share, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Share your year")
+            }
+            Text("Generated on your device from your private record — the card never leaves the phone until you pick where to send it.",
                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
         }
     }

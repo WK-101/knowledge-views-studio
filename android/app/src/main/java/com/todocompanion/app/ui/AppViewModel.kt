@@ -42,6 +42,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.ZoneId
 import java.util.UUID
+import kotlin.math.roundToInt
 
 /** A flattened, indented outline row. [matched] is false for a structural ancestor shown only
  *  to keep a filtered match in its tree position (rendered dimmed). */
@@ -1361,48 +1362,146 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         res.shareUri?.let { com.todocompanion.app.util.ProgressCard.share(appCtx, it) }
         onDone(res.savedLocation)
     }
-    /** R1: render a shareable "momentum" card — the unified habit+task+focus snapshot — on-device. */
+    /** R1: render a shareable "momentum" card — the unified habit+task+focus snapshot — on-device. Track: now
+     *  rendered through the modular [DayCard] week card (the one card system every review surface shares),
+     *  honouring the saved Personal/Professional share style, instead of the retired stats-card renderer. */
     fun shareMomentum(onDone: (String?) -> Unit) = viewModelScope.launch {
-        val m = momentumSnapshot()
-        val stats = listOf(
-            "momentum" to "${m.momentum}",
-            "habits" to (m.habitStrength?.let { "$it" } ?: "—"),
-            "reliability" to (m.taskReliability?.let { "$it%" } ?: "—"),
-            "focus (7d)" to "${m.focusWeek}m",
-        )
-        val sub = java.time.LocalDate.now(zone).format(java.time.format.DateTimeFormatter.ofPattern("MMM d"))
+        val today = java.time.LocalDate.now(zone)
+        val endDay = today.toEpochDay(); val startDay = endDay - 6
+        val label = "${today.minusDays(6).format(java.time.format.DateTimeFormatter.ofPattern("MMM d"))} – ${today.format(java.time.format.DateTimeFormatter.ofPattern("MMM d"))}"
+        val cfg = com.todocompanion.app.domain.PeriodShareConfigs.parse(settings.value.periodShareConfigJson)
+        val pd = weekPeriodShareData(startDay, endDay, label)
         val res = withContext(Dispatchers.IO) {
-            val bmp = com.todocompanion.app.util.ProgressCard.renderStatsCard("Today's momentum", sub, stats)
+            val bmp = com.todocompanion.app.util.DayCard.renderPeriodShare(pd, cfg, com.todocompanion.app.util.DayCard.PeriodKind.WEEK)
             com.todocompanion.app.util.ProgressCard.saveAndShareUri(appCtx, bmp, "todo-companion-momentum.png")
         }
         res.shareUri?.let { com.todocompanion.app.util.ProgressCard.share(appCtx, it) }
         onDone(res.savedLocation)
     }
 
-    /** V7 — Reality Replay: a shareable recap of the last 7 days across all three modules, on-device. */
+    /** V7 — Reality Replay: a shareable recap of the last 7 days across all three modules, on-device. Track: now
+     *  rendered through [DayCard.renderPeriodShare] (WEEK) — the same modular week card the Day-review and Recap
+     *  screens use — honouring the saved Personal/Professional share style. */
     fun shareRecap(onDone: (String?) -> Unit) = viewModelScope.launch {
-        val now = System.currentTimeMillis()
         val today = java.time.LocalDate.now(zone)
-        val weekStart = today.minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli()
-        val startDay = today.minusDays(6).toEpochDay(); val endDay = today.toEpochDay()
-        val trackedMin = com.todocompanion.app.domain.TimeTracking.totalMinutes(timeEntries.value, weekStart, now + 1, now)
-        val tasksDone = tasks.value.count { t -> t.completedAt?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate().toEpochDay() in startDay..endDay } == true }
-        val habitDays = habitCheckins.value.count { it.status == "done" && it.epochDay in startDay..endDay }
-        val m = momentumSnapshot()
-        val stats = listOf(
-            "tracked" to "${trackedMin / 60}h ${trackedMin % 60}m",
-            "tasks done" to "$tasksDone",
-            "habit days" to "$habitDays",
-            "momentum" to "${m.momentum}",
-        )
-        val sub = "${today.minusDays(6).format(java.time.format.DateTimeFormatter.ofPattern("MMM d"))} – ${today.format(java.time.format.DateTimeFormatter.ofPattern("MMM d"))}"
+        val endDay = today.toEpochDay(); val startDay = endDay - 6
+        val label = "${today.minusDays(6).format(java.time.format.DateTimeFormatter.ofPattern("MMM d"))} – ${today.format(java.time.format.DateTimeFormatter.ofPattern("MMM d"))}"
+        val cfg = com.todocompanion.app.domain.PeriodShareConfigs.parse(settings.value.periodShareConfigJson)
+        val pd = weekPeriodShareData(startDay, endDay, label)
         val res = withContext(Dispatchers.IO) {
-            val bmp = com.todocompanion.app.util.ProgressCard.renderStatsCard("Your week in review", sub, stats)
+            val bmp = com.todocompanion.app.util.DayCard.renderPeriodShare(pd, cfg, com.todocompanion.app.util.DayCard.PeriodKind.WEEK)
             com.todocompanion.app.util.ProgressCard.saveAndShareUri(appCtx, bmp, "todo-companion-recap.png")
         }
         res.shareUri?.let { com.todocompanion.app.util.ProgressCard.share(appCtx, it) }
         onDone(res.savedLocation)
     }
+
+    /** Track 1.3 — share the Wrapped / year story as a PNG through the modular [DayCard.renderPeriodShare] (YEAR),
+     *  the same professional-capable card the "Year, reviewed" share uses, over the inclusive calendar-year
+     *  window. Honours the saved period-share style; reuses the [ProgressCard] FileProvider plumbing. */
+    fun shareYearReview(startDay: Long, endDay: Long, onDone: (String?) -> Unit = {}) = viewModelScope.launch {
+        val recap = yearReviewed(startDay, endDay)
+        val cfg = com.todocompanion.app.domain.PeriodShareConfigs.parse(settings.value.periodShareConfigJson)
+        val yearLabel = java.time.LocalDate.ofEpochDay(endDay).year.toString()
+        val pd = periodDataFromYear(recap, shareThemesFor(startDay, endDay), settings.value.accentArgb.takeIf { it != 0L }, yearLabel)
+        val res = withContext(Dispatchers.IO) {
+            val bmp = com.todocompanion.app.util.DayCard.renderPeriodShare(pd, cfg, com.todocompanion.app.util.DayCard.PeriodKind.YEAR)
+            com.todocompanion.app.util.ProgressCard.saveAndShareUri(appCtx, bmp, "kairo-wrapped-$endDay.png")
+        }
+        res.shareUri?.let { com.todocompanion.app.util.ProgressCard.share(appCtx, it) }
+        onDone(res.savedLocation)
+    }
+
+    // ── Share mapping · domain roll-ups → the modular DayCard period-share model ────────────────────────
+    // These mirror the Day-review screen's share mappers so the Momentum, Recap and Wrapped shares report the
+    // very same numbers as the Day-review period cards, all through the one [DayCard] renderer.
+
+    /** Build the WEEK period-share data for the inclusive [startDay]..[endDay] window from the shared domain
+     *  folds ([ReviewRollup] + [ExecutionScore]) — the identical aggregation the Day-review week card reads. */
+    private fun weekPeriodShareData(startDay: Long, endDay: Long, label: String): com.todocompanion.app.util.DayCard.PeriodShareData {
+        val now = System.currentTimeMillis()
+        val questions = com.todocompanion.app.domain.DailyQuestions.parseQuestions(settings.value.dailyQuestionsJson)
+        val rollup = com.todocompanion.app.domain.ReviewRollup.compute(
+            startDay, endDay, dayLogs.value, questions, habits.value, habitCheckins.value,
+            timeEntries.value, timeActivities.value, zone, now, goals(), tasks.value, focusSessions.value)
+        val exec = com.todocompanion.app.domain.ExecutionScore.fromRollup(rollup, tasks.value, zone)
+        return periodDataFromRollup(label, rollup, exec, shareThemesFor(startDay, endDay), settings.value.accentArgb.takeIf { it != 0L })
+    }
+
+    /** The recurring theme words over an inclusive window, from the day logs' free text (same idiom the
+     *  on-screen roll-up and the Day-review share use). */
+    private fun shareThemesFor(startDay: Long, endDay: Long): List<String> {
+        val docs = dayLogs.value.asSequence().filter { it.epochDay in startDay..endDay }.map { l ->
+            listOf(l.pmReflection, l.highlight, l.gratitude, l.lesson, l.good1, l.good2, l.good3, l.promptAnswer, l.amIntention)
+                .filter { it.isNotBlank() }.joinToString(" ")
+        }.filter { it.isNotBlank() }.toList()
+        return com.todocompanion.app.domain.TextInsights.threeWords(docs)
+    }
+
+    private fun shareMoodFace(v: Int): String = when (v.coerceIn(0, 5)) { 1 -> "😞"; 2 -> "🙁"; 3 -> "😐"; 4 -> "🙂"; 5 -> "😄"; else -> "😐" }
+
+    /** Map a week / month [ReviewRollup.Rollup] (+ its execution score) to the renderer's data model. */
+    private fun periodDataFromRollup(
+        label: String,
+        rollup: com.todocompanion.app.domain.ReviewRollup.Rollup,
+        exec: com.todocompanion.app.domain.ExecutionScore.Score,
+        themes: List<String>,
+        accent: Long?,
+    ): com.todocompanion.app.util.DayCard.PeriodShareData = com.todocompanion.app.util.DayCard.PeriodShareData(
+        periodLabel = label,
+        reviewedDays = rollup.reviewedDays,
+        periodDays = rollup.periodDays,
+        avgRating = rollup.avgRating,
+        avgMood = rollup.avgMood,
+        moodFace = if (rollup.moodCount > 0) shareMoodFace(rollup.avgMood.roundToInt()) else "",
+        hasExec = exec.hasData,
+        execPlanned = exec.planned,
+        execCompleted = exec.completed,
+        execPct = exec.pct,
+        wins = rollup.wins.map { it.text },
+        winsCount = 0,
+        highlight = "",
+        habits = rollup.habitConsistency.map { com.todocompanion.app.util.DayCard.ConsistencyLine(it.name, it.kept, it.expected) },
+        habitsKept = rollup.habitConsistency.sumOf { it.kept },
+        habitsExpected = rollup.habitConsistency.sumOf { it.expected },
+        activities = rollup.topActivities.map { com.todocompanion.app.util.DayCard.ActivityLine(it.name, it.minutes) },
+        trackedMin = rollup.topActivities.sumOf { it.minutes },
+        goals = rollup.goalsMoved.map { it.text + (if (it.count > 1) " · ${it.count} days" else "") },
+        themes = themes,
+        tasksDone = exec.doneTasks,
+        accentArgb = accent,
+    )
+
+    /** Map a [YearReviewed.Recap] to the renderer's data model (a highlight + counts rather than win texts). */
+    private fun periodDataFromYear(
+        recap: com.todocompanion.app.domain.YearReviewed.Recap,
+        themes: List<String>,
+        accent: Long?,
+        label: String = "The last 12 months",
+    ): com.todocompanion.app.util.DayCard.PeriodShareData = com.todocompanion.app.util.DayCard.PeriodShareData(
+        periodLabel = label,
+        reviewedDays = recap.daysReviewed,
+        periodDays = recap.periodDays,
+        avgRating = recap.avgRating,
+        avgMood = recap.avgMood,
+        moodFace = if (recap.moodDays > 0) shareMoodFace(recap.avgMood.roundToInt()) else "",
+        hasExec = false,
+        execPlanned = 0,
+        execCompleted = 0,
+        execPct = 0,
+        wins = emptyList(),
+        winsCount = recap.winsCount,
+        highlight = recap.highlightText,
+        habits = recap.habitConsistency.map { com.todocompanion.app.util.DayCard.ConsistencyLine(it.name, it.kept, it.expected) },
+        habitsKept = recap.habitConsistency.sumOf { it.kept },
+        habitsExpected = recap.habitConsistency.sumOf { it.expected },
+        activities = recap.topActivities.map { com.todocompanion.app.util.DayCard.ActivityLine(it.name, it.minutes) },
+        trackedMin = recap.trackedMinutes,
+        goals = emptyList(),
+        themes = themes,
+        tasksDone = recap.tasksFinished,
+        accentArgb = accent,
+    )
 
     /** R1/R2: the unified momentum snapshot — one place both the dashboard, widget and digest read. */
     data class Momentum(val momentum: Int, val habitStrength: Int?, val taskReliability: Int?, val focusWeek: Int)
