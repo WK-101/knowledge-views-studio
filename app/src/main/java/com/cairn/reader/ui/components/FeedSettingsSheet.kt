@@ -47,6 +47,7 @@ fun FeedSettingsSheet(
     onFolder: (String?) -> Unit,
     onFullText: (Boolean) -> Unit,
     onNotify: (Boolean) -> Unit,
+    onMuted: (Boolean) -> Unit = {},
     onRemove: () -> Unit,
     onDismiss: () -> Unit,
     onRename: (String) -> Unit = {},
@@ -61,6 +62,7 @@ fun FeedSettingsSheet(
     var feedUrl by remember(source.id) { mutableStateOf(source.feedUrl) }
     var fullText by remember(source.id) { mutableStateOf(source.fullTextByDefault) }
     var notify by remember(source.id) { mutableStateOf(source.notify) }
+    var muted by remember(source.id) { mutableStateOf(source.muted) }
     var podcast by remember(source.id) { mutableStateOf(source.isPodcast) }
     var openIn by remember(source.id) { mutableStateOf(source.openIn) }
     var maxItems by remember(source.id) { mutableStateOf(source.maxItems) }
@@ -134,6 +136,14 @@ fun FeedSettingsSheet(
                     Text("Notify when this feed has new articles", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = notify, onCheckedChange = { notify = it; onNotify(it) })
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Mute in Inbox", style = MaterialTheme.typography.bodyLarge)
+                    Text("Keep syncing but hide from the main Inbox and unread count. Still readable by opening the feed.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = muted, onCheckedChange = { muted = it; onMuted(it) })
             }
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {

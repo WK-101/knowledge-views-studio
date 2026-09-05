@@ -18,7 +18,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TombstoneEntity::class,
         SyncOpEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = true,
 )
 abstract class CairnDatabase : RoomDatabase() {
@@ -89,5 +89,12 @@ val MIGRATION_7_8 = object : Migration(7, 8) {
 val MIGRATION_8_9 = object : Migration(8, 9) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE items ADD COLUMN commentsUrl TEXT")
+    }
+}
+
+/** v3.64: per-feed mute. Non-null with a default, so existing feeds are unmuted. */
+val MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE sources ADD COLUMN muted INTEGER NOT NULL DEFAULT 0")
     }
 }

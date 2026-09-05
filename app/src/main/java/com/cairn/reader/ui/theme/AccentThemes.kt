@@ -46,9 +46,35 @@ private fun tones(accent: AppAccent): AccentTones? = when (accent) {
 }
 
 /** Build the accent-adjusted [ColorScheme] for the given mode, optionally on a pure-black ground. */
-fun cairnScheme(accent: AppAccent, dark: Boolean, trueBlack: Boolean): ColorScheme {
+fun cairnScheme(accent: AppAccent, dark: Boolean, trueBlack: Boolean): ColorScheme =
+    schemeFromTones(tones(accent), dark, trueBlack)
+
+/**
+ * A custom accent derived from any single seed color the user picks. Its hue and saturation drive a
+ * small tonal ramp (a lightweight stand-in for Material's full tonal palettes) so the whole app can
+ * take on an arbitrary color without bundling the color-science library.
+ */
+fun cairnSchemeFromSeed(seedArgb: Int, dark: Boolean, trueBlack: Boolean): ColorScheme {
+    val hsv = FloatArray(3)
+    android.graphics.Color.colorToHSV(seedArgb, hsv)
+    val h = hsv[0]
+    val s = hsv[1].coerceIn(0.35f, 1f)
+    fun c(sat: Float, value: Float) =
+        Color(android.graphics.Color.HSVToColor(floatArrayOf(h, sat.coerceIn(0f, 1f), value.coerceIn(0f, 1f))))
+    val t = AccentTones(
+        p40 = c(s + 0.05f, 0.55f),
+        p90 = c(s - 0.55f, 0.95f),
+        p10 = c(s + 0.15f, 0.20f),
+        p30 = c(s, 0.42f),
+        p80 = c(s - 0.30f, 0.82f),
+        sc = c(s - 0.50f, 0.91f),
+        scDark = c(s - 0.05f, 0.30f),
+    )
+    return schemeFromTones(t, dark, trueBlack)
+}
+
+private fun schemeFromTones(t: AccentTones?, dark: Boolean, trueBlack: Boolean): ColorScheme {
     val base = if (dark) CairnDarkColors else CairnLightColors
-    val t = tones(accent)
     val accented = when {
         t == null -> base
         dark -> base.copy(

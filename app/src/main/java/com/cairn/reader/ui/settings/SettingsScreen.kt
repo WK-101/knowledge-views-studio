@@ -586,6 +586,49 @@ fun SettingsScreen(
                         }
                     }
                 }
+                Spacer(Modifier.height(14.dp))
+                Text("Custom color", style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant)
+                Text(
+                    "Pick any seed and the app derives its whole palette from it. Overrides the accent and dynamic color.",
+                    style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(10.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // "None" clears the seed and falls back to the accent / dynamic color.
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(56.dp)) {
+                        Box(
+                            Modifier
+                                .size(40.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape)
+                                .background(scheme.surfaceVariant)
+                                .border(
+                                    width = if (prefs.appSeedColor == 0) 3.dp else 1.dp,
+                                    color = if (prefs.appSeedColor == 0) scheme.onSurface else scheme.outlineVariant,
+                                    shape = androidx.compose.foundation.shape.CircleShape,
+                                )
+                                .clickable { viewModel.setAppSeedColor(0) },
+                            contentAlignment = Alignment.Center,
+                        ) { Icon(Icons.Outlined.Close, contentDescription = null, tint = scheme.onSurfaceVariant, modifier = Modifier.size(18.dp)) }
+                        Spacer(Modifier.height(4.dp))
+                        Text("None", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1)
+                    }
+                    listOf(0f, 25f, 45f, 90f, 135f, 165f, 190f, 215f, 250f, 285f, 320f, 345f).forEach { hue ->
+                        val argb = android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.65f, 0.85f))
+                        val selected = prefs.appSeedColor == argb
+                        Box(
+                            Modifier
+                                .size(40.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape)
+                                .background(androidx.compose.ui.graphics.Color(argb))
+                                .border(
+                                    width = if (selected) 3.dp else 1.dp,
+                                    color = if (selected) scheme.onSurface else scheme.outlineVariant,
+                                    shape = androidx.compose.foundation.shape.CircleShape,
+                                )
+                                .clickable { viewModel.setAppSeedColor(argb) },
+                        )
+                    }
+                }
                 Spacer(Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
@@ -796,6 +839,7 @@ fun SettingsScreen(
             onFolder = { viewModel.setFolder(source.id, it) },
             onFullText = { viewModel.setFullText(source.id, it) },
             onNotify = { viewModel.setNotify(source.id, it) },
+            onMuted = { viewModel.setMuted(source.id, it) },
             onRemove = { viewModel.removeSource(source.id) },
             onDismiss = { feedSettings = null },
         )

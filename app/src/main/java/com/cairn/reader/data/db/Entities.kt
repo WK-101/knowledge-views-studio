@@ -41,6 +41,9 @@ data class SourceEntity(
     val contentHash: String? = null,
     /** For scraped sources taught by example: the CSS selector matching article links. */
     val scrapeSelector: String? = null,
+    /** v3.64: muted feeds keep syncing but are hidden from the main Inbox / All river and the
+     *  unread badge; they're still reachable by opening the feed directly. Migration 9→10 adds it. */
+    val muted: Boolean = false,
 )
 
 @Entity(

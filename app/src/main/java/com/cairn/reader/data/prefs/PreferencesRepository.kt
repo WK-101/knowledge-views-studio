@@ -50,6 +50,8 @@ data class AppPreferences(
     val dynamicColor: Boolean = true,
     /** Accent theme (see AppAccent); "DEFAULT" keeps the Cairn teal / Material You. */
     val appAccent: String = "DEFAULT",
+    /** A custom accent seed color (ARGB). 0 = none; when non-zero it overrides accent and dynamic color. */
+    val appSeedColor: Int = 0,
     /** Pure-black backgrounds in dark mode (AMOLED). */
     val trueBlack: Boolean = false,
     val listViewMode: ListViewMode = ListViewMode.CARD,
@@ -167,6 +169,7 @@ class PreferencesRepository @Inject constructor(
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val DYNAMIC = booleanPreferencesKey("dynamic_color")
         val APP_ACCENT = stringPreferencesKey("app_accent")
+        val APP_SEED_COLOR = intPreferencesKey("app_seed_color")
         val TRUE_BLACK = booleanPreferencesKey("true_black")
         val LIST_VIEW = stringPreferencesKey("list_view_mode")
         val LIBRARY_VIEW = stringPreferencesKey("library_view_mode")
@@ -235,6 +238,7 @@ class PreferencesRepository @Inject constructor(
             themeMode = p[Keys.THEME_MODE]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM,
             dynamicColor = p[Keys.DYNAMIC] ?: true,
             appAccent = p[Keys.APP_ACCENT] ?: "DEFAULT",
+            appSeedColor = p[Keys.APP_SEED_COLOR] ?: 0,
             trueBlack = p[Keys.TRUE_BLACK] ?: false,
             listViewMode = p[Keys.LIST_VIEW]?.let { runCatching { ListViewMode.valueOf(it) }.getOrNull() } ?: ListViewMode.CARD,
             libraryViewMode = p[Keys.LIBRARY_VIEW]?.let { runCatching { LibraryViewMode.valueOf(it) }.getOrNull() } ?: LibraryViewMode.GRID,
@@ -316,6 +320,8 @@ class PreferencesRepository @Inject constructor(
     suspend fun setThemeMode(mode: ThemeMode) = context.dataStore.edit { it[Keys.THEME_MODE] = mode.name }
     suspend fun setDynamicColor(enabled: Boolean) = context.dataStore.edit { it[Keys.DYNAMIC] = enabled }
     suspend fun setAppAccent(name: String) = context.dataStore.edit { it[Keys.APP_ACCENT] = name }
+    /** Set a custom seed color (ARGB), or 0 to clear it and fall back to the accent / dynamic color. */
+    suspend fun setAppSeedColor(argb: Int) = context.dataStore.edit { it[Keys.APP_SEED_COLOR] = argb }
     suspend fun setTrueBlack(enabled: Boolean) = context.dataStore.edit { it[Keys.TRUE_BLACK] = enabled }
     suspend fun setListViewMode(mode: ListViewMode) = context.dataStore.edit { it[Keys.LIST_VIEW] = mode.name }
     suspend fun setLibraryViewMode(mode: LibraryViewMode) = context.dataStore.edit { it[Keys.LIBRARY_VIEW] = mode.name }
@@ -476,6 +482,7 @@ class PreferencesRepository @Inject constructor(
             put("themeMode", p.themeMode.name)
             put("dynamicColor", p.dynamicColor)
             put("appAccent", p.appAccent)
+            put("appSeedColor", p.appSeedColor)
             put("trueBlack", p.trueBlack)
             put("listViewMode", p.listViewMode.name)
             put("libraryViewMode", p.libraryViewMode.name)
@@ -540,6 +547,7 @@ class PreferencesRepository @Inject constructor(
             if (json.has("themeMode")) json.optString("themeMode").let { e[Keys.THEME_MODE] = it }
             if (json.has("dynamicColor")) e[Keys.DYNAMIC] = json.getBoolean("dynamicColor")
             if (json.has("appAccent")) e[Keys.APP_ACCENT] = json.getString("appAccent")
+            if (json.has("appSeedColor")) e[Keys.APP_SEED_COLOR] = json.getInt("appSeedColor")
             if (json.has("trueBlack")) e[Keys.TRUE_BLACK] = json.getBoolean("trueBlack")
             if (json.has("listViewMode")) e[Keys.LIST_VIEW] = json.getString("listViewMode")
             if (json.has("libraryViewMode")) e[Keys.LIBRARY_VIEW] = json.getString("libraryViewMode")

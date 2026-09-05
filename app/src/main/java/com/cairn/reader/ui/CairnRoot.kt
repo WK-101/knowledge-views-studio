@@ -43,7 +43,7 @@ fun CairnRoot(
 
     val accent = runCatching { com.cairn.reader.ui.theme.AppAccent.valueOf(prefs.appAccent) }
         .getOrDefault(com.cairn.reader.ui.theme.AppAccent.DEFAULT)
-    CairnTheme(darkTheme = dark, dynamicColor = prefs.dynamicColor, accent = accent, trueBlack = prefs.trueBlack) {
+    CairnTheme(darkTheme = dark, dynamicColor = prefs.dynamicColor, accent = accent, trueBlack = prefs.trueBlack, seedColor = prefs.appSeedColor) {
         if (!prefs.seenOnboarding) {
             OnboardingScreen(onGetStarted = { appViewModel.markOnboardingSeen() })
             return@CairnTheme

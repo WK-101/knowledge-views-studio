@@ -116,6 +116,7 @@ class FeedsViewModel @Inject constructor(
     fun setFolder(id: String, folder: String?) = viewModelScope.launch { sourceRepository.setFolder(id, folder) }
     fun setFullText(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setFullText(id, enabled) }
     fun setNotify(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setNotify(id, enabled) }
+    fun setMuted(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setMuted(id, enabled) }
     fun setPodcast(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setPodcast(id, enabled) }
     fun setOpenIn(id: String, mode: String) = viewModelScope.launch { sourceRepository.setOpenIn(id, mode) }
     fun setMaxItems(id: String, maxItems: Int?) = viewModelScope.launch { sourceRepository.setMaxItems(id, maxItems) }

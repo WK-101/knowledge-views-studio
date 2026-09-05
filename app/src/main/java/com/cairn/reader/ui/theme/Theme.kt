@@ -18,9 +18,12 @@ fun CairnTheme(
     dynamicColor: Boolean = true,
     accent: AppAccent = AppAccent.DEFAULT,
     trueBlack: Boolean = false,
+    seedColor: Int = 0,
     content: @Composable () -> Unit,
 ) {
     val colorScheme = when {
+        // A hand-picked custom seed is the most explicit request of all — it wins over everything.
+        seedColor != 0 -> cairnSchemeFromSeed(seedColor, darkTheme, trueBlack)
         // A chosen accent is an explicit request and takes precedence over Material You.
         accent != AppAccent.DEFAULT -> cairnScheme(accent, darkTheme, trueBlack)
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {

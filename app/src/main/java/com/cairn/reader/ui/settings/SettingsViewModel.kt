@@ -54,6 +54,7 @@ class SettingsViewModel @Inject constructor(
     fun setFolder(id: String, folder: String?) = viewModelScope.launch { sourceRepository.setFolder(id, folder) }
     fun setFullText(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setFullText(id, enabled) }
     fun setNotify(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setNotify(id, enabled) }
+    fun setMuted(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setMuted(id, enabled) }
 
     fun importOpml(text: String, onResult: (Int) -> Unit) = viewModelScope.launch {
         val added = runCatching { feedRepository.importOpml(text) }.getOrDefault(0)
@@ -129,6 +130,7 @@ class SettingsViewModel @Inject constructor(
     fun setThemeMode(mode: ThemeMode) = viewModelScope.launch { preferencesRepository.setThemeMode(mode) }
     fun setDynamicColor(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setDynamicColor(enabled) }
     fun setAppAccent(name: String) = viewModelScope.launch { preferencesRepository.setAppAccent(name) }
+    fun setAppSeedColor(argb: Int) = viewModelScope.launch { preferencesRepository.setAppSeedColor(argb) }
     fun setTrueBlack(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setTrueBlack(enabled) }
     fun setReaderFont(font: ReaderFont) = viewModelScope.launch { preferencesRepository.setReaderFont(font) }
     fun setReaderTheme(theme: ReaderTheme) = viewModelScope.launch { preferencesRepository.setReaderTheme(theme) }

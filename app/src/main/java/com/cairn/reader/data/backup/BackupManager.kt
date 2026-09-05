@@ -325,6 +325,7 @@ class BackupManager @Inject constructor(
         putOpt("etag", etag); putOpt("lastModified", lastModified); putOpt("retryAfter", retryAfter)
         put("consecutiveErrors", consecutiveErrors); putOpt("remoteId", remoteId); putOpt("lastSyncedAt", lastSyncedAt)
         put("sortOrder", sortOrder); putOpt("maxItems", maxItems); putOpt("contentHash", contentHash); putOpt("scrapeSelector", scrapeSelector)
+        put("muted", muted)
     }
 
     private fun JSONObject.toSource() = SourceEntity(
@@ -337,6 +338,7 @@ class BackupManager @Inject constructor(
         sortOrder = optInt("sortOrder"),
         maxItems = if (has("maxItems") && !isNull("maxItems")) getInt("maxItems") else null,
         contentHash = optStringOrNull("contentHash"), scrapeSelector = optStringOrNull("scrapeSelector"),
+        muted = optBoolean("muted"),
     )
 
     private fun ItemEntity.toJson() = JSONObject().apply {

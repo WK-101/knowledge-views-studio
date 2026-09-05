@@ -300,6 +300,7 @@ fun FeedsScreen(
             onFolder = { viewModel.setFolder(source.id, it) },
             onFullText = { viewModel.setFullText(source.id, it) },
             onNotify = { viewModel.setNotify(source.id, it) },
+            onMuted = { viewModel.setMuted(source.id, it) },
             onPodcast = { viewModel.setPodcast(source.id, it) },
             onFeedUrl = { viewModel.setFeedUrl(source.id, it) },
             onOpenIn = { viewModel.setOpenIn(source.id, it) },

@@ -93,6 +93,7 @@ interface ItemDao {
         WHERE i.trashedAt IS NULL AND COALESCE(s.isArchived, 0) = 0 AND COALESCE(s.isRead, 0) = 0
           AND (:sourceId IS NULL OR i.sourceId = :sourceId)
           AND (:folder IS NULL OR src.folder = :folder)
+          AND (:sourceId IS NOT NULL OR COALESCE(src.muted, 0) = 0)
         ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC
         """
     )
@@ -148,6 +149,7 @@ interface ItemDao {
         WHERE i.trashedAt IS NULL AND COALESCE(s.isArchived, 0) = 0
           AND (:sourceId IS NULL OR i.sourceId = :sourceId)
           AND (:folder IS NULL OR src.folder = :folder)
+          AND (:sourceId IS NOT NULL OR COALESCE(src.muted, 0) = 0)
         ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC
         """
     )
@@ -177,6 +179,7 @@ interface ItemDao {
         SELECT COUNT(*) FROM items i
         LEFT JOIN item_states s ON s.itemId = i.id
         WHERE i.trashedAt IS NULL AND COALESCE(s.isRead, 0) = 0 AND COALESCE(s.isArchived, 0) = 0
+          AND (i.sourceId IS NULL OR i.sourceId NOT IN (SELECT id FROM sources WHERE muted = 1))
         """
     )
     fun observeUnreadCount(): Flow<Int>
@@ -199,7 +202,7 @@ interface ItemDao {
     @Query("SELECT * FROM item_states WHERE itemId = :id")
     suspend fun getState(id: String): ItemStateEntity?
 
-    @Query("SELECT COUNT(*) FROM items i LEFT JOIN item_states s ON s.itemId = i.id WHERE i.trashedAt IS NULL AND COALESCE(s.isRead, 0) = 0 AND COALESCE(s.isArchived, 0) = 0")
+    @Query("SELECT COUNT(*) FROM items i LEFT JOIN item_states s ON s.itemId = i.id WHERE i.trashedAt IS NULL AND COALESCE(s.isRead, 0) = 0 AND COALESCE(s.isArchived, 0) = 0 AND (i.sourceId IS NULL OR i.sourceId NOT IN (SELECT id FROM sources WHERE muted = 1))")
     suspend fun unreadCountOnce(): Int
 
     @Query("SELECT i.title FROM items i LEFT JOIN item_states s ON s.itemId = i.id WHERE i.trashedAt IS NULL AND COALESCE(s.isRead, 0) = 0 AND COALESCE(s.isArchived, 0) = 0 ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC LIMIT 1")
@@ -213,6 +216,7 @@ interface ItemDao {
         LEFT JOIN item_states s ON s.itemId = i.id
         LEFT JOIN sources src ON src.id = i.sourceId
         WHERE i.trashedAt IS NULL AND COALESCE(s.isRead, 0) = 0 AND COALESCE(s.isArchived, 0) = 0
+          AND (i.sourceId IS NULL OR i.sourceId NOT IN (SELECT id FROM sources WHERE muted = 1))
         ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC
         LIMIT :limit
         """,
