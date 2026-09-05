@@ -121,6 +121,9 @@ data class AppPreferences(
     /** Strip tracking / analytics parameters (utm_*, fbclid, gclid, …) from links Cairn stores,
      *  opens, and shares. On by default — Cairn is privacy-first. */
     val stripTrackingParams: Boolean = true,
+    /** Strip trackers, beacons and campaign params from stored article bodies (privacy sanitize).
+     *  On by default — a saved article should never phone home when you open it. */
+    val sanitizeArticles: Boolean = true,
     /** Auto-mark items read as they scroll up out of view in the Inbox. Off by default. */
     val markReadOnScroll: Boolean = false,
     // -- Fine reading typography (reader) --
@@ -210,6 +213,7 @@ class PreferencesRepository @Inject constructor(
         val TTS_ENABLED = booleanPreferencesKey("tts_enabled")
         val BOTTOM_TABS_ORDER = stringPreferencesKey("bottom_tabs_order")
         val STRIP_TRACKING = booleanPreferencesKey("strip_tracking_params")
+        val SANITIZE_ARTICLES = booleanPreferencesKey("sanitize_articles")
         val MARK_READ_ON_SCROLL = booleanPreferencesKey("mark_read_on_scroll")
         val READER_LINE_HEIGHT = androidx.datastore.preferences.core.floatPreferencesKey("reader_line_height")
         val READER_LETTER_SPACING = androidx.datastore.preferences.core.floatPreferencesKey("reader_letter_spacing")
@@ -287,6 +291,7 @@ class PreferencesRepository @Inject constructor(
             trashRetentionDays = p[Keys.TRASH_RETENTION_DAYS] ?: 30,
             ttsEnabled = p[Keys.TTS_ENABLED] ?: true,
             stripTrackingParams = p[Keys.STRIP_TRACKING] ?: true,
+            sanitizeArticles = p[Keys.SANITIZE_ARTICLES] ?: true,
             markReadOnScroll = p[Keys.MARK_READ_ON_SCROLL] ?: false,
             readerLineHeight = p[Keys.READER_LINE_HEIGHT] ?: 1.0f,
             readerLetterSpacing = p[Keys.READER_LETTER_SPACING] ?: 0f,
@@ -429,6 +434,9 @@ class PreferencesRepository @Inject constructor(
     suspend fun setStripTrackingParams(enabled: Boolean) =
         context.dataStore.edit { it[Keys.STRIP_TRACKING] = enabled }
 
+    suspend fun setSanitizeArticles(enabled: Boolean) =
+        context.dataStore.edit { it[Keys.SANITIZE_ARTICLES] = enabled }
+
     suspend fun setMarkReadOnScroll(enabled: Boolean) =
         context.dataStore.edit { it[Keys.MARK_READ_ON_SCROLL] = enabled }
 
@@ -518,6 +526,7 @@ class PreferencesRepository @Inject constructor(
             put("trashRetentionDays", p.trashRetentionDays)
             put("ttsEnabled", p.ttsEnabled)
             put("stripTrackingParams", p.stripTrackingParams)
+            put("sanitizeArticles", p.sanitizeArticles)
             put("bottomTabsOrder", JSONArray(p.bottomTabsOrder))
             put("markReadOnScroll", p.markReadOnScroll)
             put("readerLineHeight", p.readerLineHeight.toDouble())
@@ -585,6 +594,7 @@ class PreferencesRepository @Inject constructor(
             if (json.has("trashRetentionDays")) e[Keys.TRASH_RETENTION_DAYS] = json.getInt("trashRetentionDays").coerceAtLeast(0)
             if (json.has("ttsEnabled")) e[Keys.TTS_ENABLED] = json.getBoolean("ttsEnabled")
             if (json.has("stripTrackingParams")) e[Keys.STRIP_TRACKING] = json.getBoolean("stripTrackingParams")
+            if (json.has("sanitizeArticles")) e[Keys.SANITIZE_ARTICLES] = json.getBoolean("sanitizeArticles")
             json.optJSONArray("bottomTabsOrder")?.let { arr -> e[Keys.BOTTOM_TABS_ORDER] = (0 until arr.length()).joinToString(",") { arr.getString(it) } }
             if (json.has("markReadOnScroll")) e[Keys.MARK_READ_ON_SCROLL] = json.getBoolean("markReadOnScroll")
             if (json.has("readerLineHeight")) e[Keys.READER_LINE_HEIGHT] = json.getDouble("readerLineHeight").toFloat().coerceIn(0.9f, 2.2f)

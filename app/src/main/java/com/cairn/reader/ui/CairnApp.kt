@@ -27,6 +27,7 @@ import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material.icons.outlined.DeleteOutline
@@ -134,6 +135,7 @@ private enum class Destination(val label: String, val icon: ImageVector, val isP
     Search("Search", Icons.Outlined.Search),
     Trash("Trash", Icons.Outlined.DeleteOutline),
     Offline("Offline", Icons.Outlined.OfflinePin),
+    Rules("Rules", Icons.Outlined.Bolt, isPane = false),
     Settings("Settings", Icons.Outlined.Settings);
 
     /** A compact label for the bottom nav bar, where six items must each fit on one line. */
@@ -144,7 +146,7 @@ private enum class Destination(val label: String, val icon: ImageVector, val isP
  *  top bar steps aside for these so there's exactly one bar. Inbox and Settings use the shell bar. */
 private val OWN_TOP_BAR = setOf(
     Destination.Library, Destination.Discover, Destination.ReadLater, Destination.Highlights,
-    Destination.Feeds, Destination.Search, Destination.Trash, Destination.Offline,
+    Destination.Feeds, Destination.Search, Destination.Trash, Destination.Offline, Destination.Rules,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -453,7 +455,8 @@ fun CairnApp(
                 Destination.Search -> com.cairn.reader.ui.search.SearchScreen(padding, onOpenItem = open, onOpenWeb = onOpenWeb, onOpenDrawer = openDrawer)
                 Destination.Trash -> com.cairn.reader.ui.trash.TrashScreen(padding, onOpenItem = open, onOpenDrawer = openDrawer)
                 Destination.Offline -> com.cairn.reader.ui.settings.OfflineScreen(padding, onOpenItem = open, onOpenDrawer = openDrawer)
-                Destination.Settings -> SettingsScreen(padding, onOpenNotebook = { goTo(Destination.Highlights) }, onOpenOffline = { goTo(Destination.Offline) })
+                Destination.Rules -> com.cairn.reader.ui.rules.RulesScreen(padding, onOpenDrawer = openDrawer)
+                Destination.Settings -> SettingsScreen(padding, onOpenNotebook = { goTo(Destination.Highlights) }, onOpenOffline = { goTo(Destination.Offline) }, onOpenRules = { goTo(Destination.Rules) })
                 // Inbox and any non-pane fallthrough render the Inbox.
                 else -> InboxScreen(padding, inboxViewModel, open, onOpenWeb, inboxViewMode, inboxListState)
             }

@@ -21,6 +21,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -35,6 +36,7 @@ class SettingsViewModel @Inject constructor(
     private val storageManager: com.cairn.reader.data.blob.StorageManager,
     @ApplicationContext private val context: Context,
     highlightRepository: HighlightRepository,
+    ruleRepository: com.cairn.reader.data.repo.RuleRepository,
 ) : ViewModel() {
 
     val sources: StateFlow<List<SourceEntity>> =
@@ -42,6 +44,11 @@ class SettingsViewModel @Inject constructor(
 
     val highlightCount: StateFlow<Int> =
         highlightRepository.observeCount().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    /** How many automation rules are enabled — shown as the Rules row subtitle. */
+    val ruleCount: StateFlow<Int> =
+        ruleRepository.observeRules().map { rules -> rules.count { it.enabled } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     val preferences: StateFlow<AppPreferences> =
         preferencesRepository.preferences.stateIn(viewModelScope, SharingStarted.Eagerly, AppPreferences())
@@ -182,6 +189,7 @@ class SettingsViewModel @Inject constructor(
 
     fun setTtsEnabled(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setTtsEnabled(enabled) }
     fun setStripTrackingParams(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setStripTrackingParams(enabled) }
+    fun setSanitizeArticles(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setSanitizeArticles(enabled) }
     fun setMarkReadOnScroll(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setMarkReadOnScroll(enabled) }
     fun setStartDestination(name: String) = viewModelScope.launch { preferencesRepository.setStartDestination(name) }
     fun setStartFilter(name: String) = viewModelScope.launch { preferencesRepository.setStartFilter(name) }

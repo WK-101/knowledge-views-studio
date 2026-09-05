@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.CloudSync
@@ -84,11 +85,13 @@ fun SettingsScreen(
     padding: PaddingValues,
     onOpenNotebook: () -> Unit = {},
     onOpenOffline: () -> Unit = {},
+    onOpenRules: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val sources by viewModel.sources.collectAsStateWithLifecycle()
     val prefs by viewModel.preferences.collectAsStateWithLifecycle()
     val highlightCount by viewModel.highlightCount.collectAsStateWithLifecycle()
+    val ruleCount by viewModel.ruleCount.collectAsStateWithLifecycle()
     val folders by viewModel.folders.collectAsStateWithLifecycle()
     val scheme = MaterialTheme.colorScheme
     val context = LocalContext.current
@@ -383,6 +386,25 @@ fun SettingsScreen(
                     }
                     Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = scheme.onSurfaceVariant)
                 }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onOpenRules)
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Outlined.Bolt, contentDescription = null, tint = scheme.primary)
+                    Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Rules & automation", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(
+                            if (ruleCount == 0) "Auto-tag, star, file or skip new articles" else "$ruleCount active",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = scheme.onSurfaceVariant,
+                        )
+                    }
+                    Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = scheme.onSurfaceVariant)
+                }
             }
         }
 
@@ -461,6 +483,13 @@ fun SettingsScreen(
                         Text("Remove utm_*, fbclid, gclid and similar tracking parameters from links Cairn stores, opens, and shares.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                     androidx.compose.material3.Switch(checked = prefs.stripTrackingParams, onCheckedChange = { viewModel.setStripTrackingParams(it) })
+                }
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Sanitize article content", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text("Strip tracking pixels, beacons and third-party scripts from saved articles so they never phone home when read offline.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                    }
+                    androidx.compose.material3.Switch(checked = prefs.sanitizeArticles, onCheckedChange = { viewModel.setSanitizeArticles(it) })
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {

@@ -18,8 +18,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ItemFtsEntity::class,
         TombstoneEntity::class,
         SyncOpEntity::class,
+        RuleEntity::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = true,
 )
 abstract class CairnDatabase : RoomDatabase() {
@@ -29,6 +30,7 @@ abstract class CairnDatabase : RoomDatabase() {
     abstract fun collectionDao(): CollectionDao
     abstract fun highlightDao(): HighlightDao
     abstract fun syncDao(): SyncDao
+    abstract fun ruleDao(): RuleDao
 }
 
 /** v1 → v2: the Raindrop-style library. Adds nullable columns only, so existing
@@ -116,5 +118,20 @@ val MIGRATION_10_11 = object : Migration(10, 11) {
         db.execSQL("CREATE INDEX IF NOT EXISTS index_item_collections_collectionId ON item_collections(collectionId)")
         // Seed the join table from the existing single-collection column so nothing moves.
         db.execSQL("INSERT OR IGNORE INTO item_collections (itemId, collectionId) SELECT id, collectionId FROM items WHERE collectionId IS NOT NULL")
+    }
+}
+
+/** v3.68: the on-device rules / automation engine. A single table; conditions and actions are
+ *  JSON columns so the rule shape can evolve without further migrations. */
+val MIGRATION_11_12 = object : Migration(11, 12) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS rules (" +
+                "id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, " +
+                "enabled INTEGER NOT NULL DEFAULT 1, matchAll INTEGER NOT NULL DEFAULT 1, " +
+                "conditionsJson TEXT NOT NULL, actionsJson TEXT NOT NULL, " +
+                "stopAfter INTEGER NOT NULL DEFAULT 0, sortOrder INTEGER NOT NULL DEFAULT 0, " +
+                "createdAt INTEGER NOT NULL)"
+        )
     }
 }

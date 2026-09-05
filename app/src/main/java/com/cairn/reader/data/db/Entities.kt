@@ -217,3 +217,24 @@ data class SyncOpEntity(
     val createdAt: Long,
     val selected: Boolean = false,
 )
+
+/**
+ * A user-defined automation rule (Inoreader-style, but 100% on-device). When a new item arrives it
+ * is matched against every enabled rule in [sortOrder]; a match applies the rule's actions.
+ * Conditions and actions are stored as compact JSON arrays so the rule shape can grow without a
+ * migration: conditions are `[{"field":..,"op":..,"value":..}]`, actions `[{"type":..,"value":..}]`.
+ */
+@Entity(tableName = "rules")
+data class RuleEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    val enabled: Boolean = true,
+    /** true = all conditions must match (AND); false = any (OR). */
+    val matchAll: Boolean = true,
+    val conditionsJson: String,
+    val actionsJson: String,
+    /** Stop evaluating later rules once this one matches. */
+    val stopAfter: Boolean = false,
+    val sortOrder: Int = 0,
+    val createdAt: Long,
+)

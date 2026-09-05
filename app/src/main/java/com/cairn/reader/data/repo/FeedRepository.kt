@@ -46,6 +46,8 @@ class FeedRepository @Inject constructor(
     private val blobStore: BlobStore,
     private val webViewRenderer: com.cairn.reader.domain.render.WebViewRenderer,
     private val preferencesRepository: PreferencesRepository,
+    private val sanitizer: com.cairn.reader.domain.privacy.ContentSanitizer,
+    private val ruleEngine: com.cairn.reader.domain.rules.RuleEngine,
     @ApplicationContext private val context: Context,
 ) {
     private val whitespace = Regex("\\s+")
@@ -452,7 +454,11 @@ class FeedRepository @Inject constructor(
         if (existing?.trashedAt != null) return
         val isNew = existing == null
 
-        val content = p.contentHtml ?: p.summary
+        val rawContent = p.contentHtml ?: p.summary
+        // Privacy pass: strip trackers/beacons/campaign params from the stored body (opt-out).
+        val content = rawContent?.takeIf { it.isNotBlank() }?.let { html ->
+            if (sanitizeEnabled()) runCatching { sanitizer.sanitize(html, p.link ?: source.siteUrl ?: source.feedUrl).html }.getOrDefault(html) else html
+        } ?: rawContent
         val plain = content?.let { runCatching { Jsoup.parse(it).text() }.getOrDefault("") } ?: ""
         val words = plain.split(whitespace).count { it.isNotBlank() }
         val minutes = if (words > 0) max(1, ceil(words / 220.0).toInt()) else 0
@@ -465,30 +471,30 @@ class FeedRepository @Inject constructor(
         val rawUrl = p.link ?: source.siteUrl ?: source.feedUrl
         val displayUrl = if (stripTrackingEnabled()) com.cairn.reader.data.net.UrlCleaner.strip(rawUrl) else rawUrl
 
-        itemDao.insertItemWithState(
-            ItemEntity(
-                id = itemId,
-                url = displayUrl,
-                title = p.title?.takeIf { it.isNotBlank() } ?: "(untitled)",
-                author = p.author,
-                siteName = source.title,
-                publishedAt = p.publishedAt,
-                savedAt = now,
-                sourceId = source.id,
-                type = if (!p.audioUrl.isNullOrBlank() || source.isPodcast) "AUDIO" else detectType(p.link, hasBody = !content.isNullOrBlank()),
-                excerpt = excerpt,
-                leadImage = lead,
-                wordCount = words,
-                readingMinutes = minutes,
-                blobPath = blobPath,
-                extractStatus = "NONE",
-                contentSource = "FEED",
-                guid = p.guid ?: p.link,
-                enclosureUrl = p.audioUrl,
-                commentsUrl = p.commentsUrl?.let { if (stripTrackingEnabled()) com.cairn.reader.data.net.UrlCleaner.strip(it) else it },
-            ),
-            now,
+        val entity = ItemEntity(
+            id = itemId,
+            url = displayUrl,
+            title = p.title?.takeIf { it.isNotBlank() } ?: "(untitled)",
+            author = p.author,
+            siteName = source.title,
+            publishedAt = p.publishedAt,
+            savedAt = now,
+            sourceId = source.id,
+            type = if (!p.audioUrl.isNullOrBlank() || source.isPodcast) "AUDIO" else detectType(p.link, hasBody = !content.isNullOrBlank()),
+            excerpt = excerpt,
+            leadImage = lead,
+            wordCount = words,
+            readingMinutes = minutes,
+            blobPath = blobPath,
+            extractStatus = "NONE",
+            contentSource = "FEED",
+            guid = p.guid ?: p.link,
+            enclosureUrl = p.audioUrl,
+            commentsUrl = p.commentsUrl?.let { if (stripTrackingEnabled()) com.cairn.reader.data.net.UrlCleaner.strip(it) else it },
         )
+        itemDao.insertItemWithState(entity, now)
+        // On-device automation: run the user's rules against each genuinely-new item.
+        if (isNew) runCatching { ruleEngine.apply(entity, source, plain) }
         itemDao.indexItem(
             ItemFtsEntity(itemId = itemId, title = p.title ?: "", author = p.author, body = plain.take(20_000)),
         )
@@ -512,6 +518,10 @@ class FeedRepository @Inject constructor(
     /** Whether to strip tracking params, read once (cheap in-memory DataStore lookup). */
     private suspend fun stripTrackingEnabled(): Boolean =
         runCatching { preferencesRepository.preferences.first().stripTrackingParams }.getOrDefault(true)
+
+    /** Whether to sanitize article bodies (strip trackers/beacons). Privacy-first default: on. */
+    private suspend fun sanitizeEnabled(): Boolean =
+        runCatching { preferencesRepository.preferences.first().sanitizeArticles }.getOrDefault(true)
 
     /** Save an arbitrary URL to the library and extract a clean, offline copy. */
     suspend fun saveUrl(rawUrl: String): Result<String> {
@@ -632,7 +642,8 @@ class FeedRepository @Inject constructor(
             itemDao.setExtractStatus(itemId, "FAILED")
             return false
         }
-        val blob = blobStore.writeArticle(itemId, extracted.contentHtml)
+        val cleanHtml = if (sanitizeEnabled()) runCatching { sanitizer.sanitize(extracted.contentHtml, rendered.finalUrl).html }.getOrDefault(extracted.contentHtml) else extracted.contentHtml
+        val blob = blobStore.writeArticle(itemId, cleanHtml)
         extracted.title?.let { itemDao.updateMeta(itemId, it, extracted.byline, hostOf(url)) }
         itemDao.setExtracted(
             id = itemId,
@@ -661,7 +672,8 @@ class FeedRepository @Inject constructor(
             itemDao.setExtractStatus(itemId, "FAILED")
             return
         }
-        val blob = blobStore.writeArticle(itemId, extracted.contentHtml)
+        val cleanHtml = if (sanitizeEnabled()) runCatching { sanitizer.sanitize(extracted.contentHtml, res.finalUrl).html }.getOrDefault(extracted.contentHtml) else extracted.contentHtml
+        val blob = blobStore.writeArticle(itemId, cleanHtml)
         extracted.title?.let { itemDao.updateMeta(itemId, it, extracted.byline, hostOf(url)) }
         itemDao.setExtracted(
             id = itemId,
