@@ -145,7 +145,7 @@ import kotlin.math.roundToInt
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = false, onOpenTask: (String) -> Unit, onBack: () -> Unit) {
+fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = false, startInWeekly: Boolean = false, onOpenTask: (String) -> Unit, onBack: () -> Unit) {
     BackHandler { onBack() }
     val ctx = LocalContext.current
     val zone = ZoneId.systemDefault()
@@ -190,6 +190,15 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
     val sealedNotes by vm.sealedNotes.collectAsState()
 
     val date = LocalDate.ofEpochDay(day)
+    // Surfaced from the drawer's "Weekly review": land straight in the guided weekly ritual for the shown
+    // day's week (mirrors startInClose). The Week roll-up still opens the same flow the same way.
+    LaunchedEffect(startInWeekly) {
+        if (startInWeekly) {
+            mode = PeriodRange.WEEK
+            weeklyIso = WeeklyReviews.isoWeekKey(weekStartOf(date, settings.weekStart))
+            showWeekly = true
+        }
+    }
     val dayStart = date.atStartOfDay(zone).toInstant().toEpochMilli()
     val dayEnd = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
     val now = System.currentTimeMillis()
@@ -1018,13 +1027,15 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
             val mStart = mFirst.toEpochDay(); val mEnd = minOf(mLast.toEpochDay(), todayEd)
             val monthRollup = ReviewRollup.compute(mStart, mEnd, dayLogs, questions, habits, checkins, timeEntries, activities, zone, nowMs, goals, tasks)
             val monthExec = ExecutionScore.fromRollup(monthRollup, tasks, zone)
-            // Year window (the canonical calendar year to date — the one window every year surface shares).
-            val (yStart, yEnd) = YearReviewed.calendarYearWindow(LocalDate.ofEpochDay(todayEd).year, todayEd)
+            // Year window — anchored to the shown day's year (not "today"), so a navigated past year shares
+            // the same window as its on-screen roll-up. calendarYearWindow caps the end at today for the
+            // current year and returns the full Jan–Dec span for a past year.
+            val (yStart, yEnd) = YearReviewed.calendarYearWindow(date.year, todayEd)
             val yearRecap = YearReviewed.compute(yStart, yEnd, dayLogs, habits, checkins, timeEntries, activities, zone, nowMs, tasks)
             mapOf(
                 DayCard.PeriodKind.WEEK to periodDataFromRollup(weekLabel(ws, ws.plusDays(6)), weekRollup, weekExec, shareThemesFor(wStart, wEnd, dayLogs), accent),
                 DayCard.PeriodKind.MONTH to periodDataFromRollup(mFirst.month.getDisplayName(TextStyle.FULL, Locale.getDefault()) + " " + mFirst.year, monthRollup, monthExec, shareThemesFor(mStart, mEnd, dayLogs), accent),
-                DayCard.PeriodKind.YEAR to periodDataFromYear(yearRecap, shareThemesFor(yStart, yEnd, dayLogs), accent),
+                DayCard.PeriodKind.YEAR to periodDataFromYear(yearRecap, shareThemesFor(yStart, yEnd, dayLogs), accent, date.year.toString()),
             )
         }
         if (showShare) ShareDialog(
@@ -1311,7 +1322,7 @@ private fun CloseDayFlow(
             // included), so the flow can never overflow the screen — on small screens or with the keyboard up.
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
                 Spacer(Modifier.height(24.dp))
-                Text(when (stepId) { "recall" -> "🗓️"; "feel" -> "💗"; "questions" -> "🎯"; "reflect" -> "🌙"; "align" -> "🧭"; "tomorrow" -> "🌅"; else -> "✅" }, style = MaterialTheme.typography.displaySmall)
+                Text(when (stepId) { "recall" -> "🗓️"; "feel" -> "💗"; "questions" -> "🎯"; "reflect" -> "🌙"; "align" -> "🧭"; "tomorrow" -> "🌅"; else -> "🎉" }, style = MaterialTheme.typography.displaySmall)
                 Spacer(Modifier.height(8.dp))
                 Text(when (stepId) {
                     "recall" -> "Recall your day"; "feel" -> "How did it feel?"; "questions" -> "Daily questions"; "reflect" -> "Reflect"
@@ -1415,9 +1426,9 @@ private fun CloseDayFlow(
                         if (requireGoodWhy) Text("Add a short “…and why” — it makes the good things stick.", style = MaterialTheme.typography.bodySmall, color = muted)
                         Spacer(Modifier.height(4.dp))
                         listOf(
-                            Triple("✓ One good thing", good1, why1),
-                            Triple("✓ Another", good2, why2),
-                            Triple("✓ One more", good3, why3),
+                            Triple("One good thing", good1, why1),
+                            Triple("Another", good2, why2),
+                            Triple("One more", good3, why3),
                         ).forEachIndexed { i, (ph, thing, why) ->
                             if (i > 0) Spacer(Modifier.height(6.dp))
                             AppTextField(thing, { v -> when (i) { 0 -> good1 = v; 1 -> good2 = v; else -> good3 = v } },
@@ -1578,7 +1589,7 @@ private fun WeeklyReviewFlow(
             // bar, so the flow can never overflow the screen (small screens / keyboard up).
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
                 Spacer(Modifier.height(24.dp))
-                Text(when (stepId) { "clear" -> "🧹"; "current" -> "📊"; "creative" -> "🌱"; "roles" -> "⚖️"; else -> "✅" }, style = MaterialTheme.typography.displaySmall)
+                Text(when (stepId) { "clear" -> "🧹"; "current" -> "📊"; "creative" -> "🌱"; "roles" -> "⚖️"; else -> "🎉" }, style = MaterialTheme.typography.displaySmall)
                 Spacer(Modifier.height(8.dp))
                 Text(when (stepId) {
                     "clear" -> "Get clear"; "current" -> "Get current"; "creative" -> "Get creative"; "roles" -> "Sharpen the saw"; else -> "Week reviewed"
@@ -1830,11 +1841,11 @@ private fun ReflectDialog(
                 Spacer(Modifier.height(10.dp))
                 Text("Three good things", style = MaterialTheme.typography.labelMedium)
                 Spacer(Modifier.height(4.dp))
-                AppTextField(good1, { good1 = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("✓ One good thing") }, singleLine = true)
+                AppTextField(good1, { good1 = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("One good thing") }, singleLine = true)
                 Spacer(Modifier.height(6.dp))
-                AppTextField(good2, { good2 = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("✓ Another") }, singleLine = true)
+                AppTextField(good2, { good2 = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Another") }, singleLine = true)
                 Spacer(Modifier.height(6.dp))
-                AppTextField(good3, { good3 = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("✓ One more") }, singleLine = true)
+                AppTextField(good3, { good3 = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("One more") }, singleLine = true)
                 Spacer(Modifier.height(10.dp))
                 val rg = AdaptivePrompts.glyph(adaptive.kind)
                 Text((if (rg.isNotBlank()) "$rg  " else "") + adaptive.text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
@@ -2614,8 +2625,9 @@ private fun periodDataFromYear(
     recap: YearReviewed.Recap,
     themes: List<String>,
     accent: Long?,
+    label: String,
 ): DayCard.PeriodShareData = DayCard.PeriodShareData(
-    periodLabel = "The last 12 months",
+    periodLabel = label,
     reviewedDays = recap.daysReviewed,
     periodDays = recap.periodDays,
     avgRating = recap.avgRating,
@@ -2946,7 +2958,9 @@ private fun YearReviewedScreen(
 ) {
     BackHandler(onBack = onBack)
     val ctx = LocalContext.current
-    val year = LocalDate.ofEpochDay(todayEd).year
+    // Honour the navigated anchor: stepping back to a past year in the roll-up and opening "Year, reviewed"
+    // shows THAT year, not the current one. calendarYearWindow returns the full span for a past year.
+    val year = LocalDate.ofEpochDay(anchorDay).year
     val (start, end) = YearReviewed.calendarYearWindow(year, todayEd)
     val recap = remember(dayLogs, habits, checkins, timeEntries, activities, end) {
         YearReviewed.compute(start, end, dayLogs, habits, checkins, timeEntries, activities, zone, System.currentTimeMillis())
@@ -2969,7 +2983,7 @@ private fun YearReviewedScreen(
     // reachable from the day review's share (This year); this button is the one-tap share from the screen.
     fun shareYear() {
         runCatching {
-            val pd = periodDataFromYear(recap, shareThemesFor(start, end, dayLogs), accentArgb)
+            val pd = periodDataFromYear(recap, shareThemesFor(start, end, dayLogs), accentArgb, year.toString())
             val bmp = DayCard.renderPeriodShare(pd, periodShareCfg, DayCard.PeriodKind.YEAR)
             val res = ProgressCard.saveAndShareUri(ctx, bmp, "kairo-year-$end.png")
             res.shareUri?.let { ProgressCard.share(ctx, it) }

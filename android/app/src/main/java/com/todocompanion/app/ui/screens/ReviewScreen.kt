@@ -85,7 +85,7 @@ fun ReviewScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> U
 
     Scaffold(topBar = {
         TopAppBar(expandedHeight = 52.dp, 
-            title = { Text("Weekly review") },
+            title = { Text("Weekly cleanup") },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
         )
     }) { padding ->

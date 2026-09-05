@@ -50,6 +50,7 @@ import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.EventRepeat
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.PushPin
@@ -156,6 +157,7 @@ fun AppDrawer(
     onOpenRecap: () -> Unit = {},
     onOpenAnnual: () -> Unit = {},
     onOpenDayReview: () -> Unit = {},
+    onOpenWeeklyReview: () -> Unit = {},
 ) {
     val folders by vm.folders.collectAsState()
     val lists by vm.lists.collectAsState()
@@ -231,6 +233,7 @@ fun AppDrawer(
                         ref == "more:done" -> onOpenDone()
                         ref == "more:statistics" -> onOpenStats()
                         ref == "more:review" -> onOpenReview()
+                        ref == "more:weeklyreview" -> onOpenWeeklyReview()
                         ref == "more:recap" -> onOpenRecap()
                         ref == "more:annual" -> onOpenAnnual()
                         ref == "more:dayreview" -> onOpenDayReview()
@@ -397,7 +400,10 @@ fun AppDrawer(
                 // path the FAB / command palette use (onOpenDayReview → showDayReview = today).
                 if (("dayreview" !in hidden) || ("review" !in hidden)) SubLabel("Review")
                 if ("dayreview" !in hidden) DrawerRow(Icons.Filled.WbSunny, "Day review", pinned = vm.isPinned("more:dayreview"), onLongClick = { vm.togglePinnedRef("more:dayreview") }, onClick = onOpenDayReview)
-                if ("review" !in hidden) DrawerRow(Icons.Filled.ChecklistRtl, "Weekly review", pinned = vm.isPinned("more:review"), onLongClick = { vm.togglePinnedRef("more:review") }, onClick = onOpenReview)
+                // The guided reflective weekly ritual (distinct from the GTD "Weekly cleanup" below) —
+                // surfaced here so it is discoverable from the drawer, not only from Day review ▸ Week.
+                if ("review" !in hidden) DrawerRow(Icons.Filled.EventRepeat, "Weekly review", pinned = vm.isPinned("more:weeklyreview"), onLongClick = { vm.togglePinnedRef("more:weeklyreview") }, onClick = onOpenWeeklyReview)
+                if ("review" !in hidden) DrawerRow(Icons.Filled.ChecklistRtl, "Weekly cleanup", pinned = vm.isPinned("more:review"), onLongClick = { vm.togglePinnedRef("more:review") }, onClick = onOpenReview)
 
                 // INSIGHTS — analytics you read.
                 if (("momentum" !in hidden) || ("statistics" !in hidden)) SubLabel("Insights")
@@ -663,7 +669,8 @@ private fun PinnedFavourites(
         "time" -> Icons.Filled.Timer to "Time"
         "templates" -> Icons.Filled.ContentCopy to "Templates"; "countdowns" -> Icons.Filled.Cake to "Occasions"
         "attachments" -> Icons.Filled.AttachFile to "Attachments"; "statistics" -> Icons.Filled.BarChart to "Statistics"
-        "review" -> Icons.Filled.ChecklistRtl to "Weekly review"
+        "review" -> Icons.Filled.ChecklistRtl to "Weekly cleanup"
+        "weeklyreview" -> Icons.Filled.EventRepeat to "Weekly review"
         "dayreview" -> Icons.Filled.WbSunny to "Day review"
         "recap" -> Icons.Filled.AutoAwesome to "Recap"; "annual" -> Icons.Filled.EmojiEvents to "Year in review"; else -> null
     }

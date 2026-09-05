@@ -71,22 +71,22 @@ fun MarkdownText(text: String, modifier: Modifier = Modifier) {
                     val body = trimmed.replaceFirst(Regex("^[-*] \\[[ xX]] ?"), "")
                     Row(Modifier.padding(start = 4.dp, top = 1.dp, bottom = 1.dp)) {
                         Text(if (checked) "☑ " else "☐ ", color = MaterialTheme.colorScheme.primary)
-                        Text(inline(body, strike = checked), style = MaterialTheme.typography.bodyMedium,
+                        Text(inline(body, strike = checked, linkColor = MaterialTheme.colorScheme.primary), style = MaterialTheme.typography.bodyMedium,
                             color = if (checked) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface)
                     }
                 }
 
-                trimmed.startsWith("- ") || trimmed.startsWith("* ") -> Bullet(inline(trimmed.substring(2)))
+                trimmed.startsWith("- ") || trimmed.startsWith("* ") -> Bullet(inline(trimmed.substring(2), linkColor = MaterialTheme.colorScheme.primary))
 
                 Regex("^\\d+\\. ").containsMatchIn(trimmed) -> {
                     val marker = trimmed.takeWhile { it != ' ' }
                     Row(Modifier.padding(start = 4.dp, top = 1.dp, bottom = 1.dp)) {
                         Text("$marker ", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(inline(trimmed.substringAfter(' ')), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                        Text(inline(trimmed.substringAfter(' '), linkColor = MaterialTheme.colorScheme.primary), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                     }
                 }
 
-                else -> Text(inline(line), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                else -> Text(inline(line, linkColor = MaterialTheme.colorScheme.primary), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
             }
             i++
         }
@@ -104,7 +104,7 @@ private fun Heading(text: String, level: Int) {
         2 -> MaterialTheme.typography.titleMedium
         else -> MaterialTheme.typography.titleSmall
     }
-    Text(inline(text), style = style.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface,
+    Text(inline(text, linkColor = MaterialTheme.colorScheme.primary), style = style.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.padding(top = 6.dp, bottom = 2.dp))
 }
 
@@ -121,7 +121,7 @@ private fun Blockquote(text: String) {
     Row(Modifier.padding(vertical = 2.dp)) {
         Box(Modifier.width(3.dp).height(20.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = .5f)))
         Spacer(Modifier.width(8.dp))
-        Text(inline(text), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(inline(text, linkColor = MaterialTheme.colorScheme.primary), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -134,7 +134,7 @@ private fun CodeBlock(code: String) {
 }
 
 // Parse inline spans: bold, italic (asterisk or underscore), strikethrough, code, and links.
-private fun inline(src: String, strike: Boolean = false): AnnotatedString = buildAnnotatedString {
+private fun inline(src: String, strike: Boolean = false, linkColor: androidx.compose.ui.graphics.Color = LinkFallback): AnnotatedString = buildAnnotatedString {
     if (strike) pushStyle(SpanStyle(textDecoration = TextDecoration.LineThrough))
     var i = 0
     val n = src.length
@@ -179,4 +179,5 @@ private fun inline(src: String, strike: Boolean = false): AnnotatedString = buil
 }
 
 private val codeBg = androidx.compose.ui.graphics.Color(0x22808080)
-private val linkColor = androidx.compose.ui.graphics.Color(0xFF4C6FFF)
+// Fallback link colour for non-composable callers; composable callers pass the live accent (primary).
+private val LinkFallback = androidx.compose.ui.graphics.Color(0xFF4C6FFF)

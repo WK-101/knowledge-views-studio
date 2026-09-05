@@ -377,6 +377,8 @@ fun AppRoot(
         var showDayReview by remember { mutableStateOf<Long?>(null) }   // R66 end-of-day review (holds the epoch-day, null = closed)
         // Phase F — when opened via the "Close your day" shortcut / evening nudge, land straight in the close flow.
         var dayReviewStartClose by remember { mutableStateOf(false) }
+        // Opened via the drawer's "Weekly review": land straight in the guided weekly ritual.
+        var dayReviewStartWeekly by remember { mutableStateOf(false) }
         // Tier Ω: the command palette, the any-period recap overlay, and the annual-report picker.
         var showPalette by remember { mutableStateOf(false) }
         var recapRange by remember { mutableStateOf<Triple<Long, Long, String>?>(null) }
@@ -520,9 +522,9 @@ fun AppRoot(
                 a == "open_plan" -> { showPlan = true; launchAction.value = null }
                 a == "open_momentum" -> { showMomentum = true; launchAction.value = null }
                 a == "open_record" -> { showDone = true; launchAction.value = null }
-                a == "open_dayreview" -> { dayReviewStartClose = false; showDayReview = java.time.LocalDate.now().toEpochDay(); launchAction.value = null }
+                a == "open_dayreview" -> { dayReviewStartClose = false; dayReviewStartWeekly = false; showDayReview = java.time.LocalDate.now().toEpochDay(); launchAction.value = null }
                 // Phase F — the "Close your day" shortcut / evening nudge opens today's review in the close flow.
-                a == "open_close_day" -> { dayReviewStartClose = true; showDayReview = java.time.LocalDate.now().toEpochDay(); launchAction.value = null }
+                a == "open_close_day" -> { dayReviewStartClose = true; dayReviewStartWeekly = false; showDayReview = java.time.LocalDate.now().toEpochDay(); launchAction.value = null }
                 a == "open_time" -> { showTimeTracking = true; launchAction.value = null }
                 a == "open_calendar" -> { tab = Tab.CALENDAR; launchAction.value = null }
                 a != null && a.startsWith(com.todocompanion.app.MainActivity.ACTION_TRACK_ACTIVITY) -> {
@@ -644,7 +646,9 @@ fun AppRoot(
                     onOpenRecap = { val t = java.time.LocalDate.now(); val ws = com.todocompanion.app.domain.weekStartOf(t, settings.weekStart); recapRange = Triple(ws.toEpochDay(), t.toEpochDay(), "This week"); scope.launch { drawerState.close() } },
                     onOpenAnnual = { showAnnual = true; scope.launch { drawerState.close() } },
                     // Same open path the FAB "Day review" and the "day review" command use (R66).
-                    onOpenDayReview = { showDayReview = java.time.LocalDate.now().toEpochDay(); scope.launch { drawerState.close() } },
+                    onOpenDayReview = { dayReviewStartClose = false; dayReviewStartWeekly = false; showDayReview = java.time.LocalDate.now().toEpochDay(); scope.launch { drawerState.close() } },
+                    // The guided reflective weekly ritual, opened directly (lands on the Week roll-up's flow).
+                    onOpenWeeklyReview = { dayReviewStartClose = false; dayReviewStartWeekly = true; showDayReview = java.time.LocalDate.now().toEpochDay(); scope.launch { drawerState.close() } },
                 )
             },
         ) {
@@ -880,8 +884,8 @@ fun AppRoot(
                                 DropdownMenuItem(text = { Text("New task") }, leadingIcon = { Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; openQuickAdd(null) })
                                 DropdownMenuItem(text = { Text("Plan my day") }, leadingIcon = { Icon(Icons.Filled.Bolt, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; showPlan = true })
                                 DropdownMenuItem(text = { Text("Focus") }, leadingIcon = { Icon(Icons.Filled.Timer, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; tab = Tab.FOCUS })
-                                DropdownMenuItem(text = { Text("Weekly review") }, leadingIcon = { Icon(Icons.Filled.EventRepeat, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; showReview = true })
-                                DropdownMenuItem(text = { Text("Day review") }, leadingIcon = { Icon(Icons.Filled.WbSunny, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; showDayReview = java.time.LocalDate.now().toEpochDay() })
+                                DropdownMenuItem(text = { Text("Weekly review") }, leadingIcon = { Icon(Icons.Filled.EventRepeat, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; dayReviewStartClose = false; dayReviewStartWeekly = true; showDayReview = java.time.LocalDate.now().toEpochDay() })
+                                DropdownMenuItem(text = { Text("Day review") }, leadingIcon = { Icon(Icons.Filled.WbSunny, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; dayReviewStartClose = false; dayReviewStartWeekly = false; showDayReview = java.time.LocalDate.now().toEpochDay() })
                             }
                         }
                     } else if (tab == Tab.HABITS) {
@@ -989,7 +993,7 @@ fun AppRoot(
         if (showDone) com.todocompanion.app.ui.screens.DoneScreen(vm, onOpenTask = { showDone = false; openTask(it) }, onBack = { showDone = false })
         if (showPlan) com.todocompanion.app.ui.screens.PlanYourDayScreen(vm, onOpenTask = { showPlan = false; openTask(it) }, onBack = { showPlan = false })
         if (showReview) com.todocompanion.app.ui.screens.ReviewScreen(vm, onOpenTask = { showReview = false; openTask(it) }, onBack = { showReview = false })
-        showDayReview?.let { d -> com.todocompanion.app.ui.screens.DayReviewScreen(vm, d, startInClose = dayReviewStartClose, onOpenTask = { showDayReview = null; dayReviewStartClose = false; openTask(it) }, onBack = { showDayReview = null; dayReviewStartClose = false }) }
+        showDayReview?.let { d -> com.todocompanion.app.ui.screens.DayReviewScreen(vm, d, startInClose = dayReviewStartClose, startInWeekly = dayReviewStartWeekly, onOpenTask = { showDayReview = null; dayReviewStartClose = false; dayReviewStartWeekly = false; openTask(it) }, onBack = { showDayReview = null; dayReviewStartClose = false; dayReviewStartWeekly = false }) }
         if (showMomentum) com.todocompanion.app.ui.screens.MomentumScreen(vm, onBack = { showMomentum = false })
         if (showTimeTracking) com.todocompanion.app.ui.screens.TimeTrackingScreen(vm, onBack = { showTimeTracking = false })
         if (showTimeStats) com.todocompanion.app.ui.screens.TimeStatsScreen(vm, onBack = { showTimeStats = false })
@@ -1042,8 +1046,9 @@ fun AppRoot(
                         "countdowns" to { showCountdowns = true }, "countdown" to { showCountdowns = true },
                         "attachments" to { showAttachments = true }, "files" to { showAttachments = true },
                         "momentum" to { showMomentum = true }, "statistics" to { showStats = true }, "stats" to { showStats = true },
-                        "weekly review" to { showReview = true }, "review" to { showReview = true },
-                        "day review" to { showDayReview = java.time.LocalDate.now().toEpochDay() }, "day" to { showDayReview = java.time.LocalDate.now().toEpochDay() }, "today review" to { showDayReview = java.time.LocalDate.now().toEpochDay() },
+                        "weekly review" to { dayReviewStartClose = false; dayReviewStartWeekly = true; showDayReview = java.time.LocalDate.now().toEpochDay() },
+                        "weekly cleanup" to { showReview = true }, "cleanup" to { showReview = true }, "review" to { showReview = true },
+                        "day review" to { dayReviewStartClose = false; dayReviewStartWeekly = false; showDayReview = java.time.LocalDate.now().toEpochDay() }, "day" to { dayReviewStartClose = false; dayReviewStartWeekly = false; showDayReview = java.time.LocalDate.now().toEpochDay() }, "today review" to { dayReviewStartClose = false; dayReviewStartWeekly = false; showDayReview = java.time.LocalDate.now().toEpochDay() },
                         "plan" to { showPlan = true }, "plan my day" to { showPlan = true },
                         "time stats" to { showTimeStats = true }, "time tracking" to { showTimeTracking = true },
                         // R41 — the calendar's own planner surfaces (auto-schedule, time-audit) from the palette.

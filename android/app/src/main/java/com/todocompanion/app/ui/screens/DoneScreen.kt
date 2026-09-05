@@ -512,7 +512,7 @@ private fun HonestyCard(overall: com.todocompanion.app.domain.done.DoneRecord.Le
                     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(r.label, Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text("${r.estimateMin}m → ${r.actualMin}m", style = MaterialTheme.typography.labelMedium,
-                            color = if (r.ratio > 1.15f) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+                            color = if (r.ratio > 1f + com.todocompanion.app.domain.Calibration.VERDICT_TOLERANCE) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -538,7 +538,10 @@ private fun OnThisDayCard(items: List<Accomplishment>, listNameById: Map<String,
             items.take(5).forEach { a ->
                 val d = LocalDate.ofEpochDay(a.epochDay)
                 Row(Modifier.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(kindGlyph(a.kind), modifier = Modifier.width(24.dp))
+                    // Match the feed: a finished task uses the app's modern completion mark; other kinds keep their glyph.
+                    Box(Modifier.width(24.dp), contentAlignment = Alignment.CenterStart) {
+                        if (a.kind == DoneKind.TASK) DoneTick() else Text(kindGlyph(a.kind))
+                    }
                     Text(a.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("${d.year}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

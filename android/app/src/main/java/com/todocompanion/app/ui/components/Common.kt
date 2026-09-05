@@ -51,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsPropertyReceiver
 import androidx.compose.ui.semantics.contentDescription
@@ -130,7 +131,10 @@ fun PriorityCheckbox(checked: Boolean, level: PriorityLevel, onCheckedChange: ()
             Modifier.size(22.dp).clip(shape).background(ring.copy(alpha = restTint + (1f - restTint) * prog)).border(2.dp, ring, shape),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(15.dp).scale(prog))
+            // The check must contrast with whatever fills the box — a saturated priority colour, or the
+            // neutral `outline` for a no-priority task. Pick black on light fills, white on dark, so it stays
+            // legible in light, dark and AMOLED (a hardcoded white vanished on the light-ish `outline` fill).
+            Icon(Icons.Filled.Check, null, tint = if (ring.luminance() > 0.5f) Color.Black else Color.White, modifier = Modifier.size(15.dp).scale(prog))
         }
     }
     // A bottom sheet, not a checkbox-anchored dropdown — a dropdown on a bottom row lands under
