@@ -47,18 +47,20 @@ fun CollectionPickerSheet(
     onPick: (String?) -> Unit,
     onCreate: (String) -> Unit,
     onDismiss: () -> Unit,
+    title: String = "Move to collection",
+    unsortedLabel: String = "Unsorted",
 ) {
     var newName by remember { mutableStateOf("") }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
         Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
             Text(
-                "Move to collection",
+                title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
             )
             Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
-                PickRow(Icons.Outlined.Inbox, "Unsorted", null, currentCollectionId == null) { onPick(null) }
+                PickRow(Icons.Outlined.Inbox, unsortedLabel, null, currentCollectionId == null) { onPick(null) }
                 collections.forEach { c ->
                     PickRow(Icons.Outlined.FolderOpen, c.name, c.count, c.id == currentCollectionId) { onPick(c.id) }
                 }

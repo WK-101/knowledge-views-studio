@@ -44,6 +44,7 @@ data class LibraryCounts(
     val unsortedCount: Int,
     val favoritesCount: Int,
     val archiveCount: Int,
+    val offlineCount: Int = 0,
 )
 
 @Dao
@@ -436,6 +437,23 @@ interface ItemDao {
 
     @Query(
         """
+        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
+               i.siteName AS siteName, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
+               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
+               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
+               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
+               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
+        FROM items i
+        LEFT JOIN item_states s ON s.itemId = i.id
+        LEFT JOIN sources src ON src.id = i.sourceId
+        WHERE i.cacheStatus = 'PERMANENT'
+        ORDER BY i.savedAt DESC
+        """
+    )
+    fun observeOfflineCopies(): Flow<List<ItemListRow>>
+
+    @Query(
+        """
         SELECT
           (SELECT COUNT(*) FROM items i LEFT JOIN item_states s ON s.itemId = i.id
             WHERE COALESCE(s.isReadLater, 0) = 1 OR COALESCE(s.isStarred, 0) = 1 OR i.collectionId IS NOT NULL) AS allCount,
@@ -443,7 +461,8 @@ interface ItemDao {
             WHERE i.collectionId IS NULL AND (COALESCE(s.isReadLater, 0) = 1 OR COALESCE(s.isStarred, 0) = 1)) AS unsortedCount,
           (SELECT COUNT(*) FROM items i LEFT JOIN item_states s ON s.itemId = i.id
             WHERE COALESCE(s.isStarred, 0) = 1 AND COALESCE(s.isArchived, 0) = 0) AS favoritesCount,
-          (SELECT COUNT(*) FROM item_states s WHERE COALESCE(s.isArchived, 0) = 1) AS archiveCount
+          (SELECT COUNT(*) FROM item_states s WHERE COALESCE(s.isArchived, 0) = 1) AS archiveCount,
+          (SELECT COUNT(*) FROM items i WHERE i.cacheStatus = 'PERMANENT') AS offlineCount
         """
     )
     fun observeLibraryCounts(): Flow<LibraryCounts>

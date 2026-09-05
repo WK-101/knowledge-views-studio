@@ -30,6 +30,7 @@ sealed interface LibraryScope {
     data object Unsorted : LibraryScope
     data object Favorites : LibraryScope
     data object Archive : LibraryScope
+    data object Offline : LibraryScope
     data class Collection(val id: String, val name: String) : LibraryScope
     data class Tag(val id: String, val name: String) : LibraryScope
 }
@@ -91,6 +92,7 @@ class LibraryViewModel @Inject constructor(
                 LibraryScope.Unsorted -> itemRepository.unsorted()
                 LibraryScope.Favorites -> itemRepository.favorites()
                 LibraryScope.Archive -> itemRepository.archived()
+                LibraryScope.Offline -> itemRepository.offlineCopies()
                 is LibraryScope.Collection -> itemRepository.collectionItems(scope.id)
                 is LibraryScope.Tag -> itemRepository.byTag(scope.id)
             }
@@ -135,6 +137,7 @@ class LibraryViewModel @Inject constructor(
         LibraryScope.Unsorted -> "unsorted"
         LibraryScope.Favorites -> "favorites"
         LibraryScope.Archive -> "archive"
+        LibraryScope.Offline -> "offline"
         is LibraryScope.Collection -> "col:${scope.id}"
         is LibraryScope.Tag -> "tag:${scope.id}"
     }
@@ -153,8 +156,13 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
-    fun createCollection(name: String) = viewModelScope.launch {
-        if (name.isNotBlank()) collectionRepository.create(name)
+    fun createCollection(name: String, parentId: String? = null) = viewModelScope.launch {
+        if (name.isNotBlank()) collectionRepository.create(name, parentId)
+    }
+
+    /** Re-parent a collection (drag-into / "Move under…"); null lifts it back to the top level. */
+    fun setCollectionParent(id: String, parentId: String?) = viewModelScope.launch {
+        if (id != parentId) collectionRepository.setParent(id, parentId)
     }
 
     fun renameCollection(id: String, name: String) = viewModelScope.launch { collectionRepository.rename(id, name) }
