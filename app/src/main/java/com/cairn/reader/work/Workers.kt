@@ -141,15 +141,26 @@ object CairnWork {
         WorkManager.getInstance(context).enqueue(request)
     }
 
-    private fun constraints(wifiOnly: Boolean) = Constraints.Builder()
+    private fun constraints(wifiOnly: Boolean, chargingOnly: Boolean = false) = Constraints.Builder()
         .setRequiredNetworkType(if (wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED)
+        .setRequiresCharging(chargingOnly)
         .build()
 
-    /** (Re)schedule the 6-hourly background sync. UPDATE lets a changed Wi-Fi-only preference
-     *  replace the constraint on the existing work without losing its schedule. */
-    fun schedulePeriodicSync(context: Context, wifiOnly: Boolean = false) {
-        val request = PeriodicWorkRequestBuilder<SyncWorker>(6, TimeUnit.HOURS)
-            .setConstraints(constraints(wifiOnly))
+    /** (Re)schedule the background sync. UPDATE lets a changed Wi-Fi-only / charging / interval
+     *  preference replace the constraint on the existing work without losing its schedule.
+     *  [intervalMinutes] of 0 keeps the 6-hour default; WorkManager clamps to a 15-minute minimum. */
+    fun schedulePeriodicSync(
+        context: Context,
+        wifiOnly: Boolean = false,
+        chargingOnly: Boolean = false,
+        intervalMinutes: Int = 0,
+    ) {
+        val request = if (intervalMinutes > 0) {
+            PeriodicWorkRequestBuilder<SyncWorker>(intervalMinutes.coerceAtLeast(15).toLong(), TimeUnit.MINUTES)
+        } else {
+            PeriodicWorkRequestBuilder<SyncWorker>(6, TimeUnit.HOURS)
+        }
+            .setConstraints(constraints(wifiOnly, chargingOnly))
             .setBackoffCriteria(androidx.work.BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
         WorkManager.getInstance(context)

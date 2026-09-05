@@ -259,6 +259,7 @@ class ReaderViewModel @Inject constructor(
     fun setReaderLetterSpacing(v: Float) = viewModelScope.launch { preferencesRepository.setReaderLetterSpacing(v) }
     fun setReaderParagraphSpacing(dp: Int) = viewModelScope.launch { preferencesRepository.setReaderParagraphSpacing(dp) }
     fun setReaderMeasure(dp: Int) = viewModelScope.launch { preferencesRepository.setReaderMeasure(dp) }
+    fun setBionicReading(on: Boolean) = viewModelScope.launch { preferencesRepository.setBionicReading(on) }
 
     fun addHighlight(blockIndex: Int, start: Int, end: Int, quote: String, color: Int = HighlightColors.Default) {
         if (itemId.isEmpty() || quote.isBlank()) return

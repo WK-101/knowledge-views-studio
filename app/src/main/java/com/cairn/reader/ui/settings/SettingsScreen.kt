@@ -427,6 +427,34 @@ fun SettingsScreen(
 
         item {
             Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+                SectionLabel("STARTUP")
+                Spacer(Modifier.height(12.dp))
+                val startDests = listOf(
+                    "" to "Default", "Inbox" to "Inbox", "Library" to "Library",
+                    "ReadLater" to "Read Later", "Discover" to "Discover", "Feeds" to "Feeds",
+                )
+                LabeledChips(
+                    label = "Open on launch",
+                    options = startDests,
+                    selected = prefs.startDestination,
+                    onSelect = { viewModel.setStartDestination(it) },
+                )
+                Spacer(Modifier.height(12.dp))
+                val startFilters = listOf(
+                    "" to "Default", "UNREAD" to "Unread", "STARRED" to "Starred",
+                    "SAVED" to "Saved", "ALL" to "All",
+                )
+                LabeledChips(
+                    label = "Inbox opens to",
+                    options = startFilters,
+                    selected = prefs.startFilter,
+                    onSelect = { viewModel.setStartFilter(it) },
+                )
+            }
+        }
+
+        item {
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
                 SectionLabel("APPEARANCE")
                 Spacer(Modifier.height(12.dp))
                 LabeledChips(

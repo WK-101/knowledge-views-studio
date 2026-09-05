@@ -123,6 +123,16 @@ data class AppPreferences(
     val readerParagraphSpacing: Int = 8,
     /** Content measure: max text width in dp (0 = fill available width). */
     val readerMeasure: Int = 0,
+    /** Bionic reading: bold the leading part of each word to guide the eye. */
+    val bionicReading: Boolean = false,
+    /** Which surface opens on cold start (a Destination name, or "" for the default Inbox). */
+    val startDestination: String = "",
+    /** The Inbox filter to open on cold start (an InboxFilter name, or "" to keep the default). */
+    val startFilter: String = "",
+    /** Only run background sync while charging. */
+    val syncChargingOnly: Boolean = false,
+    /** Background sync interval in minutes (0 = the app default cadence). */
+    val syncIntervalMinutes: Int = 0,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -177,6 +187,11 @@ class PreferencesRepository @Inject constructor(
         val READER_LETTER_SPACING = androidx.datastore.preferences.core.floatPreferencesKey("reader_letter_spacing")
         val READER_PARA_SPACING = intPreferencesKey("reader_paragraph_spacing")
         val READER_MEASURE = intPreferencesKey("reader_measure")
+        val BIONIC_READING = booleanPreferencesKey("bionic_reading")
+        val START_DESTINATION = stringPreferencesKey("start_destination")
+        val START_FILTER = stringPreferencesKey("start_filter")
+        val SYNC_CHARGING_ONLY = booleanPreferencesKey("sync_charging_only")
+        val SYNC_INTERVAL_MINUTES = intPreferencesKey("sync_interval_minutes")
     }
 
     /** Per-scope view entries are stored as "scopeKey<sep>MODE" in a string set. */
@@ -237,6 +252,11 @@ class PreferencesRepository @Inject constructor(
             readerLetterSpacing = p[Keys.READER_LETTER_SPACING] ?: 0f,
             readerParagraphSpacing = p[Keys.READER_PARA_SPACING] ?: 8,
             readerMeasure = p[Keys.READER_MEASURE] ?: 0,
+            bionicReading = p[Keys.BIONIC_READING] ?: false,
+            startDestination = p[Keys.START_DESTINATION] ?: "",
+            startFilter = p[Keys.START_FILTER] ?: "",
+            syncChargingOnly = p[Keys.SYNC_CHARGING_ONLY] ?: false,
+            syncIntervalMinutes = p[Keys.SYNC_INTERVAL_MINUTES] ?: 0,
         )
     }
 
@@ -362,6 +382,21 @@ class PreferencesRepository @Inject constructor(
     suspend fun setReaderMeasure(dp: Int) =
         context.dataStore.edit { it[Keys.READER_MEASURE] = dp.coerceIn(0, 900) }
 
+    suspend fun setBionicReading(on: Boolean) =
+        context.dataStore.edit { it[Keys.BIONIC_READING] = on }
+
+    suspend fun setStartDestination(name: String) =
+        context.dataStore.edit { it[Keys.START_DESTINATION] = name }
+
+    suspend fun setStartFilter(name: String) =
+        context.dataStore.edit { it[Keys.START_FILTER] = name }
+
+    suspend fun setSyncChargingOnly(on: Boolean) =
+        context.dataStore.edit { it[Keys.SYNC_CHARGING_ONLY] = on }
+
+    suspend fun setSyncIntervalMinutes(min: Int) =
+        context.dataStore.edit { it[Keys.SYNC_INTERVAL_MINUTES] = min.coerceIn(0, 1440) }
+
     // -- Settings backup -------------------------------------------------------
     //
     // A full backup includes every app setting so a restore reproduces the app exactly. The
@@ -414,6 +449,11 @@ class PreferencesRepository @Inject constructor(
             put("readerLetterSpacing", p.readerLetterSpacing.toDouble())
             put("readerParagraphSpacing", p.readerParagraphSpacing)
             put("readerMeasure", p.readerMeasure)
+            put("bionicReading", p.bionicReading)
+            put("startDestination", p.startDestination)
+            put("startFilter", p.startFilter)
+            put("syncChargingOnly", p.syncChargingOnly)
+            put("syncIntervalMinutes", p.syncIntervalMinutes)
         }
     }
 
@@ -464,6 +504,11 @@ class PreferencesRepository @Inject constructor(
             if (json.has("readerLetterSpacing")) e[Keys.READER_LETTER_SPACING] = json.getDouble("readerLetterSpacing").toFloat().coerceIn(-0.05f, 0.3f)
             if (json.has("readerParagraphSpacing")) e[Keys.READER_PARA_SPACING] = json.getInt("readerParagraphSpacing").coerceIn(0, 40)
             if (json.has("readerMeasure")) e[Keys.READER_MEASURE] = json.getInt("readerMeasure").coerceIn(0, 900)
+            if (json.has("bionicReading")) e[Keys.BIONIC_READING] = json.getBoolean("bionicReading")
+            if (json.has("startDestination")) e[Keys.START_DESTINATION] = json.getString("startDestination")
+            if (json.has("startFilter")) e[Keys.START_FILTER] = json.getString("startFilter")
+            if (json.has("syncChargingOnly")) e[Keys.SYNC_CHARGING_ONLY] = json.getBoolean("syncChargingOnly")
+            if (json.has("syncIntervalMinutes")) e[Keys.SYNC_INTERVAL_MINUTES] = json.getInt("syncIntervalMinutes").coerceIn(0, 1440)
         }
     }
 }

@@ -141,8 +141,23 @@ class SettingsViewModel @Inject constructor(
 
     fun setSyncWifiOnly(enabled: Boolean) = viewModelScope.launch {
         preferencesRepository.setSyncWifiOnly(enabled)
-        // Re-schedule the background sync so the new network constraint takes effect immediately.
-        CairnWork.schedulePeriodicSync(context, enabled)
+        rescheduleSync()
+    }
+
+    fun setSyncChargingOnly(enabled: Boolean) = viewModelScope.launch {
+        preferencesRepository.setSyncChargingOnly(enabled)
+        rescheduleSync()
+    }
+
+    fun setSyncIntervalMinutes(minutes: Int) = viewModelScope.launch {
+        preferencesRepository.setSyncIntervalMinutes(minutes)
+        rescheduleSync()
+    }
+
+    /** Re-schedule background sync so a changed network / charging / interval preference applies now. */
+    private suspend fun rescheduleSync() {
+        val p = preferencesRepository.preferences.first()
+        CairnWork.schedulePeriodicSync(context, p.syncWifiOnly, p.syncChargingOnly, p.syncIntervalMinutes)
     }
 
     fun setCacheImagesOffline(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setCacheImagesOffline(enabled) }
@@ -157,6 +172,8 @@ class SettingsViewModel @Inject constructor(
     fun setTtsEnabled(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setTtsEnabled(enabled) }
     fun setStripTrackingParams(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setStripTrackingParams(enabled) }
     fun setMarkReadOnScroll(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setMarkReadOnScroll(enabled) }
+    fun setStartDestination(name: String) = viewModelScope.launch { preferencesRepository.setStartDestination(name) }
+    fun setStartFilter(name: String) = viewModelScope.launch { preferencesRepository.setStartFilter(name) }
     fun setTrashRetentionDays(days: Int) = viewModelScope.launch { preferencesRepository.setTrashRetentionDays(days) }
     fun moveBottomTab(name: String, up: Boolean) = viewModelScope.launch { preferencesRepository.moveBottomTab(name, up) }
 

@@ -527,6 +527,7 @@ fun ReaderScreen(
                 letterSpacing = prefs.readerLetterSpacing,
                 paragraphSpacing = prefs.readerParagraphSpacing,
                 measure = prefs.readerMeasure,
+                bionic = prefs.bionicReading,
             )
         }
     }
@@ -559,6 +560,7 @@ fun ReaderScreen(
             letterSpacing = prefs.readerLetterSpacing,
             paragraphSpacing = prefs.readerParagraphSpacing,
             measure = prefs.readerMeasure,
+            bionic = prefs.bionicReading,
             onFontScale = viewModel::setFontScale,
             onReaderFont = viewModel::setReaderFont,
             onReaderTheme = viewModel::setReaderTheme,
@@ -570,6 +572,7 @@ fun ReaderScreen(
             onLetterSpacing = viewModel::setReaderLetterSpacing,
             onParagraphSpacing = viewModel::setReaderParagraphSpacing,
             onMeasure = viewModel::setReaderMeasure,
+            onBionic = viewModel::setBionicReading,
             onDismiss = { showTypography = false },
         )
     }
@@ -679,6 +682,7 @@ private fun ArticleBody(
     letterSpacing: Float = 0f,
     paragraphSpacing: Int = 8,
     measure: Int = 0,
+    bionic: Boolean = false,
 ) {
     val data = state.data ?: return
     val linkColor = MaterialTheme.colorScheme.primary
@@ -857,6 +861,7 @@ private fun ArticleBody(
                     onManageHighlight = onManageHighlight,
                     onImageClick = onImageClick,
                     paragraphSpacing = paragraphSpacing,
+                    bionic = bionic,
                 )
             }
             // Flow to the next/previous article without going back to the list.
@@ -900,6 +905,25 @@ private fun ArticleBody(
     }
 }
 
+/** Bold the leading ~40% of every word — a bionic-reading aid that guides the eye. Preserves the
+ *  source string's existing spans (links, emphasis) and overlays bold on word prefixes. */
+private fun bionicize(text: androidx.compose.ui.text.AnnotatedString): androidx.compose.ui.text.AnnotatedString {
+    val s = text.text
+    return androidx.compose.ui.text.buildAnnotatedString {
+        append(text)
+        var i = 0
+        while (i < s.length) {
+            while (i < s.length && !s[i].isLetter()) i++
+            val start = i
+            while (i < s.length && s[i].isLetter()) i++
+            if (i > start) {
+                val boldLen = kotlin.math.ceil((i - start) * 0.4).toInt().coerceAtLeast(1)
+                addStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold), start, start + boldLen)
+            }
+        }
+    }
+}
+
 @Composable
 private fun BlockView(
     block: ReaderBlock,
@@ -912,6 +936,7 @@ private fun BlockView(
     onManageHighlight: (HighlightEntity) -> Unit,
     onImageClick: (String) -> Unit = {},
     paragraphSpacing: Int = 9,
+    bionic: Boolean = false,
 ) {
     when (block) {
         is ReaderBlock.Heading -> HighlightableText(
@@ -927,7 +952,7 @@ private fun BlockView(
             modifier = Modifier.padding(horizontal = ReaderHPad, vertical = 10.dp),
         )
         is ReaderBlock.Paragraph -> HighlightableText(
-            base = block.text,
+            base = if (bionic) bionicize(block.text) else block.text,
             style = bodyStyle.copy(textAlign = if (justify) TextAlign.Justify else TextAlign.Start),
             highlights = highlights,
             onSelect = { s, e, q, y -> onSelectText(blockIndex, s, e, q, y) },
@@ -1348,6 +1373,7 @@ private fun TypographySheet(
     letterSpacing: Float,
     paragraphSpacing: Int,
     measure: Int,
+    bionic: Boolean,
     onFontScale: (Float) -> Unit,
     onReaderFont: (ReaderFont) -> Unit,
     onReaderTheme: (ReaderTheme) -> Unit,
@@ -1359,6 +1385,7 @@ private fun TypographySheet(
     onLetterSpacing: (Float) -> Unit,
     onParagraphSpacing: (Int) -> Unit,
     onMeasure: (Int) -> Unit,
+    onBionic: (Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
@@ -1435,6 +1462,7 @@ private fun TypographySheet(
             HorizontalDivider(Modifier.padding(vertical = 16.dp), color = scheme.outlineVariant)
 
             // ---- Toggles --------------------------------------------------------------------
+            ToggleRow("Bionic reading", "Bold the start of each word to guide the eye", bionic, onBionic)
             ToggleRow("Justify text", null, justify, onJustify)
             ToggleRow("Show images", "Off gives a text-only, data-light read", showImages, onShowImages)
             ToggleRow("Immersive scroll", "Hide every bar as you read; scroll up to bring them back", immersive, onImmersive)

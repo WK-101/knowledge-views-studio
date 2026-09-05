@@ -334,6 +334,23 @@ private fun StorageSettingsSheet(
                 checked = prefs.syncWifiOnly,
                 onCheckedChange = viewModel::setSyncWifiOnly,
             )
+            ToggleRow(
+                title = "Sync only while charging",
+                subtitle = "Background refresh waits until the device is plugged in — easiest on the battery.",
+                checked = prefs.syncChargingOnly,
+                onCheckedChange = viewModel::setSyncChargingOnly,
+            )
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
+                Text("Sync every", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                Spacer(Modifier.height(2.dp))
+                Text("How often Cairn refreshes in the background. Shorter intervals cost more battery.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                    SyncIntervalOptions.forEach { m ->
+                        FilterChip(selected = prefs.syncIntervalMinutes == m, onClick = { viewModel.setSyncIntervalMinutes(m) }, label = { Text(syncIntervalLabel(m)) })
+                    }
+                }
+            }
             SectionHeader("OFFLINE COPIES")
             ToggleRow(
                 title = "Keep what you read",
@@ -391,6 +408,19 @@ private fun StorageSettingsSheet(
 
 private val KeepOptions = listOf(0, 25, 50, 100, 200, 500, 1000)
 private val AgeOptions = listOf(0, 3, 7, 14, 30, 90, 180, 365)
+private val SyncIntervalOptions = listOf(0, 15, 30, 60, 180, 360, 720, 1440)
+
+private fun syncIntervalLabel(m: Int): String = when (m) {
+    0 -> "Default"
+    15 -> "15 min"
+    30 -> "30 min"
+    60 -> "1 hour"
+    180 -> "3 hours"
+    360 -> "6 hours"
+    720 -> "12 hours"
+    1440 -> "Daily"
+    else -> "$m min"
+}
 
 private fun ageLabel(d: Int): String = when (d) {
     0 -> "Forever"

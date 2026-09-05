@@ -40,7 +40,12 @@ class CairnApplication : Application(), Configuration.Provider {
         // Reading one value from DataStore at startup is quick; it lets the background
         // sync respect the user's Wi-Fi-only preference from the first schedule.
         val prefs = runCatching { runBlocking { preferencesRepository.preferences.first() } }.getOrNull()
-        CairnWork.schedulePeriodicSync(this, prefs?.syncWifiOnly ?: false)
+        CairnWork.schedulePeriodicSync(
+            this,
+            wifiOnly = prefs?.syncWifiOnly ?: false,
+            chargingOnly = prefs?.syncChargingOnly ?: false,
+            intervalMinutes = prefs?.syncIntervalMinutes ?: 0,
+        )
         CairnWork.scheduleBackup(this, prefs?.backupFrequencyHours ?: 0)
     }
 }

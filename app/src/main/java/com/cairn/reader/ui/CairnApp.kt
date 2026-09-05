@@ -187,6 +187,17 @@ fun CairnApp(
     // The single navigation primitive: switch to a pane and close the drawer.
     val goTo: (Destination) -> Unit = { dest -> currentName = dest.name; scope.launch { drawerState.close() } }
     val openDrawer: () -> Unit = { scope.launch { drawerState.open() } }
+    // Honour the user's chosen launch destination + default Inbox filter, once per cold start.
+    var appliedStart by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(appPrefs.startDestination, appPrefs.startFilter) {
+        if (appliedStart) return@LaunchedEffect
+        val dest = Destination.entries.firstOrNull { it.name == appPrefs.startDestination && it.isPane }
+        if (dest != null) currentName = dest.name
+        appPrefs.startFilter.takeIf { it.isNotBlank() }
+            ?.let { name -> runCatching { InboxFilter.valueOf(name) }.getOrNull() }
+            ?.let { inboxViewModel.setFilter(it) }
+        appliedStart = true
+    }
     LaunchedEffect(Unit) {
         inboxViewModel.snacks.collect { snack ->
             val result = snackbar.showSnackbar(
