@@ -117,6 +117,12 @@ class FeedsViewModel @Inject constructor(
     fun setFullText(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setFullText(id, enabled) }
     fun setNotify(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setNotify(id, enabled) }
     fun setPodcast(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setPodcast(id, enabled) }
+    fun setOpenIn(id: String, mode: String) = viewModelScope.launch { sourceRepository.setOpenIn(id, mode) }
+    fun setFeedUrl(id: String, url: String) = viewModelScope.launch {
+        sourceRepository.setFeedUrl(id, url)
+        _snacks.emit("Feed link updated — syncing…")
+        runCatching { feedRepository.syncAll() }
+    }
     fun markFeedRead(id: String) = viewModelScope.launch { itemRepository.markAllRead(sourceId = id, folder = null) }
     fun delete(id: String) = viewModelScope.launch {
         sourceRepository.delete(id)

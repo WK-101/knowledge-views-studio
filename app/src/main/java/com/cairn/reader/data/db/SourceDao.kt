@@ -44,6 +44,13 @@ interface SourceDao {
     @Query("UPDATE sources SET isPodcast = :enabled WHERE id = :id")
     suspend fun setPodcast(id: String, enabled: Boolean)
 
+    @Query("UPDATE sources SET openIn = :mode WHERE id = :id")
+    suspend fun setOpenIn(id: String, mode: String)
+
+    // Changing the feed URL resets sync bookkeeping so the new source is fetched fresh next sync.
+    @Query("UPDATE sources SET feedUrl = :feedUrl, etag = NULL, lastModified = NULL, consecutiveErrors = 0, retryAfter = NULL WHERE id = :id")
+    suspend fun setFeedUrl(id: String, feedUrl: String)
+
     @Query("SELECT DISTINCT folder FROM sources WHERE folder IS NOT NULL AND folder != '' ORDER BY folder COLLATE NOCASE")
     fun observeFolders(): Flow<List<String>>
 

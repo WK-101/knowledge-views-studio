@@ -18,6 +18,14 @@ class SourceRepository @Inject constructor(
     suspend fun setFullText(id: String, enabled: Boolean) = sourceDao.setFullText(id, enabled)
     suspend fun setNotify(id: String, enabled: Boolean) = sourceDao.setNotify(id, enabled)
     suspend fun setPodcast(id: String, enabled: Boolean) = sourceDao.setPodcast(id, enabled)
+    suspend fun setOpenIn(id: String, mode: String) = sourceDao.setOpenIn(id, mode)
+
+    /** Change where a feed pulls from. Normalises http→https-friendly input and resets sync state. */
+    suspend fun setFeedUrl(id: String, feedUrl: String) {
+        val url = feedUrl.trim()
+        if (url.isBlank()) return
+        sourceDao.setFeedUrl(id, url)
+    }
 
     suspend fun delete(id: String) = sourceDao.delete(id)
 }

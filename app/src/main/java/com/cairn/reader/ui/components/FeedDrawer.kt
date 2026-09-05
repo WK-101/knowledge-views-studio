@@ -88,6 +88,8 @@ fun FeedDrawerContent(
 
     // Folder expansion state, keyed by folder name; folders start expanded so counts show.
     val expanded = remember { mutableStateMapOf<String, Boolean>() }
+    // The whole FEEDS section folds away as one, for people with long feed lists.
+    var feedsExpanded by remember { mutableStateOf(true) }
 
     // Split feeds into folders (preserving first-seen order) and loose, ungrouped feeds.
     val grouped = feeds.filter { !it.folder.isNullOrBlank() }.groupBy { it.folder!! }
@@ -156,46 +158,50 @@ fun FeedDrawerContent(
                 modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp),
             )
         } else {
-            DrawerLabel("FEEDS")
-            grouped.forEach { (folder, folderFeeds) ->
-                val isOpen = expanded[folder] ?: true
-                val folderUnread = folderFeeds.sumOf { it.unread }
-                val folderSelected = (selection as? DrawerSelection.Folder)?.name == folder
-                FolderRow(
-                    name = folder,
-                    unread = folderUnread,
-                    expanded = isOpen,
-                    selected = folderSelected,
-                    onClick = { onSelectFolder(folder) },
-                    onToggle = { expanded[folder] = !isOpen },
-                    onMarkRead = { onMarkFolderRead(folder) },
-                )
-                AnimatedVisibility(visible = isOpen) {
-                    Column {
-                        folderFeeds.forEach { feed ->
-                            FeedRow(
-                                feed = feed,
-                                selected = (selection as? DrawerSelection.Feed)?.sourceId == feed.sourceId,
-                                indent = true,
-                                onClick = { onSelectFeed(feed) },
-                                onMarkRead = { onMarkFeedRead(feed.sourceId) },
-                                onManage = { onManageFeed(feed) },
-                                onUnsubscribe = { onUnsubscribe(feed) },
-                            )
+            SectionHeader("FEEDS", feeds.sumOf { it.unread }, feedsExpanded) { feedsExpanded = !feedsExpanded }
+            AnimatedVisibility(visible = feedsExpanded) {
+                Column {
+                    grouped.forEach { (folder, folderFeeds) ->
+                        val isOpen = expanded[folder] ?: true
+                        val folderUnread = folderFeeds.sumOf { it.unread }
+                        val folderSelected = (selection as? DrawerSelection.Folder)?.name == folder
+                        FolderRow(
+                            name = folder,
+                            unread = folderUnread,
+                            expanded = isOpen,
+                            selected = folderSelected,
+                            onClick = { onSelectFolder(folder) },
+                            onToggle = { expanded[folder] = !isOpen },
+                            onMarkRead = { onMarkFolderRead(folder) },
+                        )
+                        AnimatedVisibility(visible = isOpen) {
+                            Column {
+                                folderFeeds.forEach { feed ->
+                                    FeedRow(
+                                        feed = feed,
+                                        selected = (selection as? DrawerSelection.Feed)?.sourceId == feed.sourceId,
+                                        indent = true,
+                                        onClick = { onSelectFeed(feed) },
+                                        onMarkRead = { onMarkFeedRead(feed.sourceId) },
+                                        onManage = { onManageFeed(feed) },
+                                        onUnsubscribe = { onUnsubscribe(feed) },
+                                    )
+                                }
+                            }
                         }
                     }
+                    loose.forEach { feed ->
+                        FeedRow(
+                            feed = feed,
+                            selected = (selection as? DrawerSelection.Feed)?.sourceId == feed.sourceId,
+                            indent = false,
+                            onClick = { onSelectFeed(feed) },
+                            onMarkRead = { onMarkFeedRead(feed.sourceId) },
+                            onManage = { onManageFeed(feed) },
+                            onUnsubscribe = { onUnsubscribe(feed) },
+                        )
+                    }
                 }
-            }
-            loose.forEach { feed ->
-                FeedRow(
-                    feed = feed,
-                    selected = (selection as? DrawerSelection.Feed)?.sourceId == feed.sourceId,
-                    indent = false,
-                    onClick = { onSelectFeed(feed) },
-                    onMarkRead = { onMarkFeedRead(feed.sourceId) },
-                    onManage = { onManageFeed(feed) },
-                    onUnsubscribe = { onUnsubscribe(feed) },
-                )
             }
         }
 
@@ -435,14 +441,36 @@ private val MONOGRAM_COLORS = listOf(
     Color(0xFF6A5A8E), Color(0xFF2E8B94), Color(0xFF8E5A6A), Color(0xFF5A7A4E),
 )
 
+/** A foldable section header (e.g. FEEDS): label + rolled-up count + a chevron; tap to fold. */
 @Composable
-private fun DrawerLabel(text: String, top: androidx.compose.ui.unit.Dp = 10.dp) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        letterSpacing = 1.4.sp,
-        fontWeight = FontWeight.Medium,
-        modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = top, bottom = 4.dp),
-    )
+private fun SectionHeader(text: String, unread: Int, expanded: Boolean, onToggle: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val rotation by animateFloatAsState(if (expanded) 0f else -90f, label = "sectionChevron")
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
+            .padding(start = 28.dp, end = 20.dp, top = 12.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text,
+            style = MaterialTheme.typography.labelMedium,
+            color = scheme.onSurfaceVariant,
+            letterSpacing = 1.4.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.weight(1f),
+        )
+        if (!expanded && unread > 0) {
+            Text("$unread", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
+            Spacer(Modifier.size(8.dp))
+        }
+        Icon(
+            Icons.Filled.KeyboardArrowDown,
+            contentDescription = if (expanded) "Collapse feeds" else "Expand feeds",
+            tint = scheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp).rotate(rotation),
+        )
+    }
 }
+
