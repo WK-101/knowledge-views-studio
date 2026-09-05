@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -72,7 +73,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.cairn.reader.ui.reader.ReaderScreen
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -120,6 +129,10 @@ fun CairnApp(
     var currentName by rememberSaveable { mutableStateOf(Destination.Inbox.name) }
     // current is any destination — a drawer pick may open one that isn't a bar tab; all four render.
     val current = Destination.entries.firstOrNull { it.name == currentName } ?: tabs.first()
+
+    // On wide screens (tablets, unfolded foldables) show list + reader side by side.
+    val wide = LocalConfiguration.current.screenWidthDp >= 720
+    val detailNav = rememberNavController()
 
     val inboxViewModel: InboxViewModel = hiltViewModel()
     val inboxViewMode by inboxViewModel.viewMode.collectAsStateWithLifecycle()
@@ -308,12 +321,39 @@ fun CairnApp(
             }
         },
     ) { padding ->
-        Crossfade(targetState = current, label = "destination") { dest ->
+        val renderDest: @Composable (Destination, (String) -> Unit) -> Unit = { dest, open ->
             when (dest) {
-                Destination.Inbox -> InboxScreen(padding, inboxViewModel, onOpenItem, onOpenWeb, inboxViewMode)
-                Destination.Library -> LibraryScreen(padding, onOpenItem, onOpenHighlights = onOpenNotebook)
+                Destination.Inbox -> InboxScreen(padding, inboxViewModel, open, onOpenWeb, inboxViewMode)
+                Destination.Library -> LibraryScreen(padding, open, onOpenHighlights = onOpenNotebook)
                 Destination.Discover -> com.cairn.reader.ui.discover.DiscoverContent(padding)
                 Destination.Settings -> SettingsScreen(padding, onOpenNotebook = onOpenNotebook, onOpenOffline = onOpenOffline)
+            }
+        }
+        if (wide) {
+            Row(Modifier.fillMaxSize()) {
+                Box(Modifier.width(400.dp)) {
+                    renderDest(current) { id -> detailNav.navigate("reader/$id") }
+                }
+                VerticalDivider()
+                Box(Modifier.weight(1f)) {
+                    NavHost(detailNav, startDestination = "detail_empty") {
+                        composable("detail_empty") {
+                            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                                Text("Select an article to read", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        composable(
+                            "reader/{itemId}",
+                            arguments = listOf(navArgument("itemId") { type = NavType.StringType }),
+                        ) {
+                            ReaderScreen(onBack = { detailNav.popBackStack() }, onOpenWeb = onOpenWeb)
+                        }
+                    }
+                }
+            }
+        } else {
+            Crossfade(targetState = current, label = "destination") { dest ->
+                renderDest(dest, onOpenItem)
             }
         }
     }
