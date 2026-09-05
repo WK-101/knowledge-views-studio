@@ -1,10 +1,12 @@
-@file:OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
+@file:OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 
 package com.cairn.reader.ui.readlater
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,12 +25,19 @@ import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.BookmarkRemove
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.outlined.MailOutline
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.FormatQuote
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.SwapVert
+import androidx.compose.material.icons.outlined.ViewAgenda
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -65,23 +74,75 @@ fun ReadLaterScreen(
 ) {
     val items by viewModel.items.collectAsStateWithLifecycle()
     val collections by viewModel.collections.collectAsStateWithLifecycle()
+    val query by viewModel.query.collectAsStateWithLifecycle()
+    val sort by viewModel.sort.collectAsStateWithLifecycle()
+    val typeFilter by viewModel.typeFilter.collectAsStateWithLifecycle()
+    val unreadOnly by viewModel.unreadOnly.collectAsStateWithLifecycle()
+    val offlineOnly by viewModel.offlineOnly.collectAsStateWithLifecycle()
+    val availableTypes by viewModel.availableTypes.collectAsStateWithLifecycle()
     val scheme = MaterialTheme.colorScheme
 
     var actionRow by remember { mutableStateOf<ItemListRow?>(null) }
     var moveRow by remember { mutableStateOf<ItemListRow?>(null) }
     var showSave by remember { mutableStateOf(false) }
     var showHelp by remember { mutableStateOf(false) }
+    var searchOpen by remember { mutableStateOf(false) }
+    var sortMenu by remember { mutableStateOf(false) }
+    var viewMenu by remember { mutableStateOf(false) }
+    var viewMode by remember { mutableStateOf(com.cairn.reader.data.prefs.ListViewMode.CARD) }
+
+    val filtersActive = query.isNotBlank() || typeFilter != null || unreadOnly || offlineOnly
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (items.isEmpty()) "Read Later" else "Read Later · ${items.size}", fontWeight = FontWeight.SemiBold) },
+                title = {
+                    if (searchOpen) {
+                        OutlinedTextField(
+                            value = query, onValueChange = viewModel::setQuery, singleLine = true,
+                            leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                            placeholder = { Text("Search Read Later") }, modifier = Modifier.fillMaxWidth(),
+                        )
+                    } else {
+                        Text(if (items.isEmpty()) "Read Later" else "Read Later · ${items.size}", fontWeight = FontWeight.SemiBold)
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
                 },
                 actions = {
-                    IconButton(onClick = { showHelp = true }) {
-                        Icon(Icons.AutoMirrored.Outlined.HelpOutline, contentDescription = "How to save newsletters & pages")
+                    if (searchOpen) {
+                        IconButton(onClick = { viewModel.setQuery(""); searchOpen = false }) {
+                            Icon(Icons.Outlined.Close, contentDescription = "Close search")
+                        }
+                    } else {
+                        IconButton(onClick = { searchOpen = true }) { Icon(Icons.Outlined.Search, contentDescription = "Search") }
+                        Box {
+                            IconButton(onClick = { sortMenu = true }) { Icon(Icons.Outlined.SwapVert, contentDescription = "Sort") }
+                            DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                                Text("SORT", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
+                                ReadLaterSort.entries.forEach { s ->
+                                    DropdownMenuItem(
+                                        text = { Text(s.label, fontWeight = if (s == sort) FontWeight.SemiBold else FontWeight.Normal) },
+                                        onClick = { viewModel.setSort(s); sortMenu = false },
+                                    )
+                                }
+                            }
+                        }
+                        Box {
+                            IconButton(onClick = { viewMenu = true }) { Icon(Icons.Outlined.ViewAgenda, contentDescription = "View") }
+                            DropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
+                                com.cairn.reader.data.prefs.ListViewMode.entries.forEach { m ->
+                                    DropdownMenuItem(
+                                        text = { Text(m.name.lowercase().replaceFirstChar(Char::uppercase), fontWeight = if (m == viewMode) FontWeight.SemiBold else FontWeight.Normal) },
+                                        onClick = { viewMode = m; viewMenu = false },
+                                    )
+                                }
+                            }
+                        }
+                        IconButton(onClick = { showHelp = true }) {
+                            Icon(Icons.AutoMirrored.Outlined.HelpOutline, contentDescription = "How to save newsletters & pages")
+                        }
                     }
                 },
             )
@@ -90,39 +151,71 @@ fun ReadLaterScreen(
             FloatingActionButton(onClick = { showSave = true }) { Icon(Icons.Filled.Add, contentDescription = "Save a link") }
         },
     ) { padding ->
-        if (items.isEmpty()) {
-            Column(
-                Modifier.fillMaxSize().padding(padding).padding(horizontal = 32.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Icon(Icons.Outlined.BookmarkRemove, contentDescription = null, tint = scheme.primary, modifier = Modifier.size(40.dp))
-                Spacer(Modifier.height(14.dp))
-                Text("Nothing to read later", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "Save an article for later — from the reader, an item's menu, or a swipe — and it waits here. Save it to the Library to keep it for good.",
-                    style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center,
-                )
-                Spacer(Modifier.height(16.dp))
-                TextButton(onClick = { showHelp = true }) {
-                    Icon(Icons.Outlined.MailOutline, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("How to save newsletters & pages")
+        Column(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
+            // Advanced filter chips: type + unread + offline.
+            if (availableTypes.size >= 2 || filtersActive) {
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(selected = typeFilter == null && !unreadOnly && !offlineOnly, onClick = {
+                        viewModel.setTypeFilter(null); viewModel.setUnreadOnly(false); viewModel.setOfflineOnly(false)
+                    }, label = { Text("All") })
+                    availableTypes.forEach { t ->
+                        FilterChip(selected = typeFilter == t, onClick = { viewModel.setTypeFilter(if (typeFilter == t) null else t) },
+                            label = { Text(t.lowercase().replaceFirstChar(Char::uppercase)) })
+                    }
+                    FilterChip(selected = unreadOnly, onClick = { viewModel.setUnreadOnly(!unreadOnly) }, label = { Text("Unread") })
+                    FilterChip(selected = offlineOnly, onClick = { viewModel.setOfflineOnly(!offlineOnly) }, label = { Text("Offline") })
                 }
             }
-        } else {
-            LazyColumn(
-                Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = padding.calculateTopPadding() + 4.dp, bottom = padding.calculateBottomPadding() + 96.dp),
-            ) {
-                items(items, key = { it.id }) { row ->
-                    ItemRow(row = row, onOpen = { onOpenItem(row.id) }, onToggleSave = {}, onLongPress = { actionRow = row })
-                    HorizontalDivider(
-                        modifier = Modifier.padding(start = 16.dp),
-                        thickness = 0.6.dp,
-                        color = scheme.outlineVariant.copy(alpha = 0.5f),
-                    )
+
+            if (items.isEmpty()) {
+                Column(
+                    Modifier.fillMaxSize().padding(horizontal = 32.dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Icon(Icons.Outlined.BookmarkRemove, contentDescription = null, tint = scheme.primary, modifier = Modifier.size(40.dp))
+                    Spacer(Modifier.height(14.dp))
+                    if (filtersActive) {
+                        Text("No matches", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
+                        Spacer(Modifier.height(8.dp))
+                        Text("Nothing here matches your search or filters.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                    } else {
+                        Text("Nothing to read later", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Save an article for later — from the reader, an item's menu, or a swipe — and it waits here. Save it to the Library to keep it for good.",
+                            style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center,
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        TextButton(onClick = { showHelp = true }) {
+                            Icon(Icons.Outlined.MailOutline, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("How to save newsletters & pages")
+                        }
+                    }
+                }
+            } else {
+                LazyColumn(
+                    Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(top = 4.dp, bottom = padding.calculateBottomPadding() + 96.dp),
+                ) {
+                    items(items, key = { it.id }) { row ->
+                        com.cairn.reader.ui.components.FeedItemCell(
+                            row = row, mode = viewMode,
+                            onOpen = { onOpenItem(row.id) },
+                            onLongPress = { actionRow = row },
+                        )
+                        if (viewMode != com.cairn.reader.data.prefs.ListViewMode.MAGAZINE) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 16.dp),
+                                thickness = 0.6.dp,
+                                color = scheme.outlineVariant.copy(alpha = 0.5f),
+                            )
+                        }
+                    }
                 }
             }
         }
