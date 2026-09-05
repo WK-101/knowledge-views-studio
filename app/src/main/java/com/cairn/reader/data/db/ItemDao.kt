@@ -16,6 +16,9 @@ data class WidgetRow(
     val source: String?,
 )
 
+/** Minimal (id, url) projection for background jobs like the broken-link watchdog. */
+data class ItemIdUrl(val id: String, val url: String)
+
 data class ItemListRow(
     val id: String,
     val url: String,
@@ -253,6 +256,9 @@ interface ItemDao {
 
     @Query("SELECT * FROM item_states")
     suspend fun allStates(): List<ItemStateEntity>
+
+    @Query("SELECT * FROM item_collections")
+    suspend fun allItemCollections(): List<ItemCollectionCrossRef>
 
     // -- Mutations -------------------------------------------------------------
 
@@ -575,13 +581,143 @@ interface ItemDao {
                COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
                COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
         FROM items i
+        JOIN item_collections ic ON ic.itemId = i.id
         LEFT JOIN item_states s ON s.itemId = i.id
         LEFT JOIN sources src ON src.id = i.sourceId
-        WHERE i.trashedAt IS NULL AND i.collectionId = :collectionId
+        WHERE i.trashedAt IS NULL AND ic.collectionId = :collectionId
         ORDER BY i.savedAt DESC
         """
     )
     fun observeCollection(collectionId: String): Flow<List<ItemListRow>>
+
+    // -- v3.67: many-to-many collection membership + smart views + broken links -----------
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun addToCollection(ref: ItemCollectionCrossRef)
+
+    @Query("DELETE FROM item_collections WHERE itemId = :itemId AND collectionId = :collectionId")
+    suspend fun removeFromCollection(itemId: String, collectionId: String)
+
+    @Query("DELETE FROM item_collections WHERE itemId = :itemId")
+    suspend fun clearItemCollections(itemId: String)
+
+    @Query("SELECT collectionId FROM item_collections WHERE itemId = :itemId")
+    fun observeCollectionIdsFor(itemId: String): Flow<List<String>>
+
+    @Query("SELECT collectionId FROM item_collections WHERE itemId = :itemId")
+    suspend fun collectionIdsFor(itemId: String): List<String>
+
+    /** Keep the legacy single-collection column pointing at any current membership (or null). */
+    @Query("UPDATE items SET collectionId = (SELECT collectionId FROM item_collections WHERE itemId = :itemId LIMIT 1) WHERE id = :itemId")
+    suspend fun syncPrimaryCollection(itemId: String)
+
+    @Transaction
+    suspend fun setInCollection(itemId: String, collectionId: String, inIt: Boolean) {
+        if (inIt) addToCollection(ItemCollectionCrossRef(itemId, collectionId))
+        else removeFromCollection(itemId, collectionId)
+        syncPrimaryCollection(itemId)
+    }
+
+    /** Untagged library items: saved/filed but with no tags — a Raindrop-style cleanup bucket. */
+    @Query(
+        """
+        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
+               i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
+               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
+               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
+               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
+               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
+        FROM items i
+        LEFT JOIN item_states s ON s.itemId = i.id
+        LEFT JOIN sources src ON src.id = i.sourceId
+        WHERE i.trashedAt IS NULL
+          AND (COALESCE(s.isStarred, 0) = 1 OR COALESCE(s.isReadLater, 0) = 1 OR i.collectionId IS NOT NULL)
+          AND NOT EXISTS (SELECT 1 FROM item_tags t WHERE t.itemId = i.id)
+        ORDER BY i.savedAt DESC
+        """
+    )
+    fun observeUntagged(): Flow<List<ItemListRow>>
+
+    /** Broken items: the watchdog marked their link dead. */
+    @Query(
+        """
+        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
+               i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
+               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
+               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
+               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
+               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
+        FROM items i
+        LEFT JOIN item_states s ON s.itemId = i.id
+        LEFT JOIN sources src ON src.id = i.sourceId
+        WHERE i.trashedAt IS NULL AND i.linkStatus = 'BROKEN'
+        ORDER BY i.savedAt DESC
+        """
+    )
+    fun observeBroken(): Flow<List<ItemListRow>>
+
+    /** Duplicate items: those whose canonical/plain URL is shared by more than one non-trashed item. */
+    @Query(
+        """
+        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
+               i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
+               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
+               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
+               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
+               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
+        FROM items i
+        LEFT JOIN item_states s ON s.itemId = i.id
+        LEFT JOIN sources src ON src.id = i.sourceId
+        WHERE i.trashedAt IS NULL AND LOWER(COALESCE(i.canonicalUrl, i.url)) IN (
+            SELECT LOWER(COALESCE(canonicalUrl, url)) AS k FROM items
+            WHERE trashedAt IS NULL AND COALESCE(canonicalUrl, url) <> ''
+            GROUP BY k HAVING COUNT(*) > 1
+        )
+        ORDER BY LOWER(COALESCE(i.canonicalUrl, i.url)), i.savedAt DESC
+        """
+    )
+    fun observeDuplicates(): Flow<List<ItemListRow>>
+
+    @Query("SELECT COUNT(*) FROM items WHERE trashedAt IS NULL AND linkStatus = 'BROKEN'")
+    fun observeBrokenCount(): Flow<Int>
+
+    @Query(
+        """
+        SELECT COUNT(*) FROM items i WHERE i.trashedAt IS NULL AND LOWER(COALESCE(i.canonicalUrl, i.url)) IN (
+            SELECT LOWER(COALESCE(canonicalUrl, url)) AS k FROM items
+            WHERE trashedAt IS NULL AND COALESCE(canonicalUrl, url) <> ''
+            GROUP BY k HAVING COUNT(*) > 1
+        )
+        """
+    )
+    fun observeDuplicatesCount(): Flow<Int>
+
+    @Query(
+        """
+        SELECT COUNT(*) FROM items i
+        LEFT JOIN item_states s ON s.itemId = i.id
+        WHERE i.trashedAt IS NULL
+          AND (COALESCE(s.isStarred, 0) = 1 OR COALESCE(s.isReadLater, 0) = 1 OR i.collectionId IS NOT NULL)
+          AND NOT EXISTS (SELECT 1 FROM item_tags t WHERE t.itemId = i.id)
+        """
+    )
+    fun observeUntaggedCount(): Flow<Int>
+
+    /** Library items whose canonical/plain URL is checkable, oldest-checked first, for the watchdog. */
+    @Query(
+        """
+        SELECT i.id, i.url FROM items i
+        LEFT JOIN item_states s ON s.itemId = i.id
+        WHERE i.trashedAt IS NULL AND i.type != 'PDF' AND i.url LIKE 'http%'
+          AND (COALESCE(s.isStarred, 0) = 1 OR COALESCE(s.isReadLater, 0) = 1 OR i.collectionId IS NOT NULL OR i.cacheStatus = 'PERMANENT')
+        ORDER BY COALESCE(i.linkCheckedAt, 0) ASC
+        LIMIT :limit
+        """
+    )
+    suspend fun itemsToLinkCheck(limit: Int): List<ItemIdUrl>
+
+    @Query("UPDATE items SET linkStatus = :status, linkCheckedAt = :ts WHERE id = :id")
+    suspend fun setLinkStatus(id: String, status: String, ts: Long)
 
     @Query(
         """

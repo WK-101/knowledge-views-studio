@@ -138,7 +138,7 @@ import coil.compose.AsyncImage
 import com.cairn.reader.data.db.HighlightEntity
 import com.cairn.reader.data.prefs.ReaderFont
 import com.cairn.reader.data.prefs.ReaderTheme
-import com.cairn.reader.ui.components.CollectionPickerSheet
+import com.cairn.reader.ui.components.CollectionMembershipSheet
 import com.cairn.reader.ui.components.TagEditorSheet
 import com.cairn.reader.ui.theme.InterFamily
 import com.cairn.reader.ui.theme.ReadingSerif
@@ -196,6 +196,7 @@ fun ReaderScreen(
     val savingOffline by viewModel.savingOffline.collectAsStateWithLifecycle()
     val rendering by viewModel.rendering.collectAsStateWithLifecycle()
     val collections by viewModel.collections.collectAsStateWithLifecycle()
+    val memberCollections by viewModel.memberCollections.collectAsStateWithLifecycle()
     val itemTags by viewModel.itemTags.collectAsStateWithLifecycle()
     val allTags by viewModel.allTags.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -594,10 +595,10 @@ fun ReaderScreen(
     }
 
     if (showCollections && data != null) {
-        CollectionPickerSheet(
+        CollectionMembershipSheet(
             collections = collections,
-            currentCollectionId = data.collectionId,
-            onPick = { collectionId -> viewModel.moveToCollection(collectionId); showCollections = false },
+            membership = memberCollections,
+            onToggle = { collectionId, inIt -> viewModel.setInCollection(collectionId, inIt) },
             onCreate = { name -> viewModel.createCollection(name) {} },
             onDismiss = { showCollections = false },
         )

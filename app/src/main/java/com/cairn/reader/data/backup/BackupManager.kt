@@ -5,6 +5,7 @@ import com.cairn.reader.data.db.CollectionEntity
 import com.cairn.reader.data.db.HighlightDao
 import com.cairn.reader.data.db.HighlightEntity
 import com.cairn.reader.data.db.ItemDao
+import com.cairn.reader.data.db.ItemCollectionCrossRef
 import com.cairn.reader.data.db.ItemEntity
 import com.cairn.reader.data.db.ItemStateEntity
 import com.cairn.reader.data.db.ItemTagCrossRef
@@ -100,6 +101,9 @@ class BackupManager @Inject constructor(
         root.put("tags", JSONArray().apply { tagDao.allTags().forEach { put(it.toJson()) } })
         root.put("itemTags", JSONArray().apply { tagDao.allCrossRefs().forEach { put(it.toJson()) } })
         root.put("collections", JSONArray().apply { collectionDao.all().forEach { put(it.toJson()) } })
+        root.put("itemCollections", JSONArray().apply {
+            itemDao.allItemCollections().forEach { put(JSONObject().apply { put("itemId", it.itemId); put("collectionId", it.collectionId) }) }
+        })
         root.put("highlights", JSONArray().apply { highlightDao.all().forEach { put(it.toJson()) } })
         root.put("settings", preferencesRepository.exportSettings())
         return root.toString(2)
@@ -175,6 +179,30 @@ class BackupManager @Inject constructor(
             val targetId = idRemap[h.itemId] ?: h.itemId
             highlightDao.upsert(if (targetId == h.itemId) h else h.copy(itemId = targetId))
         }
+        // Item↔collection membership (v3.67+). Restore the explicit join rows when present; for
+        // older backups that predate the join table, seed membership from each item's legacy
+        // primary collectionId so nothing drops out of its collection on restore.
+        val itemCollections = root.optJSONArray("itemCollections")
+        if (itemCollections != null && itemCollections.length() > 0) {
+            itemCollections.forEachObject {
+                val rawItem = it.optString("itemId")
+                val collectionId = it.optString("collectionId")
+                if (rawItem.isNotBlank() && collectionId.isNotBlank()) {
+                    val targetId = idRemap[rawItem] ?: rawItem
+                    runCatching { itemDao.addToCollection(ItemCollectionCrossRef(targetId, collectionId)) }
+                }
+            }
+        } else {
+            root.optJSONArray("items").forEachObject { obj ->
+                val collectionId = obj.optStringOrNull("collectionId") ?: return@forEachObject
+                val rawItem = obj.optString("id")
+                if (rawItem.isNotBlank()) {
+                    val targetId = idRemap[rawItem] ?: rawItem
+                    runCatching { itemDao.addToCollection(ItemCollectionCrossRef(targetId, collectionId)) }
+                }
+            }
+        }
+
         root.optJSONObject("settings")?.let { runCatching { preferencesRepository.importSettings(it) } }
 
         val dupNote = if (merged > 0) " Merged $merged duplicates already on this device." else ""
@@ -349,6 +377,7 @@ class BackupManager @Inject constructor(
         put("extractStatus", extractStatus); put("contentSource", contentSource); putOpt("guid", guid)
         putOpt("collectionId", collectionId); putOpt("domain", domain); putOpt("cacheStatus", cacheStatus)
         putOpt("enclosureUrl", enclosureUrl); putOpt("trashedAt", trashedAt); putOpt("commentsUrl", commentsUrl)
+        putOpt("linkStatus", linkStatus); putOpt("linkCheckedAt", linkCheckedAt)
     }
 
     private fun JSONObject.toItem() = ItemEntity(
@@ -361,6 +390,7 @@ class BackupManager @Inject constructor(
         guid = optStringOrNull("guid"), collectionId = optStringOrNull("collectionId"), domain = optStringOrNull("domain"),
         cacheStatus = optStringOrNull("cacheStatus"), enclosureUrl = optStringOrNull("enclosureUrl"), trashedAt = optLongOrNull("trashedAt"),
         commentsUrl = optStringOrNull("commentsUrl"),
+        linkStatus = optStringOrNull("linkStatus"), linkCheckedAt = optLongOrNull("linkCheckedAt"),
     )
 
     private fun ItemStateEntity.toJson() = JSONObject().apply {

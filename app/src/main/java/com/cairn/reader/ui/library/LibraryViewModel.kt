@@ -33,6 +33,9 @@ sealed interface LibraryScope {
     data object Favorites : LibraryScope
     data object Archive : LibraryScope
     data object Offline : LibraryScope
+    data object Untagged : LibraryScope
+    data object Broken : LibraryScope
+    data object Duplicates : LibraryScope
     data class Collection(val id: String, val name: String) : LibraryScope
     data class Tag(val id: String, val name: String) : LibraryScope
 }
@@ -67,6 +70,18 @@ class LibraryViewModel @Inject constructor(
             com.cairn.reader.data.db.LibraryCounts(0, 0, 0, 0),
         )
 
+    /** Live counts for the smart-view buckets (Untagged / Broken / Duplicates). */
+    data class SmartCounts(val untagged: Int = 0, val broken: Int = 0, val duplicates: Int = 0)
+    val smartCounts: StateFlow<SmartCounts> =
+        combine(itemRepository.untaggedCount(), itemRepository.brokenCount(), itemRepository.duplicatesCount()) { u, b, d ->
+            SmartCounts(u, b, d)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SmartCounts())
+
+    /** Run the broken-link watchdog on demand (also runs opportunistically during sync). */
+    fun checkLinks(onDone: (Int) -> Unit) = viewModelScope.launch {
+        onDone(runCatching { feedRepository.checkLinks(200) }.getOrDefault(0))
+    }
+
     // Open on the storage-first browse home (Raindrop-style), not a flat list.
     private val _scope = MutableStateFlow<LibraryScope>(LibraryScope.Home)
     val scope: StateFlow<LibraryScope> = _scope.asStateFlow()
@@ -97,6 +112,9 @@ class LibraryViewModel @Inject constructor(
                 LibraryScope.Favorites -> itemRepository.favorites()
                 LibraryScope.Archive -> itemRepository.archived()
                 LibraryScope.Offline -> itemRepository.offlineCopies()
+                LibraryScope.Untagged -> itemRepository.untagged()
+                LibraryScope.Broken -> itemRepository.broken()
+                LibraryScope.Duplicates -> itemRepository.duplicates()
                 is LibraryScope.Collection -> itemRepository.collectionItems(scope.id)
                 // Nested tags: a tag scope shows items filed under it OR any of its sub-tags.
                 is LibraryScope.Tag -> itemRepository.byTagPath(scope.name)
@@ -144,6 +162,9 @@ class LibraryViewModel @Inject constructor(
         LibraryScope.Favorites -> "favorites"
         LibraryScope.Archive -> "archive"
         LibraryScope.Offline -> "offline"
+        LibraryScope.Untagged -> "untagged"
+        LibraryScope.Broken -> "broken"
+        LibraryScope.Duplicates -> "duplicates"
         is LibraryScope.Collection -> "col:${scope.id}"
         is LibraryScope.Tag -> "tag:${scope.id}"
     }

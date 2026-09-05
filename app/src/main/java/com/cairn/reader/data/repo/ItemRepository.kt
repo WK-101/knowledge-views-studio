@@ -104,6 +104,12 @@ class ItemRepository @Inject constructor(
     fun archived(): Flow<List<ItemListRow>> = itemDao.observeArchived()
     fun favorites(): Flow<List<ItemListRow>> = itemDao.observeFavorites()
     fun offlineCopies(): Flow<List<ItemListRow>> = itemDao.observeOfflineCopies()
+    fun untagged(): Flow<List<ItemListRow>> = itemDao.observeUntagged()
+    fun broken(): Flow<List<ItemListRow>> = itemDao.observeBroken()
+    fun duplicates(): Flow<List<ItemListRow>> = itemDao.observeDuplicates()
+    fun untaggedCount(): Flow<Int> = itemDao.observeUntaggedCount()
+    fun brokenCount(): Flow<Int> = itemDao.observeBrokenCount()
+    fun duplicatesCount(): Flow<Int> = itemDao.observeDuplicatesCount()
     /** The Read Later staging list — saved items not yet filed into the library. */
     fun readLater(): Flow<List<ItemListRow>> = itemDao.observeSaved(null, null)
     fun libraryCounts(): Flow<com.cairn.reader.data.db.LibraryCounts> = itemDao.observeLibraryCounts()

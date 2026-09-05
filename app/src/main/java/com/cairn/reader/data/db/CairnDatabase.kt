@@ -13,12 +13,13 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TagEntity::class,
         ItemTagCrossRef::class,
         CollectionEntity::class,
+        ItemCollectionCrossRef::class,
         HighlightEntity::class,
         ItemFtsEntity::class,
         TombstoneEntity::class,
         SyncOpEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = true,
 )
 abstract class CairnDatabase : RoomDatabase() {
@@ -96,5 +97,24 @@ val MIGRATION_8_9 = object : Migration(8, 9) {
 val MIGRATION_9_10 = object : Migration(9, 10) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE sources ADD COLUMN muted INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+/** v3.67: broken-link watchdog columns on items, plus the item↔collection join table for the
+ *  many-to-many "item in multiple collections" feature. All additive. */
+val MIGRATION_10_11 = object : Migration(10, 11) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE items ADD COLUMN linkStatus TEXT")
+        db.execSQL("ALTER TABLE items ADD COLUMN linkCheckedAt INTEGER")
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS item_collections (" +
+                "itemId TEXT NOT NULL, collectionId TEXT NOT NULL, " +
+                "PRIMARY KEY(itemId, collectionId), " +
+                "FOREIGN KEY(itemId) REFERENCES items(id) ON DELETE CASCADE, " +
+                "FOREIGN KEY(collectionId) REFERENCES collections(id) ON DELETE CASCADE)"
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_item_collections_collectionId ON item_collections(collectionId)")
+        // Seed the join table from the existing single-collection column so nothing moves.
+        db.execSQL("INSERT OR IGNORE INTO item_collections (itemId, collectionId) SELECT id, collectionId FROM items WHERE collectionId IS NOT NULL")
     }
 }

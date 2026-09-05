@@ -92,6 +92,10 @@ data class ItemEntity(
     // v3.62: a discussion/comments URL for the item (RSS <comments>, e.g. Hacker News, Reddit,
     // Lobsters), so the reader can offer "Open comments". Nullable → migration 8→9 adds the column.
     val commentsUrl: String? = null,
+    // v3.67: broken-link watchdog. linkStatus is null (unchecked), "OK", or "BROKEN"; linkCheckedAt
+    // is when it was last verified. Migration 10→11 adds both. Powers the "Broken" smart view.
+    val linkStatus: String? = null,
+    val linkCheckedAt: Long? = null,
 )
 
 @Entity(
@@ -138,6 +142,22 @@ data class ItemTagCrossRef(
     val itemId: String,
     val tagId: String,
     val attachedBy: String = "human",
+)
+
+/** v3.67: many-to-many item↔collection, so one item can be filed into several collections.
+ *  The legacy [ItemEntity.collectionId] is kept in sync with the item's first/primary membership. */
+@Entity(
+    tableName = "item_collections",
+    primaryKeys = ["itemId", "collectionId"],
+    foreignKeys = [
+        ForeignKey(entity = ItemEntity::class, parentColumns = ["id"], childColumns = ["itemId"], onDelete = ForeignKey.CASCADE),
+        ForeignKey(entity = CollectionEntity::class, parentColumns = ["id"], childColumns = ["collectionId"], onDelete = ForeignKey.CASCADE),
+    ],
+    indices = [Index("collectionId")],
+)
+data class ItemCollectionCrossRef(
+    val itemId: String,
+    val collectionId: String,
 )
 
 @Entity(tableName = "collections", indices = [Index("parentId")])

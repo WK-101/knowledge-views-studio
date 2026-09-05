@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -68,6 +69,16 @@ class ReaderViewModel @Inject constructor(
 
     val collections: StateFlow<List<CollectionWithCount>> =
         collectionRepository.collections().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Every collection this item currently belongs to (an item can live in many). */
+    val memberCollections: StateFlow<Set<String>> =
+        collectionRepository.collectionsFor(itemId)
+            .map { it.toSet() }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    /** Toggle one collection's membership without disturbing the others. */
+    fun setInCollection(collectionId: String, inIt: Boolean) =
+        viewModelScope.launch { collectionRepository.setInCollection(itemId, collectionId, inIt) }
 
     val itemTags: StateFlow<List<TagEntity>> =
         tagRepository.tagsForItem(itemId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())

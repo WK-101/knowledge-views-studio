@@ -684,6 +684,28 @@ class FeedRepository @Inject constructor(
     }
 
     /**
+     * Broken-link watchdog: HEAD/GET a batch of saved items' URLs and record whether the link still
+     * resolves (linkStatus OK / BROKEN). A 4xx/5xx or a network failure that is not a timeout marks
+     * it broken; a permanent offline copy means the article is still readable regardless. Runs a few
+     * per sync and can be triggered manually. Returns how many were newly marked broken.
+     */
+    suspend fun checkLinks(limit: Int = 40): Int {
+        var broken = 0
+        itemDao.itemsToLinkCheck(limit).forEach { row ->
+            val status = runCatching {
+                val res = fetcher.fetch(row.url)
+                if (res.isSuccess) "OK" else "BROKEN"
+            }.getOrElse { e ->
+                // Timeouts / transient connectivity aren't proof of rot; leave those unmarked.
+                if (e is java.net.UnknownHostException || e is java.io.FileNotFoundException) "BROKEN" else return@forEach
+            }
+            itemDao.setLinkStatus(row.id, status, System.currentTimeMillis())
+            if (status == "BROKEN") broken++
+        }
+        return broken
+    }
+
+    /**
      * Back-fill missing thumbnails: for items that arrived without a lead image, fetch the page and
      * pull its og:image / twitter:image (falling back to the first content image), then store it as
      * the lead image so list/card/magazine rows show a picture. Lightweight — it only reads the

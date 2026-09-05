@@ -45,9 +45,26 @@ class CollectionRepository @Inject constructor(
         collectionDao.delete(id)
     }
 
-    /** File an item into a collection (or null to return it to Unsorted). */
+    /** File an item into a collection (or null to remove it from every collection → Unsorted).
+     *  Additive: filing into a new collection keeps existing memberships (items can live in many). */
     suspend fun moveItem(itemId: String, collectionId: String?) {
-        itemDao.setCollection(itemId, collectionId)
+        if (collectionId == null) {
+            itemDao.clearItemCollections(itemId)
+            itemDao.setCollection(itemId, null)
+        } else {
+            itemDao.setInCollection(itemId, collectionId, true)
+        }
+        syncDao.enqueue(
+            SyncOpEntity(id = UUID.randomUUID().toString(), op = "moveToCollection", itemId = itemId, fields = collectionId, createdAt = clock()),
+        )
+    }
+
+    /** Whether an item is currently filed in a given collection. */
+    fun collectionsFor(itemId: String): kotlinx.coroutines.flow.Flow<List<String>> = itemDao.observeCollectionIdsFor(itemId)
+
+    /** Toggle one collection membership for an item (many-to-many). */
+    suspend fun setInCollection(itemId: String, collectionId: String, inIt: Boolean) {
+        itemDao.setInCollection(itemId, collectionId, inIt)
         syncDao.enqueue(
             SyncOpEntity(id = UUID.randomUUID().toString(), op = "moveToCollection", itemId = itemId, fields = collectionId, createdAt = clock()),
         )

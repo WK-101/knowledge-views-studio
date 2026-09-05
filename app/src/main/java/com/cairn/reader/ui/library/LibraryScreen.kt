@@ -48,7 +48,9 @@ import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Inbox
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Label
+import androidx.compose.material.icons.outlined.LinkOff
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.OfflinePin
@@ -269,8 +271,10 @@ fun LibraryScreen(
         }
 
         if (scope is LibraryScope.Home && !searching) {
+            val smart by viewModel.smartCounts.collectAsStateWithLifecycle()
             LibraryHome(
                 counts = counts,
+                smart = smart,
                 collections = collections,
                 tags = tags,
                 bottomPad = padding.calculateBottomPadding() + 88.dp,
@@ -647,6 +651,7 @@ private fun EntryDivider() {
 @Composable
 private fun LibraryHome(
     counts: LibraryCounts,
+    smart: LibraryViewModel.SmartCounts,
     collections: List<CollectionWithCount>,
     tags: List<TagWithCount>,
     bottomPad: Dp,
@@ -674,6 +679,12 @@ private fun LibraryHome(
         Bucket(Icons.Outlined.OfflinePin, "Offline", counts.offlineCount) { onScope(LibraryScope.Offline) },
         Bucket(Icons.Outlined.Archive, "Archive", counts.archiveCount) { onScope(LibraryScope.Archive) },
     )
+    // Smart-view "cleanup" buckets only appear when there's something to act on, so the home stays calm.
+    val smartBuckets = buildList {
+        if (smart.untagged > 0) add(Bucket(Icons.Outlined.Label, "Untagged", smart.untagged) { onScope(LibraryScope.Untagged) })
+        if (smart.duplicates > 0) add(Bucket(Icons.Outlined.ContentCopy, "Duplicates", smart.duplicates) { onScope(LibraryScope.Duplicates) })
+        if (smart.broken > 0) add(Bucket(Icons.Outlined.LinkOff, "Broken", smart.broken) { onScope(LibraryScope.Broken) })
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -683,6 +694,17 @@ private fun LibraryHome(
         item { FoldableSectionHeader("QUICK ACCESS", quickOpen, onToggle = { quickOpen = !quickOpen }) }
         if (quickOpen) {
             items(buckets.chunked(2)) { pair ->
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    pair.forEach { b -> HomeTile(b.icon, b.label, b.count, Modifier.weight(1f), b.onClick) }
+                    if (pair.size == 1) Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+
+        // Cleanup buckets — only present when there's something to fix.
+        if (smartBuckets.isNotEmpty()) {
+            item { HomeSectionLabel("CLEANUP", Modifier.padding(top = 10.dp)) }
+            items(smartBuckets.chunked(2)) { pair ->
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     pair.forEach { b -> HomeTile(b.icon, b.label, b.count, Modifier.weight(1f), b.onClick) }
                     if (pair.size == 1) Spacer(Modifier.weight(1f))
@@ -897,6 +919,9 @@ private fun scopeTitle(scope: LibraryScope): String = when (scope) {
     LibraryScope.Favorites -> "Favorites"
     LibraryScope.Archive -> "Archive"
     LibraryScope.Offline -> "Offline copies"
+    LibraryScope.Untagged -> "Untagged"
+    LibraryScope.Broken -> "Broken links"
+    LibraryScope.Duplicates -> "Duplicates"
     is LibraryScope.Collection -> scope.name
     is LibraryScope.Tag -> "#${scope.name.substringAfterLast('/')}"
 }

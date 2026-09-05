@@ -34,6 +34,8 @@ class SyncWorker @AssistedInject constructor(
             .fold(
                 onSuccess = { newItems ->
                     runCatching { notifier.notifyNewArticles(newItems) }
+                    // Opportunistically verify a small batch of saved links each sync (broken-link watchdog).
+                    runCatching { feedRepository.checkLinks(15) }
                     CairnWidgetProvider.refresh(context)
                     Result.success()
                 },
