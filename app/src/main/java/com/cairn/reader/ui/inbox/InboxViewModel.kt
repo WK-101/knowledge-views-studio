@@ -177,8 +177,22 @@ class InboxViewModel @Inject constructor(
             }
         }
 
-    private val filteredRows = combine(rows, preferencesRepository.preferences, _sort) { list, prefs, sort ->
-        val filtered = applyContentFilters(list, prefs.blockedKeywords, prefs.hideDuplicates)
+    /** A live text filter over the current inbox list (title / source / excerpt). */
+    private val _query = MutableStateFlow("")
+    val query: StateFlow<String> = _query.asStateFlow()
+    fun setInboxQuery(value: String) { _query.value = value }
+
+    private val filteredRows = combine(rows, preferencesRepository.preferences, _sort, _query) { list, prefs, sort, query ->
+        var filtered = applyContentFilters(list, prefs.blockedKeywords, prefs.hideDuplicates)
+        val q = query.trim()
+        if (q.length >= 2) {
+            filtered = filtered.filter { r ->
+                r.title.contains(q, true) ||
+                    (r.sourceTitle?.contains(q, true) == true) ||
+                    (r.siteName?.contains(q, true) == true) ||
+                    (r.excerpt?.contains(q, true) == true)
+            }
+        }
         // The DAO returns newest-first; only OLDEST needs a reversal.
         if (sort == InboxSort.OLDEST) filtered.reversed() else filtered
     }

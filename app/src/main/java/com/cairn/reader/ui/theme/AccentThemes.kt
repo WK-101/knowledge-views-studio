@@ -17,6 +17,10 @@ enum class AppAccent(val label: String, val swatch: Color) {
     SUNSET("Sunset", Color(0xFFA1421F)),
     ROSE("Rose", Color(0xFFA63A5B)),
     GRAPE("Grape", Color(0xFF6A4BA6)),
+    CRIMSON("Crimson", Color(0xFFB3261E)),
+    AMBER("Amber", Color(0xFF7A5900)),
+    SKY("Sky", Color(0xFF00658E)),
+    PLUM("Plum", Color(0xFF8B418F)),
     MONO("Mono", Color(0xFF4A5A59)),
 }
 
@@ -34,6 +38,10 @@ private fun tones(accent: AppAccent): AccentTones? = when (accent) {
     AppAccent.SUNSET -> AccentTones(Color(0xFFA1421F), Color(0xFFFFDBCF), Color(0xFF3B0A00), Color(0xFF7E2E0E), Color(0xFFFFB59B), Color(0xFFFFDBCF), Color(0xFF7E2E0E))
     AppAccent.ROSE -> AccentTones(Color(0xFFA63A5B), Color(0xFFFFD9E2), Color(0xFF3E001A), Color(0xFF83274A), Color(0xFFFFB1C6), Color(0xFFFFD9E2), Color(0xFF83274A))
     AppAccent.GRAPE -> AccentTones(Color(0xFF6A4BA6), Color(0xFFE9DDFF), Color(0xFF22005D), Color(0xFF523A86), Color(0xFFCFBCFF), Color(0xFFE9DDFF), Color(0xFF523A86))
+    AppAccent.CRIMSON -> AccentTones(Color(0xFFB3261E), Color(0xFFFFDAD5), Color(0xFF410002), Color(0xFF8C1D18), Color(0xFFFFB4AB), Color(0xFFFFDAD5), Color(0xFF8C1D18))
+    AppAccent.AMBER -> AccentTones(Color(0xFF7A5900), Color(0xFFFFDF9E), Color(0xFF261900), Color(0xFF5B4300), Color(0xFFEFC020), Color(0xFFFFDF9E), Color(0xFF5B4300))
+    AppAccent.SKY -> AccentTones(Color(0xFF00658E), Color(0xFFC7E7FF), Color(0xFF001E2E), Color(0xFF004C6B), Color(0xFF82CFFF), Color(0xFFC7E7FF), Color(0xFF004C6B))
+    AppAccent.PLUM -> AccentTones(Color(0xFF8B418F), Color(0xFFFFD6FB), Color(0xFF36003C), Color(0xFF6D2871), Color(0xFFF9ABFB), Color(0xFFFFD6FB), Color(0xFF6D2871))
     AppAccent.MONO -> AccentTones(Color(0xFF4A5A59), Color(0xFFD9E2E0), Color(0xFF101414), Color(0xFF33403E), Color(0xFFB4C0BE), Color(0xFFD9E2E0), Color(0xFF33403E))
 }
 

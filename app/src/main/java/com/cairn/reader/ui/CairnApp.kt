@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Inbox
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.RssFeed
@@ -162,6 +163,8 @@ fun CairnApp(
     var showViewMenu by remember { mutableStateOf(false) }
     var showFilterMenu by remember { mutableStateOf(false) }
     var showMarkMenu by remember { mutableStateOf(false) }
+    var inboxSearchOpen by remember { mutableStateOf(false) }
+    val inboxQuery by inboxViewModel.query.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -211,16 +214,27 @@ fun CairnApp(
             if (current == Destination.Library || current == Destination.Discover) return@topBar
             CenterAlignedTopAppBar(
                 title = {
-                    val title = when {
-                        current != Destination.Inbox -> current.label
-                        inboxState.filter == InboxFilter.STARRED -> "Starred"
-                        selection is com.cairn.reader.ui.inbox.DrawerSelection.Feed ->
-                            (selection as com.cairn.reader.ui.inbox.DrawerSelection.Feed).title
-                        selection is com.cairn.reader.ui.inbox.DrawerSelection.Folder ->
-                            (selection as com.cairn.reader.ui.inbox.DrawerSelection.Folder).name
-                        else -> "All Articles"
+                    if (current == Destination.Inbox && inboxSearchOpen) {
+                        androidx.compose.material3.OutlinedTextField(
+                            value = inboxQuery,
+                            onValueChange = inboxViewModel::setInboxQuery,
+                            singleLine = true,
+                            leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                            placeholder = { Text("Search these entries") },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    } else {
+                        val title = when {
+                            current != Destination.Inbox -> current.label
+                            inboxState.filter == InboxFilter.STARRED -> "Starred"
+                            selection is com.cairn.reader.ui.inbox.DrawerSelection.Feed ->
+                                (selection as com.cairn.reader.ui.inbox.DrawerSelection.Feed).title
+                            selection is com.cairn.reader.ui.inbox.DrawerSelection.Folder ->
+                                (selection as com.cairn.reader.ui.inbox.DrawerSelection.Folder).name
+                            else -> "All Articles"
+                        }
+                        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 },
                 navigationIcon = {
                     IconButton(onClick = { scope.launch { drawerState.open() } }) {
@@ -229,6 +243,15 @@ fun CairnApp(
                 },
                 actions = {
                     if (current == Destination.Inbox) {
+                        if (inboxSearchOpen) {
+                            IconButton(onClick = { inboxViewModel.setInboxQuery(""); inboxSearchOpen = false }) {
+                                Icon(Icons.Outlined.Close, contentDescription = "Close search")
+                            }
+                        } else {
+                            IconButton(onClick = { inboxSearchOpen = true }) {
+                                Icon(Icons.Outlined.Search, contentDescription = "Search these entries")
+                            }
+                        }
                         if (inboxState.items.isNotEmpty() && !ttsState.active) {
                             IconButton(onClick = { inboxViewModel.listenAll() }) {
                                 Icon(Icons.Outlined.Headphones, contentDescription = "Listen to all")

@@ -53,7 +53,11 @@ class FeedDiscovery @Inject constructor(
 
         val body = response.body
         if (body != null) {
-            parser.parse(body, response.finalUrl)?.let { feed ->
+            // Only accept the URL itself as a feed if it parses AND carries items — a lenient
+            // parse of an HTML home page can yield an empty "feed", which would add a source with
+            // nothing in it (the engelsbergideas.com case). When that happens, fall through to
+            // autodiscovery and the guessed /feed, /rss, … paths, which find the real feed.
+            parser.parse(body, response.finalUrl)?.takeIf { it.items.isNotEmpty() }?.let { feed ->
                 return Discovery.Found(DiscoveryResult(response.finalUrl, feed))
             }
             for (candidate in htmlFeedLinks(body, response.finalUrl)) {
@@ -81,7 +85,8 @@ class FeedDiscovery @Inject constructor(
     private suspend fun tryFeed(candidate: String): DiscoveryResult? {
         val res = runCatching { fetcher.fetch(candidate) }.getOrNull() ?: return null
         val body = res.body ?: return null
-        val feed = parser.parse(body, res.finalUrl) ?: return null
+        // Require items so an empty/placeholder parse of a guessed path isn't mistaken for a feed.
+        val feed = parser.parse(body, res.finalUrl)?.takeIf { it.items.isNotEmpty() } ?: return null
         return DiscoveryResult(res.finalUrl, feed)
     }
 
