@@ -118,7 +118,6 @@ fun LibraryScreen(
     var showCreate by remember { mutableStateOf<String?>(null) } // parentId (or "" for a top-level collection)
     var renaming by remember { mutableStateOf<Pair<String, String>?>(null) }
     var showMove by remember { mutableStateOf(false) }
-    var showSave by remember { mutableStateOf(false) }
     var scopeMenu by remember { mutableStateOf(false) }
     var displayMenu by remember { mutableStateOf(false) }
     var searchOpen by remember { mutableStateOf(false) }
@@ -300,16 +299,6 @@ fun LibraryScreen(
         }
     }
 
-    if (!selectionActive) {
-        androidx.compose.material3.ExtendedFloatingActionButton(
-            onClick = { showSave = true },
-            icon = { Icon(Icons.Outlined.Add, contentDescription = null) },
-            text = { Text("Save link") },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 20.dp, bottom = padding.calculateBottomPadding() + 20.dp),
-        )
-    }
     }
 
     showCreate?.let { parentId ->
@@ -336,9 +325,6 @@ fun LibraryScreen(
             onCreate = { viewModel.createCollection(it) },
             onDismiss = { reparenting = null },
         )
-    }
-    if (showSave) {
-        NameDialog(title = "Save a link", initial = "", confirmLabel = "Save", onConfirm = { viewModel.saveLink(it); showSave = false }, onDismiss = { showSave = false })
     }
     if (showMove) {
         CollectionPickerSheet(

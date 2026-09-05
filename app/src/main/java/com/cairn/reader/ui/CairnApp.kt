@@ -118,6 +118,7 @@ fun CairnApp(
     onOpenFeeds: () -> Unit = {},
     onOpenOffline: () -> Unit = {},
     onOpenDiscover: () -> Unit = {},
+    onOpenReadLater: () -> Unit = {},
 ) {
     var showAddFeed by remember { mutableStateOf(false) }
     val appViewModel: AppViewModel = hiltViewModel()
@@ -176,6 +177,7 @@ fun CairnApp(
                     onManageFeed = { scope.launch { drawerState.close() }; onOpenFeeds() },
                     onUnsubscribe = { feed -> inboxViewModel.unsubscribe(feed.sourceId) },
                     onSaved = { currentName = Destination.Library.name; scope.launch { drawerState.close() } },
+                    onReadLater = { scope.launch { drawerState.close() }; onOpenReadLater() },
                     onHighlights = { scope.launch { drawerState.close() }; onOpenNotebook() },
                     onSearch = { scope.launch { drawerState.close() }; onOpenSearch() },
                     onDiscover = { currentName = Destination.Discover.name; scope.launch { drawerState.close() } },

@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Folder
@@ -77,6 +78,7 @@ fun FeedDrawerContent(
     onManageFeed: (FeedUnread) -> Unit,
     onUnsubscribe: (FeedUnread) -> Unit,
     onSaved: () -> Unit,
+    onReadLater: () -> Unit,
     onHighlights: () -> Unit,
     onSearch: () -> Unit,
     onDiscover: () -> Unit,
@@ -134,7 +136,14 @@ fun FeedDrawerContent(
             modifier = Modifier.padding(itemPad),
         )
         NavigationDrawerItem(
-            label = { Text("Saved & Library") },
+            label = { Text("Read Later") },
+            selected = false,
+            icon = { Icon(Icons.Outlined.BookmarkBorder, contentDescription = null) },
+            onClick = onReadLater,
+            modifier = Modifier.padding(itemPad),
+        )
+        NavigationDrawerItem(
+            label = { Text("Library") },
             selected = false,
             icon = { Icon(Icons.AutoMirrored.Outlined.LibraryBooks, contentDescription = null) },
             onClick = onSaved,

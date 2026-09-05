@@ -101,6 +101,8 @@ class ItemRepository @Inject constructor(
     fun archived(): Flow<List<ItemListRow>> = itemDao.observeArchived()
     fun favorites(): Flow<List<ItemListRow>> = itemDao.observeFavorites()
     fun offlineCopies(): Flow<List<ItemListRow>> = itemDao.observeOfflineCopies()
+    /** The Read Later staging list — saved items not yet filed into the library. */
+    fun readLater(): Flow<List<ItemListRow>> = itemDao.observeSaved(null, null)
     fun libraryCounts(): Flow<com.cairn.reader.data.db.LibraryCounts> = itemDao.observeLibraryCounts()
     fun collectionItems(collectionId: String): Flow<List<ItemListRow>> = itemDao.observeCollection(collectionId)
     fun byTag(tagId: String): Flow<List<ItemListRow>> = itemDao.observeByTag(tagId)

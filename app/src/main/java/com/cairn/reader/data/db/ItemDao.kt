@@ -45,6 +45,7 @@ data class LibraryCounts(
     val favoritesCount: Int,
     val archiveCount: Int,
     val offlineCount: Int = 0,
+    val readLaterCount: Int = 0,
 )
 
 @Dao
@@ -380,7 +381,7 @@ interface ItemDao {
         FROM items i
         LEFT JOIN item_states s ON s.itemId = i.id
         LEFT JOIN sources src ON src.id = i.sourceId
-        WHERE COALESCE(s.isReadLater, 0) = 1 OR COALESCE(s.isStarred, 0) = 1 OR i.collectionId IS NOT NULL
+        WHERE COALESCE(s.isStarred, 0) = 1 OR i.collectionId IS NOT NULL
         ORDER BY i.savedAt DESC
         """
     )
@@ -397,7 +398,7 @@ interface ItemDao {
         FROM items i
         LEFT JOIN item_states s ON s.itemId = i.id
         LEFT JOIN sources src ON src.id = i.sourceId
-        WHERE i.collectionId IS NULL AND (COALESCE(s.isReadLater, 0) = 1 OR COALESCE(s.isStarred, 0) = 1)
+        WHERE i.collectionId IS NULL AND COALESCE(s.isStarred, 0) = 1
         ORDER BY i.savedAt DESC
         """
     )
@@ -458,13 +459,15 @@ interface ItemDao {
         """
         SELECT
           (SELECT COUNT(*) FROM items i LEFT JOIN item_states s ON s.itemId = i.id
-            WHERE COALESCE(s.isReadLater, 0) = 1 OR COALESCE(s.isStarred, 0) = 1 OR i.collectionId IS NOT NULL) AS allCount,
+            WHERE COALESCE(s.isStarred, 0) = 1 OR i.collectionId IS NOT NULL) AS allCount,
           (SELECT COUNT(*) FROM items i LEFT JOIN item_states s ON s.itemId = i.id
-            WHERE i.collectionId IS NULL AND (COALESCE(s.isReadLater, 0) = 1 OR COALESCE(s.isStarred, 0) = 1)) AS unsortedCount,
+            WHERE i.collectionId IS NULL AND COALESCE(s.isStarred, 0) = 1) AS unsortedCount,
           (SELECT COUNT(*) FROM items i LEFT JOIN item_states s ON s.itemId = i.id
             WHERE COALESCE(s.isStarred, 0) = 1 AND COALESCE(s.isArchived, 0) = 0) AS favoritesCount,
           (SELECT COUNT(*) FROM item_states s WHERE COALESCE(s.isArchived, 0) = 1) AS archiveCount,
-          (SELECT COUNT(*) FROM items i WHERE i.cacheStatus = 'PERMANENT') AS offlineCount
+          (SELECT COUNT(*) FROM items i WHERE i.cacheStatus = 'PERMANENT') AS offlineCount,
+          (SELECT COUNT(*) FROM items i LEFT JOIN item_states s ON s.itemId = i.id
+            WHERE COALESCE(s.isReadLater, 0) = 1 AND COALESCE(s.isArchived, 0) = 0) AS readLaterCount
         """
     )
     fun observeLibraryCounts(): Flow<LibraryCounts>
