@@ -52,6 +52,29 @@ class Notifier @Inject constructor(
         runCatching { manager.notify(SUMMARY_ID, summary) }
     }
 
+    /** A once-daily nudge that the focus-ranked brief is ready. Opens the app when tapped. */
+    fun notifyBrief(count: Int, headline: String?) {
+        if (count <= 0) return
+        if (!manager.areNotificationsEnabled()) return
+        ensureChannel()
+        val open = PendingIntent.getActivity(
+            context, BRIEF_ID,
+            Intent(context, MainActivity::class.java).apply {
+                action = Intent.ACTION_VIEW
+                putExtra(MainActivity.EXTRA_OPEN_BRIEF, true)
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val builder = NotificationCompat.Builder(context, CHANNEL_NEW)
+            .setSmallIcon(R.drawable.ic_stat_cairn)
+            .setContentTitle("Your daily brief is ready")
+            .setContentText(headline?.takeIf { it.isNotBlank() }?.let { "$count picks · $it" } ?: "$count picks worth your time")
+            .setAutoCancel(true)
+            .setContentIntent(open)
+        runCatching { manager.notify(BRIEF_ID, builder.build()) }
+    }
+
     private fun post(item: NewArticle) {
         val notifId = item.id.hashCode()
         val open = PendingIntent.getActivity(
@@ -94,6 +117,7 @@ class Notifier @Inject constructor(
         const val CHANNEL_NEW = "new_articles"
         private const val GROUP = "com.cairn.reader.NEW_ARTICLES"
         private const val SUMMARY_ID = -1000
+        private const val BRIEF_ID = -2000
         private const val MAX_SHOWN = 8
     }
 }

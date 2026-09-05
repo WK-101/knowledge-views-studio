@@ -802,6 +802,19 @@ class FeedRepository @Inject constructor(
         return Result.success(cached)
     }
 
+    /**
+     * Commute Mode: pull the next [limit] things you're likely to read (Read Later first, then
+     * unread, newest first) fully onto the device — text and, per the offline-image policy,
+     * images — so they're readable with no signal. Returns how many were newly saved offline.
+     */
+    suspend fun prepareOfflinePack(limit: Int = 25): Int {
+        var saved = 0
+        itemDao.offlinePackCandidates(limit).forEach { id ->
+            if (runCatching { saveOffline(id) }.getOrNull()?.isSuccess == true) saved++
+        }
+        return saved
+    }
+
     /** Render a PDF's first page to a small cover image so it has a real thumbnail in lists. */
     private fun renderPdfThumbnail(itemId: String, pdfPath: String): String? = runCatching {
         android.os.ParcelFileDescriptor.open(java.io.File(pdfPath), android.os.ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->

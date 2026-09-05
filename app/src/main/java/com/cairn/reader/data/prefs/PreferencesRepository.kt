@@ -124,6 +124,11 @@ data class AppPreferences(
     /** Strip trackers, beacons and campaign params from stored article bodies (privacy sanitize).
      *  On by default — a saved article should never phone home when you open it. */
     val sanitizeArticles: Boolean = true,
+    /** Context automation: after a successful background sync, pull the next batch of likely-reads
+     *  fully offline (respecting the Wi-Fi/charging sync constraints already in effect). */
+    val autoOfflinePack: Boolean = false,
+    /** Post a once-daily "your brief is ready" notification with the top picks. */
+    val dailyBriefNotify: Boolean = false,
     /** Auto-mark items read as they scroll up out of view in the Inbox. Off by default. */
     val markReadOnScroll: Boolean = false,
     // -- Fine reading typography (reader) --
@@ -214,6 +219,8 @@ class PreferencesRepository @Inject constructor(
         val BOTTOM_TABS_ORDER = stringPreferencesKey("bottom_tabs_order")
         val STRIP_TRACKING = booleanPreferencesKey("strip_tracking_params")
         val SANITIZE_ARTICLES = booleanPreferencesKey("sanitize_articles")
+        val AUTO_OFFLINE_PACK = booleanPreferencesKey("auto_offline_pack")
+        val DAILY_BRIEF_NOTIFY = booleanPreferencesKey("daily_brief_notify")
         val MARK_READ_ON_SCROLL = booleanPreferencesKey("mark_read_on_scroll")
         val READER_LINE_HEIGHT = androidx.datastore.preferences.core.floatPreferencesKey("reader_line_height")
         val READER_LETTER_SPACING = androidx.datastore.preferences.core.floatPreferencesKey("reader_letter_spacing")
@@ -292,6 +299,8 @@ class PreferencesRepository @Inject constructor(
             ttsEnabled = p[Keys.TTS_ENABLED] ?: true,
             stripTrackingParams = p[Keys.STRIP_TRACKING] ?: true,
             sanitizeArticles = p[Keys.SANITIZE_ARTICLES] ?: true,
+            autoOfflinePack = p[Keys.AUTO_OFFLINE_PACK] ?: false,
+            dailyBriefNotify = p[Keys.DAILY_BRIEF_NOTIFY] ?: false,
             markReadOnScroll = p[Keys.MARK_READ_ON_SCROLL] ?: false,
             readerLineHeight = p[Keys.READER_LINE_HEIGHT] ?: 1.0f,
             readerLetterSpacing = p[Keys.READER_LETTER_SPACING] ?: 0f,
@@ -437,6 +446,12 @@ class PreferencesRepository @Inject constructor(
     suspend fun setSanitizeArticles(enabled: Boolean) =
         context.dataStore.edit { it[Keys.SANITIZE_ARTICLES] = enabled }
 
+    suspend fun setAutoOfflinePack(enabled: Boolean) =
+        context.dataStore.edit { it[Keys.AUTO_OFFLINE_PACK] = enabled }
+
+    suspend fun setDailyBriefNotify(enabled: Boolean) =
+        context.dataStore.edit { it[Keys.DAILY_BRIEF_NOTIFY] = enabled }
+
     suspend fun setMarkReadOnScroll(enabled: Boolean) =
         context.dataStore.edit { it[Keys.MARK_READ_ON_SCROLL] = enabled }
 
@@ -527,6 +542,8 @@ class PreferencesRepository @Inject constructor(
             put("ttsEnabled", p.ttsEnabled)
             put("stripTrackingParams", p.stripTrackingParams)
             put("sanitizeArticles", p.sanitizeArticles)
+            put("autoOfflinePack", p.autoOfflinePack)
+            put("dailyBriefNotify", p.dailyBriefNotify)
             put("bottomTabsOrder", JSONArray(p.bottomTabsOrder))
             put("markReadOnScroll", p.markReadOnScroll)
             put("readerLineHeight", p.readerLineHeight.toDouble())
@@ -595,6 +612,8 @@ class PreferencesRepository @Inject constructor(
             if (json.has("ttsEnabled")) e[Keys.TTS_ENABLED] = json.getBoolean("ttsEnabled")
             if (json.has("stripTrackingParams")) e[Keys.STRIP_TRACKING] = json.getBoolean("stripTrackingParams")
             if (json.has("sanitizeArticles")) e[Keys.SANITIZE_ARTICLES] = json.getBoolean("sanitizeArticles")
+            if (json.has("autoOfflinePack")) e[Keys.AUTO_OFFLINE_PACK] = json.getBoolean("autoOfflinePack")
+            if (json.has("dailyBriefNotify")) e[Keys.DAILY_BRIEF_NOTIFY] = json.getBoolean("dailyBriefNotify")
             json.optJSONArray("bottomTabsOrder")?.let { arr -> e[Keys.BOTTOM_TABS_ORDER] = (0 until arr.length()).joinToString(",") { arr.getString(it) } }
             if (json.has("markReadOnScroll")) e[Keys.MARK_READ_ON_SCROLL] = json.getBoolean("markReadOnScroll")
             if (json.has("readerLineHeight")) e[Keys.READER_LINE_HEIGHT] = json.getDouble("readerLineHeight").toFloat().coerceIn(0.9f, 2.2f)

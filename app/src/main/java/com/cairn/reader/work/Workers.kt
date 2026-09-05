@@ -28,6 +28,7 @@ class SyncWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val feedRepository: FeedRepository,
     private val notifier: Notifier,
+    private val preferencesRepository: com.cairn.reader.data.prefs.PreferencesRepository,
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result =
         runCatching { feedRepository.syncAll() }
@@ -36,6 +37,11 @@ class SyncWorker @AssistedInject constructor(
                     runCatching { notifier.notifyNewArticles(newItems) }
                     // Opportunistically verify a small batch of saved links each sync (broken-link watchdog).
                     runCatching { feedRepository.checkLinks(15) }
+                    // Context automation: if Commute Mode is on, pull the next batch fully offline.
+                    // This sync already ran under the user's Wi-Fi/charging constraints, so the
+                    // device context is right; image caching still honours the offline-image policy.
+                    val prefs = runCatching { preferencesRepository.preferences.first() }.getOrNull()
+                    if (prefs?.autoOfflinePack == true) runCatching { feedRepository.prepareOfflinePack(20) }
                     CairnWidgetProvider.refresh(context)
                     Result.success()
                 },
@@ -95,6 +101,23 @@ class BackupWorker @AssistedInject constructor(
     companion object { private const val KEEP = 5 }
 }
 
+/** Once a day, composes the focus-ranked brief and posts a quiet "your brief is ready" nudge. */
+@HiltWorker
+class BriefWorker @AssistedInject constructor(
+    @Assisted context: Context,
+    @Assisted params: WorkerParameters,
+    private val insightsRepository: com.cairn.reader.data.repo.InsightsRepository,
+    private val notifier: Notifier,
+    private val preferencesRepository: com.cairn.reader.data.prefs.PreferencesRepository,
+) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result {
+        if (!preferencesRepository.preferences.first().dailyBriefNotify) return Result.success()
+        val picks = runCatching { insightsRepository.topPicks(8) }.getOrDefault(emptyList())
+        runCatching { notifier.notifyBrief(picks.size, picks.firstOrNull()?.title) }
+        return Result.success()
+    }
+}
+
 /** Saves a shared/pasted URL and extracts a clean offline copy. */
 @HiltWorker
 class SaveUrlWorker @AssistedInject constructor(
@@ -138,6 +161,17 @@ object CairnWork {
     private const val UNIQUE_PERIODIC = "cairn-periodic-sync"
     private const val UNIQUE_SYNC_NOW = "cairn-sync-now"
     private const val UNIQUE_BACKUP = "cairn-periodic-backup"
+    private const val UNIQUE_BRIEF = "cairn-daily-brief"
+
+    /** (Re)schedule the once-daily brief notification, or cancel it when [enabled] is false. */
+    fun scheduleDailyBrief(context: Context, enabled: Boolean) {
+        val wm = WorkManager.getInstance(context)
+        if (!enabled) { wm.cancelUniqueWork(UNIQUE_BRIEF); return }
+        val request = PeriodicWorkRequestBuilder<BriefWorker>(24, TimeUnit.HOURS)
+            .setInitialDelay(4, TimeUnit.HOURS)
+            .build()
+        wm.enqueueUniquePeriodicWork(UNIQUE_BRIEF, ExistingPeriodicWorkPolicy.UPDATE, request)
+    }
 
     /** (Re)schedule automatic backup every [hours], or cancel it when hours <= 0. */
     fun scheduleBackup(context: Context, hours: Int) {

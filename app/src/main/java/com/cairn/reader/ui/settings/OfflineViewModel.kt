@@ -45,6 +45,21 @@ class OfflineViewModel @Inject constructor(
     private val raw: StateFlow<List<ItemListRow>> =
         feedRepository.observeCached().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** True while an offline pack is being pulled down, so the UI can show progress. */
+    private val _preparing = MutableStateFlow(false)
+    val preparing: StateFlow<Boolean> = _preparing.asStateFlow()
+
+    /** Commute Mode: pull the next batch of likely-reads fully offline. */
+    fun prepareOfflinePack(onDone: (Int) -> Unit) {
+        if (_preparing.value) return
+        _preparing.value = true
+        viewModelScope.launch {
+            val saved = runCatching { feedRepository.prepareOfflinePack(25) }.getOrDefault(0)
+            _preparing.value = false
+            onDone(saved)
+        }
+    }
+
     /** Full count regardless of filters, for the header readout. */
     val totalCount: StateFlow<Int> =
         raw.map { it.size }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)

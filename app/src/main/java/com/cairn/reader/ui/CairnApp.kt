@@ -37,6 +37,7 @@ import androidx.compose.material.icons.outlined.OfflinePin
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Insights
+import androidx.compose.material.icons.outlined.Newspaper
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FormatQuote
@@ -129,6 +130,7 @@ private enum class Destination(val label: String, val icon: ImageVector, val isP
     Inbox("Inbox", Icons.Outlined.Inbox),
     Library("Library", Icons.AutoMirrored.Outlined.LibraryBooks),
     Discover("Discover", Icons.Outlined.Explore),
+    Brief("Brief", Icons.Outlined.Newspaper),
     Starred("Starred", Icons.Outlined.StarBorder, isPane = false),
     ReadLater("Read Later", Icons.Outlined.Bookmark, shortLabel = "Later"),
     Highlights("Highlights", Icons.Outlined.FormatQuote, shortLabel = "Notes"),
@@ -136,8 +138,8 @@ private enum class Destination(val label: String, val icon: ImageVector, val isP
     Search("Search", Icons.Outlined.Search),
     Trash("Trash", Icons.Outlined.DeleteOutline),
     Offline("Offline", Icons.Outlined.OfflinePin),
-    Rules("Rules", Icons.Outlined.Bolt, isPane = false),
-    Insights("Insights", Icons.Outlined.Insights, isPane = false),
+    Rules("Rules", Icons.Outlined.Bolt),
+    Insights("Insights", Icons.Outlined.Insights),
     Settings("Settings", Icons.Outlined.Settings);
 
     /** A compact label for the bottom nav bar, where six items must each fit on one line. */
@@ -149,6 +151,7 @@ private enum class Destination(val label: String, val icon: ImageVector, val isP
 private val OWN_TOP_BAR = setOf(
     Destination.Library, Destination.Discover, Destination.ReadLater, Destination.Highlights,
     Destination.Feeds, Destination.Search, Destination.Trash, Destination.Offline, Destination.Rules, Destination.Insights,
+    Destination.Brief,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -157,6 +160,8 @@ fun CairnApp(
     onOpenItem: (String) -> Unit = {},
     onOpenWeb: (String) -> Unit = {},
     onTeach: (String) -> Unit = {},
+    openBrief: Boolean = false,
+    onBriefConsumed: () -> Unit = {},
 ) {
     var showAddFeed by remember { mutableStateOf(false) }
     var manageFeed by remember { mutableStateOf<com.cairn.reader.data.db.SourceEntity?>(null) }
@@ -203,6 +208,10 @@ fun CairnApp(
     val scope = rememberCoroutineScope()
     // The single navigation primitive: switch to a pane and close the drawer.
     val goTo: (Destination) -> Unit = { dest -> currentName = dest.name; scope.launch { drawerState.close() } }
+    // A daily-brief notification tap opens the Brief pane once.
+    androidx.compose.runtime.LaunchedEffect(openBrief) {
+        if (openBrief) { currentName = Destination.Brief.name; onBriefConsumed() }
+    }
     val openDrawer: () -> Unit = { scope.launch { drawerState.open() } }
     // Honour the user's chosen launch destination + default Inbox filter, once per cold start.
     var appliedStart by rememberSaveable { mutableStateOf(false) }
@@ -258,6 +267,7 @@ fun CairnApp(
                     onSaved = { goTo(Destination.Library) },
                     onReadLater = { goTo(Destination.ReadLater) },
                     onHighlights = { goTo(Destination.Highlights) },
+                    onBrief = { goTo(Destination.Brief) },
                     onSearch = { goTo(Destination.Search) },
                     onDiscover = { goTo(Destination.Discover) },
                     onManageFeeds = { goTo(Destination.Feeds) },
@@ -459,6 +469,7 @@ fun CairnApp(
                 Destination.Offline -> com.cairn.reader.ui.settings.OfflineScreen(padding, onOpenItem = open, onOpenDrawer = openDrawer)
                 Destination.Rules -> com.cairn.reader.ui.rules.RulesScreen(padding, onOpenDrawer = openDrawer)
                 Destination.Insights -> com.cairn.reader.ui.insights.InsightsScreen(padding, onOpenItem = open, onOpenDrawer = openDrawer)
+                Destination.Brief -> com.cairn.reader.ui.brief.BriefScreen(padding, onOpenItem = open, onOpenDrawer = openDrawer)
                 Destination.Settings -> SettingsScreen(padding, onOpenNotebook = { goTo(Destination.Highlights) }, onOpenOffline = { goTo(Destination.Offline) }, onOpenRules = { goTo(Destination.Rules) }, onOpenInsights = { goTo(Destination.Insights) })
                 // Inbox and any non-pane fallthrough render the Inbox.
                 else -> InboxScreen(padding, inboxViewModel, open, onOpenWeb, inboxViewMode, inboxListState)

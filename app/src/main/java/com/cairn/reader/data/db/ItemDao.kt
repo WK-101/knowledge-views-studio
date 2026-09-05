@@ -554,6 +554,20 @@ interface ItemDao {
     @Query("SELECT COUNT(*) FROM items WHERE trashedAt IS NULL AND (cacheStatus = 'PERMANENT' OR (extractStatus = 'OK' AND blobPath IS NOT NULL))")
     fun observeCachedCount(): Flow<Int>
 
+    /** Candidates for an offline pack: not-yet-permanent, non-PDF items — Read Later first, then
+     *  unread — newest first, so a commute grabs the things most likely to be read next. */
+    @Query(
+        """
+        SELECT i.id FROM items i LEFT JOIN item_states s ON s.itemId = i.id
+        WHERE i.trashedAt IS NULL AND i.type != 'PDF'
+          AND (i.cacheStatus IS NULL OR i.cacheStatus != 'PERMANENT')
+          AND (COALESCE(s.isReadLater, 0) = 1 OR COALESCE(s.isRead, 0) = 0)
+        ORDER BY COALESCE(s.isReadLater, 0) DESC, COALESCE(i.publishedAt, i.savedAt) DESC
+        LIMIT :limit
+        """
+    )
+    suspend fun offlinePackCandidates(limit: Int): List<String>
+
     @Query(
         """
         SELECT

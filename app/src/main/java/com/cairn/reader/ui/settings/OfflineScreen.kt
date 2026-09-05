@@ -27,6 +27,7 @@ import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.DownloadForOffline
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.OfflinePin
 import androidx.compose.material.icons.outlined.Search
@@ -83,8 +84,10 @@ fun OfflineScreen(
     val kind by viewModel.kind.collectAsStateWithLifecycle()
     val groupBySource by viewModel.groupBySource.collectAsStateWithLifecycle()
     val availableTypes by viewModel.availableTypes.collectAsStateWithLifecycle()
+    val preparing by viewModel.preparing.collectAsStateWithLifecycle()
     val selecting = picked.isNotEmpty()
     val scheme = MaterialTheme.colorScheme
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     var actionRow by remember { mutableStateOf<com.cairn.reader.data.db.ItemListRow?>(null) }
     var showSettings by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf<com.cairn.reader.data.db.ItemListRow?>(null) }
@@ -117,6 +120,18 @@ fun OfflineScreen(
                     }
                 } else {
                     IconButton(onClick = { searchOpen = true }) { Icon(Icons.Outlined.Search, contentDescription = "Search") }
+                    IconButton(
+                        enabled = !preparing,
+                        onClick = {
+                            android.widget.Toast.makeText(ctx, "Preparing offline pack…", android.widget.Toast.LENGTH_SHORT).show()
+                            viewModel.prepareOfflinePack { saved ->
+                                android.widget.Toast.makeText(ctx, if (saved > 0) "Saved $saved articles for offline" else "Everything's already offline", android.widget.Toast.LENGTH_LONG).show()
+                            }
+                        },
+                    ) {
+                        if (preparing) androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        else Icon(Icons.Outlined.DownloadForOffline, contentDescription = "Prepare offline pack")
+                    }
                     androidx.compose.foundation.layout.Box {
                         IconButton(onClick = { sortMenu = true }) { Icon(Icons.Outlined.SwapVert, contentDescription = "Sort & group") }
                         DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {

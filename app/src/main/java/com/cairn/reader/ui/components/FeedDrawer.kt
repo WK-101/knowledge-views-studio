@@ -27,6 +27,7 @@ import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.FormatQuote
+import androidx.compose.material.icons.outlined.Newspaper
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.RssFeed
 import androidx.compose.material.icons.outlined.Search
@@ -82,6 +83,7 @@ fun FeedDrawerContent(
     onSaved: () -> Unit,
     onReadLater: () -> Unit,
     onHighlights: () -> Unit,
+    onBrief: () -> Unit = {},
     onSearch: () -> Unit,
     onDiscover: () -> Unit,
     onManageFeeds: () -> Unit,
@@ -162,6 +164,13 @@ fun FeedDrawerContent(
             selected = false,
             icon = { Icon(Icons.Outlined.FormatQuote, contentDescription = null) },
             onClick = onHighlights,
+            modifier = Modifier.padding(itemPad),
+        )
+        NavigationDrawerItem(
+            label = { Text("Daily Brief") },
+            selected = false,
+            icon = { Icon(Icons.Outlined.Newspaper, contentDescription = null) },
+            onClick = onBrief,
             modifier = Modifier.padding(itemPad),
         )
 

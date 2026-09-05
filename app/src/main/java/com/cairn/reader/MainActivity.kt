@@ -22,6 +22,8 @@ class MainActivity : ComponentActivity() {
 
     // The article a notification asked us to open; consumed once by CairnRoot.
     private val pendingItem = mutableStateOf<String?>(null)
+    // A daily-brief notification asked us to open the Brief; consumed once by CairnRoot.
+    private val pendingBrief = mutableStateOf(false)
 
     private val requestNotifications =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* no-op */ }
@@ -31,10 +33,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         pendingItem.value = intent?.getStringExtra(EXTRA_OPEN_ITEM)
+        pendingBrief.value = intent?.getBooleanExtra(EXTRA_OPEN_BRIEF, false) == true
         maybeRequestNotifications()
         setContent {
             val open by pendingItem
-            CairnRoot(openItemId = open, onOpenConsumed = { pendingItem.value = null })
+            val brief by pendingBrief
+            CairnRoot(
+                openItemId = open, onOpenConsumed = { pendingItem.value = null },
+                openBrief = brief, onBriefConsumed = { pendingBrief.value = false },
+            )
         }
     }
 
@@ -42,6 +49,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         intent.getStringExtra(EXTRA_OPEN_ITEM)?.let { pendingItem.value = it }
+        if (intent.getBooleanExtra(EXTRA_OPEN_BRIEF, false)) pendingBrief.value = true
     }
 
     // Volume-key page turns in the reader (opt-in). When no reader handler is registered these
@@ -72,5 +80,6 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_OPEN_ITEM = "open_item_id"
+        const val EXTRA_OPEN_BRIEF = "open_brief"
     }
 }

@@ -527,6 +527,20 @@ fun SettingsScreen(
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
+                        Text("Commute Mode (auto offline)", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text("After each background sync, pull the next batch of likely-reads fully offline. Uses the same Wi-Fi/charging rules as sync.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                    }
+                    androidx.compose.material3.Switch(checked = prefs.autoOfflinePack, onCheckedChange = { viewModel.setAutoOfflinePack(it) })
+                }
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Daily brief notification", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text("Once a day, a quiet nudge when your focus-ranked brief is ready to read or listen to.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                    }
+                    androidx.compose.material3.Switch(checked = prefs.dailyBriefNotify, onCheckedChange = { viewModel.setDailyBriefNotify(it) })
+                }
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
                         Text("Mark read on scroll", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
                         Text("In the Inbox, articles are marked read automatically as they scroll up out of view.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }

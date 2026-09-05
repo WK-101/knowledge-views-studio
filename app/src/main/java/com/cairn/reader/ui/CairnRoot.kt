@@ -31,6 +31,8 @@ import com.cairn.reader.ui.web.WebScreen
 fun CairnRoot(
     openItemId: String? = null,
     onOpenConsumed: () -> Unit = {},
+    openBrief: Boolean = false,
+    onBriefConsumed: () -> Unit = {},
 ) {
     val appViewModel: AppViewModel = hiltViewModel()
     val prefs by appViewModel.preferences.collectAsStateWithLifecycle()
@@ -72,6 +74,8 @@ fun CairnRoot(
                     onOpenItem = { itemId -> navController.navigate("reader/$itemId") },
                     onOpenWeb = openWeb,
                     onTeach = { url -> navController.navigate("picker/${WebRoute.encode(url)}") },
+                    openBrief = openBrief,
+                    onBriefConsumed = onBriefConsumed,
                 )
             }
             composable(

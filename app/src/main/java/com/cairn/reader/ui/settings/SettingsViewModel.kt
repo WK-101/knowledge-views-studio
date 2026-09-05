@@ -201,6 +201,11 @@ class SettingsViewModel @Inject constructor(
     fun setTtsEnabled(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setTtsEnabled(enabled) }
     fun setStripTrackingParams(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setStripTrackingParams(enabled) }
     fun setSanitizeArticles(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setSanitizeArticles(enabled) }
+    fun setAutoOfflinePack(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setAutoOfflinePack(enabled) }
+    fun setDailyBriefNotify(enabled: Boolean) = viewModelScope.launch {
+        preferencesRepository.setDailyBriefNotify(enabled)
+        com.cairn.reader.work.CairnWork.scheduleDailyBrief(context, enabled)
+    }
     fun setMarkReadOnScroll(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setMarkReadOnScroll(enabled) }
     fun setStartDestination(name: String) = viewModelScope.launch { preferencesRepository.setStartDestination(name) }
     fun setStartFilter(name: String) = viewModelScope.launch { preferencesRepository.setStartFilter(name) }
