@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -88,6 +89,8 @@ private fun DiscoverBody(padding: PaddingValues, viewModel: DiscoverViewModel) {
     val catalog by viewModel.catalog.collectAsStateWithLifecycle()
     val subscribed by viewModel.subscribed.collectAsStateWithLifecycle()
     val busy by viewModel.busy.collectAsStateWithLifecycle()
+    val query by viewModel.query.collectAsStateWithLifecycle()
+    val addable by viewModel.queryIsAddable.collectAsStateWithLifecycle()
     val scheme = MaterialTheme.colorScheme
     var platformSheet by remember { mutableStateOf<PlatformFeed?>(null) }
 
@@ -96,6 +99,28 @@ private fun DiscoverBody(padding: PaddingValues, viewModel: DiscoverViewModel) {
         contentPadding = PaddingValues(top = padding.calculateTopPadding() + 4.dp, bottom = padding.calculateBottomPadding() + 28.dp),
     ) {
         item {
+            OutlinedTextField(
+                value = query,
+                onValueChange = viewModel::setQuery,
+                singleLine = true,
+                placeholder = { Text("Search feeds, or paste a site / URL") },
+                leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+            if (addable) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Add “${query.trim()}”", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { viewModel.addTypedQuery() }, enabled = !busy) {
+                        Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.height(18.dp))
+                        Spacer(Modifier.width(4.dp)); Text("Add")
+                    }
+                }
+            }
+        }
+        if (query.isBlank()) item {
             Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
                 SectionLabel("ADD FROM A SITE")
                 Spacer(Modifier.height(4.dp))

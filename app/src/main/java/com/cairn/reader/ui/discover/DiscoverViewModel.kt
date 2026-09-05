@@ -68,7 +68,32 @@ class DiscoverViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _catalog = MutableStateFlow<List<CatalogCategory>>(emptyList())
-    val catalog: StateFlow<List<CatalogCategory>> = _catalog.asStateFlow()
+
+    private val _query = MutableStateFlow("")
+    val query: StateFlow<String> = _query.asStateFlow()
+
+    /** The catalog, filtered by the current query (matches title or site); blank query = everything. */
+    val catalog: StateFlow<List<CatalogCategory>> =
+        kotlinx.coroutines.flow.combine(_catalog, _query) { cats, q ->
+            val term = q.trim()
+            if (term.isBlank()) cats
+            else cats.mapNotNull { c ->
+                val hits = c.feeds.filter { it.title.contains(term, true) || it.site.contains(term, true) }
+                if (hits.isEmpty()) null else c.copy(feeds = hits)
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** True when the query looks like a URL/handle worth trying to add directly. */
+    val queryIsAddable: StateFlow<Boolean> =
+        _query.map { q -> q.trim().let { it.length > 2 && (it.contains('.') || it.startsWith("@") || it.startsWith("r/")) } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun setQuery(value: String) { _query.value = value }
+
+    fun addTypedQuery() {
+        val q = _query.value.trim()
+        if (q.isNotBlank()) add(q, null)
+    }
 
     /** Feed URLs already subscribed, so the catalog can show a ✓ instead of "Add". */
     val subscribed: StateFlow<Set<String>> =

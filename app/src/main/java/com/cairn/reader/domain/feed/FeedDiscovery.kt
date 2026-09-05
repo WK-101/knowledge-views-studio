@@ -33,6 +33,14 @@ class FeedDiscovery @Inject constructor(
         val url = normalize(rawInput)
             ?: return Discovery.NotFound("That doesn't look like a valid web address.")
 
+        // 0. If the user handed us an http:// URL, try the https version first — most sites
+        //    have moved to https and it avoids a cleartext round-trip. The original http URL
+        //    still works as a fallback below (cleartext is permitted for stubborn feeds).
+        if (url.startsWith("http://")) {
+            val https = "https://" + url.removePrefix("http://")
+            tryFeed(https)?.let { return Discovery.Found(it) }
+        }
+
         // 1. Known platform shortcuts (YouTube / Reddit / Substack / …).
         knownPattern(url)?.let { candidate ->
             tryFeed(candidate)?.let { return Discovery.Found(it) }
