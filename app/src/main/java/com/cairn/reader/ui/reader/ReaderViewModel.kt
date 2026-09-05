@@ -115,6 +115,28 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
+    /** True while the JavaScript render pass is running (collector P5). */
+    private val _rendering = MutableStateFlow(false)
+    val rendering: StateFlow<Boolean> = _rendering.asStateFlow()
+
+    /**
+     * Last resort for JS-rendered sites: render the page in a headless WebView so client-side
+     * content becomes readable, then re-extract. Used when the plain fetch returned a thin or
+     * empty article.
+     */
+    fun loadWithJavaScript() {
+        if (_rendering.value || itemId.isEmpty()) return
+        viewModelScope.launch {
+            _rendering.value = true
+            _state.update { it.copy(extracting = true) }
+            val ok = feedRepository.extractWithJs(itemId)
+            val data = itemRepository.reader(itemId)
+            _rendering.value = false
+            _state.value = ReaderUiState(loading = false, extracting = false, data = data)
+            _messages.emit(if (ok) "Rebuilt from the rendered page" else "Couldn't render this page")
+        }
+    }
+
     fun toggleStar() {
         val current = _state.value.data ?: return
         viewModelScope.launch {

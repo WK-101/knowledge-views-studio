@@ -44,6 +44,7 @@ class FeedRepository @Inject constructor(
     private val fetcher: HttpFetcher,
     private val extractor: ArticleExtractor,
     private val blobStore: BlobStore,
+    private val webViewRenderer: com.cairn.reader.domain.render.WebViewRenderer,
     private val preferencesRepository: PreferencesRepository,
     @ApplicationContext private val context: Context,
 ) {
@@ -487,6 +488,47 @@ class FeedRepository @Inject constructor(
     suspend fun extractFull(itemId: String) {
         val item = itemDao.getItem(itemId) ?: return
         extractInto(itemId, item.url)
+    }
+
+    /**
+     * JS-render fallback (collector P5): re-render the item's page with a headless WebView so
+     * client-side-rendered content becomes real HTML, then re-run Readability on the rendered
+     * DOM. For single-page-app articles where the static fetch returns an empty shell, this is
+     * often the only way to get readable text. Returns true when it produced a real article.
+     * Entirely on-device — the WebView fetches over the network but nothing is uploaded.
+     */
+    suspend fun extractWithJs(itemId: String): Boolean {
+        val item = itemDao.getItem(itemId) ?: return false
+        val url = item.url.takeIf { it.startsWith("http", ignoreCase = true) } ?: return false
+        val rendered = webViewRenderer.render(url)
+        if (rendered == null) {
+            itemDao.setExtractStatus(itemId, "FAILED")
+            return false
+        }
+        val extracted = extractor.extract(rendered.finalUrl, rendered.html)
+        if (extracted == null || extracted.wordCount < 60) {
+            itemDao.setExtractStatus(itemId, "FAILED")
+            return false
+        }
+        val blob = blobStore.writeArticle(itemId, extracted.contentHtml)
+        extracted.title?.let { itemDao.updateMeta(itemId, it, extracted.byline, hostOf(url)) }
+        itemDao.setExtracted(
+            id = itemId,
+            blobPath = blob,
+            excerpt = extracted.excerpt,
+            wordCount = extracted.wordCount,
+            minutes = extracted.readingMinutes,
+            leadImage = extracted.leadImage,
+            status = "OK",
+            contentSource = "READABLE",
+        )
+        itemDao.indexItem(
+            ItemFtsEntity(itemId, extracted.title ?: "", extracted.byline, extracted.plainText.take(20_000)),
+        )
+        if (extracted.wordCount >= 200 && itemDao.getItem(itemId)?.type == "LINK") {
+            itemDao.setType(itemId, "ARTICLE")
+        }
+        return true
     }
 
     private suspend fun extractInto(itemId: String, url: String) {

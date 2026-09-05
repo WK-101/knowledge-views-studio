@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.Circle
+import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.DownloadForOffline
@@ -168,6 +169,7 @@ fun ReaderScreen(
     val ttsState by viewModel.tts.collectAsStateWithLifecycle()
     val audioState by viewModel.audio.collectAsStateWithLifecycle()
     val savingOffline by viewModel.savingOffline.collectAsStateWithLifecycle()
+    val rendering by viewModel.rendering.collectAsStateWithLifecycle()
     val collections by viewModel.collections.collectAsStateWithLifecycle()
     val itemTags by viewModel.itemTags.collectAsStateWithLifecycle()
     val allTags by viewModel.allTags.collectAsStateWithLifecycle()
@@ -384,6 +386,13 @@ fun ReaderScreen(
                                     leadingIcon = { Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null) },
                                     onClick = { showMenu = false; openOriginal() },
                                 )
+                                // JS-render fallback (collector P5): for single-page-app articles whose
+                                // plain fetch returns an empty shell, render the page and re-extract.
+                                DropdownMenuItem(
+                                    text = { Text("Load with JavaScript") },
+                                    leadingIcon = { Icon(Icons.Outlined.Code, contentDescription = null) },
+                                    onClick = { showMenu = false; viewModel.loadWithJavaScript() },
+                                )
                             }
                             DropdownMenuItem(
                                 text = { Text(if (highlights.isEmpty()) "Share article" else "Export highlights") },
@@ -458,7 +467,9 @@ fun ReaderScreen(
                 justify = prefs.readerJustify,
                 showImages = prefs.readerShowImages,
                 listState = listState,
+                rendering = rendering,
                 onLoadFull = viewModel::loadFullArticle,
+                onLoadWithJs = viewModel::loadWithJavaScript,
                 onOpenOriginal = ::openOriginal,
                 onSaveProgress = viewModel::setProgress,
                 onSelectText = { b, s, e, q -> pending = PendingSelection(b, s, e, q) },
@@ -550,7 +561,9 @@ private fun ArticleBody(
     fontFamily: FontFamily,
     scale: Float,
     justify: Boolean,
+    rendering: Boolean = false,
     onLoadFull: () -> Unit,
+    onLoadWithJs: () -> Unit,
     onOpenOriginal: () -> Unit,
     onSaveProgress: (Float) -> Unit,
     onSelectText: (blockIndex: Int, start: Int, end: Int, quote: String) -> Unit,
@@ -657,14 +670,21 @@ private fun ArticleBody(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.height(16.dp).width(16.dp))
                                 Spacer(Modifier.width(10.dp))
-                                Text("Fetching full article…", style = MaterialTheme.typography.labelMedium, color = palette.secondary)
+                                Text(if (rendering) "Rendering with JavaScript…" else "Fetching full article…", style = MaterialTheme.typography.labelMedium, color = palette.secondary)
                             }
                             Spacer(Modifier.height(8.dp))
                         }
                         data.extractStatus == "FAILED" -> {
-                            OutlinedButton(onClick = onLoadFull) { Text("Retry full article") }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = onLoadFull) { Text("Retry") }
+                                OutlinedButton(onClick = onLoadWithJs) {
+                                    Icon(Icons.Outlined.Code, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Load with JavaScript")
+                                }
+                            }
                             Spacer(Modifier.height(4.dp))
-                            Text("Showing the summary — the full article couldn't be fetched.", style = MaterialTheme.typography.labelSmall, color = palette.secondary)
+                            Text("Showing the summary — the full article couldn't be fetched. If it's a JavaScript-heavy site, try loading with JavaScript.", style = MaterialTheme.typography.labelSmall, color = palette.secondary)
                             Spacer(Modifier.height(8.dp))
                         }
                     }
@@ -694,7 +714,14 @@ private fun ArticleBody(
                     Column(Modifier.padding(horizontal = ReaderHPad)) {
                         Text("No readable content was saved for this item yet.", style = bodyStyle, color = palette.secondary)
                         Spacer(Modifier.height(12.dp))
-                        OutlinedButton(onClick = onOpenOriginal) { Text("Open original") }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = onLoadWithJs) {
+                                Icon(Icons.Outlined.Code, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("Load with JavaScript")
+                            }
+                            OutlinedButton(onClick = onOpenOriginal) { Text("Open original") }
+                        }
                     }
                 }
             }
