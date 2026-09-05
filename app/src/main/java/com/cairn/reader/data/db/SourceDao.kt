@@ -50,6 +50,9 @@ interface SourceDao {
     @Query("UPDATE sources SET maxItems = :maxItems WHERE id = :id")
     suspend fun setMaxItems(id: String, maxItems: Int?)
 
+    @Query("UPDATE sources SET contentHash = :hash, lastSyncedAt = :syncedAt, consecutiveErrors = 0 WHERE id = :id")
+    suspend fun setContentHash(id: String, hash: String, syncedAt: Long)
+
     // Changing the feed URL resets sync bookkeeping so the new source is fetched fresh next sync.
     @Query("UPDATE sources SET feedUrl = :feedUrl, etag = NULL, lastModified = NULL, consecutiveErrors = 0, retryAfter = NULL WHERE id = :id")
     suspend fun setFeedUrl(id: String, feedUrl: String)

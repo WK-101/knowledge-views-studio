@@ -18,7 +18,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TombstoneEntity::class,
         SyncOpEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class CairnDatabase : RoomDatabase() {
@@ -61,5 +61,12 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
 val MIGRATION_4_5 = object : Migration(4, 5) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE sources ADD COLUMN maxItems INTEGER")
+    }
+}
+
+/** v5 → v6: watched-page change detection stores the last-seen content hash. Nullable. */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE sources ADD COLUMN contentHash TEXT")
     }
 }

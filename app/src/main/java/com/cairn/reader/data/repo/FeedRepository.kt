@@ -120,6 +120,46 @@ class FeedRepository @Inject constructor(
         return Result.success(sourceId)
     }
 
+    /** Watch any page for changes (P3 collector): each time its main text changes, a new item
+     *  appears linking to the page. Great for release notes, job boards, or list pages with no feed. */
+    suspend fun watchPage(rawUrl: String): Result<String> {
+        val url = normalize(rawUrl) ?: return Result.failure(IllegalStateException("That doesn't look like a valid web address."))
+        val res = runCatching { fetcher.fetch(url) }.getOrNull()
+            ?: return Result.failure(IllegalStateException("Couldn't reach ${hostOf(url)}."))
+        val body = res.body ?: return Result.failure(IllegalStateException("That page returned no content."))
+        val host = hostOf(url)
+        val sourceId = deterministicId("watch|$url")
+        val source = SourceEntity(id = sourceId, kind = "WATCH", feedUrl = url, siteUrl = url, title = "$host · watched")
+        sourceDao.upsert(source)
+        val now = System.currentTimeMillis()
+        val hash = pageTextHash(body)
+        insertWatchSnapshot(source, url, now)
+        sourceDao.setContentHash(sourceId, hash, now)
+        return Result.success(sourceId)
+    }
+
+    private fun pageTextHash(html: String): String =
+        runCatching { Jsoup.parse(html).body().text() }.getOrDefault(html).hashCode().toString()
+
+    private suspend fun insertWatchSnapshot(
+        source: SourceEntity,
+        url: String,
+        now: Long,
+        newItems: MutableList<com.cairn.reader.notifications.NewArticle>? = null,
+    ) {
+        insertParsed(
+            source,
+            ParsedItem(
+                guid = "$url#${now / 60000}", // per-minute guid so each detected change is a new item
+                title = "${source.title.removeSuffix(" · watched")} updated",
+                link = url, author = null, publishedAt = now,
+                contentHtml = null, summary = "This watched page changed.", imageUrl = null,
+            ),
+            now,
+            newItems,
+        )
+    }
+
     /** Search far beyond what's stored locally: a Google News RSS query returns matching
      *  articles from across the web (well past a feed's short recent window). Just a public
      *  fetch — no account — so it stays within the privacy model. Empty on any failure. */
@@ -237,6 +277,15 @@ class FeedRepository @Inject constructor(
         now: Long,
         newItems: MutableList<com.cairn.reader.notifications.NewArticle>? = null,
     ) {
+        // Watched pages: fetch, hash the text, and emit an item only when it changed.
+        if (source.kind == "WATCH") {
+            val body = runCatching { fetcher.fetch(source.feedUrl).body }.getOrNull()
+            if (body == null) { sourceDao.markError(source.id, null); return }
+            val hash = pageTextHash(body)
+            if (hash != source.contentHash) insertWatchSnapshot(source, source.feedUrl, now, newItems)
+            sourceDao.setContentHash(source.id, hash, now)
+            return
+        }
         // Sitemap-derived feeds are rebuilt from the site's sitemap each sync (no RSS to poll).
         if (source.kind == "SITEMAP") {
             val feed = runCatching { siteFeedBuilder.build(source.feedUrl) }.getOrNull()

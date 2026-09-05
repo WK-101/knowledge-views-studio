@@ -37,6 +37,8 @@ data class SourceEntity(
     val sortOrder: Int = 0,
     /** Per-feed retention override: null = use the global cap, 0 = keep everything, N = keep newest N. */
     val maxItems: Int? = null,
+    /** For WATCH sources: a hash of the page's last-seen text, to detect changes. */
+    val contentHash: String? = null,
 )
 
 @Entity(

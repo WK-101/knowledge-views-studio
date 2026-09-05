@@ -175,6 +175,14 @@ class FeedsViewModel @Inject constructor(
         _snacks.emit(result.fold(onSuccess = { "Feed added" }, onFailure = { it.message ?: "No feed found there" }))
     }
 
+    fun watchPage(url: String) = viewModelScope.launch {
+        if (url.isBlank()) return@launch
+        _busy.value = true
+        val result = feedRepository.watchPage(url.trim())
+        _busy.value = false
+        _snacks.emit(result.fold(onSuccess = { "Watching that page for changes" }, onFailure = { it.message ?: "Couldn't watch that page" }))
+    }
+
     fun followViaGoogleNews(url: String) = viewModelScope.launch {
         if (url.isBlank()) return@launch
         _busy.value = true

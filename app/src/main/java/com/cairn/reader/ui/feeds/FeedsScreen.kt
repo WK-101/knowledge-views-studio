@@ -305,6 +305,7 @@ fun FeedsScreen(
             busy = busy,
             onAdd = { viewModel.addFeed(it) },
             onGoogleNews = { viewModel.followViaGoogleNews(it) },
+            onWatchPage = { viewModel.watchPage(it) },
             onDismiss = { showAdd = false },
         )
     }
@@ -445,6 +446,7 @@ private fun AddFeedSheet(
     busy: Boolean,
     onAdd: (String) -> Unit,
     onGoogleNews: (String) -> Unit,
+    onWatchPage: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var text by remember { mutableStateOf("") }
@@ -485,6 +487,22 @@ private fun AddFeedSheet(
             Spacer(Modifier.height(8.dp))
             OutlinedButton(onClick = { onGoogleNews(text); onDismiss() }, enabled = text.isNotBlank() && !busy, modifier = Modifier.fillMaxWidth()) {
                 Text("Follow via Google News")
+            }
+            Spacer(Modifier.height(16.dp))
+            Text(
+                "Just want to know when a page changes?",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Cairn can watch any page — release notes, a job board, a list — and add an item whenever its content changes.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = { onWatchPage(text); onDismiss() }, enabled = text.isNotBlank() && !busy, modifier = Modifier.fillMaxWidth()) {
+                Text("Watch this page for changes")
             }
         }
     }
