@@ -47,6 +47,7 @@ import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Label
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.OfflinePin
 import androidx.compose.material.icons.outlined.Search
@@ -65,6 +66,8 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -95,6 +98,7 @@ fun LibraryScreen(
     padding: PaddingValues,
     onOpenItem: (String) -> Unit,
     onOpenHighlights: () -> Unit = {},
+    onOpenDrawer: () -> Unit = {},
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
     val collections by viewModel.collections.collectAsStateWithLifecycle()
@@ -128,90 +132,94 @@ fun LibraryScreen(
     BackHandler(enabled = selectionActive) { viewModel.clearSelection() }
 
     Box(Modifier.fillMaxSize()) {
-    Column(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
-        // Compact top bar: the scope name on the left; search, filter (organizer sheet) and
-        // view/sort on the right. All the collection/tag/scope organisation lives in the sheet,
-        // so the list itself starts right below this one row — no wall of chips eating space.
-        androidx.compose.foundation.layout.Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (searchOpen) {
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = viewModel::setQuery,
-                    singleLine = true,
-                    leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
-                    trailingIcon = {
-                        androidx.compose.foundation.layout.Row {
+    Column(Modifier.fillMaxSize()) {
+        // Library's own top app bar — the same treatment as the Inbox: a nav-drawer button,
+        // the scope name (or a search field when open), and Search / Filter / View actions.
+        TopAppBar(
+            navigationIcon = {
+                IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = "Open navigation") }
+            },
+            title = {
+                if (searchOpen) {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = viewModel::setQuery,
+                        singleLine = true,
+                        leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                        trailingIcon = {
                             if (query.isNotBlank()) {
                                 IconButton(onClick = { viewModel.saveSearch(query) }) {
                                     Icon(Icons.Outlined.BookmarkAdd, contentDescription = "Save search")
                                 }
                             }
-                            IconButton(onClick = { viewModel.setQuery(""); searchOpen = false }) {
-                                Icon(Icons.Outlined.Close, contentDescription = "Close search")
+                        },
+                        placeholder = { Text("Search your library") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    Column {
+                        Text(
+                            text = scopeTitle(scope),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        val scopeCount = showing.size
+                        if (scopeCount > 0) {
+                            Text(
+                                "$scopeCount item${if (scopeCount == 1) "" else "s"}${if (typeFilter != null) " · ${typeLabel(typeFilter!!)}" else ""}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            },
+            actions = {
+                if (searchOpen) {
+                    IconButton(onClick = { viewModel.setQuery(""); searchOpen = false }) {
+                        Icon(Icons.Outlined.Close, contentDescription = "Close search")
+                    }
+                } else {
+                    IconButton(onClick = { searchOpen = true }) { Icon(Icons.Outlined.Search, contentDescription = "Search") }
+                    IconButton(onClick = { filterSheet = true }) { Icon(Icons.Outlined.FilterList, contentDescription = "Filter & collections") }
+                    Box {
+                        IconButton(onClick = { displayMenu = true }) { Icon(Icons.Outlined.Tune, contentDescription = "View and sort") }
+                        DropdownMenu(expanded = displayMenu, onDismissRequest = { displayMenu = false }) {
+                            Text("VIEW", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
+                            LibraryViewMode.entries.forEach { m ->
+                                DropdownMenuItem(
+                                    text = { Text(viewModeLabel(m), fontWeight = if (m == viewMode) FontWeight.SemiBold else FontWeight.Normal) },
+                                    onClick = { viewModel.setViewMode(m); displayMenu = false },
+                                )
+                            }
+                            HorizontalDivider()
+                            Text("SORT", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
+                            LibrarySort.entries.forEach { s ->
+                                DropdownMenuItem(
+                                    text = { Text(s.label, fontWeight = if (s == sort) FontWeight.SemiBold else FontWeight.Normal) },
+                                    onClick = { viewModel.setSort(s); displayMenu = false },
+                                )
                             }
                         }
-                    },
-                    placeholder = { Text("Search your library") },
-                    modifier = Modifier.weight(1f).padding(vertical = 4.dp),
-                )
-            } else {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = scopeTitle(scope),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    val scopeCount = showing.size
-                    if (scopeCount > 0) {
-                        Text(
-                            "$scopeCount item${if (scopeCount == 1) "" else "s"}${if (typeFilter != null) " · ${typeLabel(typeFilter!!)}" else ""}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                    }
+                    val current = scope
+                    if (current is LibraryScope.Collection) {
+                        Box {
+                            IconButton(onClick = { scopeMenu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "Manage collection") }
+                            DropdownMenu(expanded = scopeMenu, onDismissRequest = { scopeMenu = false }) {
+                                DropdownMenuItem(text = { Text("New sub-collection") }, onClick = { scopeMenu = false; showCreate = current.id })
+                                DropdownMenuItem(text = { Text("Rename") }, onClick = { scopeMenu = false; renaming = current.id to current.name })
+                                DropdownMenuItem(text = { Text("Move under…") }, onClick = { scopeMenu = false; reparenting = current.id to current.name })
+                                DropdownMenuItem(text = { Text("Delete") }, onClick = { scopeMenu = false; viewModel.deleteCollection(current.id) })
+                            }
+                        }
                     }
                 }
-                IconButton(onClick = { searchOpen = true }) { Icon(Icons.Outlined.Search, contentDescription = "Search") }
-                IconButton(onClick = { filterSheet = true }) { Icon(Icons.Outlined.FilterList, contentDescription = "Filter & collections") }
-            }
-            Box {
-                IconButton(onClick = { displayMenu = true }) { Icon(Icons.Outlined.Tune, contentDescription = "View and sort") }
-                DropdownMenu(expanded = displayMenu, onDismissRequest = { displayMenu = false }) {
-                    Text("VIEW", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
-                    LibraryViewMode.entries.forEach { m ->
-                        DropdownMenuItem(
-                            text = { Text(viewModeLabel(m), fontWeight = if (m == viewMode) FontWeight.SemiBold else FontWeight.Normal) },
-                            onClick = { viewModel.setViewMode(m); displayMenu = false },
-                        )
-                    }
-                    HorizontalDivider()
-                    Text("SORT", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
-                    LibrarySort.entries.forEach { s ->
-                        DropdownMenuItem(
-                            text = { Text(s.label, fontWeight = if (s == sort) FontWeight.SemiBold else FontWeight.Normal) },
-                            onClick = { viewModel.setSort(s); displayMenu = false },
-                        )
-                    }
-                }
-            }
-            val current = scope
-            if (current is LibraryScope.Collection) {
-                Box {
-                    IconButton(onClick = { scopeMenu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "Manage collection") }
-                    DropdownMenu(expanded = scopeMenu, onDismissRequest = { scopeMenu = false }) {
-                        DropdownMenuItem(text = { Text("New sub-collection") }, onClick = { scopeMenu = false; showCreate = current.id })
-                        DropdownMenuItem(text = { Text("Rename") }, onClick = { scopeMenu = false; renaming = current.id to current.name })
-                        DropdownMenuItem(text = { Text("Move under…") }, onClick = { scopeMenu = false; reparenting = current.id to current.name })
-                        DropdownMenuItem(text = { Text("Delete") }, onClick = { scopeMenu = false; viewModel.deleteCollection(current.id) })
-                    }
-                }
-            }
-        }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+        )
 
         // A single, quiet type-filter strip only when the current scope actually mixes types.
         if (!searching && availableTypes.size >= 2) {
