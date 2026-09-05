@@ -80,6 +80,12 @@ fun TagEditorSheet(
                     Icon(Icons.Outlined.Add, contentDescription = "Add tag")
                 }
             }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Tip: use “/” to nest — e.g. tech/ai files this under a “tech” parent tag.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             if (suggestions.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
                 Text("Existing tags", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

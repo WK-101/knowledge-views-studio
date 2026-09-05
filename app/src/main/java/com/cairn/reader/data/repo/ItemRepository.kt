@@ -106,6 +106,14 @@ class ItemRepository @Inject constructor(
     fun libraryCounts(): Flow<com.cairn.reader.data.db.LibraryCounts> = itemDao.observeLibraryCounts()
     fun collectionItems(collectionId: String): Flow<List<ItemListRow>> = itemDao.observeCollection(collectionId)
     fun byTag(tagId: String): Flow<List<ItemListRow>> = itemDao.observeByTag(tagId)
+
+    /** Nested tags: items filed under [path] or any tag beneath it ("path/child"). */
+    fun byTagPath(path: String): Flow<List<ItemListRow>> {
+        val p = path.trim().trim('/')
+        // Escape LIKE metacharacters in the path so a literal % or _ in a tag name can't widen the match.
+        val esc = p.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        return itemDao.observeByTagPath(p, "$esc/%")
+    }
     fun unreadCount(): Flow<Int> = itemDao.observeUnreadCount()
     fun feedUnread(): Flow<List<com.cairn.reader.data.db.FeedUnread>> = itemDao.observeFeedUnread()
 

@@ -94,7 +94,8 @@ class LibraryViewModel @Inject constructor(
                 LibraryScope.Archive -> itemRepository.archived()
                 LibraryScope.Offline -> itemRepository.offlineCopies()
                 is LibraryScope.Collection -> itemRepository.collectionItems(scope.id)
-                is LibraryScope.Tag -> itemRepository.byTag(scope.id)
+                // Nested tags: a tag scope shows items filed under it OR any of its sub-tags.
+                is LibraryScope.Tag -> itemRepository.byTagPath(scope.name)
             }
         }
 
@@ -170,6 +171,43 @@ class LibraryViewModel @Inject constructor(
     fun deleteCollection(id: String) = viewModelScope.launch {
         if (_scope.value.let { it is LibraryScope.Collection && it.id == id }) _scope.value = LibraryScope.All
         collectionRepository.delete(id)
+    }
+
+    // -- Nested tags -----------------------------------------------------------
+
+    /** Rename a tag's leaf label, carrying its sub-tags with it (path prefix rewrite). */
+    fun renameTag(path: String, newLeaf: String) = viewModelScope.launch {
+        val leaf = newLeaf.trim().trim('/').replace("/", "-")
+        if (leaf.isBlank()) return@launch
+        val parent = path.trim().trim('/').substringBeforeLast('/', "")
+        val newPath = if (parent.isBlank()) leaf else "$parent/$leaf"
+        tagRepository.renameSubtree(path, newPath)
+        retargetTagScope(path, newPath)
+    }
+
+    /** Move a tag (with its sub-tags) under a new parent; null lifts it to the top level. */
+    fun moveTag(path: String, newParent: String?) = viewModelScope.launch {
+        tagRepository.moveSubtree(path, newParent)
+        val leaf = path.trim().trim('/').substringAfterLast('/')
+        val target = if (newParent.isNullOrBlank()) leaf else "${newParent.trim().trim('/')}/$leaf"
+        retargetTagScope(path, target)
+    }
+
+    /** Delete a tag and everything nested beneath it. */
+    fun deleteTag(path: String) = viewModelScope.launch {
+        tagRepository.deleteSubtree(path)
+        val p = path.trim().trim('/')
+        _scope.value.let { if (it is LibraryScope.Tag && (it.name == p || it.name.startsWith("$p/"))) _scope.value = LibraryScope.All }
+    }
+
+    /** Keep the current scope pointed at the right place after a tag path changes. */
+    private fun retargetTagScope(oldPath: String, newPath: String) {
+        val old = oldPath.trim().trim('/')
+        _scope.value.let { s ->
+            if (s is LibraryScope.Tag && (s.name == old || s.name.startsWith("$old/"))) {
+                _scope.value = LibraryScope.Tag(s.id, newPath + s.name.substring(old.length))
+            }
+        }
     }
 
     fun moveItem(itemId: String, collectionId: String?) = viewModelScope.launch { collectionRepository.moveItem(itemId, collectionId) }

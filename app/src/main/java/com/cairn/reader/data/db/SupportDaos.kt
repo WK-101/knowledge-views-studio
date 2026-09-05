@@ -54,6 +54,11 @@ interface TagDao {
 
     @Query("DELETE FROM tags WHERE id = :id")
     suspend fun delete(id: String)
+
+    /** Re-point every link from one tag to another (used when a rename merges into an existing
+     *  tag). OR IGNORE drops a link where the item already carries the destination tag. */
+    @Query("UPDATE OR IGNORE item_tags SET tagId = :toId WHERE tagId = :fromId")
+    suspend fun moveLinks(fromId: String, toId: String)
 }
 
 /** A highlight joined with the article it belongs to, for the notebook and exports. */

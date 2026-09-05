@@ -509,6 +509,29 @@ interface ItemDao {
     )
     fun observeByTag(tagId: String): Flow<List<ItemListRow>>
 
+    /** Nested tags: every item tagged with [path] itself OR any descendant tag ("path/child"),
+     *  deduped. Selecting a parent tag therefore shows everything filed anywhere beneath it.
+     *  [prefix] must be `path || '/%'`. */
+    @Query(
+        """
+        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
+               i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
+               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
+               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
+               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
+               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
+        FROM items i
+        JOIN item_tags it ON it.itemId = i.id
+        JOIN tags t ON t.id = it.tagId
+        LEFT JOIN item_states s ON s.itemId = i.id
+        LEFT JOIN sources src ON src.id = i.sourceId
+        WHERE i.trashedAt IS NULL AND (t.name = :path OR t.name LIKE :prefix ESCAPE '\')
+        GROUP BY i.id
+        ORDER BY i.savedAt DESC
+        """
+    )
+    fun observeByTagPath(path: String, prefix: String): Flow<List<ItemListRow>>
+
     // -- Trash (soft-delete) ---------------------------------------------------
 
     /** Everything currently in the Trash, most-recently-trashed first. */

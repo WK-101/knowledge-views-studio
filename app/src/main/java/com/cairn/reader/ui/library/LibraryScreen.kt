@@ -123,6 +123,8 @@ fun LibraryScreen(
     var searchOpen by remember { mutableStateOf(false) }
     var filterSheet by remember { mutableStateOf(false) }
     var reparenting by remember { mutableStateOf<Pair<String, String>?>(null) } // (id, name) to move under a new parent
+    var renamingTag by remember { mutableStateOf<Pair<String, String>?>(null) } // (path, leaf label) to rename
+    var movingTag by remember { mutableStateOf<String?>(null) } // tag path to move under a new parent
 
     val selectionActive = selection.isNotEmpty()
     val searching = query.isNotBlank()
@@ -349,8 +351,77 @@ fun LibraryScreen(
             onNewCollection = { parentId -> showCreate = parentId ?: "" },
             onRenameCollection = { id, name -> renaming = id to name },
             onDeleteCollection = { viewModel.deleteCollection(it) },
+            onRenameTag = { path, label -> renamingTag = path to label },
+            onMoveTag = { path -> movingTag = path },
+            onDeleteTag = { viewModel.deleteTag(it) },
             onDismiss = { filterSheet = false },
         )
+    }
+    renamingTag?.let { (path, label) ->
+        NameDialog(
+            title = "Rename tag",
+            initial = label,
+            confirmLabel = "Save",
+            onConfirm = { viewModel.renameTag(path, it); renamingTag = null },
+            onDismiss = { renamingTag = null },
+        )
+    }
+    movingTag?.let { path ->
+        // Candidate parents: every existing tag path that isn't this tag or one of its descendants.
+        val p = path.trim().trim('/')
+        val candidates = tags.map { it.name.trim().trim('/') }
+            .flatMap { name -> name.split('/').filter { it.isNotBlank() }.let { segs -> (1..segs.size).map { segs.subList(0, it).joinToString("/") } } }
+            .distinct()
+            .filter { it != p && !it.startsWith("$p/") }
+            .sortedWith(String.CASE_INSENSITIVE_ORDER)
+        TagMovePicker(
+            path = p,
+            candidates = candidates,
+            onPick = { parent -> viewModel.moveTag(path, parent); movingTag = null },
+            onDismiss = { movingTag = null },
+        )
+    }
+}
+
+/** A bottom sheet listing candidate parent tags to move a tag (and its sub-tags) under. */
+@Composable
+private fun TagMovePicker(
+    path: String,
+    candidates: List<String>,
+    onPick: (String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 520.dp), contentPadding = PaddingValues(bottom = 28.dp)) {
+            item {
+                Text(
+                    "Move “#${path.substringAfterLast('/')}” under…",
+                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 8.dp),
+                )
+            }
+            item {
+                Row(
+                    Modifier.fillMaxWidth().clickable { onPick(null) }.padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Outlined.Label, contentDescription = null, tint = scheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(12.dp))
+                    Text("Top level (no parent)", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                }
+            }
+            items(candidates, key = { "mv-$it" }) { c ->
+                Row(
+                    Modifier.fillMaxWidth().clickable { onPick(c) }.padding(start = (24 + c.count { ch -> ch == '/' } * 16).dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Outlined.Label, contentDescription = null, tint = scheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(12.dp))
+                    Text("#${c.substringAfterLast('/')}", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
     }
 }
 
@@ -581,6 +652,51 @@ private fun flattenCollections(all: List<CollectionWithCount>, collapsed: Set<St
     return out
 }
 
+/** One flattened row of the (path-)nested tag tree. [exists] is false for a synthesized parent
+ *  node that has no tag row of its own (only descendants), so it can still be browsed and managed.
+ *  [totalCount] rolls up the node's own items plus every descendant's. */
+private data class TagTreeRow(
+    val path: String,
+    val label: String,
+    val depth: Int,
+    val ownCount: Int,
+    val totalCount: Int,
+    val hasChildren: Boolean,
+    val exists: Boolean,
+    val tagId: String?,
+)
+
+/** Build the foldable tag tree from flat, "/"-delimited tag paths, synthesizing any missing
+ *  parent nodes so e.g. a lone "tech/ai" still shows a browsable "tech" above it. */
+private fun buildTagTree(tags: List<TagWithCount>, collapsed: Set<String>): List<TagTreeRow> {
+    // Dedupe by normalized path; keep the highest count / a real id if the same path repeats.
+    val real = HashMap<String, TagWithCount>()
+    tags.forEach { t ->
+        val p = t.name.trim().trim('/')
+        if (p.isNotBlank()) real[p] = t
+    }
+    // Every node path, including synthesized ancestors.
+    val allPaths = HashSet<String>()
+    real.keys.forEach { path ->
+        val segs = path.split('/').filter { it.isNotBlank() }
+        for (i in 1..segs.size) allPaths += segs.subList(0, i).joinToString("/")
+    }
+    // Sorting "/"-paths case-insensitively yields a correct pre-order walk, because '/' sorts
+    // before letters and digits, so a parent and its whole subtree precede the next sibling.
+    val sorted = allPaths.sortedWith(String.CASE_INSENSITIVE_ORDER)
+    val out = ArrayList<TagTreeRow>()
+    for (path in sorted) {
+        val segs = path.split('/')
+        val ancestors = (1 until segs.size).map { segs.subList(0, it).joinToString("/") }
+        if (ancestors.any { it in collapsed }) continue // a collapsed ancestor hides this node
+        val hasChildren = sorted.any { it.length > path.length && it.startsWith("$path/") }
+        val total = real.entries.filter { it.key == path || it.key.startsWith("$path/") }.sumOf { it.value.count }
+        val rr = real[path]
+        out += TagTreeRow(path, segs.last(), segs.size - 1, rr?.count ?: 0, total, hasChildren, rr != null, rr?.id)
+    }
+    return out
+}
+
 /**
  * The library organiser: every scope, the full nested collection tree (foldable, with add /
  * rename / delete / re-parent per node), path-nested tags, and saved searches — all in one sheet
@@ -601,12 +717,18 @@ private fun LibraryFilterSheet(
     onNewCollection: (parentId: String?) -> Unit,
     onRenameCollection: (id: String, name: String) -> Unit,
     onDeleteCollection: (String) -> Unit,
+    onRenameTag: (path: String, label: String) -> Unit,
+    onMoveTag: (path: String) -> Unit,
+    onDeleteTag: (path: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     var collapsed by remember { mutableStateOf(setOf<String>()) }
+    var collapsedTags by remember { mutableStateOf(setOf<String>()) }
     var menuFor by remember { mutableStateOf<String?>(null) }
+    var menuForTag by remember { mutableStateOf<String?>(null) }
     val rows = flattenCollections(collections, collapsed)
+    val tagRows = buildTagTree(tags, collapsedTags)
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         LazyColumn(
@@ -695,31 +817,54 @@ private fun LibraryFilterSheet(
                 }
             }
 
-            // -- Tags (path-nested: "parent/child") ------------------------------
-            if (tags.isNotEmpty()) {
+            // -- Tags (path-nested "parent/child", foldable, with roll-up counts) -----
+            if (tagRows.isNotEmpty()) {
                 item {
                     Text("TAGS", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 2.dp))
                 }
-                items(tags.sortedBy { it.name.lowercase() }, key = { "tag-${it.id}" }) { tag ->
-                    val segments = tag.name.split('/').filter { it.isNotBlank() }
-                    val depth = (segments.size - 1).coerceAtLeast(0)
-                    val last = segments.lastOrNull() ?: tag.name
-                    val prefix = if (segments.size > 1) segments.dropLast(1).joinToString("/") + "/ " else ""
-                    val selected = scope.let { it is LibraryScope.Tag && it.id == tag.id }
+                items(tagRows, key = { "tag-${it.path}" }) { r ->
+                    val selected = scope.let { it is LibraryScope.Tag && it.name == r.path }
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .clickable { onScope(LibraryScope.Tag(tag.id, tag.name)) }
-                            .padding(start = (18 + depth * 18).dp, end = 24.dp, top = 10.dp, bottom = 10.dp),
+                            .clickable { onScope(LibraryScope.Tag(r.tagId ?: r.path, r.path)) }
+                            .padding(start = (18 + r.depth * 18).dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        if (r.hasChildren) {
+                            Icon(
+                                if (r.path in collapsedTags) Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.Filled.KeyboardArrowDown,
+                                contentDescription = if (r.path in collapsedTags) "Expand" else "Collapse",
+                                tint = scheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp).clickable { collapsedTags = if (r.path in collapsedTags) collapsedTags - r.path else collapsedTags + r.path },
+                            )
+                            Spacer(Modifier.size(4.dp))
+                        } else {
+                            Spacer(Modifier.size(24.dp))
+                        }
                         Icon(Icons.Outlined.Label, contentDescription = null, tint = if (selected) scheme.primary else scheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.size(12.dp))
-                        Row(Modifier.weight(1f)) {
-                            if (prefix.isNotEmpty()) Text(prefix, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text("#$last", style = MaterialTheme.typography.bodyLarge, color = if (selected) scheme.primary else scheme.onSurface, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            "#${r.label}",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = if (selected) scheme.primary else if (r.exists) scheme.onSurface else scheme.onSurfaceVariant,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+                        )
+                        if (r.totalCount > 0) Text("${r.totalCount}", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
+                        Box {
+                            IconButton(onClick = { menuForTag = r.path }) { Icon(Icons.Outlined.MoreVert, contentDescription = "Manage tag", modifier = Modifier.size(20.dp)) }
+                            DropdownMenu(expanded = menuForTag == r.path, onDismissRequest = { menuForTag = null }) {
+                                if (r.exists) {
+                                    DropdownMenuItem(text = { Text("Rename") }, onClick = { menuForTag = null; onRenameTag(r.path, r.label) })
+                                }
+                                DropdownMenuItem(text = { Text("Move under…") }, onClick = { menuForTag = null; onMoveTag(r.path) })
+                                DropdownMenuItem(
+                                    text = { Text(if (r.hasChildren) "Delete tag & sub-tags" else "Delete", color = scheme.error) },
+                                    onClick = { menuForTag = null; onDeleteTag(r.path) },
+                                )
+                            }
                         }
-                        if (tag.count > 0) Text("${tag.count}", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
                     }
                 }
             }
