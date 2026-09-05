@@ -21,6 +21,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -60,28 +62,83 @@ fun DiscoverScreen(
     viewModel: DiscoverViewModel = hiltViewModel(),
 ) {
     val snackbar = remember { SnackbarHostState() }
+    val query by viewModel.query.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { viewModel.snacks.collect { snackbar.showSnackbar(it) } }
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Discover", fontWeight = FontWeight.SemiBold) },
+            DiscoverTopBar(
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
                 },
+                query = query,
+                onQuery = viewModel::setQuery,
             )
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding -> DiscoverBody(padding, viewModel) }
 }
 
-/** Embedded Discover, for use as a bottom-nav tab inside the app's own Scaffold. */
+/** Embedded Discover, for use as a bottom-nav tab inside the app's own Scaffold. Renders its own
+ *  top app bar (with the search icon) — like the Library tab — so the shared bar steps aside. */
 @Composable
-fun DiscoverContent(padding: PaddingValues, viewModel: DiscoverViewModel = hiltViewModel()) {
+fun DiscoverContent(
+    padding: PaddingValues,
+    onOpenDrawer: () -> Unit = {},
+    viewModel: DiscoverViewModel = hiltViewModel(),
+) {
     val context = LocalContext.current
+    val query by viewModel.query.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) {
         viewModel.snacks.collect { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
     }
-    DiscoverBody(padding, viewModel)
+    Column(Modifier.fillMaxSize()) {
+        DiscoverTopBar(
+            navigationIcon = {
+                IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = "Open navigation") }
+            },
+            query = query,
+            onQuery = viewModel::setQuery,
+        )
+        DiscoverBody(padding, viewModel)
+    }
+}
+
+/** Discover's top app bar: title, or an inline search field when the search icon is tapped. */
+@Composable
+private fun DiscoverTopBar(
+    navigationIcon: @Composable () -> Unit,
+    query: String,
+    onQuery: (String) -> Unit,
+) {
+    var searchOpen by remember { mutableStateOf(false) }
+    TopAppBar(
+        navigationIcon = navigationIcon,
+        title = {
+            if (searchOpen) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = onQuery,
+                    singleLine = true,
+                    leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                    placeholder = { Text("Search feeds, or paste a site / URL") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else {
+                Text("Discover", fontWeight = FontWeight.SemiBold)
+            }
+        },
+        actions = {
+            if (searchOpen) {
+                IconButton(onClick = { onQuery(""); searchOpen = false }) {
+                    Icon(Icons.Outlined.Close, contentDescription = "Close search")
+                }
+            } else {
+                IconButton(onClick = { searchOpen = true }) {
+                    Icon(Icons.Outlined.Search, contentDescription = "Search")
+                }
+            }
+        },
+    )
 }
 
 @Composable
@@ -98,25 +155,15 @@ private fun DiscoverBody(padding: PaddingValues, viewModel: DiscoverViewModel) {
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(top = padding.calculateTopPadding() + 4.dp, bottom = padding.calculateBottomPadding() + 28.dp),
     ) {
-        item {
-            OutlinedTextField(
-                value = query,
-                onValueChange = viewModel::setQuery,
-                singleLine = true,
-                placeholder = { Text("Search feeds, or paste a site / URL") },
-                leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            )
-            if (addable) {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("Add “${query.trim()}”", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, modifier = Modifier.weight(1f))
-                    TextButton(onClick = { viewModel.addTypedQuery() }, enabled = !busy) {
-                        Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.height(18.dp))
-                        Spacer(Modifier.width(4.dp)); Text("Add")
-                    }
+        if (addable) item {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Add “${query.trim()}”", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, modifier = Modifier.weight(1f))
+                TextButton(onClick = { viewModel.addTypedQuery() }, enabled = !busy) {
+                    Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.height(18.dp))
+                    Spacer(Modifier.width(4.dp)); Text("Add")
                 }
             }
         }

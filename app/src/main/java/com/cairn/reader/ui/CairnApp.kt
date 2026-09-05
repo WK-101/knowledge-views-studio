@@ -189,9 +189,9 @@ fun CairnApp(
     ) {
     Scaffold(
         topBar = topBar@{
-            // The Library owns its own top app bar (search / filter / view live there, like the
-            // Inbox), so the shared bar steps aside on that tab.
-            if (current == Destination.Library) return@topBar
+            // The Library and Discover own their top app bars (search lives there, like the
+            // Inbox), so the shared bar steps aside on those tabs.
+            if (current == Destination.Library || current == Destination.Discover) return@topBar
             CenterAlignedTopAppBar(
                 title = {
                     val title = when {
@@ -331,7 +331,7 @@ fun CairnApp(
             when (dest) {
                 Destination.Inbox -> InboxScreen(padding, inboxViewModel, open, onOpenWeb, inboxViewMode)
                 Destination.Library -> LibraryScreen(padding, open, onOpenHighlights = onOpenNotebook, onOpenDrawer = { scope.launch { drawerState.open() } })
-                Destination.Discover -> com.cairn.reader.ui.discover.DiscoverContent(padding)
+                Destination.Discover -> com.cairn.reader.ui.discover.DiscoverContent(padding, onOpenDrawer = { scope.launch { drawerState.open() } })
                 Destination.Settings -> SettingsScreen(padding, onOpenNotebook = onOpenNotebook, onOpenOffline = onOpenOffline)
             }
         }
