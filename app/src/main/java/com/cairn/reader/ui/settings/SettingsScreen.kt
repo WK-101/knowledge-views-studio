@@ -681,6 +681,14 @@ fun SettingsScreen(
                     }
                     Switch(checked = prefs.volumeKeyPaging, onCheckedChange = viewModel::setVolumeKeyPaging)
                 }
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Open as web page", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text("Open articles as the original web page instead of the cleaned reader (feeds with their own \"Open in\" setting are unaffected).", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                    }
+                    Switch(checked = prefs.openArticlesInWeb, onCheckedChange = viewModel::setOpenArticlesInWeb)
+                }
             }
         }
 

@@ -533,6 +533,7 @@ private fun InboxScreen(
     val markReadOnScroll by viewModel.markReadOnScroll.collectAsStateWithLifecycle()
     val stickyDates by viewModel.stickyDateHeaders.collectAsStateWithLifecycle()
     val openModes by viewModel.openModes.collectAsStateWithLifecycle()
+    val openInWebDefault by viewModel.openInWebDefault.collectAsStateWithLifecycle()
     val selecting = picked.isNotEmpty()
     var sheetRow by remember { mutableStateOf<ItemListRow?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -544,7 +545,8 @@ private fun InboxScreen(
             "EXTERNAL" -> runCatching {
                 context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(row.url)))
             }.onFailure { onOpenWeb(row.url) }
-            else -> {
+            // Reader / Default: honor the global "open as web page" default when the user turned it on.
+            else -> if (openInWebDefault) onOpenWeb(row.url) else {
                 com.cairn.reader.ui.reader.ReaderQueue.set(state.items.map { it.id })
                 onOpenItem(row.id)
             }

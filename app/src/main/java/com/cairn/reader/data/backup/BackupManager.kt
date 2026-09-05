@@ -309,7 +309,7 @@ class BackupManager @Inject constructor(
         put("wordCount", wordCount); put("readingMinutes", readingMinutes); putOpt("lang", lang)
         put("extractStatus", extractStatus); put("contentSource", contentSource); putOpt("guid", guid)
         putOpt("collectionId", collectionId); putOpt("domain", domain); putOpt("cacheStatus", cacheStatus)
-        putOpt("enclosureUrl", enclosureUrl); putOpt("trashedAt", trashedAt)
+        putOpt("enclosureUrl", enclosureUrl); putOpt("trashedAt", trashedAt); putOpt("commentsUrl", commentsUrl)
     }
 
     private fun JSONObject.toItem() = ItemEntity(
@@ -321,6 +321,7 @@ class BackupManager @Inject constructor(
         blobPath = null, extractStatus = optString("extractStatus", "NONE"), contentSource = optString("contentSource", "FEED"),
         guid = optStringOrNull("guid"), collectionId = optStringOrNull("collectionId"), domain = optStringOrNull("domain"),
         cacheStatus = optStringOrNull("cacheStatus"), enclosureUrl = optStringOrNull("enclosureUrl"), trashedAt = optLongOrNull("trashedAt"),
+        commentsUrl = optStringOrNull("commentsUrl"),
     )
 
     private fun ItemStateEntity.toJson() = JSONObject().apply {

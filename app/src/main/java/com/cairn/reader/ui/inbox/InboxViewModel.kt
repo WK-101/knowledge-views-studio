@@ -153,6 +153,11 @@ class InboxViewModel @Inject constructor(
         preferencesRepository.preferences.map { it.stickyDateHeaders }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    /** Global default: open Reader/Default-mode feeds as the original web page instead of the reader. */
+    val openInWebDefault: StateFlow<Boolean> =
+        preferencesRepository.preferences.map { it.openArticlesInWeb }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     /** Mark several items read with no snackbar — used by scroll-to-read so it doesn't spam undo. */
     fun markReadSilent(ids: List<String>) = viewModelScope.launch {
         ids.forEach { itemRepository.setRead(it, true) }

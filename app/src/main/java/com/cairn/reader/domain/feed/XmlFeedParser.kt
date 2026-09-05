@@ -54,6 +54,7 @@ class XmlFeedParser @Inject constructor() : FeedParser {
         var summary: String? = null
         var imageUrl: String? = null
         var audioUrl: String? = null
+        var commentsUrl: String? = null
 
         while (true) {
             val event = parser.next()
@@ -67,12 +68,16 @@ class XmlFeedParser @Inject constructor() : FeedParser {
                     val rel = attr(parser, "rel")
                     val href = attr(parser, "href")
                     if (!href.isNullOrBlank()) {
-                        if (link == null || rel == null || rel == "alternate") link = href
+                        // Atom marks a discussion link with rel="replies"; keep it as the comments URL.
+                        if (rel == "replies") commentsUrl = commentsUrl ?: href
+                        else if (link == null || rel == null || rel == "alternate") link = href
                     } else {
                         val t = safeText(parser)
                         if (!t.isNullOrBlank()) link = t
                     }
                 }
+                // Standard RSS discussion link (Hacker News, Reddit, Lobsters, WordPress).
+                "comments" -> commentsUrl = commentsUrl ?: safeText(parser)
                 "guid", "id" -> guid = guid ?: safeText(parser)
                 "pubdate", "published", "updated", "date" ->
                     publishedAt = publishedAt ?: parseDate(safeText(parser))
@@ -109,6 +114,7 @@ class XmlFeedParser @Inject constructor() : FeedParser {
             summary = summary?.trim(),
             imageUrl = imageUrl?.trim(),
             audioUrl = audioUrl?.trim(),
+            commentsUrl = commentsUrl?.trim(),
         )
     }
 

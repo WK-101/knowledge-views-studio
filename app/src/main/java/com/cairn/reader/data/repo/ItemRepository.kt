@@ -42,6 +42,8 @@ data class ReaderData(
     /** On-disk path of an imported PDF (only for PDF-type items); null otherwise. */
     val pdfPath: String?,
     val html: String?,
+    /** A discussion/comments URL (RSS <comments>), if the feed provided one. */
+    val commentsUrl: String? = null,
 )
 
 @Singleton
@@ -77,6 +79,7 @@ class ItemRepository @Inject constructor(
             pdfPath = if (e.type == "PDF") e.blobPath else null,
             // A PDF's blob is the raw file, not gzipped HTML, so don't try to read it as an article.
             html = if (e.type == "PDF") null else blobStore.readArticle(e.blobPath),
+            commentsUrl = e.commentsUrl,
         )
     }
 

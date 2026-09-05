@@ -47,6 +47,7 @@ import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DeleteOutline
@@ -415,6 +416,13 @@ fun ReaderScreen(
                                         showMenu = false
                                         com.cairn.reader.ui.util.PdfExport.printArticle(context, data?.title.orEmpty(), data?.html)
                                     },
+                                )
+                            }
+                            data?.commentsUrl?.takeIf { it.isNotBlank() }?.let { commentsUrl ->
+                                DropdownMenuItem(
+                                    text = { Text("Open comments") },
+                                    leadingIcon = { Icon(Icons.Outlined.Forum, contentDescription = null) },
+                                    onClick = { showMenu = false; onOpenWeb(commentsUrl) },
                                 )
                             }
                             if (data?.type != "PDF") {

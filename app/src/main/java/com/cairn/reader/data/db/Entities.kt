@@ -86,6 +86,9 @@ data class ItemEntity(
     // v3.44: soft-delete. Non-null = the item is in the Trash (hidden everywhere but the Trash
     // screen, restorable, auto-purged after a grace period). Migration 7→8 adds the column.
     val trashedAt: Long? = null,
+    // v3.62: a discussion/comments URL for the item (RSS <comments>, e.g. Hacker News, Reddit,
+    // Lobsters), so the reader can offer "Open comments". Nullable → migration 8→9 adds the column.
+    val commentsUrl: String? = null,
 )
 
 @Entity(

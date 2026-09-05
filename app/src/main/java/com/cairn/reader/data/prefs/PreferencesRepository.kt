@@ -152,6 +152,9 @@ data class AppPreferences(
     /** Reader page-turn helpers: tap the left/right edge, or the volume keys, to page up/down. */
     val tapZonePaging: Boolean = false,
     val volumeKeyPaging: Boolean = false,
+    /** Open articles as the original web page (in-app browser) by default instead of the cleaned
+     *  reader, for feeds that haven't chosen their own "Open in" mode. Off = cleaned reader. */
+    val openArticlesInWeb: Boolean = false,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -221,6 +224,7 @@ class PreferencesRepository @Inject constructor(
         val FORCE_SINGLE_COLUMN = booleanPreferencesKey("force_single_column")
         val TAP_ZONE_PAGING = booleanPreferencesKey("tap_zone_paging")
         val VOLUME_KEY_PAGING = booleanPreferencesKey("volume_key_paging")
+        val OPEN_ARTICLES_IN_WEB = booleanPreferencesKey("open_articles_in_web")
     }
 
     /** Per-scope view entries are stored as "scopeKey<sep>MODE" in a string set. */
@@ -296,6 +300,7 @@ class PreferencesRepository @Inject constructor(
             forceSingleColumn = p[Keys.FORCE_SINGLE_COLUMN] ?: false,
             tapZonePaging = p[Keys.TAP_ZONE_PAGING] ?: false,
             volumeKeyPaging = p[Keys.VOLUME_KEY_PAGING] ?: false,
+            openArticlesInWeb = p[Keys.OPEN_ARTICLES_IN_WEB] ?: false,
         )
     }
 
@@ -455,6 +460,7 @@ class PreferencesRepository @Inject constructor(
     suspend fun setForceSingleColumn(on: Boolean) = context.dataStore.edit { it[Keys.FORCE_SINGLE_COLUMN] = on }
     suspend fun setTapZonePaging(on: Boolean) = context.dataStore.edit { it[Keys.TAP_ZONE_PAGING] = on }
     suspend fun setVolumeKeyPaging(on: Boolean) = context.dataStore.edit { it[Keys.VOLUME_KEY_PAGING] = on }
+    suspend fun setOpenArticlesInWeb(on: Boolean) = context.dataStore.edit { it[Keys.OPEN_ARTICLES_IN_WEB] = on }
 
     // -- Settings backup -------------------------------------------------------
     //
@@ -523,6 +529,7 @@ class PreferencesRepository @Inject constructor(
             put("forceSingleColumn", p.forceSingleColumn)
             put("tapZonePaging", p.tapZonePaging)
             put("volumeKeyPaging", p.volumeKeyPaging)
+            put("openArticlesInWeb", p.openArticlesInWeb)
         }
     }
 
@@ -588,6 +595,7 @@ class PreferencesRepository @Inject constructor(
             if (json.has("forceSingleColumn")) e[Keys.FORCE_SINGLE_COLUMN] = json.getBoolean("forceSingleColumn")
             if (json.has("tapZonePaging")) e[Keys.TAP_ZONE_PAGING] = json.getBoolean("tapZonePaging")
             if (json.has("volumeKeyPaging")) e[Keys.VOLUME_KEY_PAGING] = json.getBoolean("volumeKeyPaging")
+            if (json.has("openArticlesInWeb")) e[Keys.OPEN_ARTICLES_IN_WEB] = json.getBoolean("openArticlesInWeb")
         }
     }
 }

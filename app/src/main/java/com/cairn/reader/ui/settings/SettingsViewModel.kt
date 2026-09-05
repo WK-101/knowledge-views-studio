@@ -181,6 +181,7 @@ class SettingsViewModel @Inject constructor(
     fun setForceSingleColumn(on: Boolean) = viewModelScope.launch { preferencesRepository.setForceSingleColumn(on) }
     fun setTapZonePaging(on: Boolean) = viewModelScope.launch { preferencesRepository.setTapZonePaging(on) }
     fun setVolumeKeyPaging(on: Boolean) = viewModelScope.launch { preferencesRepository.setVolumeKeyPaging(on) }
+    fun setOpenArticlesInWeb(on: Boolean) = viewModelScope.launch { preferencesRepository.setOpenArticlesInWeb(on) }
     fun setTrashRetentionDays(days: Int) = viewModelScope.launch { preferencesRepository.setTrashRetentionDays(days) }
     fun moveBottomTab(name: String, up: Boolean) = viewModelScope.launch { preferencesRepository.moveBottomTab(name, up) }
 

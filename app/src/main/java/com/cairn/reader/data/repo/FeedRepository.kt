@@ -485,6 +485,7 @@ class FeedRepository @Inject constructor(
                 contentSource = "FEED",
                 guid = p.guid ?: p.link,
                 enclosureUrl = p.audioUrl,
+                commentsUrl = p.commentsUrl?.let { if (stripTrackingEnabled()) com.cairn.reader.data.net.UrlCleaner.strip(it) else it },
             ),
             now,
         )
