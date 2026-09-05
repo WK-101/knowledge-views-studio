@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -39,6 +40,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -52,6 +54,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -67,9 +70,11 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
 import com.todocompanion.app.data.entity.CoreValueEntity
 import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.domain.AdaptivePrompts
@@ -560,11 +565,15 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
                     SectionTitle("Time tracked · ${fmtHm(trackedTotal)}")
                     val maxMin = (tracked.values.maxOrNull() ?: 1).coerceAtLeast(1)
                     val fallback = MaterialTheme.colorScheme.primary
-                    MetricTileGrid(tracked.entries.sortedByDescending { it.value }.map { (actId, min) ->
+                    val trackedMetrics = tracked.entries.sortedByDescending { it.value }.map { (actId, min) ->
                         val a = activities.firstOrNull { it.id == actId }
                         val col = a?.colorArgb?.let { Color(it) } ?: fallback
                         Metric(emoji = a?.emoji, name = a?.name ?: "—", value = fmtHm(min), frac = min / maxMin.toFloat(), color = col)
-                    })
+                    }
+                    // Long activity names (or a lone activity) read poorly in a cramped 2-up grid, so give
+                    // them the full width; short-named multi-activity days keep the compact 2-column grid.
+                    val trackedCols = if (trackedMetrics.size <= 1 || trackedMetrics.any { it.name.length > 14 }) 1 else 2
+                    MetricTileGrid(trackedMetrics, columns = trackedCols)
                 }
             }
 
@@ -619,17 +628,9 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
             Spacer(Modifier.height(12.dp))
             AppCard {
                 SectionTitle("Reflect")
-                // Feature 6 — bind the reflection to that day's numbers: a slim at-a-glance caption so the
-                // "why" is always read next to the "what", right inside this card.
-                if (!nothing) {
-                    val glance = buildString {
-                        append("✓ ${tasksDone.size}")
-                        if (habitsExpected > 0) append("  ·  🔁 ${habitsKept.size}/$habitsExpected")
-                        if (focusMin > 0) append("  ·  🎯 ${fmtHm(focusMin)}")
-                        if (trackedTotal > 0) append("  ·  ⧗ ${fmtHm(trackedTotal)}")
-                    }
-                    Text(glance, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(bottom = 6.dp))
-                }
+                // The day's numbers already lead the screen in the at-a-glance StatTile card, so no glance
+                // caption is repeated here — this card is only the mood / rating / emotion read-back and the
+                // "vs your usual" context, which the top card doesn't show.
                 // Mood + rating are captured in the close-the-day flow and the "Reflect on today" editor;
                 // shown here read-only (no duplicate pickers) — use Reflect / Edit below to change them.
                 val moodV = bookend?.pmMood ?: 0
@@ -735,13 +736,15 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
             AppCard {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 2.dp)) {
                     Text("Daily questions", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    if (questions.isNotEmpty()) TextButton(onClick = { showQuestions = true }) { Text("Edit questions") }
+                    // Personalizing the set stays discoverable right in the main review (not only in the close
+                    // flow): "Personalize" once questions exist, "Set up your questions" when there are none.
+                    if (questions.isNotEmpty()) TextButton(onClick = { showQuestions = true }) { Text("Personalize") }
                 }
                 if (questions.isEmpty()) {
                     Text("Score a few “Did I do my best to…” questions each night. Scoring your effort — not the outcome — keeps the win in your hands.",
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(8.dp))
-                    FilledTonalButton(onClick = { showQuestions = true }) { Text("Set up") }
+                    FilledTonalButton(onClick = { showQuestions = true }) { Text("Set up your questions") }
                 } else {
                     questions.forEachIndexed { i, q ->
                         if (i > 0) Spacer(Modifier.height(12.dp))
@@ -1126,7 +1129,9 @@ private fun MetricTile(m: Metric, modifier: Modifier = Modifier) {
             if (m.emoji != null) Text(m.emoji, style = MaterialTheme.typography.titleMedium)
             else Box(Modifier.size(12.dp).clip(CircleShape).background(m.color))
             Spacer(Modifier.width(7.dp))
-            Text(m.name, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            // Names wrap to two lines so long activity/habit names stay readable (the tile grows to fit);
+            // still ellipsized beyond two lines. Equal tile height in a row is handled by [MetricTileGrid].
+            Text(m.name, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.height(8.dp))
         Text(m.value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 1)
@@ -1137,13 +1142,23 @@ private fun MetricTile(m: Metric, modifier: Modifier = Modifier) {
     }
 }
 
-/** Lay a list of [Metric]s out as a two-column grid of tiles, matching the at-a-glance box row. */
+/** Lay a list of [Metric]s out as tiles, matching the at-a-glance box row. [columns] is normally 2; pass 1
+ *  to give each tile the full row width (used for long activity names, where a cramped 2-up would truncate).
+ *  Within a 2-up chunk the row is measured at [IntrinsicSize.Min] and each tile fills that height, so a tile
+ *  whose name wraps to two lines and its shorter neighbor stay the same height. */
 @Composable
-private fun MetricTileGrid(metrics: List<Metric>) {
+private fun MetricTileGrid(metrics: List<Metric>, columns: Int = 2) {
+    if (columns <= 1) {
+        metrics.forEachIndexed { i, m ->
+            if (i > 0) Spacer(Modifier.height(10.dp))
+            MetricTile(m, Modifier.fillMaxWidth())
+        }
+        return
+    }
     metrics.chunked(2).forEachIndexed { i, row ->
         if (i > 0) Spacer(Modifier.height(10.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            row.forEach { m -> MetricTile(m, Modifier.weight(1f)) }
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            row.forEach { m -> MetricTile(m, Modifier.weight(1f).fillMaxHeight()) }
             if (row.size == 1) Spacer(Modifier.weight(1f))
         }
     }
@@ -1320,6 +1335,14 @@ private fun CloseDayFlow(
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+            // Edge-to-edge (targetSdk 35): a full-screen Compose Dialog draws under the nav bar, but by
+            // default its window fits decor so systemBarsPadding()/imePadding() resolve to ZERO and the
+            // pinned action bar sits under the nav bar. Stop the dialog window fitting decor so the insets
+            // are dispatched to the Compose content and the padding modifiers below actually push it clear.
+            val dialogWindow = (LocalView.current.parent as? DialogWindowProvider)?.window
+            SideEffect {
+                dialogWindow?.let { WindowCompat.setDecorFitsSystemWindows(it, false) }
+            }
             Column(Modifier.fillMaxSize().systemBarsPadding().imePadding().padding(horizontal = 22.dp)) {
                 // Progress bar — one segment per step (the terminal "done" step isn't counted). Pinned at top.
                 val totalSteps = (steps.size - 1).coerceAtLeast(1)
@@ -1585,6 +1608,13 @@ private fun WeeklyReviewFlow(
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+            // Edge-to-edge (targetSdk 35): stop the full-screen dialog window fitting decor so window insets
+            // reach the Compose content and systemBarsPadding()/imePadding() below keep the pinned action bar
+            // clear of the navigation bar (same fix as CloseDayFlow).
+            val dialogWindow = (LocalView.current.parent as? DialogWindowProvider)?.window
+            SideEffect {
+                dialogWindow?.let { WindowCompat.setDecorFitsSystemWindows(it, false) }
+            }
             Column(Modifier.fillMaxSize().systemBarsPadding().imePadding().padding(horizontal = 22.dp)) {
                 val totalSteps = (steps.size - 1).coerceAtLeast(1)
                 Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1874,8 +1904,9 @@ private fun ReflectDialog(
 }
 
 /** Phase C — add / rename / remove up to [DailyQuestions.MAX] Daily Questions. When the user has none
- *  yet, the editor is pre-filled with the suggested starters so they can keep, tweak, or clear them. */
-@OptIn(ExperimentalMaterial3Api::class)
+ *  yet, the editor is pre-filled with the suggested starters so they can keep, tweak, or clear them. A
+ *  "Suggestions" chip row (starters not already added) makes building a personalized set one-tap fast. */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun DailyQuestionsDialog(
     initial: List<DailyQuestion>,
@@ -1911,6 +1942,25 @@ private fun DailyQuestionsDialog(
                 if (items.size < DailyQuestions.MAX) {
                     Spacer(Modifier.height(4.dp))
                     OutlinedButton(onClick = { items = items + DailyQuestion(java.util.UUID.randomUUID().toString(), "") }) { Text("Add question") }
+                    // One-tap personalization — the suggested starters not already added. Tapping a chip
+                    // appends the full "Did I do my best to…" question (chip shows the compact tail),
+                    // respecting the MAX cap. Recomputes as items change, so a tapped chip drops out.
+                    val available = DailyQuestions.SUGGESTED.filter { s -> items.none { it.text.trim().equals(s.trim(), ignoreCase = true) } }
+                    if (available.isNotEmpty()) {
+                        Spacer(Modifier.height(12.dp))
+                        Text("Suggestions", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+                        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            available.forEach { s ->
+                                val tail = s.removePrefix("Did I do my best to ").removeSuffix("?").trim().ifBlank { s }
+                                val chipLabel = "＋ " + tail.replaceFirstChar { it.uppercase() }
+                                FilterChip(
+                                    selected = false,
+                                    onClick = { if (items.size < DailyQuestions.MAX) items = items + DailyQuestion(java.util.UUID.randomUUID().toString(), s) },
+                                    label = { Text(chipLabel, maxLines = 1) },
+                                )
+                            }
+                        }
+                    }
                 }
             }
         },
