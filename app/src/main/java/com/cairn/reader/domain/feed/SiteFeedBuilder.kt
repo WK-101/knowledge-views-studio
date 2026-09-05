@@ -2,6 +2,8 @@ package com.cairn.reader.domain.feed
 
 import com.cairn.reader.data.net.HttpFetcher
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import org.json.JSONArray
+import org.json.JSONObject
 import org.jsoup.Jsoup
 import org.jsoup.parser.Parser
 import java.text.SimpleDateFormat
@@ -17,8 +19,72 @@ import javax.inject.Inject
 class SiteFeedBuilder @Inject constructor(
     private val fetcher: HttpFetcher,
 ) {
-    /** Build a feed from [input] (a site origin, page, or a direct sitemap URL). Null if none found. */
+    /**
+     * Build a feed from [input] using the collector ladder, richest first: JSON Feed, then the
+     * WordPress REST API (both carry full content), then the sitemap (URLs only). First hit wins.
+     */
     suspend fun build(input: String): ParsedFeed? {
+        val http = input.toHttpUrlOrNull() ?: return null
+        val origin = "${http.scheme}://${http.host}"
+        buildFromJsonFeed(origin)?.let { return it }
+        buildFromWordPress(origin)?.let { return it }
+        return buildFromSitemap(input)
+    }
+
+    // -- JSON Feed (jsonfeed.org) ---------------------------------------------
+    private suspend fun buildFromJsonFeed(origin: String): ParsedFeed? {
+        for (path in listOf("/feed.json", "/feed/json", "/index.json", "/json")) {
+            val body = runCatching { fetcher.fetch(origin + path).body }.getOrNull() ?: continue
+            val obj = runCatching { JSONObject(body) }.getOrNull() ?: continue
+            if (!obj.optString("version").contains("jsonfeed", true)) continue
+            val arr = obj.optJSONArray("items") ?: continue
+            val items = (0 until arr.length()).mapNotNull { i ->
+                val it = arr.optJSONObject(i) ?: return@mapNotNull null
+                val link = it.optString("url").ifBlank { it.optString("external_url") }.ifBlank { null } ?: return@mapNotNull null
+                ParsedItem(
+                    guid = it.optString("id").ifBlank { link },
+                    title = it.optString("title").ifBlank { titleFromUrl(link) }.let(::stripHtml),
+                    link = link, author = null,
+                    publishedAt = parseDate(it.optString("date_published")),
+                    contentHtml = it.optString("content_html").ifBlank { null },
+                    summary = it.optString("summary").ifBlank { it.optString("content_text").ifBlank { null } },
+                    imageUrl = it.optString("image").ifBlank { it.optString("banner_image").ifBlank { null } },
+                )
+            }.take(40)
+            if (items.isNotEmpty()) return ParsedFeed(obj.optString("title").ifBlank { origin.toHttpUrlOrNull()?.host }, origin, items)
+        }
+        return null
+    }
+
+    // -- WordPress REST API (JSON even when RSS is hidden) --------------------
+    private suspend fun buildFromWordPress(origin: String): ParsedFeed? {
+        val body = runCatching { fetcher.fetch("$origin/wp-json/wp/v2/posts?_embed&per_page=30").body }.getOrNull() ?: return null
+        val arr = runCatching { JSONArray(body) }.getOrNull() ?: return null
+        if (arr.length() == 0) return null
+        val items = (0 until arr.length()).mapNotNull { i ->
+            val p = arr.optJSONObject(i) ?: return@mapNotNull null
+            val link = p.optString("link").ifBlank { null } ?: return@mapNotNull null
+            val image = p.optJSONObject("_embedded")
+                ?.optJSONArray("wp:featuredmedia")?.optJSONObject(0)?.optString("source_url")?.ifBlank { null }
+            ParsedItem(
+                guid = link,
+                title = stripHtml(p.optJSONObject("title")?.optString("rendered").orEmpty()).ifBlank { titleFromUrl(link) },
+                link = link, author = null,
+                publishedAt = parseDate(p.optString("date_gmt").ifBlank { p.optString("date") }),
+                contentHtml = p.optJSONObject("content")?.optString("rendered")?.ifBlank { null },
+                summary = stripHtml(p.optJSONObject("excerpt")?.optString("rendered").orEmpty()).ifBlank { null },
+                imageUrl = image,
+            )
+        }
+        if (items.isEmpty()) return null
+        return ParsedFeed(origin.toHttpUrlOrNull()?.host?.removePrefix("www."), origin, items)
+    }
+
+    private fun stripHtml(html: String): String =
+        if (html.isBlank()) "" else runCatching { Jsoup.parse(html).text().trim() }.getOrDefault(html.trim())
+
+    /** Build a feed from a site's sitemap. Null if none found. */
+    private suspend fun buildFromSitemap(input: String): ParsedFeed? {
         val http = input.toHttpUrlOrNull() ?: return null
         val origin = "${http.scheme}://${http.host}"
         val host = http.host.removePrefix("www.")
