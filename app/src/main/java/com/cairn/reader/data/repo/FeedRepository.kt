@@ -106,13 +106,14 @@ class FeedRepository @Inject constructor(
             ?: return Result.failure(IllegalStateException(reason))
         val now = System.currentTimeMillis()
         val origin = url.toHttpUrlOrNull()?.let { "${it.scheme}://${it.host}" } ?: url
-        val sourceId = deterministicId("sitemap|$origin")
+        // Store the exact page the user pointed at, so a scraped index re-scrapes that page on sync.
+        val sourceId = deterministicId("collector|$url")
         val source = SourceEntity(
             id = sourceId,
             kind = "SITEMAP",
-            feedUrl = origin,
+            feedUrl = url,
             siteUrl = feed.siteUrl ?: origin,
-            title = (feed.title?.takeIf { it.isNotBlank() } ?: hostOf(origin)) + " · via sitemap",
+            title = (feed.title?.takeIf { it.isNotBlank() } ?: hostOf(origin)) + " · via site",
         )
         sourceDao.upsert(source)
         feed.items.forEach { insertParsed(source, it, now) }

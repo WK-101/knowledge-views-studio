@@ -28,7 +28,48 @@ class SiteFeedBuilder @Inject constructor(
         val origin = "${http.scheme}://${http.host}"
         buildFromJsonFeed(origin)?.let { return it }
         buildFromWordPress(origin)?.let { return it }
-        return buildFromSitemap(input)
+        buildFromSitemap(input)?.let { return it }
+        return buildFromScrape(input)
+    }
+
+    // -- Scrape-to-feed: synthesise a feed from an index page's article links --------------
+    private suspend fun buildFromScrape(input: String): ParsedFeed? {
+        val http = input.toHttpUrlOrNull() ?: return null
+        val origin = "${http.scheme}://${http.host}"
+        val host = http.host.removePrefix("www.")
+        val body = runCatching { fetcher.fetch(input) }.getOrNull()?.let { it.body ?: return null } ?: return null
+        val doc = runCatching { Jsoup.parse(body, input) }.getOrNull() ?: return null
+
+        data class Cand(val url: String, val text: String, val score: Int)
+        val seen = HashSet<String>()
+        val cands = ArrayList<Cand>()
+        for (a in doc.select("a[href]")) {
+            val url = a.absUrl("href").substringBefore('#').trim()
+            if (url.isBlank()) continue
+            val u = url.toHttpUrlOrNull() ?: continue
+            if (u.host.removePrefix("www.") != host) continue          // same site only
+            if (!looksLikeArticle(url)) continue
+            if (!seen.add(url.trimEnd('/'))) continue
+            val text = a.text().trim()
+            // Score by how article-headline-ish the link is.
+            var score = 0
+            if (text.length >= 24) score += 2 else if (text.length >= 12) score += 1
+            if (text.split(' ').size >= 4) score += 1
+            val cls = (a.className() + " " + (a.parent()?.className() ?: "")).lowercase()
+            if (Regex("(post|title|entry|headline|story|article|card)").containsMatchIn(cls)) score += 2
+            if (a.closest("article, h1, h2, h3") != null) score += 2
+            if (Regex("/20\\d\\d/").containsMatchIn(url)) score += 1
+            if (score <= 0) continue
+            cands += Cand(url, if (text.isBlank()) titleFromUrl(url) else text, score)
+        }
+        // Keep strong candidates, preserving page order (usually newest-first on an index).
+        val items = cands.sortedByDescending { it.score }.take(60)
+            .distinctBy { it.url.trimEnd('/') }
+            .filter { it.text.length in 6..200 }
+            .take(40)
+            .map { c -> ParsedItem(guid = c.url, title = c.text, link = c.url, author = null, publishedAt = null, contentHtml = null, summary = null, imageUrl = null) }
+        if (items.size < 3) return null // too few to be a real index
+        return ParsedFeed(host, origin, items)
     }
 
     // -- JSON Feed (jsonfeed.org) ---------------------------------------------
