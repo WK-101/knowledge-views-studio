@@ -160,6 +160,7 @@ fun AppDrawer(
     onOpenDayReview: () -> Unit = {},
     onOpenWeeklyReview: () -> Unit = {},
     onOpenRoutines: () -> Unit = {},
+    onOpenGoals: () -> Unit = {},
 ) {
     val folders by vm.folders.collectAsState()
     val lists by vm.lists.collectAsState()
@@ -240,6 +241,7 @@ fun AppDrawer(
                         ref == "more:annual" -> onOpenAnnual()
                         ref == "more:dayreview" -> onOpenDayReview()
                         ref == "more:routines" -> onOpenRoutines()
+                        ref == "more:goals" -> onOpenGoals()
                     }
                 },
                 open = open("fav"), onToggle = { toggle("fav") })
@@ -396,6 +398,7 @@ fun AppDrawer(
                 // only shows when at least one of its rows is visible, so a fully-hidden group leaves no
                 // orphan label (mirrors the old "Insights" sub-label guard).
                 if ("routines" !in hidden) DrawerRow(Icons.Filled.PlayCircleOutline, "Routines", pinned = vm.isPinned("more:routines"), onLongClick = { vm.togglePinnedRef("more:routines") }, onClick = onOpenRoutines)
+                if ("goals" !in hidden) DrawerRow(Icons.Filled.EmojiEvents, "Goals", pinned = vm.isPinned("more:goals"), onLongClick = { vm.togglePinnedRef("more:goals") }, onClick = onOpenGoals)
                 if ("templates" !in hidden) DrawerRow(Icons.Filled.ContentCopy, "Templates", pinned = vm.isPinned("more:templates"), onLongClick = { vm.togglePinnedRef("more:templates") }, onClick = onOpenTemplates)
                 if ("countdowns" !in hidden) DrawerRow(Icons.Filled.Cake, "Occasions", pinned = vm.isPinned("more:countdowns"), onLongClick = { vm.togglePinnedRef("more:countdowns") }, onClick = onOpenCountdowns)
                 if ("attachments" !in hidden) DrawerRow(Icons.Filled.AttachFile, "Attachments", pinned = vm.isPinned("more:attachments"), onLongClick = { vm.togglePinnedRef("more:attachments") }, onClick = onOpenAttachments)
@@ -672,6 +675,7 @@ private fun PinnedFavourites(
         "momentum" -> Icons.Filled.Insights to "Momentum"
         "time" -> Icons.Filled.Timer to "Time"
         "routines" -> Icons.Filled.PlayCircleOutline to "Routines"
+        "goals" -> Icons.Filled.EmojiEvents to "Goals"
         "templates" -> Icons.Filled.ContentCopy to "Templates"; "countdowns" -> Icons.Filled.Cake to "Occasions"
         "attachments" -> Icons.Filled.AttachFile to "Attachments"; "statistics" -> Icons.Filled.BarChart to "Statistics"
         "review" -> Icons.Filled.ChecklistRtl to "Weekly cleanup"

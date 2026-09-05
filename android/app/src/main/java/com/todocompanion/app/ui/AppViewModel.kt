@@ -1924,6 +1924,53 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         return GoalHealth(g, tDone, tTotal, streak, strength, mins, g.budgetMinutes, overall, daysLeft)
     }
 
+    // ── Phase B · goal editing + the review/accountability layer ─────────────────────────────────
+    fun upsertGoal(g: com.todocompanion.app.domain.Goal) {
+        val cur = goals()
+        saveGoals(if (cur.any { it.id == g.id }) cur.map { if (it.id == g.id) g else it } else cur + g)
+    }
+    fun deleteGoal(id: String) = saveGoals(goals().filterNot { it.id == id })
+
+    /** The weekly-review log (newest last). Drives the scoreboard trend + the integrity chain. */
+    fun goalReviews(): List<com.todocompanion.app.domain.GoalReview> =
+        com.todocompanion.app.domain.GoalReviews.parse(settings.value.goalReviewsJson)
+    fun saveGoalReviews(list: List<com.todocompanion.app.domain.GoalReview>) = viewModelScope.launch {
+        repo.saveSettings(settings.value.copy(goalReviewsJson = com.todocompanion.app.domain.GoalReviews.encode(list)))
+    }
+    /** Record one review sitting (portfolio when goalId is blank). */
+    fun logGoalReview(goalId: String, executionPct: Int, commitmentsKept: Int, commitmentsTotal: Int, note: String) {
+        val today = java.time.LocalDate.now(zone).toEpochDay()
+        val r = com.todocompanion.app.domain.GoalReview(
+            id = java.util.UUID.randomUUID().toString(), goalId = goalId, epochDay = today,
+            executionPct = executionPct.coerceIn(0, 100), commitmentsKept = commitmentsKept,
+            commitmentsTotal = commitmentsTotal, note = note.trim(), createdAt = System.currentTimeMillis(),
+        )
+        saveGoalReviews(com.todocompanion.app.domain.GoalReviews.append(goalReviews(), r))
+    }
+
+    /**
+     * moat #4 — capacity-honest check for a single goal: the weekly hours its time budget implies vs
+     * the honest tracked-focus capacity a week actually holds. Returns null when the goal has no time
+     * arm or no deadline to spread the budget across.
+     */
+    data class GoalCapacity(val weeklyNeedH: Double, val weeklyHaveH: Double, val overcommitted: Boolean)
+    fun goalCapacity(g: com.todocompanion.app.domain.Goal): GoalCapacity? {
+        if (!g.hasBudget) return null
+        val today = java.time.LocalDate.now(zone).toEpochDay()
+        // Weeks remaining: from the cycle window, else the deadline, else assume a 12-week horizon.
+        val weeksLeft: Double = when {
+            g.hasCycle -> (com.todocompanion.app.domain.GoalScore.cycle(g, today)?.daysLeft ?: (g.cycleWeeks * 7)).toDouble() / 7.0
+            g.targetEpochDay > today -> (g.targetEpochDay - today).toDouble() / 7.0
+            else -> 12.0
+        }.coerceAtLeast(0.5)
+        val mins = timeEntries.value.filter { it.activityId == g.activityId }.sumOf { it.minutes(System.currentTimeMillis()) }
+        val remainingMin = (g.budgetMinutes - mins).coerceAtLeast(0)
+        val needH = (remainingMin / 60.0) / weeksLeft
+        val haveH = trackedCapacityHours()?.let { it * 7.0 } ?: (settings.value.dailyCapacityHours * 7.0)
+        // Only count this activity's fair share is hard; compare against total weekly focus capacity.
+        return GoalCapacity(needH, haveH, overcommitted = needH > haveH * 0.6)
+    }
+
     // ── X2 · keystone insight — the habit that lifts your output ─────────────────────────────────
     private fun bestKeystone(windowDays: Int = 60): Pair<com.todocompanion.app.data.entity.HabitEntity, com.todocompanion.app.domain.Reasoning.Keystone>? {
         val hs = com.todocompanion.app.domain.habit.HabitStats

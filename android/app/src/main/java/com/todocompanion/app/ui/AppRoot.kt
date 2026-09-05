@@ -362,6 +362,7 @@ fun AppRoot(
         var showReview by remember { mutableStateOf(false) }
         var showMomentum by remember { mutableStateOf(false) }   // Q1
         var showRoutines by remember { mutableStateOf(false) }   // Routines (press-play sequences)
+        var showGoals by remember { mutableStateOf(false) }   // Goals (WIGs · lead/lag · OKR · 12-week)
         var showTimeTracking by remember { mutableStateOf(false) }   // Tier S
         // E9: a backup file handed in by the file manager ("Open with"), awaiting a restore confirm.
         var pendingImport by remember { mutableStateOf<android.net.Uri?>(null) }
@@ -651,6 +652,7 @@ fun AppRoot(
                     // The guided reflective weekly ritual, opened directly (lands on the Week roll-up's flow).
                     onOpenWeeklyReview = { dayReviewStartClose = false; dayReviewStartWeekly = true; showDayReview = java.time.LocalDate.now().toEpochDay(); scope.launch { drawerState.close() } },
                     onOpenRoutines = { showRoutines = true; scope.launch { drawerState.close() } },
+                    onOpenGoals = { showGoals = true; scope.launch { drawerState.close() } },
                 )
             },
         ) {
@@ -998,6 +1000,7 @@ fun AppRoot(
         showDayReview?.let { d -> com.todocompanion.app.ui.screens.DayReviewScreen(vm, d, startInClose = dayReviewStartClose, startInWeekly = dayReviewStartWeekly, onOpenTask = { showDayReview = null; dayReviewStartClose = false; dayReviewStartWeekly = false; openTask(it) }, onBack = { showDayReview = null; dayReviewStartClose = false; dayReviewStartWeekly = false }) }
         if (showMomentum) com.todocompanion.app.ui.screens.MomentumScreen(vm, onBack = { showMomentum = false })
         if (showRoutines) com.todocompanion.app.ui.screens.RoutinesScreen(vm, onBack = { showRoutines = false })
+        if (showGoals) com.todocompanion.app.ui.screens.GoalsScreen(vm, onBack = { showGoals = false })
         if (showTimeTracking) com.todocompanion.app.ui.screens.TimeTrackingScreen(vm, onBack = { showTimeTracking = false })
         if (showTimeStats) com.todocompanion.app.ui.screens.TimeStatsScreen(vm, onBack = { showTimeStats = false })
 

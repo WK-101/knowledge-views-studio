@@ -251,6 +251,8 @@ data class AppSettings(
     val mutedFolders: Set<String> = emptySet(),
     // X1: Unified Goals — objectives spanning a task list + a habit + a time budget, one health bar each.
     val goalsJson: String = "",
+    // Phase B: goal review log — weekly review sittings that power the scoreboard + integrity chain.
+    val goalReviewsJson: String = "",
     // X3: plan against real tracked focus-hours (median) instead of the assumed dailyCapacityHours.
     val honestCapacity: Boolean = false,
     // Z2: dismissed / snoozed assistant insights (per-key user control over nudges).
@@ -499,6 +501,7 @@ data class AppSettings(
         Keys.MUTED_LISTS to mutedLists.joinToString(","),
         Keys.MUTED_FOLDERS to mutedFolders.joinToString(","),
         Keys.GOALS to goalsJson,
+        Keys.GOAL_REVIEWS to goalReviewsJson,
         Keys.HONEST_CAPACITY to honestCapacity.toString(),
         Keys.INSIGHT_PREFS to insightPrefsJson,
         Keys.ASSISTANT_LOG to assistantLogJson,
@@ -679,6 +682,7 @@ data class AppSettings(
         const val MUTED_LISTS = "muted_lists"
         const val MUTED_FOLDERS = "muted_folders"
         const val GOALS = "goals"
+        const val GOAL_REVIEWS = "goal_reviews"
         const val HONEST_CAPACITY = "honest_capacity"
         const val INSIGHT_PREFS = "insight_prefs"
         const val ASSISTANT_LOG = "assistant_log"
@@ -829,6 +833,7 @@ data class AppSettings(
             mutedLists = (m[Keys.MUTED_LISTS] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             mutedFolders = (m[Keys.MUTED_FOLDERS] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             goalsJson = m[Keys.GOALS] ?: "",
+            goalReviewsJson = m[Keys.GOAL_REVIEWS] ?: "",
             honestCapacity = m[Keys.HONEST_CAPACITY]?.toBoolean() ?: false,
             insightPrefsJson = m[Keys.INSIGHT_PREFS] ?: "",
             assistantLogJson = m[Keys.ASSISTANT_LOG] ?: "",
