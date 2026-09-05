@@ -41,6 +41,14 @@ data class ItemListRow(
     val isArchived: Boolean,
 )
 
+/** Minimal text projection for on-device semantic similarity and topic clustering. */
+data class ItemText(
+    val id: String,
+    val title: String,
+    val excerpt: String?,
+    val sourceTitle: String?,
+)
+
 /** A feed with its current unread count, for the navigation drawer. */
 data class FeedUnread(
     val sourceId: String,
@@ -697,6 +705,18 @@ interface ItemDao {
 
     @Query("SELECT id FROM items WHERE trashedAt IS NULL AND linkStatus = 'BROKEN' LIMIT :limit")
     suspend fun brokenItemIds(limit: Int): List<String>
+
+    /** Lightweight (id, title, excerpt, source) rows for on-device semantic similarity / clustering,
+     *  newest first. Body text stays on disk; title+excerpt is enough signal and cheap to vectorize. */
+    @Query(
+        """
+        SELECT i.id AS id, i.title AS title, i.excerpt AS excerpt, src.title AS sourceTitle
+        FROM items i LEFT JOIN sources src ON src.id = i.sourceId
+        WHERE i.trashedAt IS NULL
+        ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC LIMIT :limit
+        """
+    )
+    suspend fun recentText(limit: Int): List<ItemText>
 
     @Query(
         """

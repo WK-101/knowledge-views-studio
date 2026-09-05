@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.CleaningServices
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.Hub
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Card
@@ -110,6 +111,27 @@ fun InsightsScreen(
                             },
                             style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
+                    }
+                }
+            }
+
+            if (state.topics.isNotEmpty()) {
+                item {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Outlined.Hub, contentDescription = null, tint = scheme.primary, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.size(6.dp))
+                        SectionLabel("TOPICS YOU'RE FOLLOWING")
+                    }
+                }
+                items(state.topics.size) { i ->
+                    val topic = state.topics[i]
+                    Card(colors = CardDefaults.cardColors(containerColor = scheme.surfaceContainerLow)) {
+                        Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                            Text("${topic.label}  ·  ${topic.items.size}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            topic.items.take(3).forEach { it2 ->
+                                Text("• ${it2.title}", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+                            }
+                        }
                     }
                 }
             }

@@ -54,10 +54,19 @@ class ReaderViewModel @Inject constructor(
     private val audioPlayer: AudioPlayer,
     private val dictionaryRepository: com.cairn.reader.domain.lookup.DictionaryRepository,
     private val mediaSaver: com.cairn.reader.domain.media.MediaSaver,
+    private val semanticRepository: com.cairn.reader.data.repo.SemanticRepository,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
     private val itemId: String = savedStateHandle.get<String>("itemId").orEmpty()
+
+    /** Related articles (on-device TF-IDF similarity), loaded lazily when the sheet is opened. */
+    private val _related = MutableStateFlow<List<com.cairn.reader.data.repo.RelatedItem>?>(null)
+    val related: StateFlow<List<com.cairn.reader.data.repo.RelatedItem>?> = _related.asStateFlow()
+    fun loadRelated() {
+        if (_related.value != null || itemId.isEmpty()) return
+        viewModelScope.launch { _related.value = runCatching { semanticRepository.related(itemId, 8) }.getOrDefault(emptyList()) }
+    }
 
     /** Neighbours in the reading queue, so the reader can flow to the previous/next article
      *  without going back to the list. Null when unknown (opened outside a list). */

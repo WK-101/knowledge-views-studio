@@ -56,6 +56,7 @@ import androidx.compose.material.icons.outlined.DownloadForOffline
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.FormatSize
 import androidx.compose.material.icons.outlined.Headphones
+import androidx.compose.material.icons.outlined.Hub
 import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.MenuBook
@@ -209,6 +210,7 @@ fun ReaderScreen(
     var showTags by remember { mutableStateOf(false) }
     var managed by remember { mutableStateOf<HighlightEntity?>(null) }
     var showRsvp by remember { mutableStateOf(false) }
+    var showRelated by remember { mutableStateOf(false) }
     var pending by remember { mutableStateOf<PendingSelection?>(null) }
     var lookup by remember { mutableStateOf<String?>(null) }
     var lightbox by remember { mutableStateOf<String?>(null) }
@@ -245,7 +247,7 @@ fun ReaderScreen(
     // A ModalBottomSheet / Dialog opens in its own window that shows the system bars; when it
     // dismisses the reader must reclaim full-screen. Re-run whenever such an overlay opens or
     // closes so immersive mode is re-asserted and doesn't get stuck "out of full screen".
-    val overlayOpen = lookup != null || pending != null || showTypography || showCollections || showTags || managed != null || lightbox != null || showRsvp
+    val overlayOpen = lookup != null || pending != null || showTypography || showCollections || showTags || managed != null || lightbox != null || showRsvp || showRelated
     LaunchedEffect(hideSystemBars, window, overlayOpen) {
         val controller = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, it.decorView) } ?: return@LaunchedEffect
         controller.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -388,6 +390,11 @@ fun ReaderScreen(
                                     text = { Text("Speed read") },
                                     leadingIcon = { Icon(Icons.Outlined.Bolt, contentDescription = null) },
                                     onClick = { showMenu = false; showRsvp = true },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Related articles") },
+                                    leadingIcon = { Icon(Icons.Outlined.Hub, contentDescription = null) },
+                                    onClick = { showMenu = false; viewModel.loadRelated(); showRelated = true },
                                 )
                             }
                             val permanent = data?.cacheStatus == "PERMANENT"
@@ -600,6 +607,39 @@ fun ReaderScreen(
             onBionic = viewModel::setBionicReading,
             onDismiss = { showTypography = false },
         )
+    }
+
+    if (showRelated) {
+        val related by viewModel.related.collectAsStateWithLifecycle()
+        androidx.compose.material3.ModalBottomSheet(onDismissRequest = { showRelated = false }) {
+            androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+                Text(
+                    "Related articles",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                )
+                when {
+                    related == null -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                    related!!.isEmpty() -> Text(
+                        "Nothing closely related found yet.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = palette.secondary,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                    )
+                    else -> related!!.forEach { r ->
+                        androidx.compose.foundation.layout.Column(
+                            Modifier.fillMaxWidth().clickable { showRelated = false; onOpenItem(r.id) }.padding(horizontal = 24.dp, vertical = 12.dp),
+                        ) {
+                            Text(r.title, style = MaterialTheme.typography.bodyLarge, color = palette.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            r.sourceTitle?.takeIf { it.isNotBlank() }?.let {
+                                Text(it, style = MaterialTheme.typography.bodySmall, color = palette.secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     if (showRsvp && data != null) {

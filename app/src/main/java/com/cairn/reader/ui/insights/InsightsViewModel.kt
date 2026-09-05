@@ -18,12 +18,14 @@ data class InsightsUiState(
     val analytics: ReadingAnalytics? = null,
     val topPicks: List<ItemListRow> = emptyList(),
     val hygiene: List<HygieneIssue> = emptyList(),
+    val topics: List<com.cairn.reader.data.repo.TopicCluster> = emptyList(),
 )
 
 @HiltViewModel
 class InsightsViewModel @Inject constructor(
     private val insightsRepository: InsightsRepository,
     private val feedRepository: com.cairn.reader.data.repo.FeedRepository,
+    private val semanticRepository: com.cairn.reader.data.repo.SemanticRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(InsightsUiState())
@@ -52,7 +54,8 @@ class InsightsViewModel @Inject constructor(
             val analytics = runCatching { insightsRepository.analytics() }.getOrNull()
             val picks = runCatching { insightsRepository.topPicks(20) }.getOrDefault(emptyList())
             val hygiene = runCatching { insightsRepository.feedHygiene() }.getOrDefault(emptyList())
-            _state.value = InsightsUiState(loading = false, analytics = analytics, topPicks = picks, hygiene = hygiene)
+            val topics = runCatching { semanticRepository.clusters() }.getOrDefault(emptyList()).take(8)
+            _state.value = InsightsUiState(loading = false, analytics = analytics, topPicks = picks, hygiene = hygiene, topics = topics)
         }
     }
 }
