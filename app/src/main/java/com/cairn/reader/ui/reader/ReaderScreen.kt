@@ -72,7 +72,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -192,15 +191,22 @@ fun ReaderScreen(
                 li = i; lo = o
             }
     }
-    // True full-screen also hides the system status/navigation bars while in the reader.
+    // System-bar hiding: full-screen hides the Android status/nav bars for the whole read;
+    // immersive hides them in step with the app chrome, so scrolling down gives the entire
+    // display to the text and scrolling back up brings everything back. Restore on leave.
     val window = (context as? android.app.Activity)?.window
-    DisposableEffect(fullScreen, window) {
-        val controller = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, it.decorView) }
-        if (fullScreen && controller != null) {
-            controller.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+    val hideSystemBars = fullScreen || (immersive && !barsVisible)
+    LaunchedEffect(hideSystemBars, window) {
+        val controller = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, it.decorView) } ?: return@LaunchedEffect
+        controller.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        if (hideSystemBars) controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        else controller.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+    }
+    DisposableEffect(window) {
+        onDispose {
+            window?.let { androidx.core.view.WindowCompat.getInsetsController(it, it.decorView) }
+                ?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
         }
-        onDispose { controller?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars()) }
     }
 
     LaunchedEffect(Unit) {
@@ -295,6 +301,13 @@ fun ReaderScreen(
                             Icon(Icons.Outlined.MoreVert, contentDescription = "More", tint = palette.text)
                         }
                         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                            if (data?.type != "PDF") {
+                                DropdownMenuItem(
+                                    text = { Text("Display & text") },
+                                    leadingIcon = { Icon(Icons.Outlined.FormatSize, contentDescription = null) },
+                                    onClick = { showMenu = false; showTypography = true },
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text(if (data?.collectionId != null) "Move to collection" else "Save to collection") },
                                 leadingIcon = { Icon(Icons.Outlined.FolderOpen, contentDescription = null) },
@@ -978,22 +991,41 @@ private fun TypographySheet(
     onFullScreen: (Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val scheme = MaterialTheme.colorScheme
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
-        Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
-            Text("Text size", style = MaterialTheme.typography.labelLarge)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("A", style = MaterialTheme.typography.bodyMedium)
-                Slider(
-                    value = fontScale,
-                    onValueChange = onFontScale,
-                    valueRange = 0.8f..1.8f,
-                    steps = 4,
-                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
-                )
-                Text("A", style = MaterialTheme.typography.headlineSmall)
+        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
+            Text("Display", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 12.dp))
+
+            // ---- Text size: a proper A− / value / A+ stepper (Instapaper/Pocket style) -------
+            SheetSectionLabel("TEXT SIZE")
+            Spacer(Modifier.height(6.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SizeStepButton(label = "A", fontSize = 15.sp, enabled = fontScale > 0.8f) {
+                    onFontScale(((fontScale * 10).toInt() / 10f - 0.1f).coerceIn(0.8f, 2.0f))
+                }
+                Box(
+                    Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(scheme.surfaceContainerHighest).padding(vertical = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("${(fontScale * 100).toInt()}%", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
+                }
+                SizeStepButton(label = "A", fontSize = 24.sp, enabled = fontScale < 2.0f) {
+                    onFontScale(((fontScale * 10).toInt() / 10f + 0.1f).coerceIn(0.8f, 2.0f))
+                }
             }
-            Spacer(Modifier.height(8.dp))
-            Text("Font", style = MaterialTheme.typography.labelLarge)
+            Text(
+                "Or pinch anywhere in the article to size the text.",
+                style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+
+            Spacer(Modifier.height(16.dp))
+            // ---- Typeface -------------------------------------------------------------------
+            SheetSectionLabel("TYPEFACE")
             Spacer(Modifier.height(6.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1007,57 +1039,88 @@ private fun TypographySheet(
                     )
                 }
             }
-            Spacer(Modifier.height(12.dp))
-            Text("Theme", style = MaterialTheme.typography.labelLarge)
-            Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = readerTheme == ReaderTheme.DEFAULT, onClick = { onReaderTheme(ReaderTheme.DEFAULT) }, label = { Text("Default") })
-                FilterChip(selected = readerTheme == ReaderTheme.SEPIA, onClick = { onReaderTheme(ReaderTheme.SEPIA) }, label = { Text("Sepia") })
-                FilterChip(selected = readerTheme == ReaderTheme.BLACK, onClick = { onReaderTheme(ReaderTheme.BLACK) }, label = { Text("Black") })
+
+            Spacer(Modifier.height(16.dp))
+            // ---- Background: live swatches that preview the actual reader palette ------------
+            SheetSectionLabel("BACKGROUND")
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                ThemeSwatch("Default", ReaderTheme.DEFAULT, readerTheme == ReaderTheme.DEFAULT, onReaderTheme)
+                ThemeSwatch("Sepia", ReaderTheme.SEPIA, readerTheme == ReaderTheme.SEPIA, onReaderTheme)
+                ThemeSwatch("Black", ReaderTheme.BLACK, readerTheme == ReaderTheme.BLACK, onReaderTheme)
             }
-            Spacer(Modifier.height(14.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Justify text", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                androidx.compose.material3.Switch(checked = justify, onCheckedChange = onJustify)
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Show images", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                androidx.compose.material3.Switch(checked = showImages, onCheckedChange = onShowImages)
-            }
-            HorizontalDivider(Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.outlineVariant)
-            Column {
-                Text("Immersive scroll", style = MaterialTheme.typography.bodyLarge)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "Hide the bars as you read; they return when you scroll up.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f).padding(end = 12.dp),
-                    )
-                    androidx.compose.material3.Switch(checked = immersive, onCheckedChange = onImmersive)
-                }
-            }
-            Spacer(Modifier.height(6.dp))
-            Column {
-                Text("Full screen", style = MaterialTheme.typography.bodyLarge)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "Use the whole display for text — hides the status and navigation bars too.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f).padding(end = 12.dp),
-                    )
-                    androidx.compose.material3.Switch(checked = fullScreen, onCheckedChange = onFullScreen)
-                }
-            }
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "Tip: pinch anywhere in the article to size the text.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(24.dp))
+
+            HorizontalDivider(Modifier.padding(vertical = 16.dp), color = scheme.outlineVariant)
+
+            // ---- Toggles --------------------------------------------------------------------
+            ToggleRow("Justify text", null, justify, onJustify)
+            ToggleRow("Show images", "Off gives a text-only, data-light read", showImages, onShowImages)
+            ToggleRow("Immersive scroll", "Hide every bar as you read; scroll up to bring them back", immersive, onImmersive)
+            ToggleRow("Full screen", "Use the entire display, hiding the Android bars too", fullScreen, onFullScreen)
         }
+    }
+}
+
+@Composable
+private fun SheetSectionLabel(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        letterSpacing = 1.2.sp,
+        fontWeight = FontWeight.Medium,
+    )
+}
+
+@Composable
+private fun SizeStepButton(label: String, fontSize: androidx.compose.ui.unit.TextUnit, enabled: Boolean, onClick: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Box(
+        Modifier
+            .size(56.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(scheme.surfaceContainerHighest)
+            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(4.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, fontSize = fontSize, fontWeight = FontWeight.SemiBold, color = if (enabled) scheme.onSurface else scheme.onSurfaceVariant.copy(alpha = 0.4f))
+    }
+}
+
+@Composable
+private fun ThemeSwatch(label: String, theme: ReaderTheme, selected: Boolean, onSelect: (ReaderTheme) -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val palette = readerPalette(theme)
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            Modifier
+                .size(52.dp)
+                .clip(androidx.compose.foundation.shape.CircleShape)
+                .background(palette.background)
+                .border(
+                    width = if (selected) 3.dp else 1.dp,
+                    color = if (selected) scheme.primary else scheme.outlineVariant,
+                    shape = androidx.compose.foundation.shape.CircleShape,
+                )
+                .clickable { onSelect(theme) },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("A", color = palette.text, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleMedium)
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(label, style = MaterialTheme.typography.labelSmall, color = if (selected) scheme.primary else scheme.onSurfaceVariant, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+    }
+}
+
+@Composable
+private fun ToggleRow(title: String, subtitle: String?, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+            if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        androidx.compose.material3.Switch(checked = checked, onCheckedChange = onChange)
     }
 }
 
