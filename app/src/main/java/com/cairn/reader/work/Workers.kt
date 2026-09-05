@@ -90,6 +90,26 @@ class SaveUrlWorker @AssistedInject constructor(
     }
 }
 
+/** Saves shared text (e.g. a forwarded newsletter) as a Read Later item. No network needed. */
+@HiltWorker
+class SaveTextWorker @AssistedInject constructor(
+    @Assisted context: Context,
+    @Assisted params: WorkerParameters,
+    private val feedRepository: FeedRepository,
+) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result {
+        val text = inputData.getString(KEY_TEXT) ?: return Result.failure()
+        val subject = inputData.getString(KEY_SUBJECT)
+        return feedRepository.saveText(subject, text)
+            .fold(onSuccess = { Result.success() }, onFailure = { Result.failure() })
+    }
+
+    companion object {
+        const val KEY_TEXT = "text"
+        const val KEY_SUBJECT = "subject"
+    }
+}
+
 /** Entry points for scheduling background work. */
 object CairnWork {
     private const val UNIQUE_PERIODIC = "cairn-periodic-sync"
@@ -143,6 +163,20 @@ object CairnWork {
         val request = OneTimeWorkRequestBuilder<SaveUrlWorker>()
             .setConstraints(constraints(false))
             .setInputData(workDataOf(SaveUrlWorker.KEY_URL to url))
+            .build()
+        WorkManager.getInstance(context).enqueue(request)
+    }
+
+    /** Save shared/forwarded text (a newsletter, an email, a highlighted passage) straight into
+     *  Read Later. Purely local — no network constraint, so it runs even when offline. */
+    fun saveText(context: Context, subject: String?, text: String) {
+        val request = OneTimeWorkRequestBuilder<SaveTextWorker>()
+            .setInputData(
+                workDataOf(
+                    SaveTextWorker.KEY_TEXT to text,
+                    SaveTextWorker.KEY_SUBJECT to subject,
+                )
+            )
             .build()
         WorkManager.getInstance(context).enqueue(request)
     }

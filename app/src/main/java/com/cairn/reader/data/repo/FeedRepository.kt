@@ -413,6 +413,43 @@ class FeedRepository @Inject constructor(
         return Result.success(itemId)
     }
 
+    /** Save shared text (e.g. a forwarded newsletter) as a readable Read Later item. When the
+     *  text carries a URL we prefer saving that; otherwise the text itself becomes the article. */
+    suspend fun saveText(subject: String?, text: String): Result<String> {
+        val clean = text.trim()
+        if (clean.length < 20) return Result.failure(IllegalArgumentException("Not enough text to save"))
+        val now = System.currentTimeMillis()
+        val title = (subject?.trim()?.takeIf { it.isNotBlank() }
+            ?: clean.lineSequence().firstOrNull { it.isNotBlank() }?.trim()
+            ?: "Saved text").take(140)
+        val itemId = deterministicId("text|$title|$now")
+        val html = clean.split(Regex("\\n{2,}"))
+            .filter { it.isNotBlank() }
+            .joinToString("") { "<p>" + it.trim().replace("\n", "<br>") + "</p>" }
+        val blobPath = runCatching { blobStore.writeArticle(itemId, html) }.getOrNull()
+        val words = clean.split(whitespace).count { it.isNotBlank() }
+        itemDao.insertItemWithState(
+            ItemEntity(
+                id = itemId,
+                url = "cairn://saved/$itemId",
+                title = title,
+                siteName = "Saved",
+                savedAt = now,
+                type = "ARTICLE",
+                excerpt = clean.take(300),
+                wordCount = words,
+                readingMinutes = max(1, ceil(words / 220.0).toInt()),
+                blobPath = blobPath,
+                extractStatus = "OK",
+                contentSource = "SHARED",
+            ),
+            now,
+        )
+        itemDao.setReadLater(itemId, true, now)
+        itemDao.indexItem(ItemFtsEntity(itemId = itemId, title = title, author = null, body = clean.take(20_000)))
+        return Result.success(itemId)
+    }
+
     /** Import a PDF into the library: store the file verbatim and create a PDF-type item
      *  the reader opens with the on-device page renderer. Fully local — nothing is uploaded. */
     suspend fun importPdf(displayName: String, bytes: ByteArray): Result<String> {
