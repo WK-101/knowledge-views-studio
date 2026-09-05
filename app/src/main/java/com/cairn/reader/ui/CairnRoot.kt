@@ -11,6 +11,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.cairn.reader.data.prefs.ThemeMode
+import com.cairn.reader.ui.discover.DiscoverScreen
 import com.cairn.reader.ui.feeds.FeedsScreen
 import com.cairn.reader.ui.notebook.NotebookScreen
 import com.cairn.reader.ui.onboarding.OnboardingScreen
@@ -49,6 +50,7 @@ fun CairnRoot() {
                     onOpenSearch = { navController.navigate("search") },
                     onOpenFeeds = { navController.navigate("feeds") },
                     onOpenOffline = { navController.navigate("offline") },
+                    onOpenDiscover = { navController.navigate("discover") },
                 )
             }
             composable(
@@ -80,6 +82,9 @@ fun CairnRoot() {
             }
             composable("offline") {
                 OfflineScreen(onBack = { navController.popBackStack() })
+            }
+            composable("discover") {
+                DiscoverScreen(onBack = { navController.popBackStack() })
             }
             composable(
                 route = "web/{data}",

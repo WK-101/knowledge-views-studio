@@ -1,0 +1,70 @@
+{
+  "categories": [
+    {
+      "name": "Technology",
+      "feeds": [
+        {"title": "The Verge", "url": "https://www.theverge.com/rss/index.xml", "site": "theverge.com"},
+        {"title": "Ars Technica", "url": "https://feeds.arstechnica.com/arstechnica/index", "site": "arstechnica.com"},
+        {"title": "Hacker News (front page)", "url": "https://hnrss.org/frontpage", "site": "news.ycombinator.com"},
+        {"title": "TechCrunch", "url": "https://techcrunch.com/feed/", "site": "techcrunch.com"},
+        {"title": "Wired", "url": "https://www.wired.com/feed/rss", "site": "wired.com"},
+        {"title": "Engadget", "url": "https://www.engadget.com/rss.xml", "site": "engadget.com"}
+      ]
+    },
+    {
+      "name": "Programming",
+      "feeds": [
+        {"title": "DEV Community", "url": "https://dev.to/feed", "site": "dev.to"},
+        {"title": "The GitHub Blog", "url": "https://github.blog/feed/", "site": "github.blog"},
+        {"title": "Martin Fowler", "url": "https://martinfowler.com/feed.atom", "site": "martinfowler.com"},
+        {"title": "Julia Evans", "url": "https://jvns.ca/atom.xml", "site": "jvns.ca"},
+        {"title": "Overreacted (Dan Abramov)", "url": "https://overreacted.io/rss.xml", "site": "overreacted.io"},
+        {"title": "Stack Overflow Blog", "url": "https://stackoverflow.blog/feed/", "site": "stackoverflow.blog"}
+      ]
+    },
+    {
+      "name": "Science",
+      "feeds": [
+        {"title": "Quanta Magazine", "url": "https://api.quantamagazine.org/feed/", "site": "quantamagazine.org"},
+        {"title": "Nature (current)", "url": "http://feeds.nature.com/nature/rss/current", "site": "nature.com"},
+        {"title": "Phys.org", "url": "https://phys.org/rss-feed/", "site": "phys.org"},
+        {"title": "Science Daily", "url": "https://www.sciencedaily.com/rss/all.xml", "site": "sciencedaily.com"},
+        {"title": "NASA", "url": "https://www.nasa.gov/feed/", "site": "nasa.gov"},
+        {"title": "Scientific American", "url": "http://rss.sciam.com/ScientificAmerican-Global", "site": "scientificamerican.com"}
+      ]
+    },
+    {
+      "name": "World News",
+      "feeds": [
+        {"title": "BBC World", "url": "https://feeds.bbci.co.uk/news/world/rss.xml", "site": "bbc.com"},
+        {"title": "NPR News", "url": "https://feeds.npr.org/1001/rss.xml", "site": "npr.org"},
+        {"title": "The Guardian (World)", "url": "https://www.theguardian.com/world/rss", "site": "theguardian.com"},
+        {"title": "Al Jazeera", "url": "https://www.aljazeera.com/xml/rss/all.xml", "site": "aljazeera.com"},
+        {"title": "Deutsche Welle", "url": "https://rss.dw.com/rdf/rss-en-all", "site": "dw.com"},
+        {"title": "CBC Top Stories", "url": "https://www.cbc.ca/webfeed/rss/rss-topstories", "site": "cbc.ca"}
+      ]
+    },
+    {
+      "name": "Design & UX",
+      "feeds": [
+        {"title": "Smashing Magazine", "url": "https://www.smashingmagazine.com/feed/", "site": "smashingmagazine.com"},
+        {"title": "A List Apart", "url": "https://alistapart.com/main/feed/", "site": "alistapart.com"},
+        {"title": "Nielsen Norman Group", "url": "https://www.nngroup.com/feed/rss/", "site": "nngroup.com"},
+        {"title": "CSS-Tricks", "url": "https://css-tricks.com/feed/", "site": "css-tricks.com"},
+        {"title": "Sidebar", "url": "https://sidebar.io/feed.xml", "site": "sidebar.io"},
+        {"title": "UX Collective", "url": "https://uxdesign.cc/feed", "site": "uxdesign.cc"}
+      ]
+    },
+    {
+      "name": "Culture & Longform",
+      "feeds": [
+        {"title": "The Atlantic", "url": "https://www.theatlantic.com/feed/all/", "site": "theatlantic.com"},
+        {"title": "Aeon", "url": "https://aeon.co/feed.rss", "site": "aeon.co"},
+        {"title": "The Marginalian", "url": "https://www.themarginalian.org/feed/", "site": "themarginalian.org"},
+        {"title": "Longreads", "url": "https://longreads.com/feed/", "site": "longreads.com"},
+        {"title": "The New Yorker", "url": "https://www.newyorker.com/feed/everything", "site": "newyorker.com"},
+        {"title": "Nautilus", "url": "https://nautil.us/feed/", "site": "nautil.us"}
+      ]
+    }
+  ]
+}

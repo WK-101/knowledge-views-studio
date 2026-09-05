@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.RssFeed
@@ -76,6 +77,7 @@ fun FeedDrawerContent(
     onSaved: () -> Unit,
     onHighlights: () -> Unit,
     onSearch: () -> Unit,
+    onDiscover: () -> Unit,
     onManageFeeds: () -> Unit,
     onSettings: () -> Unit,
 ) {
@@ -201,6 +203,13 @@ fun FeedDrawerContent(
             selected = false,
             icon = { Icon(Icons.Outlined.Search, contentDescription = null) },
             onClick = onSearch,
+            modifier = Modifier.padding(itemPad),
+        )
+        NavigationDrawerItem(
+            label = { Text("Discover") },
+            selected = false,
+            icon = { Icon(Icons.Outlined.Explore, contentDescription = null) },
+            onClick = onDiscover,
             modifier = Modifier.padding(itemPad),
         )
         NavigationDrawerItem(
