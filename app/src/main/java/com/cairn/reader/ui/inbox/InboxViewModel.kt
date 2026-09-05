@@ -59,10 +59,14 @@ data class InboxUiState(
 class InboxViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
     private val feedRepository: FeedRepository,
+    private val sourceRepository: com.cairn.reader.data.repo.SourceRepository,
     private val preferencesRepository: PreferencesRepository,
     private val ttsReader: TtsReader,
     private val audioPlayer: AudioPlayer,
 ) : ViewModel() {
+
+    /** Unsubscribe from a feed straight from the drawer's long-press menu. */
+    fun unsubscribe(sourceId: String) = viewModelScope.launch { sourceRepository.delete(sourceId) }
 
     /** Playback state for the "Listen to all" queue, shared with the reader. */
     val tts: StateFlow<TtsReader.State> = ttsReader.state

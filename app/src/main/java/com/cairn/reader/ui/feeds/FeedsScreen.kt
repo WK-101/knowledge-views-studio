@@ -1,9 +1,12 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 
 package com.cairn.reader.ui.feeds
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,14 +21,30 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.automirrored.outlined.DriveFileMove
+import androidx.compose.material.icons.outlined.CreateNewFolder
+import androidx.compose.material.icons.outlined.DoneAll
+import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Sort
+import androidx.compose.material.icons.outlined.Subject
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +56,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -66,68 +86,188 @@ fun FeedsScreen(
     onOpenWeb: (String) -> Unit,
     viewModel: FeedsViewModel = hiltViewModel(),
 ) {
-    val sources by viewModel.sources.collectAsStateWithLifecycle()
+    val allSources by viewModel.sources.collectAsStateWithLifecycle()
+    val sources by viewModel.displayed.collectAsStateWithLifecycle()
     val folders by viewModel.folders.collectAsStateWithLifecycle()
     val unread by viewModel.unread.collectAsStateWithLifecycle()
     val busy by viewModel.busy.collectAsStateWithLifecycle()
+    val sort by viewModel.sort.collectAsStateWithLifecycle()
+    val query by viewModel.query.collectAsStateWithLifecycle()
+    val grouped by viewModel.grouped.collectAsStateWithLifecycle()
+    val failingOnly by viewModel.failingOnly.collectAsStateWithLifecycle()
+    val folderFilter by viewModel.folderFilter.collectAsStateWithLifecycle()
+    val selection by viewModel.selection.collectAsStateWithLifecycle()
     val scheme = MaterialTheme.colorScheme
     val snackbar = remember { SnackbarHostState() }
 
     var editing by remember { mutableStateOf<SourceEntity?>(null) }
     var showAdd by remember { mutableStateOf(false) }
+    var showSearch by remember { mutableStateOf(false) }
+    var sortMenu by remember { mutableStateOf(false) }
+    var showMove by remember { mutableStateOf(false) }
 
+    val selectionActive = selection.isNotEmpty()
+    BackHandler(enabled = selectionActive) { viewModel.clearSelection() }
     LaunchedEffect(Unit) { viewModel.snacks.collect { snackbar.showSnackbar(it) } }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Feeds · ${sources.size}", fontWeight = FontWeight.SemiBold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
-                },
-                actions = {
-                    IconButton(onClick = { showAdd = true }) { Icon(Icons.Filled.Add, contentDescription = "Add feed") }
-                },
-            )
+            if (selectionActive) {
+                TopAppBar(
+                    title = { Text("${selection.size} selected", fontWeight = FontWeight.SemiBold) },
+                    navigationIcon = {
+                        IconButton(onClick = { viewModel.clearSelection() }) { Icon(Icons.Outlined.Close, contentDescription = "Clear selection") }
+                    },
+                    actions = {
+                        IconButton(onClick = { viewModel.selectAllVisible() }) { Icon(Icons.Outlined.DoneAll, contentDescription = "Select all") }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = scheme.secondaryContainer),
+                )
+            } else {
+                TopAppBar(
+                    title = {
+                        if (showSearch) {
+                            OutlinedTextField(
+                                value = query,
+                                onValueChange = viewModel::setQuery,
+                                singleLine = true,
+                                placeholder = { Text("Filter feeds") },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        } else {
+                            Text("Feeds · ${allSources.size}", fontWeight = FontWeight.SemiBold)
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { if (showSearch) { showSearch = false; viewModel.setQuery("") } else onBack() }) {
+                            Icon(if (showSearch) Icons.Outlined.Close else Icons.AutoMirrored.Filled.ArrowBack, contentDescription = if (showSearch) "Close search" else "Back")
+                        }
+                    },
+                    actions = {
+                        if (!showSearch) {
+                            IconButton(onClick = { showSearch = true }) { Icon(Icons.Outlined.Search, contentDescription = "Filter") }
+                            Box {
+                                IconButton(onClick = { sortMenu = true }) { Icon(Icons.Outlined.Sort, contentDescription = "Sort & group") }
+                                DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                                    Text("SORT", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
+                                    FeedSort.entries.forEach { s ->
+                                        DropdownMenuItem(
+                                            text = { Text(s.label, fontWeight = if (s == sort) FontWeight.SemiBold else FontWeight.Normal) },
+                                            trailingIcon = { if (s == sort) Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                            onClick = { viewModel.setSort(s); sortMenu = false },
+                                        )
+                                    }
+                                    HorizontalDivider()
+                                    DropdownMenuItem(
+                                        text = { Text("Group by folder") },
+                                        trailingIcon = { if (grouped) Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                        onClick = { viewModel.setGrouped(!grouped); sortMenu = false },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Only failing feeds") },
+                                        trailingIcon = { if (failingOnly) Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                        onClick = { viewModel.setFailingOnly(!failingOnly); sortMenu = false },
+                                    )
+                                }
+                            }
+                            IconButton(onClick = { showAdd = true }) { Icon(Icons.Filled.Add, contentDescription = "Add feed") }
+                        }
+                    },
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        if (sources.isEmpty()) {
-            Column(
-                Modifier.fillMaxSize().padding(padding).padding(horizontal = 32.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text("No feeds yet", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "Tap + to add a website or feed. Cairn finds the feed — and can even follow sites that don't publish one.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = scheme.onSurfaceVariant,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                )
-            }
-        } else {
-            val grouped = sources.groupBy { it.folder?.takeIf { f -> f.isNotBlank() } }
-            LazyColumn(
-                Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = padding.calculateTopPadding() + 4.dp, bottom = padding.calculateBottomPadding() + 24.dp),
-            ) {
-                grouped.forEach { (folder, feeds) ->
-                    if (folder != null) {
-                        item(key = "hdr-$folder") {
-                            Text(
-                                folder.uppercase(),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = scheme.onSurfaceVariant,
-                                letterSpacing = 1.4.sp,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 4.dp),
-                            )
-                        }
+        Column(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
+            // Category (folder) filter — a horizontal strip of chips.
+            if (folders.isNotEmpty() && !selectionActive) {
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(selected = folderFilter == null, onClick = { viewModel.setFolderFilter(null) }, label = { Text("All") })
+                    folders.forEach { f ->
+                        FilterChip(
+                            selected = folderFilter == f,
+                            onClick = { viewModel.setFolderFilter(if (folderFilter == f) null else f) },
+                            label = { Text(f) },
+                            leadingIcon = { Icon(Icons.Outlined.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                        )
                     }
-                    items(feeds, key = { it.id }) { source ->
-                        FeedManageRow(source, unread[source.id] ?: 0, onClick = { editing = source })
+                }
+            }
+
+            // Bulk-action bar while selecting.
+            if (selectionActive) {
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    BulkAction(Icons.AutoMirrored.Outlined.DriveFileMove, "Move") { showMove = true }
+                    BulkAction(Icons.Outlined.DoneAll, "Read") { viewModel.bulkMarkRead() }
+                    BulkAction(Icons.Outlined.Subject, "Full text") { viewModel.bulkSetFullText(true) }
+                    BulkAction(Icons.Outlined.Notifications, "Notify") { viewModel.bulkSetNotify(true) }
+                    BulkAction(Icons.Outlined.Close, "Remove") { viewModel.bulkDelete() }
+                }
+                HorizontalDivider()
+            }
+
+            if (allSources.isEmpty()) {
+                Column(
+                    Modifier.fillMaxSize().padding(horizontal = 32.dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text("No feeds yet", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Tap + to add a website or feed. Cairn finds the feed — and can even follow sites that don't publish one.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = scheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    )
+                }
+            } else {
+                val showGroups = grouped && folderFilter == null && query.isBlank() && !failingOnly
+                LazyColumn(
+                    Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(top = 4.dp, bottom = padding.calculateBottomPadding() + 24.dp),
+                ) {
+                    if (showGroups) {
+                        val groups = sources.groupBy { it.folder?.takeIf { f -> f.isNotBlank() } }
+                        // Loose feeds first, then each folder.
+                        groups[null]?.let { loose ->
+                            items(loose, key = { it.id }) { source ->
+                                FeedManageRow(source, unread[source.id] ?: 0, source.id in selection, selectionActive,
+                                    onClick = { if (selectionActive) viewModel.toggleSelect(source.id) else editing = source },
+                                    onLongPress = { viewModel.toggleSelect(source.id) })
+                            }
+                        }
+                        groups.filterKeys { it != null }.forEach { (folder, feeds) ->
+                            item(key = "hdr-$folder") { FolderHeader(folder!!, feeds.size) }
+                            items(feeds, key = { it.id }) { source ->
+                                FeedManageRow(source, unread[source.id] ?: 0, source.id in selection, selectionActive,
+                                    onClick = { if (selectionActive) viewModel.toggleSelect(source.id) else editing = source },
+                                    onLongPress = { viewModel.toggleSelect(source.id) })
+                            }
+                        }
+                    } else {
+                        if (sources.isEmpty()) {
+                            item {
+                                Text(
+                                    "No feeds match.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = scheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(24.dp),
+                                )
+                            }
+                        }
+                        items(sources, key = { it.id }) { source ->
+                            FeedManageRow(source, unread[source.id] ?: 0, source.id in selection, selectionActive,
+                                onClick = { if (selectionActive) viewModel.toggleSelect(source.id) else editing = source },
+                                onLongPress = { viewModel.toggleSelect(source.id) })
+                        }
                     }
                 }
             }
@@ -149,6 +289,14 @@ fun FeedsScreen(
         )
     }
 
+    if (showMove) {
+        MoveToFolderSheet(
+            folders = folders,
+            onPick = { viewModel.bulkMoveToFolder(it); showMove = false },
+            onDismiss = { showMove = false },
+        )
+    }
+
     if (showAdd) {
         AddFeedSheet(
             busy = busy,
@@ -160,21 +308,62 @@ fun FeedsScreen(
 }
 
 @Composable
-private fun FeedManageRow(source: SourceEntity, unread: Int, onClick: () -> Unit) {
+private fun BulkAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    androidx.compose.material3.TextButton(onClick = onClick) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(4.dp))
+        Text(label)
+    }
+}
+
+@Composable
+private fun FolderHeader(folder: String, count: Int) {
+    Text(
+        "${folder.uppercase()} · $count",
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        letterSpacing = 1.4.sp,
+        fontWeight = FontWeight.Medium,
+        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 4.dp),
+    )
+}
+
+@Composable
+private fun FeedManageRow(
+    source: SourceEntity,
+    unread: Int,
+    selected: Boolean,
+    selectionActive: Boolean,
+    onClick: () -> Unit,
+    onLongPress: () -> Unit,
+) {
     val scheme = MaterialTheme.colorScheme
     val host = source.siteUrl?.toHttpUrlOrNull()?.host ?: source.feedUrl.toHttpUrlOrNull()?.host ?: source.feedUrl
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 11.dp),
+        Modifier
+            .fillMaxWidth()
+            .background(if (selected) scheme.secondaryContainer else Color.Transparent)
+            .combinedClickable(onClick = onClick, onLongClick = onLongPress)
+            .padding(horizontal = 20.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val letter = source.title.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "•"
-        val tint = TINTS[(source.title.hashCode() and 0x7fffffff) % TINTS.size]
-        Box(Modifier.size(30.dp).clip(CircleShape).background(tint), contentAlignment = Alignment.Center) {
-            Text(letter, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        if (selectionActive) {
+            Checkbox(checked = selected, onCheckedChange = { onClick() })
+            Spacer(Modifier.width(8.dp))
+        } else {
+            val letter = source.title.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "•"
+            val tint = TINTS[(source.title.hashCode() and 0x7fffffff) % TINTS.size]
+            Box(Modifier.size(30.dp).clip(CircleShape).background(tint), contentAlignment = Alignment.Center) {
+                Text(letter, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.width(14.dp))
         }
-        Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            Text(source.title, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(source.title, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                if (source.fullTextByDefault) { Spacer(Modifier.width(6.dp)); Icon(Icons.Outlined.Subject, contentDescription = "Full text", tint = scheme.onSurfaceVariant, modifier = Modifier.size(15.dp)) }
+                if (source.notify) { Spacer(Modifier.width(6.dp)); Icon(Icons.Outlined.Notifications, contentDescription = "Notifications on", tint = scheme.onSurfaceVariant, modifier = Modifier.size(15.dp)) }
+            }
             Text(host, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val failing = source.consecutiveErrors > 0
             val status = when {
@@ -199,6 +388,51 @@ private fun FeedManageRow(source: SourceEntity, unread: Int, onClick: () -> Unit
         if (unread > 0) {
             Spacer(Modifier.width(8.dp))
             Text("$unread", style = MaterialTheme.typography.labelMedium, color = scheme.primary, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+/** Pick a folder to move the selected feeds into (or type a new one, or ungroup). */
+@Composable
+private fun MoveToFolderSheet(folders: List<String>, onPick: (String?) -> Unit, onDismiss: () -> Unit) {
+    var newName by remember { mutableStateOf("") }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
+        Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+            Text("Move to folder", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            Row(
+                Modifier.fillMaxWidth().clickable { onPick(null) }.padding(horizontal = 24.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Outlined.Close, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(16.dp))
+                Text("No folder (ungroup)", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+            }
+            folders.forEach { f ->
+                Row(
+                    Modifier.fillMaxWidth().clickable { onPick(f) }.padding(horizontal = 24.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Outlined.FolderOpen, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(16.dp))
+                    Text(f, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedTextField(
+                    value = newName,
+                    onValueChange = { newName = it },
+                    singleLine = true,
+                    leadingIcon = { Icon(Icons.Outlined.CreateNewFolder, contentDescription = null) },
+                    placeholder = { Text("New folder…") },
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = { if (newName.isNotBlank()) onPick(newName.trim()) }) {
+                    Icon(Icons.Filled.Check, contentDescription = "Create and move")
+                }
+            }
         }
     }
 }

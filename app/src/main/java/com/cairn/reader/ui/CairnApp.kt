@@ -173,6 +173,8 @@ fun CairnApp(
                     onSelectFolder = { name -> inboxViewModel.selectFolder(name); currentName = Destination.Inbox.name; scope.launch { drawerState.close() } },
                     onMarkFeedRead = { sourceId -> inboxViewModel.markFeedRead(sourceId) },
                     onMarkFolderRead = { name -> inboxViewModel.markFolderRead(name) },
+                    onManageFeed = { scope.launch { drawerState.close() }; onOpenFeeds() },
+                    onUnsubscribe = { feed -> inboxViewModel.unsubscribe(feed.sourceId) },
                     onSaved = { currentName = Destination.Library.name; scope.launch { drawerState.close() } },
                     onHighlights = { scope.launch { drawerState.close() }; onOpenNotebook() },
                     onSearch = { scope.launch { drawerState.close() }; onOpenSearch() },
@@ -296,14 +298,15 @@ fun CairnApp(
                 }
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    modifier = Modifier.height(64.dp),
+                    tonalElevation = 0.dp,
+                    modifier = Modifier.height(56.dp),
                 ) {
                     tabs.forEach { dest ->
                         NavigationBarItem(
                             selected = current == dest,
                             onClick = { currentName = dest.name },
-                            icon = { Icon(dest.icon, contentDescription = dest.label) },
-                            label = { Text(dest.label, style = MaterialTheme.typography.labelSmall) },
+                            icon = { Icon(dest.icon, contentDescription = dest.label, modifier = Modifier.size(22.dp)) },
+                            label = { Text(dest.label, style = MaterialTheme.typography.labelSmall, maxLines = 1) },
                             alwaysShowLabel = false,
                         )
                     }

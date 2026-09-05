@@ -74,6 +74,8 @@ fun FeedDrawerContent(
     onSelectFolder: (String) -> Unit,
     onMarkFeedRead: (String) -> Unit,
     onMarkFolderRead: (String) -> Unit,
+    onManageFeed: (FeedUnread) -> Unit,
+    onUnsubscribe: (FeedUnread) -> Unit,
     onSaved: () -> Unit,
     onHighlights: () -> Unit,
     onSearch: () -> Unit,
@@ -177,6 +179,8 @@ fun FeedDrawerContent(
                                 indent = true,
                                 onClick = { onSelectFeed(feed) },
                                 onMarkRead = { onMarkFeedRead(feed.sourceId) },
+                                onManage = { onManageFeed(feed) },
+                                onUnsubscribe = { onUnsubscribe(feed) },
                             )
                         }
                     }
@@ -189,6 +193,8 @@ fun FeedDrawerContent(
                     indent = false,
                     onClick = { onSelectFeed(feed) },
                     onMarkRead = { onMarkFeedRead(feed.sourceId) },
+                    onManage = { onManageFeed(feed) },
+                    onUnsubscribe = { onUnsubscribe(feed) },
                 )
             }
         }
@@ -308,6 +314,8 @@ private fun FeedRow(
     indent: Boolean,
     onClick: () -> Unit,
     onMarkRead: () -> Unit,
+    onManage: () -> Unit,
+    onUnsubscribe: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     var menu by remember { mutableStateOf(false) }
@@ -321,7 +329,14 @@ private fun FeedRow(
             .padding(start = if (indent) 30.dp else 16.dp, end = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RowActionMenu(menu, feed.unread, onDismiss = { menu = false }, onMarkRead = { menu = false; onMarkRead() })
+        FeedActionMenu(
+            expanded = menu,
+            unread = feed.unread,
+            onDismiss = { menu = false },
+            onMarkRead = { menu = false; onMarkRead() },
+            onManage = { menu = false; onManage() },
+            onUnsubscribe = { menu = false; onUnsubscribe() },
+        )
         FeedMonogram(feed.title, dim = feed.unread == 0 && !selected)
         Spacer(Modifier.size(12.dp))
         Text(
@@ -346,7 +361,7 @@ private fun FeedRow(
     }
 }
 
-/** The long-press menu shared by feed and folder rows. */
+/** The long-press menu for folder rows — just mark-all-read. */
 @Composable
 private fun RowActionMenu(expanded: Boolean, unread: Int, onDismiss: () -> Unit, onMarkRead: () -> Unit) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
@@ -355,6 +370,27 @@ private fun RowActionMenu(expanded: Boolean, unread: Int, onDismiss: () -> Unit,
             enabled = unread > 0,
             onClick = onMarkRead,
         )
+    }
+}
+
+/** The richer long-press menu for a single feed: mark read, manage (settings), unsubscribe. */
+@Composable
+private fun FeedActionMenu(
+    expanded: Boolean,
+    unread: Int,
+    onDismiss: () -> Unit,
+    onMarkRead: () -> Unit,
+    onManage: () -> Unit,
+    onUnsubscribe: () -> Unit,
+) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        DropdownMenuItem(
+            text = { Text(if (unread > 0) "Mark all read ($unread)" else "Mark all read") },
+            enabled = unread > 0,
+            onClick = onMarkRead,
+        )
+        DropdownMenuItem(text = { Text("Feed settings & folder…") }, onClick = onManage)
+        DropdownMenuItem(text = { Text("Unsubscribe") }, onClick = onUnsubscribe)
     }
 }
 
