@@ -21,15 +21,15 @@ import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.IosShare
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -49,8 +49,9 @@ import coil.compose.AsyncImage
 
 @Composable
 fun NotebookScreen(
-    onBack: () -> Unit,
+    padding: PaddingValues,
     onOpenItem: (String) -> Unit,
+    onOpenDrawer: () -> Unit = {},
     viewModel: NotebookViewModel = hiltViewModel(),
 ) {
     val groups by viewModel.groups.collectAsStateWithLifecycle()
@@ -66,12 +67,11 @@ fun NotebookScreen(
         runCatching { context.startActivity(Intent.createChooser(send, null)) }
     }
 
-    Scaffold(
-        topBar = {
+    Column(Modifier.fillMaxSize()) {
             TopAppBar(
                 title = { Text("Annotations", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                    IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = "Open navigation") }
                 },
                 actions = {
                     if (groups.isNotEmpty()) {
@@ -80,12 +80,11 @@ fun NotebookScreen(
                         }
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = scheme.surface),
             )
-        },
-    ) { padding ->
         if (groups.isEmpty()) {
             Column(
-                modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 32.dp),
+                modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -104,7 +103,7 @@ fun NotebookScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
                     start = 12.dp, end = 12.dp,
-                    top = padding.calculateTopPadding() + 8.dp,
+                    top = 8.dp,
                     bottom = padding.calculateBottomPadding() + 24.dp,
                 ),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -122,7 +121,8 @@ fun NotebookScreen(
 @Composable
 private fun AnnotationCard(group: NotebookGroup, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
-    val top = group.highlights.first()
+    // Guard against an empty group so composition never throws (was a NoSuchElementException).
+    val top = group.highlights.firstOrNull() ?: return
     Column(
         modifier = Modifier
             .clip(RoundedCornerShape(14.dp))

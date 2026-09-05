@@ -34,6 +34,7 @@ import androidx.compose.material.icons.automirrored.outlined.DriveFileMove
 import androidx.compose.material.icons.outlined.CreateNewFolder
 import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.ExpandLess
@@ -84,9 +85,10 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 @Composable
 fun FeedsScreen(
-    onBack: () -> Unit,
+    padding: PaddingValues,
     onOpenWeb: (String) -> Unit,
     onTeach: (String) -> Unit = {},
+    onOpenDrawer: () -> Unit = {},
     viewModel: FeedsViewModel = hiltViewModel(),
 ) {
     val allSources by viewModel.sources.collectAsStateWithLifecycle()
@@ -113,8 +115,8 @@ fun FeedsScreen(
     BackHandler(enabled = selectionActive) { viewModel.clearSelection() }
     LaunchedEffect(Unit) { viewModel.snacks.collect { snackbar.showSnackbar(it) } }
 
-    Scaffold(
-        topBar = {
+    Box(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize()) {
             if (selectionActive) {
                 TopAppBar(
                     title = { Text("${selection.size} selected", fontWeight = FontWeight.SemiBold) },
@@ -142,8 +144,8 @@ fun FeedsScreen(
                         }
                     },
                     navigationIcon = {
-                        IconButton(onClick = { if (showSearch) { showSearch = false; viewModel.setQuery("") } else onBack() }) {
-                            Icon(if (showSearch) Icons.Outlined.Close else Icons.AutoMirrored.Filled.ArrowBack, contentDescription = if (showSearch) "Close search" else "Back")
+                        IconButton(onClick = { if (showSearch) { showSearch = false; viewModel.setQuery("") } else onOpenDrawer() }) {
+                            Icon(if (showSearch) Icons.Outlined.Close else Icons.Outlined.Menu, contentDescription = if (showSearch) "Close search" else "Open navigation")
                         }
                     },
                     actions = {
@@ -178,10 +180,7 @@ fun FeedsScreen(
                     },
                 )
             }
-        },
-        snackbarHost = { SnackbarHost(snackbar) },
-    ) { padding ->
-        Column(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
+        Column(Modifier.fillMaxSize()) {
             // Category (folder) filter — a horizontal strip of chips.
             if (folders.isNotEmpty() && !selectionActive) {
                 Row(
@@ -283,6 +282,8 @@ fun FeedsScreen(
                 }
             }
         }
+    }
+        SnackbarHost(snackbar, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = padding.calculateBottomPadding()))
     }
 
     editing?.let { source ->

@@ -11,21 +11,22 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -38,33 +39,31 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 /**
  * The offline & storage policy screen: how aggressively Cairn uses the network and disk.
  * Everything here stays on-device — these are limits on Cairn's own fetching, not a sync service.
+ * Rendered as a shell pane (shared drawer + bottom bar), so it carries a hamburger, not a back arrow.
  */
 @Composable
 fun OfflineScreen(
-    onBack: () -> Unit,
+    padding: PaddingValues,
+    onOpenItem: (String) -> Unit = {},
+    onOpenDrawer: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val prefs by viewModel.preferences.collectAsStateWithLifecycle()
     val scheme = MaterialTheme.colorScheme
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Offline & storage") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-            )
-        },
-    ) { padding ->
+    Column(Modifier.fillMaxSize()) {
+        TopAppBar(
+            title = { Text("Offline & storage", fontWeight = FontWeight.SemiBold) },
+            navigationIcon = {
+                IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = "Open navigation") }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = scheme.surface),
+        )
         Column(
             Modifier
                 .fillMaxSize()
-                .padding(top = padding.calculateTopPadding())
                 .verticalScroll(rememberScrollState())
-                .padding(bottom = 28.dp),
+                .padding(bottom = padding.calculateBottomPadding() + 28.dp),
         ) {
             SectionHeader("SYNCING")
             ToggleRow(

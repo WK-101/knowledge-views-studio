@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.BookmarkRemove
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.outlined.MailOutline
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Search
@@ -49,6 +50,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -68,8 +70,9 @@ import com.cairn.reader.ui.components.ItemRow
 
 @Composable
 fun ReadLaterScreen(
-    onBack: () -> Unit,
+    padding: PaddingValues,
     onOpenItem: (String) -> Unit,
+    onOpenDrawer: () -> Unit = {},
     viewModel: ReadLaterViewModel = hiltViewModel(),
 ) {
     val items by viewModel.items.collectAsStateWithLifecycle()
@@ -93,8 +96,7 @@ fun ReadLaterScreen(
 
     val filtersActive = query.isNotBlank() || typeFilter != null || unreadOnly || offlineOnly
 
-    Scaffold(
-        topBar = {
+    Column(Modifier.fillMaxSize()) {
             TopAppBar(
                 title = {
                     if (searchOpen) {
@@ -108,7 +110,7 @@ fun ReadLaterScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                    IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = "Open navigation") }
                 },
                 actions = {
                     if (searchOpen) {
@@ -140,18 +142,17 @@ fun ReadLaterScreen(
                                 }
                             }
                         }
+                        IconButton(onClick = { showSave = true }) {
+                            Icon(Icons.Filled.Add, contentDescription = "Save a link")
+                        }
                         IconButton(onClick = { showHelp = true }) {
                             Icon(Icons.AutoMirrored.Outlined.HelpOutline, contentDescription = "How to save newsletters & pages")
                         }
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = scheme.surface),
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showSave = true }) { Icon(Icons.Filled.Add, contentDescription = "Save a link") }
-        },
-    ) { padding ->
-        Column(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
+        Column(Modifier.fillMaxSize()) {
             // Advanced filter chips: type + unread + offline.
             if (availableTypes.size >= 2 || filtersActive) {
                 FlowRow(

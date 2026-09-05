@@ -1,5 +1,9 @@
 package com.cairn.reader.ui
 
+import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -53,18 +57,21 @@ fun CairnRoot(
                 onOpenConsumed()
             }
         }
-        NavHost(navController = navController, startDestination = "home") {
+        // One consistent motion for every screen transition: a detail slides in from the end and
+        // back out to it, cross-fading so the whole app feels of a piece rather than stitched together.
+        NavHost(
+            navController = navController,
+            startDestination = "home",
+            enterTransition = { fadeIn(tween(220)) + slideIntoContainer(SlideDirection.Start, tween(220)) },
+            exitTransition = { fadeOut(tween(180)) + slideOutOfContainer(SlideDirection.Start, tween(180)) },
+            popEnterTransition = { fadeIn(tween(220)) + slideIntoContainer(SlideDirection.End, tween(220)) },
+            popExitTransition = { fadeOut(tween(180)) + slideOutOfContainer(SlideDirection.End, tween(180)) },
+        ) {
             composable("home") {
                 CairnApp(
                     onOpenItem = { itemId -> navController.navigate("reader/$itemId") },
-                    onOpenNotebook = { navController.navigate("notebook") },
                     onOpenWeb = openWeb,
-                    onOpenSearch = { navController.navigate("search") },
-                    onOpenFeeds = { navController.navigate("feeds") },
-                    onOpenOffline = { navController.navigate("offline") },
-                    onOpenDiscover = { navController.navigate("discover") },
-                    onOpenReadLater = { navController.navigate("readlater") },
-                    onOpenTrash = { navController.navigate("trash") },
+                    onTeach = { url -> navController.navigate("picker/${WebRoute.encode(url)}") },
                 )
             }
             composable(
@@ -76,26 +83,6 @@ fun CairnRoot(
                     onOpenWeb = openWeb,
                 )
             }
-            composable("notebook") {
-                NotebookScreen(
-                    onBack = { navController.popBackStack() },
-                    onOpenItem = { itemId -> navController.navigate("reader/$itemId") },
-                )
-            }
-            composable("search") {
-                SearchScreen(
-                    onBack = { navController.popBackStack() },
-                    onOpenItem = { itemId -> navController.navigate("reader/$itemId") },
-                    onOpenWeb = openWeb,
-                )
-            }
-            composable("feeds") {
-                FeedsScreen(
-                    onBack = { navController.popBackStack() },
-                    onOpenWeb = openWeb,
-                    onTeach = { url -> navController.navigate("picker/${WebRoute.encode(url)}") },
-                )
-            }
             composable(
                 route = "picker/{data}",
                 arguments = listOf(navArgument("data") { type = NavType.StringType }),
@@ -104,24 +91,6 @@ fun CairnRoot(
                     url = WebRoute.decode(entry.arguments?.getString("data").orEmpty()),
                     onBack = { navController.popBackStack() },
                     onCreated = { navController.popBackStack() },
-                )
-            }
-            composable("offline") {
-                OfflineScreen(onBack = { navController.popBackStack() })
-            }
-            composable("discover") {
-                DiscoverScreen(onBack = { navController.popBackStack() })
-            }
-            composable("readlater") {
-                com.cairn.reader.ui.readlater.ReadLaterScreen(
-                    onBack = { navController.popBackStack() },
-                    onOpenItem = { itemId -> navController.navigate("reader/$itemId") },
-                )
-            }
-            composable("trash") {
-                com.cairn.reader.ui.trash.TrashScreen(
-                    onBack = { navController.popBackStack() },
-                    onOpenItem = { itemId -> navController.navigate("reader/$itemId") },
                 )
             }
             composable(

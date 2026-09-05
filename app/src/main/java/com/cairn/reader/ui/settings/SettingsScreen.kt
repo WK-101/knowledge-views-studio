@@ -342,7 +342,7 @@ fun SettingsScreen(
                 SectionLabel("BOTTOM BAR")
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "Choose which destinations appear in the bottom bar — up to five show at once. Everything stays reachable from the drawer.",
+                    "Choose which destinations appear in the bottom bar — up to six show at once. Everything stays reachable from the drawer.",
                     style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(6.dp))
@@ -356,10 +356,12 @@ fun SettingsScreen(
                     "Highlights" to "Highlights",
                     "Feeds" to "Feeds",
                     "Search" to "Search",
+                    "Trash" to "Trash",
+                    "Offline" to "Offline",
                     "Settings" to "Settings",
                 )
                 val enabled = prefs.bottomTabs
-                val atCap = enabled.size >= 5
+                val atCap = enabled.size >= 6
                 tabs.forEach { (name, label) ->
                     val isOn = name in enabled
                     val isLastOn = isOn && enabled.size <= 1

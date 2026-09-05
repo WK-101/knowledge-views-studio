@@ -30,6 +30,13 @@ class CairnApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        // Log any uncaught exception (with a breadcrumb) before the platform's default handler
+        // runs, so a crash leaves a trace in logcat instead of vanishing behind a blank screen.
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            runCatching { android.util.Log.e("CairnCrash", "Uncaught on ${thread.name}", throwable) }
+            previous?.uncaughtException(thread, throwable)
+        }
         // Reading one value from DataStore at startup is quick; it lets the background
         // sync respect the user's Wi-Fi-only preference from the first schedule.
         val prefs = runCatching { runBlocking { preferencesRepository.preferences.first() } }.getOrNull()

@@ -154,6 +154,14 @@ fun SelectorPickerScreen(
                         override fun onPageFinished(view: WebView?, u: String?) {
                             view?.evaluateJavascript(PICKER_JS, null)
                         }
+                        override fun onRenderProcessGone(
+                            view: WebView?,
+                            detail: android.webkit.RenderProcessGoneDetail?,
+                        ): Boolean {
+                            runCatching { (view?.parent as? android.view.ViewGroup)?.removeView(view); view?.destroy() }
+                            onBack()
+                            return true
+                        }
                     }
                     loadUrl(url)
                 }

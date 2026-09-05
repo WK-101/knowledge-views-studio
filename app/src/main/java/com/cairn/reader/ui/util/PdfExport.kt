@@ -36,6 +36,14 @@ object PdfExport {
                 }
                 pending = null
             }
+            override fun onRenderProcessGone(
+                view: WebView?,
+                detail: android.webkit.RenderProcessGoneDetail?,
+            ): Boolean {
+                runCatching { view?.destroy() }
+                pending = null
+                return true
+            }
         }
         webView.loadDataWithBaseURL(null, doc, "text/html", "UTF-8", null)
     }

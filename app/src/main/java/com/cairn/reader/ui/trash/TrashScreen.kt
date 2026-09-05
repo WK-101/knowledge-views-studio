@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.DeleteForever
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.RestoreFromTrash
 import androidx.compose.material.icons.outlined.Search
@@ -44,6 +45,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -61,8 +63,9 @@ import com.cairn.reader.data.db.ItemListRow
 
 @Composable
 fun TrashScreen(
-    onBack: () -> Unit,
+    padding: PaddingValues,
     onOpenItem: (String) -> Unit,
+    onOpenDrawer: () -> Unit = {},
     viewModel: TrashViewModel = hiltViewModel(),
 ) {
     val items by viewModel.items.collectAsStateWithLifecycle()
@@ -91,8 +94,7 @@ fun TrashScreen(
     val filtersActive = query.isNotBlank() || typeFilter != null || sourceFilter != null ||
         readState != TrashReadState.ANY || offlineOnly || starredOnly
 
-    Scaffold(
-        topBar = {
+    Column(Modifier.fillMaxSize()) {
             TopAppBar(
                 title = {
                     if (searchOpen) {
@@ -106,7 +108,7 @@ fun TrashScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                    IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = "Open navigation") }
                 },
                 actions = {
                     if (searchOpen) {
@@ -163,10 +165,9 @@ fun TrashScreen(
                         }
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = scheme.surface),
             )
-        },
-    ) { padding ->
-        Column(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
+        Column(Modifier.fillMaxSize()) {
             // Advanced filter chips: type + read-state + offline + starred + source.
             if (totalCount > 0) {
                 FlowRow(

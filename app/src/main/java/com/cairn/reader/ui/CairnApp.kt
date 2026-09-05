@@ -24,8 +24,10 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.Circle
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.OfflinePin
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Inbox
@@ -106,48 +108,51 @@ import com.cairn.reader.ui.library.LibraryScreen
 import com.cairn.reader.ui.settings.SettingsScreen
 
 /**
- * A bottom-bar destination. Pane destinations (isPane) render their own content in place; the
- * rest are shortcuts that navigate to an existing route (Search, Read Later, Highlights, Manage
- * Feeds) or re-scope the Inbox (Starred). The canonical order here is the order they appear in
- * the bar. All are opt-in from Settings except the four defaults.
+ * A top-level destination. Every destination is now a pane rendered in place inside the one shared
+ * shell (same drawer, same bottom bar, same transitions) — no destination navigates away to a
+ * detached full-screen route, so they all read as one app. Starred is the sole exception: it just
+ * re-scopes the Inbox. The canonical order here is the order they appear in the bar; all are opt-in
+ * from Settings except the defaults, and the bar shows up to six.
  */
 private enum class Destination(val label: String, val icon: ImageVector, val isPane: Boolean = true) {
     Inbox("Inbox", Icons.Outlined.Inbox),
     Library("Library", Icons.AutoMirrored.Outlined.LibraryBooks),
     Discover("Discover", Icons.Outlined.Explore),
     Starred("Starred", Icons.Outlined.StarBorder, isPane = false),
-    ReadLater("Read Later", Icons.Outlined.Bookmark, isPane = false),
-    Highlights("Highlights", Icons.Outlined.FormatQuote, isPane = false),
-    Feeds("Feeds", Icons.Outlined.RssFeed, isPane = false),
-    Search("Search", Icons.Outlined.Search, isPane = false),
+    ReadLater("Read Later", Icons.Outlined.Bookmark),
+    Highlights("Highlights", Icons.Outlined.FormatQuote),
+    Feeds("Feeds", Icons.Outlined.RssFeed),
+    Search("Search", Icons.Outlined.Search),
+    Trash("Trash", Icons.Outlined.DeleteOutline),
+    Offline("Offline", Icons.Outlined.OfflinePin),
     Settings("Settings", Icons.Outlined.Settings),
 }
+
+/** Destinations that render their own top app bar (hamburger + their controls); the shared shell
+ *  top bar steps aside for these so there's exactly one bar. Inbox and Settings use the shell bar. */
+private val OWN_TOP_BAR = setOf(
+    Destination.Library, Destination.Discover, Destination.ReadLater, Destination.Highlights,
+    Destination.Feeds, Destination.Search, Destination.Trash, Destination.Offline,
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CairnApp(
     onOpenItem: (String) -> Unit = {},
-    onOpenNotebook: () -> Unit = {},
     onOpenWeb: (String) -> Unit = {},
-    onOpenSearch: () -> Unit = {},
-    onOpenFeeds: () -> Unit = {},
-    onOpenOffline: () -> Unit = {},
-    onOpenDiscover: () -> Unit = {},
-    onOpenReadLater: () -> Unit = {},
-    onOpenTrash: () -> Unit = {},
+    onTeach: (String) -> Unit = {},
 ) {
     var showAddFeed by remember { mutableStateOf(false) }
     var manageFeed by remember { mutableStateOf<com.cairn.reader.data.db.SourceEntity?>(null) }
     val appViewModel: AppViewModel = hiltViewModel()
     val appPrefs by appViewModel.preferences.collectAsStateWithLifecycle()
     // The bar shows the user's chosen subset, in a fixed canonical order; never empty. Capped at
-    // five so the bar stays legible even if the user enables everything.
+    // six so the bar stays legible even if the user enables everything.
     val tabs = remember(appPrefs.bottomTabs) {
-        Destination.entries.filter { it.name in appPrefs.bottomTabs }.ifEmpty { listOf(Destination.Inbox) }.take(5)
+        Destination.entries.filter { it.name in appPrefs.bottomTabs }.ifEmpty { listOf(Destination.Inbox) }.take(6)
     }
     var currentName by rememberSaveable { mutableStateOf(Destination.Inbox.name) }
-    // current is always a pane (Inbox/Library/Discover/Settings): action tabs navigate away or
-    // re-scope the Inbox rather than becoming the rendered content, so they never own `current`.
+    // current is always a pane; the only non-pane (Starred) just re-scopes the Inbox.
     val current = Destination.entries.firstOrNull { it.name == currentName && it.isPane } ?: Destination.Inbox
 
     // On wide screens (tablets, unfolded foldables) show list + reader side by side.
@@ -170,6 +175,9 @@ fun CairnApp(
     val snackbar = remember { SnackbarHostState() }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    // The single navigation primitive: switch to a pane and close the drawer.
+    val goTo: (Destination) -> Unit = { dest -> currentName = dest.name; scope.launch { drawerState.close() } }
+    val openDrawer: () -> Unit = { scope.launch { drawerState.open() } }
     LaunchedEffect(Unit) {
         inboxViewModel.snacks.collect { snack ->
             val result = snackbar.showSnackbar(
@@ -190,32 +198,33 @@ fun CairnApp(
                     feeds = feeds,
                     selection = selection,
                     filter = inboxState.filter,
-                    onAllArticles = { inboxViewModel.selectAll(); currentName = Destination.Inbox.name; scope.launch { drawerState.close() } },
-                    onStarred = { inboxViewModel.selectStarred(); currentName = Destination.Inbox.name; scope.launch { drawerState.close() } },
-                    onSelectFeed = { feed -> inboxViewModel.selectFeed(feed.sourceId, feed.title); currentName = Destination.Inbox.name; scope.launch { drawerState.close() } },
-                    onSelectFolder = { name -> inboxViewModel.selectFolder(name); currentName = Destination.Inbox.name; scope.launch { drawerState.close() } },
+                    onAllArticles = { inboxViewModel.selectAll(); goTo(Destination.Inbox) },
+                    onStarred = { inboxViewModel.selectStarred(); goTo(Destination.Inbox) },
+                    onSelectFeed = { feed -> inboxViewModel.selectFeed(feed.sourceId, feed.title); goTo(Destination.Inbox) },
+                    onSelectFolder = { name -> inboxViewModel.selectFolder(name); goTo(Destination.Inbox) },
                     onMarkFeedRead = { sourceId -> inboxViewModel.markFeedRead(sourceId) },
                     onMarkFolderRead = { name -> inboxViewModel.markFolderRead(name) },
                     onManageFeed = { feed -> scope.launch { drawerState.close() }; inboxViewModel.loadSource(feed.sourceId) { src -> manageFeed = src } },
                     onUnsubscribe = { feed -> inboxViewModel.unsubscribe(feed.sourceId) },
-                    onSaved = { currentName = Destination.Library.name; scope.launch { drawerState.close() } },
-                    onReadLater = { scope.launch { drawerState.close() }; onOpenReadLater() },
-                    onHighlights = { scope.launch { drawerState.close() }; onOpenNotebook() },
-                    onSearch = { scope.launch { drawerState.close() }; onOpenSearch() },
-                    onDiscover = { currentName = Destination.Discover.name; scope.launch { drawerState.close() } },
-                    onManageFeeds = { scope.launch { drawerState.close() }; onOpenFeeds() },
-                    onTrash = { scope.launch { drawerState.close() }; onOpenTrash() },
+                    onSaved = { goTo(Destination.Library) },
+                    onReadLater = { goTo(Destination.ReadLater) },
+                    onHighlights = { goTo(Destination.Highlights) },
+                    onSearch = { goTo(Destination.Search) },
+                    onDiscover = { goTo(Destination.Discover) },
+                    onManageFeeds = { goTo(Destination.Feeds) },
+                    onTrash = { goTo(Destination.Trash) },
                     trashCount = trashCount,
-                    onSettings = { currentName = Destination.Settings.name; scope.launch { drawerState.close() } },
+                    onSettings = { goTo(Destination.Settings) },
                 )
             }
         },
     ) {
     Scaffold(
         topBar = topBar@{
-            // The Library and Discover own their top app bars (search lives there, like the
-            // Inbox), so the shared bar steps aside on those tabs.
-            if (current == Destination.Library || current == Destination.Discover) return@topBar
+            // Panes that carry their own top app bar (Library, Discover, Read Later, Highlights,
+            // Feeds, Search, Trash, Offline) render it themselves; the shared bar steps aside so
+            // there is exactly one. Inbox and Settings use this shared bar.
+            if (current in OWN_TOP_BAR) return@topBar
             CenterAlignedTopAppBar(
                 title = {
                     if (current == Destination.Inbox && inboxSearchOpen) {
@@ -360,14 +369,8 @@ fun CairnApp(
                         NavigationBarItem(
                             selected = selected,
                             onClick = {
-                                when (dest) {
-                                    Destination.Starred -> { inboxViewModel.selectStarred(); currentName = Destination.Inbox.name }
-                                    Destination.ReadLater -> onOpenReadLater()
-                                    Destination.Highlights -> onOpenNotebook()
-                                    Destination.Feeds -> onOpenFeeds()
-                                    Destination.Search -> onOpenSearch()
-                                    else -> currentName = dest.name
-                                }
+                                if (dest == Destination.Starred) { inboxViewModel.selectStarred(); goTo(Destination.Inbox) }
+                                else goTo(dest)
                             },
                             icon = { Icon(dest.icon, contentDescription = dest.label, modifier = Modifier.size(22.dp)) },
                             label = { Text(dest.label, style = MaterialTheme.typography.labelSmall, maxLines = 1) },
@@ -388,9 +391,15 @@ fun CairnApp(
     ) { padding ->
         val renderDest: @Composable (Destination, (String) -> Unit) -> Unit = { dest, open ->
             when (dest) {
-                Destination.Library -> LibraryScreen(padding, open, onOpenHighlights = onOpenNotebook, onOpenDrawer = { scope.launch { drawerState.open() } })
-                Destination.Discover -> com.cairn.reader.ui.discover.DiscoverContent(padding, onOpenDrawer = { scope.launch { drawerState.open() } })
-                Destination.Settings -> SettingsScreen(padding, onOpenNotebook = onOpenNotebook, onOpenOffline = onOpenOffline)
+                Destination.Library -> LibraryScreen(padding, open, onOpenHighlights = { goTo(Destination.Highlights) }, onOpenDrawer = openDrawer)
+                Destination.Discover -> com.cairn.reader.ui.discover.DiscoverContent(padding, onOpenDrawer = openDrawer)
+                Destination.ReadLater -> com.cairn.reader.ui.readlater.ReadLaterScreen(padding, onOpenItem = open, onOpenDrawer = openDrawer)
+                Destination.Highlights -> com.cairn.reader.ui.notebook.NotebookScreen(padding, onOpenItem = open, onOpenDrawer = openDrawer)
+                Destination.Feeds -> com.cairn.reader.ui.feeds.FeedsScreen(padding, onOpenWeb = onOpenWeb, onTeach = onTeach, onOpenDrawer = openDrawer)
+                Destination.Search -> com.cairn.reader.ui.search.SearchScreen(padding, onOpenItem = open, onOpenWeb = onOpenWeb, onOpenDrawer = openDrawer)
+                Destination.Trash -> com.cairn.reader.ui.trash.TrashScreen(padding, onOpenItem = open, onOpenDrawer = openDrawer)
+                Destination.Offline -> com.cairn.reader.ui.settings.OfflineScreen(padding, onOpenItem = open, onOpenDrawer = openDrawer)
+                Destination.Settings -> SettingsScreen(padding, onOpenNotebook = { goTo(Destination.Highlights) }, onOpenOffline = { goTo(Destination.Offline) })
                 // Inbox and any non-pane fallthrough render the Inbox.
                 else -> InboxScreen(padding, inboxViewModel, open, onOpenWeb, inboxViewMode)
             }

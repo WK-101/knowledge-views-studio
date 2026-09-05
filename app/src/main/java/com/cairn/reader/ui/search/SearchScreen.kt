@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.CircularProgressIndicator
@@ -60,9 +61,10 @@ import androidx.compose.runtime.LaunchedEffect
 
 @Composable
 fun SearchScreen(
-    onBack: () -> Unit,
+    padding: PaddingValues,
     onOpenItem: (String) -> Unit,
     onOpenWeb: (String) -> Unit = {},
+    onOpenDrawer: () -> Unit = {},
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
     val query by viewModel.query.collectAsStateWithLifecycle()
@@ -80,11 +82,10 @@ fun SearchScreen(
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
 
-    Scaffold(
-        topBar = {
+    Column(Modifier.fillMaxSize()) {
             TopAppBar(
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                    IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = "Open navigation") }
                 },
                 title = {
                     TextField(
@@ -109,9 +110,7 @@ fun SearchScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = scheme.surface),
             )
-        },
-    ) { padding ->
-        Column(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
+        Column(Modifier.fillMaxSize()) {
             // Advanced filters — state, recency, and type — applied over the local index.
             if (state.hasSearched) {
                 FlowRow(

@@ -92,6 +92,16 @@ class WebViewRenderer @Inject constructor(
                             // Only the main-frame failure aborts the render; sub-resource errors are ignored.
                             if (request?.isForMainFrame == true) finish(null)
                         }
+
+                        // A renderer killed mid-extraction must not take the whole app down: finish
+                        // this render as a failure and return true so the framework doesn't crash us.
+                        override fun onRenderProcessGone(
+                            view: WebView?,
+                            detail: android.webkit.RenderProcessGoneDetail?,
+                        ): Boolean {
+                            finish(null)
+                            return true
+                        }
                     }
 
                     cont.invokeOnCancellation { finish(null) }

@@ -127,16 +127,33 @@ private class PdfDoc private constructor(
 
     suspend fun render(index: Int, targetWidth: Int): Bitmap? = mutex.withLock {
         withContext(Dispatchers.IO) {
-            runCatching {
-                renderer.openPage(index).use { page ->
-                    val scale = targetWidth.toFloat() / page.width.coerceAtLeast(1)
-                    val h = (page.height * scale).toInt().coerceAtLeast(1)
-                    val bmp = Bitmap.createBitmap(targetWidth, h, Bitmap.Config.ARGB_8888)
-                    bmp.eraseColor(AndroidColor.WHITE)
-                    page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                    bmp
+            // Render defensively: a full-size ARGB_8888 page can exhaust memory and, if the error is
+            // swallowed, leave a permanent white page. On OutOfMemoryError, shrink and drop to a
+            // lighter bitmap config and retry, rather than failing silently.
+            var width = targetWidth.coerceIn(360, 1240)
+            var config = Bitmap.Config.ARGB_8888
+            var result: Bitmap? = null
+            var attempt = 0
+            while (attempt < 3 && result == null) {
+                try {
+                    result = renderer.openPage(index).use { page ->
+                        val scale = width.toFloat() / page.width.coerceAtLeast(1)
+                        val h = (page.height * scale).toInt().coerceAtLeast(1)
+                        val bmp = Bitmap.createBitmap(width, h, config)
+                        bmp.eraseColor(AndroidColor.WHITE)
+                        page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                        bmp
+                    }
+                } catch (oom: OutOfMemoryError) {
+                    width = (width * 2 / 3).coerceAtLeast(320)
+                    config = Bitmap.Config.RGB_565
+                    @Suppress("ExplicitGarbageCollectionCall") System.gc()
+                } catch (e: Exception) {
+                    return@withContext null
                 }
-            }.getOrNull()
+                attempt++
+            }
+            result
         }
     }
 

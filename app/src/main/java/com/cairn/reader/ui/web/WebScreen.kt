@@ -123,6 +123,21 @@ fun WebScreen(url: String, onBack: () -> Unit) {
                             runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, request.url).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                             return true
                         }
+                        // If the system reclaims the WebView renderer (memory pressure), the surface
+                        // goes blank white. Handle it: tear down the dead view and leave this screen
+                        // gracefully instead of stranding the user on a white page. Returning true
+                        // keeps the whole app alive.
+                        override fun onRenderProcessGone(
+                            view: WebView?,
+                            detail: android.webkit.RenderProcessGoneDetail?,
+                        ): Boolean {
+                            runCatching {
+                                (view?.parent as? ViewGroup)?.removeView(view)
+                                view?.destroy()
+                            }
+                            onBack()
+                            return true
+                        }
                     }
                     webChromeClient = object : WebChromeClient() {
                         override fun onProgressChanged(view: WebView?, newProgress: Int) { progress = newProgress }
