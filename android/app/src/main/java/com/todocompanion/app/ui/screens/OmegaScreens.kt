@@ -20,6 +20,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Share
@@ -53,11 +55,15 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.todocompanion.app.domain.OmegaCommand
+import com.todocompanion.app.domain.PeriodRange
 import com.todocompanion.app.domain.PeriodRecap
+import com.todocompanion.app.domain.weekStartOf
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
-import com.todocompanion.app.ui.components.OptionChips
+import com.todocompanion.app.ui.components.PeriodSwitcher
 import java.time.LocalDate
+import java.time.format.TextStyle
+import java.util.Locale
 
 /** The full command catalog, shown click-to-expand in the palette so no capability stays hidden. */
 private val COMMAND_CATALOG: List<Pair<String, List<Pair<String, String>>>> = listOf(
@@ -196,44 +202,100 @@ private fun FlowRowCompat(content: @Composable () -> Unit) {
  * Ω5 — the any-period recap. Pick a window and read the one cross-module story: what you finished,
  * tracked and kept, versus the window before it. Reachable from the palette ("recap last week") and
  * the drawer.
+ *
+ * Coherence Move 7 — the period is chosen with the shared [PeriodSwitcher] (Day·Week·Month·Year·All),
+ * mapped to a window by [PeriodRange.window], with prev/next stepping over equally-long windows. The
+ * recap engine already compares each window to the equally-long one just before it, so any span works.
  */
-/** The first day of the week containing [today], honoring the user's weekStart setting
- *  (1..7 = Mon..Sun; 0/other = the system locale's first day). Shared by the recap ranges. */
-fun weekStartOf(today: LocalDate, weekStartSetting: Int): LocalDate {
-    val firstDow = if (weekStartSetting in 1..7) java.time.DayOfWeek.of(weekStartSetting)
-        else java.time.temporal.WeekFields.of(java.util.Locale.getDefault()).firstDayOfWeek
-    return today.minusDays((((today.dayOfWeek.value - firstDow.value) + 7) % 7).toLong())
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecapScreen(vm: AppViewModel, initialStartDay: Long, initialEndDay: Long, initialTitle: String, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
-    data class Preset(val title: String, val start: Long, val end: Long)
     val settings by vm.settings.collectAsState()
     // Live, all-workspace task list: collecting it warms the flow AND re-runs the recap when tasks load,
     // so "Tasks done" can't read an empty snapshot (R29 #4).
     val liveTasks by vm.allTasksLive.collectAsState()
     val today = remember { LocalDate.now() }
     val td = today.toEpochDay()
-    // R29 #3 — weeks honor the "week starts on" setting, not a rolling last-7-days window: "This week" runs
-    // from the current week's first day through today; "Last week" is the whole previous week.
-    val weekStart = remember(today, settings.weekStart) { weekStartOf(today, settings.weekStart) }
-    val presets = remember(weekStart, today) {
-        listOf(
-            Preset("This week", weekStart.toEpochDay(), td),
-            Preset("Last week", weekStart.minusWeeks(1).toEpochDay(), weekStart.minusDays(1).toEpochDay()),
-            Preset("This month", today.withDayOfMonth(1).toEpochDay(), td),
-            Preset("Last month",
-                today.withDayOfMonth(1).minusMonths(1).toEpochDay(),
-                today.withDayOfMonth(1).minusDays(1).toEpochDay()),
-            Preset("This year", today.withDayOfYear(1).toEpochDay(), td),
-        )
+
+    // Coherence Move 7 — the recap is driven by the shared period switcher (Day·Week·Month·Year·All) plus
+    // prev/next stepping. The window comes from [PeriodRange.window] (weeks still honor the "week starts
+    // on" setting); the recap engine compares each window to the equally-long one just before it, so any
+    // span works. The entry period + anchor are inferred from the window the caller opened us with (the
+    // palette's "recap this/last week/month", the drawer's "This week").
+    val (initialPeriod, initialAnchor) = remember(initialStartDay, initialEndDay, initialTitle) {
+        val t = initialTitle.lowercase(Locale.getDefault())
+        when {
+            "year" in t -> PeriodRange.YEAR to initialStartDay
+            "month" in t -> PeriodRange.MONTH to initialStartDay
+            "week" in t -> PeriodRange.WEEK to initialStartDay
+            else -> when (initialEndDay - initialStartDay + 1) {
+                in Long.MIN_VALUE..1L -> PeriodRange.DAY to initialStartDay
+                in 2L..8L -> PeriodRange.WEEK to initialStartDay
+                in 9L..31L -> PeriodRange.MONTH to initialStartDay
+                else -> PeriodRange.YEAR to initialStartDay
+            }
+        }
     }
-    var start by remember { mutableLongStateOf(initialStartDay) }
-    var end by remember { mutableLongStateOf(initialEndDay) }
-    var title by remember { mutableStateOf(initialTitle) }
-    val recap = remember(start, end, liveTasks) { vm.periodRecap(start, end, title, liveTasks) }
+    var period by remember { mutableStateOf(initialPeriod) }
+    var anchor by remember { mutableLongStateOf(initialAnchor) }
+
+    val win = period.window(anchor, settings.weekStart, td)
+    val start = win.startDay
+    val end = win.endDay
+    val anchorDate = LocalDate.ofEpochDay(anchor)
+
+    // The title reflects the selected period — relative where natural ("This week"/"Last month"/…), else
+    // the dated span — and feeds both the recap engine's label and the shared card.
+    val title = when (period) {
+        PeriodRange.DAY -> when (anchor) {
+            td -> "Today"
+            td - 1 -> "Yesterday"
+            else -> anchorDate.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault()) + ", " +
+                anchorDate.dayOfMonth + " " + anchorDate.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+        }
+        PeriodRange.WEEK -> {
+            val ws = weekStartOf(anchorDate, settings.weekStart)
+            val curWs = weekStartOf(today, settings.weekStart)
+            when (ws) { curWs -> "This week"; curWs.minusWeeks(1) -> "Last week"; else -> weekLabel(ws, ws.plusDays(6)) }
+        }
+        PeriodRange.MONTH -> {
+            val first = anchorDate.withDayOfMonth(1)
+            val curFirst = today.withDayOfMonth(1)
+            when (first) {
+                curFirst -> "This month"
+                curFirst.minusMonths(1) -> "Last month"
+                else -> first.month.getDisplayName(TextStyle.FULL, Locale.getDefault()) + " " + first.year
+            }
+        }
+        PeriodRange.YEAR -> when (anchorDate.year) { today.year -> "This year"; today.year - 1 -> "Last year"; else -> anchorDate.year.toString() }
+        PeriodRange.ALL -> "All-time"
+    }
+
+    // Prev/next stepping over equally-long windows (one period unit at a time); the current/latest period
+    // caps "next", and the all-time span has no earlier/later period to step to.
+    val prevAnchor: Long
+    val nextAnchor: Long
+    val canPrev: Boolean
+    val canNext: Boolean
+    when (period) {
+        PeriodRange.DAY -> { prevAnchor = anchor - 1; nextAnchor = anchor + 1; canPrev = true; canNext = anchor < td }
+        PeriodRange.WEEK -> {
+            val ws = weekStartOf(anchorDate, settings.weekStart)
+            prevAnchor = anchor - 7; nextAnchor = anchor + 7; canPrev = true; canNext = ws < weekStartOf(today, settings.weekStart)
+        }
+        PeriodRange.MONTH -> {
+            val first = anchorDate.withDayOfMonth(1)
+            prevAnchor = first.minusMonths(1).toEpochDay(); nextAnchor = first.plusMonths(1).toEpochDay(); canPrev = true; canNext = first < today.withDayOfMonth(1)
+        }
+        PeriodRange.YEAR -> {
+            val first = anchorDate.withDayOfYear(1)
+            prevAnchor = first.minusYears(1).toEpochDay(); nextAnchor = first.plusYears(1).toEpochDay(); canPrev = true; canNext = anchorDate.year < today.year
+        }
+        PeriodRange.ALL -> { prevAnchor = anchor; nextAnchor = anchor; canPrev = false; canNext = false }
+    }
+
+    val recap = remember(start, end, title, liveTasks) { vm.periodRecap(start, end, title, liveTasks) }
 
     // Track 1.5 — render the recap to a permission-free PNG via the shared DayCard path (FileProvider +
     // ACTION_SEND, no network), the same family the day / week / year cards already use.
@@ -261,13 +323,14 @@ fun RecapScreen(vm: AppViewModel, initialStartDay: Long, initialEndDay: Long, in
     }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            OptionChips(
-                options = presets,
-                selected = presets.firstOrNull { it.start == start && it.end == end },
-                onSelect = { start = it.start; end = it.end; title = it.title },
-                spacing = 6,
-            ) { it.title }
-            Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            // The one shared period switcher; switching period re-anchors to the current period.
+            PeriodSwitcher(selected = period, onSelect = { period = it; anchor = td })
+            // Period navigator (‹ title ›) — mirrors the Day Review roll-up's navigator.
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { if (canPrev) anchor = prevAnchor }, enabled = canPrev) { Icon(Icons.Filled.ChevronLeft, "Previous period") }
+                Text(title, Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                IconButton(onClick = { if (canNext) anchor = nextAnchor }, enabled = canNext) { Icon(Icons.Filled.ChevronRight, "Next period") }
+            }
             AppCard {
                 Text(recap.narrative, style = MaterialTheme.typography.bodyLarge)
             }

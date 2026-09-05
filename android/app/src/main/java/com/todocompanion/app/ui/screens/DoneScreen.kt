@@ -66,12 +66,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.todocompanion.app.domain.PeriodRange
 import com.todocompanion.app.domain.done.Accomplishment
 import com.todocompanion.app.domain.done.LivingRecord
 import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.domain.done.DoneKind
 import com.todocompanion.app.domain.done.DoneRecord
 import com.todocompanion.app.ui.AppViewModel
+import com.todocompanion.app.ui.components.PeriodSwitcher
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.TextStyle
@@ -102,6 +104,7 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
     val checkins by vm.habitCheckins.collectAsState()
     val timeEntries by vm.timeEntries.collectAsState()
     val lists by vm.lists.collectAsState()
+    val settings by vm.settings.collectAsState()
     val zone = ZoneId.systemDefault()
     val ctx = LocalContext.current
 
@@ -111,10 +114,12 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
     // Memories look across the whole history regardless of the range picker.
     val onThisDay = remember(feed) { DoneRecord.onThisDay(feed, today) }
 
-    // R28 #10 — the record is scoped to a chosen window (today … lifetime); everything below reads the
-    // ranged slice so the totals, trophy case and feed all reflect the same span.
-    var range by remember { mutableStateOf("all") }
-    val bounds = rangeBounds(range, today)
+    // Coherence Move 7 — the record is scoped by the shared period switcher (Day·Week·Month·Year·All);
+    // everything below reads the ranged slice so the totals, trophy case and feed all reflect the same
+    // span. ALL is the lifetime record; YEAR is the calendar year. The window comes from the one
+    // [PeriodRange.window] every review surface shares (anchored at today, clamped to today).
+    var range by remember { mutableStateOf(PeriodRange.ALL) }
+    val bounds = range.window(today.toEpochDay(), settings.weekStart, today.toEpochDay()).range
     val rangedFeed = remember(feed, range) { feed.filter { it.epochDay in bounds } }
     val stats = remember(rangedFeed) { DoneRecord.stats(rangedFeed) }
     val wins = remember(rangedFeed) { rangedFeed.filter { it.isWin } }
@@ -132,8 +137,10 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
     // Track 1.1 — the felt dimension for The Record: how the record's window FELT, plus 1–2 cross-stream
     // findings that relate finishing to how days felt (descriptive only). Lifetime clamps to a finite window.
     val dayLogs by vm.dayLogs.collectAsState()
-    val feltStart = if (bounds.first == Long.MIN_VALUE) today.toEpochDay() - 3650 else bounds.first
-    val feltEnd = if (bounds.last == Long.MAX_VALUE) today.toEpochDay() else bounds.last
+    // The felt lane clamps the all-time span to a finite window (~10 years) so the mood fold stays cheap;
+    // every bounded range keeps its own start/end (both are already <= today).
+    val feltStart = maxOf(bounds.first, today.toEpochDay() - 3650)
+    val feltEnd = bounds.last
     val recordFelt = remember(range, dayLogs) { vm.feltSummary(feltStart, feltEnd) }
     // Cross-stream insights are heavier (per-day activity minutes), so cap their window to ~2 years.
     val insightStart = maxOf(feltStart, feltEnd - 729)
@@ -181,15 +188,14 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
     var showCoSign by remember { mutableStateOf(false) }
 
     // R29 Phase 5/7 — the impact graph (finished work → the goals it served) and the verifiable timeline.
-    val settings by vm.settings.collectAsState()
     var showImpact by remember { mutableStateOf(false) }
     val impact = remember(rangedFeed, tasks) { com.todocompanion.app.domain.done.Impact.build(rangedFeed, tasks) }
     val integrity = remember(feed, settings.integritySeal) {
         com.todocompanion.app.domain.done.Integrity.status(feed, com.todocompanion.app.domain.done.Integrity.Seal.decode(settings.integritySeal))
     }
     if (showImpact) {
-        // Impact map owns its own range picker (today … lifetime), independent of the feed's range.
-        ImpactScreen(feed, tasks, today, listNameById, onOpenTask = onOpenTask, onBack = { showImpact = false })
+        // Impact map owns its own period switcher, independent of the feed's range.
+        ImpactScreen(feed, tasks, today, settings.weekStart, listNameById, onOpenTask = onOpenTask, onBack = { showImpact = false })
         return
     }
     if (showCoSign) {
@@ -291,12 +297,12 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
             contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            // Range selector — scope the whole record to a window.
+            // The one shared period switcher — scope the whole record to a window.
             item(key = "range") {
-                com.todocompanion.app.ui.components.OptionChips(RANGES, RANGES.firstOrNull { it.first == range }, { range = it.first }, wrap = false, spacing = 6) { it.second }
+                PeriodSwitcher(selected = range, onSelect = { range = it })
             }
             // Totals + personal bests, over the chosen range.
-            item(key = "stats") { LifetimeCard(stats, rangeLabel(range), settings.hideStreaks) }
+            item(key = "stats") { LifetimeCard(stats, recordRangeLabel(range), settings.hideStreaks) }
             // R32 #1 — the done heatmap: a year of finishes at a glance.
             item(key = "heatmap") { HeatmapCard(heat, today) }
             // R32 #5 — year-in-review story launcher.
@@ -304,7 +310,7 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
             // R32 #2 — milestone shelf: earned badges + the next target, each shareable.
             if (milestones.isNotEmpty()) item(key = "milestones") { MilestonesCard(milestones) { m -> vm.shareMilestone(m) } }
             // R32 #4 — heuristic pattern insights (best day, peak hour, focus lift).
-            if (patternInsights.isNotEmpty() || recordFelt.hasData) item(key = "insights") { PatternInsightsCard(patternInsights, recordFelt, recordFeltInsights, rangeLabel(range)) }
+            if (patternInsights.isNotEmpty() || recordFelt.hasData) item(key = "insights") { PatternInsightsCard(patternInsights, recordFelt, recordFeltInsights, recordRangeLabel(range)) }
             // Track 3.1 — output vs. how you felt: descriptive, non-causal findings joining the two.
             if (outputLedger.hasData) item(key = "ledger") { OutputVsFeltCard(outputLedger) }
             // R32 #8 — skills ledger: finished work rolled up into evidence-backed areas.
@@ -430,24 +436,16 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
     }
 }
 
-/** R28 #10 — the windows the record can be scoped to. */
-internal val RANGES = listOf(
-    "today" to "Today", "month" to "This month", "4mo" to "4 months", "6mo" to "6 months",
-    "year" to "This year", "lastyear" to "Last year", "5y" to "5 years", "10y" to "10 years", "all" to "Lifetime",
-)
-internal fun rangeLabel(k: String): String = RANGES.firstOrNull { it.first == k }?.second ?: "Lifetime"
-/** Two-sided day bounds for a range key — needed so "Last year" is the previous calendar year only,
- *  not everything since it began. Every other key is [start .. today]. */
-internal fun rangeBounds(k: String, today: LocalDate): LongRange = when (k) {
-    "today" -> today.toEpochDay()..today.toEpochDay()
-    "month" -> today.withDayOfMonth(1).toEpochDay()..today.toEpochDay()
-    "4mo" -> today.minusMonths(4).toEpochDay()..today.toEpochDay()
-    "6mo" -> today.minusMonths(6).toEpochDay()..today.toEpochDay()
-    "year" -> today.withDayOfYear(1).toEpochDay()..today.toEpochDay()
-    "lastyear" -> today.minusYears(1).withDayOfYear(1).toEpochDay()..today.withDayOfYear(1).minusDays(1).toEpochDay()
-    "5y" -> today.minusYears(5).toEpochDay()..today.toEpochDay()
-    "10y" -> today.minusYears(10).toEpochDay()..today.toEpochDay()
-    else -> Long.MIN_VALUE..Long.MAX_VALUE
+/** Coherence Move 7 — the label for a scoped record window. ALL keeps its "Lifetime" wording (so the
+ *  totals card still reads "Lifetime record"); every other period reads as a natural phrase. The 4mo /
+ *  6mo / 5y / 10y granularities the record used to offer are intentionally dropped — Year and All (the
+ *  lifetime record) cover those intents under the one shared switcher. */
+internal fun recordRangeLabel(range: PeriodRange): String = when (range) {
+    PeriodRange.DAY -> "Today"
+    PeriodRange.WEEK -> "This week"
+    PeriodRange.MONTH -> "This month"
+    PeriodRange.YEAR -> "This year"
+    PeriodRange.ALL -> "Lifetime"
 }
 
 @Composable
@@ -796,13 +794,13 @@ private fun IntegrityCard(status: com.todocompanion.app.domain.done.Integrity.St
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun ImpactScreen(
-    feed: List<Accomplishment>, tasks: List<TaskEntity>, today: LocalDate,
+    feed: List<Accomplishment>, tasks: List<TaskEntity>, today: LocalDate, weekStart: Int,
     listNameById: Map<String, String>, onOpenTask: (String) -> Unit, onBack: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
-    // R32 — the Impact map now scopes to its own range window, like The Record.
-    var range by remember { mutableStateOf("all") }
-    val bounds = rangeBounds(range, today)
+    // Coherence Move 7 — the Impact map scopes to its own window via the one shared period switcher.
+    var range by remember { mutableStateOf(PeriodRange.ALL) }
+    val bounds = range.window(today.toEpochDay(), weekStart, today.toEpochDay()).range
     val g = remember(feed, tasks, range) { com.todocompanion.app.domain.done.Impact.build(feed.filter { it.epochDay in bounds }, tasks) }
     Scaffold(topBar = {
         TopAppBar(expandedHeight = 52.dp,
@@ -813,7 +811,7 @@ private fun ImpactScreen(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item(key = "impact-range") {
-                com.todocompanion.app.ui.components.OptionChips(RANGES, RANGES.firstOrNull { it.first == range }, { range = it.first }, wrap = false, spacing = 6) { it.second }
+                PeriodSwitcher(selected = range, onSelect = { range = it })
             }
             if (g.nodes.isEmpty()) {
                 item(key = "impact-empty") {
@@ -821,7 +819,7 @@ private fun ImpactScreen(
                         horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("🕸️", style = MaterialTheme.typography.displaySmall)
                         Spacer(Modifier.height(8.dp))
-                        Text("No goal-linked work in ${rangeLabel(range).lowercase()} yet. Finish tasks under a goal or project and they'll web up here.",
+                        Text("No goal-linked work in ${recordRangeLabel(range).lowercase()} yet. Finish tasks under a goal or project and they'll web up here.",
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                     }
@@ -831,7 +829,7 @@ private fun ImpactScreen(
                 item(key = "impact-head") {
                     Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .5f), modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(14.dp)) {
-                            Text(rangeLabel(range), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(recordRangeLabel(range), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text("${g.finished} finished  →  ${g.goalsServed} goals  →  ${g.outcomes} outcomes",
                                 style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                             Text("Each finished task rolled up to the goal it served — the shape of what your work added up to.",

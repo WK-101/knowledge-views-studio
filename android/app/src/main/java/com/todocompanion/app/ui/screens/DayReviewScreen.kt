@@ -98,10 +98,12 @@ import com.todocompanion.app.domain.Goal
 import com.todocompanion.app.domain.Goals
 import com.todocompanion.app.domain.Prediction
 import com.todocompanion.app.domain.Predictions
+import com.todocompanion.app.domain.PeriodRange
 import com.todocompanion.app.domain.ReflectionCompanion
 import com.todocompanion.app.domain.ReviewCadence
 import com.todocompanion.app.domain.ReviewInsights
 import com.todocompanion.app.domain.ReviewRollup
+import com.todocompanion.app.domain.weekStartOf
 import com.todocompanion.app.domain.PastYearReview
 import com.todocompanion.app.domain.TextInsights
 import com.todocompanion.app.domain.YearReviewed
@@ -124,6 +126,7 @@ import com.todocompanion.app.ui.components.MeterRow
 import com.todocompanion.app.ui.components.MiniCheck
 import com.todocompanion.app.ui.components.OpenTick
 import com.todocompanion.app.ui.components.OptionChips
+import com.todocompanion.app.ui.components.PeriodSwitcher
 import com.todocompanion.app.ui.components.SectionTitle
 import com.todocompanion.app.ui.components.StatTile
 import com.todocompanion.app.util.DayCard
@@ -174,9 +177,9 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
     var rolloverLetGo by remember { mutableStateOf(setOf<String>()) }
     // Phase F — opened via the "Close your day" shortcut / evening nudge: land straight in the close flow.
     LaunchedEffect(startInClose) { if (startInClose) showClose = true }
-    // Phase D — Day · Week · Month. Day keeps the full close-the-day screen; Week/Month roll the reviewed
-    // period up into read-only aggregate cards.
-    var mode by remember { mutableStateOf(ReviewRange.DAY) }
+    // Coherence Move 7 — the shared period switcher: Day · Week · Month · Year · All. Day keeps the full
+    // close-the-day screen; every other period rolls the reviewed span up into read-only aggregate cards.
+    var mode by remember { mutableStateOf(PeriodRange.DAY) }
 
     val tasks by vm.tasks.collectAsState()
     val habits by vm.habits.collectAsState()
@@ -322,12 +325,9 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
         )
     }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(top = 2.dp)) {
-            // ── Range mode: Day (this screen) · Week · Month (roll-up) ──
-            OptionChips(
-                options = ReviewRange.ALL, selected = mode, onSelect = { mode = it }, wrap = false,
-                label = { it.label }, modifier = Modifier.padding(bottom = 12.dp),
-            )
-            if (mode != ReviewRange.DAY) {
+            // ── The one shared period switcher: Day (this screen) · Week · Month · Year · All (roll-up) ──
+            PeriodSwitcher(selected = mode, onSelect = { mode = it }, modifier = Modifier.padding(bottom = 12.dp))
+            if (mode != PeriodRange.DAY) {
                 RangeRollup(
                     mode = mode, anchor = day, todayEd = todayEd, zone = zone,
                     weekStartSetting = settings.weekStart,
@@ -336,7 +336,7 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
                     weeklyReviewsJson = settings.weeklyReviewsJson,
                     onStartWeeklyReview = { iso -> weeklyIso = iso; showWeekly = true },
                     onAnchorChange = { day = it },
-                    onOpenDay = { d -> day = d; mode = ReviewRange.DAY },
+                    onOpenDay = { d -> day = d; mode = PeriodRange.DAY },
                     onOpenYearReview = { showYear = true },
                     onSharePeriod = { p -> sharePreselect = p; showShare = true },
                 )
@@ -2169,22 +2169,18 @@ private fun <T> ShareTriState(options: List<T>, selected: T, enabled: Boolean, e
         modifier = Modifier.padding(vertical = 4.dp))
 }
 
-/** Phase D — the Day Review's range mode. Day is the full close-the-day screen; Week/Month roll up. */
-private enum class ReviewRange(val label: String) {
-    DAY("Day"), WEEK("Week"), MONTH("Month");
-    companion object { val ALL = listOf(DAY, WEEK, MONTH) }
-}
-
 /**
- * Phase D — the weekly / monthly reflection roll-up. A period navigator (‹ label ›, honoring the
- * week-start setting) over read-only aggregate cards computed by [ReviewRollup] from the same day logs,
- * habits, check-ins and tracked time the Day view already holds. Each card renders only when it has
- * data, and reuses the day-review idioms (AppCard, SectionTitle, MeterRow, ScoreSparkline). The current
- * week/month is capped at today, matching the Recap screen's "this week / this month" semantics.
+ * Coherence Move 7 — the reflection roll-up for every non-DAY period of the shared switcher (Week ·
+ * Month · Year · All). A period navigator (‹ label ›, honoring the week-start setting) over read-only
+ * aggregate cards computed by [ReviewRollup] from the same day logs, habits, check-ins and tracked time
+ * the Day view already holds — the window comes from [PeriodRange.window], so it folds identically for a
+ * week, a month, a calendar year or all-time. Each card renders only when it has data, and reuses the
+ * day-review idioms (AppCard, SectionTitle, MeterRow, ScoreSparkline). Every current period is capped at
+ * today, matching the Recap screen's "this week / this month" semantics.
  */
 @Composable
 private fun RangeRollup(
-    mode: ReviewRange,
+    mode: PeriodRange,
     anchor: Long,
     todayEd: Long,
     zone: ZoneId,
@@ -2207,36 +2203,62 @@ private fun RangeRollup(
     val date = LocalDate.ofEpochDay(anchor)
     val today = LocalDate.ofEpochDay(todayEd)
 
-    // Resolve the window, label, relative caption and the prev/next anchors for this range.
-    val start: Long
-    val end: Long
+    // Resolve the window (via the shared [PeriodRange.window]) plus the label, relative caption, the
+    // prev/next anchors and whether stepping is possible for this period. A period noun feeds the copy
+    // ("Themes this week / month / year / …") so it reads naturally for every span, all-time included.
+    val win = mode.window(anchor, weekStartSetting, todayEd)
+    val start = win.startDay
+    val end = win.endDay
     val label: String
     val relative: String
     val prevAnchor: Long
     val nextAnchor: Long
+    val canPrev: Boolean
     val canNext: Boolean
-    if (mode == ReviewRange.WEEK) {
-        val ws = weekStartOf(date, weekStartSetting)
-        val we = ws.plusDays(6)
-        val curWs = weekStartOf(today, weekStartSetting)
-        start = ws.toEpochDay()
-        end = minOf(we.toEpochDay(), todayEd)
-        label = weekLabel(ws, we)
-        relative = when (ws) { curWs -> "This week"; curWs.minusWeeks(1) -> "Last week"; else -> "" }
-        prevAnchor = anchor - 7
-        nextAnchor = anchor + 7
-        canNext = ws < curWs
-    } else {
-        val first = date.withDayOfMonth(1)
-        val last = date.withDayOfMonth(date.lengthOfMonth())
-        val curFirst = today.withDayOfMonth(1)
-        start = first.toEpochDay()
-        end = minOf(last.toEpochDay(), todayEd)
-        label = first.month.getDisplayName(TextStyle.FULL, Locale.getDefault()) + " " + first.year
-        relative = when (first) { curFirst -> "This month"; curFirst.minusMonths(1) -> "Last month"; else -> "" }
-        prevAnchor = first.minusMonths(1).toEpochDay()
-        nextAnchor = first.plusMonths(1).toEpochDay()
-        canNext = first < curFirst
+    val periodNoun: String
+    when (mode) {
+        PeriodRange.WEEK -> {
+            val ws = weekStartOf(date, weekStartSetting)
+            val we = ws.plusDays(6)
+            val curWs = weekStartOf(today, weekStartSetting)
+            label = weekLabel(ws, we)
+            relative = when (ws) { curWs -> "This week"; curWs.minusWeeks(1) -> "Last week"; else -> "" }
+            prevAnchor = anchor - 7
+            nextAnchor = anchor + 7
+            canPrev = true
+            canNext = ws < curWs
+            periodNoun = "week"
+        }
+        PeriodRange.MONTH -> {
+            val first = date.withDayOfMonth(1)
+            val curFirst = today.withDayOfMonth(1)
+            label = first.month.getDisplayName(TextStyle.FULL, Locale.getDefault()) + " " + first.year
+            relative = when (first) { curFirst -> "This month"; curFirst.minusMonths(1) -> "Last month"; else -> "" }
+            prevAnchor = first.minusMonths(1).toEpochDay()
+            nextAnchor = first.plusMonths(1).toEpochDay()
+            canPrev = true
+            canNext = first < curFirst
+            periodNoun = "month"
+        }
+        PeriodRange.YEAR -> {
+            val first = date.withDayOfYear(1)
+            label = date.year.toString()
+            relative = when (date.year) { today.year -> "This year"; today.year - 1 -> "Last year"; else -> "" }
+            prevAnchor = first.minusYears(1).toEpochDay()
+            nextAnchor = first.plusYears(1).toEpochDay()
+            canPrev = true
+            canNext = date.year < today.year
+            periodNoun = "year"
+        }
+        else -> { // ALL — an all-time window; there is no earlier/later period to step to.
+            label = "All time"
+            relative = "All-time"
+            prevAnchor = anchor
+            nextAnchor = anchor
+            canPrev = false
+            canNext = false
+            periodNoun = "period"
+        }
     }
 
     val rollup = remember(mode, start, end, dayLogs, questions, habits, checkins, timeEntries, activities, goals, tasks) {
@@ -2249,25 +2271,32 @@ private fun RangeRollup(
 
     // ── Period navigator (mirrors the day navigator) ──
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = { onAnchorChange(prevAnchor) }) { Icon(Icons.Filled.ChevronLeft, "Previous ${mode.label.lowercase()}") }
+        IconButton(onClick = { if (canPrev) onAnchorChange(prevAnchor) }, enabled = canPrev) { Icon(Icons.Filled.ChevronLeft, "Previous $periodNoun") }
         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
             if (relative.isNotBlank()) Text(relative, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
             Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
-        IconButton(onClick = { if (canNext) onAnchorChange(nextAnchor) }, enabled = canNext) { Icon(Icons.Filled.ChevronRight, "Next ${mode.label.lowercase()}") }
+        IconButton(onClick = { if (canNext) onAnchorChange(nextAnchor) }, enabled = canNext) { Icon(Icons.Filled.ChevronRight, "Next $periodNoun") }
         // Share this period through the unified, modular share flow (preselected to this period), so it
         // gets the modern marks + boxed tiles and the Personal / Professional option — routed through
-        // DayCard.renderPeriodShare via the shared FileProvider path.
-        if (rollup.hasData) {
-            IconButton(onClick = { onSharePeriod(if (mode == ReviewRange.WEEK) SharePeriod.WEEK else SharePeriod.MONTH) }) {
-                Icon(Icons.Filled.Share, "Share ${mode.label.lowercase()}")
+        // DayCard.renderPeriodShare via the shared FileProvider path. Week / Month / Year have a card
+        // renderer; the all-time span has no dedicated card, so it simply omits the share affordance.
+        val sharePeriod = when (mode) {
+            PeriodRange.WEEK -> SharePeriod.WEEK
+            PeriodRange.MONTH -> SharePeriod.MONTH
+            PeriodRange.YEAR -> SharePeriod.YEAR
+            else -> null
+        }
+        if (rollup.hasData && sharePeriod != null) {
+            IconButton(onClick = { onSharePeriod(sharePeriod) }) {
+                Icon(Icons.Filled.Share, "Share $periodNoun")
             }
         }
     }
     Spacer(Modifier.height(12.dp))
 
     // ── Wave 1 — enter the guided Weekly Review (Week roll-up only) ──
-    if (mode == ReviewRange.WEEK) {
+    if (mode == PeriodRange.WEEK) {
         val weekIso = WeeklyReviews.isoWeekKey(LocalDate.ofEpochDay(start))
         val reviewed = WeeklyReviews.isReviewed(weeklyReviewsJson, weekIso)
         FilledTonalButton(onClick = { onStartWeeklyReview(weekIso) }, modifier = Modifier.fillMaxWidth()) {
@@ -2276,8 +2305,8 @@ private fun RangeRollup(
         Spacer(Modifier.height(12.dp))
     }
 
-    // ── Wave 3 (B) — the fully-local "Year, reviewed" recap (Month roll-up only) ──
-    if (mode == ReviewRange.MONTH) {
+    // ── Wave 3 (B) — the fully-local "Year, reviewed" recap (Month / Year roll-ups) ──
+    if (mode == PeriodRange.MONTH || mode == PeriodRange.YEAR) {
         FilledTonalButton(onClick = onOpenYearReview, modifier = Modifier.fillMaxWidth()) {
             Text("📖  Year, reviewed")
         }
@@ -2302,13 +2331,13 @@ private fun RangeRollup(
         }
         if (themeWords.isNotEmpty()) {
             Spacer(Modifier.height(10.dp))
-            Text("Themes this ${mode.label.lowercase(Locale.getDefault())}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Themes this $periodNoun", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(themeWords.joinToString("  ·  "), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
         }
     }
 
     // ── 1·2.1 — Execution score (Week only): a lead measure of planned commitments vs done, vs the 85% target ──
-    if (mode == ReviewRange.WEEK) {
+    if (mode == PeriodRange.WEEK) {
         val execScore = remember(rollup, tasks) { ExecutionScore.fromRollup(rollup, tasks, zone) }
         if (execScore.hasData) {
             Spacer(Modifier.height(12.dp))
@@ -2329,7 +2358,7 @@ private fun RangeRollup(
     if (!rollup.hasData) {
         Spacer(Modifier.height(12.dp))
         AppCard {
-            Text("Nothing to roll up in this ${mode.label.lowercase()} yet — close a few days and your wins, lessons and consistency gather here.",
+            Text("Nothing to roll up in this $periodNoun yet — close a few days and your wins, lessons and consistency gather here.",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         return
@@ -2443,13 +2472,13 @@ private fun RangeRollup(
                 }
             }
             Spacer(Modifier.height(6.dp))
-            Text("Effort scores, averaged over the ${mode.label.lowercase()}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+            Text("Effort scores, averaged over the $periodNoun", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
         }
     } else if (questions.isNotEmpty()) {
         Spacer(Modifier.height(12.dp))
         AppCard {
             SectionTitle("Daily questions")
-            Text("No effort scores logged this ${mode.label.lowercase()} yet — score your questions when you close a day.",
+            Text("No effort scores logged this $periodNoun yet — score your questions when you close a day.",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -2609,7 +2638,7 @@ private fun periodDataFromYear(
 )
 
 /** A compact week label: "1–7 Sep", or "28 Aug – 3 Sep" when the week straddles two months. */
-private fun weekLabel(a: LocalDate, b: LocalDate): String {
+internal fun weekLabel(a: LocalDate, b: LocalDate): String {
     val ma = a.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())
     val mb = b.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())
     return if (a.month == b.month) "${a.dayOfMonth}–${b.dayOfMonth} $mb" else "${a.dayOfMonth} $ma – ${b.dayOfMonth} $mb"

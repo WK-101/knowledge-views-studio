@@ -28,7 +28,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -36,13 +36,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.todocompanion.app.domain.PeriodRange
 import com.todocompanion.app.domain.ReviewRollup
 import com.todocompanion.app.domain.Trend
 import com.todocompanion.app.domain.WeekChanges
 import com.todocompanion.app.domain.habit.HabitStats
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
-import com.todocompanion.app.ui.components.OptionChips
+import com.todocompanion.app.ui.components.PeriodSwitcher
 import com.todocompanion.app.ui.components.StatTile
 import java.time.Instant
 import java.time.LocalDate
@@ -62,16 +63,21 @@ fun StatisticsScreen(vm: AppViewModel, onBack: () -> Unit) {
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
     val dayLogs by vm.dayLogs.collectAsState()
+    val settings by vm.settings.collectAsState()
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now()
     val todayEpoch = today.toEpochDay()
 
-    // Track 2.2 — a real range picker driving the cards, mirroring The Record's OptionChips + STAT_RANGES idiom.
-    var range by remember { mutableIntStateOf(30) }
-    val rangeDays = if (range == YEAR) today.dayOfYear else range
-    val curStart = todayEpoch - (rangeDays - 1)
-    val baseStart = todayEpoch - (2 * rangeDays - 1)
-    val baseEnd = todayEpoch - rangeDays
+    // Coherence Move 7 — the one shared period switcher (Day·Week·Month·Year·All) drives the cards. The
+    // chosen period maps to a window via [PeriodRange.window] (anchored at today, clamped to today); each
+    // headline metric still drifts against the equally-long window immediately before it.
+    var range by remember { mutableStateOf(PeriodRange.MONTH) }
+    val win = range.window(todayEpoch, settings.weekStart, todayEpoch)
+    val curStart = win.startDay
+    val curEnd = win.endDay
+    val rangeDays = win.days.coerceAtLeast(1)
+    val baseEnd = curStart - 1
+    val baseStart = curStart - rangeDays
 
     fun dayOf(ms: Long) = Instant.ofEpochMilli(ms).atZone(zone).toLocalDate().toEpochDay()
     val completed = tasks.filter { it.completed && it.completedAt != null && !it.trashed }
@@ -154,8 +160,8 @@ fun StatisticsScreen(vm: AppViewModel, onBack: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(12.dp))
-            // Track 2.2 — the range picker.
-            OptionChips(STAT_RANGES, STAT_RANGES.firstOrNull { it.first == range }, { range = it.first }, wrap = false, spacing = 6) { it.second }
+            // Coherence Move 7 — the one shared period switcher.
+            PeriodSwitcher(selected = range, onSelect = { range = it })
             // Track 2.2 — headline metrics as rate + drift-vs-baseline arrows, grouped Slipping / Holding steady.
             if (slipping.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
@@ -281,10 +287,15 @@ fun StatisticsScreen(vm: AppViewModel, onBack: () -> Unit) {
     }
 }
 
-/** Track 2.2 — the Statistics range picker windows. -1 = "This year" (Jan 1 → today). */
-private const val YEAR = -1
-private val STAT_RANGES = listOf(7 to "7 days", 30 to "30 days", 90 to "90 days", YEAR to "This year")
-private fun rangeLabelStat(range: Int): String = STAT_RANGES.firstOrNull { it.first == range }?.second ?: "$range days"
+/** Coherence Move 7 — a natural-language caption for the selected period, used in card subtitles
+ *  ("How it felt · This week", "Focus · All time"). The switcher itself shows the short Day/Week/… labels. */
+private fun rangeLabelStat(range: PeriodRange): String = when (range) {
+    PeriodRange.DAY -> "Today"
+    PeriodRange.WEEK -> "This week"
+    PeriodRange.MONTH -> "This month"
+    PeriodRange.YEAR -> "This year"
+    PeriodRange.ALL -> "All time"
+}
 private fun fmtMin(m: Int): String = if (m >= 60) "${m / 60}h ${m % 60}m" else "${m}m"
 
 /** Track 2.2 — render a set of headline metrics as stat tiles, two per row. Each carries its rate and a
