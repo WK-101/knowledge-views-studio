@@ -60,6 +60,12 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.Unarchive
 import androidx.compose.material3.AlertDialog
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -479,7 +485,7 @@ fun ReaderScreen(
                 onLoadWithJs = viewModel::loadWithJavaScript,
                 onOpenOriginal = ::openOriginal,
                 onSaveProgress = viewModel::setProgress,
-                onSelectText = { b, s, e, q -> pending = PendingSelection(b, s, e, q) },
+                onSelectText = { b, s, e, q, y -> pending = PendingSelection(b, s, e, q, y) },
                 onManageHighlight = { managed = it },
                 onPlayEpisode = viewModel::playEpisode,
                 onWatch = ::watchVideo,
@@ -555,9 +561,14 @@ fun ReaderScreen(
         )
     }
 
+    // A selection is dismissed the moment the reader scrolls, so the pill never lingers.
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress) pending = null
+    }
+
     pending?.let { sel ->
-        SelectionSheet(
-            quote = sel.quote,
+        SelectionPill(
+            yInWindow = sel.yInWindow,
             onHighlight = { color ->
                 viewModel.addHighlight(sel.blockIndex, sel.start, sel.end, sel.quote, color)
                 pending = null
@@ -571,8 +582,8 @@ fun ReaderScreen(
     }
 }
 
-/** A text selection awaiting an action from the contextual menu. */
-private data class PendingSelection(val blockIndex: Int, val start: Int, val end: Int, val quote: String)
+/** A text selection awaiting an action from the contextual menu; [yInWindow] anchors the pill. */
+private data class PendingSelection(val blockIndex: Int, val start: Int, val end: Int, val quote: String, val yInWindow: Float = 0f)
 
 @Composable
 private fun ArticleBody(
@@ -588,7 +599,7 @@ private fun ArticleBody(
     onLoadWithJs: () -> Unit,
     onOpenOriginal: () -> Unit,
     onSaveProgress: (Float) -> Unit,
-    onSelectText: (blockIndex: Int, start: Int, end: Int, quote: String) -> Unit,
+    onSelectText: (blockIndex: Int, start: Int, end: Int, quote: String, yInWindow: Float) -> Unit,
     onManageHighlight: (HighlightEntity) -> Unit,
     onPlayEpisode: () -> Unit,
     onWatch: () -> Unit = {},
@@ -790,7 +801,7 @@ private fun BlockView(
     palette: ReaderPalette,
     justify: Boolean,
     highlights: List<HighlightEntity>,
-    onSelectText: (blockIndex: Int, start: Int, end: Int, quote: String) -> Unit,
+    onSelectText: (blockIndex: Int, start: Int, end: Int, quote: String, yInWindow: Float) -> Unit,
     onManageHighlight: (HighlightEntity) -> Unit,
 ) {
     when (block) {
@@ -802,7 +813,7 @@ private fun BlockView(
                 lineHeight = bodyStyle.lineHeight * 1.05f,
             ),
             highlights = highlights,
-            onSelect = { s, e, q -> onSelectText(blockIndex, s, e, q) },
+            onSelect = { s, e, q, y -> onSelectText(blockIndex, s, e, q, y) },
             onManage = onManageHighlight,
             modifier = Modifier.padding(horizontal = ReaderHPad, vertical = 10.dp),
         )
@@ -810,7 +821,7 @@ private fun BlockView(
             base = block.text,
             style = bodyStyle.copy(textAlign = if (justify) TextAlign.Justify else TextAlign.Start),
             highlights = highlights,
-            onSelect = { s, e, q -> onSelectText(blockIndex, s, e, q) },
+            onSelect = { s, e, q, y -> onSelectText(blockIndex, s, e, q, y) },
             onManage = onManageHighlight,
             modifier = Modifier.padding(horizontal = ReaderHPad, vertical = 9.dp),
         )
@@ -835,7 +846,7 @@ private fun BlockView(
                 base = block.text,
                 style = bodyStyle.copy(fontStyle = FontStyle.Italic, color = palette.secondary),
                 highlights = highlights,
-                onSelect = { s, e, q -> onSelectText(blockIndex, s, e, q) },
+                onSelect = { s, e, q, y -> onSelectText(blockIndex, s, e, q, y) },
                 onManage = onManageHighlight,
             )
         }
@@ -868,7 +879,7 @@ private fun HighlightableText(
     base: AnnotatedString,
     style: TextStyle,
     highlights: List<HighlightEntity>,
-    onSelect: (start: Int, end: Int, quote: String) -> Unit,
+    onSelect: (start: Int, end: Int, quote: String, yInWindow: Float) -> Unit,
     onManage: (HighlightEntity) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -878,6 +889,8 @@ private fun HighlightableText(
     val currentManage by rememberUpdatedState(onManage)
     val currentHighlights by rememberUpdatedState(highlights)
     val selColor = MaterialTheme.colorScheme.primary
+    // Where this text block sits in the window, so the selection toolbar can float beside the words.
+    var topInWindow by remember { mutableStateOf(0f) }
 
     // Live drag selection: long-press anchors on a word, drag extends across words.
     var anchor by remember { mutableStateOf<Int?>(null) }
@@ -901,41 +914,50 @@ private fun HighlightableText(
         text = rendered,
         style = style,
         onTextLayout = { layoutState.value = it },
-        modifier = modifier.pointerInput(plain) {
-            detectDragGesturesAfterLongPress(
-                onDragStart = { pos ->
-                    val o = offsetAt(pos)
-                    // Anchor to the whole word first — a plain long-press then selects one word.
-                    val w = wordRangeAt(plain, o)
-                    anchor = w?.first ?: o
-                    focus = w?.let { it.last + 1 } ?: o
-                },
-                onDrag = { change, _ -> focus = offsetAt(change.position) },
-                onDragCancel = { anchor = null; focus = null },
-                onDragEnd = {
-                    val a = anchor; val f = focus
-                    anchor = null; focus = null
-                    if (a == null || f == null) return@detectDragGesturesAfterLongPress
-                    var s = minOf(a, f); var e = maxOf(a, f)
-                    // A tap that landed on an existing highlight (no real drag) manages it.
-                    val hit = currentHighlights.firstOrNull { s >= it.startOffset && s < it.endOffset }
-                    if (hit != null && e - s <= (hit.endOffset - hit.startOffset)) { currentManage(hit); return@detectDragGesturesAfterLongPress }
-                    if (e <= s) return@detectDragGesturesAfterLongPress
-                    // trim surrounding whitespace
-                    while (e > s && plain[e - 1].isWhitespace()) e--
-                    while (s < e && plain[s].isWhitespace()) s++
-                    if (e > s) currentSelect(s, e, plain.substring(s, e))
-                },
-            )
-        },
+        modifier = modifier
+            .onGloballyPositioned { topInWindow = it.positionInWindow().y }
+            .pointerInput(plain) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { pos ->
+                        val o = offsetAt(pos)
+                        // Anchor to the whole word first — a plain long-press then selects one word.
+                        val w = wordRangeAt(plain, o)
+                        anchor = w?.first ?: o
+                        focus = w?.let { it.last + 1 } ?: o
+                    },
+                    onDrag = { change, _ -> focus = offsetAt(change.position) },
+                    onDragCancel = { anchor = null; focus = null },
+                    onDragEnd = {
+                        val a = anchor; val f = focus
+                        anchor = null; focus = null
+                        if (a == null || f == null) return@detectDragGesturesAfterLongPress
+                        var s = minOf(a, f); var e = maxOf(a, f)
+                        // A tap that landed on an existing highlight (no real drag) manages it.
+                        val hit = currentHighlights.firstOrNull { s >= it.startOffset && s < it.endOffset }
+                        if (hit != null && e - s <= (hit.endOffset - hit.startOffset)) { currentManage(hit); return@detectDragGesturesAfterLongPress }
+                        if (e <= s) return@detectDragGesturesAfterLongPress
+                        // trim surrounding whitespace
+                        while (e > s && plain[e - 1].isWhitespace()) e--
+                        while (s < e && plain[s].isWhitespace()) s++
+                        if (e > s) {
+                            val boxTop = runCatching { layoutState.value?.getBoundingBox(s)?.top ?: 0f }.getOrDefault(0f)
+                            currentSelect(s, e, plain.substring(s, e), topInWindow + boxTop)
+                        }
+                    },
+                )
+            },
     )
 }
 
-/** Shown when the reader long-presses unhighlighted text — the contextual menu:
- *  Search / Define / Copy / Share, plus a row of highlight colours. */
+/**
+ * The text-selection toolbar as a compact floating pill anchored just above the selection —
+ * the pattern modern reading apps use (Apple Books, Medium, Matter): highlight colour dots then
+ * Copy / Define / Search / Share. Rendered in a non-focusable [Popup] so it floats over the
+ * article without pulling the reader out of full-screen (a modal sheet's own window did).
+ */
 @Composable
-private fun SelectionSheet(
-    quote: String,
+private fun SelectionPill(
+    yInWindow: Float,
     onHighlight: (Int) -> Unit,
     onSearch: () -> Unit,
     onDefine: () -> Unit,
@@ -943,60 +965,68 @@ private fun SelectionSheet(
     onShare: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 28.dp)) {
-            Text(
-                text = "“${quote.trim()}”",
-                style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic),
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 4,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.height(18.dp))
+    val density = LocalDensity.current
+    val above = with(density) { 56.dp.toPx() }
+    val minY = with(density) { 96.dp.toPx() }
+    val rawAbove = yInWindow - above
+    // Above the selection normally; if that would tuck under the top bar, drop just below it.
+    val y = (if (rawAbove < minY) yInWindow + with(density) { 40.dp.toPx() } else rawAbove)
+    val yPx = y.toInt().coerceAtLeast(with(density) { 8.dp.toPx() }.toInt())
+
+    Popup(
+        alignment = Alignment.TopCenter,
+        offset = IntOffset(0, yPx),
+        onDismissRequest = onDismiss,
+        properties = PopupProperties(focusable = false),
+    ) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+            tonalElevation = 3.dp,
+            shadowElevation = 8.dp,
+        ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                SelectionAction(Icons.Outlined.Search, "Search", onSearch)
-                SelectionAction(Icons.Outlined.MenuBook, "Define", onDefine)
-                SelectionAction(Icons.Outlined.ContentCopy, "Copy", onCopy)
-                SelectionAction(Icons.Outlined.IosShare, "Share", onShare)
-            }
-            Spacer(Modifier.height(20.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-            Spacer(Modifier.height(16.dp))
-            Text("Highlight", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 HighlightColors.all.forEach { c ->
                     Box(
                         Modifier
-                            .size(34.dp)
+                            .size(26.dp)
                             .clip(CircleShape)
                             .background(Color(c))
                             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
                             .clickable { onHighlight(c) },
                     )
                 }
+                Box(
+                    Modifier
+                        .padding(horizontal = 2.dp)
+                        .size(width = 1.dp, height = 24.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant),
+                )
+                PillAction(Icons.Outlined.ContentCopy, "Copy", onCopy)
+                PillAction(Icons.Outlined.MenuBook, "Define", onDefine)
+                PillAction(Icons.Outlined.Search, "Search", onSearch)
+                PillAction(Icons.Outlined.IosShare, "Share", onShare)
             }
         }
     }
 }
 
-/** One compact icon+label action in the selection menu. */
+/** One compact icon button in the selection pill. */
 @Composable
-private fun SelectionAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
-    Column(
+private fun PillAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(14.dp))
+            .clip(CircleShape)
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .padding(8.dp),
     ) {
-        Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(24.dp))
-        Spacer(Modifier.height(6.dp))
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(22.dp))
     }
 }
 
