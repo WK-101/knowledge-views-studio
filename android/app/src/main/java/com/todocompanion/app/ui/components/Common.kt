@@ -432,15 +432,21 @@ fun AppTextField(
     )
 }
 
-/** A white rounded card on the grey ground — the app's core surface grammar. */
+/** A white rounded card on the grey ground — the app's core surface grammar. [verticalArrangement]
+ *  spaces the card's children (defaults to flush, i.e. the caller inserts its own Spacers). */
 @Composable
-fun AppCard(modifier: Modifier = Modifier, padding: Dp = 14.dp, content: @Composable ColumnScope.() -> Unit) {
+fun AppCard(
+    modifier: Modifier = Modifier,
+    padding: Dp = 14.dp,
+    verticalArrangement: Arrangement.Vertical = Arrangement.Top,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp,
-    ) { Column(Modifier.padding(padding), content = content) }
+    ) { Column(Modifier.padding(padding), verticalArrangement = verticalArrangement, content = content) }
 }
 
 /** Small caps section label used inside cards. */

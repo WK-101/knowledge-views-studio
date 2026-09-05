@@ -56,6 +56,7 @@ import com.todocompanion.app.domain.OmegaCommand
 import com.todocompanion.app.domain.PeriodRecap
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.OptionChips
 import java.time.LocalDate
 
 /** The full command catalog, shown click-to-expand in the palette so no capability stays hidden. */
@@ -260,12 +261,12 @@ fun RecapScreen(vm: AppViewModel, initialStartDay: Long, initialEndDay: Long, in
     }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            FlowRowCompat {
-                presets.forEach { p ->
-                    FilterChip(selected = start == p.start && end == p.end,
-                        onClick = { start = p.start; end = p.end; title = p.title }, label = { Text(p.title) })
-                }
-            }
+            OptionChips(
+                options = presets,
+                selected = presets.firstOrNull { it.start == start && it.end == end },
+                onSelect = { start = it.start; end = it.end; title = it.title },
+                spacing = 6,
+            ) { it.title }
             Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             AppCard {
                 Text(recap.narrative, style = MaterialTheme.typography.bodyLarge)

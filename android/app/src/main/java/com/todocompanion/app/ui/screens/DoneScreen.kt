@@ -449,7 +449,7 @@ internal fun rangeBounds(k: String, today: LocalDate): LongRange = when (k) {
 
 @Composable
 private fun LifetimeCard(s: com.todocompanion.app.domain.done.DoneStats, rangeLabel: String, hideStreaks: Boolean = false) {
-    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .35f), modifier = Modifier.fillMaxWidth()) {
+    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
             Text(if (rangeLabel == "Lifetime") "Lifetime record" else "$rangeLabel · record", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.size(10.dp))
@@ -477,7 +477,7 @@ private fun LifetimeCard(s: com.todocompanion.app.domain.done.DoneStats, rangeLa
 
 @Composable
 private fun ComebackCard(lines: List<String>) {
-    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .35f), modifier = Modifier.fillMaxWidth()) {
+    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
             Text("📈 Comeback", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.size(6.dp))
@@ -488,7 +488,7 @@ private fun ComebackCard(lines: List<String>) {
 
 @Composable
 private fun HonestyCard(overall: com.todocompanion.app.domain.done.DoneRecord.LedgerRow, worst: List<com.todocompanion.app.domain.done.DoneRecord.LedgerRow>) {
-    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .4f), modifier = Modifier.fillMaxWidth()) {
+    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
             Text("⚖️ Estimate vs. actual", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.size(4.dp))
@@ -528,7 +528,7 @@ private fun Stat(value: String, label: String) {
 
 @Composable
 private fun OnThisDayCard(items: List<Accomplishment>, listNameById: Map<String, String>) {
-    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .35f), modifier = Modifier.fillMaxWidth()) {
+    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
             Text("📅 On this day", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.size(8.dp))
@@ -1023,14 +1023,14 @@ private fun HeatmapCard(heat: Map<Long, LivingRecord.HeatCell>, today: LocalDate
 /** #5 — a soft launcher into the year-in-review story. */
 @Composable
 private fun WrappedTeaser(onOpen: () -> Unit) {
-    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .6f),
+    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
         modifier = Modifier.fillMaxWidth().clickable { onOpen() }) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("✨", style = MaterialTheme.typography.headlineSmall)
             Spacer(Modifier.size(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("Your year, wrapped", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onTertiaryContainer)
-                Text("A private, swipe-through story of everything you did", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = .8f))
+                Text("Your year, wrapped", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                Text("A private, swipe-through story of everything you did", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
         }
@@ -1080,7 +1080,7 @@ private fun PatternInsightsCard(
     feltInsights: List<com.todocompanion.app.domain.ReviewInsights.Insight>,
     rangeLabel: String,
 ) {
-    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .4f), modifier = Modifier.fillMaxWidth()) {
+    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("What your record reveals", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             insights.forEach { i ->
@@ -1118,7 +1118,7 @@ private fun PatternInsightsCard(
  *  felt, each carrying its confidence, with the non-causal disclaimer front and centre. */
 @Composable
 private fun OutputVsFeltCard(ledger: com.todocompanion.app.domain.FeltOutputLedger.Ledger) {
-    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .35f), modifier = Modifier.fillMaxWidth()) {
+    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Output vs. how you felt", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Text("Over ${ledger.pairedDays} days you both rated and finished things — averaging ${String.format(Locale.US, "%.1f", ledger.avgOutputPerDay)} finished a day at ${String.format(Locale.US, "%.1f", ledger.avgRating)}★.",

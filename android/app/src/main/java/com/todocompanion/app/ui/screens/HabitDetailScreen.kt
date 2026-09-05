@@ -82,6 +82,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.todocompanion.app.domain.habit.HabitStats
+import com.todocompanion.app.ui.components.StatTile
 import kotlin.math.roundToInt
 import java.time.LocalDate
 import java.time.YearMonth
@@ -417,7 +418,7 @@ fun HabitDetailScreen(
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         tiles.chunked(2).forEach { pair ->
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                pair.forEach { (label, value) -> StatTile(label, value, Modifier.weight(1f)) }
+                                pair.forEach { (label, value) -> StatTile(value = value, label = label, modifier = Modifier.weight(1f)) }
                                 if (pair.size == 1) Spacer(Modifier.weight(1f))
                             }
                         }
@@ -698,23 +699,14 @@ private fun StatGrid(tiles: List<Pair<String, String>>) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         tiles.chunked(2).forEach { pair ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                pair.forEach { (label, value) -> StatTile(label, value, Modifier.weight(1f)) }
+                pair.forEach { (label, value) -> StatTile(value = value, label = label, modifier = Modifier.weight(1f)) }
                 if (pair.size == 1) Spacer(Modifier.weight(1f))
             }
         }
     }
 }
 
-@Composable
-private fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
-    Surface(modifier, shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)) {
-        Column(Modifier.padding(14.dp)) {
-            Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
-            Spacer(Modifier.height(2.dp))
-            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-    }
-}
+// StatTile now comes from the shared ui/components/ReviewComponents.kt.
 
 private val WEEKDAY_LETTERS = listOf("M", "T", "W", "T", "F", "S", "S")
 

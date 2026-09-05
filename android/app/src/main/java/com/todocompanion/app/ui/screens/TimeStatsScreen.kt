@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,7 +30,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -58,6 +56,8 @@ import androidx.compose.ui.unit.dp
 import com.todocompanion.app.domain.TimeStats
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.OptionChips
+import com.todocompanion.app.ui.components.StatTile
 import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.time.ZoneId
@@ -99,12 +99,13 @@ fun TimeStatsScreen(vm: AppViewModel, onBack: () -> Unit) {
     }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            // Range selector — single line, scrolls if it doesn't fit (never clips off-screen).
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TimeStats.Range.entries.forEach { r ->
-                    FilterChip(selected = range == r, onClick = { range = r; anchor = today; detailId = null }, label = { Text(r.label) })
-                }
-            }
+            // Range selector — the app-wide single-choice chip row, single line that scrolls if it doesn't fit.
+            OptionChips(
+                options = TimeStats.Range.entries,
+                selected = range,
+                onSelect = { range = it; anchor = today; detailId = null },
+                wrap = false,
+            ) { it.label }
             // Period pager.
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { anchor = TimeStats.shift(range, anchor, -1) }) { Icon(Icons.Filled.ChevronLeft, "Previous") }
@@ -196,12 +197,7 @@ fun TimeStatsScreen(vm: AppViewModel, onBack: () -> Unit) {
                     tiles.chunked(2).forEach { rowTiles ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             rowTiles.forEach { (k, v) ->
-                                Surface(Modifier.weight(1f), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
-                                    Column(Modifier.padding(14.dp)) {
-                                        Text(v, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                        Text(k, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                }
+                                StatTile(value = v, label = k, modifier = Modifier.weight(1f))
                             }
                             if (rowTiles.size == 1) Spacer(Modifier.weight(1f))
                         }

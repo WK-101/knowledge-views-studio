@@ -64,6 +64,7 @@ import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.StatTile
 import com.todocompanion.app.ui.components.TipBanner
 import java.time.LocalDate
 import java.time.ZoneId
@@ -283,19 +284,19 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
             val weekStartMs = LocalDate.now(zone).minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli()
             val timeWeekMin = if (timeOn) com.todocompanion.app.domain.TimeTracking.totalMinutes(timeEntries, weekStartMs, dayEnd, nowMs) else 0
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (habitsOn) MTile("Habit strength", habitStrength?.let { "$it" } ?: "—", Modifier.weight(1f))
-                if (tasksOn) MTile("Task reliability", taskRel?.let { "$it%" } ?: "—", Modifier.weight(1f))
-                MTile("Focus (7d)", "${focusWeek}m", Modifier.weight(1f))
-                if (timeOn) MTile("Time today", fmtMin(timeTodayMin), Modifier.weight(1f))
+                if (habitsOn) StatTile(value = habitStrength?.let { "$it" } ?: "—", label = "Habit strength", modifier = Modifier.weight(1f))
+                if (tasksOn) StatTile(value = taskRel?.let { "$it%" } ?: "—", label = "Task reliability", modifier = Modifier.weight(1f))
+                StatTile(value = "${focusWeek}m", label = "Focus (7d)", modifier = Modifier.weight(1f))
+                if (timeOn) StatTile(value = fmtMin(timeTodayMin), label = "Time today", modifier = Modifier.weight(1f))
             }
             if (timeOn) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MTile("Time (7d)", fmtMin(timeWeekMin), Modifier.weight(1f))
+                StatTile(value = fmtMin(timeWeekMin), label = "Time (7d)", modifier = Modifier.weight(1f))
                 Spacer(Modifier.weight(2f))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MTile("Habits", "${activeHabits.size}", Modifier.weight(1f))
-                MTile("Tracked tasks", "${reliability.size}", Modifier.weight(1f))
-                MTile("Done (7d)", "$tasksDoneWeek", Modifier.weight(1f))
+                StatTile(value = "${activeHabits.size}", label = "Habits", modifier = Modifier.weight(1f))
+                StatTile(value = "${reliability.size}", label = "Tracked tasks", modifier = Modifier.weight(1f))
+                StatTile(value = "$tasksDoneWeek", label = "Done (7d)", modifier = Modifier.weight(1f))
             }
 
             // ── Tier X · the reasoning layer ─────────────────────────────────────────────────────────
@@ -511,17 +512,19 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                 Spacer(Modifier.height(4.dp))
                 Text(digest.headline, style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(10.dp))
+                val digestUp = MaterialTheme.colorScheme.primary
+                val digestDown = MaterialTheme.colorScheme.error
+                val digestFlat = MaterialTheme.colorScheme.onSurfaceVariant
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     digest.metrics.forEach { m ->
-                        Column(Modifier.weight(1f)) {
-                            Text(m.value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                            Text(m.label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                            val arrow = when { m.delta > 0 -> "▲ ${m.delta}${m.deltaUnit}"; m.delta < 0 -> "▼ ${-m.delta}${m.deltaUnit}"; else -> "— same" }
-                            Text(arrow + if (m.delta != 0) " vs last wk" else "",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = when { m.delta > 0 -> MaterialTheme.colorScheme.primary; m.delta < 0 -> MaterialTheme.colorScheme.error; else -> MaterialTheme.colorScheme.onSurfaceVariant },
-                                maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
+                        val arrow = when { m.delta > 0 -> "▲ ${m.delta}${m.deltaUnit}"; m.delta < 0 -> "▼ ${-m.delta}${m.deltaUnit}"; else -> "— same" }
+                        StatTile(
+                            value = m.value,
+                            label = m.label,
+                            modifier = Modifier.weight(1f),
+                            sub = arrow + if (m.delta != 0) " vs last wk" else "",
+                            subColor = when { m.delta > 0 -> digestUp; m.delta < 0 -> digestDown; else -> digestFlat },
+                        )
                     }
                 }
                 if (digest.bestHabit != null || digest.slippingHabit != null) {
@@ -749,13 +752,8 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
     }
 }
 
-@Composable
-private fun MTile(label: String, value: String, modifier: Modifier = Modifier) {
-    AppCard(modifier) {
-        Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, maxLines = 1)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
-}
+// MTile is gone — Momentum's input tiles and weekly-digest tiles now use the shared StatTile
+// from ui/components/ReviewComponents.kt.
 
 /**
  * X1 — the Unified Goals editor: build a goal from any mix of a task list, a supporting habit, and a

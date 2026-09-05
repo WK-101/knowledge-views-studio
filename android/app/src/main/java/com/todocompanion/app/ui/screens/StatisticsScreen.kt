@@ -43,6 +43,7 @@ import com.todocompanion.app.domain.habit.HabitStats
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
 import com.todocompanion.app.ui.components.OptionChips
+import com.todocompanion.app.ui.components.StatTile
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -195,8 +196,8 @@ fun StatisticsScreen(vm: AppViewModel, onBack: () -> Unit) {
             }
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatTile("Focus · ${rangeLabelStat(range)}", "${focusMin}m", Modifier.weight(1f), sub = "$focusSessions sessions")
-                StatTile("Habit rate", "${(avgHabit * 100).toInt()}%", Modifier.weight(1f), sub = "${habits.size} habits")
+                StatTile(value = "${focusMin}m", label = "Focus · ${rangeLabelStat(range)}", modifier = Modifier.weight(1f), sub = "$focusSessions sessions")
+                StatTile(value = "${(avgHabit * 100).toInt()}%", label = "Habit rate", modifier = Modifier.weight(1f), sub = "${habits.size} habits")
             }
             // Focus time by list, over the selected range — where your deep work actually went.
             val lists by vm.lists.collectAsState()
@@ -286,35 +287,31 @@ private val STAT_RANGES = listOf(7 to "7 days", 30 to "30 days", 90 to "90 days"
 private fun rangeLabelStat(range: Int): String = STAT_RANGES.firstOrNull { it.first == range }?.second ?: "$range days"
 private fun fmtMin(m: Int): String = if (m >= 60) "${m / 60}h ${m % 60}m" else "${m}m"
 
-/** Track 2.2 — render a set of headline metrics as trend tiles, two per row. */
+/** Track 2.2 — render a set of headline metrics as stat tiles, two per row. Each carries its rate and a
+ *  drift-vs-baseline arrow (▲ rising · ▼ easing · • level) folded into the shared [StatTile]'s sub slot. */
 @Composable
 private fun MetricRows(items: List<Triple<String, String, Trend.Result>>) {
-    items.chunked(2).forEach { row ->
-        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            row.forEach { (label, value, result) -> TrendTile(label, value, result, Modifier.weight(1f)) }
-            if (row.size == 1) Spacer(Modifier.weight(1f))
-        }
-    }
-}
-
-/** Track 2.2 — one metric with its rate and a drift-vs-baseline arrow (▲ rising · ▼ easing · • level). */
-@Composable
-private fun TrendTile(label: String, value: String, r: Trend.Result, modifier: Modifier = Modifier) {
     val primary = MaterialTheme.colorScheme.primary
     val error = MaterialTheme.colorScheme.error
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val (arrow, tint) = when (r.direction) {
-        Trend.Direction.RISING -> "▲" to primary
-        Trend.Direction.EASING -> "▼" to error
-        Trend.Direction.LEVEL -> "•" to muted
-    }
-    AppCard(modifier) {
-        Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = primary)
-        Text(label, style = MaterialTheme.typography.labelMedium, color = muted)
-        if (r.hasBaseline && r.direction != Trend.Direction.LEVEL) {
-            Text("$arrow ${abs(r.deltaPct).roundToInt()}% vs baseline", style = MaterialTheme.typography.labelSmall, color = tint)
-        } else {
-            Text("$arrow holding", style = MaterialTheme.typography.labelSmall, color = muted)
+    items.chunked(2).forEach { row ->
+        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            row.forEach { (label, value, r) ->
+                val (arrow, tint) = when (r.direction) {
+                    Trend.Direction.RISING -> "▲" to primary
+                    Trend.Direction.EASING -> "▼" to error
+                    Trend.Direction.LEVEL -> "•" to muted
+                }
+                val drift = r.hasBaseline && r.direction != Trend.Direction.LEVEL
+                StatTile(
+                    value = value,
+                    label = label,
+                    modifier = Modifier.weight(1f),
+                    sub = if (drift) "$arrow ${abs(r.deltaPct).roundToInt()}% vs baseline" else "$arrow holding",
+                    subColor = if (drift) tint else muted,
+                )
+            }
+            if (row.size == 1) Spacer(Modifier.weight(1f))
         }
     }
 }
@@ -367,11 +364,4 @@ private fun AchievementsCard(score: Int, level: Int, levelTitle: String, intoLev
     }
 }
 
-@Composable
-private fun StatTile(label: String, value: String, modifier: Modifier = Modifier, sub: String? = null) {
-    AppCard(modifier) {
-        Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (sub != null) Text(sub, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-    }
-}
+// StatTile / TrendTile now come from the shared ui/components/ReviewComponents.kt.

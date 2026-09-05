@@ -1,5 +1,6 @@
 package com.todocompanion.app.ui.screens
 import com.todocompanion.app.ui.components.EmptyState
+import com.todocompanion.app.ui.components.StatTile
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -141,10 +142,10 @@ fun HabitTrendsScreen(vm: AppViewModel, onBack: () -> Unit) {
         ) {
             // Overview tiles.
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatTile("Habits", active.size.toString(), Modifier.weight(1f))
-                StatTile("Avg strength", "$avgStrength", Modifier.weight(1f))
-                StatTile("Done (30d)", "$checkinsThisMonth", Modifier.weight(1f))
-                StatTile("Best streak", "$bestStreakOverall", Modifier.weight(1f))
+                StatTile(value = active.size.toString(), label = "Habits", modifier = Modifier.weight(1f))
+                StatTile(value = "$avgStrength", label = "Avg strength", modifier = Modifier.weight(1f))
+                StatTile(value = "$checkinsThisMonth", label = "Done (30d)", modifier = Modifier.weight(1f))
+                StatTile(value = "$bestStreakOverall", label = "Best streak", modifier = Modifier.weight(1f))
             }
 
             // Strength by habit.
@@ -292,10 +293,4 @@ private class HabitTrend(
     val strength: Int, val streak: Int,
 )
 
-@Composable
-private fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
-    AppCard(modifier) {
-        Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
-}
+// StatTile now comes from the shared ui/components/ReviewComponents.kt.
