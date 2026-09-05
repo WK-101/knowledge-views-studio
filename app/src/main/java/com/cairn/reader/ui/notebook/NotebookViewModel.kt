@@ -5,8 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.cairn.reader.data.db.HighlightWithArticle
 import com.cairn.reader.data.repo.HighlightRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -27,20 +30,31 @@ class NotebookViewModel @Inject constructor(
     private val highlightRepository: HighlightRepository,
 ) : ViewModel() {
 
-    val groups: StateFlow<List<NotebookGroup>> =
+    /** Active highlight-color filter (ARGB), or null for "all colours". */
+    private val _colorFilter = MutableStateFlow<Int?>(null)
+    val colorFilter: StateFlow<Int?> = _colorFilter.asStateFlow()
+    fun setColorFilter(color: Int?) { _colorFilter.value = color }
+
+    /** Every colour actually in use, so the filter row only offers real options. */
+    val usedColors: StateFlow<List<Int>> =
         highlightRepository.observeAllWithArticle()
-            .map { rows ->
-                rows.groupBy { it.itemId }.map { (itemId, items) ->
-                    NotebookGroup(
-                        itemId = itemId,
-                        title = items.first().articleTitle,
-                        url = items.first().articleUrl,
-                        image = items.first().articleImage,
-                        site = items.first().articleSite,
-                        highlights = items,
-                    )
-                }
+            .map { rows -> rows.map { it.color }.distinct() }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val groups: StateFlow<List<NotebookGroup>> =
+        combine(highlightRepository.observeAllWithArticle(), _colorFilter) { rows, color ->
+            val filtered = if (color == null) rows else rows.filter { it.color == color }
+            filtered.groupBy { it.itemId }.map { (itemId, items) ->
+                NotebookGroup(
+                    itemId = itemId,
+                    title = items.first().articleTitle,
+                    url = items.first().articleUrl,
+                    image = items.first().articleImage,
+                    site = items.first().articleSite,
+                    highlights = items,
+                )
             }
+        }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun remove(id: String, itemId: String) = viewModelScope.launch { highlightRepository.remove(id, itemId) }

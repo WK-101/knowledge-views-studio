@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Forum
@@ -207,6 +208,7 @@ fun ReaderScreen(
     var showCollections by remember { mutableStateOf(false) }
     var showTags by remember { mutableStateOf(false) }
     var managed by remember { mutableStateOf<HighlightEntity?>(null) }
+    var showRsvp by remember { mutableStateOf(false) }
     var pending by remember { mutableStateOf<PendingSelection?>(null) }
     var lookup by remember { mutableStateOf<String?>(null) }
     var lightbox by remember { mutableStateOf<String?>(null) }
@@ -243,7 +245,7 @@ fun ReaderScreen(
     // A ModalBottomSheet / Dialog opens in its own window that shows the system bars; when it
     // dismisses the reader must reclaim full-screen. Re-run whenever such an overlay opens or
     // closes so immersive mode is re-asserted and doesn't get stuck "out of full screen".
-    val overlayOpen = lookup != null || pending != null || showTypography || showCollections || showTags || managed != null || lightbox != null
+    val overlayOpen = lookup != null || pending != null || showTypography || showCollections || showTags || managed != null || lightbox != null || showRsvp
     LaunchedEffect(hideSystemBars, window, overlayOpen) {
         val controller = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, it.decorView) } ?: return@LaunchedEffect
         controller.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -381,6 +383,11 @@ fun ReaderScreen(
                                     text = { Text("Listen") },
                                     leadingIcon = { Icon(Icons.Outlined.Headphones, contentDescription = null) },
                                     onClick = { showMenu = false; viewModel.toggleListen() },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Speed read") },
+                                    leadingIcon = { Icon(Icons.Outlined.Bolt, contentDescription = null) },
+                                    onClick = { showMenu = false; showRsvp = true },
                                 )
                             }
                             val permanent = data?.cacheStatus == "PERMANENT"
@@ -545,6 +552,7 @@ fun ReaderScreen(
                 bionic = prefs.bionicReading,
                 tapZonePaging = prefs.tapZonePaging,
                 volumeKeyPaging = prefs.volumeKeyPaging,
+                resumeProgress = data.readProgress,
             )
         }
     }
@@ -592,6 +600,14 @@ fun ReaderScreen(
             onBionic = viewModel::setBionicReading,
             onDismiss = { showTypography = false },
         )
+    }
+
+    if (showRsvp && data != null) {
+        val plain = remember(data.html) {
+            data.html?.let { runCatching { org.jsoup.Jsoup.parse(it).text() }.getOrNull() }?.takeIf { it.isNotBlank() }
+                ?: data.title
+        }
+        RsvpReader(text = plain, onClose = { showRsvp = false })
     }
 
     if (showCollections && data != null) {
@@ -702,6 +718,7 @@ private fun ArticleBody(
     bionic: Boolean = false,
     tapZonePaging: Boolean = false,
     volumeKeyPaging: Boolean = false,
+    resumeProgress: Float = 0f,
 ) {
     val data = state.data ?: return
     val linkColor = MaterialTheme.colorScheme.primary
@@ -729,6 +746,15 @@ private fun ArticleBody(
     }
     val latestProgress = rememberUpdatedState(progress)
     DisposableEffect(Unit) { onDispose { onSaveProgress(latestProgress.value) } }
+
+    // Resume where you left off: once the article's blocks are laid out, jump to the saved
+    // position (skip when unstarted or essentially finished, so re-reads start at the top).
+    androidx.compose.runtime.LaunchedEffect(data.id, blocks.size) {
+        if (resumeProgress in 0.02f..0.97f && blocks.size > 1) {
+            val target = (resumeProgress * (blocks.size - 1)).toInt().coerceIn(0, blocks.size - 1)
+            runCatching { listState.scrollToItem(target) }
+        }
+    }
 
     // Page-turn helpers (opt-in): scroll ~85% of the viewport up or down.
     val pageScope = rememberCoroutineScope()

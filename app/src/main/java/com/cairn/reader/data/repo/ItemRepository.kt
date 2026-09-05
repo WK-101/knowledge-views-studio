@@ -44,6 +44,8 @@ data class ReaderData(
     val html: String?,
     /** A discussion/comments URL (RSS <comments>), if the feed provided one. */
     val commentsUrl: String? = null,
+    /** Saved reading progress (0..1) so the reader can resume where you left off. */
+    val readProgress: Float = 0f,
 )
 
 @Singleton
@@ -80,6 +82,7 @@ class ItemRepository @Inject constructor(
             // A PDF's blob is the raw file, not gzipped HTML, so don't try to read it as an article.
             html = if (e.type == "PDF") null else blobStore.readArticle(e.blobPath),
             commentsUrl = e.commentsUrl,
+            readProgress = state?.readProgress ?: 0f,
         )
     }
 

@@ -71,6 +71,8 @@ fun NotebookScreen(
     viewModel: NotebookViewModel = hiltViewModel(),
 ) {
     val groups by viewModel.groups.collectAsStateWithLifecycle()
+    val colorFilter by viewModel.colorFilter.collectAsStateWithLifecycle()
+    val usedColors by viewModel.usedColors.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scheme = MaterialTheme.colorScheme
     var shareGroup by remember { mutableStateOf<NotebookGroup?>(null) }
@@ -103,6 +105,32 @@ fun NotebookScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = scheme.surface),
             )
+        // Filter-by-colour: a compact row of swatch chips, shown only when more than one colour
+        // is actually in use (so single-colour notebooks stay clutter-free).
+        if (usedColors.size > 1) {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                FilterChip(
+                    selected = colorFilter == null,
+                    onClick = { viewModel.setColorFilter(null) },
+                    label = { Text("All") },
+                )
+                usedColors.forEach { c ->
+                    FilterChip(
+                        selected = colorFilter == c,
+                        onClick = { viewModel.setColorFilter(if (colorFilter == c) null else c) },
+                        label = {
+                            Box(
+                                Modifier.size(16.dp).clip(RoundedCornerShape(8.dp)).background(Color(c))
+                            )
+                        },
+                    )
+                }
+            }
+        }
         if (groups.isEmpty()) {
             Column(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp),

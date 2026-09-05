@@ -120,6 +120,13 @@ fun SettingsScreen(
         }
     }
 
+    val bookmarksLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            Toast.makeText(context, "Importing…", Toast.LENGTH_SHORT).show()
+            viewModel.importBookmarks(uri) { summary -> Toast.makeText(context, summary, Toast.LENGTH_LONG).show() }
+        }
+    }
+
     val archiveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         if (uri != null) {
             Toast.makeText(context, "Writing archive…", Toast.LENGTH_SHORT).show()
@@ -220,6 +227,16 @@ fun SettingsScreen(
                 }
                 Text(
                     "Bring subscriptions in from Inoreader/Feedly, or take yours out.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+                Spacer(Modifier.height(16.dp))
+                OutlinedButton(onClick = { bookmarksLauncher.launch(arrayOf("text/html", "text/csv", "text/comma-separated-values", "application/vnd.ms-excel", "*/*")) }) {
+                    Text("Import reading list")
+                }
+                Text(
+                    "Bring your saved articles in from Pocket, Instapaper or Raindrop — pick their HTML or CSV export. Tags and folders come across too; full text loads when you open each one.",
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),

@@ -34,6 +34,7 @@ class SettingsViewModel @Inject constructor(
     private val backupManager: BackupManager,
     private val blobStore: BlobStore,
     private val storageManager: com.cairn.reader.data.blob.StorageManager,
+    private val bookmarkImporter: com.cairn.reader.domain.importer.BookmarkImporter,
     @ApplicationContext private val context: Context,
     highlightRepository: HighlightRepository,
     ruleRepository: com.cairn.reader.data.repo.RuleRepository,
@@ -113,6 +114,16 @@ class SettingsViewModel @Inject constructor(
             }
         }.getOrElse { "Couldn't read that backup" }
         onResult(summary)
+    }
+
+    /** Import a Pocket / Instapaper / Raindrop export (HTML or CSV) as Read Later items. */
+    fun importBookmarks(uri: android.net.Uri, onResult: (String) -> Unit) = viewModelScope.launch {
+        val report = runCatching {
+            val name = queryDisplayName(uri)
+            val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: error("no stream")
+            bookmarkImporter.import(name, text)
+        }.getOrNull()
+        onResult(report?.message ?: "Couldn't read that file")
     }
 
     private fun queryDisplayName(uri: android.net.Uri): String? = runCatching {
