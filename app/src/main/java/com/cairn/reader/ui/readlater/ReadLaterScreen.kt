@@ -13,14 +13,20 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.BookmarkRemove
+import androidx.compose.material.icons.outlined.IosShare
+import androidx.compose.material.icons.outlined.MailOutline
+import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -64,6 +70,7 @@ fun ReadLaterScreen(
     var actionRow by remember { mutableStateOf<ItemListRow?>(null) }
     var moveRow by remember { mutableStateOf<ItemListRow?>(null) }
     var showSave by remember { mutableStateOf(false) }
+    var showHelp by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -71,6 +78,11 @@ fun ReadLaterScreen(
                 title = { Text(if (items.isEmpty()) "Read Later" else "Read Later · ${items.size}", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                },
+                actions = {
+                    IconButton(onClick = { showHelp = true }) {
+                        Icon(Icons.AutoMirrored.Outlined.HelpOutline, contentDescription = "How to save newsletters & pages")
+                    }
                 },
             )
         },
@@ -92,6 +104,12 @@ fun ReadLaterScreen(
                     "Save an article for later — from the reader, an item's menu, or a swipe — and it waits here. Save it to the Library to keep it for good.",
                     style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center,
                 )
+                Spacer(Modifier.height(16.dp))
+                TextButton(onClick = { showHelp = true }) {
+                    Icon(Icons.Outlined.MailOutline, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("How to save newsletters & pages")
+                }
             }
         } else {
             LazyColumn(
@@ -135,6 +153,10 @@ fun ReadLaterScreen(
         )
     }
 
+    if (showHelp) {
+        CaptureHelpSheet(onDismiss = { showHelp = false })
+    }
+
     if (showSave) {
         var text by remember { mutableStateOf("") }
         AlertDialog(
@@ -146,6 +168,63 @@ fun ReadLaterScreen(
             confirmButton = { TextButton(onClick = { viewModel.saveLink(text); showSave = false }, enabled = text.isNotBlank()) { Text("Save") } },
             dismissButton = { TextButton(onClick = { showSave = false }) { Text("Cancel") } },
         )
+    }
+}
+
+/** Explains how anything gets into Read Later — chiefly the system Share sheet, which captures
+ *  newsletters, web pages, and selected text without accounts or an inbox connection. */
+@Composable
+private fun CaptureHelpSheet(onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 28.dp)) {
+            Text("Save anything to Read Later", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Cairn is offline-first and account-free, so the quickest way in is your phone's Share sheet — pick “Save to Cairn” from any app.",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(18.dp))
+            HelpItem(
+                Icons.Outlined.MailOutline,
+                "Newsletters & emails",
+                "Open the newsletter in your email app, tap Share, and choose Save to Cairn — it lands here as a clean article. If it has a “View in browser” link, sharing that link gives the best result.",
+            )
+            HelpItem(
+                Icons.Outlined.IosShare,
+                "Any web page",
+                "In your browser, tap Share → Save to Cairn. The full article is extracted on-device for offline reading.",
+            )
+            HelpItem(
+                Icons.Outlined.FormatQuote,
+                "A passage or clipping",
+                "Select text anywhere, tap Share → Save to Cairn, and the excerpt is kept here to read later.",
+            )
+            HelpItem(
+                Icons.Outlined.Link,
+                "A link you already have",
+                "Use the + button on this screen to paste a URL directly.",
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Everything stays on your device — nothing is uploaded, and Cairn never connects to your inbox.",
+                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun HelpItem(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, body: String) {
+    Row(
+        Modifier.fillMaxWidth().padding(bottom = 18.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp).padding(top = 2.dp), tint = MaterialTheme.colorScheme.primary)
+        Column {
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+            Spacer(Modifier.height(2.dp))
+            Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
