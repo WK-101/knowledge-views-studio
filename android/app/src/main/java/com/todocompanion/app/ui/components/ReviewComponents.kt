@@ -56,7 +56,10 @@ internal fun StatTile(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         if (icon != null) {
-            Text(icon, style = MaterialTheme.typography.titleMedium)
+            // The app's "done" glyph is the modern filled disc, not a raw "✓" — so a checkmark icon
+            // renders as a small [DoneTick] (Day review's at-a-glance / Close-the-day "done" tiles).
+            if (icon == "✓" || icon == "✔") DoneTick(Modifier.size(20.dp))
+            else Text(icon, style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(2.dp))
         }
         Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 1)
@@ -73,30 +76,44 @@ internal data class Metric(val emoji: String?, val name: String, val value: Stri
 
 @Composable
 internal fun MetricTile(m: Metric, modifier: Modifier = Modifier) {
+    // Name at the top, value + meter anchored to the BOTTOM (Arrangement.SpaceBetween). In a 2-up row the
+    // row is measured at IntrinsicSize.Min and each tile fills that height (see [MetricTileGrid]), so when
+    // one tile's name wraps to two lines and its neighbour's doesn't, the shorter tile stretches to match
+    // and its value + meter still line up along the bottom with its neighbour's — no ragged, mid-height bars.
     Column(
         modifier.clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)).padding(12.dp),
+        verticalArrangement = Arrangement.SpaceBetween,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.Top) {
             if (m.emoji != null) Text(m.emoji, style = MaterialTheme.typography.titleMedium)
             else Box(Modifier.size(12.dp).clip(CircleShape).background(m.color))
             Spacer(Modifier.width(7.dp))
             // Names wrap to two lines so long activity/habit names stay readable (the tile grows to fit);
-            // still ellipsized beyond two lines. Equal tile height in a row is handled by [MetricTileGrid].
+            // beyond two lines they ellipsize — but a name that long is given its OWN full-width column by
+            // [metricColumnsFor], where two lines is plenty of room, so truncation is effectively never hit.
             Text(m.name, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
-        Spacer(Modifier.height(8.dp))
-        Text(m.value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 1)
-        Spacer(Modifier.height(8.dp))
-        Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
-            Box(Modifier.fillMaxWidth(m.frac.coerceIn(0.04f, 1f)).height(6.dp).clip(RoundedCornerShape(3.dp)).background(m.color))
+        Column(Modifier.fillMaxWidth().padding(top = 10.dp)) {
+            Text(m.value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 1)
+            Spacer(Modifier.height(8.dp))
+            Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                Box(Modifier.fillMaxWidth(m.frac.coerceIn(0.04f, 1f)).height(6.dp).clip(RoundedCornerShape(3.dp)).background(m.color))
+            }
         }
     }
 }
 
+/** Column count for laying [metrics] out as tiles: a single metric or ANY long name takes the full row
+ *  width (1 column) so the name has room to wrap cleanly; otherwise the compact 2-up grid. Used by both the
+ *  Day-review "Time tracked" and "Habits" cards so long activity/habit names never render cramped. */
+internal fun metricColumnsFor(metrics: List<Metric>): Int =
+    if (metrics.size <= 1 || metrics.any { it.name.length > 16 }) 1 else 2
+
 /** Lay a list of [Metric]s out as tiles, matching the at-a-glance box row. [columns] is normally 2; pass 1
- *  to give each tile the full row width (used for long activity names, where a cramped 2-up would truncate).
- *  Within a 2-up chunk the row is measured at [IntrinsicSize.Min] and each tile fills that height, so a tile
- *  whose name wraps to two lines and its shorter neighbor stay the same height. */
+ *  to give each tile the full row width (used for long activity names, where a cramped 2-up would truncate) —
+ *  see [metricColumnsFor] for the adaptive choice. Within a 2-up chunk the row is measured at
+ *  [IntrinsicSize.Min] and each tile fills that height, so a tile whose name wraps to two lines and its
+ *  shorter neighbour stay the same height. */
 @Composable
 internal fun MetricTileGrid(metrics: List<Metric>, columns: Int = 2) {
     if (columns <= 1) {

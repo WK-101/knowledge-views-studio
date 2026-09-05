@@ -51,6 +51,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import com.todocompanion.app.ui.components.MiniCheck
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.todocompanion.app.domain.habit.HabitStats
@@ -323,7 +324,12 @@ private fun RoutineRunnerScreen(vm: AppViewModel, onBack: () -> Unit) {
                     Button(onClick = {
                         vm.setHabitValue(h, today, h.targetPerDay.coerceAtLeast(1))
                         if (idx < due.lastIndex) idx++ else running = false
-                    }) { Text("Done ✓  Next") }
+                    }) {
+                        // The modern completion mark, not a raw "✓".
+                        MiniCheck()
+                        Spacer(Modifier.width(6.dp))
+                        Text("Done · Next")
+                    }
                 }
                 Spacer(Modifier.height(10.dp))
                 TextButton(onClick = { running = false }) { Text("End run") }

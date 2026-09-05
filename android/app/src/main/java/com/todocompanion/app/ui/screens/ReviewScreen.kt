@@ -116,7 +116,7 @@ fun ReviewScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> U
                         Text("Today I did", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(6.dp))
                         Text(buildString {
-                            append("✓ $tasksDone done")
+                            append("$tasksDone done")
                             if (focusMin > 0) append("   ·   🎯 ${focusMin}m focused")
                             if (habitsKept > 0) append("   ·   🔁 $habitsKept habits")
                         }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

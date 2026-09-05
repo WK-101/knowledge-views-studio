@@ -74,7 +74,7 @@ object Moments {
         val who = c.personName.ifBlank { c.title }
         return when {
             since == null -> "No moments yet — reach out to $who"
-            since == 0L -> "Connected today ✓"
+            since == 0L -> "Connected today"
             cadenceOverdue(c, today) -> "It's been $since days — time to reach out to $who"
             else -> "$since days since you connected · every ${c.keepInTouchDays}"
         }

@@ -82,6 +82,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.todocompanion.app.domain.habit.HabitStats
+import com.todocompanion.app.ui.components.MiniCheck
 import com.todocompanion.app.ui.components.StatTile
 import kotlin.math.roundToInt
 import java.time.LocalDate
@@ -991,7 +992,14 @@ private fun BuilderSection(
                 }
                 Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val pledgedToday = h.lastPledgeDay == today
-                    FilledTonalButton(onClick = { vm.pledgeToday(h) }, enabled = !pledgedToday) { Text(if (pledgedToday) "Pledged ✓" else "Pledge today") }
+                    FilledTonalButton(onClick = { vm.pledgeToday(h) }, enabled = !pledgedToday) {
+                        if (pledgedToday) {
+                            // "Pledged" reads with the modern completion mark, not a raw "✓".
+                            MiniCheck()
+                            Spacer(Modifier.width(6.dp))
+                            Text("Pledged")
+                        } else Text("Pledge today")
+                    }
                     if (h.quitSinceMillis == null) TextButton(onClick = { vm.startQuitClock(h) }) { Text("Start clean-time") }
                 }
                 if (q.moneySaved <= 0 && q.minutesSaved <= 0)

@@ -329,7 +329,7 @@ object Notifications {
             .setContentIntent(openApp(context))
         // O1: make the brief two-way — check off the day's top habit straight from the notification.
         if (!topHabitId.isNullOrBlank() && !topHabitName.isNullOrBlank()) {
-            b.addAction(0, "✓ ${topHabitName.take(22)}", broadcast(context, AlarmScheduler.ACTION_HABIT_DONE, ("summ:$topHabitId").hashCode(),
+            b.addAction(0, "Done · ${topHabitName.take(20)}", broadcast(context, AlarmScheduler.ACTION_HABIT_DONE, ("summ:$topHabitId").hashCode(),
                 mapOf(AlarmScheduler.EXTRA_HABIT_ID to topHabitId, AlarmScheduler.EXTRA_HABIT_NAME to topHabitName, AlarmScheduler.EXTRA_HABIT_MIN to "-1")))
         }
         post(context, SUMMARY_ID, b.build())

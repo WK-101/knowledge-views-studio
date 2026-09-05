@@ -81,7 +81,7 @@ class HabitTileService : TileService() {
                 val tile = qsTile ?: return@withContext
                 if (due.isEmpty()) {
                     tile.state = Tile.STATE_ACTIVE
-                    tile.label = "Habits ✓"
+                    tile.label = "Habits done"
                 } else {
                     tile.state = Tile.STATE_INACTIVE
                     tile.label = "${due.size} habit${if (due.size == 1) "" else "s"} to do"

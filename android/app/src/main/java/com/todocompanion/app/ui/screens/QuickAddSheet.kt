@@ -64,6 +64,7 @@ import com.todocompanion.app.domain.priority.PriorityLevel
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.QuickAddOptions
 import com.todocompanion.app.ui.components.DateReminderSheet
+import com.todocompanion.app.ui.components.MiniCheck
 import com.todocompanion.app.ui.components.formatDue
 import com.todocompanion.app.ui.components.priorityColor
 
@@ -246,8 +247,16 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
                     DropdownMenu(expanded = tagMenu, onDismissRequest = { tagMenu = false }) {
                         if (tags.isEmpty()) DropdownMenuItem(text = { Text("No tags yet — type #tag in the title") }, onClick = { tagMenu = false })
                         tags.forEach { t ->
-                            DropdownMenuItem(text = { Text((if (t.id in tagIds) "✓ " else "") + "#" + t.name) },
-                                onClick = { tagIds = if (t.id in tagIds) tagIds - t.id else tagIds + t.id })
+                            val on = t.id in tagIds
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        // Selected rows lead with the modern mark, not a raw "✓".
+                                        if (on) { MiniCheck(); Spacer(Modifier.width(6.dp)) }
+                                        Text("#" + t.name)
+                                    }
+                                },
+                                onClick = { tagIds = if (on) tagIds - t.id else tagIds + t.id })
                         }
                     }
                 }
@@ -256,8 +265,15 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
                     DropdownMenu(expanded = ctxMenu, onDismissRequest = { ctxMenu = false }) {
                         if (contexts.isEmpty()) DropdownMenuItem(text = { Text("No contexts yet — type @context in the title") }, onClick = { ctxMenu = false })
                         contexts.forEach { c ->
-                            DropdownMenuItem(text = { Text((if (c.id in ctxIds) "✓ " else "") + "@" + c.name) },
-                                onClick = { ctxIds = if (c.id in ctxIds) ctxIds - c.id else ctxIds + c.id })
+                            val on = c.id in ctxIds
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        if (on) { MiniCheck(); Spacer(Modifier.width(6.dp)) }
+                                        Text("@" + c.name)
+                                    }
+                                },
+                                onClick = { ctxIds = if (on) ctxIds - c.id else ctxIds + c.id })
                         }
                     }
                 }

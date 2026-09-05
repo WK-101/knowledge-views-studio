@@ -73,6 +73,7 @@ import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.domain.done.DoneKind
 import com.todocompanion.app.domain.done.DoneRecord
 import com.todocompanion.app.ui.AppViewModel
+import com.todocompanion.app.ui.components.DoneTick
 import com.todocompanion.app.ui.components.PeriodSwitcher
 import java.time.LocalDate
 import java.time.ZoneId
@@ -599,7 +600,8 @@ private fun AccomplishmentRow(a: Accomplishment, listName: String?, onOpen: () -
     Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth().clickable(enabled = a.isTaskLike) { onOpen() }) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(28.dp).clip(CircleShape), contentAlignment = Alignment.Center) {
-                Text(kindGlyph(a.kind))
+                // A finished task shows the app's modern completion mark; other kinds keep their glyph.
+                if (a.kind == DoneKind.TASK) DoneTick() else Text(kindGlyph(a.kind))
             }
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {

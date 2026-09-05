@@ -209,7 +209,7 @@ object DayCard {
 
             // ── Compact counts as boxed tonal tiles (tasks / habits / tracked, count-mode) ──
             val tiles = buildList {
-                if (cfg.tasks == TaskDetail.COUNT) add(ShareTile("✓", d.taskCount.toString(), "done"))
+                if (cfg.tasks == TaskDetail.COUNT) add(ShareTile("", d.taskCount.toString(), "done", mark = true))
                 if (cfg.habits == HabitDetail.COUNT && d.habitsExpected > 0) add(ShareTile("🔁", "${d.habitsKept}/${d.habitsExpected}", "habits"))
                 if (cfg.time == TimeDetail.TOTAL && d.trackedMin > 0) add(ShareTile("⧗", hmLabel(d.trackedMin), "tracked"))
             }
@@ -408,7 +408,7 @@ object DayCard {
 
             // ── At-a-glance boxed tiles: tasks / habits / tracked / execution ──
             val tiles = buildList {
-                if (cfg.tasks && d.tasksDone > 0) add(ShareTile("✓", d.tasksDone.toString(), "done"))
+                if (cfg.tasks && d.tasksDone > 0) add(ShareTile("", d.tasksDone.toString(), "done", mark = true))
                 if (cfg.habits == HabitDetail.COUNT && d.habitsExpected > 0) add(ShareTile("🔁", "${d.habitsKept}/${d.habitsExpected}", "habits"))
                 if (cfg.time == TimeDetail.TOTAL && d.trackedMin > 0) add(ShareTile("⧗", hmLabel(d.trackedMin), "tracked"))
                 if (kind == PeriodKind.WEEK && cfg.executionScore && d.hasExec) add(ShareTile("🎯", "${d.execPct}%", "executed"))
@@ -625,8 +625,9 @@ private class SharePalette(
     }
 }
 
-/** One at-a-glance metric tile: an icon/emoji, a big value and a small label. */
-private class ShareTile(val icon: String, val value: String, val label: String)
+/** One at-a-glance metric tile: an icon/emoji (or, when [mark] is set, the app's drawn completion mark
+ *  instead of a glyph), a big value and a small label. */
+private class ShareTile(val icon: String, val value: String, val label: String, val mark: Boolean = false)
 
 /**
  * A small vertical-stack layout engine for the variable-height share cards. Sections are appended as
@@ -829,8 +830,14 @@ private fun drawTile(c: Canvas, x: Float, y: Float, w: Float, h: Float, t: Share
     val cx = x + w / 2f
     val inner = w - 24f
     val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER }
-    p.color = pal.muted; p.textSize = 38f; p.typeface = Typeface.DEFAULT
-    c.drawText(cardEllipsize(t.icon, p, inner), cx, y + 52f, p)
+    // The "done" tile shows the app's modern completion mark (filled accent disc + white check), not a raw
+    // "✓" glyph; every other tile draws its emoji/icon as text.
+    if (t.mark) {
+        drawMark(c, cx, y + 38f, 19f, true, pal)
+    } else {
+        p.color = pal.muted; p.textSize = 38f; p.typeface = Typeface.DEFAULT
+        c.drawText(cardEllipsize(t.icon, p, inner), cx, y + 52f, p)
+    }
     p.color = pal.ink; p.textSize = 50f; p.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
     c.drawText(cardEllipsize(t.value, p, inner), cx, y + 106f, p)
     p.color = pal.muted; p.textSize = 30f; p.typeface = Typeface.DEFAULT

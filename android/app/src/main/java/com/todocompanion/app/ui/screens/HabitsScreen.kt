@@ -103,6 +103,7 @@ import androidx.compose.ui.geometry.Size
 import com.todocompanion.app.data.entity.HabitEntity
 import com.todocompanion.app.domain.habit.HabitStats
 import com.todocompanion.app.ui.AppViewModel
+import com.todocompanion.app.ui.components.MiniCheck
 import com.todocompanion.app.ui.components.StepperRow
 import java.time.LocalDate
 
@@ -1336,7 +1337,12 @@ private fun HabitPresetDialog(onDismiss: () -> Unit, onPick: (HabitPreset) -> Un
                                 Text(r.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
                                 Text(r.blurb + " · " + r.habits.joinToString(" ") { it.emoji }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            if (addedRoutine == r.name) Text("Added ✓", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                            if (addedRoutine == r.name) Row(verticalAlignment = Alignment.CenterVertically) {
+                                // "Added" reads with the modern completion mark, not a raw "✓".
+                                MiniCheck()
+                                Spacer(Modifier.width(4.dp))
+                                Text("Added", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                            }
                             else FilledTonalButton(onClick = { onAddRoutine(r); addedRoutine = r.name }, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)) { Text("Add ${r.habits.size}") }
                         }
                     }

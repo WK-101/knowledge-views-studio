@@ -40,7 +40,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -54,7 +53,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -70,11 +68,9 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.view.WindowCompat
 import com.todocompanion.app.data.entity.CoreValueEntity
 import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.domain.AdaptivePrompts
@@ -122,6 +118,7 @@ import com.todocompanion.app.ui.components.DoneTick
 import com.todocompanion.app.ui.components.EmotionChip
 import com.todocompanion.app.ui.components.Metric
 import com.todocompanion.app.ui.components.MetricTileGrid
+import com.todocompanion.app.ui.components.metricColumnsFor
 import com.todocompanion.app.ui.components.MeterRow
 import com.todocompanion.app.ui.components.MiniCheck
 import com.todocompanion.app.ui.components.OpenTick
@@ -313,817 +310,824 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
         }
     }
 
-    Scaffold(topBar = {
-        TopAppBar(
-            expandedHeight = 52.dp,
-            title = { Text("Day review") },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-            actions = {
-                IconButton(onClick = { sharePreselect = SharePeriod.DAY; showShare = true }) { Icon(Icons.Filled.Share, "Share day") }
-                if (!isToday) TextButton(onClick = { day = todayEd }) { Text("Today") }
-            },
-        )
-    }) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(top = 2.dp)) {
-            // ── The one shared period switcher: Day (this screen) · Week · Month · Year · All (roll-up) ──
-            PeriodSwitcher(selected = mode, onSelect = { mode = it }, modifier = Modifier.padding(bottom = 12.dp))
-            if (mode != PeriodRange.DAY) {
-                RangeRollup(
-                    mode = mode, anchor = day, todayEd = todayEd, zone = zone,
-                    weekStartSetting = settings.weekStart,
-                    dayLogs = dayLogs, questions = questions, habits = habits, checkins = checkins,
-                    timeEntries = timeEntries, activities = activities, goals = goals, tasks = tasks,
-                    weeklyReviewsJson = settings.weeklyReviewsJson,
-                    onStartWeeklyReview = { iso -> weeklyIso = iso; showWeekly = true },
-                    onAnchorChange = { day = it },
-                    onOpenDay = { d -> day = d; mode = PeriodRange.DAY },
-                    onOpenYearReview = { showYear = true },
-                    onSharePeriod = { p -> sharePreselect = p; showShare = true },
-                )
-                Spacer(Modifier.height(24.dp))
-                return@Column
-            }
-            // Date navigator.
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { day -= 1 }) { Icon(Icons.Filled.ChevronLeft, "Previous day") }
-                val rel = when (day) { todayEd -> "Today"; todayEd - 1 -> "Yesterday"; else -> "" }
-                val label = date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault()) + ", " +
-                    date.dayOfMonth + " " + date.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())
-                Column(
-                    Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).clickable { showPicker = true }.padding(vertical = 4.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    if (rel.isNotBlank()) Text(rel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                    Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+    // Wrap the screen and its full-screen flows in a Box so the inline Close-the-day / Weekly-review
+    // OVERLAYs (and the Year-reviewed screen) — declared after the Scaffold — stack ON TOP of the day
+    // content and fully cover it, top bar included.
+    Box(Modifier.fillMaxSize()) {
+        Scaffold(topBar = {
+            TopAppBar(
+                expandedHeight = 52.dp,
+                title = { Text("Day review") },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                actions = {
+                    IconButton(onClick = { sharePreselect = SharePeriod.DAY; showShare = true }) { Icon(Icons.Filled.Share, "Share day") }
+                    if (!isToday) TextButton(onClick = { day = todayEd }) { Text("Today") }
+                },
+            )
+        }) { padding ->
+            Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(top = 2.dp)) {
+                // ── The one shared period switcher: Day (this screen) · Week · Month · Year · All (roll-up) ──
+                PeriodSwitcher(selected = mode, onSelect = { mode = it }, modifier = Modifier.padding(bottom = 12.dp))
+                if (mode != PeriodRange.DAY) {
+                    RangeRollup(
+                        mode = mode, anchor = day, todayEd = todayEd, zone = zone,
+                        weekStartSetting = settings.weekStart,
+                        dayLogs = dayLogs, questions = questions, habits = habits, checkins = checkins,
+                        timeEntries = timeEntries, activities = activities, goals = goals, tasks = tasks,
+                        weeklyReviewsJson = settings.weeklyReviewsJson,
+                        onStartWeeklyReview = { iso -> weeklyIso = iso; showWeekly = true },
+                        onAnchorChange = { day = it },
+                        onOpenDay = { d -> day = d; mode = PeriodRange.DAY },
+                        onOpenYearReview = { showYear = true },
+                        onSharePeriod = { p -> sharePreselect = p; showShare = true },
+                    )
+                    Spacer(Modifier.height(24.dp))
+                    return@Column
                 }
-                IconButton(onClick = { if (day < todayEd) day += 1 }, enabled = day < todayEd) { Icon(Icons.Filled.ChevronRight, "Next day") }
-            }
-            Spacer(Modifier.height(12.dp))
-
-            // ── At-a-glance: the day's metrics as evenly-spread stat tiles (rating + context live in Reflect) ──
-            AppCard {
-                if (nothing) {
-                    Text("A quiet day — nothing tracked yet. Reflect on it, or check what's still open below.",
-                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else {
-                    val tiles = buildList {
-                        add(Triple("✓", tasksDone.size.toString(), "done"))
-                        if (habitsExpected > 0) add(Triple("🔁", "${habitsKept.size}/$habitsExpected", "habits"))
-                        if (focusMin > 0) add(Triple("🎯", fmtHm(focusMin), "focus"))
-                        if (trackedTotal > 0) add(Triple("⧗", fmtHm(trackedTotal), "tracked"))
+                // Date navigator.
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { day -= 1 }) { Icon(Icons.Filled.ChevronLeft, "Previous day") }
+                    val rel = when (day) { todayEd -> "Today"; todayEd - 1 -> "Yesterday"; else -> "" }
+                    val label = date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault()) + ", " +
+                        date.dayOfMonth + " " + date.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+                    Column(
+                        Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).clickable { showPicker = true }.padding(vertical = 4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        if (rel.isNotBlank()) Text(rel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                        Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        tiles.forEach { (icon, value, label) -> StatTile(value = value, label = label, modifier = Modifier.weight(1f), icon = icon) }
-                    }
+                    IconButton(onClick = { if (day < todayEd) day += 1 }, enabled = day < todayEd) { Icon(Icons.Filled.ChevronRight, "Next day") }
                 }
-                Spacer(Modifier.height(if (nothing) 10.dp else 14.dp))
-                // Review-streak: a "don't break the chain" strip of the last 14 days. A repaired day is
-                // shown in a distinct tertiary tint (not the same as a truly reviewed day) — honest by design.
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Track 2.7 — with streaks hidden, lead with consistency over the density strip, not a count.
-                    val reviewed14 = (13 downTo 0).count { val d0 = todayEd - it; d0 in reviewedDays || d0 in repairedDays }
-                    Text(
-                        when {
-                            settings.hideStreaks -> "$reviewed14 of last 14 days reviewed"
-                            reviewStreak > 0 -> "🔥 $reviewStreak-day review streak"
-                            else -> "Reviewed days"
-                        },
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (!settings.hideStreaks && reviewStreak > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f))
-                    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                        (13 downTo 0).forEach { back ->
-                            val d0 = todayEd - back
-                            val reviewed = d0 in reviewedDays
-                            val repaired = !reviewed && d0 in repairedDays
-                            Box(Modifier.size(if (d0 == day) 13.dp else 11.dp).clip(RoundedCornerShape(3.dp))
-                                .background(when {
-                                    reviewed -> MaterialTheme.colorScheme.primary
-                                    repaired -> MaterialTheme.colorScheme.tertiary.copy(alpha = .55f)
-                                    else -> MaterialTheme.colorScheme.surfaceVariant
-                                }))
-                        }
-                    }
-                }
-                // Phase F — a gentle, opt-in recovery when a single missed day just broke the streak. Never
-                // auto-consumed; the remaining allowance is shown plainly, and it's capped per month.
-                streakState.repairableDay?.let { repairDay ->
-                    Spacer(Modifier.height(10.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            // Track 2.7 — "never miss twice": lead with recovery, not the loss of a streak.
-                            Text("Never miss twice — one tap gets you right back on track.", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
-                            Text("${streakState.tokensAvailable} recovery${if (streakState.tokensAvailable == 1) "" else " tokens"} left this month", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                        }
-                        Spacer(Modifier.width(8.dp))
-                        FilledTonalButton(onClick = { vm.keepStreak(repairDay) }) { Text("Get back on track") }
-                    }
-                }
-            }
-
-            // ── Close the day: the guided ritual (Recall → Feel → Reflect → Tomorrow → done) ──
-            Spacer(Modifier.height(12.dp))
-            val closedToday = day in reviewedDays
-            FilledTonalButton(onClick = { showClose = true }, modifier = Modifier.fillMaxWidth()) {
-                Text(if (closedToday) "🌙  Review the close" else "🌙  Close the day")
-            }
-
-            // ── On this day / from your reviews: a gentle, occasional local memory (feature 8) ──
-            memory?.let { mem ->
                 Spacer(Modifier.height(12.dp))
-                AppCard(modifier = Modifier.clickable { day = mem.epochDay }) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (mem.kind == DayMemories.Kind.ON_THIS_DAY) "🕰️" else "✨", Modifier.width(30.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(if (mem.kind == DayMemories.Kind.ON_THIS_DAY) "On this day" else "Worth remembering",
-                                style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                            Text(mem.whenLabel + (if (mem.rating in 1..5) "  ·  " + "★".repeat(mem.rating) else ""),
-                                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                        }
-                        Icon(Icons.Filled.ChevronRight, "Open that day", tint = MaterialTheme.colorScheme.outline)
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    Text("“${mem.text}”", style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                }
-            }
 
-            // ── Track 3.2 — Moments to reflect on: a small, calm, optional list of second-looks. Tap to open. ──
-            if (moments.isNotEmpty()) {
-                Spacer(Modifier.height(12.dp))
+                // ── At-a-glance: the day's metrics as evenly-spread stat tiles (rating + context live in Reflect) ──
                 AppCard {
-                    Text("Moments to reflect on", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Text("A few second-looks, drawn from your own days — no pressure to open any.",
-                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
-                    moments.forEach { m ->
-                        val tappable = m.epochDay != null
-                        Row(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
-                                .then(if (tappable) Modifier.clickable { day = m.epochDay!! } else Modifier)
-                                .padding(vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(m.kind.icon, Modifier.width(30.dp))
-                            Text(m.line, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                            if (tappable) Icon(Icons.Filled.ChevronRight, "Open that day", tint = MaterialTheme.colorScheme.outline)
-                        }
-                    }
-                }
-            }
-
-            // ── Wave 3 (D) — a single gentle, judgment-free observation. Soft, dismissible, occasional. ──
-            nudge?.let { n ->
-                Spacer(Modifier.height(12.dp))
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .5f),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Row(Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
-                        Text("🔎", Modifier.width(30.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(n.text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-                            Text("An observation, not a verdict — computed privately on your device.",
-                                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
-                        }
-                        TextButton(onClick = { vm.dismissNudge(n.key) }) { Text("Dismiss") }
-                    }
-                }
-            }
-
-            // ── Wave 3 (C) — Drucker prediction loop: resurface a due prediction, and log a new one. ──
-            if (isToday) {
-                Spacer(Modifier.height(12.dp))
-                AppCard {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 2.dp)) {
-                        Text("🔮 Predictions", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                        TextButton(onClick = { showAddPrediction = true }) { Text("Log one") }
-                    }
-                    if (duePredictions.isEmpty()) {
-                        Text("Predict how a change or a finish will make you feel, and set when to check back. When the day comes, you'll compare what you expected with what actually happened — Drucker's feedback analysis.",
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (nothing) {
+                        Text("A quiet day — nothing tracked yet. Reflect on it, or check what's still open below.",
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else {
-                        duePredictions.forEach { p ->
-                            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = .4f)).padding(12.dp)) {
-                                Text("${Predictions.sinceLabel(p.createdEpochDay, todayEd)} you predicted:",
+                        val tiles = buildList {
+                            add(Triple("✓", tasksDone.size.toString(), "done"))
+                            if (habitsExpected > 0) add(Triple("🔁", "${habitsKept.size}/$habitsExpected", "habits"))
+                            if (focusMin > 0) add(Triple("🎯", fmtHm(focusMin), "focus"))
+                            if (trackedTotal > 0) add(Triple("⧗", fmtHm(trackedTotal), "tracked"))
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            tiles.forEach { (icon, value, label) -> StatTile(value = value, label = label, modifier = Modifier.weight(1f), icon = icon) }
+                        }
+                    }
+                    Spacer(Modifier.height(if (nothing) 10.dp else 14.dp))
+                    // Review-streak: a "don't break the chain" strip of the last 14 days. A repaired day is
+                    // shown in a distinct tertiary tint (not the same as a truly reviewed day) — honest by design.
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Track 2.7 — with streaks hidden, lead with consistency over the density strip, not a count.
+                        val reviewed14 = (13 downTo 0).count { val d0 = todayEd - it; d0 in reviewedDays || d0 in repairedDays }
+                        Text(
+                            when {
+                                settings.hideStreaks -> "$reviewed14 of last 14 days reviewed"
+                                reviewStreak > 0 -> "🔥 $reviewStreak-day review streak"
+                                else -> "Reviewed days"
+                            },
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (!settings.hideStreaks && reviewStreak > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f))
+                        Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                            (13 downTo 0).forEach { back ->
+                                val d0 = todayEd - back
+                                val reviewed = d0 in reviewedDays
+                                val repaired = !reviewed && d0 in repairedDays
+                                Box(Modifier.size(if (d0 == day) 13.dp else 11.dp).clip(RoundedCornerShape(3.dp))
+                                    .background(when {
+                                        reviewed -> MaterialTheme.colorScheme.primary
+                                        repaired -> MaterialTheme.colorScheme.tertiary.copy(alpha = .55f)
+                                        else -> MaterialTheme.colorScheme.surfaceVariant
+                                    }))
+                            }
+                        }
+                    }
+                    // Phase F — a gentle, opt-in recovery when a single missed day just broke the streak. Never
+                    // auto-consumed; the remaining allowance is shown plainly, and it's capped per month.
+                    streakState.repairableDay?.let { repairDay ->
+                        Spacer(Modifier.height(10.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                // Track 2.7 — "never miss twice": lead with recovery, not the loss of a streak.
+                                Text("Never miss twice — one tap gets you right back on track.", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
+                                Text("${streakState.tokensAvailable} recovery${if (streakState.tokensAvailable == 1) "" else " tokens"} left this month", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            FilledTonalButton(onClick = { vm.keepStreak(repairDay) }) { Text("Get back on track") }
+                        }
+                    }
+                }
+
+                // ── Close the day: the guided ritual (Recall → Feel → Reflect → Tomorrow → done) ──
+                Spacer(Modifier.height(12.dp))
+                val closedToday = day in reviewedDays
+                FilledTonalButton(onClick = { showClose = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (closedToday) "🌙  Review the close" else "🌙  Close the day")
+                }
+
+                // ── On this day / from your reviews: a gentle, occasional local memory (feature 8) ──
+                memory?.let { mem ->
+                    Spacer(Modifier.height(12.dp))
+                    AppCard(modifier = Modifier.clickable { day = mem.epochDay }) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(if (mem.kind == DayMemories.Kind.ON_THIS_DAY) "🕰️" else "✨", Modifier.width(30.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(if (mem.kind == DayMemories.Kind.ON_THIS_DAY) "On this day" else "Worth remembering",
+                                    style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                Text(mem.whenLabel + (if (mem.rating in 1..5) "  ·  " + "★".repeat(mem.rating) else ""),
                                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                                Text("“${p.expectation}”", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 4.dp))
-                                Text("How did it actually turn out?", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Spacer(Modifier.height(6.dp))
-                                FilledTonalButton(onClick = { resolvePrediction = p }) { Text("Record the outcome") }
                             }
-                            Spacer(Modifier.height(8.dp))
+                            Icon(Icons.Filled.ChevronRight, "Open that day", tint = MaterialTheme.colorScheme.outline)
                         }
+                        Spacer(Modifier.height(6.dp))
+                        Text("“${mem.text}”", style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
                     }
                 }
-            }
 
-            // ── Recap cards ──
-            if (wins.isNotEmpty()) {
-                Spacer(Modifier.height(12.dp))
-                AppCard {
-                    SectionTitle("⭐ Wins")
-                    wins.forEach { a ->
-                        Row(Modifier.fillMaxWidth().clickable { onOpenTask(a.refId) }.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("⭐", Modifier.width(24.dp))
-                            Text(a.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                // ── Track 3.2 — Moments to reflect on: a small, calm, optional list of second-looks. Tap to open. ──
+                if (moments.isNotEmpty()) {
+                    Spacer(Modifier.height(12.dp))
+                    AppCard {
+                        Text("Moments to reflect on", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text("A few second-looks, drawn from your own days — no pressure to open any.",
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
+                        moments.forEach { m ->
+                            val tappable = m.epochDay != null
+                            Row(
+                                Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                                    .then(if (tappable) Modifier.clickable { day = m.epochDay!! } else Modifier)
+                                    .padding(vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(m.kind.icon, Modifier.width(30.dp))
+                                Text(m.line, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                                if (tappable) Icon(Icons.Filled.ChevronRight, "Open that day", tint = MaterialTheme.colorScheme.outline)
+                            }
                         }
                     }
                 }
-            }
-            if (tasksDone.isNotEmpty()) {
-                Spacer(Modifier.height(12.dp))
-                AppCard {
-                    SectionTitle("Completed · ${tasksDone.size}")
-                    tasksDone.take(30).forEach { t ->
-                        Row(Modifier.fillMaxWidth().clickable { onOpenTask(t.id) }.padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                            DoneTick()
-                            Spacer(Modifier.width(10.dp))
-                            Text(t.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            t.completedAt?.let { Text(timeLabel(it), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline) }
-                        }
-                    }
-                    if (tasksDone.size > 30) Text("+ ${tasksDone.size - 30} more", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(top = 4.dp))
-                }
-            }
-            if (habitsKept.isNotEmpty()) {
-                Spacer(Modifier.height(12.dp))
-                AppCard {
-                    SectionTitle("Habits · ${habitsKept.size}/$habitsExpected kept")
-                    val tertiary = MaterialTheme.colorScheme.tertiary
-                    MetricTileGrid(habitsKept.map { (h, c) ->
-                        val target = h.targetPerDay.coerceAtLeast(1)
-                        Metric(
-                            emoji = h.emoji ?: "🔁",
-                            name = h.name,
-                            value = if (target > 1) "$c/$target${h.unit?.let { " $it" } ?: ""}" else "Done",
-                            frac = (c.toFloat() / target).coerceIn(0f, 1f),
-                            color = tertiary,
-                        )
-                    })
-                }
-            }
-            if (occ.isNotEmpty()) {
-                Spacer(Modifier.height(12.dp))
-                AppCard {
-                    SectionTitle("Events · ${occ.size}")
-                    occ.forEach { o ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (o.event.allDay) "all-day" else timeLabel(o.startMillis), Modifier.width(56.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                            Text(o.event.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                    }
-                }
-            }
-            if (tracked.isNotEmpty()) {
-                Spacer(Modifier.height(12.dp))
-                AppCard {
-                    SectionTitle("Time tracked · ${fmtHm(trackedTotal)}")
-                    val maxMin = (tracked.values.maxOrNull() ?: 1).coerceAtLeast(1)
-                    val fallback = MaterialTheme.colorScheme.primary
-                    val trackedMetrics = tracked.entries.sortedByDescending { it.value }.map { (actId, min) ->
-                        val a = activities.firstOrNull { it.id == actId }
-                        val col = a?.colorArgb?.let { Color(it) } ?: fallback
-                        Metric(emoji = a?.emoji, name = a?.name ?: "—", value = fmtHm(min), frac = min / maxMin.toFloat(), color = col)
-                    }
-                    // Long activity names (or a lone activity) read poorly in a cramped 2-up grid, so give
-                    // them the full width; short-named multi-activity days keep the compact 2-column grid.
-                    val trackedCols = if (trackedMetrics.size <= 1 || trackedMetrics.any { it.name.length > 14 }) 1 else 2
-                    MetricTileGrid(trackedMetrics, columns = trackedCols)
-                }
-            }
 
-            // ── Reckon: what's still open today — reviewed one by one (deliberate rollover, not auto-carry) ──
-            if (isToday && (openTasks.isNotEmpty() || missedHabits.isNotEmpty())) {
-                Spacer(Modifier.height(12.dp))
-                AppCard {
-                    SectionTitle("Didn't get to")
-                    if (openTasks.isNotEmpty()) {
-                        Text("Decide each one — carry it to tomorrow, or let it go.",
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
-                        openTasks.take(12).forEach { t ->
-                            val letGo = t.id in rolloverLetGo
-                            Column(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
-                                Text(t.title, Modifier.fillMaxWidth().clickable { onOpenTask(t.id) },
-                                    style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                Spacer(Modifier.height(4.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    FilterChip(selected = !letGo, onClick = { rolloverLetGo = rolloverLetGo - t.id }, label = { Text("Carry to tomorrow") })
-                                    FilterChip(selected = letGo, onClick = { rolloverLetGo = rolloverLetGo + t.id }, label = { Text("Let go") })
+                // ── Wave 3 (D) — a single gentle, judgment-free observation. Soft, dismissible, occasional. ──
+                nudge?.let { n ->
+                    Spacer(Modifier.height(12.dp))
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .5f),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
+                            Text("🔎", Modifier.width(30.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(n.text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                                Text("An observation, not a verdict — computed privately on your device.",
+                                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                            }
+                            TextButton(onClick = { vm.dismissNudge(n.key) }) { Text("Dismiss") }
+                        }
+                    }
+                }
+
+                // ── Wave 3 (C) — Drucker prediction loop: resurface a due prediction, and log a new one. ──
+                if (isToday) {
+                    Spacer(Modifier.height(12.dp))
+                    AppCard {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 2.dp)) {
+                            Text("🔮 Predictions", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            TextButton(onClick = { showAddPrediction = true }) { Text("Log one") }
+                        }
+                        if (duePredictions.isEmpty()) {
+                            Text("Predict how a change or a finish will make you feel, and set when to check back. When the day comes, you'll compare what you expected with what actually happened — Drucker's feedback analysis.",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        } else {
+                            duePredictions.forEach { p ->
+                                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = .4f)).padding(12.dp)) {
+                                    Text("${Predictions.sinceLabel(p.createdEpochDay, todayEd)} you predicted:",
+                                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                                    Text("“${p.expectation}”", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 4.dp))
+                                    Text("How did it actually turn out?", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Spacer(Modifier.height(6.dp))
+                                    FilledTonalButton(onClick = { resolvePrediction = p }) { Text("Record the outcome") }
                                 }
+                                Spacer(Modifier.height(8.dp))
                             }
                         }
-                        if (openTasks.size > 12) Text("+ ${openTasks.size - 12} more (kept)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(top = 2.dp))
                     }
-                    missedHabits.take(8).forEach { h ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(h.emoji ?: "🔁", Modifier.width(24.dp))
-                            Text(h.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text("missed", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                }
+
+                // ── Recap cards ──
+                if (wins.isNotEmpty()) {
+                    Spacer(Modifier.height(12.dp))
+                    AppCard {
+                        SectionTitle("⭐ Wins")
+                        wins.forEach { a ->
+                            Row(Modifier.fillMaxWidth().clickable { onOpenTask(a.refId) }.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("⭐", Modifier.width(24.dp))
+                                Text(a.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            }
                         }
                     }
-                    if (openTasks.isNotEmpty()) {
-                        Spacer(Modifier.height(8.dp))
-                        val ids = openTasks.map { it.id }
-                        val letGoIds = ids.filter { it in rolloverLetGo }
-                        val carryIds = ids.filter { it !in rolloverLetGo }
-                        FilledTonalButton(onClick = { vm.reviewRollover(carryIds, letGoIds) }) {
-                            Text(
-                                when {
-                                    letGoIds.isEmpty() -> "Carry ${carryIds.size} to tomorrow & close"
-                                    carryIds.isEmpty() -> "Let go of ${letGoIds.size} & close the day"
-                                    else -> "Carry ${carryIds.size} · let go ${letGoIds.size} & close"
-                                },
+                }
+                if (tasksDone.isNotEmpty()) {
+                    Spacer(Modifier.height(12.dp))
+                    AppCard {
+                        SectionTitle("Completed · ${tasksDone.size}")
+                        tasksDone.take(30).forEach { t ->
+                            Row(Modifier.fillMaxWidth().clickable { onOpenTask(t.id) }.padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                                DoneTick()
+                                Spacer(Modifier.width(10.dp))
+                                Text(t.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                t.completedAt?.let { Text(timeLabel(it), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline) }
+                            }
+                        }
+                        if (tasksDone.size > 30) Text("+ ${tasksDone.size - 30} more", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(top = 4.dp))
+                    }
+                }
+                if (habitsKept.isNotEmpty()) {
+                    Spacer(Modifier.height(12.dp))
+                    AppCard {
+                        SectionTitle("Habits · ${habitsKept.size}/$habitsExpected kept")
+                        val tertiary = MaterialTheme.colorScheme.tertiary
+                        val habitMetrics = habitsKept.map { (h, c) ->
+                            val target = h.targetPerDay.coerceAtLeast(1)
+                            Metric(
+                                emoji = h.emoji ?: "🔁",
+                                name = h.name,
+                                value = if (target > 1) "$c/$target${h.unit?.let { " $it" } ?: ""}" else "Done",
+                                frac = (c.toFloat() / target).coerceIn(0f, 1f),
+                                color = tertiary,
                             )
                         }
+                        // Long habit names get the full row width (1 column) so they wrap cleanly instead of
+                        // truncating in a cramped 2-up grid — the same adaptive rule as the Time-tracked card.
+                        MetricTileGrid(habitMetrics, columns = metricColumnsFor(habitMetrics))
                     }
                 }
-            }
-
-            // ── Reflect ──
-            Spacer(Modifier.height(12.dp))
-            AppCard {
-                SectionTitle("Reflect")
-                // The day's numbers already lead the screen in the at-a-glance StatTile card, so no glance
-                // caption is repeated here — this card is only the mood / rating / emotion read-back and the
-                // "vs your usual" context, which the top card doesn't show.
-                // Mood + rating are captured in the close-the-day flow and the "Reflect on today" editor;
-                // shown here read-only (no duplicate pickers) — use Reflect / Edit below to change them.
-                val moodV = bookend?.pmMood ?: 0
-                val ratingV = bookend?.dayRating ?: 0
-                val emoV = bookend?.emotionLabel ?: ""
-                if (moodV > 0 || ratingV > 0 || emoV.isNotBlank()) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 6.dp)) {
-                        if (moodV > 0) {
-                            Text(mood(moodV), style = MaterialTheme.typography.headlineSmall)
-                            Spacer(Modifier.width(10.dp))
-                        }
-                        if (ratingV > 0) Text("★".repeat(ratingV) + "☆".repeat(5 - ratingV), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                        if (emoV.isNotBlank()) {
-                            if (moodV > 0 || ratingV > 0) Spacer(Modifier.width(10.dp))
-                            EmotionChip(emoV)
-                        }
-                    }
-                }
-                // Context vs your usual (moved here from the summary card).
-                val vs = when {
-                    avg7 < 0.5 -> null
-                    tasksDone.size > avg7 * 1.15 -> "▲ above your usual ${avg7.roundToInt()}/day"
-                    tasksDone.size < avg7 * 0.85 -> "▼ below your usual ${avg7.roundToInt()}/day"
-                    else -> "about your usual ${avg7.roundToInt()}/day"
-                }
-                if (vs != null && !nothing) Text(vs, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
-                val hasProse = bookend != null && (bookend.pmReflection.isNotBlank() || bookend.highlight.isNotBlank() || bookend.gratitude.isNotBlank() || bookend.lesson.isNotBlank() ||
-                    bookend.good1.isNotBlank() || bookend.good2.isNotBlank() || bookend.good3.isNotBlank() || bookend.promptAnswer.isNotBlank())
-                if (bookend?.amIntention?.isNotBlank() == true) {
-                    val oc = outcomeLabel(bookend.intentionOutcome)
-                    Row(Modifier.padding(bottom = 4.dp)) {
-                        Text("🌅 ${mood(bookend.amMood)}", Modifier.width(48.dp))
-                        Text(bookend.amIntention + if (oc.isNotBlank()) " — $oc" else "", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-                if (hasProse) {
-                    bookend!!.let {
-                        if (it.pmReflection.isNotBlank()) Row(Modifier.padding(vertical = 2.dp)) { Text("🌙 ${mood(it.pmMood)}", Modifier.width(48.dp)); Text(it.pmReflection, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium) }
-                        if (it.highlight.isNotBlank()) ReflectLine("✨ Highlight", it.highlight)
-                        if (it.gratitude.isNotBlank()) ReflectLine("🙏 Grateful for", it.gratitude)
-                        if (it.lesson.isNotBlank()) ReflectLine("💡 Lesson", it.lesson)
-                        val goods = listOf(it.good1, it.good2, it.good3).filter { g -> g.isNotBlank() }
-                        if (goods.isNotEmpty()) {
-                            Text("Three good things", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
-                            goods.forEach { g ->
-                                Row(Modifier.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    MiniCheck(); Spacer(Modifier.width(8.dp))
-                                    Text(g, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                                }
-                            }
-                        }
-                        if (it.promptAnswer.isNotBlank()) {
-                            // The label adapts to the kind of day (savor / reframe / neutral), from the day's own rating + mood.
-                            val ap = AdaptivePrompts.promptFor(day, it.dayRating, it.pmMood)
-                            val g = AdaptivePrompts.glyph(ap.kind)
-                            Text((if (g.isNotBlank()) "$g  " else "") + ap.text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
-                            Text(it.promptAnswer, Modifier.padding(vertical = 1.dp), style = MaterialTheme.typography.bodyMedium)
-                        }
-                        if (it.energy > 0) Text("Energy: ${"◆".repeat(it.energy)}${"◇".repeat(5 - it.energy)}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    OutlinedButton(onClick = { showReflect = true }) { Text("Edit reflection") }
-                } else {
-                    Text("Close the day in a few words — how it went, a highlight, something you're grateful for, one lesson.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(8.dp))
-                    FilledTonalButton(onClick = { showReflect = true }) { Text("Reflect on today") }
-                }
-                // Wave 3 (E) — an optional, rule-based reflection companion: a short chain of context-aware
-                // follow-ups picked on-device from the day's own mood/rating. No LLM, no model, no service.
-                Spacer(Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedButton(onClick = { showCompanion = true }) { Text("🫧  Go deeper") }
-                    Spacer(Modifier.width(10.dp))
-                    Text("A private guide — a few questions, all on your device. No AI service.",
-                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                // Phase E — the day's alignment, rendered back: goals advanced + values honored.
-                if (movedGoals.isNotEmpty() || honoredValues.isNotEmpty()) {
-                    Spacer(Modifier.height(10.dp))
-                    if (movedGoals.isNotEmpty()) {
-                        Text("🎯 Moved a goal", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
-                        StaticChipRow(movedGoals.map { "${it.emoji} ${it.name}" })
-                    }
-                    if (honoredValues.isNotEmpty()) {
-                        if (movedGoals.isNotEmpty()) Spacer(Modifier.height(6.dp))
-                        Text("🧭 Values honored", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
-                        StaticChipRow(honoredValues.map { v -> (v.emoji?.let { "$it " } ?: "") + v.name })
-                    }
-                }
-            }
-
-            // ── Wave 3 (A) — a sealed letter to your future self. Reuses R32's sealed store + tamper-evident
-            // hash (via the VM); locked entries show only their date + a lock, never the body, until due. ──
-            Spacer(Modifier.height(12.dp))
-            SealedLettersReviewCard(
-                notes = sealedNotes, today = date,
-                onWrite = { showWriteLetter = true },
-                onOpen = { openLetter = it },
-            )
-
-            // ── Daily questions: self-scored effort on what you value (Marshall Goldsmith) ──
-            Spacer(Modifier.height(12.dp))
-            AppCard {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 2.dp)) {
-                    Text("Daily questions", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    // Personalizing the set stays discoverable right in the main review (not only in the close
-                    // flow): "Personalize" once questions exist, "Set up your questions" when there are none.
-                    if (questions.isNotEmpty()) TextButton(onClick = { showQuestions = true }) { Text("Personalize") }
-                }
-                if (questions.isEmpty()) {
-                    Text("Score a few “Did I do my best to…” questions each night. Scoring your effort — not the outcome — keeps the win in your hands.",
-                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(8.dp))
-                    FilledTonalButton(onClick = { showQuestions = true }) { Text("Set up your questions") }
-                } else {
-                    questions.forEachIndexed { i, q ->
-                        if (i > 0) Spacer(Modifier.height(12.dp))
-                        Text(q.text, style = MaterialTheme.typography.bodyMedium)
-                        Spacer(Modifier.height(4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            ScorePips(todayScores[q.id] ?: 0) { s -> vm.saveDailyScore(day, q.id, s) }
-                            Spacer(Modifier.width(10.dp))
-                            ScoreSparkline(scores14.map { it[q.id] }, Modifier.weight(1f))
-                        }
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    Text("Last 14 days", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                }
-            }
-
-            // ── Ready: tomorrow ──
-            if (isToday) {
-                Spacer(Modifier.height(12.dp))
-                AppCard {
-                    SectionTitle("Ready for tomorrow")
-                    val focusText = bookend?.tomorrowFocus ?: ""
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text("🎯", Modifier.width(28.dp))
-                        Text(if (focusText.isBlank()) "Set the one thing that matters tomorrow" else focusText,
-                            Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
-                            color = if (focusText.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
-                        TextButton(onClick = { showReflect = true }) { Text(if (focusText.isBlank()) "Set" else "Edit") }
-                    }
-                    // Wave 2 — the tomorrow WOOP if-then, rendered beneath the focus (feature 7). Secondary.
-                    val obstacleText = bookend?.tomorrowObstacle ?: ""
-                    val planText = bookend?.tomorrowPlan ?: ""
-                    if (obstacleText.isNotBlank()) {
-                        Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
-                            Text("🧱", Modifier.width(28.dp))
-                            Text(obstacleText, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                    if (planText.isNotBlank()) {
-                        Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
-                            Text("🧭", Modifier.width(28.dp))
-                            Text(planText, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                    if (tmrTasks.isNotEmpty() || tmrOcc.isNotEmpty()) {
-                        Spacer(Modifier.height(6.dp))
-                        Text("On the calendar", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                        tmrOcc.take(4).forEach { o ->
-                            Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                if (occ.isNotEmpty()) {
+                    Spacer(Modifier.height(12.dp))
+                    AppCard {
+                        SectionTitle("Events · ${occ.size}")
+                        occ.forEach { o ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text(if (o.event.allDay) "all-day" else timeLabel(o.startMillis), Modifier.width(56.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                                 Text(o.event.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
-                        tmrTasks.take(6).forEach { t ->
-                            Row(Modifier.fillMaxWidth().clickable { onOpenTask(t.id) }.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Box(Modifier.width(28.dp), contentAlignment = Alignment.CenterStart) { OpenTick() }
-                                Text(t.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                        }
-                    } else {
-                        Spacer(Modifier.height(4.dp))
-                        Text("Nothing scheduled tomorrow — a clear slate.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-            }
-            Spacer(Modifier.height(24.dp))
-        }
-    }
+                if (tracked.isNotEmpty()) {
+                    Spacer(Modifier.height(12.dp))
+                    AppCard {
+                        SectionTitle("Time tracked · ${fmtHm(trackedTotal)}")
+                        val maxMin = (tracked.values.maxOrNull() ?: 1).coerceAtLeast(1)
+                        val fallback = MaterialTheme.colorScheme.primary
+                        val trackedMetrics = tracked.entries.sortedByDescending { it.value }.map { (actId, min) ->
+                            val a = activities.firstOrNull { it.id == actId }
+                            val col = a?.colorArgb?.let { Color(it) } ?: fallback
+                            Metric(emoji = a?.emoji, name = a?.name ?: "—", value = fmtHm(min), frac = min / maxMin.toFloat(), color = col)
+                        }
+                        // Long activity names (or a lone activity) read poorly in a cramped 2-up grid, so give
+                        // them the full width; short-named multi-activity days keep the compact 2-column grid.
+                        MetricTileGrid(trackedMetrics, columns = metricColumnsFor(trackedMetrics))
+                    }
+                }
 
-    if (showPicker) DateOnlyPickerDialog(
-        initial = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
-        allowFuture = false,
-        onDismiss = { showPicker = false },
-        onConfirm = { ms -> day = Instant.ofEpochMilli(ms).atZone(zone).toLocalDate().toEpochDay(); showPicker = false },
-    )
+                // ── Reckon: what's still open today — reviewed one by one (deliberate rollover, not auto-carry) ──
+                if (isToday && (openTasks.isNotEmpty() || missedHabits.isNotEmpty())) {
+                    Spacer(Modifier.height(12.dp))
+                    AppCard {
+                        SectionTitle("Didn't get to")
+                        if (openTasks.isNotEmpty()) {
+                            Text("Decide each one — carry it to tomorrow, or let it go.",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+                            openTasks.take(12).forEach { t ->
+                                val letGo = t.id in rolloverLetGo
+                                Column(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+                                    Text(t.title, Modifier.fillMaxWidth().clickable { onOpenTask(t.id) },
+                                        style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    Spacer(Modifier.height(4.dp))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        FilterChip(selected = !letGo, onClick = { rolloverLetGo = rolloverLetGo - t.id }, label = { Text("Carry to tomorrow") })
+                                        FilterChip(selected = letGo, onClick = { rolloverLetGo = rolloverLetGo + t.id }, label = { Text("Let go") })
+                                    }
+                                }
+                            }
+                            if (openTasks.size > 12) Text("+ ${openTasks.size - 12} more (kept)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(top = 2.dp))
+                        }
+                        missedHabits.take(8).forEach { h ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(h.emoji ?: "🔁", Modifier.width(24.dp))
+                                Text(h.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("missed", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                            }
+                        }
+                        if (openTasks.isNotEmpty()) {
+                            Spacer(Modifier.height(8.dp))
+                            val ids = openTasks.map { it.id }
+                            val letGoIds = ids.filter { it in rolloverLetGo }
+                            val carryIds = ids.filter { it !in rolloverLetGo }
+                            FilledTonalButton(onClick = { vm.reviewRollover(carryIds, letGoIds) }) {
+                                Text(
+                                    when {
+                                        letGoIds.isEmpty() -> "Carry ${carryIds.size} to tomorrow & close"
+                                        carryIds.isEmpty() -> "Let go of ${letGoIds.size} & close the day"
+                                        else -> "Carry ${carryIds.size} · let go ${letGoIds.size} & close"
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
 
-    if (showReflect) ReflectDialog(
-        day = day, isToday = isToday, log = bookend,
-        onDismiss = { showReflect = false },
-        onSave = { rating, energy, reflection, mood, highlight, gratitude, lesson, tomorrow ->
-            vm.saveEveningReflection(day, reflection, mood)
-            vm.saveDayReflect(day, rating, energy, highlight, gratitude, lesson)
-            if (isToday) vm.saveTomorrowFocus(day, tomorrow)
-            showReflect = false
-        },
-        onSaveExtras = { good1, good2, good3, intentionOutcome, promptAnswer ->
-            vm.saveDayReflectExtras(day, good1, good2, good3, intentionOutcome, promptAnswer)
-        },
-        onSaveEmotion = { label -> vm.saveEmotionLabel(day, label) },
-        onSaveTomorrowPlan = { obstacle, plan -> vm.saveTomorrowPlan(day, obstacle, plan) },
-    )
+                // ── Reflect ──
+                Spacer(Modifier.height(12.dp))
+                AppCard {
+                    SectionTitle("Reflect")
+                    // The day's numbers already lead the screen in the at-a-glance StatTile card, so no glance
+                    // caption is repeated here — this card is only the mood / rating / emotion read-back and the
+                    // "vs your usual" context, which the top card doesn't show.
+                    // Mood + rating are captured in the close-the-day flow and the "Reflect on today" editor;
+                    // shown here read-only (no duplicate pickers) — use Reflect / Edit below to change them.
+                    val moodV = bookend?.pmMood ?: 0
+                    val ratingV = bookend?.dayRating ?: 0
+                    val emoV = bookend?.emotionLabel ?: ""
+                    if (moodV > 0 || ratingV > 0 || emoV.isNotBlank()) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 6.dp)) {
+                            if (moodV > 0) {
+                                Text(mood(moodV), style = MaterialTheme.typography.headlineSmall)
+                                Spacer(Modifier.width(10.dp))
+                            }
+                            if (ratingV > 0) Text("★".repeat(ratingV) + "☆".repeat(5 - ratingV), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                            if (emoV.isNotBlank()) {
+                                if (moodV > 0 || ratingV > 0) Spacer(Modifier.width(10.dp))
+                                EmotionChip(emoV)
+                            }
+                        }
+                    }
+                    // Context vs your usual (moved here from the summary card).
+                    val vs = when {
+                        avg7 < 0.5 -> null
+                        tasksDone.size > avg7 * 1.15 -> "▲ above your usual ${avg7.roundToInt()}/day"
+                        tasksDone.size < avg7 * 0.85 -> "▼ below your usual ${avg7.roundToInt()}/day"
+                        else -> "about your usual ${avg7.roundToInt()}/day"
+                    }
+                    if (vs != null && !nothing) Text(vs, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
+                    val hasProse = bookend != null && (bookend.pmReflection.isNotBlank() || bookend.highlight.isNotBlank() || bookend.gratitude.isNotBlank() || bookend.lesson.isNotBlank() ||
+                        bookend.good1.isNotBlank() || bookend.good2.isNotBlank() || bookend.good3.isNotBlank() || bookend.promptAnswer.isNotBlank())
+                    if (bookend?.amIntention?.isNotBlank() == true) {
+                        val oc = outcomeLabel(bookend.intentionOutcome)
+                        Row(Modifier.padding(bottom = 4.dp)) {
+                            Text("🌅 ${mood(bookend.amMood)}", Modifier.width(48.dp))
+                            Text(bookend.amIntention + if (oc.isNotBlank()) " — $oc" else "", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                    if (hasProse) {
+                        bookend!!.let {
+                            if (it.pmReflection.isNotBlank()) Row(Modifier.padding(vertical = 2.dp)) { Text("🌙 ${mood(it.pmMood)}", Modifier.width(48.dp)); Text(it.pmReflection, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium) }
+                            if (it.highlight.isNotBlank()) ReflectLine("✨ Highlight", it.highlight)
+                            if (it.gratitude.isNotBlank()) ReflectLine("🙏 Grateful for", it.gratitude)
+                            if (it.lesson.isNotBlank()) ReflectLine("💡 Lesson", it.lesson)
+                            val goods = listOf(it.good1, it.good2, it.good3).filter { g -> g.isNotBlank() }
+                            if (goods.isNotEmpty()) {
+                                Text("Three good things", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                                goods.forEach { g ->
+                                    Row(Modifier.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        MiniCheck(); Spacer(Modifier.width(8.dp))
+                                        Text(g, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                }
+                            }
+                            if (it.promptAnswer.isNotBlank()) {
+                                // The label adapts to the kind of day (savor / reframe / neutral), from the day's own rating + mood.
+                                val ap = AdaptivePrompts.promptFor(day, it.dayRating, it.pmMood)
+                                val g = AdaptivePrompts.glyph(ap.kind)
+                                Text((if (g.isNotBlank()) "$g  " else "") + ap.text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
+                                Text(it.promptAnswer, Modifier.padding(vertical = 1.dp), style = MaterialTheme.typography.bodyMedium)
+                            }
+                            if (it.energy > 0) Text("Energy: ${"◆".repeat(it.energy)}${"◇".repeat(5 - it.energy)}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        OutlinedButton(onClick = { showReflect = true }) { Text("Edit reflection") }
+                    } else {
+                        Text("Close the day in a few words — how it went, a highlight, something you're grateful for, one lesson.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(8.dp))
+                        FilledTonalButton(onClick = { showReflect = true }) { Text("Reflect on today") }
+                    }
+                    // Wave 3 (E) — an optional, rule-based reflection companion: a short chain of context-aware
+                    // follow-ups picked on-device from the day's own mood/rating. No LLM, no model, no service.
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedButton(onClick = { showCompanion = true }) { Text("🫧  Go deeper") }
+                        Spacer(Modifier.width(10.dp))
+                        Text("A private guide — a few questions, all on your device. No AI service.",
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    // Phase E — the day's alignment, rendered back: goals advanced + values honored.
+                    if (movedGoals.isNotEmpty() || honoredValues.isNotEmpty()) {
+                        Spacer(Modifier.height(10.dp))
+                        if (movedGoals.isNotEmpty()) {
+                            Text("🎯 Moved a goal", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+                            StaticChipRow(movedGoals.map { "${it.emoji} ${it.name}" })
+                        }
+                        if (honoredValues.isNotEmpty()) {
+                            if (movedGoals.isNotEmpty()) Spacer(Modifier.height(6.dp))
+                            Text("🧭 Values honored", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+                            StaticChipRow(honoredValues.map { v -> (v.emoji?.let { "$it " } ?: "") + v.name })
+                        }
+                    }
+                }
 
-    if (showQuestions) DailyQuestionsDialog(
-        initial = questions,
-        onDismiss = { showQuestions = false },
-        onSave = { list -> vm.saveDailyQuestions(list); showQuestions = false },
-    )
-
-    if (showClose) CloseDayFlow(
-        day = day, isToday = isToday, log = bookend,
-        questions = questions,
-        initialScores = todayScores,
-        onScore = { qId, s -> vm.saveDailyScore(day, qId, s) },
-        goals = goals,
-        topValues = topValues,
-        initialAlignment = alignment,
-        onSaveAlignment = { movedGoalIds, honoredValueIds -> vm.saveDayAlignment(day, movedGoalIds, honoredValueIds) },
-        summary = if (nothing) "A quiet day — nothing tracked." else buildString {
-            append("✓ ${tasksDone.size} done")
-            if (habitsExpected > 0) append(" · 🔁 ${habitsKept.size}/$habitsExpected")
-            if (focusMin > 0) append(" · 🎯 ${fmtHm(focusMin)}")
-            if (trackedTotal > 0) append(" · ⧗ ${fmtHm(trackedTotal)}")
-        },
-        recallTiles = if (nothing) emptyList() else buildList {
-            add(Triple("✓", tasksDone.size.toString(), "done"))
-            if (habitsExpected > 0) add(Triple("🔁", "${habitsKept.size}/$habitsExpected", "habits"))
-            if (focusMin > 0) add(Triple("🎯", fmtHm(focusMin), "focus"))
-            if (trackedTotal > 0) add(Triple("⧗", fmtHm(trackedTotal), "tracked"))
-        },
-        wins = wins.map { it.title },
-        streak = reviewStreak + (if (day !in reviewedDays) 1 else 0),
-        // Track 2.7 — cadence corrections. Gratitude is a weekly beat (only the week-start day) when
-        // gratitudeWeekly is on; the three-good-things prompt asks for a short "…and why" when on; and
-        // the streak line is hidden in favour of the consistency framing when hideStreaks is on.
-        showGratitude = !settings.gratitudeWeekly || weekStartOf(date, settings.weekStart) == date,
-        requireGoodWhy = settings.requireGoodThingWhy,
-        hideStreaks = settings.hideStreaks,
-        onDismiss = { showClose = false },
-        onSave = { rating, energy, reflection, mood, highlight, gratitude, lesson, tomorrow ->
-            vm.saveEveningReflection(day, reflection, mood)
-            vm.saveDayReflect(day, rating, energy, highlight, gratitude, lesson)
-            if (isToday) vm.saveTomorrowFocus(day, tomorrow)
-        },
-        onSaveExtras = { good1, good2, good3, intentionOutcome, promptAnswer ->
-            vm.saveDayReflectExtras(day, good1, good2, good3, intentionOutcome, promptAnswer)
-        },
-        onSaveEmotion = { label -> vm.saveEmotionLabel(day, label) },
-        onSaveTomorrowPlan = { obstacle, plan -> vm.saveTomorrowPlan(day, obstacle, plan) },
-    )
-
-    // Wave 1 — the guided Weekly Review, opened from the Week roll-up. Computes the week window from the
-    // current anchor + week-start setting, rolls it up read-only, and persists the reflection by ISO week.
-    if (showWeekly) {
-        val ws = weekStartOf(date, settings.weekStart)
-        val wStart = ws.toEpochDay()
-        val wEnd = minOf(ws.plusDays(6).toEpochDay(), todayEd)
-        val weekRollup = remember(wStart, wEnd, dayLogs, questions, habits, checkins, timeEntries, activities, goals, tasks) {
-            ReviewRollup.compute(wStart, wEnd, dayLogs, questions, habits, checkins, timeEntries, activities, zone, System.currentTimeMillis(), goals, tasks)
-        }
-        val existing = remember(settings.weeklyReviewsJson, weeklyIso) { WeeklyReviews.forWeek(settings.weeklyReviewsJson, weeklyIso) }
-        // Track 2.5 — close the loop: last week's focus, resurfaced at the start of this week's review.
-        val lastWeekFocus = remember(settings.weeklyReviewsJson, weeklyIso, ws) {
-            val prevIso = WeeklyReviews.isoWeekKey(ws.minusDays(7))
-            WeeklyReviews.forWeek(settings.weeklyReviewsJson, prevIso)?.nextFocus?.takeIf { it.isNotBlank() } ?: ""
-        }
-        // Track 2.1 — the execution score for this week (planned commitments vs done).
-        val execScore = remember(weekRollup, tasks) { ExecutionScore.fromRollup(weekRollup, tasks, zone) }
-        WeeklyReviewFlow(
-            isoWeek = weeklyIso,
-            weekLabel = weekLabel(ws, ws.plusDays(6)),
-            rollup = weekRollup,
-            execScore = execScore,
-            lastWeekFocus = lastWeekFocus,
-            openTasks = allOpenTasks,
-            existing = existing,
-            onSaveRollover = { carryIds, letGoIds -> vm.reviewRollover(carryIds, letGoIds) },
-            onSave = { reflection, nextFocus, areas, lens, lensAnswers, focusRating ->
-                vm.saveWeeklyReview(weeklyIso, reflection, nextFocus, areas, lens, lensAnswers, focusRating)
-            },
-            onDismiss = { showWeekly = false },
-        )
-    }
-
-    // ── The redesigned modular day share ──
-    // Themes / pattern are computed on the fly from the day's own data (no schema change). Themes are the
-    // salient content words of the day's reflection texts; the pattern is one soft, non-causal observation
-    // mined from the trailing window (ReviewInsights.nudge), computed for the shared day (not just today).
-    val shareThemes = remember(bookend) {
-        val docs = listOfNotNull(
-            bookend?.pmReflection, bookend?.highlight, bookend?.lesson, bookend?.gratitude,
-            bookend?.good1, bookend?.good2, bookend?.good3, bookend?.promptAnswer,
-        ).filter { it.isNotBlank() }
-        TextInsights.themes(docs, topN = 3, minDocuments = 1).map { it.display }
-    }
-    val sharePattern = remember(day, dayLogs, questions, habits, checkins, timeEntries, activities) {
-        ReviewInsights.nudge(day - 89, day, dayLogs, questions, habits, checkins, timeEntries, activities, zone, System.currentTimeMillis())?.text ?: ""
-    }
-    val shareData = remember(
-        date, bookend, wins, tasksDone, expected, checkins, habitsKept, habitsExpected, tracked, activities,
-        trackedTotal, questions, todayScores, movedGoals, honoredValues, shareThemes, sharePattern, settings.accentArgb, day,
-    ) {
-        DayCard.DayShareData(
-            dateLabel = date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault()) + ", " + date.dayOfMonth + " " + date.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
-            rating = bookend?.dayRating ?: 0,
-            moodEmoji = mood(bookend?.pmMood ?: 0),
-            energy = bookend?.energy ?: 0,
-            emotion = bookend?.emotionLabel ?: "",
-            wins = wins.map { it.title },
-            highlight = bookend?.highlight ?: "",
-            gratitude = listOfNotNull(bookend?.good1, bookend?.good2, bookend?.good3).filter { it.isNotBlank() }
-                .ifEmpty { listOfNotNull(bookend?.gratitude).filter { it.isNotBlank() } },
-            lesson = bookend?.lesson ?: "",
-            reflection = bookend?.pmReflection ?: "",
-            themes = shareThemes,
-            taskTitles = tasksDone.map { it.title },
-            taskCount = tasksDone.size,
-            habits = expected.map { h ->
-                val cnt = checkins.firstOrNull { it.habitId == h.id && it.epochDay == day }?.count ?: 0
-                val target = h.targetPerDay.coerceAtLeast(1)
-                DayCard.HabitLine(
-                    name = h.name,
-                    kept = HabitStats.meetsGoal(h, cnt),
-                    detail = if (target > 1) "$cnt/$target${h.unit?.let { " $it" } ?: ""}" else "",
+                // ── Wave 3 (A) — a sealed letter to your future self. Reuses R32's sealed store + tamper-evident
+                // hash (via the VM); locked entries show only their date + a lock, never the body, until due. ──
+                Spacer(Modifier.height(12.dp))
+                SealedLettersReviewCard(
+                    notes = sealedNotes, today = date,
+                    onWrite = { showWriteLetter = true },
+                    onOpen = { openLetter = it },
                 )
-            },
-            habitsKept = habitsKept.size,
-            habitsExpected = habitsExpected,
-            activities = tracked.entries.sortedByDescending { it.value }.map { (actId, min) ->
-                DayCard.ActivityLine(activities.firstOrNull { it.id == actId }?.name ?: "—", min)
-            },
-            trackedMin = trackedTotal,
-            questions = questions.mapNotNull { q ->
-                val s = todayScores[q.id] ?: 0
-                if (s in 1..5) DayCard.QuestionLine(q.text, s) else null
-            },
-            goalsAdvanced = movedGoals.map { "${it.emoji} ${it.name}" },
-            valuesHonored = honoredValues.map { v -> (v.emoji?.let { "$it " } ?: "") + v.name },
-            tomorrowFocus = bookend?.tomorrowFocus ?: "",
-            woopObstacle = bookend?.tomorrowObstacle ?: "",
-            woopPlan = bookend?.tomorrowPlan ?: "",
-            pattern = sharePattern,
-            accentArgb = settings.accentArgb.takeIf { it != 0L },
-        )
-    }
-    val shareCfg = remember(settings.dayShareConfigJson) { DayShareConfigs.parse(settings.dayShareConfigJson) }
-    val periodShareCfg = remember(settings.periodShareConfigJson) { PeriodShareConfigs.parse(settings.periodShareConfigJson) }
-    // Compute each reviewed period's share data on the fly from the in-scope VM state, so the day share's
-    // period selector spans This day · This week · This month · This year through one FileProvider path.
-    val periodShareData = remember(
-        day, todayEd, dayLogs, questions, habits, checkins, timeEntries, activities, goals, tasks,
-        settings.weekStart, settings.accentArgb,
-    ) {
-        val accent = settings.accentArgb.takeIf { it != 0L }
-        val nowMs = System.currentTimeMillis()
-        // Week window (anchored to the shown day, capped at today).
-        val ws = weekStartOf(date, settings.weekStart)
-        val wStart = ws.toEpochDay(); val wEnd = minOf(ws.plusDays(6).toEpochDay(), todayEd)
-        val weekRollup = ReviewRollup.compute(wStart, wEnd, dayLogs, questions, habits, checkins, timeEntries, activities, zone, nowMs, goals, tasks)
-        val weekExec = ExecutionScore.fromRollup(weekRollup, tasks, zone)
-        // Month window (capped at today).
-        val mFirst = date.withDayOfMonth(1); val mLast = date.withDayOfMonth(date.lengthOfMonth())
-        val mStart = mFirst.toEpochDay(); val mEnd = minOf(mLast.toEpochDay(), todayEd)
-        val monthRollup = ReviewRollup.compute(mStart, mEnd, dayLogs, questions, habits, checkins, timeEntries, activities, zone, nowMs, goals, tasks)
-        val monthExec = ExecutionScore.fromRollup(monthRollup, tasks, zone)
-        // Year window (the canonical calendar year to date — the one window every year surface shares).
-        val (yStart, yEnd) = YearReviewed.calendarYearWindow(LocalDate.ofEpochDay(todayEd).year, todayEd)
-        val yearRecap = YearReviewed.compute(yStart, yEnd, dayLogs, habits, checkins, timeEntries, activities, zone, nowMs, tasks)
-        mapOf(
-            DayCard.PeriodKind.WEEK to periodDataFromRollup(weekLabel(ws, ws.plusDays(6)), weekRollup, weekExec, shareThemesFor(wStart, wEnd, dayLogs), accent),
-            DayCard.PeriodKind.MONTH to periodDataFromRollup(mFirst.month.getDisplayName(TextStyle.FULL, Locale.getDefault()) + " " + mFirst.year, monthRollup, monthExec, shareThemesFor(mStart, mEnd, dayLogs), accent),
-            DayCard.PeriodKind.YEAR to periodDataFromYear(yearRecap, shareThemesFor(yStart, yEnd, dayLogs), accent),
-        )
-    }
-    if (showShare) ShareDialog(
-        initialPeriod = sharePreselect,
-        dayInitial = shareCfg,
-        dayData = shareData,
-        periodInitial = periodShareCfg,
-        periodData = periodShareData,
-        onPersistDay = { vm.saveDayShareConfig(it) },
-        onPersistPeriod = { vm.savePeriodShareConfig(it) },
-        onShareDayImage = { cfg ->
-            val bmp = DayCard.renderShare(shareData, cfg)
-            val res = ProgressCard.saveAndShareUri(ctx, bmp, "kairo-day-$day.png")
-            res.shareUri?.let { ProgressCard.share(ctx, it) }
-            showShare = false
-        },
-        onShareDayText = { cfg ->
-            val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                type = "text/plain"; putExtra(android.content.Intent.EXTRA_TEXT, DayCard.shareText(shareData, cfg))
-            }
-            runCatching { ctx.startActivity(android.content.Intent.createChooser(send, "Share my day").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
-            showShare = false
-        },
-        onSharePeriodImage = { cfg, kind ->
-            periodShareData[kind]?.let { pd ->
-                runCatching {
-                    val bmp = DayCard.renderPeriodShare(pd, cfg, kind)
-                    val res = ProgressCard.saveAndShareUri(ctx, bmp, "kairo-${kind.name.lowercase(Locale.getDefault())}-$day.png")
-                    res.shareUri?.let { ProgressCard.share(ctx, it) }
+
+                // ── Daily questions: self-scored effort on what you value (Marshall Goldsmith) ──
+                Spacer(Modifier.height(12.dp))
+                AppCard {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 2.dp)) {
+                        Text("Daily questions", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        // Personalizing the set stays discoverable right in the main review (not only in the close
+                        // flow): "Personalize" once questions exist, "Set up your questions" when there are none.
+                        if (questions.isNotEmpty()) TextButton(onClick = { showQuestions = true }) { Text("Personalize") }
+                    }
+                    if (questions.isEmpty()) {
+                        Text("Score a few “Did I do my best to…” questions each night. Scoring your effort — not the outcome — keeps the win in your hands.",
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(8.dp))
+                        FilledTonalButton(onClick = { showQuestions = true }) { Text("Set up your questions") }
+                    } else {
+                        questions.forEachIndexed { i, q ->
+                            if (i > 0) Spacer(Modifier.height(12.dp))
+                            Text(q.text, style = MaterialTheme.typography.bodyMedium)
+                            Spacer(Modifier.height(4.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ScorePips(todayScores[q.id] ?: 0) { s -> vm.saveDailyScore(day, q.id, s) }
+                                Spacer(Modifier.width(10.dp))
+                                ScoreSparkline(scores14.map { it[q.id] }, Modifier.weight(1f))
+                            }
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Text("Last 14 days", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                    }
                 }
+
+                // ── Ready: tomorrow ──
+                if (isToday) {
+                    Spacer(Modifier.height(12.dp))
+                    AppCard {
+                        SectionTitle("Ready for tomorrow")
+                        val focusText = bookend?.tomorrowFocus ?: ""
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text("🎯", Modifier.width(28.dp))
+                            Text(if (focusText.isBlank()) "Set the one thing that matters tomorrow" else focusText,
+                                Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
+                                color = if (focusText.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
+                            TextButton(onClick = { showReflect = true }) { Text(if (focusText.isBlank()) "Set" else "Edit") }
+                        }
+                        // Wave 2 — the tomorrow WOOP if-then, rendered beneath the focus (feature 7). Secondary.
+                        val obstacleText = bookend?.tomorrowObstacle ?: ""
+                        val planText = bookend?.tomorrowPlan ?: ""
+                        if (obstacleText.isNotBlank()) {
+                            Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
+                                Text("🧱", Modifier.width(28.dp))
+                                Text(obstacleText, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        if (planText.isNotBlank()) {
+                            Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
+                                Text("🧭", Modifier.width(28.dp))
+                                Text(planText, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        if (tmrTasks.isNotEmpty() || tmrOcc.isNotEmpty()) {
+                            Spacer(Modifier.height(6.dp))
+                            Text("On the calendar", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                            tmrOcc.take(4).forEach { o ->
+                                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                                    Text(if (o.event.allDay) "all-day" else timeLabel(o.startMillis), Modifier.width(56.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                    Text(o.event.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                            tmrTasks.take(6).forEach { t ->
+                                Row(Modifier.fillMaxWidth().clickable { onOpenTask(t.id) }.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Box(Modifier.width(28.dp), contentAlignment = Alignment.CenterStart) { OpenTick() }
+                                    Text(t.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                        } else {
+                            Spacer(Modifier.height(4.dp))
+                            Text("Nothing scheduled tomorrow — a clear slate.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(24.dp))
             }
-            showShare = false
-        },
-        onSharePeriodText = { cfg, kind ->
-            periodShareData[kind]?.let { pd ->
+        }
+
+        if (showPicker) DateOnlyPickerDialog(
+            initial = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+            allowFuture = false,
+            onDismiss = { showPicker = false },
+            onConfirm = { ms -> day = Instant.ofEpochMilli(ms).atZone(zone).toLocalDate().toEpochDay(); showPicker = false },
+        )
+
+        if (showReflect) ReflectDialog(
+            day = day, isToday = isToday, log = bookend,
+            onDismiss = { showReflect = false },
+            onSave = { rating, energy, reflection, mood, highlight, gratitude, lesson, tomorrow ->
+                vm.saveEveningReflection(day, reflection, mood)
+                vm.saveDayReflect(day, rating, energy, highlight, gratitude, lesson)
+                if (isToday) vm.saveTomorrowFocus(day, tomorrow)
+                showReflect = false
+            },
+            onSaveExtras = { good1, good2, good3, intentionOutcome, promptAnswer ->
+                vm.saveDayReflectExtras(day, good1, good2, good3, intentionOutcome, promptAnswer)
+            },
+            onSaveEmotion = { label -> vm.saveEmotionLabel(day, label) },
+            onSaveTomorrowPlan = { obstacle, plan -> vm.saveTomorrowPlan(day, obstacle, plan) },
+        )
+
+        if (showQuestions) DailyQuestionsDialog(
+            initial = questions,
+            onDismiss = { showQuestions = false },
+            onSave = { list -> vm.saveDailyQuestions(list); showQuestions = false },
+        )
+
+        if (showClose) CloseDayFlow(
+            day = day, isToday = isToday, log = bookend,
+            questions = questions,
+            initialScores = todayScores,
+            onScore = { qId, s -> vm.saveDailyScore(day, qId, s) },
+            goals = goals,
+            topValues = topValues,
+            initialAlignment = alignment,
+            onSaveAlignment = { movedGoalIds, honoredValueIds -> vm.saveDayAlignment(day, movedGoalIds, honoredValueIds) },
+            summary = if (nothing) "A quiet day — nothing tracked." else buildString {
+                append("• ${tasksDone.size} done")
+                if (habitsExpected > 0) append(" · 🔁 ${habitsKept.size}/$habitsExpected")
+                if (focusMin > 0) append(" · 🎯 ${fmtHm(focusMin)}")
+                if (trackedTotal > 0) append(" · ⧗ ${fmtHm(trackedTotal)}")
+            },
+            recallTiles = if (nothing) emptyList() else buildList {
+                add(Triple("✓", tasksDone.size.toString(), "done"))
+                if (habitsExpected > 0) add(Triple("🔁", "${habitsKept.size}/$habitsExpected", "habits"))
+                if (focusMin > 0) add(Triple("🎯", fmtHm(focusMin), "focus"))
+                if (trackedTotal > 0) add(Triple("⧗", fmtHm(trackedTotal), "tracked"))
+            },
+            wins = wins.map { it.title },
+            streak = reviewStreak + (if (day !in reviewedDays) 1 else 0),
+            // Track 2.7 — cadence corrections. Gratitude is a weekly beat (only the week-start day) when
+            // gratitudeWeekly is on; the three-good-things prompt asks for a short "…and why" when on; and
+            // the streak line is hidden in favour of the consistency framing when hideStreaks is on.
+            showGratitude = !settings.gratitudeWeekly || weekStartOf(date, settings.weekStart) == date,
+            requireGoodWhy = settings.requireGoodThingWhy,
+            hideStreaks = settings.hideStreaks,
+            onDismiss = { showClose = false },
+            onSave = { rating, energy, reflection, mood, highlight, gratitude, lesson, tomorrow ->
+                vm.saveEveningReflection(day, reflection, mood)
+                vm.saveDayReflect(day, rating, energy, highlight, gratitude, lesson)
+                if (isToday) vm.saveTomorrowFocus(day, tomorrow)
+            },
+            onSaveExtras = { good1, good2, good3, intentionOutcome, promptAnswer ->
+                vm.saveDayReflectExtras(day, good1, good2, good3, intentionOutcome, promptAnswer)
+            },
+            onSaveEmotion = { label -> vm.saveEmotionLabel(day, label) },
+            onSaveTomorrowPlan = { obstacle, plan -> vm.saveTomorrowPlan(day, obstacle, plan) },
+        )
+
+        // Wave 1 — the guided Weekly Review, opened from the Week roll-up. Computes the week window from the
+        // current anchor + week-start setting, rolls it up read-only, and persists the reflection by ISO week.
+        if (showWeekly) {
+            val ws = weekStartOf(date, settings.weekStart)
+            val wStart = ws.toEpochDay()
+            val wEnd = minOf(ws.plusDays(6).toEpochDay(), todayEd)
+            val weekRollup = remember(wStart, wEnd, dayLogs, questions, habits, checkins, timeEntries, activities, goals, tasks) {
+                ReviewRollup.compute(wStart, wEnd, dayLogs, questions, habits, checkins, timeEntries, activities, zone, System.currentTimeMillis(), goals, tasks)
+            }
+            val existing = remember(settings.weeklyReviewsJson, weeklyIso) { WeeklyReviews.forWeek(settings.weeklyReviewsJson, weeklyIso) }
+            // Track 2.5 — close the loop: last week's focus, resurfaced at the start of this week's review.
+            val lastWeekFocus = remember(settings.weeklyReviewsJson, weeklyIso, ws) {
+                val prevIso = WeeklyReviews.isoWeekKey(ws.minusDays(7))
+                WeeklyReviews.forWeek(settings.weeklyReviewsJson, prevIso)?.nextFocus?.takeIf { it.isNotBlank() } ?: ""
+            }
+            // Track 2.1 — the execution score for this week (planned commitments vs done).
+            val execScore = remember(weekRollup, tasks) { ExecutionScore.fromRollup(weekRollup, tasks, zone) }
+            WeeklyReviewFlow(
+                isoWeek = weeklyIso,
+                weekLabel = weekLabel(ws, ws.plusDays(6)),
+                rollup = weekRollup,
+                execScore = execScore,
+                lastWeekFocus = lastWeekFocus,
+                openTasks = allOpenTasks,
+                existing = existing,
+                onSaveRollover = { carryIds, letGoIds -> vm.reviewRollover(carryIds, letGoIds) },
+                onSave = { reflection, nextFocus, areas, lens, lensAnswers, focusRating ->
+                    vm.saveWeeklyReview(weeklyIso, reflection, nextFocus, areas, lens, lensAnswers, focusRating)
+                },
+                onDismiss = { showWeekly = false },
+            )
+        }
+
+        // ── The redesigned modular day share ──
+        // Themes / pattern are computed on the fly from the day's own data (no schema change). Themes are the
+        // salient content words of the day's reflection texts; the pattern is one soft, non-causal observation
+        // mined from the trailing window (ReviewInsights.nudge), computed for the shared day (not just today).
+        val shareThemes = remember(bookend) {
+            val docs = listOfNotNull(
+                bookend?.pmReflection, bookend?.highlight, bookend?.lesson, bookend?.gratitude,
+                bookend?.good1, bookend?.good2, bookend?.good3, bookend?.promptAnswer,
+            ).filter { it.isNotBlank() }
+            TextInsights.themes(docs, topN = 3, minDocuments = 1).map { it.display }
+        }
+        val sharePattern = remember(day, dayLogs, questions, habits, checkins, timeEntries, activities) {
+            ReviewInsights.nudge(day - 89, day, dayLogs, questions, habits, checkins, timeEntries, activities, zone, System.currentTimeMillis())?.text ?: ""
+        }
+        val shareData = remember(
+            date, bookend, wins, tasksDone, expected, checkins, habitsKept, habitsExpected, tracked, activities,
+            trackedTotal, questions, todayScores, movedGoals, honoredValues, shareThemes, sharePattern, settings.accentArgb, day,
+        ) {
+            DayCard.DayShareData(
+                dateLabel = date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault()) + ", " + date.dayOfMonth + " " + date.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
+                rating = bookend?.dayRating ?: 0,
+                moodEmoji = mood(bookend?.pmMood ?: 0),
+                energy = bookend?.energy ?: 0,
+                emotion = bookend?.emotionLabel ?: "",
+                wins = wins.map { it.title },
+                highlight = bookend?.highlight ?: "",
+                gratitude = listOfNotNull(bookend?.good1, bookend?.good2, bookend?.good3).filter { it.isNotBlank() }
+                    .ifEmpty { listOfNotNull(bookend?.gratitude).filter { it.isNotBlank() } },
+                lesson = bookend?.lesson ?: "",
+                reflection = bookend?.pmReflection ?: "",
+                themes = shareThemes,
+                taskTitles = tasksDone.map { it.title },
+                taskCount = tasksDone.size,
+                habits = expected.map { h ->
+                    val cnt = checkins.firstOrNull { it.habitId == h.id && it.epochDay == day }?.count ?: 0
+                    val target = h.targetPerDay.coerceAtLeast(1)
+                    DayCard.HabitLine(
+                        name = h.name,
+                        kept = HabitStats.meetsGoal(h, cnt),
+                        detail = if (target > 1) "$cnt/$target${h.unit?.let { " $it" } ?: ""}" else "",
+                    )
+                },
+                habitsKept = habitsKept.size,
+                habitsExpected = habitsExpected,
+                activities = tracked.entries.sortedByDescending { it.value }.map { (actId, min) ->
+                    DayCard.ActivityLine(activities.firstOrNull { it.id == actId }?.name ?: "—", min)
+                },
+                trackedMin = trackedTotal,
+                questions = questions.mapNotNull { q ->
+                    val s = todayScores[q.id] ?: 0
+                    if (s in 1..5) DayCard.QuestionLine(q.text, s) else null
+                },
+                goalsAdvanced = movedGoals.map { "${it.emoji} ${it.name}" },
+                valuesHonored = honoredValues.map { v -> (v.emoji?.let { "$it " } ?: "") + v.name },
+                tomorrowFocus = bookend?.tomorrowFocus ?: "",
+                woopObstacle = bookend?.tomorrowObstacle ?: "",
+                woopPlan = bookend?.tomorrowPlan ?: "",
+                pattern = sharePattern,
+                accentArgb = settings.accentArgb.takeIf { it != 0L },
+            )
+        }
+        val shareCfg = remember(settings.dayShareConfigJson) { DayShareConfigs.parse(settings.dayShareConfigJson) }
+        val periodShareCfg = remember(settings.periodShareConfigJson) { PeriodShareConfigs.parse(settings.periodShareConfigJson) }
+        // Compute each reviewed period's share data on the fly from the in-scope VM state, so the day share's
+        // period selector spans This day · This week · This month · This year through one FileProvider path.
+        val periodShareData = remember(
+            day, todayEd, dayLogs, questions, habits, checkins, timeEntries, activities, goals, tasks,
+            settings.weekStart, settings.accentArgb,
+        ) {
+            val accent = settings.accentArgb.takeIf { it != 0L }
+            val nowMs = System.currentTimeMillis()
+            // Week window (anchored to the shown day, capped at today).
+            val ws = weekStartOf(date, settings.weekStart)
+            val wStart = ws.toEpochDay(); val wEnd = minOf(ws.plusDays(6).toEpochDay(), todayEd)
+            val weekRollup = ReviewRollup.compute(wStart, wEnd, dayLogs, questions, habits, checkins, timeEntries, activities, zone, nowMs, goals, tasks)
+            val weekExec = ExecutionScore.fromRollup(weekRollup, tasks, zone)
+            // Month window (capped at today).
+            val mFirst = date.withDayOfMonth(1); val mLast = date.withDayOfMonth(date.lengthOfMonth())
+            val mStart = mFirst.toEpochDay(); val mEnd = minOf(mLast.toEpochDay(), todayEd)
+            val monthRollup = ReviewRollup.compute(mStart, mEnd, dayLogs, questions, habits, checkins, timeEntries, activities, zone, nowMs, goals, tasks)
+            val monthExec = ExecutionScore.fromRollup(monthRollup, tasks, zone)
+            // Year window (the canonical calendar year to date — the one window every year surface shares).
+            val (yStart, yEnd) = YearReviewed.calendarYearWindow(LocalDate.ofEpochDay(todayEd).year, todayEd)
+            val yearRecap = YearReviewed.compute(yStart, yEnd, dayLogs, habits, checkins, timeEntries, activities, zone, nowMs, tasks)
+            mapOf(
+                DayCard.PeriodKind.WEEK to periodDataFromRollup(weekLabel(ws, ws.plusDays(6)), weekRollup, weekExec, shareThemesFor(wStart, wEnd, dayLogs), accent),
+                DayCard.PeriodKind.MONTH to periodDataFromRollup(mFirst.month.getDisplayName(TextStyle.FULL, Locale.getDefault()) + " " + mFirst.year, monthRollup, monthExec, shareThemesFor(mStart, mEnd, dayLogs), accent),
+                DayCard.PeriodKind.YEAR to periodDataFromYear(yearRecap, shareThemesFor(yStart, yEnd, dayLogs), accent),
+            )
+        }
+        if (showShare) ShareDialog(
+            initialPeriod = sharePreselect,
+            dayInitial = shareCfg,
+            dayData = shareData,
+            periodInitial = periodShareCfg,
+            periodData = periodShareData,
+            onPersistDay = { vm.saveDayShareConfig(it) },
+            onPersistPeriod = { vm.savePeriodShareConfig(it) },
+            onShareDayImage = { cfg ->
+                val bmp = DayCard.renderShare(shareData, cfg)
+                val res = ProgressCard.saveAndShareUri(ctx, bmp, "kairo-day-$day.png")
+                res.shareUri?.let { ProgressCard.share(ctx, it) }
+                showShare = false
+            },
+            onShareDayText = { cfg ->
                 val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                    type = "text/plain"; putExtra(android.content.Intent.EXTRA_TEXT, DayCard.periodShareText(pd, cfg, kind))
+                    type = "text/plain"; putExtra(android.content.Intent.EXTRA_TEXT, DayCard.shareText(shareData, cfg))
                 }
-                runCatching { ctx.startActivity(android.content.Intent.createChooser(send, "Share").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
-            }
-            showShare = false
-        },
-        onDismiss = { showShare = false },
-    )
+                runCatching { ctx.startActivity(android.content.Intent.createChooser(send, "Share my day").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                showShare = false
+            },
+            onSharePeriodImage = { cfg, kind ->
+                periodShareData[kind]?.let { pd ->
+                    runCatching {
+                        val bmp = DayCard.renderPeriodShare(pd, cfg, kind)
+                        val res = ProgressCard.saveAndShareUri(ctx, bmp, "kairo-${kind.name.lowercase(Locale.getDefault())}-$day.png")
+                        res.shareUri?.let { ProgressCard.share(ctx, it) }
+                    }
+                }
+                showShare = false
+            },
+            onSharePeriodText = { cfg, kind ->
+                periodShareData[kind]?.let { pd ->
+                    val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                        type = "text/plain"; putExtra(android.content.Intent.EXTRA_TEXT, DayCard.periodShareText(pd, cfg, kind))
+                    }
+                    runCatching { ctx.startActivity(android.content.Intent.createChooser(send, "Share").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                }
+                showShare = false
+            },
+            onDismiss = { showShare = false },
+        )
 
-    // ── Wave 3 (A) — write & seal a letter to future me. Reuses R32's VM path (sealed store + tamper-
-    // evident hash + SQLCipher-at-rest); nothing new is encrypted here. ──
-    if (showWriteLetter) WriteSealedLetterDialog(
-        today = date,
-        onDismiss = { showWriteLetter = false },
-        onSeal = { title, body, revealDay -> vm.sealLetter(title, body, revealDay); showWriteLetter = false },
-    )
-    openLetter?.let { n ->
-        SealedLetterRevealDialog(
-            note = n, ready = todayEd >= n.revealEpochDay, intact = vm.letterIntact(n),
-            currentCount = remember(n.id, feed) { vm.accomplishmentCount() }, todayEd = todayEd,
-            onDismiss = { openLetter = null },
-            onAck = { vm.acknowledgeLetter(n); openLetter = null },
-            onDelete = { vm.deleteLetter(n.id); openLetter = null },
+        // ── Wave 3 (A) — write & seal a letter to future me. Reuses R32's VM path (sealed store + tamper-
+        // evident hash + SQLCipher-at-rest); nothing new is encrypted here. ──
+        if (showWriteLetter) WriteSealedLetterDialog(
+            today = date,
+            onDismiss = { showWriteLetter = false },
+            onSeal = { title, body, revealDay -> vm.sealLetter(title, body, revealDay); showWriteLetter = false },
+        )
+        openLetter?.let { n ->
+            SealedLetterRevealDialog(
+                note = n, ready = todayEd >= n.revealEpochDay, intact = vm.letterIntact(n),
+                currentCount = remember(n.id, feed) { vm.accomplishmentCount() }, todayEd = todayEd,
+                onDismiss = { openLetter = null },
+                onAck = { vm.acknowledgeLetter(n); openLetter = null },
+                onDelete = { vm.deleteLetter(n.id); openLetter = null },
+            )
+        }
+
+        // ── Wave 3 (C) — log a new prediction, and record the outcome of one that resurfaced. ──
+        if (showAddPrediction) AddPredictionDialog(
+            today = date,
+            onDismiss = { showAddPrediction = false },
+            onAdd = { text, resurfaceDay -> vm.addPrediction(text, resurfaceDay); showAddPrediction = false },
+        )
+        resolvePrediction?.let { p ->
+            ResolvePredictionDialog(
+                prediction = p, today = todayEd,
+                onDismiss = { resolvePrediction = null },
+                onResolve = { note, matched -> vm.resolvePrediction(p.id, note, matched); resolvePrediction = null },
+                onForget = { vm.removePrediction(p.id); resolvePrediction = null },
+            )
+        }
+
+        // ── Wave 3 (E) + Track 3.6 — the richer, adaptive rule-based reflection companion (no LLM); saves into
+        // the day's reflection field. Signals include energy, a marked win, and whether an obstacle recurred. ──
+        if (showCompanion) {
+            val obst = (bookend?.tomorrowObstacle ?: "").trim()
+            val obstacleRecurred = obst.length >= 4 &&
+                dayLogs.count { it.epochDay != day && it.tomorrowObstacle.trim().equals(obst, ignoreCase = true) } >= 1
+            ReflectionCompanionDialog(
+                signals = ReflectionCompanion.Signals(
+                    rating = bookend?.dayRating ?: 0, mood = bookend?.pmMood ?: 0, energy = bookend?.energy ?: 0,
+                    emotionLabel = bookend?.emotionLabel ?: "", obstacleRecurred = obstacleRecurred, wasWin = wins.isNotEmpty(),
+                ),
+                existingReflection = bookend?.pmReflection ?: "",
+                onDismiss = { showCompanion = false },
+                onSave = { merged -> vm.saveEveningReflection(day, merged, bookend?.pmMood ?: 0); showCompanion = false },
+            )
+        }
+
+        // ── Wave 3 (B) — the fully-local "Year, reviewed" recap, opened from the Month roll-up. ──
+        if (showYear) YearReviewedScreen(
+            anchorDay = day, todayEd = todayEd, zone = zone,
+            dayLogs = dayLogs, habits = habits, checkins = checkins, timeEntries = timeEntries, activities = activities,
+            accentArgb = settings.accentArgb.takeIf { it != 0L },
+            periodShareCfg = periodShareCfg,
+            onBack = { showYear = false },
         )
     }
-
-    // ── Wave 3 (C) — log a new prediction, and record the outcome of one that resurfaced. ──
-    if (showAddPrediction) AddPredictionDialog(
-        today = date,
-        onDismiss = { showAddPrediction = false },
-        onAdd = { text, resurfaceDay -> vm.addPrediction(text, resurfaceDay); showAddPrediction = false },
-    )
-    resolvePrediction?.let { p ->
-        ResolvePredictionDialog(
-            prediction = p, today = todayEd,
-            onDismiss = { resolvePrediction = null },
-            onResolve = { note, matched -> vm.resolvePrediction(p.id, note, matched); resolvePrediction = null },
-            onForget = { vm.removePrediction(p.id); resolvePrediction = null },
-        )
-    }
-
-    // ── Wave 3 (E) + Track 3.6 — the richer, adaptive rule-based reflection companion (no LLM); saves into
-    // the day's reflection field. Signals include energy, a marked win, and whether an obstacle recurred. ──
-    if (showCompanion) {
-        val obst = (bookend?.tomorrowObstacle ?: "").trim()
-        val obstacleRecurred = obst.length >= 4 &&
-            dayLogs.count { it.epochDay != day && it.tomorrowObstacle.trim().equals(obst, ignoreCase = true) } >= 1
-        ReflectionCompanionDialog(
-            signals = ReflectionCompanion.Signals(
-                rating = bookend?.dayRating ?: 0, mood = bookend?.pmMood ?: 0, energy = bookend?.energy ?: 0,
-                emotionLabel = bookend?.emotionLabel ?: "", obstacleRecurred = obstacleRecurred, wasWin = wins.isNotEmpty(),
-            ),
-            existingReflection = bookend?.pmReflection ?: "",
-            onDismiss = { showCompanion = false },
-            onSave = { merged -> vm.saveEveningReflection(day, merged, bookend?.pmMood ?: 0); showCompanion = false },
-        )
-    }
-
-    // ── Wave 3 (B) — the fully-local "Year, reviewed" recap, opened from the Month roll-up. ──
-    if (showYear) YearReviewedScreen(
-        anchorDay = day, todayEd = todayEd, zone = zone,
-        dayLogs = dayLogs, habits = habits, checkins = checkins, timeEntries = timeEntries, activities = activities,
-        accentArgb = settings.accentArgb.takeIf { it != 0L },
-        periodShareCfg = periodShareCfg,
-        onBack = { showYear = false },
-    )
 }
 
 @Composable
@@ -1288,233 +1292,228 @@ private fun CloseDayFlow(
     val stepId = steps[idx]
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-            // Edge-to-edge (targetSdk 35): a full-screen Compose Dialog draws under the nav bar, but by
-            // default its window fits decor so systemBarsPadding()/imePadding() resolve to ZERO and the
-            // pinned action bar sits under the nav bar. Stop the dialog window fitting decor so the insets
-            // are dispatched to the Compose content and the padding modifiers below actually push it clear.
-            val dialogWindow = (LocalView.current.parent as? DialogWindowProvider)?.window
-            SideEffect {
-                dialogWindow?.let { WindowCompat.setDecorFitsSystemWindows(it, false) }
+    // Rendered inline as a full-screen OVERLAY (not a Dialog): the app's content is edge-to-edge and
+    // does receive window insets, so systemBarsPadding()/imePadding() below resolve correctly and the
+    // pinned action bar clears the navigation bar — a Compose Dialog window did not reliably dispatch
+    // those insets. BackHandler restores the dismiss-on-back the Dialog gave for free.
+    BackHandler { onDismiss() }
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+        Column(Modifier.fillMaxSize().systemBarsPadding().imePadding().padding(horizontal = 22.dp)) {
+            // Progress bar — one segment per step (the terminal "done" step isn't counted). Pinned at top.
+            val totalSteps = (steps.size - 1).coerceAtLeast(1)
+            Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                (0 until totalSteps).forEach { i ->
+                    Box(Modifier.weight(1f).height(4.dp).clip(RoundedCornerShape(2.dp))
+                        .background(if (stepId == "done" || i <= idx) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant))
+                }
             }
-            Column(Modifier.fillMaxSize().systemBarsPadding().imePadding().padding(horizontal = 22.dp)) {
-                // Progress bar — one segment per step (the terminal "done" step isn't counted). Pinned at top.
-                val totalSteps = (steps.size - 1).coerceAtLeast(1)
-                Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    (0 until totalSteps).forEach { i ->
-                        Box(Modifier.weight(1f).height(4.dp).clip(RoundedCornerShape(2.dp))
-                            .background(if (stepId == "done" || i <= idx) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant))
-                    }
+            // Everything between the pinned progress bar and the pinned action bar scrolls (hero header
+            // included), so the flow can never overflow the screen — on small screens or with the keyboard up.
+            Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
+                Spacer(Modifier.height(24.dp))
+                Text(when (stepId) { "recall" -> "🗓️"; "feel" -> "💗"; "questions" -> "🎯"; "reflect" -> "🌙"; "align" -> "🧭"; "tomorrow" -> "🌅"; else -> "✅" }, style = MaterialTheme.typography.displaySmall)
+                Spacer(Modifier.height(8.dp))
+                Text(when (stepId) {
+                    "recall" -> "Recall your day"; "feel" -> "How did it feel?"; "questions" -> "Daily questions"; "reflect" -> "Reflect"
+                    "align" -> "Align"; "tomorrow" -> "Ready for tomorrow"; else -> "Day closed"
+                }, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                val sub = when (stepId) {
+                    "recall" -> "A quiet look back at your day."; "feel" -> "Reckon with how it went."; "questions" -> "Did you do your best?"
+                    "reflect" -> "Put a few words to it."; "align" -> "Tie today to what you're working toward."; "tomorrow" -> "Pre-decide the one thing."; else -> ""
                 }
-                // Everything between the pinned progress bar and the pinned action bar scrolls (hero header
-                // included), so the flow can never overflow the screen — on small screens or with the keyboard up.
-                Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
-                    Spacer(Modifier.height(24.dp))
-                    Text(when (stepId) { "recall" -> "🗓️"; "feel" -> "💗"; "questions" -> "🎯"; "reflect" -> "🌙"; "align" -> "🧭"; "tomorrow" -> "🌅"; else -> "✅" }, style = MaterialTheme.typography.displaySmall)
-                    Spacer(Modifier.height(8.dp))
-                    Text(when (stepId) {
-                        "recall" -> "Recall your day"; "feel" -> "How did it feel?"; "questions" -> "Daily questions"; "reflect" -> "Reflect"
-                        "align" -> "Align"; "tomorrow" -> "Ready for tomorrow"; else -> "Day closed"
-                    }, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    val sub = when (stepId) {
-                        "recall" -> "A quiet look back at your day."; "feel" -> "Reckon with how it went."; "questions" -> "Did you do your best?"
-                        "reflect" -> "Put a few words to it."; "align" -> "Tie today to what you're working toward."; "tomorrow" -> "Pre-decide the one thing."; else -> ""
+                if (sub.isNotBlank()) { Spacer(Modifier.height(4.dp)); Text(sub, style = MaterialTheme.typography.bodyMedium, color = muted) }
+                Spacer(Modifier.height(22.dp))
+                when (stepId) {
+                "recall" -> {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 12.dp)) {
+                        FilterChip(selected = !full, onClick = { full = false }, label = { Text("Express · 60s") })
+                        FilterChip(selected = full, onClick = { full = true }, label = { Text("Full") })
                     }
-                    if (sub.isNotBlank()) { Spacer(Modifier.height(4.dp)); Text(sub, style = MaterialTheme.typography.bodyMedium, color = muted) }
-                    Spacer(Modifier.height(22.dp))
-                    when (stepId) {
-                    "recall" -> {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 12.dp)) {
-                            FilterChip(selected = !full, onClick = { full = false }, label = { Text("Express · 60s") })
-                            FilterChip(selected = full, onClick = { full = true }, label = { Text("Full") })
-                        }
-                        // The day's metrics as tonal box tiles, matching the day-review at-a-glance card.
-                        if (recallTiles.isEmpty()) {
-                            Text(summary, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                        } else {
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                recallTiles.forEach { (icon, value, label) -> StatTile(value = value, label = label, modifier = Modifier.weight(1f), icon = icon) }
-                            }
-                        }
-                        if (wins.isNotEmpty()) {
-                            Spacer(Modifier.height(14.dp))
-                            Text("Wins", style = MaterialTheme.typography.labelMedium, color = muted, modifier = Modifier.padding(bottom = 2.dp))
-                            wins.take(3).forEach {
-                                Row(Modifier.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text("⭐", Modifier.width(28.dp))
-                                    Text(it, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                }
-                            }
+                    // The day's metrics as tonal box tiles, matching the day-review at-a-glance card.
+                    if (recallTiles.isEmpty()) {
+                        Text(summary, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                    } else {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            recallTiles.forEach { (icon, value, label) -> StatTile(value = value, label = label, modifier = Modifier.weight(1f), icon = icon) }
                         }
                     }
-                    "feel" -> {
-                        // After-action compare: reckon with the morning's intention before rating the day.
-                        if (amIntention.isNotBlank()) {
-                            Text("This morning you meant to:", style = MaterialTheme.typography.labelMedium, color = muted)
-                            Text(amIntention, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 2.dp, bottom = 6.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 12.dp)) {
-                                listOf(1 to "No", 2 to "Partly", 3 to "Yes").forEach { (v, lbl) ->
-                                    FilterChip(selected = intentionOutcome == v, onClick = { intentionOutcome = if (intentionOutcome == v) 0 else v }, label = { Text(lbl) })
-                                }
-                            }
-                        }
-                        Text("Rating", style = MaterialTheme.typography.labelMedium, color = muted)
-                        Row(Modifier.padding(top = 2.dp, bottom = 10.dp)) {
-                            (1..5).forEach { i -> Text(if (rating >= i) "★" else "☆", style = MaterialTheme.typography.headlineMedium,
-                                color = if (rating >= i) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                                modifier = Modifier.clip(CircleShape).clickable { rating = if (rating == i) 0 else i }.padding(horizontal = 4.dp, vertical = 2.dp)) }
-                        }
-                        Text("Energy", style = MaterialTheme.typography.labelMedium, color = muted)
-                        Row(Modifier.padding(top = 2.dp, bottom = 10.dp)) {
-                            (1..5).forEach { i -> Text(if (energy >= i) "◆" else "◇", style = MaterialTheme.typography.headlineMedium,
-                                color = if (energy >= i) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                                modifier = Modifier.clip(CircleShape).clickable { energy = if (energy == i) 0 else i }.padding(horizontal = 4.dp, vertical = 2.dp)) }
-                        }
-                        Text("Mood", style = MaterialTheme.typography.labelMedium, color = muted)
-                        Row(Modifier.padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            listOf(1 to "😞", 2 to "🙁", 3 to "😐", 4 to "🙂", 5 to "😄").forEach { (v, e) ->
-                                Text(e, style = MaterialTheme.typography.headlineMedium,
-                                    modifier = Modifier.clip(CircleShape).clickable { mood = if (mood == v) 0 else v }
-                                        .background(if (mood == v) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent).padding(horizontal = 6.dp, vertical = 4.dp))
-                            }
-                        }
-                        // Wave 1 — name it: an optional, single-select precise emotion word (affect-labeling).
+                    if (wins.isNotEmpty()) {
                         Spacer(Modifier.height(14.dp))
-                        Text("Name it", style = MaterialTheme.typography.labelMedium, color = muted)
-                        Text("Optional — the more precise word for how you feel.", style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(bottom = 2.dp))
-                        EmotionPicker(emotionLabel) { emotionLabel = it }
-                    }
-                    "questions" -> {
-                        Text("Did you do your best today? Score your effort, 1–5 — not whether it worked out.", style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(bottom = 10.dp))
-                        questions.forEachIndexed { i, q ->
-                            if (i > 0) Spacer(Modifier.height(10.dp))
-                            Text(q.text, style = MaterialTheme.typography.bodyMedium)
-                            Spacer(Modifier.height(2.dp))
-                            ScorePips(scores[q.id] ?: 0) { s ->
-                                scores = scores.toMutableMap().apply { this[q.id] = s }
-                                onScore(q.id, s)
+                        Text("Wins", style = MaterialTheme.typography.labelMedium, color = muted, modifier = Modifier.padding(bottom = 2.dp))
+                        wins.take(3).forEach {
+                            Row(Modifier.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("⭐", Modifier.width(28.dp))
+                                Text(it, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
                     }
-                    "reflect" -> {
-                        AppTextField(reflection, { reflection = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("How did the day go?") }, minLines = 2)
-                        if (full) {
-                            Spacer(Modifier.height(6.dp))
-                            AppTextField(highlight, { highlight = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("✨ Highlight of the day") }, singleLine = true)
-                            // Track 2.7 — gratitude as a weekly beat: only shown on the week-start day when the
-                            // weekly-gratitude setting is on, so the daily close doesn't nag for it every night.
-                            if (showGratitude) {
-                                Spacer(Modifier.height(6.dp))
-                                AppTextField(gratitude, { gratitude = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("🙏 One thing you're grateful for") }, singleLine = true)
+                }
+                "feel" -> {
+                    // After-action compare: reckon with the morning's intention before rating the day.
+                    if (amIntention.isNotBlank()) {
+                        Text("This morning you meant to:", style = MaterialTheme.typography.labelMedium, color = muted)
+                        Text(amIntention, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 2.dp, bottom = 6.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 12.dp)) {
+                            listOf(1 to "No", 2 to "Partly", 3 to "Yes").forEach { (v, lbl) ->
+                                FilterChip(selected = intentionOutcome == v, onClick = { intentionOutcome = if (intentionOutcome == v) 0 else v }, label = { Text(lbl) })
                             }
-                            Spacer(Modifier.height(6.dp))
-                            AppTextField(lesson, { lesson = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("💡 One lesson / what you'd change") }, singleLine = true)
-                            Spacer(Modifier.height(12.dp))
-                            Text("Three good things", style = MaterialTheme.typography.labelMedium, color = muted)
-                            if (requireGoodWhy) Text("Add a short “…and why” — it makes the good things stick.", style = MaterialTheme.typography.bodySmall, color = muted)
-                            Spacer(Modifier.height(4.dp))
-                            listOf(
-                                Triple("✓ One good thing", good1, why1),
-                                Triple("✓ Another", good2, why2),
-                                Triple("✓ One more", good3, why3),
-                            ).forEachIndexed { i, (ph, thing, why) ->
-                                if (i > 0) Spacer(Modifier.height(6.dp))
-                                AppTextField(thing, { v -> when (i) { 0 -> good1 = v; 1 -> good2 = v; else -> good3 = v } },
-                                    modifier = Modifier.fillMaxWidth(), placeholder = { Text(ph) }, singleLine = true)
-                                if (requireGoodWhy) {
-                                    Spacer(Modifier.height(3.dp))
-                                    AppTextField(why, { v -> when (i) { 0 -> why1 = v; 1 -> why2 = v; else -> why3 = v } },
-                                        modifier = Modifier.fillMaxWidth().padding(start = 12.dp), placeholder = { Text("…and why") }, singleLine = true)
-                                }
-                            }
-                            Spacer(Modifier.height(12.dp))
-                            val pg = AdaptivePrompts.glyph(adaptive.kind)
-                            Text((if (pg.isNotBlank()) "$pg  " else "") + adaptive.text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                            Spacer(Modifier.height(4.dp))
-                            AppTextField(promptAnswer, { promptAnswer = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Your answer") }, singleLine = true)
                         }
                     }
-                    "align" -> {
-                        Text("Tie today to what you're working toward — both optional.", style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(bottom = 12.dp))
-                        Text("🎯 Did today move a goal?", style = MaterialTheme.typography.bodyMedium)
+                    Text("Rating", style = MaterialTheme.typography.labelMedium, color = muted)
+                    Row(Modifier.padding(top = 2.dp, bottom = 10.dp)) {
+                        (1..5).forEach { i -> Text(if (rating >= i) "★" else "☆", style = MaterialTheme.typography.headlineMedium,
+                            color = if (rating >= i) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.clip(CircleShape).clickable { rating = if (rating == i) 0 else i }.padding(horizontal = 4.dp, vertical = 2.dp)) }
+                    }
+                    Text("Energy", style = MaterialTheme.typography.labelMedium, color = muted)
+                    Row(Modifier.padding(top = 2.dp, bottom = 10.dp)) {
+                        (1..5).forEach { i -> Text(if (energy >= i) "◆" else "◇", style = MaterialTheme.typography.headlineMedium,
+                            color = if (energy >= i) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.clip(CircleShape).clickable { energy = if (energy == i) 0 else i }.padding(horizontal = 4.dp, vertical = 2.dp)) }
+                    }
+                    Text("Mood", style = MaterialTheme.typography.labelMedium, color = muted)
+                    Row(Modifier.padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf(1 to "😞", 2 to "🙁", 3 to "😐", 4 to "🙂", 5 to "😄").forEach { (v, e) ->
+                            Text(e, style = MaterialTheme.typography.headlineMedium,
+                                modifier = Modifier.clip(CircleShape).clickable { mood = if (mood == v) 0 else v }
+                                    .background(if (mood == v) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent).padding(horizontal = 6.dp, vertical = 4.dp))
+                        }
+                    }
+                    // Wave 1 — name it: an optional, single-select precise emotion word (affect-labeling).
+                    Spacer(Modifier.height(14.dp))
+                    Text("Name it", style = MaterialTheme.typography.labelMedium, color = muted)
+                    Text("Optional — the more precise word for how you feel.", style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(bottom = 2.dp))
+                    EmotionPicker(emotionLabel) { emotionLabel = it }
+                }
+                "questions" -> {
+                    Text("Did you do your best today? Score your effort, 1–5 — not whether it worked out.", style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(bottom = 10.dp))
+                    questions.forEachIndexed { i, q ->
+                        if (i > 0) Spacer(Modifier.height(10.dp))
+                        Text(q.text, style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.height(2.dp))
+                        ScorePips(scores[q.id] ?: 0) { s ->
+                            scores = scores.toMutableMap().apply { this[q.id] = s }
+                            onScore(q.id, s)
+                        }
+                    }
+                }
+                "reflect" -> {
+                    AppTextField(reflection, { reflection = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("How did the day go?") }, minLines = 2)
+                    if (full) {
                         Spacer(Modifier.height(6.dp))
-                        if (goals.isEmpty()) {
-                            Text("No goals yet — set up a goal to link your tasks, a habit and tracked time, then mark the days it advances.", style = MaterialTheme.typography.bodySmall, color = muted)
-                        } else {
-                            SelectableChips(goals.map { it.id to "${it.emoji} ${it.name}" }, movedGoalIds) { id ->
-                                movedGoalIds = if (id in movedGoalIds) movedGoalIds - id else movedGoalIds + id
-                            }
+                        AppTextField(highlight, { highlight = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("✨ Highlight of the day") }, singleLine = true)
+                        // Track 2.7 — gratitude as a weekly beat: only shown on the week-start day when the
+                        // weekly-gratitude setting is on, so the daily close doesn't nag for it every night.
+                        if (showGratitude) {
+                            Spacer(Modifier.height(6.dp))
+                            AppTextField(gratitude, { gratitude = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("🙏 One thing you're grateful for") }, singleLine = true)
                         }
-                        Spacer(Modifier.height(16.dp))
-                        Text("🧭 Which of your values did today honor?", style = MaterialTheme.typography.bodyMedium)
                         Spacer(Modifier.height(6.dp))
-                        if (topValues.isEmpty()) {
-                            Text("No ranked values yet — rank your core values in Life Systems and your top ones will show here to check off.", style = MaterialTheme.typography.bodySmall, color = muted)
-                        } else {
-                            SelectableChips(topValues.map { v -> v.id to ((v.emoji?.let { "$it " } ?: "") + v.name) }, honoredValueIds) { id ->
-                                honoredValueIds = if (id in honoredValueIds) honoredValueIds - id else honoredValueIds + id
-                            }
-                        }
-                    }
-                    "tomorrow" -> {
-                        Text("Pre-decide the one thing that matters, so tomorrow starts with the decision already made.", style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(bottom = 8.dp))
-                        AppTextField(tomorrow, { tomorrow = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("🎯 Tomorrow's one thing") }, singleLine = true)
-                        // Wave 2 — a light WOOP if-then (feature 7): name the obstacle you expect, then pre-decide
-                        // your response. Both optional and secondary so the step stays fast.
+                        AppTextField(lesson, { lesson = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("💡 One lesson / what you'd change") }, singleLine = true)
                         Spacer(Modifier.height(12.dp))
-                        Text("Anticipate what could get in the way — optional, but it helps.", style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(bottom = 4.dp))
-                        AppTextField(obstacle, { obstacle = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("🧱 The obstacle you expect") }, singleLine = true)
-                        Spacer(Modifier.height(6.dp))
-                        AppTextField(plan, { plan = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("🧭 If that happens, then I will…") }, singleLine = true)
-                    }
-                    else -> {
-                        Spacer(Modifier.height(24.dp))
-                        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Box(Modifier.size(76.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
-                                Icon(Icons.Filled.Check, null, Modifier.size(42.dp), tint = MaterialTheme.colorScheme.onPrimary)
+                        Text("Three good things", style = MaterialTheme.typography.labelMedium, color = muted)
+                        if (requireGoodWhy) Text("Add a short “…and why” — it makes the good things stick.", style = MaterialTheme.typography.bodySmall, color = muted)
+                        Spacer(Modifier.height(4.dp))
+                        listOf(
+                            Triple("✓ One good thing", good1, why1),
+                            Triple("✓ Another", good2, why2),
+                            Triple("✓ One more", good3, why3),
+                        ).forEachIndexed { i, (ph, thing, why) ->
+                            if (i > 0) Spacer(Modifier.height(6.dp))
+                            AppTextField(thing, { v -> when (i) { 0 -> good1 = v; 1 -> good2 = v; else -> good3 = v } },
+                                modifier = Modifier.fillMaxWidth(), placeholder = { Text(ph) }, singleLine = true)
+                            if (requireGoodWhy) {
+                                Spacer(Modifier.height(3.dp))
+                                AppTextField(why, { v -> when (i) { 0 -> why1 = v; 1 -> why2 = v; else -> why3 = v } },
+                                    modifier = Modifier.fillMaxWidth().padding(start = 12.dp), placeholder = { Text("…and why") }, singleLine = true)
                             }
-                            Spacer(Modifier.height(18.dp))
-                            Text("The day is closed.", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.height(8.dp))
-                            // Track 2.7 — with streaks hidden, celebrate the act itself rather than the count.
-                            Text(
-                                if (hideStreaks) "Closed with intention — that's the whole point. Rest well."
-                                else "🔥 Reviewed $streak day${if (streak == 1) "" else "s"} in a row. Rest well.",
-                                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary,
-                            )
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        val pg = AdaptivePrompts.glyph(adaptive.kind)
+                        Text((if (pg.isNotBlank()) "$pg  " else "") + adaptive.text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(4.dp))
+                        AppTextField(promptAnswer, { promptAnswer = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Your answer") }, singleLine = true)
+                    }
+                }
+                "align" -> {
+                    Text("Tie today to what you're working toward — both optional.", style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(bottom = 12.dp))
+                    Text("🎯 Did today move a goal?", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(6.dp))
+                    if (goals.isEmpty()) {
+                        Text("No goals yet — set up a goal to link your tasks, a habit and tracked time, then mark the days it advances.", style = MaterialTheme.typography.bodySmall, color = muted)
+                    } else {
+                        SelectableChips(goals.map { it.id to "${it.emoji} ${it.name}" }, movedGoalIds) { id ->
+                            movedGoalIds = if (id in movedGoalIds) movedGoalIds - id else movedGoalIds + id
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Text("🧭 Which of your values did today honor?", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(6.dp))
+                    if (topValues.isEmpty()) {
+                        Text("No ranked values yet — rank your core values in Life Systems and your top ones will show here to check off.", style = MaterialTheme.typography.bodySmall, color = muted)
+                    } else {
+                        SelectableChips(topValues.map { v -> v.id to ((v.emoji?.let { "$it " } ?: "") + v.name) }, honoredValueIds) { id ->
+                            honoredValueIds = if (id in honoredValueIds) honoredValueIds - id else honoredValueIds + id
                         }
                     }
                 }
+                "tomorrow" -> {
+                    Text("Pre-decide the one thing that matters, so tomorrow starts with the decision already made.", style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(bottom = 8.dp))
+                    AppTextField(tomorrow, { tomorrow = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("🎯 Tomorrow's one thing") }, singleLine = true)
+                    // Wave 2 — a light WOOP if-then (feature 7): name the obstacle you expect, then pre-decide
+                    // your response. Both optional and secondary so the step stays fast.
+                    Spacer(Modifier.height(12.dp))
+                    Text("Anticipate what could get in the way — optional, but it helps.", style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(bottom = 4.dp))
+                    AppTextField(obstacle, { obstacle = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("🧱 The obstacle you expect") }, singleLine = true)
+                    Spacer(Modifier.height(6.dp))
+                    AppTextField(plan, { plan = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("🧭 If that happens, then I will…") }, singleLine = true)
                 }
-                // Bottom action bar — Back / Next, or a full-width finish button on the closing step.
-                Spacer(Modifier.height(12.dp))
-                if (stepId == "done") {
-                    Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) { Text("Done") }
-                } else {
-                    val nextIsDone = steps[idx + 1] == "done"
-                    Row(Modifier.fillMaxWidth().padding(bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedButton(onClick = { if (idx > 0) idx-- else onDismiss() }) { Text(if (idx > 0) "Back" else "Cancel") }
-                        Spacer(Modifier.weight(1f))
-                        Button(onClick = {
-                            if (nextIsDone) {
-                                onSave(rating, energy, reflection, mood, highlight, if (full) gratitude else "", if (full) lesson else "", tomorrow)
-                                onSaveExtras(
-                                    if (full) joinGoodWhy(good1, why1) else "",
-                                    if (full) joinGoodWhy(good2, why2) else "",
-                                    if (full) joinGoodWhy(good3, why3) else "",
-                                    intentionOutcome, if (full) promptAnswer else "",
-                                )
-                                // The precise emotion word is captured in the always-shown "feel" step, so save it in both flows.
-                                onSaveEmotion(emotionLabel)
-                                // Wave 2 — the tomorrow WOOP if-then; only today has a "tomorrow" step to plan for.
-                                if (isToday) onSaveTomorrowPlan(obstacle, plan)
-                                // Express never shows the align step, so leave any recorded alignment untouched there.
-                                if (full) onSaveAlignment(movedGoalIds.toList(), honoredValueIds.toList())
-                            }
-                            idx++
-                        }) { Text(if (nextIsDone) "Close the day" else "Next") }
+                else -> {
+                    Spacer(Modifier.height(24.dp))
+                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(Modifier.size(76.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Filled.Check, null, Modifier.size(42.dp), tint = MaterialTheme.colorScheme.onPrimary)
+                        }
+                        Spacer(Modifier.height(18.dp))
+                        Text("The day is closed.", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(8.dp))
+                        // Track 2.7 — with streaks hidden, celebrate the act itself rather than the count.
+                        Text(
+                            if (hideStreaks) "Closed with intention — that's the whole point. Rest well."
+                            else "🔥 Reviewed $streak day${if (streak == 1) "" else "s"} in a row. Rest well.",
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary,
+                        )
                     }
+                }
+            }
+            }
+            // Bottom action bar — Back / Next, or a full-width finish button on the closing step.
+            Spacer(Modifier.height(12.dp))
+            if (stepId == "done") {
+                Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) { Text("Done") }
+            } else {
+                val nextIsDone = steps[idx + 1] == "done"
+                Row(Modifier.fillMaxWidth().padding(bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedButton(onClick = { if (idx > 0) idx-- else onDismiss() }) { Text(if (idx > 0) "Back" else "Cancel") }
+                    Spacer(Modifier.weight(1f))
+                    Button(onClick = {
+                        if (nextIsDone) {
+                            onSave(rating, energy, reflection, mood, highlight, if (full) gratitude else "", if (full) lesson else "", tomorrow)
+                            onSaveExtras(
+                                if (full) joinGoodWhy(good1, why1) else "",
+                                if (full) joinGoodWhy(good2, why2) else "",
+                                if (full) joinGoodWhy(good3, why3) else "",
+                                intentionOutcome, if (full) promptAnswer else "",
+                            )
+                            // The precise emotion word is captured in the always-shown "feel" step, so save it in both flows.
+                            onSaveEmotion(emotionLabel)
+                            // Wave 2 — the tomorrow WOOP if-then; only today has a "tomorrow" step to plan for.
+                            if (isToday) onSaveTomorrowPlan(obstacle, plan)
+                            // Express never shows the align step, so leave any recorded alignment untouched there.
+                            if (full) onSaveAlignment(movedGoalIds.toList(), honoredValueIds.toList())
+                        }
+                        idx++
+                    }) { Text(if (nextIsDone) "Close the day" else "Next") }
                 }
             }
         }
@@ -1561,191 +1560,187 @@ private fun WeeklyReviewFlow(
     val stepId = steps[idx]
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-            // Edge-to-edge (targetSdk 35): stop the full-screen dialog window fitting decor so window insets
-            // reach the Compose content and systemBarsPadding()/imePadding() below keep the pinned action bar
-            // clear of the navigation bar (same fix as CloseDayFlow).
-            val dialogWindow = (LocalView.current.parent as? DialogWindowProvider)?.window
-            SideEffect {
-                dialogWindow?.let { WindowCompat.setDecorFitsSystemWindows(it, false) }
+    // Rendered inline as a full-screen OVERLAY (not a Dialog): the app's content is edge-to-edge and
+    // does receive window insets, so systemBarsPadding()/imePadding() below resolve correctly and the
+    // pinned action bar clears the navigation bar — a Compose Dialog window did not reliably dispatch
+    // those insets. BackHandler restores the dismiss-on-back the Dialog gave for free.
+    BackHandler { onDismiss() }
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+        Column(Modifier.fillMaxSize().systemBarsPadding().imePadding().padding(horizontal = 22.dp)) {
+            val totalSteps = (steps.size - 1).coerceAtLeast(1)
+            Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                (0 until totalSteps).forEach { i ->
+                    Box(Modifier.weight(1f).height(4.dp).clip(RoundedCornerShape(2.dp))
+                        .background(if (stepId == "done" || i <= idx) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant))
+                }
             }
-            Column(Modifier.fillMaxSize().systemBarsPadding().imePadding().padding(horizontal = 22.dp)) {
-                val totalSteps = (steps.size - 1).coerceAtLeast(1)
-                Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    (0 until totalSteps).forEach { i ->
-                        Box(Modifier.weight(1f).height(4.dp).clip(RoundedCornerShape(2.dp))
-                            .background(if (stepId == "done" || i <= idx) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant))
+            // Hero header + step body share one scroll region between the pinned progress bar and action
+            // bar, so the flow can never overflow the screen (small screens / keyboard up).
+            Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
+                Spacer(Modifier.height(24.dp))
+                Text(when (stepId) { "clear" -> "🧹"; "current" -> "📊"; "creative" -> "🌱"; "roles" -> "⚖️"; else -> "✅" }, style = MaterialTheme.typography.displaySmall)
+                Spacer(Modifier.height(8.dp))
+                Text(when (stepId) {
+                    "clear" -> "Get clear"; "current" -> "Get current"; "creative" -> "Get creative"; "roles" -> "Sharpen the saw"; else -> "Week reviewed"
+                }, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text(weekLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                val sub = when (stepId) {
+                    "clear" -> "Tidy up what's still open."; "current" -> "How your week actually went."
+                    "creative" -> "What to try or change next week."; "roles" -> "A light look across your life areas."; else -> ""
+                }
+                if (sub.isNotBlank()) { Spacer(Modifier.height(4.dp)); Text(sub, style = MaterialTheme.typography.bodyMedium, color = muted) }
+                Spacer(Modifier.height(22.dp))
+                when (stepId) {
+                "clear" -> {
+                    Text("Carry what still matters; let go of the rest. Your choices apply when you continue.",
+                        style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(bottom = 8.dp))
+                    openTasks.take(20).forEach { t ->
+                        val lg = t.id in letGo
+                        Column(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+                            Text(t.title, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Spacer(Modifier.height(4.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FilterChip(selected = !lg, onClick = { letGo = letGo - t.id }, label = { Text("Carry") })
+                                FilterChip(selected = lg, onClick = { letGo = letGo + t.id }, label = { Text("Let go") })
+                            }
+                        }
+                    }
+                    if (openTasks.size > 20) Text("+ ${openTasks.size - 20} more (kept)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(top = 2.dp))
+                    val missed = rollup.habitConsistency.filter { it.pct < 100 }
+                    if (missed.isNotEmpty()) {
+                        Spacer(Modifier.height(12.dp))
+                        Text("Habits below target this week", style = MaterialTheme.typography.labelMedium, color = muted, modifier = Modifier.padding(bottom = 2.dp))
+                        missed.take(6).forEach { h ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(h.emoji ?: "🔁", Modifier.width(24.dp))
+                                Text(h.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("${h.pct}%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                            }
+                        }
                     }
                 }
-                // Hero header + step body share one scroll region between the pinned progress bar and action
-                // bar, so the flow can never overflow the screen (small screens / keyboard up).
-                Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
+                "current" -> {
+                    // Track 2.5 — close last week's loop before taking stock of this one.
+                    if (lastWeekFocus.isNotBlank()) {
+                        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .5f)).padding(12.dp)) {
+                            Text("Last week you wanted to focus on:", style = MaterialTheme.typography.labelMedium, color = muted)
+                            Text("“$lastWeekFocus”", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 2.dp, bottom = 6.dp))
+                            Text("How did that go?", style = MaterialTheme.typography.labelMedium, color = muted)
+                            Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf(1 to "Missed it", 2 to "Partly", 3 to "Nailed it").forEach { (v, lbl) ->
+                                    FilterChip(selected = focusRating == v, onClick = { focusRating = if (focusRating == v) 0 else v }, label = { Text(lbl) })
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(14.dp))
+                    }
+                    // Track 2.1 — the execution score, framed as a lead measure vs the 85% target.
+                    if (execScore.hasData) {
+                        ExecutionScoreCard(execScore)
+                        Spacer(Modifier.height(14.dp))
+                    }
+                    if (rollup.ratedDays > 0) {
+                        val r = rollup.avgRating.roundToInt().coerceIn(1, 5)
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
+                            Text("★".repeat(r) + "☆".repeat(5 - r), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(8.dp))
+                            Text("${oneDp(rollup.avgRating)} avg rating · ${rollup.ratedDays} rated", style = MaterialTheme.typography.labelMedium, color = muted)
+                        }
+                    }
+                    if (rollup.moodCount > 0) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
+                            Text(moodFace(rollup.avgMood.roundToInt()), style = MaterialTheme.typography.titleMedium)
+                            Spacer(Modifier.width(8.dp))
+                            Text("mood ${oneDp(rollup.avgMood)} avg · ${rollup.moodCount} day${if (rollup.moodCount == 1) "" else "s"}", style = MaterialTheme.typography.labelMedium, color = muted)
+                        }
+                    }
+                    Text("${rollup.reviewedDays} of ${rollup.periodDays} days closed", style = MaterialTheme.typography.labelMedium, color = muted)
+                    if (rollup.wins.isNotEmpty()) {
+                        Spacer(Modifier.height(12.dp))
+                        Text("⭐ Top wins", style = MaterialTheme.typography.labelMedium, color = muted, modifier = Modifier.padding(bottom = 2.dp))
+                        rollup.wins.take(5).forEach { w ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("⭐", Modifier.width(24.dp))
+                                Text(w.text, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                if (w.count > 1) Text("×${w.count}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                            }
+                        }
+                    }
+                    if (rollup.habitConsistency.isNotEmpty()) {
+                        Spacer(Modifier.height(12.dp))
+                        Text("Habit consistency", style = MaterialTheme.typography.labelMedium, color = muted, modifier = Modifier.padding(bottom = 2.dp))
+                        rollup.habitConsistency.take(6).forEach { h ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(h.emoji ?: "🔁", Modifier.width(24.dp))
+                                Text(h.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("${h.pct}% · ${h.kept}/${h.expected}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                            }
+                        }
+                    }
+                    if (rollup.ratedDays == 0 && rollup.moodCount == 0 && rollup.wins.isEmpty() && rollup.habitConsistency.isEmpty()) {
+                        Text("A quiet week — nothing rolled up yet. Close a few days and highlights gather here.", style = MaterialTheme.typography.bodyMedium, color = muted)
+                    }
+                }
+                "creative" -> {
+                    // Track 2.4 — pick a retrospective lens, or free-write (the default). A light chip row.
+                    Text("Reflect your way — free-write, or pick a lens.", style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(bottom = 8.dp))
+                    val lensChips = remember { listOf("" to "✍️ Free write") + RetroLens.ALL.map { it.id to "${it.emoji} ${it.title}" } }
+                    SelectableChips(lensChips, setOf(lens)) { id -> lens = id }
+                    Spacer(Modifier.height(12.dp))
+                    val chosen = RetroLens.byId(lens)
+                    if (chosen == null) {
+                        AppTextField(reflection, { reflection = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("What to try or change") }, minLines = 3)
+                    } else {
+                        chosen.fields.forEachIndexed { i, f ->
+                            if (i > 0) Spacer(Modifier.height(8.dp))
+                            Text(f.label, style = MaterialTheme.typography.labelMedium, color = muted)
+                            Spacer(Modifier.height(2.dp))
+                            AppTextField(
+                                lensAnswers[f.id] ?: "", { v -> lensAnswers = lensAnswers.toMutableMap().apply { this[f.id] = v } },
+                                modifier = Modifier.fillMaxWidth(), placeholder = { Text(f.hint) }, minLines = 2,
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Text("Next week's focus", style = MaterialTheme.typography.labelMedium, color = muted)
+                    Spacer(Modifier.height(4.dp))
+                    AppTextField(nextFocus, { nextFocus = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("🎯 The one focus for next week") }, singleLine = true)
+                }
+                "roles" -> {
+                    Text("Which areas got your attention this week? A light check — all optional.", style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(bottom = 10.dp))
+                    SelectableChips(WeeklyReviews.AREAS.map { it to it }, areas) { a -> areas = if (a in areas) areas - a else areas + a }
+                }
+                else -> {
                     Spacer(Modifier.height(24.dp))
-                    Text(when (stepId) { "clear" -> "🧹"; "current" -> "📊"; "creative" -> "🌱"; "roles" -> "⚖️"; else -> "✅" }, style = MaterialTheme.typography.displaySmall)
-                    Spacer(Modifier.height(8.dp))
-                    Text(when (stepId) {
-                        "clear" -> "Get clear"; "current" -> "Get current"; "creative" -> "Get creative"; "roles" -> "Sharpen the saw"; else -> "Week reviewed"
-                    }, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text(weekLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                    val sub = when (stepId) {
-                        "clear" -> "Tidy up what's still open."; "current" -> "How your week actually went."
-                        "creative" -> "What to try or change next week."; "roles" -> "A light look across your life areas."; else -> ""
-                    }
-                    if (sub.isNotBlank()) { Spacer(Modifier.height(4.dp)); Text(sub, style = MaterialTheme.typography.bodyMedium, color = muted) }
-                    Spacer(Modifier.height(22.dp))
-                    when (stepId) {
-                    "clear" -> {
-                        Text("Carry what still matters; let go of the rest. Your choices apply when you continue.",
-                            style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(bottom = 8.dp))
-                        openTasks.take(20).forEach { t ->
-                            val lg = t.id in letGo
-                            Column(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
-                                Text(t.title, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                Spacer(Modifier.height(4.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    FilterChip(selected = !lg, onClick = { letGo = letGo - t.id }, label = { Text("Carry") })
-                                    FilterChip(selected = lg, onClick = { letGo = letGo + t.id }, label = { Text("Let go") })
-                                }
-                            }
+                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(Modifier.size(76.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Filled.Check, null, Modifier.size(42.dp), tint = MaterialTheme.colorScheme.onPrimary)
                         }
-                        if (openTasks.size > 20) Text("+ ${openTasks.size - 20} more (kept)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(top = 2.dp))
-                        val missed = rollup.habitConsistency.filter { it.pct < 100 }
-                        if (missed.isNotEmpty()) {
-                            Spacer(Modifier.height(12.dp))
-                            Text("Habits below target this week", style = MaterialTheme.typography.labelMedium, color = muted, modifier = Modifier.padding(bottom = 2.dp))
-                            missed.take(6).forEach { h ->
-                                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text(h.emoji ?: "🔁", Modifier.width(24.dp))
-                                    Text(h.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text("${h.pct}%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                                }
-                            }
-                        }
-                    }
-                    "current" -> {
-                        // Track 2.5 — close last week's loop before taking stock of this one.
-                        if (lastWeekFocus.isNotBlank()) {
-                            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .5f)).padding(12.dp)) {
-                                Text("Last week you wanted to focus on:", style = MaterialTheme.typography.labelMedium, color = muted)
-                                Text("“$lastWeekFocus”", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 2.dp, bottom = 6.dp))
-                                Text("How did that go?", style = MaterialTheme.typography.labelMedium, color = muted)
-                                Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    listOf(1 to "Missed it", 2 to "Partly", 3 to "Nailed it").forEach { (v, lbl) ->
-                                        FilterChip(selected = focusRating == v, onClick = { focusRating = if (focusRating == v) 0 else v }, label = { Text(lbl) })
-                                    }
-                                }
-                            }
-                            Spacer(Modifier.height(14.dp))
-                        }
-                        // Track 2.1 — the execution score, framed as a lead measure vs the 85% target.
-                        if (execScore.hasData) {
-                            ExecutionScoreCard(execScore)
-                            Spacer(Modifier.height(14.dp))
-                        }
-                        if (rollup.ratedDays > 0) {
-                            val r = rollup.avgRating.roundToInt().coerceIn(1, 5)
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
-                                Text("★".repeat(r) + "☆".repeat(5 - r), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                                Spacer(Modifier.width(8.dp))
-                                Text("${oneDp(rollup.avgRating)} avg rating · ${rollup.ratedDays} rated", style = MaterialTheme.typography.labelMedium, color = muted)
-                            }
-                        }
-                        if (rollup.moodCount > 0) {
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
-                                Text(moodFace(rollup.avgMood.roundToInt()), style = MaterialTheme.typography.titleMedium)
-                                Spacer(Modifier.width(8.dp))
-                                Text("mood ${oneDp(rollup.avgMood)} avg · ${rollup.moodCount} day${if (rollup.moodCount == 1) "" else "s"}", style = MaterialTheme.typography.labelMedium, color = muted)
-                            }
-                        }
-                        Text("${rollup.reviewedDays} of ${rollup.periodDays} days closed", style = MaterialTheme.typography.labelMedium, color = muted)
-                        if (rollup.wins.isNotEmpty()) {
-                            Spacer(Modifier.height(12.dp))
-                            Text("⭐ Top wins", style = MaterialTheme.typography.labelMedium, color = muted, modifier = Modifier.padding(bottom = 2.dp))
-                            rollup.wins.take(5).forEach { w ->
-                                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text("⭐", Modifier.width(24.dp))
-                                    Text(w.text, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                    if (w.count > 1) Text("×${w.count}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                                }
-                            }
-                        }
-                        if (rollup.habitConsistency.isNotEmpty()) {
-                            Spacer(Modifier.height(12.dp))
-                            Text("Habit consistency", style = MaterialTheme.typography.labelMedium, color = muted, modifier = Modifier.padding(bottom = 2.dp))
-                            rollup.habitConsistency.take(6).forEach { h ->
-                                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text(h.emoji ?: "🔁", Modifier.width(24.dp))
-                                    Text(h.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text("${h.pct}% · ${h.kept}/${h.expected}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                                }
-                            }
-                        }
-                        if (rollup.ratedDays == 0 && rollup.moodCount == 0 && rollup.wins.isEmpty() && rollup.habitConsistency.isEmpty()) {
-                            Text("A quiet week — nothing rolled up yet. Close a few days and highlights gather here.", style = MaterialTheme.typography.bodyMedium, color = muted)
-                        }
-                    }
-                    "creative" -> {
-                        // Track 2.4 — pick a retrospective lens, or free-write (the default). A light chip row.
-                        Text("Reflect your way — free-write, or pick a lens.", style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(bottom = 8.dp))
-                        val lensChips = remember { listOf("" to "✍️ Free write") + RetroLens.ALL.map { it.id to "${it.emoji} ${it.title}" } }
-                        SelectableChips(lensChips, setOf(lens)) { id -> lens = id }
-                        Spacer(Modifier.height(12.dp))
-                        val chosen = RetroLens.byId(lens)
-                        if (chosen == null) {
-                            AppTextField(reflection, { reflection = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("What to try or change") }, minLines = 3)
-                        } else {
-                            chosen.fields.forEachIndexed { i, f ->
-                                if (i > 0) Spacer(Modifier.height(8.dp))
-                                Text(f.label, style = MaterialTheme.typography.labelMedium, color = muted)
-                                Spacer(Modifier.height(2.dp))
-                                AppTextField(
-                                    lensAnswers[f.id] ?: "", { v -> lensAnswers = lensAnswers.toMutableMap().apply { this[f.id] = v } },
-                                    modifier = Modifier.fillMaxWidth(), placeholder = { Text(f.hint) }, minLines = 2,
-                                )
-                            }
-                        }
-                        Spacer(Modifier.height(12.dp))
-                        Text("Next week's focus", style = MaterialTheme.typography.labelMedium, color = muted)
-                        Spacer(Modifier.height(4.dp))
-                        AppTextField(nextFocus, { nextFocus = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("🎯 The one focus for next week") }, singleLine = true)
-                    }
-                    "roles" -> {
-                        Text("Which areas got your attention this week? A light check — all optional.", style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(bottom = 10.dp))
-                        SelectableChips(WeeklyReviews.AREAS.map { it to it }, areas) { a -> areas = if (a in areas) areas - a else areas + a }
-                    }
-                    else -> {
-                        Spacer(Modifier.height(24.dp))
-                        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Box(Modifier.size(76.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
-                                Icon(Icons.Filled.Check, null, Modifier.size(42.dp), tint = MaterialTheme.colorScheme.onPrimary)
-                            }
-                            Spacer(Modifier.height(18.dp))
-                            Text("Week reviewed.", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.height(8.dp))
-                            Text("$weekLabel — closed with intention.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
-                        }
+                        Spacer(Modifier.height(18.dp))
+                        Text("Week reviewed.", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(8.dp))
+                        Text("$weekLabel — closed with intention.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
                     }
                 }
-                }
-                Spacer(Modifier.height(12.dp))
-                if (stepId == "done") {
-                    Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) { Text("Done") }
-                } else {
-                    val nextIsDone = steps[idx + 1] == "done"
-                    Row(Modifier.fillMaxWidth().padding(bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedButton(onClick = { if (idx > 0) idx-- else onDismiss() }) { Text(if (idx > 0) "Back" else "Cancel") }
-                        Spacer(Modifier.weight(1f))
-                        Button(onClick = {
-                            if (stepId == "clear" && !rolledOver) {
-                                val ids = openTasks.map { it.id }
-                                onSaveRollover(ids.filter { it !in letGo }, ids.filter { it in letGo })
-                                rolledOver = true
-                            }
-                            if (nextIsDone) onSave(reflection, nextFocus, areas.toList(), lens, lensAnswers, focusRating)
-                            idx++
-                        }) { Text(if (nextIsDone) "Finish review" else "Next") }
-                    }
+            }
+            }
+            Spacer(Modifier.height(12.dp))
+            if (stepId == "done") {
+                Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) { Text("Done") }
+            } else {
+                val nextIsDone = steps[idx + 1] == "done"
+                Row(Modifier.fillMaxWidth().padding(bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedButton(onClick = { if (idx > 0) idx-- else onDismiss() }) { Text(if (idx > 0) "Back" else "Cancel") }
+                    Spacer(Modifier.weight(1f))
+                    Button(onClick = {
+                        if (stepId == "clear" && !rolledOver) {
+                            val ids = openTasks.map { it.id }
+                            onSaveRollover(ids.filter { it !in letGo }, ids.filter { it in letGo })
+                            rolledOver = true
+                        }
+                        if (nextIsDone) onSave(reflection, nextFocus, areas.toList(), lens, lensAnswers, focusRating)
+                        idx++
+                    }) { Text(if (nextIsDone) "Finish review" else "Next") }
                 }
             }
         }
@@ -2300,7 +2295,14 @@ private fun RangeRollup(
         val weekIso = WeeklyReviews.isoWeekKey(LocalDate.ofEpochDay(start))
         val reviewed = WeeklyReviews.isReviewed(weeklyReviewsJson, weekIso)
         FilledTonalButton(onClick = { onStartWeeklyReview(weekIso) }, modifier = Modifier.fillMaxWidth()) {
-            Text(if (reviewed) "🗓️  Weekly review ✓ — reopen" else "🗓️  Start weekly review")
+            if (reviewed) {
+                // "Reviewed" reads with the app's modern completion mark, not a raw "✓".
+                Text("🗓️  Weekly review")
+                Spacer(Modifier.width(8.dp))
+                MiniCheck()
+                Spacer(Modifier.width(8.dp))
+                Text("reopen")
+            } else Text("🗓️  Start weekly review")
         }
         Spacer(Modifier.height(12.dp))
     }
@@ -2673,7 +2675,7 @@ private fun reflectionMetricsLine(r: ReviewRollup.ReflectionEntry): String {
     val parts = buildList {
         if (r.rating in 1..5) add("★".repeat(r.rating) + "☆".repeat(5 - r.rating))
         if (r.mood in 1..5) add(moodFace(r.mood))
-        if (r.tasksDone > 0) add("✓ ${r.tasksDone}")
+        if (r.tasksDone > 0) add("• ${r.tasksDone}")
         r.topActivityName?.let { add((r.topActivityEmoji?.let { e -> "$e " } ?: "") + it) }
     }
     return parts.joinToString("  ·  ")

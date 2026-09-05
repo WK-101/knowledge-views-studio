@@ -26,6 +26,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.todocompanion.app.domain.Modules
+import com.todocompanion.app.ui.components.DoneTick
+import com.todocompanion.app.ui.components.OpenTick
 
 /**
  * T0 / CU2 — the first-run picker, now a calmer, progressive multi-select. Choose which of the three
@@ -67,7 +69,8 @@ fun ModulePickerDialog(onPick: (String, Set<String>) -> Unit, onSkip: () -> Unit
                                 color = if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
                             Text(sub, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Text(if (sel) "☑" else "☐", color = if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                        // The modern selected/unselected marks (filled disc vs open ring), not raw ☑/☐.
+                        if (sel) DoneTick() else OpenTick()
                     }
                 }
             }

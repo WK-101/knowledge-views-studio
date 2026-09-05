@@ -109,6 +109,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.todocompanion.app.data.entity.FlagEntity
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.MiniCheck
 import com.todocompanion.app.ui.components.FLAG_COLORS
 import com.todocompanion.app.ui.components.FlagIcons
 import com.todocompanion.app.ui.components.OptionChips
@@ -804,7 +805,8 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 }
                 runCatching { ringtonePicker.launch(intent) }
             }
-            fun customLabel(spec: String) = if (com.todocompanion.app.util.Sounds.isUri(spec)) "Custom ✓" else "Custom…"
+            // The chip's own selected styling already signals "set", so no raw "✓" glyph is needed here.
+            fun customLabel(spec: String) = if (com.todocompanion.app.util.Sounds.isUri(spec)) "Custom" else "Custom…"
 
             Text("Tap a tone to hear it. “Custom” opens your phone's sound picker.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
 
@@ -995,7 +997,14 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 "0 network permission — the app cannot reach the internet.",
                 "0 location permission — it never asks where you are.",
                 "Everything lives only on this device.",
-            ).forEach { Text("✓ $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
+            ).forEach {
+                // The privacy guarantees read as a modern check-list, not raw "✓" glyphs.
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 1.dp)) {
+                    MiniCheck()
+                    Spacer(Modifier.width(8.dp))
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                }
+            }
             Spacer(Modifier.height(6.dp))
             Text("On this device", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             vm.deviceInventory().forEach { (label, n) ->

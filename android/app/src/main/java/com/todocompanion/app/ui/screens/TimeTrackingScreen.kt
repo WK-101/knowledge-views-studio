@@ -86,6 +86,7 @@ import com.todocompanion.app.data.entity.TimeEntryEntity
 import com.todocompanion.app.domain.TimeTracking
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.MiniCheck
 import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.LocalDate
@@ -472,7 +473,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                     val a = actById[t.activityId]
                     val c = a?.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
                     // T4: an activity with a daily goal shows progress toward it; the bar fills against the
-                    // goal (else against the day's largest activity), and reads met with a ✓.
+                    // goal (else against the day's largest activity), and reads met with the modern mark.
                     val goalMin = a?.goalMinutesPerDay ?: 0
                     val goalMet = goalMin in 1..t.minutes
                     val frac = if (goalMin > 0) (t.minutes / goalMin.toFloat()).coerceIn(0f, 1f) else t.minutes / max.toFloat()
@@ -482,11 +483,15 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                             Box(Modifier.fillMaxWidth(frac).height(14.dp).clip(RoundedCornerShape(7.dp)).background(if (goalMet) MaterialTheme.colorScheme.tertiary else c))
                         }
                         Spacer(Modifier.width(8.dp))
-                        Text(
-                            fmtDur(t.minutes) + (if (goalMin > 0) " / ${fmtDur(goalMin)}" else "") + (if (goalMet) " ✓" else ""),
-                            style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold,
-                            color = if (goalMet) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurface,
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                fmtDur(t.minutes) + (if (goalMin > 0) " / ${fmtDur(goalMin)}" else ""),
+                                style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold,
+                                color = if (goalMet) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurface,
+                            )
+                            // Goal met reads with the modern completion mark, not a trailing raw "✓".
+                            if (goalMet) { Spacer(Modifier.width(4.dp)); MiniCheck() }
+                        }
                     }
                 }
             }
