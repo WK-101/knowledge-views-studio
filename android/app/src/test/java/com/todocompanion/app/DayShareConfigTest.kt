@@ -3,6 +3,7 @@ package com.todocompanion.app
 import com.todocompanion.app.domain.DayShareConfig
 import com.todocompanion.app.domain.DayShareConfigs
 import com.todocompanion.app.domain.HabitDetail
+import com.todocompanion.app.domain.ShareStyle
 import com.todocompanion.app.domain.TaskDetail
 import com.todocompanion.app.domain.TimeDetail
 import org.junit.Assert.assertEquals
@@ -37,6 +38,15 @@ class DayShareConfigTest {
         assertTrue(!c.tomorrowFocus)
         assertTrue(!c.woop)
         assertTrue(!c.pattern)
+        // Personal is the default style (the warm/dark day card).
+        assertEquals(ShareStyle.PERSONAL, c.style)
+    }
+
+    @Test fun styleRoundTripsBothValues() {
+        for (s in ShareStyle.entries) {
+            val back = DayShareConfigs.parse(DayShareConfigs.encode(DayShareConfig(style = s)))
+            assertEquals(s, back.style)
+        }
     }
 
     @Test fun blankParsesToDefaults() {

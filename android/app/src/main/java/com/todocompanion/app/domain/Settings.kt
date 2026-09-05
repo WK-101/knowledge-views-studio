@@ -331,6 +331,9 @@ data class AppSettings(
     // Daily-review SHARE config — the modular "what to include in my shared day card" model, kept as ONE
     // settings JSON value (no schema change). "" = the defaults (a card ≈ today's). See domain/DayShareConfig.
     val dayShareConfigJson: String = "",
+    // Period SHARE config — the modular "what to include in my shared week / month / year card" model,
+    // kept as ONE settings JSON value (no schema change). "" = the defaults. See domain/PeriodShareConfig.
+    val periodShareConfigJson: String = "",
 ) {
     /** Effective tier for an optional editor field: user override, else its built-in default. */
     fun editorTier(f: EditorField): Int = editorFieldTiers[f.id] ?: f.defaultTier
@@ -528,6 +531,7 @@ data class AppSettings(
         Keys.REQUIRE_GOOD_WHY to requireGoodThingWhy.toString(),
         Keys.HIDE_STREAKS to hideStreaks.toString(),
         Keys.DAY_SHARE_CONFIG to dayShareConfigJson,
+        Keys.PERIOD_SHARE_CONFIG to periodShareConfigJson,
     )
 
     object Keys {
@@ -703,6 +707,7 @@ data class AppSettings(
         const val REQUIRE_GOOD_WHY = "require_good_why"
         const val HIDE_STREAKS = "hide_streaks"
         const val DAY_SHARE_CONFIG = "day_share_config"
+        const val PERIOD_SHARE_CONFIG = "period_share_config"
     }
 
     companion object {
@@ -902,6 +907,7 @@ data class AppSettings(
             requireGoodThingWhy = m[Keys.REQUIRE_GOOD_WHY]?.toBooleanStrictOrNull() ?: true,
             hideStreaks = m[Keys.HIDE_STREAKS]?.toBooleanStrictOrNull() ?: false,
             dayShareConfigJson = m[Keys.DAY_SHARE_CONFIG] ?: "",
+            periodShareConfigJson = m[Keys.PERIOD_SHARE_CONFIG] ?: "",
         )
     }
 }

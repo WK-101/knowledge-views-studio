@@ -26,6 +26,17 @@ enum class HabitDetail { OFF, COUNT, DETAILED }
 /** How much tracked-time detail the card carries. OFF hides, TOTAL shows a total, DETAILED lists each. */
 enum class TimeDetail { OFF, TOTAL, DETAILED }
 
+/**
+ * The visual STYLE the share card is rendered in — shared by the day card ([DayShareConfig]) and the
+ * period card ([PeriodShareConfig]).
+ *
+ * PERSONAL is the warm, dark "a day, closed" card (the day default). PROFESSIONAL is a clean, credible,
+ * document-style card on a near-white ground with dark ink and a restrained single accent — a calm
+ * "proof of work" record suitable to share as evidence of what was done. The renderer branches on this;
+ * the choice is persisted in the config.
+ */
+enum class ShareStyle { PERSONAL, PROFESSIONAL }
+
 @Serializable
 data class DayShareConfig(
     // ── Felt state ──
@@ -67,6 +78,10 @@ data class DayShareConfig(
     // ── Footer ──
     /** The footer tagline line ("Kairo · a day, closed · 100% offline"). */
     val footerTagline: Boolean = true,
+    // ── Style ──
+    /** The visual style the card renders in. PERSONAL (warm/dark) is the day default; PROFESSIONAL is the
+     *  clean, document-style "proof of work" card. */
+    val style: ShareStyle = ShareStyle.PERSONAL,
 )
 
 object DayShareConfigs {

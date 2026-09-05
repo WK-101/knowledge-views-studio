@@ -85,6 +85,9 @@ import com.todocompanion.app.domain.DayAlignments
 import com.todocompanion.app.domain.DayShareConfig
 import com.todocompanion.app.domain.DayShareConfigs
 import com.todocompanion.app.domain.HabitDetail
+import com.todocompanion.app.domain.PeriodShareConfig
+import com.todocompanion.app.domain.PeriodShareConfigs
+import com.todocompanion.app.domain.ShareStyle
 import com.todocompanion.app.domain.TaskDetail
 import com.todocompanion.app.domain.TimeDetail
 import com.todocompanion.app.domain.EmotionWords
@@ -155,6 +158,9 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
     var resolvePrediction by remember { mutableStateOf<Prediction?>(null) }
     var showCompanion by remember { mutableStateOf(false) }
     var showYear by remember { mutableStateOf(false) }
+    // Which period the unified share dialog opens on (This day by default; the Week/Month roll-up share
+    // buttons preselect their own period so the modular flow spans day → week → month → year in one place).
+    var sharePreselect by remember { mutableStateOf(SharePeriod.DAY) }
     // Wave 1 — deliberate rollover: ids the user chose to "let go" (everything else defaults to carry).
     var rolloverLetGo by remember { mutableStateOf(setOf<String>()) }
     // Phase F — opened via the "Close your day" shortcut / evening nudge: land straight in the close flow.
@@ -301,7 +307,7 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
             title = { Text("Day review") },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
             actions = {
-                IconButton(onClick = { showShare = true }) { Icon(Icons.Filled.Share, "Share day") }
+                IconButton(onClick = { sharePreselect = SharePeriod.DAY; showShare = true }) { Icon(Icons.Filled.Share, "Share day") }
                 if (!isToday) TextButton(onClick = { day = todayEd }) { Text("Today") }
             },
         )
@@ -323,6 +329,7 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
                     onAnchorChange = { day = it },
                     onOpenDay = { d -> day = d; mode = ReviewRange.DAY },
                     onOpenYearReview = { showYear = true },
+                    onSharePeriod = { p -> sharePreselect = p; showShare = true },
                 )
                 Spacer(Modifier.height(24.dp))
                 return@Column
@@ -980,21 +987,72 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
         )
     }
     val shareCfg = remember(settings.dayShareConfigJson) { DayShareConfigs.parse(settings.dayShareConfigJson) }
+    val periodShareCfg = remember(settings.periodShareConfigJson) { PeriodShareConfigs.parse(settings.periodShareConfigJson) }
+    // Compute each reviewed period's share data on the fly from the in-scope VM state, so the day share's
+    // period selector spans This day · This week · This month · This year through one FileProvider path.
+    val periodShareData = remember(
+        day, todayEd, dayLogs, questions, habits, checkins, timeEntries, activities, goals, tasks,
+        settings.weekStart, settings.accentArgb,
+    ) {
+        val accent = settings.accentArgb.takeIf { it != 0L }
+        val nowMs = System.currentTimeMillis()
+        // Week window (anchored to the shown day, capped at today).
+        val ws = weekStartOf(date, settings.weekStart)
+        val wStart = ws.toEpochDay(); val wEnd = minOf(ws.plusDays(6).toEpochDay(), todayEd)
+        val weekRollup = ReviewRollup.compute(wStart, wEnd, dayLogs, questions, habits, checkins, timeEntries, activities, zone, nowMs, goals, tasks)
+        val weekExec = ExecutionScore.fromRollup(weekRollup, tasks, zone)
+        // Month window (capped at today).
+        val mFirst = date.withDayOfMonth(1); val mLast = date.withDayOfMonth(date.lengthOfMonth())
+        val mStart = mFirst.toEpochDay(); val mEnd = minOf(mLast.toEpochDay(), todayEd)
+        val monthRollup = ReviewRollup.compute(mStart, mEnd, dayLogs, questions, habits, checkins, timeEntries, activities, zone, nowMs, goals, tasks)
+        val monthExec = ExecutionScore.fromRollup(monthRollup, tasks, zone)
+        // Year window (the rolling 365 days ending today).
+        val yEnd = todayEd; val yStart = todayEd - (YearReviewed.WINDOW_DAYS - 1)
+        val yearRecap = YearReviewed.compute(yStart, yEnd, dayLogs, habits, checkins, timeEntries, activities, zone, nowMs, tasks)
+        mapOf(
+            DayCard.PeriodKind.WEEK to periodDataFromRollup(weekLabel(ws, ws.plusDays(6)), weekRollup, weekExec, shareThemesFor(wStart, wEnd, dayLogs), accent),
+            DayCard.PeriodKind.MONTH to periodDataFromRollup(mFirst.month.getDisplayName(TextStyle.FULL, Locale.getDefault()) + " " + mFirst.year, monthRollup, monthExec, shareThemesFor(mStart, mEnd, dayLogs), accent),
+            DayCard.PeriodKind.YEAR to periodDataFromYear(yearRecap, shareThemesFor(yStart, yEnd, dayLogs), accent),
+        )
+    }
     if (showShare) ShareDialog(
-        initial = shareCfg,
-        data = shareData,
-        onPersist = { vm.saveDayShareConfig(it) },
-        onShareImage = { cfg ->
+        initialPeriod = sharePreselect,
+        dayInitial = shareCfg,
+        dayData = shareData,
+        periodInitial = periodShareCfg,
+        periodData = periodShareData,
+        onPersistDay = { vm.saveDayShareConfig(it) },
+        onPersistPeriod = { vm.savePeriodShareConfig(it) },
+        onShareDayImage = { cfg ->
             val bmp = DayCard.renderShare(shareData, cfg)
             val res = ProgressCard.saveAndShareUri(ctx, bmp, "kairo-day-$day.png")
             res.shareUri?.let { ProgressCard.share(ctx, it) }
             showShare = false
         },
-        onShareText = { cfg ->
+        onShareDayText = { cfg ->
             val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
                 type = "text/plain"; putExtra(android.content.Intent.EXTRA_TEXT, DayCard.shareText(shareData, cfg))
             }
             runCatching { ctx.startActivity(android.content.Intent.createChooser(send, "Share my day").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            showShare = false
+        },
+        onSharePeriodImage = { cfg, kind ->
+            periodShareData[kind]?.let { pd ->
+                runCatching {
+                    val bmp = DayCard.renderPeriodShare(pd, cfg, kind)
+                    val res = ProgressCard.saveAndShareUri(ctx, bmp, "kairo-${kind.name.lowercase(Locale.getDefault())}-$day.png")
+                    res.shareUri?.let { ProgressCard.share(ctx, it) }
+                }
+            }
+            showShare = false
+        },
+        onSharePeriodText = { cfg, kind ->
+            periodShareData[kind]?.let { pd ->
+                val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                    type = "text/plain"; putExtra(android.content.Intent.EXTRA_TEXT, DayCard.periodShareText(pd, cfg, kind))
+                }
+                runCatching { ctx.startActivity(android.content.Intent.createChooser(send, "Share").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            }
             showShare = false
         },
         onDismiss = { showShare = false },
@@ -1054,6 +1112,7 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
         anchorDay = day, todayEd = todayEd, zone = zone,
         dayLogs = dayLogs, habits = habits, checkins = checkins, timeEntries = timeEntries, activities = activities,
         accentArgb = settings.accentArgb.takeIf { it != 0L },
+        periodShareCfg = periodShareCfg,
         onBack = { showYear = false },
     )
 }
@@ -1967,29 +2026,62 @@ private fun DailyQuestionsDialog(
     )
 }
 
+/** Which period the unified share dialog is currently composing — the top selector spans the day and the
+ *  three reviewed roll-ups, so YEAR is first-class in "share your day". */
+private enum class SharePeriod(val label: String) {
+    DAY("This day"), WEEK("This week"), MONTH("This month"), YEAR("This year");
+
+    /** The renderer's [DayCard.PeriodKind] for the roll-up periods; null for the day itself. */
+    fun kind(): DayCard.PeriodKind? = when (this) {
+        DAY -> null
+        WEEK -> DayCard.PeriodKind.WEEK
+        MONTH -> DayCard.PeriodKind.MONTH
+        YEAR -> DayCard.PeriodKind.YEAR
+    }
+}
+
 /**
- * The redesigned modular share dialog. Reads the persisted [DayShareConfig], shows grouped section
- * controls (a Switch per boolean section, a segmented [OptionChips] for the three tri-state choices), and
- * a LIVE bitmap preview that re-renders as the config changes. Sections with no data for the day are
+ * The unified, period-spanning modular share dialog. A top period selector (This day · This week · This
+ * month · This year) swaps between the day config ([DayShareConfig]) and the roll-up config
+ * ([PeriodShareConfig]); a Personal / Professional style toggle is visible for every period. Below is a
+ * LIVE bitmap preview that re-renders as the config, style or period changes, and grouped section controls
+ * (a Switch per boolean section, a segmented [OptionChips] for tri-states). Sections with no data are
  * greyed / hinted, and the renderer skips any enabled-but-empty section so the preview never shows a gap.
- * Every change is persisted immediately (so the choices are remembered), and the actions build the card /
- * text from the day's data and hand off to the FileProvider + ACTION_SEND path (image) or ACTION_SEND
- * text/plain (text). Theme-correct: only MaterialTheme.colorScheme tokens (the card image keeps its own
- * fixed dark palette — it's a rendered PNG).
+ * Every change is persisted immediately; the actions hand off through the same FileProvider + ACTION_SEND
+ * path (image) or ACTION_SEND text/plain (text). Theme-correct: only MaterialTheme.colorScheme tokens (the
+ * card image keeps its own palette — it's a rendered PNG).
  */
 @Composable
 private fun ShareDialog(
-    initial: DayShareConfig,
-    data: DayCard.DayShareData,
-    onPersist: (DayShareConfig) -> Unit,
-    onShareImage: (DayShareConfig) -> Unit,
-    onShareText: (DayShareConfig) -> Unit,
+    initialPeriod: SharePeriod,
+    dayInitial: DayShareConfig,
+    dayData: DayCard.DayShareData,
+    periodInitial: PeriodShareConfig,
+    periodData: Map<DayCard.PeriodKind, DayCard.PeriodShareData>,
+    onPersistDay: (DayShareConfig) -> Unit,
+    onPersistPeriod: (PeriodShareConfig) -> Unit,
+    onShareDayImage: (DayShareConfig) -> Unit,
+    onShareDayText: (DayShareConfig) -> Unit,
+    onSharePeriodImage: (PeriodShareConfig, DayCard.PeriodKind) -> Unit,
+    onSharePeriodText: (PeriodShareConfig, DayCard.PeriodKind) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var cfg by remember { mutableStateOf(initial) }
-    fun update(next: DayShareConfig) { cfg = next; onPersist(next) }
-    // Live preview — a cheap Canvas draw, recomputed whenever the config (or day's data) changes.
-    val preview = remember(cfg, data) { DayCard.renderShare(data, cfg).asImageBitmap() }
+    var period by remember { mutableStateOf(initialPeriod) }
+    var dayCfg by remember { mutableStateOf(dayInitial) }
+    var periodCfg by remember { mutableStateOf(periodInitial) }
+    fun updateDay(next: DayShareConfig) { dayCfg = next; onPersistDay(next) }
+    fun updatePeriod(next: PeriodShareConfig) { periodCfg = next; onPersistPeriod(next) }
+
+    val kind = period.kind()
+    val style = if (kind == null) dayCfg.style else periodCfg.style
+    // Live preview — a cheap Canvas draw, recomputed whenever the period, config or style changes.
+    val preview = remember(period, dayCfg, periodCfg, dayData, periodData) {
+        val pd = kind?.let { periodData[it] }
+        when {
+            kind == null || pd == null -> DayCard.renderShare(dayData, dayCfg)
+            else -> DayCard.renderPeriodShare(pd, periodCfg, kind)
+        }.asImageBitmap()
+    }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(
@@ -1999,78 +2091,143 @@ private fun ShareDialog(
             modifier = Modifier.fillMaxWidth(0.94f).fillMaxHeight(0.9f),
         ) {
             Column(Modifier.fillMaxSize().padding(20.dp)) {
-                Text("Share your day", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(4.dp))
+                Text("Share", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                // Period selector — day + the three reviewed roll-ups.
+                OptionChips(options = SharePeriod.entries, selected = period, onSelect = { period = it }, wrap = false,
+                    label = { it.label })
+                Spacer(Modifier.height(8.dp))
                 Text("Choose what to include. Everything stays on your device until you pick where to send it.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(12.dp))
                 // Live preview of the rendered card.
                 Box(
-                    Modifier.fillMaxWidth().heightIn(max = 240.dp).clip(RoundedCornerShape(16.dp))
+                    Modifier.fillMaxWidth().heightIn(max = 220.dp).clip(RoundedCornerShape(16.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center,
                 ) {
                     Image(
                         bitmap = preview, contentDescription = "Card preview",
                         contentScale = ContentScale.Fit,
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp).padding(8.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 220.dp).padding(8.dp),
                     )
                 }
                 Spacer(Modifier.height(12.dp))
-                // Grouped, scrollable section controls.
+                // Personal / Professional style toggle — visible for every period.
+                ShareStyleToggle(style) { s ->
+                    if (kind == null) updateDay(dayCfg.copy(style = s)) else updatePeriod(periodCfg.copy(style = s))
+                }
+                Spacer(Modifier.height(4.dp))
+                // Grouped, scrollable section controls — the day controls, or the roll-up controls.
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                    ShareGroup("Felt state") {
-                        ShareToggle("Rating", "★ stars", cfg.rating, data.rating in 1..5) { update(cfg.copy(rating = it)) }
-                        ShareToggle("Mood & emotion", "mood, energy, feeling", cfg.moodEnergyEmotion,
-                            data.moodEmoji.isNotBlank() || data.emotion.isNotBlank() || data.energy in 1..5) { update(cfg.copy(moodEnergyEmotion = it)) }
-                    }
-                    ShareGroup("Highlights") {
-                        ShareToggle("Wins", null, cfg.wins, data.wins.isNotEmpty()) { update(cfg.copy(wins = it)) }
-                        ShareToggle("Highlight", null, cfg.highlight, data.highlight.isNotBlank()) { update(cfg.copy(highlight = it)) }
-                        ShareToggle("Grateful for", "three good things", cfg.gratitude, data.gratitude.isNotEmpty()) { update(cfg.copy(gratitude = it)) }
-                        ShareToggle("Lesson", null, cfg.lesson, data.lesson.isNotBlank()) { update(cfg.copy(lesson = it)) }
-                    }
-                    ShareGroup("Reflection") {
-                        ShareToggle("Reflection", null, cfg.reflection, data.reflection.isNotBlank()) { update(cfg.copy(reflection = it)) }
-                        ShareToggle("Themes", "recurring words", cfg.themes, data.themes.isNotEmpty()) { update(cfg.copy(themes = it)) }
-                    }
-                    ShareGroup("Tasks") {
-                        ShareTriState(TaskDetail.entries, cfg.tasks, data.taskCount > 0, "No tasks completed",
-                            { when (it) { TaskDetail.OFF -> "Off"; TaskDetail.COUNT -> "Count"; TaskDetail.FULL -> "Full list" } }) { update(cfg.copy(tasks = it)) }
-                    }
-                    ShareGroup("Habits") {
-                        ShareTriState(HabitDetail.entries, cfg.habits, data.habitsExpected > 0, "No habits due",
-                            { when (it) { HabitDetail.OFF -> "Off"; HabitDetail.COUNT -> "Count"; HabitDetail.DETAILED -> "Detailed" } }) { update(cfg.copy(habits = it)) }
-                    }
-                    ShareGroup("Tracked time") {
-                        ShareTriState(TimeDetail.entries, cfg.time, data.trackedMin > 0, "Nothing tracked",
-                            { when (it) { TimeDetail.OFF -> "Off"; TimeDetail.TOTAL -> "Total"; TimeDetail.DETAILED -> "Detailed" } }) { update(cfg.copy(time = it)) }
-                    }
-                    ShareGroup("Assessments") {
-                        ShareToggle("Daily questions", "answered + scores", cfg.dailyQuestions, data.questions.isNotEmpty()) { update(cfg.copy(dailyQuestions = it)) }
-                        ShareToggle("Alignment", "goals & values", cfg.alignment, data.goalsAdvanced.isNotEmpty() || data.valuesHonored.isNotEmpty()) { update(cfg.copy(alignment = it)) }
-                    }
-                    ShareGroup("Tomorrow") {
-                        ShareToggle("Focus", "the one thing", cfg.tomorrowFocus, data.tomorrowFocus.isNotBlank()) { update(cfg.copy(tomorrowFocus = it)) }
-                        ShareToggle("If-then plan", "obstacle + plan", cfg.woop, data.woopObstacle.isNotBlank() || data.woopPlan.isNotBlank()) { update(cfg.copy(woop = it)) }
-                    }
-                    ShareGroup("Insights") {
-                        ShareToggle("A pattern", "a soft observation", cfg.pattern, data.pattern.isNotBlank()) { update(cfg.copy(pattern = it)) }
-                    }
-                    ShareGroup("Footer") {
-                        ShareToggle("Tagline", "Kairo · 100% offline", cfg.footerTagline, true) { update(cfg.copy(footerTagline = it)) }
+                    if (kind == null) {
+                        DayShareControls(dayCfg, dayData) { updateDay(it) }
+                    } else {
+                        PeriodShareControls(periodCfg, periodData[kind], kind) { updatePeriod(it) }
                     }
                 }
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = onDismiss) { Text("Cancel") }
                     Spacer(Modifier.width(4.dp))
-                    OutlinedButton(onClick = { onShareText(cfg) }) { Text("Share text") }
+                    OutlinedButton(onClick = { if (kind == null) onShareDayText(dayCfg) else onSharePeriodText(periodCfg, kind) }) { Text("Share text") }
                     Spacer(Modifier.width(8.dp))
-                    Button(onClick = { onShareImage(cfg) }) { Text("Share image") }
+                    Button(onClick = { if (kind == null) onShareDayImage(dayCfg) else onSharePeriodImage(periodCfg, kind) }) { Text("Share image") }
                 }
             }
         }
+    }
+}
+
+/** The day card's grouped section controls (extracted so both the unified dialog and any future host can
+ *  reuse the exact same modular UI). */
+@Composable
+private fun DayShareControls(cfg: DayShareConfig, data: DayCard.DayShareData, update: (DayShareConfig) -> Unit) {
+    ShareGroup("Felt state") {
+        ShareToggle("Rating", "★ stars", cfg.rating, data.rating in 1..5) { update(cfg.copy(rating = it)) }
+        ShareToggle("Mood & emotion", "mood, energy, feeling", cfg.moodEnergyEmotion,
+            data.moodEmoji.isNotBlank() || data.emotion.isNotBlank() || data.energy in 1..5) { update(cfg.copy(moodEnergyEmotion = it)) }
+    }
+    ShareGroup("Highlights") {
+        ShareToggle("Wins", null, cfg.wins, data.wins.isNotEmpty()) { update(cfg.copy(wins = it)) }
+        ShareToggle("Highlight", null, cfg.highlight, data.highlight.isNotBlank()) { update(cfg.copy(highlight = it)) }
+        ShareToggle("Grateful for", "three good things", cfg.gratitude, data.gratitude.isNotEmpty()) { update(cfg.copy(gratitude = it)) }
+        ShareToggle("Lesson", null, cfg.lesson, data.lesson.isNotBlank()) { update(cfg.copy(lesson = it)) }
+    }
+    ShareGroup("Reflection") {
+        ShareToggle("Reflection", null, cfg.reflection, data.reflection.isNotBlank()) { update(cfg.copy(reflection = it)) }
+        ShareToggle("Themes", "recurring words", cfg.themes, data.themes.isNotEmpty()) { update(cfg.copy(themes = it)) }
+    }
+    ShareGroup("Tasks") {
+        ShareTriState(TaskDetail.entries, cfg.tasks, data.taskCount > 0, "No tasks completed",
+            { when (it) { TaskDetail.OFF -> "Off"; TaskDetail.COUNT -> "Count"; TaskDetail.FULL -> "Full list" } }) { update(cfg.copy(tasks = it)) }
+    }
+    ShareGroup("Habits") {
+        ShareTriState(HabitDetail.entries, cfg.habits, data.habitsExpected > 0, "No habits due",
+            { when (it) { HabitDetail.OFF -> "Off"; HabitDetail.COUNT -> "Count"; HabitDetail.DETAILED -> "Detailed" } }) { update(cfg.copy(habits = it)) }
+    }
+    ShareGroup("Tracked time") {
+        ShareTriState(TimeDetail.entries, cfg.time, data.trackedMin > 0, "Nothing tracked",
+            { when (it) { TimeDetail.OFF -> "Off"; TimeDetail.TOTAL -> "Total"; TimeDetail.DETAILED -> "Detailed" } }) { update(cfg.copy(time = it)) }
+    }
+    ShareGroup("Assessments") {
+        ShareToggle("Daily questions", "answered + scores", cfg.dailyQuestions, data.questions.isNotEmpty()) { update(cfg.copy(dailyQuestions = it)) }
+        ShareToggle("Alignment", "goals & values", cfg.alignment, data.goalsAdvanced.isNotEmpty() || data.valuesHonored.isNotEmpty()) { update(cfg.copy(alignment = it)) }
+    }
+    ShareGroup("Tomorrow") {
+        ShareToggle("Focus", "the one thing", cfg.tomorrowFocus, data.tomorrowFocus.isNotBlank()) { update(cfg.copy(tomorrowFocus = it)) }
+        ShareToggle("If-then plan", "obstacle + plan", cfg.woop, data.woopObstacle.isNotBlank() || data.woopPlan.isNotBlank()) { update(cfg.copy(woop = it)) }
+    }
+    ShareGroup("Insights") {
+        ShareToggle("A pattern", "a soft observation", cfg.pattern, data.pattern.isNotBlank()) { update(cfg.copy(pattern = it)) }
+    }
+    ShareGroup("Footer") {
+        ShareToggle("Tagline", "Kairo · 100% offline", cfg.footerTagline, true) { update(cfg.copy(footerTagline = it)) }
+    }
+}
+
+/** The roll-up card's grouped section controls, tailored to the selected [kind] (the execution score is a
+ *  week-only measure; goals are hidden for the year). Sections with no data for the period are greyed. */
+@Composable
+private fun PeriodShareControls(cfg: PeriodShareConfig, data: DayCard.PeriodShareData?, kind: DayCard.PeriodKind, update: (PeriodShareConfig) -> Unit) {
+    ShareGroup("Felt") {
+        ShareToggle("Rating & mood", "averages over the period", cfg.feltTrend, (data?.avgRating ?: 0.0) > 0 || (data?.avgMood ?: 0.0) > 0) { update(cfg.copy(feltTrend = it)) }
+        if (kind == DayCard.PeriodKind.WEEK) {
+            ShareToggle("Execution score", "planned vs done", cfg.executionScore, data?.hasExec == true) { update(cfg.copy(executionScore = it)) }
+        }
+    }
+    ShareGroup(if (kind == DayCard.PeriodKind.YEAR) "Highlight" else "Wins") {
+        ShareToggle(if (kind == DayCard.PeriodKind.YEAR) "Highlights" else "Wins", null, cfg.wins,
+            (data?.wins?.isNotEmpty() == true) || (data?.highlight?.isNotBlank() == true) || (data?.winsCount ?: 0) > 0) { update(cfg.copy(wins = it)) }
+    }
+    ShareGroup("Habits") {
+        ShareTriState(HabitDetail.entries, cfg.habits, (data?.habitsExpected ?: 0) > 0, "No habits tracked",
+            { when (it) { HabitDetail.OFF -> "Off"; HabitDetail.COUNT -> "Count"; HabitDetail.DETAILED -> "Detailed" } }) { update(cfg.copy(habits = it)) }
+    }
+    ShareGroup("Tracked time") {
+        ShareTriState(TimeDetail.entries, cfg.time, (data?.trackedMin ?: 0) > 0, "Nothing tracked",
+            { when (it) { TimeDetail.OFF -> "Off"; TimeDetail.TOTAL -> "Total"; TimeDetail.DETAILED -> "Detailed" } }) { update(cfg.copy(time = it)) }
+    }
+    ShareGroup("Progress") {
+        ShareToggle("Tasks done", "completed count", cfg.tasks, (data?.tasksDone ?: 0) > 0) { update(cfg.copy(tasks = it)) }
+        if (kind != DayCard.PeriodKind.YEAR) {
+            ShareToggle("Goals advanced", null, cfg.goals, data?.goals?.isNotEmpty() == true) { update(cfg.copy(goals = it)) }
+        }
+        ShareToggle("Themes", "recurring words", cfg.themes, data?.themes?.isNotEmpty() == true) { update(cfg.copy(themes = it)) }
+    }
+    ShareGroup("Footer") {
+        ShareToggle("Tagline", "Kairo · 100% offline", cfg.footerTagline, true) { update(cfg.copy(footerTagline = it)) }
+    }
+}
+
+/** The Personal / Professional style toggle — the one control that reshapes the whole card. */
+@Composable
+private fun ShareStyleToggle(style: ShareStyle, onChange: (ShareStyle) -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text("Style", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(end = 10.dp))
+        OptionChips(options = listOf(ShareStyle.PERSONAL, ShareStyle.PROFESSIONAL), selected = style, onSelect = onChange,
+            wrap = false, label = { if (it == ShareStyle.PERSONAL) "Personal" else "Professional" })
     }
 }
 
@@ -2149,11 +2306,10 @@ private fun RangeRollup(
     onAnchorChange: (Long) -> Unit,
     onOpenDay: (Long) -> Unit,
     onOpenYearReview: () -> Unit,
+    onSharePeriod: (SharePeriod) -> Unit,
 ) {
     val date = LocalDate.ofEpochDay(anchor)
     val today = LocalDate.ofEpochDay(todayEd)
-    val ctx = LocalContext.current
-    val accentArgb = MaterialTheme.colorScheme.primary.toArgb().toLong()
 
     // Resolve the window, label, relative caption and the prev/next anchors for this range.
     val start: Long
@@ -2203,26 +2359,13 @@ private fun RangeRollup(
             Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
         IconButton(onClick = { if (canNext) onAnchorChange(nextAnchor) }, enabled = canNext) { Icon(Icons.Filled.ChevronRight, "Next ${mode.label.lowercase()}") }
-        // Phase F — share this period as an on-device PNG card (permission-free), mirroring the day share.
+        // Share this period through the unified, modular share flow (preselected to this period), so it
+        // gets the modern marks + boxed tiles and the Personal / Professional option — routed through
+        // DayCard.renderPeriodShare via the shared FileProvider path.
         if (rollup.hasData) {
-            IconButton(onClick = {
-                val reviewedSet = dayLogs.asSequence().filter { ReviewCadence.isReviewed(it) }.map { it.epochDay }.toSet()
-                val streak = ReviewCadence.computeStreak(reviewedSet, emptySet(), end, 0).streak
-                val wd = DayCard.WeekData(
-                    rangeLabel = label,
-                    reviewedDays = rollup.reviewedDays,
-                    periodDays = rollup.periodDays,
-                    avgRating = rollup.avgRating,
-                    streak = streak,
-                    topWin = rollup.wins.firstOrNull()?.text ?: "",
-                    accentArgb = accentArgb,
-                )
-                runCatching {
-                    val bmp = DayCard.renderWeek(wd)
-                    val res = ProgressCard.saveAndShareUri(ctx, bmp, "kairo-week-$start.png")
-                    res.shareUri?.let { ProgressCard.share(ctx, it) }
-                }
-            }) { Icon(Icons.Filled.Share, "Share ${mode.label.lowercase()}") }
+            IconButton(onClick = { onSharePeriod(if (mode == ReviewRange.WEEK) SharePeriod.WEEK else SharePeriod.MONTH) }) {
+                Icon(Icons.Filled.Share, "Share ${mode.label.lowercase()}")
+            }
         }
     }
     Spacer(Modifier.height(12.dp))
@@ -2512,6 +2655,80 @@ private fun oneDp(v: Double): String = String.format(Locale.US, "%.1f", v)
 private fun formatHm(m: Int): String = if (m >= 60) "${m / 60}h ${m % 60}m" else "${m}m"
 
 private fun moodFace(v: Int): String = when (v.coerceIn(0, 5)) { 1 -> "😞"; 2 -> "🙁"; 3 -> "😐"; 4 -> "🙂"; 5 -> "😄"; else -> "😐" }
+
+// ── Modular period-share mappers: fold a computed roll-up / year recap into the renderer's PeriodShareData ──
+
+/** The period's three recurring theme words, extracted on-device from the window's own reflections (the
+ *  same idiom the on-screen roll-up uses). */
+private fun shareThemesFor(start: Long, end: Long, dayLogs: List<com.todocompanion.app.data.entity.DayLogEntity>): List<String> {
+    val docs = dayLogs.asSequence().filter { it.epochDay in start..end }.map { l ->
+        listOf(l.pmReflection, l.highlight, l.gratitude, l.lesson, l.good1, l.good2, l.good3, l.promptAnswer, l.amIntention)
+            .filter { it.isNotBlank() }.joinToString(" ")
+    }.filter { it.isNotBlank() }.toList()
+    return TextInsights.threeWords(docs)
+}
+
+/** Map a week / month [ReviewRollup.Rollup] (+ its execution score) to the renderer's data model. */
+private fun periodDataFromRollup(
+    label: String,
+    rollup: ReviewRollup.Rollup,
+    exec: ExecutionScore.Score,
+    themes: List<String>,
+    accent: Long?,
+): DayCard.PeriodShareData = DayCard.PeriodShareData(
+    periodLabel = label,
+    reviewedDays = rollup.reviewedDays,
+    periodDays = rollup.periodDays,
+    avgRating = rollup.avgRating,
+    avgMood = rollup.avgMood,
+    moodFace = if (rollup.moodCount > 0) moodFace(rollup.avgMood.roundToInt()) else "",
+    hasExec = exec.hasData,
+    execPlanned = exec.planned,
+    execCompleted = exec.completed,
+    execPct = exec.pct,
+    wins = rollup.wins.map { it.text },
+    winsCount = 0,
+    highlight = "",
+    habits = rollup.habitConsistency.map { DayCard.ConsistencyLine(it.name, it.kept, it.expected) },
+    habitsKept = rollup.habitConsistency.sumOf { it.kept },
+    habitsExpected = rollup.habitConsistency.sumOf { it.expected },
+    activities = rollup.topActivities.map { DayCard.ActivityLine(it.name, it.minutes) },
+    trackedMin = rollup.topActivities.sumOf { it.minutes },
+    goals = rollup.goalsMoved.map { it.text + (if (it.count > 1) " · ${it.count} days" else "") },
+    themes = themes,
+    tasksDone = exec.doneTasks,
+    accentArgb = accent,
+)
+
+/** Map a [YearReviewed.Recap] to the renderer's data model (a highlight + counts rather than win texts). */
+private fun periodDataFromYear(
+    recap: YearReviewed.Recap,
+    themes: List<String>,
+    accent: Long?,
+): DayCard.PeriodShareData = DayCard.PeriodShareData(
+    periodLabel = "The last 12 months",
+    reviewedDays = recap.daysReviewed,
+    periodDays = recap.periodDays,
+    avgRating = recap.avgRating,
+    avgMood = recap.avgMood,
+    moodFace = if (recap.moodDays > 0) moodFace(recap.avgMood.roundToInt()) else "",
+    hasExec = false,
+    execPlanned = 0,
+    execCompleted = 0,
+    execPct = 0,
+    wins = emptyList(),
+    winsCount = recap.winsCount,
+    highlight = recap.highlightText,
+    habits = recap.habitConsistency.map { DayCard.ConsistencyLine(it.name, it.kept, it.expected) },
+    habitsKept = recap.habitConsistency.sumOf { it.kept },
+    habitsExpected = recap.habitConsistency.sumOf { it.expected },
+    activities = recap.topActivities.map { DayCard.ActivityLine(it.name, it.minutes) },
+    trackedMin = recap.trackedMinutes,
+    goals = emptyList(),
+    themes = themes,
+    tasksDone = recap.tasksFinished,
+    accentArgb = accent,
+)
 
 /** A compact week label: "1–7 Sep", or "28 Aug – 3 Sep" when the week straddles two months. */
 private fun weekLabel(a: LocalDate, b: LocalDate): String {
@@ -2814,6 +3031,7 @@ private fun YearReviewedScreen(
     timeEntries: List<com.todocompanion.app.data.entity.TimeEntryEntity>,
     activities: List<com.todocompanion.app.data.entity.TimeActivityEntity>,
     accentArgb: Long?,
+    periodShareCfg: PeriodShareConfig,
     onBack: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
@@ -2836,21 +3054,13 @@ private fun YearReviewedScreen(
         return
     }
 
+    // Route the year share through the modular DayCard.renderPeriodShare, honouring the saved period-share
+    // config (including the Personal / Professional style). The full modular flow with live toggles is
+    // reachable from the day review's share (This year); this button is the one-tap share from the screen.
     fun shareYear() {
         runCatching {
-            val yd = DayCard.YearData(
-                yearLabel = "My year",
-                daysReviewed = recap.daysReviewed,
-                avgRating = recap.avgRating,
-                trackedHours = recap.trackedHours,
-                longestStreak = recap.longestStreakDays,
-                winsCount = recap.winsCount,
-                topActivity = recap.topActivities.firstOrNull()?.name ?: "",
-                topEmotion = recap.topEmotionWord,
-                highlight = recap.highlightText,
-                accentArgb = accentArgb,
-            )
-            val bmp = DayCard.renderYear(yd)
+            val pd = periodDataFromYear(recap, shareThemesFor(start, end, dayLogs), accentArgb)
+            val bmp = DayCard.renderPeriodShare(pd, periodShareCfg, DayCard.PeriodKind.YEAR)
             val res = ProgressCard.saveAndShareUri(ctx, bmp, "kairo-year-$end.png")
             res.shareUri?.let { ProgressCard.share(ctx, it) }
         }
