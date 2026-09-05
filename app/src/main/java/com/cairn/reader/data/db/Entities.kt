@@ -26,6 +26,7 @@ data class SourceEntity(
     val openIn: String = "READER",
     val fullTextByDefault: Boolean = false,
     val notify: Boolean = false,
+    val isPodcast: Boolean = false,
     val faviconUrl: String? = null,
     val etag: String? = null,
     val lastModified: String? = null,

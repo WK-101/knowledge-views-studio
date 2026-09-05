@@ -38,6 +38,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
@@ -129,6 +130,7 @@ fun CairnApp(
     val audioState by inboxViewModel.audio.collectAsStateWithLifecycle()
     var showViewMenu by remember { mutableStateOf(false) }
     var showFilterMenu by remember { mutableStateOf(false) }
+    var showMarkMenu by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -196,8 +198,20 @@ fun CairnApp(
                             }
                         }
                         if (inboxState.unread > 0) {
-                            IconButton(onClick = { inboxViewModel.markAllRead() }) {
-                                Icon(Icons.Outlined.DoneAll, contentDescription = "Mark all read")
+                            Box {
+                                IconButton(onClick = { showMarkMenu = true }) {
+                                    Icon(Icons.Outlined.DoneAll, contentDescription = "Mark read")
+                                }
+                                DropdownMenu(expanded = showMarkMenu, onDismissRequest = { showMarkMenu = false }) {
+                                    DropdownMenuItem(
+                                        text = { Text("Mark all read") },
+                                        onClick = { inboxViewModel.markAllRead(); showMarkMenu = false },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Older than 7 days") },
+                                        onClick = { inboxViewModel.markOlderThan7dRead(); showMarkMenu = false },
+                                    )
+                                }
                             }
                         }
                         Box {
@@ -408,6 +422,8 @@ private fun InboxScreen(
             onOpenOriginal = { onOpenWeb(row.url) },
             onDismiss = { sheetRow = null },
             onSaveOffline = { viewModel.saveOffline(row.id) },
+            onMarkAbove = { viewModel.markAboveRead(row) },
+            onMarkBelow = { viewModel.markBelowRead(row) },
         )
     }
 }

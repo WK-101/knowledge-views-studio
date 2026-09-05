@@ -125,6 +125,13 @@ class ItemRepository @Inject constructor(
         itemDao.markScopeRead(sourceId, folder, clock())
     }
 
+    /** Mark items newer/older than a reference time read (for above/below and age triage). */
+    suspend fun markReadNewerThan(sourceId: String?, folder: String?, cutoff: Long) =
+        itemDao.markReadNewerThan(sourceId, folder, cutoff, clock())
+
+    suspend fun markReadOlderThan(sourceId: String?, folder: String?, cutoff: Long) =
+        itemDao.markReadOlderThan(sourceId, folder, cutoff, clock())
+
     suspend fun setStarred(id: String, starred: Boolean) {
         val now = clock()
         itemDao.setStarred(id, starred, now)

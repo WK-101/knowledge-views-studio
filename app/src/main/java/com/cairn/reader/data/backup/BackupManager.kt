@@ -64,7 +64,7 @@ class BackupManager @Inject constructor(
     private fun SourceEntity.toJson() = JSONObject().apply {
         put("id", id); put("kind", kind); put("feedUrl", feedUrl); putOpt("siteUrl", siteUrl)
         put("title", title); putOpt("folder", folder); put("openIn", openIn)
-        put("fullTextByDefault", fullTextByDefault); put("notify", notify); putOpt("faviconUrl", faviconUrl)
+        put("fullTextByDefault", fullTextByDefault); put("notify", notify); put("isPodcast", isPodcast); putOpt("faviconUrl", faviconUrl)
         putOpt("remoteId", remoteId); put("sortOrder", sortOrder)
     }
 
@@ -72,7 +72,7 @@ class BackupManager @Inject constructor(
         id = getString("id"), kind = optString("kind", "RSS"), feedUrl = getString("feedUrl"),
         siteUrl = optStringOrNull("siteUrl"), title = optString("title", ""), folder = optStringOrNull("folder"),
         openIn = optString("openIn", "READER"), fullTextByDefault = optBoolean("fullTextByDefault"),
-        notify = optBoolean("notify"), faviconUrl = optStringOrNull("faviconUrl"),
+        notify = optBoolean("notify"), isPodcast = optBoolean("isPodcast"), faviconUrl = optStringOrNull("faviconUrl"),
         remoteId = optStringOrNull("remoteId"), sortOrder = optInt("sortOrder"),
     )
 

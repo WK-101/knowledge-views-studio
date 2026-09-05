@@ -47,11 +47,13 @@ fun FeedSettingsSheet(
     onDismiss: () -> Unit,
     onRename: (String) -> Unit = {},
     onOpenSite: (() -> Unit)? = null,
+    onPodcast: (Boolean) -> Unit = {},
 ) {
     var title by remember(source.id) { mutableStateOf(source.title) }
     var folder by remember(source.id) { mutableStateOf(source.folder.orEmpty()) }
     var fullText by remember(source.id) { mutableStateOf(source.fullTextByDefault) }
     var notify by remember(source.id) { mutableStateOf(source.notify) }
+    var podcast by remember(source.id) { mutableStateOf(source.isPodcast) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp)) {
@@ -101,6 +103,14 @@ fun FeedSettingsSheet(
                     Text("Notify when this feed has new articles", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = notify, onCheckedChange = { notify = it; onNotify(it) })
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("This is a podcast", style = MaterialTheme.typography.bodyLarge)
+                    Text("Treat new items as audio episodes (shown under Podcasts)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = podcast, onCheckedChange = { podcast = it; onPodcast(it) })
             }
 
             Spacer(Modifier.height(16.dp))

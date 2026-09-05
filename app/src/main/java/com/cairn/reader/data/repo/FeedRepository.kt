@@ -150,12 +150,15 @@ class FeedRepository @Inject constructor(
      *  sync can raise notifications; foreground callers can ignore the result. */
     suspend fun syncAll(): List<com.cairn.reader.notifications.NewArticle> {
         val now = System.currentTimeMillis()
-        val limit = runCatching { preferencesRepository.preferences.first().maxItemsPerFeed }.getOrDefault(0)
+        val prefs = runCatching { preferencesRepository.preferences.first() }.getOrNull()
+        val limit = prefs?.maxItemsPerFeed ?: 0
+        val maxAgeDays = prefs?.maxAgeDays ?: 0
         val fresh = mutableListOf<com.cairn.reader.notifications.NewArticle>()
         sourceDao.getAll().forEach { source ->
             runCatching { syncSource(source, now, if (source.notify) fresh else null) }
             if (limit > 0) runCatching { pruneSource(source.id, limit) }
         }
+        if (maxAgeDays > 0) runCatching { pruneOlderThan(now - maxAgeDays * 86_400_000L) }
         return fresh
     }
 
@@ -164,13 +167,20 @@ class FeedRepository @Inject constructor(
     private suspend fun pruneSource(sourceId: String, limit: Int) {
         val over = itemDao.countBySource(sourceId) - limit
         if (over <= 0) return
-        itemDao.prunableOldestFirst(sourceId).take(over).forEach { id ->
-            val e = itemDao.getItem(id)
-            blobStore.deleteAllFor(id, e?.blobPath)
-            itemDao.deleteFts(id)
-            itemDao.deleteItem(id)
-            syncDao.tombstone(TombstoneEntity(itemId = id, deletedAt = System.currentTimeMillis()))
-        }
+        itemDao.prunableOldestFirst(sourceId).take(over).forEach { deleteItemFully(it) }
+    }
+
+    /** Age-based retention: drop un-engaged items older than [cutoff] across all feeds. */
+    private suspend fun pruneOlderThan(cutoff: Long) {
+        itemDao.prunableOlderThan(cutoff).forEach { deleteItemFully(it) }
+    }
+
+    private suspend fun deleteItemFully(id: String) {
+        val e = itemDao.getItem(id)
+        blobStore.deleteAllFor(id, e?.blobPath)
+        itemDao.deleteFts(id)
+        itemDao.deleteItem(id)
+        syncDao.tombstone(TombstoneEntity(itemId = id, deletedAt = System.currentTimeMillis()))
     }
 
     /** True when the active network is un-metered (Wi-Fi/Ethernet). Defaults to true if unknown,
@@ -231,7 +241,7 @@ class FeedRepository @Inject constructor(
                 publishedAt = p.publishedAt,
                 savedAt = now,
                 sourceId = source.id,
-                type = if (!p.audioUrl.isNullOrBlank()) "AUDIO" else detectType(p.link, hasBody = !content.isNullOrBlank()),
+                type = if (!p.audioUrl.isNullOrBlank() || source.isPodcast) "AUDIO" else detectType(p.link, hasBody = !content.isNullOrBlank()),
                 excerpt = excerpt,
                 leadImage = lead,
                 wordCount = words,

@@ -123,12 +123,33 @@ fun OfflineScreen(
                         )
                     }
                 }
+                Spacer(Modifier.height(14.dp))
+                Text("Delete older than", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "Also drop un-engaged items past this age on sync. Kept items are never deleted.",
+                    style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                ) {
+                    AgeOptions.forEach { d ->
+                        FilterChip(
+                            selected = prefs.maxAgeDays == d,
+                            onClick = { viewModel.setMaxAgeDays(d) },
+                            label = { Text(if (d == 0) "Never" else "$d days") },
+                        )
+                    }
+                }
             }
         }
     }
 }
 
 private val KeepOptions = listOf(0, 50, 100, 200, 500)
+private val AgeOptions = listOf(0, 7, 14, 30, 90)
 
 private fun formatBytes(bytes: Long): String = when {
     bytes < 1024 -> "$bytes B"

@@ -142,6 +142,7 @@ fun FeedsScreen(
             onFolder = { viewModel.setFolder(source.id, it) },
             onFullText = { viewModel.setFullText(source.id, it) },
             onNotify = { viewModel.setNotify(source.id, it) },
+            onPodcast = { viewModel.setPodcast(source.id, it) },
             onOpenSite = { source.siteUrl?.let(onOpenWeb) },
             onRemove = { viewModel.delete(source.id) },
             onDismiss = { editing = null },

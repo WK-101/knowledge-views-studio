@@ -41,6 +41,9 @@ interface SourceDao {
     @Query("UPDATE sources SET notify = :enabled WHERE id = :id")
     suspend fun setNotify(id: String, enabled: Boolean)
 
+    @Query("UPDATE sources SET isPodcast = :enabled WHERE id = :id")
+    suspend fun setPodcast(id: String, enabled: Boolean)
+
     @Query("SELECT DISTINCT folder FROM sources WHERE folder IS NOT NULL AND folder != '' ORDER BY folder COLLATE NOCASE")
     fun observeFolders(): Flow<List<String>>
 

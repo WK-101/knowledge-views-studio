@@ -185,6 +185,27 @@ class InboxViewModel @Inject constructor(
         _snacks.emit(Snack("Marked all read"))
     }
 
+    private fun scopeSource() = (_selection.value as? DrawerSelection.Feed)?.sourceId
+    private fun scopeFolder() = (_selection.value as? DrawerSelection.Folder)?.name
+
+    /** Mark everything newer than [row] (above it in the newest-first list) read. */
+    fun markAboveRead(row: ItemListRow) = viewModelScope.launch {
+        itemRepository.markReadNewerThan(scopeSource(), scopeFolder(), row.publishedAt ?: row.savedAt)
+        _snacks.emit(Snack("Marked newer items read"))
+    }
+
+    /** Mark everything older than [row] (below it) read. */
+    fun markBelowRead(row: ItemListRow) = viewModelScope.launch {
+        itemRepository.markReadOlderThan(scopeSource(), scopeFolder(), row.publishedAt ?: row.savedAt)
+        _snacks.emit(Snack("Marked older items read"))
+    }
+
+    /** Mark items older than 7 days read, within the current scope. */
+    fun markOlderThan7dRead() = viewModelScope.launch {
+        itemRepository.markReadOlderThan(scopeSource(), scopeFolder(), System.currentTimeMillis() - 7 * 86_400_000L)
+        _snacks.emit(Snack("Marked items older than 7 days read"))
+    }
+
     /** Mark a specific feed or folder read from the drawer's long-press menu. */
     fun markFeedRead(sourceId: String) = viewModelScope.launch {
         itemRepository.markAllRead(sourceId = sourceId, folder = null)

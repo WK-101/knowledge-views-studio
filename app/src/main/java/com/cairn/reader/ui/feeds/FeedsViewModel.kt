@@ -47,6 +47,7 @@ class FeedsViewModel @Inject constructor(
     fun setFolder(id: String, folder: String?) = viewModelScope.launch { sourceRepository.setFolder(id, folder) }
     fun setFullText(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setFullText(id, enabled) }
     fun setNotify(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setNotify(id, enabled) }
+    fun setPodcast(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setPodcast(id, enabled) }
     fun delete(id: String) = viewModelScope.launch {
         sourceRepository.delete(id)
         _snacks.emit("Feed removed")

@@ -8,6 +8,7 @@ import com.cairn.reader.data.db.HighlightDao
 import com.cairn.reader.data.db.ItemDao
 import com.cairn.reader.data.db.MIGRATION_1_2
 import com.cairn.reader.data.db.MIGRATION_2_3
+import com.cairn.reader.data.db.MIGRATION_3_4
 import com.cairn.reader.data.db.SourceDao
 import com.cairn.reader.data.db.SyncDao
 import com.cairn.reader.data.db.TagDao
@@ -26,7 +27,7 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): CairnDatabase =
         Room.databaseBuilder(context, CairnDatabase::class.java, "cairn.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .fallbackToDestructiveMigration()
             .build()
 

@@ -24,6 +24,8 @@ import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkRemove
 import androidx.compose.material.icons.outlined.DownloadForOffline
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.MarkEmailRead
 import androidx.compose.material.icons.outlined.MarkEmailUnread
 import androidx.compose.material.icons.outlined.OfflinePin
@@ -131,6 +133,8 @@ fun ItemActionSheet(
     onOpenOriginal: () -> Unit,
     onDismiss: () -> Unit,
     onSaveOffline: (() -> Unit)? = null,
+    onMarkAbove: (() -> Unit)? = null,
+    onMarkBelow: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
@@ -154,6 +158,13 @@ fun ItemActionSheet(
                 icon = if (row.isRead) Icons.Outlined.MarkEmailUnread else Icons.Outlined.MarkEmailRead,
                 label = if (row.isRead) "Mark as unread" else "Mark as read",
             ) { onMarkRead(!row.isRead); onDismiss() }
+
+            if (onMarkAbove != null) {
+                ActionItem(icon = Icons.Outlined.KeyboardArrowUp, label = "Mark newer as read") { onMarkAbove(); onDismiss() }
+            }
+            if (onMarkBelow != null) {
+                ActionItem(icon = Icons.Outlined.KeyboardArrowDown, label = "Mark older as read") { onMarkBelow(); onDismiss() }
+            }
 
             ActionItem(
                 icon = if (row.isStarred) Icons.Outlined.Star else Icons.Outlined.StarBorder,

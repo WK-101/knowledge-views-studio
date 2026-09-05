@@ -221,6 +221,48 @@ interface ItemDao {
     )
     suspend fun markScopeRead(sourceId: String?, folder: String?, ts: Long)
 
+    /** Mark unread items in a scope that are newer than [cutoff] (the effective sort key). */
+    @Query(
+        """
+        UPDATE item_states SET isRead = 1, updatedAt = :ts
+        WHERE COALESCE(isRead, 0) = 0 AND COALESCE(isArchived, 0) = 0
+          AND itemId IN (
+            SELECT i.id FROM items i LEFT JOIN sources src ON src.id = i.sourceId
+            WHERE (:sourceId IS NULL OR i.sourceId = :sourceId) AND (:folder IS NULL OR src.folder = :folder)
+              AND COALESCE(i.publishedAt, i.savedAt) > :cutoff
+          )
+        """
+    )
+    suspend fun markReadNewerThan(sourceId: String?, folder: String?, cutoff: Long, ts: Long)
+
+    /** Mark unread items in a scope that are older than [cutoff]. */
+    @Query(
+        """
+        UPDATE item_states SET isRead = 1, updatedAt = :ts
+        WHERE COALESCE(isRead, 0) = 0 AND COALESCE(isArchived, 0) = 0
+          AND itemId IN (
+            SELECT i.id FROM items i LEFT JOIN sources src ON src.id = i.sourceId
+            WHERE (:sourceId IS NULL OR i.sourceId = :sourceId) AND (:folder IS NULL OR src.folder = :folder)
+              AND COALESCE(i.publishedAt, i.savedAt) < :cutoff
+          )
+        """
+    )
+    suspend fun markReadOlderThan(sourceId: String?, folder: String?, cutoff: Long, ts: Long)
+
+    /** Prunable items (nothing the user engaged with) older than [cutoff], for age retention. */
+    @Query(
+        """
+        SELECT i.id FROM items i
+        LEFT JOIN item_states s ON s.itemId = i.id
+        WHERE COALESCE(s.isStarred, 0) = 0 AND COALESCE(s.isReadLater, 0) = 0
+          AND COALESCE(s.isArchived, 0) = 0 AND i.collectionId IS NULL
+          AND (i.cacheStatus IS NULL OR i.cacheStatus <> 'PERMANENT')
+          AND NOT EXISTS (SELECT 1 FROM highlights h WHERE h.itemId = i.id)
+          AND COALESCE(i.publishedAt, i.savedAt) < :cutoff
+        """
+    )
+    suspend fun prunableOlderThan(cutoff: Long): List<String>
+
     @Query("UPDATE item_states SET isStarred = :starred, updatedAt = :ts WHERE itemId = :id")
     suspend fun setStarred(id: String, starred: Boolean, ts: Long)
 

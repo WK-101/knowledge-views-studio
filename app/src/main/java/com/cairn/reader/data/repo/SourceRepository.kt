@@ -17,6 +17,7 @@ class SourceRepository @Inject constructor(
     suspend fun setFolder(id: String, folder: String?) = sourceDao.setFolder(id, folder?.trim()?.ifBlank { null })
     suspend fun setFullText(id: String, enabled: Boolean) = sourceDao.setFullText(id, enabled)
     suspend fun setNotify(id: String, enabled: Boolean) = sourceDao.setNotify(id, enabled)
+    suspend fun setPodcast(id: String, enabled: Boolean) = sourceDao.setPodcast(id, enabled)
 
     suspend fun delete(id: String) = sourceDao.delete(id)
 }
