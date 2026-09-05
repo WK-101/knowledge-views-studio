@@ -73,6 +73,7 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -435,7 +436,16 @@ fun CairnApp(
                             "reader/{itemId}",
                             arguments = listOf(navArgument("itemId") { type = NavType.StringType }),
                         ) {
-                            ReaderScreen(onBack = { detailNav.popBackStack() }, onOpenWeb = onOpenWeb)
+                            ReaderScreen(
+                                onBack = { detailNav.popBackStack() },
+                                onOpenWeb = onOpenWeb,
+                                onOpenItem = { neighbor ->
+                                    detailNav.navigate("reader/$neighbor") {
+                                        popUpTo("reader/{itemId}") { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                },
+                            )
                         }
                     }
                 }
@@ -494,9 +504,26 @@ private fun InboxScreen(
     val feeds by viewModel.feeds.collectAsStateWithLifecycle()
     val selection by viewModel.selection.collectAsStateWithLifecycle()
     val picked by viewModel.picked.collectAsStateWithLifecycle()
+    val markReadOnScroll by viewModel.markReadOnScroll.collectAsStateWithLifecycle()
     val selecting = picked.isNotEmpty()
     var sheetRow by remember { mutableStateOf<ItemListRow?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+
+    // Mark-as-read-on-scroll: as items pass above the top of the list, mark them read (no undo
+    // spam). LazyColumn's key-based anchoring keeps the visible content from jumping when read
+    // items drop out of the Unread lens.
+    if (markReadOnScroll) {
+        LaunchedEffect(listState, state.items) {
+            snapshotFlow { listState.firstVisibleItemIndex }
+                .collect { first ->
+                    if (first > 0) {
+                        val toMark = state.items.take(first).filter { !it.isRead }.map { it.id }
+                        if (toMark.isNotEmpty()) viewModel.markReadSilent(toMark)
+                    }
+                }
+        }
+    }
 
     // A swipe action that needs UI context (share / open in browser) is handled here; the rest
     // are pure data changes the ViewModel owns.
@@ -590,13 +617,19 @@ private fun InboxScreen(
                 EmptyState(state.filter)
             } else {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(top = 2.dp, bottom = padding.calculateBottomPadding() + 96.dp),
                 ) {
                     items(state.items, key = { it.id }) { row ->
                         SwipeableItemRow(
                             row = row,
-                            onOpen = { if (selecting) viewModel.togglePick(row.id) else onOpenItem(row.id) },
+                            onOpen = {
+                                if (selecting) viewModel.togglePick(row.id) else {
+                                    com.cairn.reader.ui.reader.ReaderQueue.set(state.items.map { it.id })
+                                    onOpenItem(row.id)
+                                }
+                            },
                             onLongPress = { if (selecting) viewModel.togglePick(row.id) else sheetRow = row },
                             selected = row.id in picked,
                             swipeEnabled = !selecting,

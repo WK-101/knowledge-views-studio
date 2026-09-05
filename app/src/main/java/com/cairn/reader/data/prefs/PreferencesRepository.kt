@@ -109,6 +109,20 @@ data class AppPreferences(
     /** Whether text-to-speech (Listen) is offered at all — the Inbox "Listen to all" button and the
      *  reader's read-aloud. Off hides those controls for people who never use them. */
     val ttsEnabled: Boolean = true,
+    /** Strip tracking / analytics parameters (utm_*, fbclid, gclid, …) from links Cairn stores,
+     *  opens, and shares. On by default — Cairn is privacy-first. */
+    val stripTrackingParams: Boolean = true,
+    /** Auto-mark items read as they scroll up out of view in the Inbox. Off by default. */
+    val markReadOnScroll: Boolean = false,
+    // -- Fine reading typography (reader) --
+    /** Extra line height multiplier applied on top of the base (1.0 = default). */
+    val readerLineHeight: Float = 1.0f,
+    /** Letter spacing in em (0 = default). */
+    val readerLetterSpacing: Float = 0f,
+    /** Extra spacing between paragraphs, in dp. */
+    val readerParagraphSpacing: Int = 8,
+    /** Content measure: max text width in dp (0 = fill available width). */
+    val readerMeasure: Int = 0,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -157,6 +171,12 @@ class PreferencesRepository @Inject constructor(
         val TRASH_RETENTION_DAYS = intPreferencesKey("trash_retention_days")
         val TTS_ENABLED = booleanPreferencesKey("tts_enabled")
         val BOTTOM_TABS_ORDER = stringPreferencesKey("bottom_tabs_order")
+        val STRIP_TRACKING = booleanPreferencesKey("strip_tracking_params")
+        val MARK_READ_ON_SCROLL = booleanPreferencesKey("mark_read_on_scroll")
+        val READER_LINE_HEIGHT = androidx.datastore.preferences.core.floatPreferencesKey("reader_line_height")
+        val READER_LETTER_SPACING = androidx.datastore.preferences.core.floatPreferencesKey("reader_letter_spacing")
+        val READER_PARA_SPACING = intPreferencesKey("reader_paragraph_spacing")
+        val READER_MEASURE = intPreferencesKey("reader_measure")
     }
 
     /** Per-scope view entries are stored as "scopeKey<sep>MODE" in a string set. */
@@ -211,6 +231,12 @@ class PreferencesRepository @Inject constructor(
             backupIncludeOffline = p[Keys.BACKUP_INCLUDE_OFFLINE] ?: false,
             trashRetentionDays = p[Keys.TRASH_RETENTION_DAYS] ?: 30,
             ttsEnabled = p[Keys.TTS_ENABLED] ?: true,
+            stripTrackingParams = p[Keys.STRIP_TRACKING] ?: true,
+            markReadOnScroll = p[Keys.MARK_READ_ON_SCROLL] ?: false,
+            readerLineHeight = p[Keys.READER_LINE_HEIGHT] ?: 1.0f,
+            readerLetterSpacing = p[Keys.READER_LETTER_SPACING] ?: 0f,
+            readerParagraphSpacing = p[Keys.READER_PARA_SPACING] ?: 8,
+            readerMeasure = p[Keys.READER_MEASURE] ?: 0,
         )
     }
 
@@ -318,6 +344,24 @@ class PreferencesRepository @Inject constructor(
     suspend fun setTtsEnabled(enabled: Boolean) =
         context.dataStore.edit { it[Keys.TTS_ENABLED] = enabled }
 
+    suspend fun setStripTrackingParams(enabled: Boolean) =
+        context.dataStore.edit { it[Keys.STRIP_TRACKING] = enabled }
+
+    suspend fun setMarkReadOnScroll(enabled: Boolean) =
+        context.dataStore.edit { it[Keys.MARK_READ_ON_SCROLL] = enabled }
+
+    suspend fun setReaderLineHeight(v: Float) =
+        context.dataStore.edit { it[Keys.READER_LINE_HEIGHT] = v.coerceIn(0.9f, 2.2f) }
+
+    suspend fun setReaderLetterSpacing(v: Float) =
+        context.dataStore.edit { it[Keys.READER_LETTER_SPACING] = v.coerceIn(-0.05f, 0.3f) }
+
+    suspend fun setReaderParagraphSpacing(dp: Int) =
+        context.dataStore.edit { it[Keys.READER_PARA_SPACING] = dp.coerceIn(0, 40) }
+
+    suspend fun setReaderMeasure(dp: Int) =
+        context.dataStore.edit { it[Keys.READER_MEASURE] = dp.coerceIn(0, 900) }
+
     // -- Settings backup -------------------------------------------------------
     //
     // A full backup includes every app setting so a restore reproduces the app exactly. The
@@ -361,6 +405,15 @@ class PreferencesRepository @Inject constructor(
             put("bottomTabs", JSONArray(p.bottomTabs.toList()))
             put("backupFrequencyHours", p.backupFrequencyHours)
             put("backupIncludeOffline", p.backupIncludeOffline)
+            put("trashRetentionDays", p.trashRetentionDays)
+            put("ttsEnabled", p.ttsEnabled)
+            put("stripTrackingParams", p.stripTrackingParams)
+            put("bottomTabsOrder", JSONArray(p.bottomTabsOrder))
+            put("markReadOnScroll", p.markReadOnScroll)
+            put("readerLineHeight", p.readerLineHeight.toDouble())
+            put("readerLetterSpacing", p.readerLetterSpacing.toDouble())
+            put("readerParagraphSpacing", p.readerParagraphSpacing)
+            put("readerMeasure", p.readerMeasure)
         }
     }
 
@@ -402,6 +455,15 @@ class PreferencesRepository @Inject constructor(
             json.optJSONArray("bottomTabs")?.let { arr -> e[Keys.BOTTOM_TABS] = (0 until arr.length()).map { arr.getString(it) }.toSet() }
             if (json.has("backupFrequencyHours")) e[Keys.BACKUP_FREQ] = json.getInt("backupFrequencyHours").coerceAtLeast(0)
             if (json.has("backupIncludeOffline")) e[Keys.BACKUP_INCLUDE_OFFLINE] = json.getBoolean("backupIncludeOffline")
+            if (json.has("trashRetentionDays")) e[Keys.TRASH_RETENTION_DAYS] = json.getInt("trashRetentionDays").coerceAtLeast(0)
+            if (json.has("ttsEnabled")) e[Keys.TTS_ENABLED] = json.getBoolean("ttsEnabled")
+            if (json.has("stripTrackingParams")) e[Keys.STRIP_TRACKING] = json.getBoolean("stripTrackingParams")
+            json.optJSONArray("bottomTabsOrder")?.let { arr -> e[Keys.BOTTOM_TABS_ORDER] = (0 until arr.length()).joinToString(",") { arr.getString(it) } }
+            if (json.has("markReadOnScroll")) e[Keys.MARK_READ_ON_SCROLL] = json.getBoolean("markReadOnScroll")
+            if (json.has("readerLineHeight")) e[Keys.READER_LINE_HEIGHT] = json.getDouble("readerLineHeight").toFloat().coerceIn(0.9f, 2.2f)
+            if (json.has("readerLetterSpacing")) e[Keys.READER_LETTER_SPACING] = json.getDouble("readerLetterSpacing").toFloat().coerceIn(-0.05f, 0.3f)
+            if (json.has("readerParagraphSpacing")) e[Keys.READER_PARA_SPACING] = json.getInt("readerParagraphSpacing").coerceIn(0, 40)
+            if (json.has("readerMeasure")) e[Keys.READER_MEASURE] = json.getInt("readerMeasure").coerceIn(0, 900)
         }
     }
 }

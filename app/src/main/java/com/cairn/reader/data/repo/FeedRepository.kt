@@ -460,11 +460,15 @@ class FeedRepository @Inject constructor(
         val excerpt = (p.summary?.let { runCatching { Jsoup.parse(it).text() }.getOrNull() } ?: plain)
             .trim().take(300).ifBlank { null }
         val lead = p.imageUrl ?: content?.let { firstImage(it, source.siteUrl ?: source.feedUrl) }
+        // Clean the stored/display URL of tracking params, but keep the raw link for the dedup
+        // guid/key so an existing item's identity never shifts.
+        val rawUrl = p.link ?: source.siteUrl ?: source.feedUrl
+        val displayUrl = if (stripTrackingEnabled()) com.cairn.reader.data.net.UrlCleaner.strip(rawUrl) else rawUrl
 
         itemDao.insertItemWithState(
             ItemEntity(
                 id = itemId,
-                url = p.link ?: source.siteUrl ?: source.feedUrl,
+                url = displayUrl,
                 title = p.title?.takeIf { it.isNotBlank() } ?: "(untitled)",
                 author = p.author,
                 siteName = source.title,
@@ -504,9 +508,14 @@ class FeedRepository @Inject constructor(
         }
     }
 
+    /** Whether to strip tracking params, read once (cheap in-memory DataStore lookup). */
+    private suspend fun stripTrackingEnabled(): Boolean =
+        runCatching { preferencesRepository.preferences.first().stripTrackingParams }.getOrDefault(true)
+
     /** Save an arbitrary URL to the library and extract a clean, offline copy. */
     suspend fun saveUrl(rawUrl: String): Result<String> {
-        val url = normalize(rawUrl) ?: return Result.failure(IllegalArgumentException("Invalid URL"))
+        val normalized = normalize(rawUrl) ?: return Result.failure(IllegalArgumentException("Invalid URL"))
+        val url = if (stripTrackingEnabled()) com.cairn.reader.data.net.UrlCleaner.strip(normalized) else normalized
         val now = System.currentTimeMillis()
         val itemId = deterministicId("save|$url")
         itemDao.insertItemWithState(

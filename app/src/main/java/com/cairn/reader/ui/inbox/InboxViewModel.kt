@@ -143,6 +143,16 @@ class InboxViewModel @Inject constructor(
         preferencesRepository.preferences.map { it.compactDensity }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    /** Whether items auto-mark read as they scroll out of view. */
+    val markReadOnScroll: StateFlow<Boolean> =
+        preferencesRepository.preferences.map { it.markReadOnScroll }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /** Mark several items read with no snackbar — used by scroll-to-read so it doesn't spam undo. */
+    fun markReadSilent(ids: List<String>) = viewModelScope.launch {
+        ids.forEach { itemRepository.setRead(it, true) }
+    }
+
     /** The four two-stage swipe actions (right-half, right-full, left-half, left-full). */
     val swipeActions: StateFlow<SwipeConfig> =
         preferencesRepository.preferences

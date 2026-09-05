@@ -315,7 +315,12 @@ fun LibraryScreen(
                 mode = effectiveMode,
                 bottomPad = bottomPad,
                 selected = selection,
-                onClick = { row -> if (selectionActive) viewModel.toggleSelect(row.id) else onOpenItem(row.id) },
+                onClick = { row ->
+                    if (selectionActive) viewModel.toggleSelect(row.id) else {
+                        com.cairn.reader.ui.reader.ReaderQueue.set(showing.map { it.id })
+                        onOpenItem(row.id)
+                    }
+                },
                 onLongPress = { row -> viewModel.toggleSelect(row.id) },
                 onToggleSave = { row -> viewModel.toggleSave(row.id, !row.isReadLater) },
             )

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -34,6 +35,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Close
@@ -126,6 +128,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -179,6 +182,7 @@ private fun readerPalette(theme: ReaderTheme): ReaderPalette {
 fun ReaderScreen(
     onBack: () -> Unit,
     onOpenWeb: (String) -> Unit = {},
+    onOpenItem: (String) -> Unit = {},
     viewModel: ReaderViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -515,6 +519,14 @@ fun ReaderScreen(
                 onScaleCommit = viewModel::setFontScale,
                 onImageClick = { url -> lightbox = url },
                 onSaveMedia = { url -> if (viewModel.canSaveMediaDirectly) viewModel.saveMedia(url) else viewModel.shareMedia(url) { uri, mime -> shareMediaUri(uri, mime) } },
+                hasPrev = viewModel.prevId != null,
+                hasNext = viewModel.nextId != null,
+                onPrev = { viewModel.prevId?.let(onOpenItem) },
+                onNext = { viewModel.nextId?.let(onOpenItem) },
+                lineHeightMult = prefs.readerLineHeight,
+                letterSpacing = prefs.readerLetterSpacing,
+                paragraphSpacing = prefs.readerParagraphSpacing,
+                measure = prefs.readerMeasure,
             )
         }
     }
@@ -543,6 +555,10 @@ fun ReaderScreen(
             showImages = prefs.readerShowImages,
             immersive = prefs.readerImmersive,
             fullScreen = prefs.readerFullScreen,
+            lineHeight = prefs.readerLineHeight,
+            letterSpacing = prefs.readerLetterSpacing,
+            paragraphSpacing = prefs.readerParagraphSpacing,
+            measure = prefs.readerMeasure,
             onFontScale = viewModel::setFontScale,
             onReaderFont = viewModel::setReaderFont,
             onReaderTheme = viewModel::setReaderTheme,
@@ -550,6 +566,10 @@ fun ReaderScreen(
             onShowImages = viewModel::setReaderShowImages,
             onImmersive = viewModel::setReaderImmersive,
             onFullScreen = viewModel::setReaderFullScreen,
+            onLineHeight = viewModel::setReaderLineHeight,
+            onLetterSpacing = viewModel::setReaderLetterSpacing,
+            onParagraphSpacing = viewModel::setReaderParagraphSpacing,
+            onMeasure = viewModel::setReaderMeasure,
             onDismiss = { showTypography = false },
         )
     }
@@ -651,6 +671,14 @@ private fun ArticleBody(
     onScaleCommit: (Float) -> Unit = {},
     onImageClick: (String) -> Unit = {},
     onSaveMedia: (String) -> Unit = {},
+    hasPrev: Boolean = false,
+    hasNext: Boolean = false,
+    onPrev: () -> Unit = {},
+    onNext: () -> Unit = {},
+    lineHeightMult: Float = 1f,
+    letterSpacing: Float = 0f,
+    paragraphSpacing: Int = 8,
+    measure: Int = 0,
 ) {
     val data = state.data ?: return
     val linkColor = MaterialTheme.colorScheme.primary
@@ -661,7 +689,13 @@ private fun ArticleBody(
     // Pinch-to-zoom drives a live scale seeded from the saved preference; commit on release.
     var liveScale by remember(scale) { androidx.compose.runtime.mutableFloatStateOf(scale) }
     var zooming by remember { androidx.compose.runtime.mutableStateOf(false) }
-    val bodyStyle = TextStyle(fontFamily = fontFamily, fontSize = (18 * liveScale).sp, lineHeight = (30 * liveScale).sp, color = palette.text)
+    val bodyStyle = TextStyle(
+        fontFamily = fontFamily,
+        fontSize = (18 * liveScale).sp,
+        lineHeight = (30 * liveScale * lineHeightMult).sp,
+        letterSpacing = letterSpacing.em,
+        color = palette.text,
+    )
     val byBlock = remember(highlights) { highlights.groupBy { it.startSelector?.toIntOrNull() ?: -1 } }
 
     val progress by remember {
@@ -684,7 +718,7 @@ private fun ArticleBody(
         LazyColumn(
             state = listState,
             modifier = Modifier
-                .fillMaxSize()
+                .then(if (measure > 0) Modifier.fillMaxHeight().widthIn(max = measure.dp).align(Alignment.CenterHorizontally) else Modifier.fillMaxSize())
                 // Pinch-to-zoom text: only two-finger gestures are consumed, so ordinary
                 // single-finger scrolling passes straight through. Zoom is accumulated and the
                 // real font size only steps in 5% increments once the pinch ratio crosses a
@@ -822,7 +856,27 @@ private fun ArticleBody(
                     onSelectText = onSelectText,
                     onManageHighlight = onManageHighlight,
                     onImageClick = onImageClick,
+                    paragraphSpacing = paragraphSpacing,
                 )
+            }
+            // Flow to the next/previous article without going back to the list.
+            if (hasPrev || hasNext) {
+                item {
+                    Column(Modifier.padding(horizontal = ReaderHPad, vertical = 28.dp)) {
+                        HorizontalDivider(color = palette.secondary.copy(alpha = 0.25f))
+                        Spacer(Modifier.height(16.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            OutlinedButton(onClick = onPrev, enabled = hasPrev, modifier = Modifier.weight(1f)) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp)); Text("Previous")
+                            }
+                            OutlinedButton(onClick = onNext, enabled = hasNext, modifier = Modifier.weight(1f)) {
+                                Text("Next"); Spacer(Modifier.width(6.dp))
+                                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -857,6 +911,7 @@ private fun BlockView(
     onSelectText: (blockIndex: Int, start: Int, end: Int, quote: String, yInWindow: Float) -> Unit,
     onManageHighlight: (HighlightEntity) -> Unit,
     onImageClick: (String) -> Unit = {},
+    paragraphSpacing: Int = 9,
 ) {
     when (block) {
         is ReaderBlock.Heading -> HighlightableText(
@@ -877,7 +932,7 @@ private fun BlockView(
             highlights = highlights,
             onSelect = { s, e, q, y -> onSelectText(blockIndex, s, e, q, y) },
             onManage = onManageHighlight,
-            modifier = Modifier.padding(horizontal = ReaderHPad, vertical = 9.dp),
+            modifier = Modifier.padding(horizontal = ReaderHPad, vertical = paragraphSpacing.dp),
         )
         is ReaderBlock.Image -> Column(Modifier.padding(vertical = 10.dp)) {
             AsyncImage(
@@ -1289,6 +1344,10 @@ private fun TypographySheet(
     showImages: Boolean,
     immersive: Boolean,
     fullScreen: Boolean,
+    lineHeight: Float,
+    letterSpacing: Float,
+    paragraphSpacing: Int,
+    measure: Int,
     onFontScale: (Float) -> Unit,
     onReaderFont: (ReaderFont) -> Unit,
     onReaderTheme: (ReaderTheme) -> Unit,
@@ -1296,6 +1355,10 @@ private fun TypographySheet(
     onShowImages: (Boolean) -> Unit,
     onImmersive: (Boolean) -> Unit,
     onFullScreen: (Boolean) -> Unit,
+    onLineHeight: (Float) -> Unit,
+    onLetterSpacing: (Float) -> Unit,
+    onParagraphSpacing: (Int) -> Unit,
+    onMeasure: (Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
@@ -1360,6 +1423,15 @@ private fun TypographySheet(
                 }
             }
 
+            Spacer(Modifier.height(16.dp))
+            // ---- Fine typography: line height, letter spacing, paragraph gap, measure --------
+            SheetSectionLabel("SPACING & WIDTH")
+            Spacer(Modifier.height(4.dp))
+            SliderRow("Line height", "${(lineHeight * 100).toInt()}%", lineHeight, 0.9f..2.2f) { onLineHeight((it * 20).toInt() / 20f) }
+            SliderRow("Letter spacing", "${(letterSpacing * 100).toInt() / 100f}em", letterSpacing, -0.05f..0.3f) { onLetterSpacing((it * 100).toInt() / 100f) }
+            SliderRow("Paragraph gap", "${paragraphSpacing}dp", paragraphSpacing.toFloat(), 0f..40f) { onParagraphSpacing(it.toInt()) }
+            SliderRow("Text width", if (measure == 0) "Full" else "${measure}dp", measure.toFloat(), 0f..900f) { onMeasure((it / 20).toInt() * 20) }
+
             HorizontalDivider(Modifier.padding(vertical = 16.dp), color = scheme.outlineVariant)
 
             // ---- Toggles --------------------------------------------------------------------
@@ -1368,6 +1440,18 @@ private fun TypographySheet(
             ToggleRow("Immersive scroll", "Hide every bar as you read; scroll up to bring them back", immersive, onImmersive)
             ToggleRow("Full screen", "Use the entire display, hiding the Android bars too", fullScreen, onFullScreen)
         }
+    }
+}
+
+@Composable
+private fun SliderRow(label: String, value: String, current: Float, range: ClosedFloatingPointRange<Float>, onChange: (Float) -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Column(Modifier.padding(top = 8.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = MaterialTheme.typography.bodyMedium, color = scheme.onSurface, modifier = Modifier.weight(1f))
+            Text(value, style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
+        }
+        androidx.compose.material3.Slider(value = current.coerceIn(range.start, range.endInclusive), onValueChange = onChange, valueRange = range)
     }
 }
 

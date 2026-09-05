@@ -240,7 +240,12 @@ fun ReadLaterScreen(
                     items(items, key = { it.id }) { row ->
                         com.cairn.reader.ui.components.FeedItemCell(
                             row = row, mode = viewMode,
-                            onOpen = { if (selecting) viewModel.togglePick(row.id) else onOpenItem(row.id) },
+                            onOpen = {
+                                if (selecting) viewModel.togglePick(row.id) else {
+                                    com.cairn.reader.ui.reader.ReaderQueue.set(items.map { it.id })
+                                    onOpenItem(row.id)
+                                }
+                            },
                             onLongPress = { if (selecting) viewModel.togglePick(row.id) else actionRow = row },
                             selected = row.id in picked,
                         )

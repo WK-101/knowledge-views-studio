@@ -146,7 +146,7 @@ fun SearchScreen(
                         }
                     }
                     items(state.results, key = { it.id }) { row ->
-                        ItemRow(row = row, onOpen = { onOpenItem(row.id) }, onToggleSave = { viewModel.toggleSave(row.id, !row.isReadLater) })
+                        ItemRow(row = row, onOpen = { com.cairn.reader.ui.reader.ReaderQueue.set(state.results.map { it.id }); onOpenItem(row.id) }, onToggleSave = { viewModel.toggleSave(row.id, !row.isReadLater) })
                         HorizontalDivider(color = scheme.outlineVariant.copy(alpha = 0.4f))
                     }
 

@@ -58,6 +58,11 @@ class ReaderViewModel @Inject constructor(
 
     private val itemId: String = savedStateHandle.get<String>("itemId").orEmpty()
 
+    /** Neighbours in the reading queue, so the reader can flow to the previous/next article
+     *  without going back to the list. Null when unknown (opened outside a list). */
+    val prevId: String? = ReaderQueue.neighbor(itemId, -1)
+    val nextId: String? = ReaderQueue.neighbor(itemId, +1)
+
     val tts: StateFlow<TtsReader.State> = ttsReader.state
     val audio: StateFlow<AudioPlayer.State> = audioPlayer.state
 
@@ -250,6 +255,10 @@ class ReaderViewModel @Inject constructor(
     fun setReaderShowImages(show: Boolean) = viewModelScope.launch { preferencesRepository.setReaderShowImages(show) }
     fun setReaderImmersive(on: Boolean) = viewModelScope.launch { preferencesRepository.setReaderImmersive(on) }
     fun setReaderFullScreen(on: Boolean) = viewModelScope.launch { preferencesRepository.setReaderFullScreen(on) }
+    fun setReaderLineHeight(v: Float) = viewModelScope.launch { preferencesRepository.setReaderLineHeight(v) }
+    fun setReaderLetterSpacing(v: Float) = viewModelScope.launch { preferencesRepository.setReaderLetterSpacing(v) }
+    fun setReaderParagraphSpacing(dp: Int) = viewModelScope.launch { preferencesRepository.setReaderParagraphSpacing(dp) }
+    fun setReaderMeasure(dp: Int) = viewModelScope.launch { preferencesRepository.setReaderMeasure(dp) }
 
     fun addHighlight(blockIndex: Int, start: Int, end: Int, quote: String, color: Int = HighlightColors.Default) {
         if (itemId.isEmpty() || quote.isBlank()) return

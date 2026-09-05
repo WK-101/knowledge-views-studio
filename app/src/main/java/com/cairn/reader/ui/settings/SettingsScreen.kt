@@ -408,6 +408,20 @@ fun SettingsScreen(
                     }
                     androidx.compose.material3.Switch(checked = prefs.ttsEnabled, onCheckedChange = { viewModel.setTtsEnabled(it) })
                 }
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Strip tracking from links", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text("Remove utm_*, fbclid, gclid and similar tracking parameters from links Cairn stores, opens, and shares.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                    }
+                    androidx.compose.material3.Switch(checked = prefs.stripTrackingParams, onCheckedChange = { viewModel.setStripTrackingParams(it) })
+                }
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Mark read on scroll", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text("In the Inbox, articles are marked read automatically as they scroll up out of view.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                    }
+                    androidx.compose.material3.Switch(checked = prefs.markReadOnScroll, onCheckedChange = { viewModel.setMarkReadOnScroll(it) })
+                }
             }
         }
 

@@ -155,6 +155,8 @@ class SettingsViewModel @Inject constructor(
     fun setBottomTab(name: String, enabled: Boolean) = viewModelScope.launch { preferencesRepository.setBottomTab(name, enabled) }
 
     fun setTtsEnabled(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setTtsEnabled(enabled) }
+    fun setStripTrackingParams(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setStripTrackingParams(enabled) }
+    fun setMarkReadOnScroll(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setMarkReadOnScroll(enabled) }
     fun setTrashRetentionDays(days: Int) = viewModelScope.launch { preferencesRepository.setTrashRetentionDays(days) }
     fun moveBottomTab(name: String, up: Boolean) = viewModelScope.launch { preferencesRepository.moveBottomTab(name, up) }
 

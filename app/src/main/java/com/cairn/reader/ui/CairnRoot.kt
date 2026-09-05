@@ -81,6 +81,14 @@ fun CairnRoot(
                 ReaderScreen(
                     onBack = { navController.popBackStack() },
                     onOpenWeb = openWeb,
+                    // Flow to a neighbour article, replacing the current reader so Back still
+                    // returns to the list rather than walking back through every article read.
+                    onOpenItem = { neighbor ->
+                        navController.navigate("reader/$neighbor") {
+                            popUpTo("reader/{itemId}") { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
                 )
             }
             composable(
