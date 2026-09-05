@@ -49,4 +49,61 @@ class NotebookViewModel @Inject constructor(
     fun exportAll(onReady: (String) -> Unit) {
         viewModelScope.launch { onReady(highlightRepository.exportAll()) }
     }
+
+    // -- Per-entry & per-highlight sharing, in several formats --------------------
+
+    /** Share text for one article's whole set of annotations, in the chosen [format]. */
+    fun renderGroup(group: NotebookGroup, format: ShareFormat): String = when (format) {
+        ShareFormat.MARKDOWN -> buildString {
+            append("## ").append(group.title).append('\n')
+            if (group.url.isNotBlank()) append(group.url).append('\n')
+            group.highlights.forEach { h ->
+                append('\n')
+                h.quote.trim().split("\n").forEach { line -> append("> ").append(line).append('\n') }
+                h.note?.takeIf { it.isNotBlank() }?.let { append("\n_Note:_ ").append(it.trim()).append('\n') }
+            }
+        }.trimEnd()
+        ShareFormat.PLAIN -> buildString {
+            group.highlights.forEach { h ->
+                append('“').append(h.quote.trim()).append('”')
+                h.note?.takeIf { it.isNotBlank() }?.let { append("\n\nNote: ").append(it.trim()) }
+                append("\n\n")
+            }
+            append("— ").append(group.title)
+            if (group.url.isNotBlank()) append('\n').append(group.url)
+        }.trimEnd()
+        ShareFormat.QUOTE -> buildString {
+            group.highlights.forEach { h -> append('“').append(h.quote.trim()).append("”\n\n") }
+            append("— ").append(group.title)
+            group.site?.takeIf { it.isNotBlank() }?.let { append(", ").append(it) }
+        }.trimEnd()
+    }
+
+    /** Share text for a single highlight (+ its note), in the chosen [format]. */
+    fun renderHighlight(h: HighlightWithArticle, format: ShareFormat): String = when (format) {
+        ShareFormat.MARKDOWN -> buildString {
+            h.quote.trim().split("\n").forEach { line -> append("> ").append(line).append('\n') }
+            h.note?.takeIf { it.isNotBlank() }?.let { append("\n_Note:_ ").append(it.trim()).append('\n') }
+            append("\n— *").append(h.articleTitle).append('*')
+            if (h.articleUrl.isNotBlank()) append('\n').append(h.articleUrl)
+        }.trimEnd()
+        ShareFormat.PLAIN -> buildString {
+            append('“').append(h.quote.trim()).append('”')
+            h.note?.takeIf { it.isNotBlank() }?.let { append("\n\nNote: ").append(it.trim()) }
+            append("\n\n— ").append(h.articleTitle)
+            if (h.articleUrl.isNotBlank()) append('\n').append(h.articleUrl)
+        }.trimEnd()
+        ShareFormat.QUOTE -> buildString {
+            append('“').append(h.quote.trim()).append('”')
+            append("\n\n— ").append(h.articleTitle)
+            h.articleSite?.takeIf { it.isNotBlank() }?.let { append(", ").append(it) }
+        }.trimEnd()
+    }
+}
+
+/** The formats an annotation (or a whole entry's worth) can be shared as. */
+enum class ShareFormat(val label: String) {
+    MARKDOWN("Markdown"),
+    PLAIN("Plain text"),
+    QUOTE("Quote + source"),
 }

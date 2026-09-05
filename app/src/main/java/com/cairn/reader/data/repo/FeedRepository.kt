@@ -371,6 +371,24 @@ class FeedRepository @Inject constructor(
     fun observeTrash() = itemDao.observeTrash()
     fun observeTrashCount() = itemDao.observeTrashCount()
 
+    // -- Offline copies --------------------------------------------------------
+
+    /** Everything readable offline (permanent saves + auto-cached bodies), for the Offline surface. */
+    fun observeCached() = itemDao.observeCached()
+    fun observeCachedCount() = itemDao.observeCachedCount()
+
+    /** Remove an item's offline copy (its cached body and any downloaded images) while KEEPING the
+     *  item itself — its metadata stays and it re-fetches on next open. "Delete cache", not the entry. */
+    suspend fun removeOfflineCopy(id: String) {
+        val item = itemDao.getItem(id)
+        blobStore.deleteAllFor(id, item?.blobPath)
+        itemDao.setExtracted(
+            id = id, blobPath = null, excerpt = item?.excerpt, wordCount = item?.wordCount ?: 0,
+            minutes = item?.readingMinutes ?: 0, leadImage = null, status = "NONE", contentSource = item?.contentSource ?: "FEED",
+        )
+        itemDao.setCacheStatus(id, null)
+    }
+
     /** True when the active network is un-metered (Wi-Fi/Ethernet). Defaults to true if unknown,
      *  so an unclear network never silently blocks a save the user asked for. */
     private fun isUnmetered(): Boolean = runCatching {

@@ -98,10 +98,10 @@ fun TrashScreen(
             TopAppBar(
                 title = {
                     if (searchOpen) {
-                        OutlinedTextField(
-                            value = query, onValueChange = viewModel::setQuery, singleLine = true,
-                            leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
-                            placeholder = { Text("Search Trash") }, modifier = Modifier.fillMaxWidth(),
+                        com.cairn.reader.ui.components.CairnSearchField(
+                            value = query, onValueChange = viewModel::setQuery,
+                            placeholder = "Search Trash", autofocus = true,
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     } else {
                         Text(if (totalCount == 0) "Trash" else "Trash · $totalCount", fontWeight = FontWeight.SemiBold)

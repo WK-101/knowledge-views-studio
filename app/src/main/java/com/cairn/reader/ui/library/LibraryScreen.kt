@@ -142,20 +142,19 @@ fun LibraryScreen(
             },
             title = {
                 if (searchOpen) {
-                    OutlinedTextField(
+                    com.cairn.reader.ui.components.CairnSearchField(
                         value = query,
                         onValueChange = viewModel::setQuery,
-                        singleLine = true,
-                        leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
-                        trailingIcon = {
+                        placeholder = "Search your library",
+                        autofocus = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        trailing = {
                             if (query.isNotBlank()) {
                                 IconButton(onClick = { viewModel.saveSearch(query) }) {
                                     Icon(Icons.Outlined.BookmarkAdd, contentDescription = "Save search")
                                 }
                             }
                         },
-                        placeholder = { Text("Search your library") },
-                        modifier = Modifier.fillMaxWidth(),
                     )
                 } else {
                     Column {

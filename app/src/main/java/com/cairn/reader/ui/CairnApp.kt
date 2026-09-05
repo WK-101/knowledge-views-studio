@@ -228,12 +228,11 @@ fun CairnApp(
             CenterAlignedTopAppBar(
                 title = {
                     if (current == Destination.Inbox && inboxSearchOpen) {
-                        androidx.compose.material3.OutlinedTextField(
+                        com.cairn.reader.ui.components.CairnSearchField(
                             value = inboxQuery,
                             onValueChange = inboxViewModel::setInboxQuery,
-                            singleLine = true,
-                            leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
-                            placeholder = { Text("Search these entries") },
+                            placeholder = "Search these entries",
+                            autofocus = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
                     } else {

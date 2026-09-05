@@ -460,6 +460,28 @@ interface ItemDao {
     )
     fun observeOfflineCopies(): Flow<List<ItemListRow>>
 
+    /** Everything readable offline: an explicit permanent copy, or an auto-cached full body on disk.
+     *  Permanent (archival) copies sort first. Powers the Offline surface. */
+    @Query(
+        """
+        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
+               i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
+               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
+               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
+               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
+               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
+        FROM items i
+        LEFT JOIN item_states s ON s.itemId = i.id
+        LEFT JOIN sources src ON src.id = i.sourceId
+        WHERE i.trashedAt IS NULL AND (i.cacheStatus = 'PERMANENT' OR (i.extractStatus = 'OK' AND i.blobPath IS NOT NULL))
+        ORDER BY (i.cacheStatus = 'PERMANENT') DESC, i.savedAt DESC
+        """
+    )
+    fun observeCached(): Flow<List<ItemListRow>>
+
+    @Query("SELECT COUNT(*) FROM items WHERE trashedAt IS NULL AND (cacheStatus = 'PERMANENT' OR (extractStatus = 'OK' AND blobPath IS NOT NULL))")
+    fun observeCachedCount(): Flow<Int>
+
     @Query(
         """
         SELECT

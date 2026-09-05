@@ -5,6 +5,8 @@ package com.cairn.reader.ui.notebook
 import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
@@ -24,14 +27,21 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,15 +67,18 @@ fun NotebookScreen(
     val groups by viewModel.groups.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scheme = MaterialTheme.colorScheme
+    var shareGroup by remember { mutableStateOf<NotebookGroup?>(null) }
 
-    fun shareAll() = viewModel.exportAll { md ->
-        val send = Intent(Intent.ACTION_SEND).apply {
+    fun send(text: String, subject: String) {
+        val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, md)
-            putExtra(Intent.EXTRA_SUBJECT, "My highlights")
+            putExtra(Intent.EXTRA_TEXT, text)
+            putExtra(Intent.EXTRA_SUBJECT, subject)
         }
-        runCatching { context.startActivity(Intent.createChooser(send, null)) }
+        runCatching { context.startActivity(Intent.createChooser(intent, null)) }
     }
+
+    fun shareAll() = viewModel.exportAll { md -> send(md, "My highlights") }
 
     Column(Modifier.fillMaxSize()) {
             TopAppBar(
@@ -110,7 +123,87 @@ fun NotebookScreen(
                 verticalItemSpacing = 10.dp,
             ) {
                 items(groups, key = { it.itemId }) { group ->
-                    AnnotationCard(group, onClick = { onOpenItem(group.itemId) })
+                    AnnotationCard(group, onClick = { onOpenItem(group.itemId) }, onShare = { shareGroup = group })
+                }
+            }
+        }
+    }
+
+    shareGroup?.let { group ->
+        AnnotationShareSheet(
+            group = group,
+            onShareGroup = { fmt -> send(viewModel.renderGroup(group, fmt), group.title); shareGroup = null },
+            onShareHighlight = { h, fmt -> send(viewModel.renderHighlight(h, fmt), group.title) },
+            onDismiss = { shareGroup = null },
+        )
+    }
+}
+
+/** Per-entry share sheet: pick a format, share the whole entry, or share any single highlight. */
+@Composable
+private fun AnnotationShareSheet(
+    group: NotebookGroup,
+    onShareGroup: (ShareFormat) -> Unit,
+    onShareHighlight: (com.cairn.reader.data.db.HighlightWithArticle, ShareFormat) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    var format by remember { mutableStateOf(ShareFormat.QUOTE) }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
+        Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+            Text(
+                "Share annotations",
+                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 2.dp),
+            )
+            Text(
+                group.title,
+                style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
+            Spacer(Modifier.height(12.dp))
+            // Format selector.
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                ShareFormat.entries.forEach { f ->
+                    FilterChip(selected = format == f, onClick = { format = f }, label = { Text(f.label) })
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(
+                Modifier.fillMaxWidth().clickable { onShareGroup(format) }.padding(horizontal = 24.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Icon(Icons.Outlined.IosShare, contentDescription = null, tint = scheme.primary)
+                Text(
+                    "Share all ${group.highlights.size} annotation${if (group.highlights.size == 1) "" else "s"}",
+                    style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface,
+                )
+            }
+            HorizontalDivider()
+            Text(
+                "OR SHARE ONE",
+                style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 24.dp, top = 12.dp, bottom = 4.dp),
+            )
+            group.highlights.forEach { h ->
+                Row(
+                    Modifier.fillMaxWidth().clickable { onShareHighlight(h, format) }.padding(horizontal = 24.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Box(Modifier.width(3.dp).height(28.dp).clip(RoundedCornerShape(2.dp)).background(Color(h.color)))
+                    Text(
+                        h.quote.trim(),
+                        style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),
+                        color = scheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Icon(Icons.Outlined.IosShare, contentDescription = "Share this highlight", tint = scheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                 }
             }
         }
@@ -119,7 +212,7 @@ fun NotebookScreen(
 
 /** One card per annotated article: cover, source, title, the top highlight, and a count. */
 @Composable
-private fun AnnotationCard(group: NotebookGroup, onClick: () -> Unit) {
+private fun AnnotationCard(group: NotebookGroup, onClick: () -> Unit, onShare: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     // Guard against an empty group so composition never throws (was a NoSuchElementException).
     val top = group.highlights.firstOrNull() ?: return
@@ -144,9 +237,14 @@ private fun AnnotationCard(group: NotebookGroup, onClick: () -> Unit) {
                     .background(Brush.linearGradient(listOf(tint.copy(alpha = 0.85f), tint.copy(alpha = 0.45f)))),
             )
         }
-        Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
-            val source = group.site ?: "Highlight"
-            Text(source, style = MaterialTheme.typography.labelSmall, color = scheme.primary, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Column(Modifier.padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                val source = group.site ?: "Highlight"
+                Text(source, style = MaterialTheme.typography.labelSmall, color = scheme.primary, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                IconButton(onClick = onShare, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Outlined.IosShare, contentDescription = "Share these annotations", tint = scheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                }
+            }
             Spacer(Modifier.height(3.dp))
             Text(group.title, style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(8.dp))

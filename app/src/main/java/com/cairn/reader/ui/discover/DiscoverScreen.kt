@@ -14,19 +14,28 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Forum
+import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.MailOutline
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.SmartDisplay
+import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -115,12 +124,11 @@ private fun DiscoverTopBar(
         navigationIcon = navigationIcon,
         title = {
             if (searchOpen) {
-                OutlinedTextField(
+                com.cairn.reader.ui.components.CairnSearchField(
                     value = query,
                     onValueChange = onQuery,
-                    singleLine = true,
-                    leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
-                    placeholder = { Text("Search feeds, or paste a site / URL") },
+                    placeholder = "Search feeds, or paste a site / URL",
+                    autofocus = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
             } else {
@@ -153,7 +161,9 @@ private fun DiscoverBody(padding: PaddingValues, viewModel: DiscoverViewModel) {
 
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = padding.calculateTopPadding() + 4.dp, bottom = padding.calculateBottomPadding() + 28.dp),
+        // The top bar (in the parent Column) already handles the top inset — don't add it again,
+        // which was leaving a blank gap between the bar and the first section.
+        contentPadding = PaddingValues(top = 4.dp, bottom = padding.calculateBottomPadding() + 28.dp),
     ) {
         if (addable) item {
             Row(
@@ -168,17 +178,23 @@ private fun DiscoverBody(padding: PaddingValues, viewModel: DiscoverViewModel) {
             }
         }
         if (query.isBlank()) item {
-            Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+            Column(Modifier.padding(start = 20.dp, end = 8.dp, top = 8.dp, bottom = 8.dp)) {
                 SectionLabel("ADD FROM A SITE")
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "Follow a subreddit, a YouTube channel, a Substack, and more — Cairn builds the feed for you.",
-                    style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(12.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Spacer(Modifier.height(10.dp))
+                // Compact single row of platform icons (Reddit, YouTube, Substack, …) — tap one to
+                // follow. Scrolls horizontally so it stays one tidy row rather than a wrapped grid.
+                Row(
+                    Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     PlatformFeed.entries.forEach { p ->
-                        AssistChip(onClick = { platformSheet = p }, label = { Text(p.label) })
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            FilledTonalIconButton(onClick = { platformSheet = p }) {
+                                Icon(platformIcon(p), contentDescription = p.label)
+                            }
+                            Text(p.label, style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1)
+                        }
                     }
                 }
             }
@@ -245,6 +261,16 @@ private fun PlatformSheet(platform: PlatformFeed, busy: Boolean, onAdd: (String)
             }
         }
     }
+}
+
+/** A representative Material glyph for each add-from-a-site platform (no brand logos available). */
+private fun platformIcon(p: PlatformFeed): androidx.compose.ui.graphics.vector.ImageVector = when (p) {
+    PlatformFeed.REDDIT -> Icons.Outlined.Forum
+    PlatformFeed.YOUTUBE -> Icons.Outlined.SmartDisplay
+    PlatformFeed.SUBSTACK -> Icons.Outlined.MailOutline
+    PlatformFeed.MEDIUM -> Icons.AutoMirrored.Outlined.Article
+    PlatformFeed.TUMBLR -> Icons.Outlined.Tag
+    PlatformFeed.WEBSITE -> Icons.Outlined.Language
 }
 
 @Composable

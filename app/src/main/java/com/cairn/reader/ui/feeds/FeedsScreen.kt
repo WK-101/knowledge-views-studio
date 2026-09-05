@@ -132,11 +132,11 @@ fun FeedsScreen(
                 TopAppBar(
                     title = {
                         if (showSearch) {
-                            OutlinedTextField(
+                            com.cairn.reader.ui.components.CairnSearchField(
                                 value = query,
                                 onValueChange = viewModel::setQuery,
-                                singleLine = true,
-                                placeholder = { Text("Filter feeds") },
+                                placeholder = "Filter feeds",
+                                autofocus = true,
                                 modifier = Modifier.fillMaxWidth(),
                             )
                         } else {
@@ -244,7 +244,9 @@ fun FeedsScreen(
                             items(loose, key = { it.id }) { source ->
                                 FeedManageRow(source, unread[source.id] ?: 0, source.id in selection, selectionActive,
                                     onClick = { if (selectionActive) viewModel.toggleSelect(source.id) else editing = source },
-                                    onLongPress = { viewModel.toggleSelect(source.id) })
+                                    onSelect = { viewModel.toggleSelect(source.id) },
+                                    onMarkRead = { viewModel.markFeedRead(source.id) },
+                                    onUnsubscribe = { viewModel.delete(source.id) })
                             }
                         }
                         groups.filterKeys { it != null }.forEach { (folder, feeds) ->
@@ -258,7 +260,9 @@ fun FeedsScreen(
                                 items(feeds, key = { it.id }) { source ->
                                     FeedManageRow(source, unread[source.id] ?: 0, source.id in selection, selectionActive,
                                         onClick = { if (selectionActive) viewModel.toggleSelect(source.id) else editing = source },
-                                        onLongPress = { viewModel.toggleSelect(source.id) })
+                                        onSelect = { viewModel.toggleSelect(source.id) },
+                                        onMarkRead = { viewModel.markFeedRead(source.id) },
+                                        onUnsubscribe = { viewModel.delete(source.id) })
                                 }
                             }
                         }
@@ -276,7 +280,9 @@ fun FeedsScreen(
                         items(sources, key = { it.id }) { source ->
                             FeedManageRow(source, unread[source.id] ?: 0, source.id in selection, selectionActive,
                                 onClick = { if (selectionActive) viewModel.toggleSelect(source.id) else editing = source },
-                                onLongPress = { viewModel.toggleSelect(source.id) })
+                                onSelect = { viewModel.toggleSelect(source.id) },
+                                onMarkRead = { viewModel.markFeedRead(source.id) },
+                                onUnsubscribe = { viewModel.delete(source.id) })
                         }
                     }
                 }
@@ -363,15 +369,31 @@ private fun FeedManageRow(
     selected: Boolean,
     selectionActive: Boolean,
     onClick: () -> Unit,
-    onLongPress: () -> Unit,
+    onSelect: () -> Unit,
+    onMarkRead: () -> Unit = {},
+    onUnsubscribe: () -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
     val host = source.siteUrl?.toHttpUrlOrNull()?.host ?: source.feedUrl.toHttpUrlOrNull()?.host ?: source.feedUrl
+    // Long-press opens a compact popup anchored to the row (not the top selection bar) when we're
+    // not already multi-selecting; from there "Select" enters multi-select if the user wants it.
+    var menu by remember { mutableStateOf(false) }
+    Box {
+    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+        DropdownMenuItem(text = { Text("Feed settings & folder…") }, onClick = { menu = false; onClick() })
+        DropdownMenuItem(
+            text = { Text(if (unread > 0) "Mark all read ($unread)" else "Mark all read") },
+            enabled = unread > 0,
+            onClick = { menu = false; onMarkRead() },
+        )
+        DropdownMenuItem(text = { Text("Select") }, onClick = { menu = false; onSelect() })
+        DropdownMenuItem(text = { Text("Unsubscribe", color = scheme.error) }, onClick = { menu = false; onUnsubscribe() })
+    }
     Row(
         Modifier
             .fillMaxWidth()
             .background(if (selected) scheme.secondaryContainer else Color.Transparent)
-            .combinedClickable(onClick = onClick, onLongClick = onLongPress)
+            .combinedClickable(onClick = onClick, onLongClick = { if (selectionActive) onSelect() else menu = true })
             .padding(horizontal = 20.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -417,6 +439,7 @@ private fun FeedManageRow(
             Spacer(Modifier.width(8.dp))
             Text("$unread", style = MaterialTheme.typography.labelMedium, color = scheme.primary, fontWeight = FontWeight.SemiBold)
         }
+    }
     }
 }
 

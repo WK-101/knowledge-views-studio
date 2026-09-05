@@ -88,24 +88,12 @@ fun SearchScreen(
                     IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = "Open navigation") }
                 },
                 title = {
-                    TextField(
+                    com.cairn.reader.ui.components.CairnSearchField(
                         value = query,
                         onValueChange = viewModel::setQuery,
-                        singleLine = true,
-                        placeholder = { Text("Search everything you've collected") },
-                        trailingIcon = {
-                            if (query.isNotEmpty()) {
-                                IconButton(onClick = { viewModel.setQuery("") }) { Icon(Icons.Outlined.Close, contentDescription = "Clear") }
-                            }
-                        },
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                        ),
-                        modifier = Modifier.fillMaxWidth().focusRequester(focus),
+                        placeholder = "Search everything you've collected",
+                        autofocus = true,
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = scheme.surface),

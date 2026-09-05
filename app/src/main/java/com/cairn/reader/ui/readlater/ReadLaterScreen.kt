@@ -100,10 +100,10 @@ fun ReadLaterScreen(
             TopAppBar(
                 title = {
                     if (searchOpen) {
-                        OutlinedTextField(
-                            value = query, onValueChange = viewModel::setQuery, singleLine = true,
-                            leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
-                            placeholder = { Text("Search Read Later") }, modifier = Modifier.fillMaxWidth(),
+                        com.cairn.reader.ui.components.CairnSearchField(
+                            value = query, onValueChange = viewModel::setQuery,
+                            placeholder = "Search Read Later", autofocus = true,
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     } else {
                         Text(if (items.isEmpty()) "Read Later" else "Read Later · ${items.size}", fontWeight = FontWeight.SemiBold)
