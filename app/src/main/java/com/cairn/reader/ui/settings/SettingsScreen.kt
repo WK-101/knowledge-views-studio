@@ -343,14 +343,17 @@ fun SettingsScreen(
                 Spacer(Modifier.height(10.dp))
                 LabeledChips(
                     label = "Reader theme",
-                    options = listOf(ReaderTheme.DEFAULT to "Default", ReaderTheme.SEPIA to "Sepia", ReaderTheme.BLACK to "Black"),
+                    options = listOf(
+                        ReaderTheme.DEFAULT to "Default", ReaderTheme.PAPER to "Paper", ReaderTheme.SEPIA to "Sepia",
+                        ReaderTheme.GRAY to "Gray", ReaderTheme.NIGHT to "Night", ReaderTheme.BLACK to "Black",
+                    ),
                     selected = prefs.readerTheme,
                     onSelect = viewModel::setReaderTheme,
                 )
                 Spacer(Modifier.height(10.dp))
                 LabeledChips(
                     label = "Text size",
-                    options = listOf(0.9f to "Small", 1.0f to "Default", 1.2f to "Large", 1.5f to "Larger"),
+                    options = listOf(0.8f to "Small", 0.9f to "Cozy", 1.0f to "Default", 1.2f to "Large", 1.5f to "Larger", 2.0f to "Huge"),
                     selected = prefs.readerFontScale,
                     onSelect = viewModel::setReaderFontScale,
                 )
@@ -495,7 +498,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(24.dp))
                 SectionLabel("ABOUT")
                 Spacer(Modifier.height(8.dp))
-                Text("Cairn 3.18.0", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
+                Text("Cairn 3.19.0", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
                 Text("One reader for everything you read.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
             }
         }

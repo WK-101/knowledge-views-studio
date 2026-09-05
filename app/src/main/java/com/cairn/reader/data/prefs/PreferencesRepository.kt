@@ -17,12 +17,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
-enum class ReaderTheme { DEFAULT, SEPIA, BLACK }
+enum class ReaderTheme { DEFAULT, PAPER, SEPIA, GRAY, NIGHT, BLACK }
 
-/** Reading typeface. SERIF/SANS are the bundled Newsreader/Inter; SYSTEM and MONO
- *  use device fonts (no APK weight). */
+/** Reading typeface. SERIF/SANS are the bundled Newsreader/Inter; the rest use device
+ *  fonts (no APK weight): BOOK = a system serif, SYSTEM = the device default, MONO = monospace. */
 enum class ReaderFont(val label: String) {
-    SERIF("Newsreader"), SANS("Inter"), SYSTEM("System"), MONO("Mono")
+    SERIF("Newsreader"), SANS("Inter"), BOOK("Book"), SYSTEM("System"), MONO("Mono")
 }
 
 enum class ListViewMode { LIST, CARD, MAGAZINE }

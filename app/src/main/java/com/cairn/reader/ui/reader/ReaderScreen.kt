@@ -127,8 +127,18 @@ private val ReaderHPad = 22.dp
 private fun readerFontFamily(font: ReaderFont): FontFamily = when (font) {
     ReaderFont.SERIF -> ReadingSerif
     ReaderFont.SANS -> InterFamily
-    ReaderFont.SYSTEM -> FontFamily.Serif
+    ReaderFont.BOOK -> FontFamily.Serif
+    ReaderFont.SYSTEM -> FontFamily.Default
     ReaderFont.MONO -> FontFamily.Monospace
+}
+
+private fun readerThemeLabel(theme: ReaderTheme): String = when (theme) {
+    ReaderTheme.DEFAULT -> "Default"
+    ReaderTheme.PAPER -> "Paper"
+    ReaderTheme.SEPIA -> "Sepia"
+    ReaderTheme.GRAY -> "Gray"
+    ReaderTheme.NIGHT -> "Night"
+    ReaderTheme.BLACK -> "Black"
 }
 
 private data class ReaderPalette(val background: Color, val text: Color, val secondary: Color)
@@ -138,7 +148,10 @@ private fun readerPalette(theme: ReaderTheme): ReaderPalette {
     val scheme = MaterialTheme.colorScheme
     return when (theme) {
         ReaderTheme.DEFAULT -> ReaderPalette(scheme.surface, scheme.onSurface, scheme.onSurfaceVariant)
+        ReaderTheme.PAPER -> ReaderPalette(Color(0xFFFBF7EF), Color(0xFF2A2620), Color(0xFF6B6357))
         ReaderTheme.SEPIA -> ReaderPalette(Color(0xFFF4ECD8), Color(0xFF463A28), Color(0xFF7C6C52))
+        ReaderTheme.GRAY -> ReaderPalette(Color(0xFF202124), Color(0xFFE3E3E3), Color(0xFF9AA0A6))
+        ReaderTheme.NIGHT -> ReaderPalette(Color(0xFF12161C), Color(0xFFCAD3E0), Color(0xFF8595A8))
         ReaderTheme.BLACK -> ReaderPalette(Color(0xFF000000), Color(0xFFE6E6E6), Color(0xFF9C9C9C))
     }
 }
@@ -556,6 +569,7 @@ private fun ArticleBody(
     }
     // Pinch-to-zoom drives a live scale seeded from the saved preference; commit on release.
     var liveScale by remember(scale) { androidx.compose.runtime.mutableFloatStateOf(scale) }
+    var zooming by remember { androidx.compose.runtime.mutableStateOf(false) }
     val bodyStyle = TextStyle(fontFamily = fontFamily, fontSize = (18 * liveScale).sp, lineHeight = (30 * liveScale).sp, color = palette.text)
     val byBlock = remember(highlights) { highlights.groupBy { it.startSelector?.toIntOrNull() ?: -1 } }
 
@@ -568,6 +582,7 @@ private fun ArticleBody(
     val latestProgress = rememberUpdatedState(progress)
     DisposableEffect(Unit) { onDispose { onSaveProgress(latestProgress.value) } }
 
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
         LinearProgressIndicator(
             progress = { progress },
@@ -580,22 +595,31 @@ private fun ArticleBody(
             modifier = Modifier
                 .fillMaxSize()
                 // Pinch-to-zoom text: only two-finger gestures are consumed, so ordinary
-                // single-finger scrolling passes straight through to the list.
+                // single-finger scrolling passes straight through. Zoom is accumulated and the
+                // real font size only steps in 5% increments once the pinch ratio crosses a
+                // threshold — so the text reflows a handful of times, not every frame (smooth),
+                // and a floating badge shows the live size. The size commits on release.
                 .pointerInput(Unit) {
                     awaitEachGesture {
                         awaitFirstDown(requireUnconsumed = false)
                         var pinched = false
+                        var accum = 1f
                         do {
                             val event = awaitPointerEvent()
                             if (event.changes.size >= 2) {
-                                val zoom = event.calculateZoom()
-                                if (zoom != 1f) {
-                                    liveScale = (liveScale * zoom).coerceIn(0.7f, 2.6f)
-                                    pinched = true
-                                    event.changes.forEach { it.consume() }
+                                pinched = true
+                                zooming = true
+                                accum *= event.calculateZoom()
+                                while (accum >= 1.06f && liveScale < 2.6f) {
+                                    liveScale = ((liveScale * 20).toInt() / 20f + 0.05f).coerceIn(0.7f, 2.6f); accum /= 1.06f
                                 }
+                                while (accum <= 0.94f && liveScale > 0.7f) {
+                                    liveScale = ((liveScale * 20).toInt() / 20f - 0.05f).coerceIn(0.7f, 2.6f); accum /= 0.94f
+                                }
+                                event.changes.forEach { it.consume() }
                             }
                         } while (event.changes.any { it.pressed })
+                        zooming = false
                         if (pinched) onScaleCommit(liveScale)
                     }
                 },
@@ -685,6 +709,24 @@ private fun ArticleBody(
                     highlights = byBlock[index].orEmpty(),
                     onSelectText = onSelectText,
                     onManageHighlight = onManageHighlight,
+                )
+            }
+        }
+    }
+        // A floating badge shows the live text size while pinching, then fades out.
+        androidx.compose.animation.AnimatedVisibility(
+            visible = zooming,
+            enter = androidx.compose.animation.fadeIn(),
+            exit = androidx.compose.animation.fadeOut(),
+            modifier = Modifier.align(Alignment.Center),
+        ) {
+            Surface(color = MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.92f), shape = RoundedCornerShape(18.dp)) {
+                Text(
+                    "${(liveScale * 100).toInt()}%",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.inverseOnSurface,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
                 )
             }
         }
@@ -1004,8 +1046,8 @@ private fun TypographySheet(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                SizeStepButton(label = "A", fontSize = 15.sp, enabled = fontScale > 0.8f) {
-                    onFontScale(((fontScale * 10).toInt() / 10f - 0.1f).coerceIn(0.8f, 2.0f))
+                SizeStepButton(label = "A", fontSize = 15.sp, enabled = fontScale > 0.7f) {
+                    onFontScale(((fontScale * 20).toInt() / 20f - 0.05f).coerceIn(0.7f, 2.6f))
                 }
                 Box(
                     Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(scheme.surfaceContainerHighest).padding(vertical = 12.dp),
@@ -1013,8 +1055,8 @@ private fun TypographySheet(
                 ) {
                     Text("${(fontScale * 100).toInt()}%", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
                 }
-                SizeStepButton(label = "A", fontSize = 24.sp, enabled = fontScale < 2.0f) {
-                    onFontScale(((fontScale * 10).toInt() / 10f + 0.1f).coerceIn(0.8f, 2.0f))
+                SizeStepButton(label = "A", fontSize = 24.sp, enabled = fontScale < 2.6f) {
+                    onFontScale(((fontScale * 20).toInt() / 20f + 0.05f).coerceIn(0.7f, 2.6f))
                 }
             }
             Text(
@@ -1044,10 +1086,13 @@ private fun TypographySheet(
             // ---- Background: live swatches that preview the actual reader palette ------------
             SheetSectionLabel("BACKGROUND")
             Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                ThemeSwatch("Default", ReaderTheme.DEFAULT, readerTheme == ReaderTheme.DEFAULT, onReaderTheme)
-                ThemeSwatch("Sepia", ReaderTheme.SEPIA, readerTheme == ReaderTheme.SEPIA, onReaderTheme)
-                ThemeSwatch("Black", ReaderTheme.BLACK, readerTheme == ReaderTheme.BLACK, onReaderTheme)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+            ) {
+                ReaderTheme.entries.forEach { t ->
+                    ThemeSwatch(readerThemeLabel(t), t, readerTheme == t, onReaderTheme)
+                }
             }
 
             HorizontalDivider(Modifier.padding(vertical = 16.dp), color = scheme.outlineVariant)
