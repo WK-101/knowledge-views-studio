@@ -16,8 +16,8 @@ android {
         applicationId = "com.cairn.reader"
         minSdk = 26
         targetSdk = 36
-        versionCode = 46
-        versionName = "3.20.0"
+        versionCode = 47
+        versionName = "3.21.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
     }

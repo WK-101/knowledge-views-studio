@@ -1,91 +1,137 @@
 {
   "categories": [
     {
-      "name": "Technology",
+      "name": "Tech News",
       "feeds": [
         {"title": "The Verge", "url": "https://www.theverge.com/rss/index.xml", "site": "theverge.com"},
         {"title": "Ars Technica", "url": "https://feeds.arstechnica.com/arstechnica/index", "site": "arstechnica.com"},
-        {"title": "Hacker News (front page)", "url": "https://hnrss.org/frontpage", "site": "news.ycombinator.com"},
-        {"title": "TechCrunch", "url": "https://techcrunch.com/feed/", "site": "techcrunch.com"},
         {"title": "Wired", "url": "https://www.wired.com/feed/rss", "site": "wired.com"},
+        {"title": "TechCrunch", "url": "https://techcrunch.com/feed/", "site": "techcrunch.com"},
         {"title": "Engadget", "url": "https://www.engadget.com/rss.xml", "site": "engadget.com"},
+        {"title": "Hacker News (front page)", "url": "https://hnrss.org/frontpage", "site": "news.ycombinator.com"},
         {"title": "MIT Technology Review", "url": "https://www.technologyreview.com/feed/", "site": "technologyreview.com"},
-        {"title": "The Register", "url": "https://www.theregister.com/headlines.atom", "site": "theregister.com"}
+        {"title": "Techmeme", "url": "https://www.techmeme.com/feed.xml", "site": "techmeme.com"}
       ]
     },
     {
-      "name": "Programming",
+      "name": "Programming & Dev",
       "feeds": [
-        {"title": "DEV Community", "url": "https://dev.to/feed", "site": "dev.to"},
-        {"title": "The GitHub Blog", "url": "https://github.blog/feed/", "site": "github.blog"},
+        {"title": "Hacker News (100+ points)", "url": "https://hnrss.org/newest?points=100", "site": "news.ycombinator.com"},
+        {"title": "GitHub Blog", "url": "https://github.blog/feed/", "site": "github.blog"},
+        {"title": "Stack Overflow Blog", "url": "https://stackoverflow.blog/feed/", "site": "stackoverflow.blog"},
         {"title": "Martin Fowler", "url": "https://martinfowler.com/feed.atom", "site": "martinfowler.com"},
-        {"title": "Julia Evans", "url": "https://jvns.ca/atom.xml", "site": "jvns.ca"},
-        {"title": "Overreacted (Dan Abramov)", "url": "https://overreacted.io/rss.xml", "site": "overreacted.io"},
-        {"title": "Stack Overflow Blog", "url": "https://stackoverflow.blog/feed/", "site": "stackoverflow.blog"}
+        {"title": "CSS-Tricks", "url": "https://css-tricks.com/feed/", "site": "css-tricks.com"},
+        {"title": "Smashing Magazine", "url": "https://www.smashingmagazine.com/feed/", "site": "smashingmagazine.com"},
+        {"title": "InfoQ", "url": "https://feed.infoq.com/", "site": "infoq.com"},
+        {"title": "The Pragmatic Engineer", "url": "https://blog.pragmaticengineer.com/rss/", "site": "pragmaticengineer.com"}
+      ]
+    },
+    {
+      "name": "Android & Mobile",
+      "feeds": [
+        {"title": "Android Developers Blog", "url": "https://android-developers.googleblog.com/feeds/posts/default", "site": "android-developers.googleblog.com"},
+        {"title": "Android Police", "url": "https://www.androidpolice.com/feed/", "site": "androidpolice.com"},
+        {"title": "9to5Google", "url": "https://9to5google.com/feed/", "site": "9to5google.com"},
+        {"title": "Android Weekly", "url": "https://androidweekly.net/rss.xml", "site": "androidweekly.net"},
+        {"title": "r/androiddev", "url": "https://www.reddit.com/r/androiddev/.rss", "site": "reddit.com"},
+        {"title": "Android Developers (Medium)", "url": "https://medium.com/feed/androiddevelopers", "site": "medium.com"}
+      ]
+    },
+    {
+      "name": "Apple",
+      "feeds": [
+        {"title": "9to5Mac", "url": "https://9to5mac.com/feed/", "site": "9to5mac.com"},
+        {"title": "MacRumors", "url": "https://feeds.macrumors.com/MacRumors-All", "site": "macrumors.com"},
+        {"title": "Daring Fireball", "url": "https://daringfireball.net/feeds/main", "site": "daringfireball.net"},
+        {"title": "Six Colors", "url": "https://sixcolors.com/feed/", "site": "sixcolors.com"},
+        {"title": "The Eclectic Light Company", "url": "https://eclecticlight.co/feed/", "site": "eclecticlight.co"}
       ]
     },
     {
       "name": "AI & Machine Learning",
       "feeds": [
+        {"title": "Google DeepMind", "url": "https://deepmind.google/blog/rss.xml", "site": "deepmind.google"},
+        {"title": "OpenAI Blog", "url": "https://openai.com/blog/rss.xml", "site": "openai.com"},
+        {"title": "Import AI", "url": "https://jack-clark.net/feed/", "site": "jack-clark.net"},
+        {"title": "The Batch (DeepLearning.AI)", "url": "https://www.deeplearning.ai/the-batch/feed/", "site": "deeplearning.ai"},
         {"title": "Hugging Face Blog", "url": "https://huggingface.co/blog/feed.xml", "site": "huggingface.co"},
-        {"title": "Machine Learning Mastery", "url": "https://machinelearningmastery.com/feed/", "site": "machinelearningmastery.com"},
-        {"title": "BAIR Blog", "url": "https://bair.berkeley.edu/blog/feed.xml", "site": "bair.berkeley.edu"},
         {"title": "MarkTechPost", "url": "https://www.marktechpost.com/feed/", "site": "marktechpost.com"},
-        {"title": "The Gradient", "url": "https://thegradient.pub/rss/", "site": "thegradient.pub"},
-        {"title": "Import AI", "url": "https://jack-clark.net/feed/", "site": "jack-clark.net"}
+        {"title": "r/MachineLearning", "url": "https://www.reddit.com/r/MachineLearning/.rss", "site": "reddit.com"}
       ]
     },
     {
-      "name": "Science",
+      "name": "Startups & VC",
       "feeds": [
-        {"title": "Quanta Magazine", "url": "https://api.quantamagazine.org/feed/", "site": "quantamagazine.org"},
-        {"title": "Nature (current)", "url": "http://feeds.nature.com/nature/rss/current", "site": "nature.com"},
-        {"title": "Phys.org", "url": "https://phys.org/rss-feed/", "site": "phys.org"},
-        {"title": "Science Daily", "url": "https://www.sciencedaily.com/rss/all.xml", "site": "sciencedaily.com"},
-        {"title": "Scientific American", "url": "http://rss.sciam.com/ScientificAmerican-Global", "site": "scientificamerican.com"},
-        {"title": "Live Science", "url": "https://www.livescience.com/feeds/all", "site": "livescience.com"}
+        {"title": "Y Combinator Blog", "url": "https://www.ycombinator.com/blog/rss", "site": "ycombinator.com"},
+        {"title": "Andreessen Horowitz (a16z)", "url": "https://a16z.com/feed/", "site": "a16z.com"},
+        {"title": "Paul Graham Essays", "url": "http://www.aaronsw.com/2002/feeds/pgessays.rss", "site": "paulgraham.com"},
+        {"title": "First Round Review", "url": "https://review.firstround.com/feed.xml", "site": "review.firstround.com"},
+        {"title": "Stratechery (free)", "url": "https://stratechery.com/feed/", "site": "stratechery.com"},
+        {"title": "Both Sides of the Table", "url": "https://bothsidesofthetable.com/feed", "site": "bothsidesofthetable.com"}
       ]
     },
     {
-      "name": "Space",
+      "name": "Business & Finance",
       "feeds": [
-        {"title": "NASA", "url": "https://www.nasa.gov/feed/", "site": "nasa.gov"},
-        {"title": "Space.com", "url": "https://www.space.com/feeds/all", "site": "space.com"},
-        {"title": "Universe Today", "url": "https://www.universetoday.com/feed/", "site": "universetoday.com"},
-        {"title": "Spaceflight Now", "url": "https://spaceflightnow.com/feed/", "site": "spaceflightnow.com"},
-        {"title": "The Planetary Society", "url": "https://www.planetary.org/rss/articles", "site": "planetary.org"}
+        {"title": "The Economist (Finance)", "url": "https://www.economist.com/finance-and-economics/rss.xml", "site": "economist.com"},
+        {"title": "Financial Times (Home)", "url": "https://www.ft.com/rss/home", "site": "ft.com"},
+        {"title": "Marginal Revolution", "url": "https://marginalrevolution.com/feed", "site": "marginalrevolution.com"},
+        {"title": "Of Dollars and Data", "url": "https://ofdollarsanddata.com/feed/", "site": "ofdollarsanddata.com"},
+        {"title": "Bloomberg (Markets)", "url": "https://feeds.bloomberg.com/markets/news.rss", "site": "bloomberg.com"},
+        {"title": "CNBC (Top)", "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114", "site": "cnbc.com"}
       ]
     },
     {
       "name": "World News",
       "feeds": [
         {"title": "BBC World", "url": "https://feeds.bbci.co.uk/news/world/rss.xml", "site": "bbc.com"},
-        {"title": "NPR News", "url": "https://feeds.npr.org/1001/rss.xml", "site": "npr.org"},
         {"title": "The Guardian (World)", "url": "https://www.theguardian.com/world/rss", "site": "theguardian.com"},
         {"title": "Al Jazeera", "url": "https://www.aljazeera.com/xml/rss/all.xml", "site": "aljazeera.com"},
-        {"title": "Deutsche Welle", "url": "https://rss.dw.com/rdf/rss-en-all", "site": "dw.com"},
-        {"title": "CBC Top Stories", "url": "https://www.cbc.ca/webfeed/rss/rss-topstories", "site": "cbc.ca"}
+        {"title": "NPR News", "url": "https://feeds.npr.org/1001/rss.xml", "site": "npr.org"},
+        {"title": "The New York Times (Home)", "url": "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml", "site": "nytimes.com"},
+        {"title": "Reuters (via Google News)", "url": "https://news.google.com/rss/search?q=when:24h+allinurl:reuters.com&hl=en-US&gl=US&ceid=US:en", "site": "reuters.com"}
       ]
     },
     {
-      "name": "Business & Finance",
+      "name": "Science",
       "feeds": [
-        {"title": "Harvard Business Review", "url": "http://feeds.hbr.org/harvardbusiness", "site": "hbr.org"},
-        {"title": "Fortune", "url": "https://fortune.com/feed/", "site": "fortune.com"},
-        {"title": "MarketWatch Top Stories", "url": "http://feeds.marketwatch.com/marketwatch/topstories/", "site": "marketwatch.com"},
-        {"title": "Forbes Business", "url": "https://www.forbes.com/business/feed/", "site": "forbes.com"},
-        {"title": "Entrepreneur", "url": "https://www.entrepreneur.com/latest.rss", "site": "entrepreneur.com"}
+        {"title": "Quanta Magazine", "url": "https://www.quantamagazine.org/feed/", "site": "quantamagazine.org"},
+        {"title": "Nature (latest)", "url": "https://www.nature.com/nature.rss", "site": "nature.com"},
+        {"title": "Science Daily", "url": "https://www.sciencedaily.com/rss/all.xml", "site": "sciencedaily.com"},
+        {"title": "Phys.org", "url": "https://phys.org/rss-feed/", "site": "phys.org"},
+        {"title": "Scientific American", "url": "http://rss.sciam.com/ScientificAmerican-Global", "site": "scientificamerican.com"},
+        {"title": "Ars Science", "url": "https://feeds.arstechnica.com/arstechnica/science", "site": "arstechnica.com"}
+      ]
+    },
+    {
+      "name": "Space & Astronomy",
+      "feeds": [
+        {"title": "NASA Breaking News", "url": "https://www.nasa.gov/rss/dyn/breaking_news.rss", "site": "nasa.gov"},
+        {"title": "Space.com", "url": "https://www.space.com/feeds/all", "site": "space.com"},
+        {"title": "ESA Space News", "url": "https://www.esa.int/rssfeed/Our_Activities/Space_News", "site": "esa.int"},
+        {"title": "The Planetary Society", "url": "https://www.planetary.org/articles/rss.xml", "site": "planetary.org"},
+        {"title": "Astronomy Picture of the Day", "url": "https://apod.nasa.gov/apod.rss", "site": "apod.nasa.gov"}
+      ]
+    },
+    {
+      "name": "Climate & Environment",
+      "feeds": [
+        {"title": "Grist", "url": "https://grist.org/feed/", "site": "grist.org"},
+        {"title": "Inside Climate News", "url": "https://insideclimatenews.org/feed/", "site": "insideclimatenews.org"},
+        {"title": "Carbon Brief", "url": "https://www.carbonbrief.org/feed/", "site": "carbonbrief.org"},
+        {"title": "Yale Environment 360", "url": "https://e360.yale.edu/feed.xml", "site": "e360.yale.edu"},
+        {"title": "The Guardian (Environment)", "url": "https://www.theguardian.com/environment/rss", "site": "theguardian.com"}
       ]
     },
     {
       "name": "Design & UX",
       "feeds": [
         {"title": "Smashing Magazine", "url": "https://www.smashingmagazine.com/feed/", "site": "smashingmagazine.com"},
-        {"title": "A List Apart", "url": "https://alistapart.com/main/feed/", "site": "alistapart.com"},
         {"title": "Nielsen Norman Group", "url": "https://www.nngroup.com/feed/rss/", "site": "nngroup.com"},
-        {"title": "CSS-Tricks", "url": "https://css-tricks.com/feed/", "site": "css-tricks.com"},
+        {"title": "Design Milk", "url": "https://design-milk.com/feed/", "site": "design-milk.com"},
         {"title": "Sidebar", "url": "https://sidebar.io/feed.xml", "site": "sidebar.io"},
-        {"title": "UX Collective", "url": "https://uxdesign.cc/feed", "site": "uxdesign.cc"}
+        {"title": "UX Collective", "url": "https://uxdesign.cc/feed", "site": "uxdesign.cc"},
+        {"title": "It's Nice That", "url": "https://www.itsnicethat.com/rss", "site": "itsnicethat.com"}
       ]
     },
     {
@@ -93,31 +139,40 @@
       "feeds": [
         {"title": "The Atlantic", "url": "https://www.theatlantic.com/feed/all/", "site": "theatlantic.com"},
         {"title": "Aeon", "url": "https://aeon.co/feed.rss", "site": "aeon.co"},
-        {"title": "The Marginalian", "url": "https://www.themarginalian.org/feed/", "site": "themarginalian.org"},
-        {"title": "Longreads", "url": "https://longreads.com/feed/", "site": "longreads.com"},
         {"title": "The New Yorker", "url": "https://www.newyorker.com/feed/everything", "site": "newyorker.com"},
+        {"title": "Longreads", "url": "https://longreads.com/feed/", "site": "longreads.com"},
+        {"title": "The Marginalian", "url": "https://www.themarginalian.org/feed/", "site": "themarginalian.org"},
         {"title": "Nautilus", "url": "https://nautil.us/feed/", "site": "nautil.us"}
+      ]
+    },
+    {
+      "name": "Books & Literature",
+      "feeds": [
+        {"title": "Literary Hub", "url": "https://lithub.com/feed/", "site": "lithub.com"},
+        {"title": "The Paris Review", "url": "https://www.theparisreview.org/blog/feed/", "site": "theparisreview.org"},
+        {"title": "Public Books", "url": "https://www.publicbooks.org/feed/", "site": "publicbooks.org"},
+        {"title": "The Marginalian", "url": "https://www.themarginalian.org/feed/", "site": "themarginalian.org"},
+        {"title": "1000-Word Philosophy", "url": "https://1000wordphilosophy.com/feed/", "site": "1000wordphilosophy.com"}
       ]
     },
     {
       "name": "Gaming",
       "feeds": [
         {"title": "Polygon", "url": "https://www.polygon.com/rss/index.xml", "site": "polygon.com"},
-        {"title": "IGN", "url": "https://feeds.ign.com/ign/all", "site": "ign.com"},
         {"title": "Eurogamer", "url": "https://www.eurogamer.net/feed", "site": "eurogamer.net"},
+        {"title": "IGN", "url": "https://feeds.ign.com/ign/all", "site": "ign.com"},
         {"title": "Rock Paper Shotgun", "url": "https://www.rockpapershotgun.com/feed", "site": "rockpapershotgun.com"},
-        {"title": "PC Gamer", "url": "https://www.pcgamer.com/rss/", "site": "pcgamer.com"},
-        {"title": "Kotaku", "url": "https://kotaku.com/rss", "site": "kotaku.com"}
+        {"title": "Kotaku", "url": "https://kotaku.com/rss", "site": "kotaku.com"},
+        {"title": "r/Games", "url": "https://www.reddit.com/r/Games/.rss", "site": "reddit.com"}
       ]
     },
     {
       "name": "Film & TV",
       "feeds": [
-        {"title": "Variety", "url": "https://variety.com/feed/", "site": "variety.com"},
         {"title": "IndieWire", "url": "https://www.indiewire.com/feed/", "site": "indiewire.com"},
+        {"title": "Variety", "url": "https://variety.com/feed/", "site": "variety.com"},
         {"title": "The Hollywood Reporter", "url": "https://www.hollywoodreporter.com/feed/", "site": "hollywoodreporter.com"},
-        {"title": "Collider", "url": "https://collider.com/feed/", "site": "collider.com"},
-        {"title": "/Film", "url": "https://www.slashfilm.com/feed/", "site": "slashfilm.com"},
+        {"title": "RogerEbert.com", "url": "https://www.rogerebert.com/feed", "site": "rogerebert.com"},
         {"title": "Vulture", "url": "https://www.vulture.com/rss/index.xml", "site": "vulture.com"}
       ]
     },
@@ -125,49 +180,104 @@
       "name": "Music",
       "feeds": [
         {"title": "Pitchfork", "url": "https://pitchfork.com/rss/news/", "site": "pitchfork.com"},
-        {"title": "Rolling Stone (Music)", "url": "https://www.rollingstone.com/music/feed/", "site": "rollingstone.com"},
         {"title": "Stereogum", "url": "https://www.stereogum.com/feed/", "site": "stereogum.com"},
         {"title": "NPR Music", "url": "https://feeds.npr.org/1039/rss.xml", "site": "npr.org"},
-        {"title": "Consequence", "url": "https://consequence.net/feed/", "site": "consequence.net"}
+        {"title": "Consequence", "url": "https://consequence.net/feed/", "site": "consequence.net"},
+        {"title": "The Quietus", "url": "https://thequietus.com/feed", "site": "thequietus.com"}
       ]
     },
     {
       "name": "Sports",
       "feeds": [
-        {"title": "ESPN", "url": "https://www.espn.com/espn/rss/news", "site": "espn.com"},
+        {"title": "ESPN Top", "url": "https://www.espn.com/espn/rss/news", "site": "espn.com"},
+        {"title": "The Guardian (Sport)", "url": "https://www.theguardian.com/uk/sport/rss", "site": "theguardian.com"},
         {"title": "BBC Sport", "url": "https://feeds.bbci.co.uk/sport/rss.xml", "site": "bbc.com"},
-        {"title": "Sky Sports", "url": "https://www.skysports.com/rss/12040", "site": "skysports.com"},
-        {"title": "Bleacher Report", "url": "https://bleacherreport.com/articles.rss", "site": "bleacherreport.com"},
-        {"title": "CBS Sports", "url": "https://www.cbssports.com/rss/headlines/", "site": "cbssports.com"}
+        {"title": "Sky Sports (Football)", "url": "https://www.skysports.com/rss/12040", "site": "skysports.com"},
+        {"title": "r/soccer", "url": "https://www.reddit.com/r/soccer/.rss", "site": "reddit.com"}
       ]
     },
     {
-      "name": "Food",
+      "name": "Food & Cooking",
       "feeds": [
-        {"title": "Serious Eats", "url": "https://www.seriouseats.com/feeds/all", "site": "seriouseats.com"},
+        {"title": "Serious Eats", "url": "https://www.seriouseats.com/feed", "site": "seriouseats.com"},
         {"title": "Smitten Kitchen", "url": "https://smittenkitchen.com/feed/", "site": "smittenkitchen.com"},
-        {"title": "Bon Appétit", "url": "https://www.bonappetit.com/feed/rss", "site": "bonappetit.com"},
         {"title": "The Kitchn", "url": "https://www.thekitchn.com/main.rss", "site": "thekitchn.com"},
-        {"title": "Food52", "url": "https://food52.com/blog.rss", "site": "food52.com"}
+        {"title": "Food52", "url": "https://food52.com/blog.rss", "site": "food52.com"},
+        {"title": "NYT Cooking", "url": "https://rss.nytimes.com/services/xml/rss/nyt/DiningandWine.xml", "site": "nytimes.com"}
       ]
     },
     {
       "name": "Health & Fitness",
       "feeds": [
-        {"title": "Harvard Health Blog", "url": "https://www.health.harvard.edu/blog/feed", "site": "health.harvard.edu"},
-        {"title": "Healthline", "url": "https://www.healthline.com/rss", "site": "healthline.com"},
-        {"title": "Nerd Fitness", "url": "https://www.nerdfitness.com/blog/feed/", "site": "nerdfitness.com"},
-        {"title": "mindbodygreen", "url": "https://www.mindbodygreen.com/rss", "site": "mindbodygreen.com"}
+        {"title": "Harvard Health", "url": "https://www.health.harvard.edu/blog/feed", "site": "health.harvard.edu"},
+        {"title": "Examine", "url": "https://examine.com/rss/", "site": "examine.com"},
+        {"title": "NYT Well", "url": "https://rss.nytimes.com/services/xml/rss/nyt/Well.xml", "site": "nytimes.com"},
+        {"title": "Outside Online", "url": "https://www.outsideonline.com/rss.xml", "site": "outsideonline.com"}
+      ]
+    },
+    {
+      "name": "Psychology & Mind",
+      "feeds": [
+        {"title": "Psyche", "url": "https://psyche.co/feed.rss", "site": "psyche.co"},
+        {"title": "Nautilus", "url": "https://nautil.us/feed/", "site": "nautil.us"},
+        {"title": "Aeon (Psychology)", "url": "https://aeon.co/feed.rss", "site": "aeon.co"},
+        {"title": "Astral Codex Ten", "url": "https://www.astralcodexten.com/feed", "site": "astralcodexten.com"}
       ]
     },
     {
       "name": "Productivity & Ideas",
       "feeds": [
-        {"title": "Lifehacker", "url": "https://lifehacker.com/rss", "site": "lifehacker.com"},
-        {"title": "Zen Habits", "url": "https://zenhabits.net/feed/", "site": "zenhabits.net"},
-        {"title": "James Clear", "url": "https://jamesclear.com/feed", "site": "jamesclear.com"},
         {"title": "Farnam Street", "url": "https://fs.blog/feed/", "site": "fs.blog"},
-        {"title": "Ness Labs", "url": "https://nesslabs.com/feed", "site": "nesslabs.com"}
+        {"title": "James Clear", "url": "https://jamesclear.com/feed", "site": "jamesclear.com"},
+        {"title": "Ness Labs", "url": "https://nesslabs.com/feed", "site": "nesslabs.com"},
+        {"title": "Cal Newport", "url": "https://calnewport.com/feed/", "site": "calnewport.com"},
+        {"title": "Wait But Why", "url": "https://waitbutwhy.com/feed", "site": "waitbutwhy.com"}
+      ]
+    },
+    {
+      "name": "Security & Privacy",
+      "feeds": [
+        {"title": "Krebs on Security", "url": "https://krebsonsecurity.com/feed/", "site": "krebsonsecurity.com"},
+        {"title": "Schneier on Security", "url": "https://www.schneier.com/feed/atom/", "site": "schneier.com"},
+        {"title": "The Hacker News", "url": "https://feeds.feedburner.com/TheHackersNews", "site": "thehackernews.com"},
+        {"title": "Bleeping Computer", "url": "https://www.bleepingcomputer.com/feed/", "site": "bleepingcomputer.com"},
+        {"title": "EFF Deeplinks", "url": "https://www.eff.org/rss/updates.xml", "site": "eff.org"}
+      ]
+    },
+    {
+      "name": "Photography",
+      "feeds": [
+        {"title": "PetaPixel", "url": "https://petapixel.com/feed/", "site": "petapixel.com"},
+        {"title": "DPReview", "url": "https://www.dpreview.com/feeds/news.xml", "site": "dpreview.com"},
+        {"title": "Fstoppers", "url": "https://fstoppers.com/feed", "site": "fstoppers.com"},
+        {"title": "1x.com", "url": "https://1x.com/rss/all", "site": "1x.com"}
+      ]
+    },
+    {
+      "name": "Travel",
+      "feeds": [
+        {"title": "Atlas Obscura", "url": "https://www.atlasobscura.com/feeds/latest", "site": "atlasobscura.com"},
+        {"title": "Lonely Planet", "url": "https://www.lonelyplanet.com/news/feed/atom/", "site": "lonelyplanet.com"},
+        {"title": "The Points Guy", "url": "https://thepointsguy.com/feed/", "site": "thepointsguy.com"},
+        {"title": "Nomadic Matt", "url": "https://www.nomadicmatt.com/travel-blog/feed/", "site": "nomadicmatt.com"}
+      ]
+    },
+    {
+      "name": "Cars & EVs",
+      "feeds": [
+        {"title": "The Drive", "url": "https://www.thedrive.com/feed", "site": "thedrive.com"},
+        {"title": "Jalopnik", "url": "https://jalopnik.com/rss", "site": "jalopnik.com"},
+        {"title": "Electrek", "url": "https://electrek.co/feed/", "site": "electrek.co"},
+        {"title": "InsideEVs", "url": "https://insideevs.com/rss/articles/all/", "site": "insideevs.com"}
+      ]
+    },
+    {
+      "name": "Comics & Webcomics",
+      "feeds": [
+        {"title": "xkcd", "url": "https://xkcd.com/rss.xml", "site": "xkcd.com"},
+        {"title": "The Oatmeal", "url": "https://theoatmeal.com/feed/rss", "site": "theoatmeal.com"},
+        {"title": "Saturday Morning Breakfast Cereal", "url": "https://www.smbc-comics.com/comic/rss", "site": "smbc-comics.com"},
+        {"title": "Penny Arcade", "url": "https://www.penny-arcade.com/feed", "site": "penny-arcade.com"}
       ]
     }
   ]
