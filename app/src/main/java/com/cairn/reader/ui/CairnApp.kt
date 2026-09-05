@@ -123,18 +123,21 @@ import com.cairn.reader.ui.settings.SettingsScreen
  * re-scopes the Inbox. The canonical order here is the order they appear in the bar; all are opt-in
  * from Settings except the defaults, and the bar shows up to six.
  */
-private enum class Destination(val label: String, val icon: ImageVector, val isPane: Boolean = true) {
+private enum class Destination(val label: String, val icon: ImageVector, val isPane: Boolean = true, shortLabel: String? = null) {
     Inbox("Inbox", Icons.Outlined.Inbox),
     Library("Library", Icons.AutoMirrored.Outlined.LibraryBooks),
     Discover("Discover", Icons.Outlined.Explore),
     Starred("Starred", Icons.Outlined.StarBorder, isPane = false),
-    ReadLater("Read Later", Icons.Outlined.Bookmark),
-    Highlights("Highlights", Icons.Outlined.FormatQuote),
+    ReadLater("Read Later", Icons.Outlined.Bookmark, shortLabel = "Later"),
+    Highlights("Highlights", Icons.Outlined.FormatQuote, shortLabel = "Notes"),
     Feeds("Feeds", Icons.Outlined.RssFeed),
     Search("Search", Icons.Outlined.Search),
     Trash("Trash", Icons.Outlined.DeleteOutline),
     Offline("Offline", Icons.Outlined.OfflinePin),
-    Settings("Settings", Icons.Outlined.Settings),
+    Settings("Settings", Icons.Outlined.Settings);
+
+    /** A compact label for the bottom nav bar, where six items must each fit on one line. */
+    val short: String = shortLabel ?: label
 }
 
 /** Destinations that render their own top app bar (hamburger + their controls); the shared shell
@@ -176,6 +179,9 @@ fun CairnApp(
     val detailNav = rememberNavController()
 
     val inboxViewModel: InboxViewModel = hiltViewModel()
+    // Hoisted above the destination Crossfade so the Inbox keeps its scroll position across tab
+    // switches and when returning from the reader (a fresh state inside the Crossfade would reset).
+    val inboxListState = androidx.compose.foundation.lazy.rememberLazyListState()
     val inboxViewMode by inboxViewModel.viewMode.collectAsStateWithLifecycle()
     val inboxState by inboxViewModel.state.collectAsStateWithLifecycle()
     val feeds by inboxViewModel.feeds.collectAsStateWithLifecycle()
@@ -411,7 +417,15 @@ fun CairnApp(
                                 else goTo(dest)
                             },
                             icon = { Icon(dest.icon, contentDescription = dest.label, modifier = Modifier.size(22.dp)) },
-                            label = { Text(dest.label, style = MaterialTheme.typography.labelSmall, maxLines = 1) },
+                            label = {
+                                Text(
+                                    dest.short,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            },
                             // Always show labels so the icon never shifts up/down as selection changes
                             // (the jump when a label appears only on the selected tab looks unpolished).
                             alwaysShowLabel = true,
@@ -441,7 +455,7 @@ fun CairnApp(
                 Destination.Offline -> com.cairn.reader.ui.settings.OfflineScreen(padding, onOpenItem = open, onOpenDrawer = openDrawer)
                 Destination.Settings -> SettingsScreen(padding, onOpenNotebook = { goTo(Destination.Highlights) }, onOpenOffline = { goTo(Destination.Offline) })
                 // Inbox and any non-pane fallthrough render the Inbox.
-                else -> InboxScreen(padding, inboxViewModel, open, onOpenWeb, inboxViewMode)
+                else -> InboxScreen(padding, inboxViewModel, open, onOpenWeb, inboxViewMode, inboxListState)
             }
         }
         if (wide) {
@@ -523,6 +537,7 @@ private fun InboxScreen(
     onOpenItem: (String) -> Unit,
     onOpenWeb: (String) -> Unit,
     viewMode: ListViewMode,
+    listState: androidx.compose.foundation.lazy.LazyListState,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
@@ -553,7 +568,6 @@ private fun InboxScreen(
             }
         }
     }
-    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val listScope = rememberCoroutineScope()
 
     // Mark-as-read-on-scroll: as items pass above the top of the list, mark them read (no undo

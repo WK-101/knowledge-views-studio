@@ -37,6 +37,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Text
@@ -111,14 +112,18 @@ fun FeedDrawerContent(
     ) {
         // ---- Brand header -----------------------------------------------------
         Row(
-            Modifier.padding(start = 28.dp, end = 28.dp, top = 6.dp, bottom = 10.dp),
+            Modifier.padding(start = 28.dp, end = 12.dp, top = 6.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             CairnMark(size = 28.dp)
             Spacer(Modifier.size(12.dp))
-            Column {
+            Column(Modifier.weight(1f)) {
                 Text("Cairn", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
                 Text("Private reading", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
+            }
+            // Settings sits inline with the app name, always one tap from the top of the drawer.
+            IconButton(onClick = onSettings) {
+                Icon(Icons.Outlined.Settings, contentDescription = "Settings", tint = scheme.onSurfaceVariant)
             }
         }
 
@@ -249,13 +254,6 @@ fun FeedDrawerContent(
             icon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null) },
             badge = { if (trashCount > 0) Text("$trashCount") },
             onClick = onTrash,
-            modifier = Modifier.padding(itemPad),
-        )
-        NavigationDrawerItem(
-            label = { Text("Settings") },
-            selected = false,
-            icon = { Icon(Icons.Outlined.Settings, contentDescription = null) },
-            onClick = onSettings,
             modifier = Modifier.padding(itemPad),
         )
     }
