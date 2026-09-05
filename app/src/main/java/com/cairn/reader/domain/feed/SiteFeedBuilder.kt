@@ -147,6 +147,36 @@ class SiteFeedBuilder @Inject constructor(
         return ParsedFeed(origin.toHttpUrlOrNull()?.host?.removePrefix("www."), origin, items)
     }
 
+    /**
+     * Full-archive search over a site (collector v3.37): WordPress exposes a REST `search`
+     * parameter that queries every post ever published, not just the recent feed window, so a
+     * WordPress site returns true historical matches. Returns an empty list for non-WordPress
+     * sites (the caller falls back to a site-scoped web search).
+     */
+    suspend fun searchWordPressArchive(input: String, query: String, perPage: Int = 40): List<ParsedItem> {
+        val http = input.toHttpUrlOrNull() ?: return emptyList()
+        val origin = "${http.scheme}://${http.host}"
+        val q = java.net.URLEncoder.encode(query.trim(), "UTF-8")
+        val url = "$origin/wp-json/wp/v2/posts?search=$q&per_page=${perPage.coerceIn(1, 100)}&_embed"
+        val body = runCatching { fetcher.fetch(url).body }.getOrNull() ?: return emptyList()
+        val arr = runCatching { JSONArray(body) }.getOrNull() ?: return emptyList()
+        return (0 until arr.length()).mapNotNull { i ->
+            val p = arr.optJSONObject(i) ?: return@mapNotNull null
+            val link = p.optString("link").ifBlank { null } ?: return@mapNotNull null
+            val image = p.optJSONObject("_embedded")
+                ?.optJSONArray("wp:featuredmedia")?.optJSONObject(0)?.optString("source_url")?.ifBlank { null }
+            ParsedItem(
+                guid = link,
+                title = stripHtml(p.optJSONObject("title")?.optString("rendered").orEmpty()).ifBlank { titleFromUrl(link) },
+                link = link, author = null,
+                publishedAt = parseDate(p.optString("date_gmt").ifBlank { p.optString("date") }),
+                contentHtml = p.optJSONObject("content")?.optString("rendered")?.ifBlank { null },
+                summary = stripHtml(p.optJSONObject("excerpt")?.optString("rendered").orEmpty()).ifBlank { null },
+                imageUrl = image,
+            )
+        }
+    }
+
     private fun stripHtml(html: String): String =
         if (html.isBlank()) "" else runCatching { Jsoup.parse(html).text().trim() }.getOrDefault(html.trim())
 

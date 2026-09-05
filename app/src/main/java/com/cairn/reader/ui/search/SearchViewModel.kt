@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -39,11 +40,15 @@ data class SearchUiState(
     val hasSearched: Boolean = false,
 )
 
+/** A subscribed site the user can search the full archive of. */
+data class ArchiveSite(val id: String, val title: String, val siteUrl: String)
+
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @HiltViewModel
 class SearchViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
     private val feedRepository: FeedRepository,
+    private val sourceRepository: com.cairn.reader.data.repo.SourceRepository,
 ) : ViewModel() {
 
     private val _query = MutableStateFlow("")
@@ -122,6 +127,37 @@ class SearchViewModel @Inject constructor(
     }
 
     fun saveWebHit(url: String) = viewModelScope.launch { feedRepository.saveUrl(url) }
+
+    // -- Full-archive search (a single site's entire published history) --------
+
+    /** Sites the user is subscribed to, resolved to a base URL for archive crawling. */
+    val archiveSites: StateFlow<List<ArchiveSite>> =
+        sourceRepository.sources().map { list ->
+            list.mapNotNull { s ->
+                val base = (s.siteUrl?.takeIf { it.isNotBlank() } ?: s.feedUrl).takeIf { it.startsWith("http") }
+                    ?: return@mapNotNull null
+                ArchiveSite(s.id, s.title, base)
+            }.distinctBy { hostOf(it.siteUrl) }.sortedBy { it.title.lowercase() }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val _archive = MutableStateFlow<List<WebHit>>(emptyList())
+    val archive: StateFlow<List<WebHit>> = _archive.asStateFlow()
+
+    private val _archiveBusy = MutableStateFlow(false)
+    val archiveBusy: StateFlow<Boolean> = _archiveBusy.asStateFlow()
+
+    fun searchArchive(site: ArchiveSite) = viewModelScope.launch {
+        val q = _query.value.trim()
+        if (q.length < 2) return@launch
+        _archiveBusy.value = true
+        _archive.value = feedRepository.searchArchive(site.siteUrl, q).mapNotNull { p ->
+            val url = p.link ?: return@mapNotNull null
+            WebHit(p.title ?: url, url, hostOf(url), p.publishedAt)
+        }
+        _archiveBusy.value = false
+    }
+
+    fun clearArchive() { _archive.value = emptyList() }
 
     fun toggleSave(id: String, save: Boolean) = viewModelScope.launch {
         itemRepository.setReadLater(id, save)

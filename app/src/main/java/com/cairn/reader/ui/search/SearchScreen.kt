@@ -26,6 +26,7 @@ import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -72,6 +73,9 @@ fun SearchScreen(
     val availableTypes by viewModel.availableTypes.collectAsStateWithLifecycle()
     val web by viewModel.web.collectAsStateWithLifecycle()
     val webBusy by viewModel.webBusy.collectAsStateWithLifecycle()
+    val archiveSites by viewModel.archiveSites.collectAsStateWithLifecycle()
+    val archive by viewModel.archive.collectAsStateWithLifecycle()
+    val archiveBusy by viewModel.archiveBusy.collectAsStateWithLifecycle()
     val scheme = MaterialTheme.colorScheme
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
@@ -183,6 +187,36 @@ fun SearchScreen(
                     items(web, key = { "web-${it.url}" }) { hit ->
                         WebHitRow(hit, onOpen = { onOpenWeb(hit.url) }, onSave = { viewModel.saveWebHit(hit.url) })
                         HorizontalDivider(color = scheme.outlineVariant.copy(alpha = 0.4f))
+                    }
+
+                    // ---- Search a single site's entire published archive -------------------
+                    if (archiveSites.isNotEmpty()) {
+                        item {
+                            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp)) {
+                                Text(
+                                    if (archiveBusy) "Searching the archive…" else "SEARCH A SITE'S FULL ARCHIVE",
+                                    style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, fontWeight = FontWeight.Medium,
+                                )
+                                Text(
+                                    "Finds “${state.query.trim()}” across everything a site ever published — its whole back catalogue, not just recent items. Tap a site:",
+                                    style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
+                                )
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    archiveSites.take(30).forEach { site ->
+                                        AssistChip(
+                                            onClick = { viewModel.searchArchive(site) },
+                                            enabled = !archiveBusy,
+                                            label = { Text(site.title, maxLines = 1) },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        items(archive, key = { "arc-${it.url}" }) { hit ->
+                            WebHitRow(hit, onOpen = { onOpenWeb(hit.url) }, onSave = { viewModel.saveWebHit(hit.url) })
+                            HorizontalDivider(color = scheme.outlineVariant.copy(alpha = 0.4f))
+                        }
                     }
                 }
             }

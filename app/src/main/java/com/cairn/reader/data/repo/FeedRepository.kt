@@ -193,6 +193,21 @@ class FeedRepository @Inject constructor(
         return feed.items
     }
 
+    /**
+     * Search a single site's entire published archive — every article it ever put out, not just
+     * the recent feed window. WordPress sites answer this exactly via their REST `search` API; for
+     * everything else we fall back to a site-scoped Google News search, which still reaches far
+     * beyond the live feed. [siteUrl] is any URL on the site (its feed or home page).
+     */
+    suspend fun searchArchive(siteUrl: String, query: String): List<com.cairn.reader.domain.feed.ParsedItem> {
+        val q = query.trim()
+        if (q.isBlank() || siteUrl.isBlank()) return emptyList()
+        val wp = runCatching { siteFeedBuilder.searchWordPressArchive(siteUrl, q) }.getOrDefault(emptyList())
+        if (wp.isNotEmpty()) return wp
+        val host = runCatching { java.net.URI(siteUrl).host?.removePrefix("www.") }.getOrNull()
+        return if (host != null) webSearch("$q site:$host") else emptyList()
+    }
+
     /** On first run, subscribe to a few well-known feeds so the app has real content
      *  after the first sync. Returns true if it seeded (i.e. there were no sources). */
     suspend fun seedDefaultFeedsIfEmpty(): Boolean {
