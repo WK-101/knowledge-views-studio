@@ -9,6 +9,13 @@ import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
 /** Flat projection for list screens — joins item + mutable state + source title. */
+/** Minimal projection for the home-screen list widget. */
+data class WidgetRow(
+    val id: String,
+    val title: String,
+    val source: String?,
+)
+
 data class ItemListRow(
     val id: String,
     val url: String,
@@ -197,6 +204,34 @@ interface ItemDao {
 
     @Query("SELECT i.title FROM items i LEFT JOIN item_states s ON s.itemId = i.id WHERE i.trashedAt IS NULL AND COALESCE(s.isRead, 0) = 0 AND COALESCE(s.isArchived, 0) = 0 ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC LIMIT 1")
     suspend fun latestInboxTitle(): String?
+
+    /** The newest unread items for the home-screen list widget. */
+    @Query(
+        """
+        SELECT i.id AS id, i.title AS title, COALESCE(src.title, i.siteName) AS source
+        FROM items i
+        LEFT JOIN item_states s ON s.itemId = i.id
+        LEFT JOIN sources src ON src.id = i.sourceId
+        WHERE i.trashedAt IS NULL AND COALESCE(s.isRead, 0) = 0 AND COALESCE(s.isArchived, 0) = 0
+        ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC
+        LIMIT :limit
+        """,
+    )
+    suspend fun latestUnreadForWidget(limit: Int): List<WidgetRow>
+
+    /** The newest saved (read-later) items for the widget's Saved scope. */
+    @Query(
+        """
+        SELECT i.id AS id, i.title AS title, COALESCE(src.title, i.siteName) AS source
+        FROM items i
+        LEFT JOIN item_states s ON s.itemId = i.id
+        LEFT JOIN sources src ON src.id = i.sourceId
+        WHERE i.trashedAt IS NULL AND COALESCE(s.isReadLater, 0) = 1
+        ORDER BY i.savedAt DESC
+        LIMIT :limit
+        """,
+    )
+    suspend fun latestSavedForWidget(limit: Int): List<WidgetRow>
 
     @Query("SELECT * FROM items")
     suspend fun allItems(): List<ItemEntity>

@@ -23,18 +23,27 @@
         android:layout_marginTop="2dp"
         android:text="0 unread"
         android:textColor="#FFFFFF"
-        android:textSize="24sp"
+        android:textSize="22sp"
         android:textStyle="bold" />
 
     <TextView
-        android:id="@+id/widget_latest"
+        android:id="@+id/widget_empty"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginTop="6dp"
-        android:maxLines="3"
-        android:ellipsize="end"
+        android:layout_marginTop="8dp"
+        android:gravity="center"
         android:text="You're all caught up"
         android:textColor="#EAF4F3"
-        android:textSize="14sp" />
+        android:textSize="14sp"
+        android:visibility="gone" />
+
+    <ListView
+        android:id="@+id/widget_list"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="8dp"
+        android:divider="#22FFFFFF"
+        android:dividerHeight="1dp" />
 </LinearLayout>

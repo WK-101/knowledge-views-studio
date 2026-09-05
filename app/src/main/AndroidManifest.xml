@@ -58,6 +58,12 @@
                 android:resource="@xml/cairn_widget_info" />
         </receiver>
 
+        <!-- Feeds the widget's scrollable article list. -->
+        <service
+            android:name=".widget.CairnWidgetService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
+
         <!-- Handles Mark-read / Save quick actions on new-article notifications. -->
         <receiver
             android:name=".notifications.NotificationActionReceiver"
