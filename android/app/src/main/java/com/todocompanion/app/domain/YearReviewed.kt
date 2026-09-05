@@ -14,8 +14,9 @@ import java.time.ZoneId
 
 /**
  * Wave 3 (feature B) — a fully-local "Year, Reviewed": a private, on-device year-in-review built entirely
- * from data the app already holds (day logs, habits + check-ins, tracked time). It folds a rolling
- * 365-day window (or any inclusive epoch-day range the caller passes) into the handful of figures a calm,
+ * from data the app already holds (day logs, habits + check-ins, tracked time). It folds any inclusive
+ * epoch-day range the caller passes — every "year" surface passes the one canonical [calendarYearWindow]
+ * (the calendar year, clamped to today) — into the handful of figures a calm,
  * Spotify-Wrapped-style recap wants — days reviewed, average rating + mood with a monthly trend, total
  * tracked hours + top activities, habit consistency, wins / three-good-things counted, the longest review
  * streak, the most-common emotion word, and a standout highlight.
@@ -30,8 +31,18 @@ import java.time.ZoneId
  */
 object YearReviewed {
 
-    /** The default look-back window when the caller wants "the last year". */
-    const val WINDOW_DAYS = 365
+    /**
+     * The ONE canonical "year" window every year surface uses: the calendar year [year] as an inclusive
+     * epoch-day range, clamped so the *current* year ends at [today] rather than 31 Dec. Clamping matters —
+     * there is no data past today, and letting the window run into the future would inflate habit "expected"
+     * counts (and so deflate consistency %). A fully-past year returns 1 Jan..31 Dec. This is what The
+     * Record's Wrapped, the "Year, reviewed" screen and the drawer's annual report all fold, so they agree.
+     */
+    fun calendarYearWindow(year: Int, today: Long): Pair<Long, Long> {
+        val start = LocalDate.of(year, 1, 1).toEpochDay()
+        val end = minOf(LocalDate.of(year, 12, 31).toEpochDay(), today)
+        return start to end
+    }
 
     /** How many activities / habits to surface in the recap so each panel stays scannable. */
     private const val MAX_ACTIVITIES = 5
@@ -75,6 +86,9 @@ object YearReviewed {
         val longestActiveStreakDays: Int = 0, // longest run of consecutive active days
         val biggestMonthValue: Int = 0,     // 1..12 of the month with the most accomplishments (0 = none)
         val biggestMonthCount: Int = 0,
+        // Accomplishments per calendar month across the window (oldest month first) — the monthly rhythm the
+        // spine exposes so the annual report's month chart is spine-fed, from the same feed as biggestMonth.
+        val monthlyDone: List<Int> = emptyList(),
         // Track 1 — the shared felt fold this recap's rating / mood / dominant-emotion figures are derived from,
         // so the year view and every other felt surface report the same numbers (the trend arrays above stay a
         // per-calendar-month roll-up, which is unique to the year view's sparkline).
@@ -167,6 +181,7 @@ object YearReviewed {
         val biggestMonth = feed
             .groupingBy { LocalDate.ofEpochDay(it.epochDay).monthValue }
             .eachCount().maxByOrNull { it.value }
+        val monthlyDone = monthlyCounts(startDay, endDay, feed.map { it.epochDay })
         val focusMinutesDone = feed.filter { it.kind == DoneKind.FOCUS }.sumOf { it.durationMin }
 
         return Recap(
@@ -190,6 +205,7 @@ object YearReviewed {
             longestActiveStreakDays = ds.longestStreakDays,
             biggestMonthValue = biggestMonth?.key ?: 0,
             biggestMonthCount = biggestMonth?.value ?: 0,
+            monthlyDone = monthlyDone,
             felt = felt,
         )
     }
@@ -227,6 +243,27 @@ object YearReviewed {
             buckets[key]?.add(v)
         }
         return buckets.values.map { if (it.isEmpty()) null else it.average().let { a -> Math.round(a).toInt() } }
+    }
+
+    /**
+     * Count how many of [epochDays] fall in each calendar month across the window (oldest month first) — the
+     * monthly rhythm the report chart draws, bucketed exactly like [monthlyTrend] so it lines up month-for-month.
+     */
+    private fun monthlyCounts(startDay: Long, endDay: Long, epochDays: List<Long>): List<Int> {
+        val firstMonth = LocalDate.ofEpochDay(startDay).withDayOfMonth(1)
+        val lastMonth = LocalDate.ofEpochDay(endDay).withDayOfMonth(1)
+        val buckets = LinkedHashMap<String, Int>()
+        var m = firstMonth
+        while (!m.isAfter(lastMonth)) {
+            buckets[m.toString().substring(0, 7)] = 0
+            m = m.plusMonths(1)
+        }
+        for (d in epochDays) {
+            if (d < startDay || d > endDay) continue
+            val key = LocalDate.ofEpochDay(d).toString().substring(0, 7)
+            buckets[key]?.let { buckets[key] = it + 1 }
+        }
+        return buckets.values.toList()
     }
 
     private fun millisWindow(startDay: Long, endDay: Long, zone: ZoneId): Pair<Long, Long> {

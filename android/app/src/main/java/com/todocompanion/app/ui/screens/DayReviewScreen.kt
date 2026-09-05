@@ -1015,8 +1015,8 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
         val mStart = mFirst.toEpochDay(); val mEnd = minOf(mLast.toEpochDay(), todayEd)
         val monthRollup = ReviewRollup.compute(mStart, mEnd, dayLogs, questions, habits, checkins, timeEntries, activities, zone, nowMs, goals, tasks)
         val monthExec = ExecutionScore.fromRollup(monthRollup, tasks, zone)
-        // Year window (the rolling 365 days ending today).
-        val yEnd = todayEd; val yStart = todayEd - (YearReviewed.WINDOW_DAYS - 1)
+        // Year window (the canonical calendar year to date — the one window every year surface shares).
+        val (yStart, yEnd) = YearReviewed.calendarYearWindow(LocalDate.ofEpochDay(todayEd).year, todayEd)
         val yearRecap = YearReviewed.compute(yStart, yEnd, dayLogs, habits, checkins, timeEntries, activities, zone, nowMs, tasks)
         mapOf(
             DayCard.PeriodKind.WEEK to periodDataFromRollup(weekLabel(ws, ws.plusDays(6)), weekRollup, weekExec, shareThemesFor(wStart, wEnd, dayLogs), accent),
@@ -2895,7 +2895,8 @@ private fun ReflectionCompanionDialog(
 
 /**
  * Wave 3 (B) — the fully-local "Year, reviewed": a calm, multi-panel year-in-review computed on-device by
- * [YearReviewed] over the rolling 365 days ending today, with a permission-free shareable PNG rendered
+ * [YearReviewed] over the canonical [YearReviewed.calendarYearWindow] (the current calendar year, to date),
+ * matching The Record's Wrapped and the drawer's annual report, with a permission-free shareable PNG rendered
  * through the existing DayCard/ProgressCard pipeline (guarded, never blank). Reachable from the Month
  * roll-up. Nothing leaves the device.
  */
@@ -2914,8 +2915,8 @@ private fun YearReviewedScreen(
 ) {
     BackHandler(onBack = onBack)
     val ctx = LocalContext.current
-    val end = todayEd
-    val start = todayEd - (YearReviewed.WINDOW_DAYS - 1)
+    val year = LocalDate.ofEpochDay(todayEd).year
+    val (start, end) = YearReviewed.calendarYearWindow(year, todayEd)
     val recap = remember(dayLogs, habits, checkins, timeEntries, activities, end) {
         YearReviewed.compute(start, end, dayLogs, habits, checkins, timeEntries, activities, zone, System.currentTimeMillis())
     }
@@ -2966,7 +2967,7 @@ private fun YearReviewedScreen(
 
             // Header panel.
             AppCard {
-                Text("The last 12 months", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                Text("$year", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                 Text("${recap.daysReviewed} days reviewed", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text(windowLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                 Spacer(Modifier.height(10.dp))

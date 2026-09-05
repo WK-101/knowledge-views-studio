@@ -151,4 +151,20 @@ class YearReviewedTest {
         assertFalse(r.hasData)
         assertEquals(0, r.periodDays)
     }
+
+    // Track 1 (Unify) — the ONE canonical year window every year surface (Wrapped, the "Year, reviewed"
+    // screen, the drawer's annual report) folds is the calendar year, clamped to today for the current year.
+    @Test fun calendarYearWindowClampsCurrentYearToToday() {
+        val today = LocalDate.of(2026, 9, 5).toEpochDay()
+        val (s, e) = YearReviewed.calendarYearWindow(2026, today)
+        assertEquals(LocalDate.of(2026, 1, 1).toEpochDay(), s)  // 1 Jan of the year
+        assertEquals(today, e)                                   // clamped to today, not 31 Dec (no future data)
+    }
+
+    @Test fun calendarYearWindowForAPastYearIsTheFullYear() {
+        val today = LocalDate.of(2026, 9, 5).toEpochDay()
+        val (s, e) = YearReviewed.calendarYearWindow(2025, today)
+        assertEquals(LocalDate.of(2025, 1, 1).toEpochDay(), s)
+        assertEquals(LocalDate.of(2025, 12, 31).toEpochDay(), e) // a completed year runs 1 Jan..31 Dec
+    }
 }

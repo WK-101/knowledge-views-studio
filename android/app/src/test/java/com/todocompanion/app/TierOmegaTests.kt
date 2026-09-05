@@ -13,6 +13,7 @@ import com.todocompanion.app.domain.OmegaCommand
 import com.todocompanion.app.domain.OmegaContext
 import com.todocompanion.app.domain.OmegaQuery
 import com.todocompanion.app.domain.PeriodRecap
+import com.todocompanion.app.domain.YearReviewed
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -110,9 +111,19 @@ class TierOmegaTests {
         assertTrue(ModuleHints.compute(settings, tasks, emptyList()).none { it.enableModule == "time" })
     }
 
-    // ---- Ω4: the annual report ----
+    // ---- Ω4: the annual report — now spine-fed (Track 1 Unify) ----
+    /** The one year spine over the canonical calendar-year window — what Wrapped, the "Year, reviewed"
+     *  screen and the drawer report all fold, so their numbers agree. */
+    private fun yearRecap(): YearReviewed.Recap {
+        val fx = fixture()
+        // A properly-completed task so DoneRecord counts it (the fixture's task() sets completedAt only).
+        val doneTask = TaskEntity(id = "d1", listId = "l", title = "shipped", createdAt = now, updatedAt = now, completed = true, completedAt = ms(12))
+        val (yStart, yEnd) = YearReviewed.calendarYearWindow(today.year, todayDay)
+        return YearReviewed.compute(yStart, yEnd, emptyList(), fx.habits, fx.checkins, fx.timeEntries, fx.activities, zone, now, listOf(doneTask))
+    }
+
     @Test fun annualReportRendersSelfContainedHtml() {
-        val html = LifeReport.buildHtml(today.year, fixture())
+        val html = LifeReport.buildHtml(today.year, yearRecap())
         assertTrue(html.startsWith("<!doctype html>"))
         assertTrue(html.contains("Your year in review"))
         assertTrue(html.contains(today.year.toString()))
@@ -120,5 +131,14 @@ class TierOmegaTests {
         // fully self-contained — no external resource references.
         assertFalse(html.contains("http://"))
         assertFalse(html.contains("https://"))
+    }
+
+    /** Track 1 (Unify) — the report's headline numbers are read straight off the spine, not a parallel fold. */
+    @Test fun annualReportHeadlineCountsComeFromTheSpine() {
+        val recap = yearRecap()
+        val html = LifeReport.buildHtml(today.year, recap)
+        assertEquals(1, recap.tasksFinished) // one task completed today (this calendar year)
+        assertTrue(html.contains("<div class=\"n\">${recap.tasksFinished}</div><div class=\"k\">tasks completed</div>"))
+        assertTrue(html.contains("<div class=\"n\">${recap.habitDaysKept}</div><div class=\"k\">habit check-ins kept</div>"))
     }
 }

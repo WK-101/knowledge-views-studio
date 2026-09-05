@@ -4203,12 +4203,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun moduleHints(): List<com.todocompanion.app.domain.ModuleHints.Hint> =
         com.todocompanion.app.domain.ModuleHints.compute(settings.value, tasks.value, habits.value)
 
-    /** Ω4 — render the annual life report to a self-contained HTML file and hand it to the share sheet. */
+    /** Ω4 — render the annual life report to a self-contained HTML file and hand it to the share sheet.
+     *  Track 1 (Unify) — its numbers come from the one year spine ([yearReviewed] over the canonical
+     *  [YearReviewed.calendarYearWindow]), so the HTML report agrees exactly with Wrapped and the
+     *  "Year, reviewed" screen; LifeReport now only templates the recap into HTML. */
     fun shareAnnualReport(year: Int, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
-        val ctx = omegaCtx()
+        val today = java.time.LocalDate.now(zone).toEpochDay()
+        val (yStart, yEnd) = com.todocompanion.app.domain.YearReviewed.calendarYearWindow(year, today)
         val uri = withContext(Dispatchers.IO) {
             runCatching {
-                val html = com.todocompanion.app.domain.LifeReport.buildHtml(year, ctx)
+                val recap = yearReviewed(yStart, yEnd)
+                val html = com.todocompanion.app.domain.LifeReport.buildHtml(year, recap)
                 val dir = java.io.File(appCtx.cacheDir, "shared").apply { mkdirs() }
                 val f = java.io.File(dir, "modular-year-$year.html").apply { writeText(html) }
                 androidx.core.content.FileProvider.getUriForFile(appCtx, "${appCtx.packageName}.fileprovider", f)

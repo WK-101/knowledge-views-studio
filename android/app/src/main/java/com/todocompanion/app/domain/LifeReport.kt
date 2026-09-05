@@ -1,13 +1,20 @@
 package com.todocompanion.app.domain
 
-import com.todocompanion.app.domain.habit.HabitStats
-import java.time.Instant
 import java.time.LocalDate
+import java.time.format.TextStyle
+import java.util.Locale
 
 /**
- * Ω4 — the annual life report: a self-contained HTML "year in review" rendered entirely on-device
- * from all three modules, yours to keep or share. Spotify-Wrapped energy without a byte leaving the
- * phone — impossible for any app whose data lives on someone else's server.
+ * Ω4 — the annual life report: a self-contained HTML "year in review" rendered entirely on-device,
+ * yours to keep or share. Spotify-Wrapped energy without a byte leaving the phone — impossible for any
+ * app whose data lives on someone else's server.
+ *
+ * Track 1 (Unify) — this is now pure HTML templating: every NUMBER it shows is read from a
+ * [YearReviewed.Recap] the caller computed with the one year spine over the canonical
+ * [YearReviewed.calendarYearWindow]. It no longer folds raw entities itself, so the HTML report, the
+ * "Year, reviewed" screen and The Record's Wrapped all agree exactly — and, because the spine carries
+ * the felt lane too, the report can now show how the year *felt* (avg rating/mood, the feeling named
+ * most) alongside tasks/habits/time.
  */
 object LifeReport {
 
@@ -20,50 +27,17 @@ object LifeReport {
         else -> "%.1f".format(min / 60.0).removeSuffix(".0") + "h"
     }
 
-    fun buildHtml(year: Int, ctx: OmegaContext): String {
-        val zone = ctx.zone
-        val startDay = LocalDate.of(year, 1, 1).toEpochDay()
-        val endDay = LocalDate.of(year, 12, 31).toEpochDay()
-        val yearDays = (startDay..endDay).toSet()
-        fun millisOf(d0: Long, d1: Long): Pair<Long, Long> {
-            val s = LocalDate.ofEpochDay(d0).atStartOfDay(zone).toInstant().toEpochMilli()
-            val e = LocalDate.ofEpochDay(d1 + 1).atStartOfDay(zone).toInstant().toEpochMilli()
-            return s to e
-        }
-        val (winStart, winEnd) = millisOf(startDay, endDay)
+    private fun oneDp(v: Double): String = String.format(Locale.US, "%.1f", v)
 
-        val tasksDone = ctx.tasks.count { t ->
-            t.completedAt?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDate().toEpochDay() in yearDays } == true
-        }
-        val checkins = ctx.checkins.count { c ->
-            c.epochDay in yearDays && c.status == "done" &&
-                ctx.habits.firstOrNull { it.id == c.habitId }?.let { HabitStats.meetsGoal(it, c.count) } == true
-        }
-        val focusMin = ctx.focus.filter { it.epochDay in yearDays }.sumOf { it.minutes }
-        val trackedMin = TimeTracking.totalMinutes(ctx.timeEntries, winStart, winEnd, ctx.now)
-
-        val byAct = TimeTracking.totalsByActivity(ctx.timeEntries, winStart, winEnd, ctx.now)
-            .sortedByDescending { it.minutes }.take(6)
-        val actMax = (byAct.maxOfOrNull { it.minutes } ?: 1).coerceAtLeast(1)
-
-        val bestHabits = habitStrengths(ctx.habits, ctx.checkins, minOf(endDay, ctx.today))
-            .filter { it.second > 0 }.sortedByDescending { it.second }.take(5)
-
-        // Month-by-month tracked minutes (falls back to tasks-completed when there's no time data).
-        val useTasks = trackedMin == 0 && tasksDone > 0
-        val monthly = (1..12).map { m ->
-            val md0 = LocalDate.of(year, m, 1)
-            val md1 = md0.withDayOfMonth(md0.lengthOfMonth())
-            if (useTasks) {
-                val d = (md0.toEpochDay()..md1.toEpochDay()).toSet()
-                ctx.tasks.count { t -> t.completedAt?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDate().toEpochDay() in d } == true }
-            } else {
-                val (s, e) = millisOf(md0.toEpochDay(), md1.toEpochDay())
-                TimeTracking.totalMinutes(ctx.timeEntries, s, e, ctx.now)
-            }
-        }
-        val monthMax = (monthly.maxOrNull() ?: 1).coerceAtLeast(1)
+    fun buildHtml(year: Int, recap: YearReviewed.Recap): String {
         val monthLabels = listOf("J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D")
+        // The monthly rhythm is spine-fed (accomplishments per calendar month across the window). Labels come
+        // from the window's first month so a partial current year (Jan..today) still lines up.
+        val firstMonthIdx = if (recap.monthlyDone.isNotEmpty()) LocalDate.ofEpochDay(recap.startDay).monthValue - 1 else 0
+        val monthly = recap.monthlyDone
+        val monthMax = (monthly.maxOrNull() ?: 1).coerceAtLeast(1)
+
+        val actMax = (recap.topActivities.maxOfOrNull { it.minutes } ?: 1).coerceAtLeast(1)
 
         val sb = StringBuilder()
         sb.append("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">")
@@ -93,53 +67,88 @@ object LifeReport {
           .months .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:5px}
           .months .mb{width:100%;background:var(--accent);border-radius:4px 4px 0 0;min-height:2px}
           .months .ml{font-size:10px;color:var(--muted)}
+          .felt{background:var(--card);border:1px solid var(--hair);border-radius:16px;padding:18px;margin-bottom:16px;display:flex;gap:20px;flex-wrap:wrap}
+          .felt .fitem .fn{font-size:24px;font-weight:800}
+          .felt .fitem .fk{color:var(--muted);font-size:13px}
+          .quote{font-size:18px;line-height:1.4;margin:0}
+          .qmeta{color:var(--muted);font-size:12px;margin-top:8px}
           .foot{color:var(--muted);font-size:12px;text-align:center;margin-top:26px}
         """.trimIndent())
         sb.append("</style></head><body><div class=\"wrap\">")
         sb.append("<div class=\"eyebrow\">Your year in review</div>")
         sb.append("<h1>").append(year).append("</h1>")
-        sb.append("<p class=\"sub\">A private, on-device recap across tasks, habits and time.</p>")
+        sb.append("<p class=\"sub\">A private, on-device recap across how your year went — and how it felt.</p>")
 
-        // Headline stats.
+        // Headline stats — all read straight off the spine [YearReviewed.Recap].
         sb.append("<div class=\"grid\">")
         fun stat(n: String, k: String) { sb.append("<div class=\"stat\"><div class=\"n\">").append(n).append("</div><div class=\"k\">").append(k).append("</div></div>") }
-        stat(tasksDone.toString(), "tasks completed")
-        stat(checkins.toString(), "habit check-ins kept")
-        stat(hrs(trackedMin), "hours tracked")
-        stat(hrs(focusMin), "hours focused")
+        stat(recap.tasksFinished.toString(), "tasks completed")
+        stat(recap.habitDaysKept.toString(), "habit check-ins kept")
+        stat(hrs(recap.trackedMinutes), "hours tracked")
+        stat(hrs(recap.focusMinutesDone), "hours focused")
         sb.append("</div>")
 
-        // Top activities.
-        if (byAct.isNotEmpty()) {
-            sb.append("<div class=\"card\"><h2>Where your time went</h2>")
-            byAct.forEach { at ->
-                val a = ctx.activities.firstOrNull { it.id == at.activityId }
-                val name = ((a?.emoji?.plus(" ")) ?: "") + (a?.name ?: "—")
-                val pct = (at.minutes * 100 / actMax).coerceIn(2, 100)
-                sb.append("<div class=\"bar\"><div class=\"lab\">").append(esc(name)).append("</div>")
-                    .append("<div class=\"track\"><div class=\"fill\" style=\"width:").append(pct).append("%\"></div></div>")
-                    .append("<div class=\"val\">").append(hrs(at.minutes)).append("</div></div>")
+        // How the year felt — the spine's felt lane (avg rating/mood, the feeling named most).
+        val feltItems = buildList {
+            if (recap.ratedDays > 0) add(oneDp(recap.avgRating) + "★" to "average day (${recap.ratedDays} rated)")
+            if (recap.moodDays > 0) add(oneDp(recap.avgMood) + "★" to "evening mood (${recap.moodDays} days)")
+            if (recap.topEmotionWord.isNotBlank() && recap.topEmotionCount >= 3)
+                add(esc(recap.topEmotionWord) to "felt most · ${recap.topEmotionCount} days")
+        }
+        if (feltItems.isNotEmpty()) {
+            sb.append("<div class=\"felt\">")
+            feltItems.forEach { (n, k) ->
+                sb.append("<div class=\"fitem\"><div class=\"fn\">").append(n).append("</div><div class=\"fk\">").append(k).append("</div></div>")
             }
             sb.append("</div>")
         }
 
-        // Monthly rhythm.
+        // Top activities.
+        if (recap.topActivities.isNotEmpty()) {
+            sb.append("<div class=\"card\"><h2>Where your time went</h2>")
+            recap.topActivities.forEach { a ->
+                val name = ((a.emoji?.plus(" ")) ?: "") + a.name
+                val pct = (a.minutes * 100 / actMax).coerceIn(2, 100)
+                sb.append("<div class=\"bar\"><div class=\"lab\">").append(esc(name)).append("</div>")
+                    .append("<div class=\"track\"><div class=\"fill\" style=\"width:").append(pct).append("%\"></div></div>")
+                    .append("<div class=\"val\">").append(hrs(a.minutes)).append("</div></div>")
+            }
+            sb.append("</div>")
+        }
+
+        // Monthly rhythm — accomplishments per month, straight from the spine.
         if (monthly.any { it > 0 }) {
-            sb.append("<div class=\"card\"><h2>").append(if (useTasks) "Tasks by month" else "Tracked time by month").append("</h2><div class=\"months\">")
+            sb.append("<div class=\"card\"><h2>Your rhythm by month</h2><div class=\"months\">")
             monthly.forEachIndexed { i, v ->
                 val h = (v * 90 / monthMax).coerceIn(2, 90)
-                sb.append("<div class=\"col\"><div class=\"mb\" style=\"height:").append(h).append("px\"></div><div class=\"ml\">").append(monthLabels[i]).append("</div></div>")
+                val label = monthLabels[(firstMonthIdx + i) % 12]
+                sb.append("<div class=\"col\"><div class=\"mb\" style=\"height:").append(h).append("px\"></div><div class=\"ml\">").append(label).append("</div></div>")
             }
             sb.append("</div></div>")
         }
 
-        // Strongest habits.
-        if (bestHabits.isNotEmpty()) {
+        // Habits held — consistency (kept / expected), matching the "Year, reviewed" screen exactly.
+        if (recap.habitConsistency.isNotEmpty()) {
             sb.append("<div class=\"card\"><h2>Habits you held</h2>")
-            bestHabits.forEach { (h, s) ->
-                sb.append("<div class=\"bar\"><div class=\"lab\">").append(esc(h.name)).append("</div>")
-                    .append("<div class=\"track\"><div class=\"fill\" style=\"width:").append(s.coerceIn(2, 100)).append("%\"></div></div>")
-                    .append("<div class=\"val\">").append(s).append("%</div></div>")
+            recap.habitConsistency.forEach { h ->
+                val name = ((h.emoji?.plus(" ")) ?: "") + h.name
+                sb.append("<div class=\"bar\"><div class=\"lab\">").append(esc(name)).append("</div>")
+                    .append("<div class=\"track\"><div class=\"fill\" style=\"width:").append(h.pct.coerceIn(2, 100)).append("%\"></div></div>")
+                    .append("<div class=\"val\">").append(h.pct).append("%</div></div>")
+            }
+            sb.append("</div>")
+        }
+
+        // A standout highlight, if the year has one.
+        if (recap.highlightText.isNotBlank()) {
+            sb.append("<div class=\"card\"><h2>A highlight</h2>")
+            sb.append("<p class=\"quote\">“").append(esc(recap.highlightText)).append("”</p>")
+            if (recap.highlightEpochDay > 0) {
+                val d = LocalDate.ofEpochDay(recap.highlightEpochDay)
+                val stars = if (recap.highlightRating in 1..5) "  ·  " + "★".repeat(recap.highlightRating) else ""
+                sb.append("<div class=\"qmeta\">").append(d.dayOfMonth).append(" ")
+                    .append(d.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())).append(" ").append(d.year)
+                    .append(stars).append("</div>")
             }
             sb.append("</div>")
         }

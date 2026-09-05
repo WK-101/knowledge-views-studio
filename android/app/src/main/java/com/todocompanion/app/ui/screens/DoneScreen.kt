@@ -197,9 +197,10 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
         return
     }
     if (showWrapped) {
-        // Track 1.3 — Wrapped reads the unified year spine (felt + achievement counts) for the calendar year.
-        val yStart = today.withDayOfYear(1).toEpochDay()
-        val yEnd = today.withMonth(12).withDayOfMonth(31).toEpochDay()
+        // Track 1 (Unify) — Wrapped reads the unified year spine (felt + achievement counts) over the ONE
+        // canonical calendar-year window, so its numbers match the "Year, reviewed" screen and the drawer's
+        // annual report exactly.
+        val (yStart, yEnd) = com.todocompanion.app.domain.YearReviewed.calendarYearWindow(today.year, today.toEpochDay())
         val yearRecap = remember(feed, today) { vm.yearReviewed(yStart, yEnd) }
         // The Wrapped story shares as a PNG through the modular DayCard year card (professional-capable),
         // honouring the saved period-share style — the one card system every review surface now shares.
