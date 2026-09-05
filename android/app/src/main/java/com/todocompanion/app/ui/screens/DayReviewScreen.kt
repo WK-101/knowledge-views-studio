@@ -2420,31 +2420,13 @@ private fun RangeRollup(
         }
     }
 
-    // ── 1a. How your days felt: rating + evening mood, each averaged over the period with its own trend ──
+    // ── 1a. How your days felt: rating + evening mood, rendered through the shared FeltReadout (Track 1), which
+    //    reads the roll-up's own [FeltState] summary so the Day Review, the recap and the digest agree. ──
     if (rollup.ratedDays > 0 || rollup.moodCount > 0) {
         Spacer(Modifier.height(12.dp))
         AppCard {
             SectionTitle("How your days felt")
-            if (rollup.ratedDays > 0) {
-                val r = rollup.avgRating.roundToInt().coerceIn(1, 5)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("★".repeat(r) + "☆".repeat(5 - r), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.width(8.dp))
-                    Text("${oneDp(rollup.avgRating)} avg · ${rollup.ratedDays} rated", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Spacer(Modifier.height(4.dp))
-                ScoreSparkline(rollup.ratingTrend, Modifier.fillMaxWidth())
-            }
-            if (rollup.moodCount > 0) {
-                if (rollup.ratedDays > 0) Spacer(Modifier.height(14.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(moodFace(rollup.avgMood.roundToInt()), style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.width(8.dp))
-                    Text("mood ${oneDp(rollup.avgMood)} avg · ${rollup.moodCount} day${if (rollup.moodCount == 1) "" else "s"}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Spacer(Modifier.height(4.dp))
-                MoodStrip(rollup.moodTrend, Modifier.fillMaxWidth())
-            }
+            FeltReadout(rollup.felt)
         }
     }
 
@@ -3112,36 +3094,21 @@ private fun YearReviewedScreen(
                 }
             }
 
-            // How the year felt: rating + mood, each with its monthly trend.
+            // How the year felt: rating + mood + dominant emotion, through the shared FeltReadout (Track 1). It
+            // reads the recap's own [FeltState] summary; the per-calendar-month trend arrays are passed as
+            // overrides so the yearly sparkline/strip stay a monthly roll-up, and the emotion line keeps the
+            // year view's ">= 3 days" threshold and "(N days named it)" suffix.
             if (recap.ratedDays > 0 || recap.moodDays > 0) {
                 Spacer(Modifier.height(12.dp))
                 AppCard {
                     SectionTitle("How your year felt")
-                    if (recap.ratedDays > 0) {
-                        val r = recap.avgRating.roundToInt().coerceIn(1, 5)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("★".repeat(r) + "☆".repeat(5 - r), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.width(8.dp))
-                            Text("${oneDp(recap.avgRating)} avg · ${recap.ratedDays} rated", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        ScoreSparkline(recap.ratingTrend, Modifier.fillMaxWidth())
-                    }
-                    if (recap.moodDays > 0) {
-                        if (recap.ratedDays > 0) Spacer(Modifier.height(14.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(moodFace(recap.avgMood.roundToInt()), style = MaterialTheme.typography.titleMedium)
-                            Spacer(Modifier.width(8.dp))
-                            Text("mood ${oneDp(recap.avgMood)} avg · ${recap.moodDays} days", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        MoodStrip(recap.moodTrend, Modifier.fillMaxWidth())
-                    }
-                    if (recap.topEmotionWord.isNotBlank() && recap.topEmotionCount >= 3) {
-                        Spacer(Modifier.height(10.dp))
-                        Text("Most often, you felt ${recap.topEmotionWord.lowercase(Locale.getDefault())} (${recap.topEmotionCount} days named it).",
-                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-                    }
+                    FeltReadout(
+                        recap.felt,
+                        ratingTrend = recap.ratingTrend,
+                        moodTrend = recap.moodTrend,
+                        emotionMinCount = 3,
+                        emotionShowDayCount = true,
+                    )
                 }
             }
 

@@ -1,12 +1,15 @@
 package com.todocompanion.app
 
 import com.todocompanion.app.data.entity.DayLogEntity
+import com.todocompanion.app.data.entity.FocusSessionEntity
 import com.todocompanion.app.data.entity.HabitCheckinEntity
 import com.todocompanion.app.data.entity.HabitEntity
+import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.data.entity.TimeActivityEntity
 import com.todocompanion.app.data.entity.TimeEntryEntity
 import com.todocompanion.app.domain.DailyQuestion
 import com.todocompanion.app.domain.DailyQuestions
+import com.todocompanion.app.domain.FeltState
 import com.todocompanion.app.domain.ReviewRollup
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -110,5 +113,50 @@ class ReviewRollupTest {
         assertEquals(3, r.questionAverages[0].count)
 
         assertTrue(r.hasData)
+    }
+
+    // ── 3. Track 1 — the felt lane is the shared [FeltState] fold, embedded and delegated to. ──
+    @Test fun feltSummaryIsEmbeddedAndDelegatesConvenienceFields() {
+        val logs = listOf(log(100, rating = 5), log(101, rating = 4))
+        val r = ReviewRollup.compute(
+            startDay = 100, endDay = 106, dayLogs = logs, questions = emptyList(),
+            habits = emptyList(), checkins = emptyList(), timeEntries = emptyList(), activities = emptyList(),
+            zone = zone, now = now,
+        )
+        // The stored FeltSummary is exactly what FeltState.summarize produces for the same window/logs …
+        assertEquals(FeltState.summarize(logs, 100, 106), r.felt)
+        // … and the convenience fields are thin views over it (single source of truth).
+        assertEquals(r.felt.avgRating, r.avgRating, 0.0)
+        assertEquals(r.felt.ratedDays, r.ratedDays)
+        assertEquals(r.felt.ratingTrend, r.ratingTrend)
+        assertEquals(r.felt.avgMood, r.avgMood, 0.0)
+        assertEquals(r.felt.moodDays, r.moodCount)
+        assertEquals(r.felt.moodTrend, r.moodTrend)
+    }
+
+    // ── 4. Track 1 — the cross-engine period counts the recap / digest now DERIVE from, folded once. ──
+    @Test fun foldsCrossEnginePeriodCounts() {
+        val tasks = listOf(
+            TaskEntity(id = "t1", listId = "l", title = "done", createdAt = now, updatedAt = now, completedAt = dayMillis(101, 12)),
+            TaskEntity(id = "t2", listId = "l", title = "open", createdAt = now, updatedAt = now),
+            TaskEntity(id = "t3", listId = "l", title = "out", createdAt = now, updatedAt = now, completedAt = dayMillis(200, 12)),
+        )
+        val checkins = listOf(checkin("h1", 100), checkin("h1", 101), checkin("h1", 102))
+        val entries = listOf(TimeEntryEntity(id = "e1", activityId = "act1", startMillis = dayMillis(100, 9), endMillis = dayMillis(100, 10)))
+        val activities = listOf(TimeActivityEntity(id = "act1", name = "Reading", createdAt = now))
+        val focus = listOf(
+            FocusSessionEntity(id = "f1", epochDay = 100, startMillis = dayMillis(100, 9), minutes = 30),
+            FocusSessionEntity(id = "f2", epochDay = 101, startMillis = dayMillis(101, 9), minutes = 20),
+            FocusSessionEntity(id = "f3", epochDay = 200, startMillis = dayMillis(200, 9), minutes = 99), // outside the window
+        )
+        val r = ReviewRollup.compute(
+            startDay = 100, endDay = 106, dayLogs = emptyList(), questions = emptyList(),
+            habits = listOf(habit("h1")), checkins = checkins, timeEntries = entries, activities = activities,
+            zone = zone, now = now, tasks = tasks, focusSessions = focus,
+        )
+        assertEquals(1, r.completedTasks)       // only t1's completedAt falls in [100,106]
+        assertEquals(3, r.checkinsMeetingGoal)  // three done + goal-meeting check-ins
+        assertEquals(50, r.focusMinutes)        // 30 + 20 (day 200 excluded)
+        assertEquals(60, r.trackedMinutes)      // one tracked hour on Reading
     }
 }

@@ -46,6 +46,9 @@ object FeltState {
     private fun empty(startDay: Long, endDay: Long): FeltSummary =
         FeltSummary(startDay, endDay, 0, 0, 0.0, 0, emptyList(), 0.0, 0, 0.0, 0, emptyList(), "", 0)
 
+    /** A shared all-zero summary with no window — a safe default for results that carry a [FeltSummary]. */
+    val EMPTY: FeltSummary = empty(0, 0)
+
     /**
      * Fold [logs] into a [FeltSummary] over the inclusive window [rangeStart]..[rangeEnd]. Day logs must
      * already be workspace-scoped (as every felt surface scopes them). Mood mirrors ReviewRollup: the

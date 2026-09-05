@@ -65,9 +65,21 @@ internal fun ScoreSparkline(scores: List<Int?>, modifier: Modifier = Modifier) {
 
 /** Track 1.1 — a compact "how it felt" readout: avg day-rating (stars + sparkline), evening mood (face +
  *  strip) and the emotion named most, from a [FeltState.FeltSummary]. Rendered as inner content — the
- *  caller supplies the card/heading. */
+ *  caller supplies the card/heading.
+ *
+ *  [ratingTrend] / [moodTrend] default to the summary's own per-day trends but can be overridden — the year
+ *  view passes its per-calendar-month roll-up so the shared readout draws the same sparkline it always did.
+ *  [emotionMinCount] gates the dominant-emotion line (2 for a week/month, 3 for a year); [emotionShowDayCount]
+ *  appends "(N days named it)" as the year view does. */
 @Composable
-internal fun FeltReadout(summary: FeltState.FeltSummary, modifier: Modifier = Modifier) {
+internal fun FeltReadout(
+    summary: FeltState.FeltSummary,
+    modifier: Modifier = Modifier,
+    ratingTrend: List<Int?> = summary.ratingTrend,
+    moodTrend: List<Int?> = summary.moodTrend,
+    emotionMinCount: Int = 2,
+    emotionShowDayCount: Boolean = false,
+) {
     if (!summary.hasData) {
         Text(
             "Rate a day or log your mood and this lane fills in — how the same stretch actually felt.",
@@ -84,22 +96,24 @@ internal fun FeltReadout(summary: FeltState.FeltSummary, modifier: Modifier = Mo
                 Text("${feltOneDp(summary.avgRating)} avg · ${summary.ratedDays} rated", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.height(4.dp))
-            ScoreSparkline(summary.ratingTrend, Modifier.fillMaxWidth())
+            ScoreSparkline(ratingTrend, Modifier.fillMaxWidth())
         }
         if (summary.moodDays > 0) {
             if (summary.ratedDays > 0) Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(feltMoodFace(summary.avgMood.roundToInt()), style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.width(8.dp))
-                Text("mood ${feltOneDp(summary.avgMood)} avg · ${summary.moodDays} days", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("mood ${feltOneDp(summary.avgMood)} avg · ${summary.moodDays} day${if (summary.moodDays == 1) "" else "s"}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.height(4.dp))
-            MoodStrip(summary.moodTrend, Modifier.fillMaxWidth())
+            MoodStrip(moodTrend, Modifier.fillMaxWidth())
         }
-        if (summary.dominantEmotion.isNotBlank() && summary.dominantEmotionCount >= 2) {
+        if (summary.dominantEmotion.isNotBlank() && summary.dominantEmotionCount >= emotionMinCount) {
             Spacer(Modifier.height(8.dp))
+            val word = summary.dominantEmotion.lowercase(Locale.getDefault())
             Text(
-                "Most often you felt ${summary.dominantEmotion.lowercase(Locale.getDefault())}.",
+                if (emotionShowDayCount) "Most often, you felt $word (${summary.dominantEmotionCount} days named it)."
+                else "Most often you felt $word.",
                 style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface,
             )
         }

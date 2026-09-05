@@ -1431,20 +1431,27 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         return Momentum(momentum, habitStrength, taskRel, focusWeek)
     }
 
-    /** R2: the weekly "state of you" digest — this week vs last, across habits, tasks and focus. */
+    /** R2: the weekly "state of you" digest — this week vs last, across habits, tasks and focus. Track 1 — now
+     *  derived from two [ReviewRollup]s (this week + the week before), the shared aggregation the recap and the
+     *  Day-review roll-up also read, so the three surfaces report identical numbers. Time entries stay gated by
+     *  the Time module, exactly as before, so the Time tile appears only when that module is on and has data. */
     fun weeklyDigest(): com.todocompanion.app.domain.WeeklyDigest.Digest {
         val today = java.time.LocalDate.now(zone).toEpochDay()
         val now = System.currentTimeMillis()
-        val wkStart = java.time.LocalDate.now(zone).minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli()
-        val lastStart = java.time.LocalDate.now(zone).minusDays(13).atStartOfDay(zone).toInstant().toEpochMilli()
-        val dayEnd = java.time.LocalDate.now(zone).plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-        val TT = com.todocompanion.app.domain.TimeTracking
         val timeOn = com.todocompanion.app.domain.Modules.isEnabled(settings.value, com.todocompanion.app.domain.Modules.TIME)
-        val tWk = if (timeOn) TT.totalMinutes(timeEntries.value, wkStart, dayEnd, now) else 0
-        val tLast = if (timeOn) TT.totalMinutes(timeEntries.value, lastStart, wkStart, now) else 0
-        return com.todocompanion.app.domain.WeeklyDigest.compute(
-            habits.value, habitCheckins.value, tasks.value, focusSessions.value,
-            momentumSnapshot().momentum, today, zone, tWk, tLast,
+        val te = if (timeOn) timeEntries.value else emptyList()
+        val RR = com.todocompanion.app.domain.ReviewRollup
+        val cur = RR.compute(
+            today - 6, today, emptyList(), emptyList(), habits.value, habitCheckins.value, te, emptyList(),
+            zone, now, tasks = tasks.value, focusSessions = focusSessions.value,
+        )
+        val prev = RR.compute(
+            today - 13, today - 7, emptyList(), emptyList(), habits.value, habitCheckins.value, te, emptyList(),
+            zone, now, tasks = tasks.value, focusSessions = focusSessions.value,
+        )
+        return com.todocompanion.app.domain.WeeklyDigest.fromRollups(
+            cur, prev, habits.value, habitCheckins.value, tasks.value, focusSessions.value,
+            momentumSnapshot().momentum, today,
         )
     }
 

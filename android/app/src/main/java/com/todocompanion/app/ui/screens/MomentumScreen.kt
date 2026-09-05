@@ -489,12 +489,22 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                 }
             }
 
-            // R2 / T6 — the weekly "state of you" digest: this week vs last, across every live signal.
-            val lastWeekStart = LocalDate.now(zone).minusDays(13).atStartOfDay(zone).toInstant().toEpochMilli()
-            val timeWk = if (timeOn) com.todocompanion.app.domain.TimeTracking.totalMinutes(timeEntries, weekStartMs, dayEnd, nowMs) else 0
-            val timeLastWk = if (timeOn) com.todocompanion.app.domain.TimeTracking.totalMinutes(timeEntries, lastWeekStart, weekStartMs, nowMs) else 0
-            val digest = remember(habits, checkins, tasks, focus, momentum, timeWk, timeLastWk) {
-                WeeklyDigest.compute(habits, checkins, tasks, focus, momentum, today, zone, timeWk, timeLastWk)
+            // R2 / T6 — the weekly "state of you" digest: this week vs last, across every live signal. Track 1 —
+            // the digest is now DERIVED from two ReviewRollups (this week + the week before it), the same
+            // aggregation the recap and the Day-review roll-up read, so all three surfaces report identical
+            // numbers. Time entries are gated by the Time module exactly as before, so the Time tile only appears
+            // when that module is on and has tracked minutes.
+            val digest = remember(habits, checkins, tasks, focus, momentum, timeEntries, timeOn, today) {
+                val te = if (timeOn) timeEntries else emptyList()
+                val cur = com.todocompanion.app.domain.ReviewRollup.compute(
+                    today - 6, today, emptyList(), emptyList(), habits, checkins, te, emptyList(), zone, nowMs,
+                    tasks = tasks, focusSessions = focus,
+                )
+                val prev = com.todocompanion.app.domain.ReviewRollup.compute(
+                    today - 13, today - 7, emptyList(), emptyList(), habits, checkins, te, emptyList(), zone, nowMs,
+                    tasks = tasks, focusSessions = focus,
+                )
+                WeeklyDigest.fromRollups(cur, prev, habits, checkins, tasks, focus, momentum, today)
             }
             AppCard {
                 Text("Your week", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)

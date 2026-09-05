@@ -1,9 +1,8 @@
 package com.todocompanion.app.domain
 
 import com.todocompanion.app.data.entity.DayLogEntity
-import com.todocompanion.app.domain.habit.HabitStats
-import java.time.Instant
-import java.time.LocalDate
+import com.todocompanion.app.data.entity.HabitCheckinEntity
+import com.todocompanion.app.data.entity.HabitEntity
 import java.util.Locale
 
 /**
@@ -21,48 +20,52 @@ object PeriodRecap {
     data class Recap(val title: String, val lines: List<Line>, val narrative: String, val hasData: Boolean)
 
     fun compute(startDay: Long, endDay: Long, title: String, ctx: OmegaContext, dayLogs: List<DayLogEntity> = emptyList()): Recap {
+        // Track 1 — the recap now DERIVES from [ReviewRollup]: fold this window and the equally-long window before
+        // it into two Rollups (which already carry the tasks / check-ins / focus / tracked / felt aggregates), then
+        // build the recap from them. This is the same aggregation the Day-review roll-up and the digest read, so
+        // the three surfaces cannot disagree, and the recap no longer re-folds the raw entities.
         val len = (endDay - startDay + 1).coerceAtLeast(1)
-        val days = (startDay..endDay).toSet()
-        val prevDays = ((startDay - len)..(startDay - 1)).toSet()
+        val current = ReviewRollup.compute(
+            startDay, endDay, dayLogs, emptyList(), ctx.habits, ctx.checkins,
+            ctx.timeEntries, ctx.activities, ctx.zone, ctx.now, tasks = ctx.tasks, focusSessions = ctx.focus,
+        )
+        val prior = ReviewRollup.compute(
+            startDay - len, startDay - 1, dayLogs, emptyList(), ctx.habits, ctx.checkins,
+            ctx.timeEntries, ctx.activities, ctx.zone, ctx.now, tasks = ctx.tasks, focusSessions = ctx.focus,
+        )
+        return fromRollups(current, prior, title, ctx.habits, ctx.checkins)
+    }
 
-        fun tasksIn(d: Set<Long>) = ctx.tasks.count { t ->
-            t.completedAt?.let { Instant.ofEpochMilli(it).atZone(ctx.zone).toLocalDate().toEpochDay() in d } == true
-        }
-        fun checkinsIn(d: Set<Long>) = ctx.checkins.count { c ->
-            c.epochDay in d && c.status == "done" &&
-                ctx.habits.firstOrNull { it.id == c.habitId }?.let { HabitStats.meetsGoal(it, c.count) } == true
-        }
-        fun focusIn(d: Set<Long>) = ctx.focus.filter { it.epochDay in d }.sumOf { it.minutes }
-        fun millisOf(d0: Long, d1: Long): Pair<Long, Long> {
-            val s = LocalDate.ofEpochDay(d0).atStartOfDay(ctx.zone).toInstant().toEpochMilli()
-            val e = LocalDate.ofEpochDay(d1 + 1).atStartOfDay(ctx.zone).toInstant().toEpochMilli()
-            return s to e
-        }
-
-        val tNow = tasksIn(days); val tPrev = tasksIn(prevDays)
-        val cNow = checkinsIn(days); val cPrev = checkinsIn(prevDays)
-        val fNow = focusIn(days); val fPrev = focusIn(prevDays)
-
-        val (winStart, winEnd) = millisOf(startDay, endDay)
-        val (pStart, pEnd) = millisOf(startDay - len, startDay - 1)
-        val tracked = TimeTracking.totalMinutes(ctx.timeEntries, winStart, winEnd, ctx.now)
-        val trackedPrev = TimeTracking.totalMinutes(ctx.timeEntries, pStart, pEnd, ctx.now)
-        val byAct = TimeTracking.totalsByActivity(ctx.timeEntries, winStart, winEnd, ctx.now)
-        val topAct = byAct.maxByOrNull { it.minutes }
-        val topActName = topAct?.let { ta -> ctx.activities.firstOrNull { it.id == ta.activityId } }
-
-        val best = habitStrengths(ctx.habits, ctx.checkins, endDay).maxByOrNull { it.second }
-
-        // Track 1.2 — felt state over this window and the equally-long prior one, for the narrative + a felt line.
-        val feltNow = FeltState.summarize(dayLogs, startDay, endDay)
-        val feltPrev = FeltState.summarize(dayLogs, startDay - len, startDay - 1)
+    /**
+     * Build the recap straight from a [current] window Rollup and its equally-long [prior] window Rollup. The
+     * period counts (tasks, check-ins, focus, tracked) and the felt state are read off the Rollups; only the
+     * "strongest habit" (a full-history strength as of the window end, not a period aggregate) is derived from
+     * [habits]/[checkins] here, since it is not something a period roll-up carries.
+     */
+    fun fromRollups(
+        current: ReviewRollup.Rollup,
+        prior: ReviewRollup.Rollup,
+        title: String,
+        habits: List<HabitEntity>,
+        checkins: List<HabitCheckinEntity>,
+    ): Recap {
+        val tNow = current.completedTasks; val tPrev = prior.completedTasks
+        val cNow = current.checkinsMeetingGoal; val cPrev = prior.checkinsMeetingGoal
+        val fNow = current.focusMinutes; val fPrev = prior.focusMinutes
+        val tracked = current.trackedMinutes; val trackedPrev = prior.trackedMinutes
+        // The most-tracked activity (Rollup keeps them sorted); "—" is the marker for a time entry whose activity
+        // has been deleted, which the recap omits (as it always did).
+        val topAct = current.topActivities.firstOrNull()?.takeIf { it.name != "—" }
+        val best = habitStrengths(habits, checkins, current.endDay).maxByOrNull { it.second }
+        val feltNow = current.felt
+        val feltPrev = prior.felt
 
         val lines = buildList {
             add(Line("✓", "Tasks done", tNow.toString(), tNow - tPrev))
-            if (ctx.habits.any { !it.archived }) add(Line("↻", "Habit check-ins", cNow.toString(), cNow - cPrev))
+            if (habits.any { !it.archived }) add(Line("↻", "Habit check-ins", cNow.toString(), cNow - cPrev))
             if (fNow > 0 || fPrev > 0) add(Line("◇", "Focus", fmtHm(fNow), fNow - fPrev, "m"))
             if (tracked > 0 || trackedPrev > 0) add(Line("⧗", "Tracked", fmtHm(tracked), tracked - trackedPrev, "m"))
-            if (topAct != null && topActName != null) add(Line((topActName.emoji ?: "★"), "Top activity", "${topActName.name} · ${fmtHm(topAct.minutes)}"))
+            if (topAct != null) add(Line((topAct.emoji ?: "★"), "Top activity", "${topAct.name} · ${fmtHm(topAct.minutes)}"))
             if (best != null) add(Line("🔥", "Strongest habit", "${best.first.name} · ${best.second}%"))
             // Felt lines — how the days felt, with a compact vs-before comparison baked into the value.
             if (feltNow.ratedDays > 0) {
@@ -73,7 +76,7 @@ object PeriodRecap {
         }
 
         val hasData = tNow > 0 || cNow > 0 || fNow > 0 || tracked > 0 || feltNow.hasData
-        val narrative = buildNarrative(tNow, tPrev, cNow, cPrev, tracked, trackedPrev, topActName?.name, best, hasData, feltNow, feltPrev)
+        val narrative = buildNarrative(tNow, tPrev, cNow, cPrev, tracked, trackedPrev, topAct?.name, best, hasData, feltNow, feltPrev)
         return Recap(title, lines, narrative, hasData)
     }
 

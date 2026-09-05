@@ -5,6 +5,7 @@ import com.todocompanion.app.data.entity.HabitCheckinEntity
 import com.todocompanion.app.data.entity.HabitEntity
 import com.todocompanion.app.data.entity.TimeActivityEntity
 import com.todocompanion.app.data.entity.TimeEntryEntity
+import com.todocompanion.app.domain.FeltState
 import com.todocompanion.app.domain.YearReviewed
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -101,6 +102,19 @@ class YearReviewedTest {
         assertEquals(20, h.kept)
         assertEquals(40, h.expected)
         assertEquals(50, h.pct)
+    }
+
+    // Track 1 — the recap's rating / mood / dominant-emotion figures are the shared [FeltState] fold, embedded.
+    @Test fun feltSummaryIsEmbeddedAndDrivesTheFigures() {
+        val r = compute()
+        val felt = FeltState.summarize(logs, start, end)
+        assertEquals(felt, r.felt)
+        assertEquals(felt.avgRating, r.avgRating, 1e-9)
+        assertEquals(felt.ratedDays, r.ratedDays)
+        assertEquals(felt.avgMood, r.avgMood, 1e-9)
+        assertEquals(felt.moodDays, r.moodDays)
+        assertEquals(felt.dominantEmotion, r.topEmotionWord)
+        assertEquals(felt.dominantEmotionCount, r.topEmotionCount)
     }
 
     @Test fun mostCommonEmotionAndStandoutHighlight() {

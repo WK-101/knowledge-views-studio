@@ -1,6 +1,7 @@
 package com.todocompanion.app.domain
 
 import com.todocompanion.app.data.entity.DayLogEntity
+import com.todocompanion.app.data.entity.FocusSessionEntity
 import com.todocompanion.app.data.entity.HabitCheckinEntity
 import com.todocompanion.app.data.entity.HabitEntity
 import com.todocompanion.app.data.entity.TaskEntity
@@ -74,9 +75,6 @@ object ReviewRollup {
         val endDay: Long,
         val periodDays: Int,
         val reviewedDays: Int,
-        val ratedDays: Int,
-        val avgRating: Double,
-        val ratingTrend: List<Int?>,
         val wins: List<WinTally>,
         val moreWins: Int,
         val reflections: List<ReflectionEntry>,
@@ -84,13 +82,30 @@ object ReviewRollup {
         val habitConsistency: List<HabitConsistency>,
         val topActivities: List<ActivityDuration>,
         val questionAverages: List<QuestionAverage>,
+        // Track 1 — the shared felt fold ([FeltState]) is the single source of the rating / mood / emotion summary
+        // for this window; the recap, the digest and the Day-review felt lane all read it, so the numbers agree.
+        val felt: FeltState.FeltSummary,
         // Phase E — goals the user marked as advanced during the period, most-advanced first ([count] = days).
         val goalsMoved: List<WinTally> = emptyList(),
-        // Mood aggregation (evening mood 1–5): average, per-day trend (null = none), and how many days logged.
-        val avgMood: Double = 0.0,
-        val moodTrend: List<Int?> = emptyList(),
-        val moodCount: Int = 0,
+        // Cross-engine period counts — computed once here so PeriodRecap / WeeklyDigest DERIVE from a Rollup rather
+        // than re-folding the same entities. [completedTasks] = tasks whose completedAt falls in the window (no
+        // completed/trashed filter, matching the recap/digest); [checkinsMeetingGoal] = "done" check-ins that met
+        // their goal across the passed habits; [focusMinutes] = focus-session minutes; [trackedMinutes] = tracked
+        // time across all activities.
+        val completedTasks: Int = 0,
+        val checkinsMeetingGoal: Int = 0,
+        val focusMinutes: Int = 0,
+        val trackedMinutes: Int = 0,
     ) {
+        // ── Felt convenience delegates — thin views over [felt] so existing readers (the Day-review UI, the share
+        //    mappers, the tests) keep working unchanged while the computation lives in a single place. ──
+        val ratedDays: Int get() = felt.ratedDays
+        val avgRating: Double get() = felt.avgRating
+        val ratingTrend: List<Int?> get() = felt.ratingTrend
+        val avgMood: Double get() = felt.avgMood
+        val moodTrend: List<Int?> get() = felt.moodTrend
+        val moodCount: Int get() = felt.moodDays
+
         /** True when there is anything worth rendering beyond an empty-period hint. */
         val hasData: Boolean
             get() = reviewedDays > 0 || wins.isNotEmpty() || reflections.isNotEmpty() ||
@@ -122,9 +137,18 @@ object ReviewRollup {
         now: Long,
         goals: List<Goal> = emptyList(),
         tasks: List<TaskEntity> = emptyList(),
+        focusSessions: List<FocusSessionEntity> = emptyList(),
     ): Rollup {
+        // ── 1. Felt state — the single "how it felt" fold (rating, mood, emotion) via the shared [FeltState]. It
+        //    handles the reversed / empty window itself, so it is safe to compute before the guard below.
+        val felt = FeltState.summarize(dayLogs, startDay, endDay)
         if (endDay < startDay) {
-            return Rollup(startDay, endDay, 0, 0, 0, 0.0, emptyList(), emptyList(), 0, emptyList(), 0, emptyList(), emptyList(), emptyList())
+            return Rollup(
+                startDay = startDay, endDay = endDay, periodDays = 0, reviewedDays = 0,
+                wins = emptyList(), moreWins = 0, reflections = emptyList(), moreReflections = 0,
+                habitConsistency = emptyList(), topActivities = emptyList(), questionAverages = emptyList(),
+                felt = felt,
+            )
         }
         val periodDays = (endDay - startDay + 1).toInt()
         val logByDay = dayLogs.filter { it.epochDay in startDay..endDay }.associateBy { it.epochDay }
@@ -133,15 +157,13 @@ object ReviewRollup {
 
         val reviewedDays = logByDay.values.count { isReviewed(it) }
 
-        // ── 1. Ratings: average over rated days, and a per-day trend for the sparkline (null = no rating).
-        val ratingTrend = (startDay..endDay).map { d -> logByDay[d]?.dayRating?.takeIf { it > 0 } }
-        val ratings = ratingTrend.filterNotNull()
-        val avgRating = if (ratings.isEmpty()) 0.0 else ratings.average()
-
-        // ── 1b. Mood: evening mood (1–5) averaged over the days it was logged, plus a per-day trend.
-        val moodTrend = (startDay..endDay).map { d -> logByDay[d]?.pmMood?.takeIf { it in 1..5 } }
-        val moods = moodTrend.filterNotNull()
-        val avgMood = if (moods.isEmpty()) 0.0 else moods.average()
+        // ── 1b. Cross-engine period counts folded once, so the recap and the digest read them off the Rollup.
+        //    Check-ins meeting goal (across all passed habits) and focus-session minutes are simple day-window folds.
+        val checkinsMeetingGoal = checkins.count { c ->
+            c.epochDay in startDay..endDay && c.status == "done" &&
+                habits.firstOrNull { it.id == c.habitId }?.let { HabitStats.meetsGoal(it, c.count) } == true
+        }
+        val focusMinutes = focusSessions.filter { it.epochDay in startDay..endDay }.sumOf { it.minutes }
 
         // ── 2. Wins: every "good thing" across the period, condensed case-insensitively, recurrences counted.
         val winsByKey = LinkedHashMap<String, WinTally>()
@@ -194,8 +216,11 @@ object ReviewRollup {
             HabitConsistency(h.id, h.name, h.emoji, h.colorArgb, kept, expected)
         }.filter { it.expected > 0 }.sortedByDescending { it.pct }
 
-        // ── 5. Top time activities by total tracked minutes over the whole window.
+        // ── 5. Top time activities by total tracked minutes over the whole window. The window's total tracked
+        // minutes and completed-task count are folded here too (the recap / digest read them off the Rollup).
         val (winStart, winEnd) = millisWindow(startDay, endDay, zone)
+        val trackedMinutes = TimeTracking.totalMinutes(timeEntries, winStart, winEnd, now)
+        val completedTasks = tasks.count { it.completedAt != null && it.completedAt!! in winStart until winEnd }
         val topActivities = TimeTracking.totalsByActivity(timeEntries, winStart, winEnd, now)
             .take(MAX_ACTIVITIES)
             .map { at ->
@@ -228,11 +253,12 @@ object ReviewRollup {
 
         return Rollup(
             startDay = startDay, endDay = endDay, periodDays = periodDays, reviewedDays = reviewedDays,
-            ratedDays = ratings.size, avgRating = avgRating, ratingTrend = ratingTrend,
             wins = wins, moreWins = moreWins, reflections = reflections, moreReflections = moreReflections,
             habitConsistency = habitConsistency, topActivities = topActivities,
             questionAverages = questionAverages,
-            avgMood = avgMood, moodTrend = moodTrend, moodCount = moods.size, goalsMoved = goalsMoved,
+            felt = felt, goalsMoved = goalsMoved,
+            completedTasks = completedTasks, checkinsMeetingGoal = checkinsMeetingGoal,
+            focusMinutes = focusMinutes, trackedMinutes = trackedMinutes,
         )
     }
 

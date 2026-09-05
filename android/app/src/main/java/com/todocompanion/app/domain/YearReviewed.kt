@@ -11,7 +11,6 @@ import com.todocompanion.app.domain.done.DoneRecord
 import com.todocompanion.app.domain.habit.HabitStats
 import java.time.LocalDate
 import java.time.ZoneId
-import java.util.Locale
 
 /**
  * Wave 3 (feature B) — a fully-local "Year, Reviewed": a private, on-device year-in-review built entirely
@@ -76,6 +75,10 @@ object YearReviewed {
         val longestActiveStreakDays: Int = 0, // longest run of consecutive active days
         val biggestMonthValue: Int = 0,     // 1..12 of the month with the most accomplishments (0 = none)
         val biggestMonthCount: Int = 0,
+        // Track 1 — the shared felt fold this recap's rating / mood / dominant-emotion figures are derived from,
+        // so the year view and every other felt surface report the same numbers (the trend arrays above stay a
+        // per-calendar-month roll-up, which is unique to the year view's sparkline).
+        val felt: FeltState.FeltSummary = FeltState.EMPTY,
     ) {
         val trackedHours: Int get() = trackedMinutes / 60
         val focusHoursDone: Int get() = focusMinutesDone / 60
@@ -114,11 +117,12 @@ object YearReviewed {
         val daysReviewed = reviewedDaysSet.size
         val longestStreak = longestRun(reviewedDaysSet)
 
-        // ── Rating & mood: window averages + a per-calendar-month trend for the sparkline/strip ──
-        val ratings = logByDay.values.mapNotNull { it.dayRating.takeIf { r -> r in 1..5 } }
-        val moods = logByDay.values.mapNotNull { it.pmMood.takeIf { m -> m in 1..5 } }
-        val avgRating = if (ratings.isEmpty()) 0.0 else ratings.average()
-        val avgMood = if (moods.isEmpty()) 0.0 else moods.average()
+        // ── Rating & mood & dominant emotion: derived from the shared [FeltState] fold, so the window averages,
+        //    rated/mood-day counts and the most-common emotion word match every other felt surface. Only the
+        //    per-calendar-month trend arrays are computed here (a year-view-specific sparkline, not a per-day one).
+        val felt = FeltState.summarize(dayLogs, startDay, endDay)
+        val avgRating = felt.avgRating
+        val avgMood = felt.avgMood
         val ratingTrend = monthlyTrend(startDay, endDay, logByDay) { it.dayRating.takeIf { r -> r in 1..5 } }
         val moodTrend = monthlyTrend(startDay, endDay, logByDay) { it.pmMood.takeIf { m -> m in 1..5 } }
 
@@ -147,14 +151,9 @@ object YearReviewed {
         // ── Wins: total three-good-things entries filled across the window ──
         val winsCount = logByDay.values.sumOf { l -> listOf(l.good1, l.good2, l.good3).count { it.isNotBlank() } }
 
-        // ── Most-common precise emotion word (only known words count) ──
-        val emotionCounts = logByDay.values
-            .mapNotNull { it.emotionLabel.trim().takeIf { w -> EmotionWords.isKnown(w) } }
-            .groupingBy { it.lowercase(Locale.getDefault()) }
-            .eachCount()
-        val topEmotion = emotionCounts.maxByOrNull { it.value }
-        val topEmotionWord = topEmotion?.key?.replaceFirstChar { it.titlecase(Locale.getDefault()) } ?: ""
-        val topEmotionCount = topEmotion?.value ?: 0
+        // ── Most-common precise emotion word — from the shared felt fold (only known words count) ──
+        val topEmotionWord = felt.dominantEmotion
+        val topEmotionCount = felt.dominantEmotionCount
 
         // ── Standout highlight: the highlight from the highest-rated day (tie → most recent) ──
         val highlightDay = logByDay.values
@@ -173,8 +172,8 @@ object YearReviewed {
         return Recap(
             startDay = startDay, endDay = endDay, periodDays = periodDays,
             daysReviewed = daysReviewed,
-            avgRating = avgRating, ratedDays = ratings.size,
-            avgMood = avgMood, moodDays = moods.size,
+            avgRating = avgRating, ratedDays = felt.ratedDays,
+            avgMood = avgMood, moodDays = felt.moodDays,
             ratingTrend = ratingTrend, moodTrend = moodTrend,
             trackedMinutes = trackedMinutes, topActivities = topActivities,
             habitConsistency = habitConsistency,
@@ -191,6 +190,7 @@ object YearReviewed {
             longestActiveStreakDays = ds.longestStreakDays,
             biggestMonthValue = biggestMonth?.key ?: 0,
             biggestMonthCount = biggestMonth?.value ?: 0,
+            felt = felt,
         )
     }
 

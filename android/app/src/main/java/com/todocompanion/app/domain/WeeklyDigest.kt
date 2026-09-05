@@ -42,7 +42,6 @@ object WeeklyDigest {
     ): Digest {
         val thisWeek = ((today - 6)..today).toSet()
         val lastWeek = ((today - 13)..(today - 7)).toSet()
-        val active = habits.filter { !it.archived && !it.paused && it.habitType != "break" }
 
         // Check-ins (goal-meeting "done" days) this week vs last.
         fun checkinsIn(days: Set<Long>) = checkins.count { c ->
@@ -61,18 +60,61 @@ object WeeklyDigest {
         fun focusIn(days: Set<Long>) = focus.filter { it.epochDay in days }.sumOf { it.minutes }
         val fNow = focusIn(thisWeek); val fPrev = focusIn(lastWeek)
 
-        // Strength ranking of active build habits (as of today).
-        val strengths = active.map { h ->
-            val hc = checkins.filter { it.habitId == h.id }
-            val done = hc.filter { it.status == "done" && HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
-            val skip = hc.filter { it.status == "skip" }.map { it.epochDay }.toSet()
-            val rel = hc.filter { HabitStats.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
-            h to HabitStats.strength(h, done, skip, rel, today)
-        }
+        return assemble(
+            habits, checkins, tasks, focus, momentum, today,
+            ciNow, ciPrev, tNow, tPrev, fNow, fPrev, timeThisWeek, timeLastWeek,
+        )
+    }
+
+    /**
+     * Track 1 — build the digest from a [current] week Rollup and its [prior] week Rollup instead of re-folding
+     * the raw entities. The check-in / task / focus / tracked counts come straight off the Rollups (the same
+     * aggregation the recap and the Day-review roll-up read), so all three surfaces agree; the habit strength
+     * ranking, headline and takeaway are assembled exactly as before. The caller builds the two Rollups over the
+     * (today-6..today) and (today-13..today-7) windows, gating the time entries by the Time module just as the
+     * old call site gated [timeThisWeek]/[timeLastWeek].
+     */
+    fun fromRollups(
+        current: ReviewRollup.Rollup,
+        prior: ReviewRollup.Rollup,
+        habits: List<HabitEntity>,
+        checkins: List<HabitCheckinEntity>,
+        tasks: List<TaskEntity>,
+        focus: List<FocusSessionEntity>,
+        momentum: Int,
+        today: Long,
+    ): Digest = assemble(
+        habits, checkins, tasks, focus, momentum, today,
+        ciNow = current.checkinsMeetingGoal, ciPrev = prior.checkinsMeetingGoal,
+        tNow = current.completedTasks, tPrev = prior.completedTasks,
+        fNow = current.focusMinutes, fPrev = prior.focusMinutes,
+        timeThisWeek = current.trackedMinutes, timeLastWeek = prior.trackedMinutes,
+    )
+
+    /** The single place the digest's tiles, best/slipping habit, headline and takeaway are assembled from the
+     *  already-folded week-vs-last-week counts — shared by [compute] (raw fold) and [fromRollups] (Rollup-derived). */
+    private fun assemble(
+        habits: List<HabitEntity>,
+        checkins: List<HabitCheckinEntity>,
+        tasks: List<TaskEntity>,
+        focus: List<FocusSessionEntity>,
+        momentum: Int,
+        today: Long,
+        ciNow: Int,
+        ciPrev: Int,
+        tNow: Int,
+        tPrev: Int,
+        fNow: Int,
+        fPrev: Int,
+        timeThisWeek: Int,
+        timeLastWeek: Int,
+    ): Digest {
+        // Strength ranking of active build habits (as of today) — the shared helper folds it identically.
+        val strengths = habitStrengths(habits, checkins, today)
         val best = strengths.maxByOrNull { it.second }
         val slipping = strengths.filter { it.second < 60 }.minByOrNull { it.second }
 
-        val hasData = active.isNotEmpty() || tasks.any { it.completedAt != null } || focus.isNotEmpty()
+        val hasData = strengths.isNotEmpty() || tasks.any { it.completedAt != null } || focus.isNotEmpty()
 
         val metrics = buildList {
             add(Metric("Check-ins", ciNow.toString(), ciNow - ciPrev))

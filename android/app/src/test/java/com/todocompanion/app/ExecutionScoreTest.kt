@@ -2,6 +2,7 @@ package com.todocompanion.app
 
 import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.domain.ExecutionScore
+import com.todocompanion.app.domain.FeltState
 import com.todocompanion.app.domain.ReviewRollup
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -22,9 +23,10 @@ class ExecutionScoreTest {
         completed = completed, trashed = trashed, abandoned = abandoned, createdAt = 0L, updatedAt = 0L)
 
     private fun rollup(start: Long, end: Long, hc: List<ReviewRollup.HabitConsistency>) = ReviewRollup.Rollup(
-        startDay = start, endDay = end, periodDays = (end - start + 1).toInt(), reviewedDays = 0, ratedDays = 0,
-        avgRating = 0.0, ratingTrend = emptyList(), wins = emptyList(), moreWins = 0, reflections = emptyList(),
+        startDay = start, endDay = end, periodDays = (end - start + 1).toInt(), reviewedDays = 0,
+        wins = emptyList(), moreWins = 0, reflections = emptyList(),
         moreReflections = 0, habitConsistency = hc, topActivities = emptyList(), questionAverages = emptyList(),
+        felt = FeltState.EMPTY,
     )
 
     private fun hc(id: String, kept: Int, expected: Int) =
