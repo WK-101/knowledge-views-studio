@@ -70,31 +70,35 @@ private fun CompactCell(
             .combinedClickable(onClick = onOpen, onLongClick = onLongPress)
             .padding(horizontal = 16.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        if (!row.isRead) {
-            Box(Modifier.size(7.dp).clip(CircleShape).background(scheme.primary))
-        } else {
-            Spacer(Modifier.width(7.dp))
-        }
+        // Text runs flush to the left margin; the unread state is carried by the title's weight
+        // and colour plus a small dot on the meta line — no blank left gutter on read rows.
         Column(Modifier.weight(1f)) {
             Text(
                 text = row.title,
                 style = MaterialTheme.typography.titleSmall,
                 color = if (row.isRead) scheme.onSurfaceVariant else scheme.onSurface,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = if (row.isRead) FontWeight.Medium else FontWeight.SemiBold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(2.dp))
-            val ago = formatAgo(row.publishedAt ?: row.savedAt)
-            Text(
-                text = if (ago.isNotEmpty()) "$source  ·  $ago" else source,
-                style = MaterialTheme.typography.labelSmall,
-                color = scheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Spacer(Modifier.height(3.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (!row.isRead) {
+                    Box(Modifier.size(6.dp).clip(CircleShape).background(scheme.primary))
+                    Spacer(Modifier.width(6.dp))
+                }
+                val ago = formatAgo(row.publishedAt ?: row.savedAt)
+                Text(
+                    text = if (ago.isNotEmpty()) "$source  ·  $ago" else source,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (row.isRead) scheme.onSurfaceVariant else scheme.primary,
+                    fontWeight = if (row.isRead) FontWeight.Normal else FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         if (row.hasStatusGlyph()) {
             Row(verticalAlignment = Alignment.CenterVertically) { StatusGlyphs(row, size = 15.dp) }
@@ -104,7 +108,7 @@ private fun CompactCell(
                 model = row.leadImage,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.size(46.dp).clip(RoundedCornerShape(9.dp)).background(scheme.secondaryContainer),
+                modifier = Modifier.size(52.dp).clip(RoundedCornerShape(10.dp)).background(scheme.secondaryContainer),
             )
         }
     }

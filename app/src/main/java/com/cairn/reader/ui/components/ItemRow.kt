@@ -8,11 +8,13 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -63,7 +65,11 @@ internal fun StatusGlyphs(row: ItemListRow, size: Dp = 14.dp) {
     }
 }
 
-/** The canonical list row for an item, shared across Inbox, Library, and search. */
+/** The canonical list row for an item, shared across Inbox, Library, and search.
+ *
+ *  Inoreader-style card: the text runs flush to the left margin and the thumbnail sits on the
+ *  right, stretched to the card's full height so image and content always share one height —
+ *  no letter-avatar box, so text-only feeds read as a clean column with no dead space. */
 @Composable
 fun ItemRow(
     row: ItemListRow,
@@ -76,33 +82,16 @@ fun ItemRow(
 ) {
     val scheme = MaterialTheme.colorScheme
     val source = row.sourceTitle ?: row.siteName ?: "Unknown"
-    val thumb = if (compact) 46.dp else 56.dp
+    val thumbW = if (compact) 84.dp else 104.dp
     Row(
         modifier = modifier
             .fillMaxWidth()
             .background(if (selected) scheme.secondaryContainer else scheme.surface)
             .combinedClickable(onClick = onOpen, onLongClick = onLongPress)
-            .padding(horizontal = 16.dp, vertical = if (compact) 8.dp else 10.dp),
+            .height(IntrinsicSize.Min)
+            .padding(start = 16.dp, end = 16.dp, top = if (compact) 9.dp else 12.dp, bottom = if (compact) 9.dp else 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Box(
-            modifier = Modifier
-                .size(thumb)
-                .clip(RoundedCornerShape(if (compact) 10.dp else 12.dp))
-                .background(scheme.secondaryContainer),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (row.leadImage != null) {
-                AsyncImage(
-                    model = row.leadImage,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            } else {
-                Text(source.take(1).uppercase(), style = MaterialTheme.typography.titleLarge, color = scheme.onSecondaryContainer)
-            }
-        }
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (!row.isRead) {
@@ -116,22 +105,23 @@ fun ItemRow(
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
                 )
                 val ago = formatAgo(row.publishedAt ?: row.savedAt)
                 if (ago.isNotEmpty()) {
-                    Text("  ·  $ago", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
+                    Text("  ·  $ago", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, maxLines = 1)
                 }
             }
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(3.dp))
             Text(
                 text = row.title,
                 style = MaterialTheme.typography.titleSmall,
-                color = scheme.onSurface,
+                color = if (row.isRead) scheme.onSurfaceVariant else scheme.onSurface,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (!row.excerpt.isNullOrBlank() && !(compact && row.leadImage != null)) {
+            if (!row.excerpt.isNullOrBlank()) {
                 Spacer(Modifier.height(3.dp))
                 Text(
                     text = row.excerpt,
@@ -151,6 +141,19 @@ fun ItemRow(
                     StatusGlyphs(row)
                 }
             }
+        }
+        if (row.leadImage != null) {
+            AsyncImage(
+                model = row.leadImage,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .width(thumbW)
+                    .fillMaxHeight()
+                    .heightIn(min = if (compact) 60.dp else 74.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(scheme.secondaryContainer),
+            )
         }
     }
 }
