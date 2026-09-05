@@ -41,7 +41,7 @@ import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -319,11 +319,9 @@ fun CairnApp(
         snackbarHost = { SnackbarHost(snackbar) },
         floatingActionButton = {
             if (current == Destination.Inbox) {
-                ExtendedFloatingActionButton(
-                    onClick = { showAddFeed = true },
-                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                    text = { Text("Add feed") },
-                )
+                FloatingActionButton(onClick = { showAddFeed = true }) {
+                    Icon(Icons.Filled.Add, contentDescription = "Add feed")
+                }
             }
         },
     ) { padding ->
@@ -452,6 +450,13 @@ private fun InboxScreen(
                             mode = viewMode,
                             compact = compact,
                         )
+                        if (viewMode != ListViewMode.MAGAZINE) {
+                            androidx.compose.material3.HorizontalDivider(
+                                modifier = Modifier.padding(start = 16.dp),
+                                thickness = 0.6.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                            )
+                        }
                     }
                 }
             }

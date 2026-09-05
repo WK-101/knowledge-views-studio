@@ -382,10 +382,11 @@ private fun LibraryContent(
         LibraryViewMode.LIST -> LazyColumn(contentPadding = PaddingValues(top = 6.dp, bottom = bottomPad)) {
             items(items, key = { it.id }) { row ->
                 ItemRow(row = row, onOpen = { onClick(row) }, onToggleSave = { onToggleSave(row) }, onLongPress = { onLongPress(row) }, selected = row.id in selected)
+                EntryDivider()
             }
         }
         LibraryViewMode.HEADLINES -> LazyColumn(contentPadding = PaddingValues(top = 6.dp, bottom = bottomPad)) {
-            items(items, key = { it.id }) { row -> HeadlineRow(row, row.id in selected, { onClick(row) }, { onLongPress(row) }) }
+            items(items, key = { it.id }) { row -> HeadlineRow(row, row.id in selected, { onClick(row) }, { onLongPress(row) }); EntryDivider() }
         }
         LibraryViewMode.GRID -> LazyVerticalGrid(
             columns = GridCells.Fixed(2),
@@ -541,6 +542,16 @@ private fun HeadlineRow(row: ItemListRow, selected: Boolean, onClick: () -> Unit
         Text(row.title, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Text(row.sourceTitle ?: row.siteName ?: "", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1)
     }
+}
+
+/** The subtle hairline shown after each list entry. */
+@Composable
+private fun EntryDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(start = 16.dp),
+        thickness = 0.6.dp,
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+    )
 }
 
 private fun scopeTitle(scope: LibraryScope): String = when (scope) {
