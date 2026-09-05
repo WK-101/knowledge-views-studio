@@ -13,9 +13,13 @@ import com.cairn.reader.data.db.SourceEntity
 import com.cairn.reader.data.db.TagDao
 import com.cairn.reader.data.db.TagEntity
 import com.cairn.reader.data.blob.BlobStore
+import com.cairn.reader.data.net.WebDavClient
 import com.cairn.reader.data.prefs.PreferencesRepository
+import kotlinx.coroutines.flow.first
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.zip.ZipEntry
@@ -46,6 +50,7 @@ class BackupManager @Inject constructor(
     private val highlightDao: HighlightDao,
     private val blobStore: BlobStore,
     private val preferencesRepository: PreferencesRepository,
+    private val webDavClient: WebDavClient,
 ) {
     suspend fun export(): String {
         val root = JSONObject()
@@ -63,19 +68,88 @@ class BackupManager @Inject constructor(
         return root.toString(2)
     }
 
-    /** Restore a backup, merging into the current library. Returns a short summary. */
+    /**
+     * Restore a backup, merging into the current library with de-duplication.
+     *
+     * Restoring the same account onto a second device (or re-importing after a re-install) must not
+     * pile up duplicate copies of every article. Items already present are matched by their natural
+     * identity — feed guid within a source, else canonical/plain URL — even when their generated row
+     * id differs across devices. A matched item's read/star/save state is merged last-write-wins by
+     * timestamp, and any tags/highlights the backup attaches are re-pointed at the copy already here.
+     */
     suspend fun import(json: String): String {
         val root = JSONObject(json)
         var restored = 0
-        root.optJSONArray("sources").forEachObject { sourceDao.upsert(it.toSource()); restored++ }
+        var merged = 0
+
+        root.optJSONArray("sources").forEachObject { sourceDao.upsert(it.toSource()) }
         root.optJSONArray("collections").forEachObject { collectionDao.upsert(it.toCollection()) }
-        root.optJSONArray("items").forEachObject { itemDao.upsertItem(it.toItem()); restored++ }
-        root.optJSONArray("states").forEachObject { itemDao.upsertState(it.toState()) }
+
+        // Build identity indexes over what's already on this device so incoming duplicates map onto
+        // the existing rows instead of inserting new ones.
+        val existing = itemDao.allItems()
+        val knownIds = HashSet<String>(existing.size).apply { existing.forEach { add(it.id) } }
+        val byGuid = HashMap<String, String>()      // "sourceId|guid" -> local id
+        val byUrl = HashMap<String, String>()       // normalized url -> local id
+        existing.forEach { e ->
+            if (!e.guid.isNullOrBlank() && e.sourceId != null) byGuid["${e.sourceId}|${e.guid}"] = e.id
+            urlKey(e.canonicalUrl ?: e.url)?.let { byUrl[it] = e.id }
+        }
+        // incoming id -> the local id it actually resolves to (its own, or a de-duped existing one).
+        val idRemap = HashMap<String, String>()
+
+        root.optJSONArray("items").forEachObject { obj ->
+            val item = obj.toItem()
+            when {
+                item.id in knownIds -> { itemDao.upsertItem(item); restored++ }
+                else -> {
+                    val dup = (if (!item.guid.isNullOrBlank() && item.sourceId != null) byGuid["${item.sourceId}|${item.guid}"] else null)
+                        ?: urlKey(item.canonicalUrl ?: item.url)?.let { byUrl[it] }
+                    if (dup != null) {
+                        idRemap[item.id] = dup
+                        merged++
+                    } else {
+                        itemDao.upsertItem(item)
+                        restored++
+                        knownIds.add(item.id)
+                        if (!item.guid.isNullOrBlank() && item.sourceId != null) byGuid["${item.sourceId}|${item.guid}"] = item.id
+                        urlKey(item.canonicalUrl ?: item.url)?.let { byUrl[it] = item.id }
+                    }
+                }
+            }
+        }
+
+        root.optJSONArray("states").forEachObject { obj ->
+            val incoming = obj.toState()
+            val targetId = idRemap[incoming.itemId] ?: incoming.itemId
+            val state = if (targetId == incoming.itemId) incoming else incoming.copy(itemId = targetId)
+            val current = itemDao.getState(targetId)
+            if (current == null || state.updatedAt >= current.updatedAt) itemDao.upsertState(state)
+        }
+
         root.optJSONArray("tags").forEachObject { tagDao.upsert(it.toTag()) }
-        root.optJSONArray("itemTags").forEachObject { tagDao.link(it.toCrossRef()) }
-        root.optJSONArray("highlights").forEachObject { highlightDao.upsert(it.toHighlight()) }
+        root.optJSONArray("itemTags").forEachObject {
+            val ref = it.toCrossRef()
+            val targetId = idRemap[ref.itemId] ?: ref.itemId
+            tagDao.link(if (targetId == ref.itemId) ref else ref.copy(itemId = targetId))
+        }
+        root.optJSONArray("highlights").forEachObject {
+            val h = it.toHighlight()
+            val targetId = idRemap[h.itemId] ?: h.itemId
+            highlightDao.upsert(if (targetId == h.itemId) h else h.copy(itemId = targetId))
+        }
         root.optJSONObject("settings")?.let { runCatching { preferencesRepository.importSettings(it) } }
-        return "Restored $restored feeds & items, plus tags, collections, highlights and settings."
+
+        val dupNote = if (merged > 0) " Merged $merged duplicates already on this device." else ""
+        return "Restored $restored feeds & items, plus tags, collections, highlights and settings.$dupNote"
+    }
+
+    /** A stable identity key for an item URL: lower-cased, fragment and trailing slash stripped.
+     *  Null for blank URLs so they never collide in the de-dup index. */
+    private fun urlKey(url: String?): String? {
+        val u = url?.trim().orEmpty()
+        if (u.isBlank()) return null
+        return u.substringBefore('#').trimEnd('/').lowercase()
     }
 
     // -- Full archive (.zip: data + offline copies) ---------------------------
@@ -146,6 +220,64 @@ class BackupManager @Inject constructor(
             }
         }
     }
+
+    // -- WebDAV / Nextcloud mirror --------------------------------------------
+
+    /** The configured WebDAV target, or null when the user hasn't set one up. */
+    private suspend fun webDavConfig(): WebDavClient.Config? {
+        val p = preferencesRepository.preferences.first()
+        val url = p.webdavUrl?.trim().orEmpty()
+        if (url.isBlank()) return null
+        return WebDavClient.Config(url, p.webdavUser, p.webdavPass)
+    }
+
+    /** Whether a WebDAV backup target is configured. */
+    suspend fun webDavConfigured(): Boolean = webDavConfig() != null
+
+    /** Check that an (ad-hoc) WebDAV target is reachable and the credentials work. */
+    suspend fun testWebDav(url: String, user: String?, pass: String?): Result<Unit> =
+        webDavClient.test(WebDavClient.Config(url.trim(), user, pass))
+
+    /** Upload a backup to the WebDAV folder — a `.zip` full archive when the user has opted to
+     *  include offline copies, otherwise a data-only `.json` — then prune to the most recent few.
+     *  Returns the uploaded file's name. */
+    suspend fun backupToWebDav(): Result<String> {
+        val cfg = webDavConfig() ?: return Result.failure(IllegalStateException("No WebDAV server configured"))
+        val includeOffline = preferencesRepository.preferences.first().backupIncludeOffline
+        val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US).format(java.util.Date())
+        return runCatching {
+            val name: String
+            val bytes: ByteArray
+            val type: String
+            if (includeOffline) {
+                val buf = ByteArrayOutputStream()
+                exportArchive(buf)
+                name = "cairn-backup-$stamp.zip"; bytes = buf.toByteArray(); type = "application/zip"
+            } else {
+                name = "cairn-backup-$stamp.json"; bytes = export().toByteArray(Charsets.UTF_8); type = "application/json"
+            }
+            webDavClient.put(cfg, name, bytes, type).getOrThrow()
+            runCatching {
+                webDavClient.listBackups(cfg).getOrThrow().drop(KEEP_WEBDAV)
+                    .forEach { webDavClient.delete(cfg, it) }
+            }
+            name
+        }
+    }
+
+    /** Pull and restore the most recent backup found in the WebDAV folder (merging + de-duping). */
+    suspend fun restoreFromWebDav(): Result<String> {
+        val cfg = webDavConfig() ?: return Result.failure(IllegalStateException("No WebDAV server configured"))
+        return runCatching {
+            val latest = webDavClient.listBackups(cfg).getOrThrow().firstOrNull()
+                ?: error("No Cairn backups found on the server")
+            val bytes = webDavClient.get(cfg, latest) { it.readBytes() }.getOrThrow()
+            if (latest.endsWith(".zip")) importArchive(ByteArrayInputStream(bytes))
+            else import(bytes.toString(Charsets.UTF_8))
+        }
+    }
+
+    private companion object { const val KEEP_WEBDAV = 5 }
 
     // -- Serialization ---------------------------------------------------------
 

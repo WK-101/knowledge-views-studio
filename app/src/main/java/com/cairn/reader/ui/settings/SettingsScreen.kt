@@ -31,6 +31,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CloudDownload
+import androidx.compose.material.icons.outlined.CloudUpload
+import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FormatQuote
@@ -46,6 +48,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -57,7 +60,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -276,6 +282,14 @@ fun SettingsScreen(
                         Switch(checked = prefs.backupIncludeOffline, onCheckedChange = { viewModel.setBackupIncludeOffline(it) })
                     }
                 }
+
+                Spacer(Modifier.height(16.dp))
+                WebDavBackupSection(
+                    savedUrl = prefs.webdavUrl.orEmpty(),
+                    savedUser = prefs.webdavUser.orEmpty(),
+                    savedPass = prefs.webdavPass.orEmpty(),
+                    viewModel = viewModel,
+                )
 
                 Spacer(Modifier.height(16.dp))
                 OutlinedButton(onClick = { pdfLauncher.launch(arrayOf("application/pdf")) }) {
@@ -741,6 +755,119 @@ private fun <T> LabeledChips(
                 onClick = { onSelect(value) },
                 label = { Text(text) },
             )
+        }
+    }
+}
+
+/**
+ * Self-hosted WebDAV / Nextcloud backup target. The user points Cairn at a folder on their own
+ * server; backups then upload there on the same schedule as the local folder, and can be pulled
+ * back (merged, de-duplicated) onto any device. No account, no third-party cloud.
+ */
+@Composable
+private fun WebDavBackupSection(
+    savedUrl: String,
+    savedUser: String,
+    savedPass: String,
+    viewModel: SettingsViewModel,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val context = LocalContext.current
+    // Seed the fields from what's persisted; re-seed only when the saved values actually change
+    // (e.g. after Save, or when DataStore first emits) so in-progress typing isn't clobbered.
+    var url by remember(savedUrl) { mutableStateOf(savedUrl) }
+    var user by remember(savedUser) { mutableStateOf(savedUser) }
+    var pass by remember(savedPass) { mutableStateOf(savedPass) }
+    var busy by remember { mutableStateOf(false) }
+    val configured = savedUrl.isNotBlank()
+
+    Text("Self-hosted backup (WebDAV / Nextcloud)", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+    Text(
+        if (configured) "On — backups also upload to your server on schedule; the last few are kept. Restore pulls the newest and merges it, skipping duplicates already here."
+        else "Mirror backups to a folder on your own server. Works with Nextcloud, ownCloud, or any WebDAV share — an app-password is recommended.",
+        style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp),
+    )
+    Spacer(Modifier.height(10.dp))
+    OutlinedTextField(
+        value = url,
+        onValueChange = { url = it },
+        label = { Text("Server folder URL") },
+        placeholder = { Text("https://cloud.example.com/remote.php/dav/files/me/Cairn/") },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Spacer(Modifier.height(8.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(
+            value = user,
+            onValueChange = { user = it },
+            label = { Text("Username") },
+            singleLine = true,
+            modifier = Modifier.weight(1f),
+        )
+        OutlinedTextField(
+            value = pass,
+            onValueChange = { pass = it },
+            label = { Text("Password") },
+            singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            modifier = Modifier.weight(1f),
+        )
+    }
+    Spacer(Modifier.height(10.dp))
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        OutlinedButton(
+            enabled = !busy && url.isNotBlank(),
+            onClick = {
+                busy = true
+                viewModel.testWebDav(url, user, pass) { ok ->
+                    busy = false
+                    if (ok) {
+                        viewModel.setWebDav(url, user, pass)
+                        Toast.makeText(context, "Connected — server saved", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "Couldn't reach that server — check the URL and credentials", Toast.LENGTH_LONG).show()
+                    }
+                }
+            },
+        ) {
+            Icon(Icons.Outlined.CloudSync, contentDescription = null, modifier = Modifier.height(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text("Test & save")
+        }
+        if (configured) {
+            OutlinedButton(
+                enabled = !busy,
+                onClick = {
+                    busy = true
+                    viewModel.backupToWebDavNow { msg -> busy = false; Toast.makeText(context, msg, Toast.LENGTH_LONG).show() }
+                },
+            ) {
+                Icon(Icons.Outlined.CloudUpload, contentDescription = null, modifier = Modifier.height(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Back up now")
+            }
+            OutlinedButton(
+                enabled = !busy,
+                onClick = {
+                    busy = true
+                    viewModel.restoreFromWebDav { msg -> busy = false; Toast.makeText(context, msg, Toast.LENGTH_LONG).show() }
+                },
+            ) {
+                Icon(Icons.Outlined.CloudDownload, contentDescription = null, modifier = Modifier.height(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Restore")
+            }
+            TextButton(
+                enabled = !busy,
+                onClick = {
+                    viewModel.setWebDav("", "", "")
+                    url = ""; user = ""; pass = ""
+                    Toast.makeText(context, "Self-hosted backup turned off", Toast.LENGTH_SHORT).show()
+                },
+            ) { Text("Off") }
         }
     }
 }

@@ -202,6 +202,36 @@ class SettingsViewModel @Inject constructor(
         CairnWork.scheduleBackup(context, 0)
     }
 
+    // -- WebDAV / Nextcloud mirror --------------------------------------------
+
+    /** Save WebDAV credentials; when a server is set, ensure a schedule exists so it actually runs. */
+    fun setWebDav(url: String, user: String, pass: String) = viewModelScope.launch {
+        preferencesRepository.setWebDav(url, user, pass)
+        if (url.isBlank()) return@launch
+        val current = preferencesRepository.preferences.first().backupFrequencyHours
+        if (current <= 0) {
+            preferencesRepository.setBackupFrequency(24)
+            CairnWork.scheduleBackup(context, 24)
+        }
+    }
+
+    /** Test a WebDAV target the user typed, before saving it. */
+    fun testWebDav(url: String, user: String, pass: String, onResult: (Boolean) -> Unit) = viewModelScope.launch {
+        onResult(backupManager.testWebDav(url, user, pass).isSuccess)
+    }
+
+    /** Push a backup to the configured WebDAV server right now. */
+    fun backupToWebDavNow(onResult: (String) -> Unit) = viewModelScope.launch {
+        val r = backupManager.backupToWebDav()
+        onResult(r.fold({ "Uploaded $it to your server." }, { it.message ?: "Upload failed" }))
+    }
+
+    /** Pull and merge the latest backup from the configured WebDAV server. */
+    fun restoreFromWebDav(onResult: (String) -> Unit) = viewModelScope.launch {
+        val r = backupManager.restoreFromWebDav()
+        onResult(r.getOrElse { it.message ?: "Restore failed" })
+    }
+
     /** Bytes on disk used by cached article bodies, offline images, and imported PDFs. */
     suspend fun storageBytes(): Long = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { blobStore.storageBytes() }
 }

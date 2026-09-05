@@ -51,28 +51,43 @@ class BackupWorker @AssistedInject constructor(
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val prefs = preferencesRepository.preferences.first()
-        val uriStr = prefs.backupFolderUri ?: return Result.success()
-        return runCatching {
-            val tree = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, android.net.Uri.parse(uriStr))
-            if (tree == null || !tree.canWrite()) return Result.success()
-            val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US).format(java.util.Date())
-            if (prefs.backupIncludeOffline) {
-                // Full archive: data + every offline copy, in one .zip.
-                val file = tree.createFile("application/zip", "cairn-backup-$stamp.zip") ?: return Result.retry()
-                context.contentResolver.openOutputStream(file.uri)?.use { backupManager.exportArchive(it) }
-            } else {
-                val json = backupManager.export()
-                val file = tree.createFile("application/json", "cairn-backup-$stamp.json") ?: return Result.retry()
-                context.contentResolver.openOutputStream(file.uri)?.use { it.write(json.toByteArray()) }
-            }
-            // Keep only the most recent few backups (either extension).
-            tree.listFiles()
-                .filter { it.name?.startsWith("cairn-backup-") == true }
-                .sortedBy { it.name }
-                .dropLast(KEEP)
-                .forEach { runCatching { it.delete() } }
-            Result.success()
-        }.getOrElse { Result.retry() }
+        val hasFolder = prefs.backupFolderUri != null
+        val hasWebDav = !prefs.webdavUrl.isNullOrBlank()
+        if (!hasFolder && !hasWebDav) return Result.success()
+
+        var anyFailed = false
+        // 1) Local SAF folder (if configured).
+        if (hasFolder) {
+            val ok = runCatching { backupToSaf(prefs.backupFolderUri!!, prefs.backupIncludeOffline) }.getOrDefault(false)
+            if (!ok) anyFailed = true
+        }
+        // 2) Self-hosted WebDAV / Nextcloud mirror (if configured).
+        if (hasWebDav) {
+            if (backupManager.backupToWebDav().isFailure) anyFailed = true
+        }
+        return if (anyFailed) Result.retry() else Result.success()
+    }
+
+    private suspend fun backupToSaf(uriStr: String, includeOffline: Boolean): Boolean {
+        val tree = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, android.net.Uri.parse(uriStr))
+        if (tree == null || !tree.canWrite()) return true // nothing writable — don't spin on retries
+        val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US).format(java.util.Date())
+        if (includeOffline) {
+            // Full archive: data + every offline copy, in one .zip.
+            val file = tree.createFile("application/zip", "cairn-backup-$stamp.zip") ?: return false
+            context.contentResolver.openOutputStream(file.uri)?.use { backupManager.exportArchive(it) }
+        } else {
+            val json = backupManager.export()
+            val file = tree.createFile("application/json", "cairn-backup-$stamp.json") ?: return false
+            context.contentResolver.openOutputStream(file.uri)?.use { it.write(json.toByteArray()) }
+        }
+        // Keep only the most recent few backups (either extension).
+        tree.listFiles()
+            .filter { it.name?.startsWith("cairn-backup-") == true }
+            .sortedBy { it.name }
+            .dropLast(KEEP)
+            .forEach { runCatching { it.delete() } }
+        return true
     }
 
     companion object { private const val KEEP = 5 }

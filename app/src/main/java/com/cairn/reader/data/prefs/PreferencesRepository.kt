@@ -104,6 +104,13 @@ data class AppPreferences(
     val backupFrequencyHours: Int = 0,
     /** Whether scheduled backups bundle offline article copies (a larger .zip) or stay data-only (.json). */
     val backupIncludeOffline: Boolean = false,
+    /** Base URL of a self-hosted WebDAV / Nextcloud folder to mirror backups into; null = off.
+     *  When set, scheduled and manual backups also upload there, so nothing depends on one device. */
+    val webdavUrl: String? = null,
+    /** WebDAV username (Basic auth). For Nextcloud, an app password is recommended. */
+    val webdavUser: String? = null,
+    /** WebDAV password / app-password (Basic auth). Stored locally only, alongside every other setting. */
+    val webdavPass: String? = null,
     /** Days a trashed item is kept before auto-purge on sync. 0 = keep until emptied manually. */
     val trashRetentionDays: Int = 30,
     /** Whether text-to-speech (Listen) is offered at all — the Inbox "Listen to all" button and the
@@ -184,6 +191,9 @@ class PreferencesRepository @Inject constructor(
         val BACKUP_FOLDER = stringPreferencesKey("backup_folder_uri")
         val BACKUP_FREQ = intPreferencesKey("backup_frequency_hours")
         val BACKUP_INCLUDE_OFFLINE = booleanPreferencesKey("backup_include_offline")
+        val WEBDAV_URL = stringPreferencesKey("webdav_url")
+        val WEBDAV_USER = stringPreferencesKey("webdav_user")
+        val WEBDAV_PASS = stringPreferencesKey("webdav_pass")
         val TRASH_RETENTION_DAYS = intPreferencesKey("trash_retention_days")
         val TTS_ENABLED = booleanPreferencesKey("tts_enabled")
         val BOTTOM_TABS_ORDER = stringPreferencesKey("bottom_tabs_order")
@@ -254,6 +264,9 @@ class PreferencesRepository @Inject constructor(
             backupFolderUri = p[Keys.BACKUP_FOLDER],
             backupFrequencyHours = p[Keys.BACKUP_FREQ] ?: 0,
             backupIncludeOffline = p[Keys.BACKUP_INCLUDE_OFFLINE] ?: false,
+            webdavUrl = p[Keys.WEBDAV_URL],
+            webdavUser = p[Keys.WEBDAV_USER],
+            webdavPass = p[Keys.WEBDAV_PASS],
             trashRetentionDays = p[Keys.TRASH_RETENTION_DAYS] ?: 30,
             ttsEnabled = p[Keys.TTS_ENABLED] ?: true,
             stripTrackingParams = p[Keys.STRIP_TRACKING] ?: true,
@@ -311,6 +324,18 @@ class PreferencesRepository @Inject constructor(
         if (uri == null) it.remove(Keys.BACKUP_FOLDER) else it[Keys.BACKUP_FOLDER] = uri
     }
     suspend fun setBackupFrequency(hours: Int) = context.dataStore.edit { it[Keys.BACKUP_FREQ] = hours.coerceAtLeast(0) }
+
+    /** Configure (or clear) the WebDAV / Nextcloud backup target. Passing a blank URL turns it off. */
+    suspend fun setWebDav(url: String?, user: String?, pass: String?) = context.dataStore.edit {
+        val u = url?.trim().orEmpty()
+        if (u.isBlank()) {
+            it.remove(Keys.WEBDAV_URL); it.remove(Keys.WEBDAV_USER); it.remove(Keys.WEBDAV_PASS)
+        } else {
+            it[Keys.WEBDAV_URL] = u
+            if (user.isNullOrBlank()) it.remove(Keys.WEBDAV_USER) else it[Keys.WEBDAV_USER] = user.trim()
+            if (pass.isNullOrEmpty()) it.remove(Keys.WEBDAV_PASS) else it[Keys.WEBDAV_PASS] = pass
+        }
+    }
 
     private val DEFAULT_TABS = listOf("Inbox", "Library", "Discover", "Settings")
 
@@ -459,6 +484,9 @@ class PreferencesRepository @Inject constructor(
             put("bottomTabs", JSONArray(p.bottomTabs.toList()))
             put("backupFrequencyHours", p.backupFrequencyHours)
             put("backupIncludeOffline", p.backupIncludeOffline)
+            p.webdavUrl?.let { put("webdavUrl", it) }
+            p.webdavUser?.let { put("webdavUser", it) }
+            p.webdavPass?.let { put("webdavPass", it) }
             put("trashRetentionDays", p.trashRetentionDays)
             put("ttsEnabled", p.ttsEnabled)
             put("stripTrackingParams", p.stripTrackingParams)
@@ -518,6 +546,9 @@ class PreferencesRepository @Inject constructor(
             json.optJSONArray("bottomTabs")?.let { arr -> e[Keys.BOTTOM_TABS] = (0 until arr.length()).map { arr.getString(it) }.toSet() }
             if (json.has("backupFrequencyHours")) e[Keys.BACKUP_FREQ] = json.getInt("backupFrequencyHours").coerceAtLeast(0)
             if (json.has("backupIncludeOffline")) e[Keys.BACKUP_INCLUDE_OFFLINE] = json.getBoolean("backupIncludeOffline")
+            if (json.has("webdavUrl")) json.getString("webdavUrl").let { if (it.isNotBlank()) e[Keys.WEBDAV_URL] = it }
+            if (json.has("webdavUser")) json.getString("webdavUser").let { if (it.isNotBlank()) e[Keys.WEBDAV_USER] = it }
+            if (json.has("webdavPass")) json.getString("webdavPass").let { if (it.isNotEmpty()) e[Keys.WEBDAV_PASS] = it }
             if (json.has("trashRetentionDays")) e[Keys.TRASH_RETENTION_DAYS] = json.getInt("trashRetentionDays").coerceAtLeast(0)
             if (json.has("ttsEnabled")) e[Keys.TTS_ENABLED] = json.getBoolean("ttsEnabled")
             if (json.has("stripTrackingParams")) e[Keys.STRIP_TRACKING] = json.getBoolean("stripTrackingParams")
