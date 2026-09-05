@@ -58,6 +58,17 @@ android {
         }
     }
 
+    // ML Kit ships native libraries; x86/x86_64 are emulator-only, so we keep just the two ARM
+    // ABIs real phones use and split them into separate APKs to keep each install lean.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a")
+            isUniversalApk = true
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
