@@ -51,7 +51,6 @@ class ReaderViewModel @Inject constructor(
     private val ttsReader: TtsReader,
     private val audioPlayer: AudioPlayer,
     private val dictionaryRepository: com.cairn.reader.domain.lookup.DictionaryRepository,
-    private val translator: com.cairn.reader.domain.translate.Translator,
     private val mediaSaver: com.cairn.reader.domain.media.MediaSaver,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
@@ -184,19 +183,9 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
-    // -- Dictionary / thesaurus / translate -----------------------------------
+    // -- Dictionary / thesaurus -----------------------------------------------
 
     suspend fun define(word: String) = dictionaryRepository.define(word)
-
-    suspend fun translate(text: String) = translator.translate(text)
-
-    /** The whole article as plain text, for a full-page translation. */
-    suspend fun articlePlainText(): String {
-        val html = _state.value.data?.html ?: return ""
-        return runCatching { Jsoup.parse(html).text() }.getOrDefault("")
-    }
-
-    fun translateLanguageName(): String = translator.displayName(translator.defaultTarget())
 
     // -- Images / media --------------------------------------------------------
 

@@ -16,8 +16,8 @@ android {
         applicationId = "com.cairn.reader"
         minSdk = 26
         targetSdk = 36
-        versionCode = 64
-        versionName = "3.38.0"
+        versionCode = 65
+        versionName = "3.39.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
     }
@@ -55,17 +55,6 @@ android {
             isShrinkResources = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = if (hasReleaseSigning) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
-        }
-    }
-
-    // ML Kit ships native libraries; x86/x86_64 are emulator-only, so we keep just the two ARM
-    // ABIs real phones use and split them into separate APKs to keep each install lean.
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            include("arm64-v8a", "armeabi-v7a")
-            isUniversalApk = true
         }
     }
 
@@ -117,11 +106,7 @@ dependencies {
     implementation(libs.readability4j)
     implementation(libs.jsoup)
     implementation("androidx.documentfile:documentfile:1.0.1")
-
-    // On-device translation (downloadable language models, no account, nothing uploaded) +
-    // language identification so we know what to translate from.
-    implementation("com.google.mlkit:translate:17.0.3")
-    implementation("com.google.mlkit:language-id:17.0.6")
+    // On-device translation (ML Kit) is planned but removed for now to keep the APK lean.
 
     testImplementation(libs.junit)
 }

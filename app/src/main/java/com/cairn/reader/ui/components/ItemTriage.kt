@@ -90,7 +90,9 @@ fun SwipeableItemRow(
     fun pick(primary: SwipeAction, fallback: SwipeAction) = if (primary != SwipeAction.NONE) primary else fallback
 
     Box(modifier.fillMaxWidth()) {
-        SwipeBackground(offset.value, halfPx, fullPx, row, rightHalf, rightFull, leftHalf, leftFull)
+        // matchParentSize makes the coloured reveal span the full row (its size follows the
+        // foreground cell), instead of collapsing to the icon's height in a LazyColumn item.
+        SwipeBackground(Modifier.matchParentSize(), offset.value, halfPx, fullPx, row, rightHalf, rightFull, leftHalf, leftFull)
         Box(
             Modifier
                 .offset { androidx.compose.ui.unit.IntOffset(offset.value.toInt(), 0) }
@@ -141,6 +143,7 @@ private fun swipeIcon(action: SwipeAction, row: ItemListRow): ImageVector = when
 
 @Composable
 private fun SwipeBackground(
+    modifier: Modifier,
     offset: Float,
     halfPx: Float,
     fullPx: Float,
@@ -182,7 +185,7 @@ private fun SwipeBackground(
         else -> scheme.onSurfaceVariant
     }
     Box(
-        Modifier.fillMaxSize().background(bg).padding(horizontal = 24.dp),
+        modifier.background(bg).padding(horizontal = 24.dp),
         contentAlignment = if (toRight) Alignment.CenterStart else Alignment.CenterEnd,
     ) {
         if (mag > 12f) {

@@ -36,6 +36,8 @@ import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Sort
 import androidx.compose.material.icons.outlined.Subject
 import androidx.compose.material3.Button
@@ -231,6 +233,7 @@ fun FeedsScreen(
                 }
             } else {
                 val showGroups = grouped && folderFilter == null && query.isBlank() && !failingOnly
+                var collapsedFolders by remember { mutableStateOf(setOf<String>()) }
                 LazyColumn(
                     Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(top = 4.dp, bottom = padding.calculateBottomPadding() + 24.dp),
@@ -246,11 +249,18 @@ fun FeedsScreen(
                             }
                         }
                         groups.filterKeys { it != null }.forEach { (folder, feeds) ->
-                            item(key = "hdr-$folder") { FolderHeader(folder!!, feeds.size) }
-                            items(feeds, key = { it.id }) { source ->
-                                FeedManageRow(source, unread[source.id] ?: 0, source.id in selection, selectionActive,
-                                    onClick = { if (selectionActive) viewModel.toggleSelect(source.id) else editing = source },
-                                    onLongPress = { viewModel.toggleSelect(source.id) })
+                            val collapsed = folder in collapsedFolders
+                            item(key = "hdr-$folder") {
+                                FolderHeader(folder!!, feeds.size, collapsed) {
+                                    collapsedFolders = if (collapsed) collapsedFolders - folder else collapsedFolders + folder
+                                }
+                            }
+                            if (!collapsed) {
+                                items(feeds, key = { it.id }) { source ->
+                                    FeedManageRow(source, unread[source.id] ?: 0, source.id in selection, selectionActive,
+                                        onClick = { if (selectionActive) viewModel.toggleSelect(source.id) else editing = source },
+                                        onLongPress = { viewModel.toggleSelect(source.id) })
+                                }
                             }
                         }
                     } else {
@@ -323,15 +333,26 @@ private fun BulkAction(icon: androidx.compose.ui.graphics.vector.ImageVector, la
 }
 
 @Composable
-private fun FolderHeader(folder: String, count: Int) {
-    Text(
-        "${folder.uppercase()} · $count",
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        letterSpacing = 1.4.sp,
-        fontWeight = FontWeight.Medium,
-        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 4.dp),
-    )
+private fun FolderHeader(folder: String, count: Int, collapsed: Boolean, onToggle: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(start = 16.dp, end = 20.dp, top = 12.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            if (collapsed) Icons.Outlined.ExpandMore else Icons.Outlined.ExpandLess,
+            contentDescription = if (collapsed) "Expand" else "Collapse",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(
+            "${folder.uppercase()} · $count",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            letterSpacing = 1.4.sp,
+            fontWeight = FontWeight.Medium,
+        )
+    }
 }
 
 @Composable
