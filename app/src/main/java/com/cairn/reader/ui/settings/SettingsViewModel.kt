@@ -116,6 +116,23 @@ class SettingsViewModel @Inject constructor(
         onResult(summary)
     }
 
+    /**
+     * Account-free device-to-device transfer: write a full self-contained archive (data + offline
+     * copies) to a shareable file and hand back its content:// URI, so it can be sent to another
+     * device over Quick Share / Nearby / Bluetooth / any share target. The other device restores it
+     * with the ordinary Restore flow. Nothing goes through a server.
+     */
+    fun transferToDevice(onReady: (android.net.Uri?) -> Unit) = viewModelScope.launch {
+        val uri = runCatching {
+            val dir = java.io.File(context.cacheDir, "media").apply { mkdirs() }
+            val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US).format(java.util.Date())
+            val file = java.io.File(dir, "cairn-transfer-$stamp.zip")
+            file.outputStream().use { backupManager.exportArchive(it) }
+            androidx.core.content.FileProvider.getUriForFile(context, context.packageName + ".fileprovider", file)
+        }.getOrNull()
+        onReady(uri)
+    }
+
     /** Import a Pocket / Instapaper / Raindrop export (HTML or CSV) as Read Later items. */
     fun importBookmarks(uri: android.net.Uri, onResult: (String) -> Unit) = viewModelScope.launch {
         val report = runCatching {

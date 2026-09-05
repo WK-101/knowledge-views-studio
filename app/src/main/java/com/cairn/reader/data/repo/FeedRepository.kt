@@ -803,6 +803,40 @@ class FeedRepository @Inject constructor(
     }
 
     /**
+     * Link-rot heal: when a saved link no longer resolves, look it up in the Internet Archive's
+     * Wayback Machine (a public availability API, no account) and, if a snapshot exists, extract a
+     * readable copy from the archived page so the article survives the original going dark. Marks the
+     * item OK on success. Returns true when a copy was recovered.
+     */
+    suspend fun healLink(itemId: String): Boolean {
+        val item = itemDao.getItem(itemId) ?: return false
+        val target = item.canonicalUrl ?: item.url
+        if (!target.startsWith("http", ignoreCase = true)) return false
+        val api = "https://archive.org/wayback/available?url=" + java.net.URLEncoder.encode(target, "UTF-8")
+        val res = runCatching { fetcher.fetch(api) }.getOrNull() ?: return false
+        val body = res.body ?: return false
+        val snapshotUrl = runCatching {
+            org.json.JSONObject(body).optJSONObject("archived_snapshots")
+                ?.optJSONObject("closest")?.takeIf { it.optBoolean("available") }
+                ?.optString("url")?.takeIf { it.isNotBlank() }
+        }.getOrNull() ?: return false
+        // Prefer the raw archived capture (id_ suffix) so Readability sees the original page, not
+        // the Wayback chrome.
+        val rawSnapshot = snapshotUrl.replaceFirst(Regex("/web/(\\d+)/"), "/web/$1id_/")
+        runCatching { extractInto(itemId, rawSnapshot) }
+        val healed = itemDao.getItem(itemId)?.extractStatus == "OK"
+        if (healed) itemDao.setLinkStatus(itemId, "OK", System.currentTimeMillis())
+        return healed
+    }
+
+    /** Try to heal every broken saved link from the Wayback Machine. Returns how many were recovered. */
+    suspend fun healBrokenLinks(limit: Int = 40): Int {
+        var healed = 0
+        itemDao.brokenItemIds(limit).forEach { id -> if (runCatching { healLink(id) }.getOrDefault(false)) healed++ }
+        return healed
+    }
+
+    /**
      * Commute Mode: pull the next [limit] things you're likely to read (Read Later first, then
      * unread, newest first) fully onto the device — text and, per the offline-image policy,
      * images — so they're readable with no signal. Returns how many were newly saved offline.

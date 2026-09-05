@@ -32,6 +32,7 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.CloudDownload
+import androidx.compose.material.icons.outlined.Devices
 import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.CloudSync
@@ -275,6 +276,30 @@ fun SettingsScreen(
                 }
                 Text(
                     "Everything above plus every offline article copy, cached image and imported PDF — one self-contained file so nothing is lost, readable offline the moment it's restored.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+                Spacer(Modifier.height(14.dp))
+                OutlinedButton(onClick = {
+                    Toast.makeText(context, "Preparing transfer…", Toast.LENGTH_SHORT).show()
+                    viewModel.transferToDevice { uri ->
+                        if (uri == null) { Toast.makeText(context, "Couldn't prepare the transfer", Toast.LENGTH_LONG).show(); return@transferToDevice }
+                        val send = Intent(Intent.ACTION_SEND).apply {
+                            type = "application/zip"
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            putExtra(Intent.EXTRA_SUBJECT, "Cairn library transfer")
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        runCatching { context.startActivity(Intent.createChooser(send, "Send to another device")) }
+                    }
+                }) {
+                    Icon(Icons.Outlined.Devices, contentDescription = null, modifier = Modifier.height(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Transfer to another device")
+                }
+                Text(
+                    "Move your whole library to a new phone with no account — send the archive over Quick Share, Nearby, Bluetooth or any app, then Restore it there.",
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),

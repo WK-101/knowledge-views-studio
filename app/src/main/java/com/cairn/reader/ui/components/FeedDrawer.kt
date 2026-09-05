@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Newspaper
+import androidx.compose.material.icons.outlined.Style
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.RssFeed
 import androidx.compose.material.icons.outlined.Search
@@ -84,6 +85,7 @@ fun FeedDrawerContent(
     onReadLater: () -> Unit,
     onHighlights: () -> Unit,
     onBrief: () -> Unit = {},
+    onTriage: () -> Unit = {},
     onSearch: () -> Unit,
     onDiscover: () -> Unit,
     onManageFeeds: () -> Unit,
@@ -171,6 +173,13 @@ fun FeedDrawerContent(
             selected = false,
             icon = { Icon(Icons.Outlined.Newspaper, contentDescription = null) },
             onClick = onBrief,
+            modifier = Modifier.padding(itemPad),
+        )
+        NavigationDrawerItem(
+            label = { Text("Triage") },
+            selected = false,
+            icon = { Icon(Icons.Outlined.Style, contentDescription = null) },
+            onClick = onTriage,
             modifier = Modifier.padding(itemPad),
         )
 

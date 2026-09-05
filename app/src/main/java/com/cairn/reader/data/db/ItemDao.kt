@@ -695,6 +695,9 @@ interface ItemDao {
     @Query("SELECT COUNT(*) FROM items WHERE trashedAt IS NULL AND linkStatus = 'BROKEN'")
     fun observeBrokenCount(): Flow<Int>
 
+    @Query("SELECT id FROM items WHERE trashedAt IS NULL AND linkStatus = 'BROKEN' LIMIT :limit")
+    suspend fun brokenItemIds(limit: Int): List<String>
+
     @Query(
         """
         SELECT COUNT(*) FROM items i WHERE i.trashedAt IS NULL AND LOWER(COALESCE(i.canonicalUrl, i.url)) IN (

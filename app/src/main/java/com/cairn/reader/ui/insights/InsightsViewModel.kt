@@ -23,12 +23,28 @@ data class InsightsUiState(
 @HiltViewModel
 class InsightsViewModel @Inject constructor(
     private val insightsRepository: InsightsRepository,
+    private val feedRepository: com.cairn.reader.data.repo.FeedRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(InsightsUiState())
     val state: StateFlow<InsightsUiState> = _state.asStateFlow()
 
+    private val _healing = MutableStateFlow(false)
+    val healing: StateFlow<Boolean> = _healing.asStateFlow()
+
     init { refresh() }
+
+    /** Try to recover every broken saved link from the Wayback Machine, then refresh. */
+    fun healBrokenLinks(onDone: (Int) -> Unit) {
+        if (_healing.value) return
+        _healing.value = true
+        viewModelScope.launch {
+            val healed = runCatching { feedRepository.healBrokenLinks(40) }.getOrDefault(0)
+            _healing.value = false
+            onDone(healed)
+            refresh()
+        }
+    }
 
     fun refresh() {
         viewModelScope.launch {

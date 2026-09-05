@@ -51,6 +51,8 @@ fun InsightsScreen(
     viewModel: InsightsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val healing by viewModel.healing.collectAsStateWithLifecycle()
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     val scheme = MaterialTheme.colorScheme
 
     Scaffold(
@@ -120,7 +122,21 @@ fun InsightsScreen(
                         SectionLabel("FEED HYGIENE")
                     }
                 }
-                items(state.hygiene.size) { i -> HygieneCard(state.hygiene[i]) }
+                items(state.hygiene.size) { i ->
+                    val issue = state.hygiene[i]
+                    HygieneCard(
+                        issue = issue,
+                        onHeal = if (issue.kind == HygieneIssue.Kind.BROKEN_LINKS) {
+                            {
+                                android.widget.Toast.makeText(ctx, "Searching the Wayback Machine…", android.widget.Toast.LENGTH_SHORT).show()
+                                viewModel.healBrokenLinks { healed ->
+                                    android.widget.Toast.makeText(ctx, if (healed > 0) "Recovered $healed article(s) from archives" else "No archived copies found", android.widget.Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        } else null,
+                        healing = healing,
+                    )
+                }
             }
         }
     }
@@ -153,7 +169,7 @@ private fun StatTile(label: String, value: String, modifier: Modifier = Modifier
 }
 
 @Composable
-private fun HygieneCard(issue: HygieneIssue) {
+private fun HygieneCard(issue: HygieneIssue, onHeal: (() -> Unit)? = null, healing: Boolean = false) {
     val scheme = MaterialTheme.colorScheme
     Card(colors = CardDefaults.cardColors(containerColor = scheme.surfaceContainerLow)) {
         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -162,6 +178,11 @@ private fun HygieneCard(issue: HygieneIssue) {
             Column(Modifier.weight(1f)) {
                 Text(issue.title, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(issue.detail, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+            }
+            if (onHeal != null) {
+                androidx.compose.material3.TextButton(onClick = onHeal, enabled = !healing) {
+                    Text(if (healing) "Healing…" else "Heal")
+                }
             }
         }
     }
