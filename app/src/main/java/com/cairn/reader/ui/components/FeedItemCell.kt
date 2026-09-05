@@ -3,6 +3,7 @@
 package com.cairn.reader.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -46,11 +47,42 @@ fun FeedItemCell(
     onLongPress: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     compact: Boolean = false,
+    onOpenSource: ((String) -> Unit)? = null,
 ) {
     when (mode) {
-        ListViewMode.CARD -> ItemRow(row, onOpen, {}, modifier, onLongPress, compact = compact)
-        ListViewMode.LIST -> CompactCell(row, onOpen, onLongPress, modifier)
-        ListViewMode.MAGAZINE -> MagazineCell(row, onOpen, onLongPress, modifier)
+        ListViewMode.CARD -> ItemRow(row, onOpen, {}, modifier, onLongPress, compact = compact, onOpenSource = onOpenSource)
+        ListViewMode.LIST -> CompactCell(row, onOpen, onLongPress, modifier, onOpenSource)
+        ListViewMode.MAGAZINE -> MagazineCell(row, onOpen, onLongPress, modifier, onOpenSource)
+    }
+}
+
+/** The source label as a tappable chip that opens that source's page, when a handler is given. */
+@Composable
+private fun SourceMeta(
+    row: ItemListRow,
+    color: androidx.compose.ui.graphics.Color,
+    weight: FontWeight,
+    onOpenSource: ((String) -> Unit)?,
+    style: androidx.compose.ui.text.TextStyle,
+) {
+    val source = row.sourceTitle ?: row.siteName ?: "Unknown"
+    val ago = formatAgo(row.publishedAt ?: row.savedAt)
+    val sid = row.sourceId
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = source,
+            style = style,
+            color = color,
+            fontWeight = weight,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = if (sid != null && onOpenSource != null) {
+                Modifier.clip(RoundedCornerShape(4.dp)).clickable { onOpenSource(sid) }
+            } else Modifier,
+        )
+        if (ago.isNotEmpty()) {
+            Text("  ·  $ago", style = style, color = color, fontWeight = weight, maxLines = 1)
+        }
     }
 }
 
@@ -60,9 +92,9 @@ private fun CompactCell(
     onOpen: () -> Unit,
     onLongPress: (() -> Unit)?,
     modifier: Modifier,
+    onOpenSource: ((String) -> Unit)? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
-    val source = row.sourceTitle ?: row.siteName ?: "Unknown"
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -89,14 +121,12 @@ private fun CompactCell(
                     Box(Modifier.size(6.dp).clip(CircleShape).background(scheme.primary))
                     Spacer(Modifier.width(6.dp))
                 }
-                val ago = formatAgo(row.publishedAt ?: row.savedAt)
-                Text(
-                    text = if (ago.isNotEmpty()) "$source  ·  $ago" else source,
-                    style = MaterialTheme.typography.labelSmall,
+                SourceMeta(
+                    row = row,
                     color = if (row.isRead) scheme.onSurfaceVariant else scheme.primary,
-                    fontWeight = if (row.isRead) FontWeight.Normal else FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    weight = if (row.isRead) FontWeight.Normal else FontWeight.Medium,
+                    onOpenSource = onOpenSource,
+                    style = MaterialTheme.typography.labelSmall,
                 )
             }
         }
@@ -120,9 +150,9 @@ private fun MagazineCell(
     onOpen: () -> Unit,
     onLongPress: (() -> Unit)?,
     modifier: Modifier,
+    onOpenSource: ((String) -> Unit)? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
-    val source = row.sourceTitle ?: row.siteName ?: "Unknown"
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -148,14 +178,12 @@ private fun MagazineCell(
                 Box(Modifier.size(7.dp).clip(CircleShape).background(scheme.primary))
                 Spacer(Modifier.width(8.dp))
             }
-            val ago = formatAgo(row.publishedAt ?: row.savedAt)
-            Text(
-                text = if (ago.isNotEmpty()) "$source  ·  $ago" else source,
-                style = MaterialTheme.typography.labelMedium,
+            SourceMeta(
+                row = row,
                 color = scheme.primary,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                weight = FontWeight.SemiBold,
+                onOpenSource = onOpenSource,
+                style = MaterialTheme.typography.labelMedium,
             )
         }
         Spacer(Modifier.height(5.dp))

@@ -76,6 +76,22 @@ class InboxViewModel @Inject constructor(
     /** Unsubscribe from a feed straight from the drawer's long-press menu. */
     fun unsubscribe(sourceId: String) = viewModelScope.launch { sourceRepository.delete(sourceId) }
 
+    // -- Per-feed settings from the drawer long-press ("Feed settings & folder") -----------
+    val folders: StateFlow<List<String>> =
+        sourceRepository.folders().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun loadSource(id: String, onLoaded: (com.cairn.reader.data.db.SourceEntity?) -> Unit) =
+        viewModelScope.launch { onLoaded(sourceRepository.get(id)) }
+
+    fun renameFeed(id: String, title: String) = viewModelScope.launch { sourceRepository.setTitle(id, title) }
+    fun setFeedFolder(id: String, folder: String?) = viewModelScope.launch { sourceRepository.setFolder(id, folder) }
+    fun setFeedFullText(id: String, on: Boolean) = viewModelScope.launch { sourceRepository.setFullText(id, on) }
+    fun setFeedNotify(id: String, on: Boolean) = viewModelScope.launch { sourceRepository.setNotify(id, on) }
+    fun setFeedPodcast(id: String, on: Boolean) = viewModelScope.launch { sourceRepository.setPodcast(id, on) }
+    fun setFeedUrl(id: String, url: String) = viewModelScope.launch { sourceRepository.setFeedUrl(id, url) }
+    fun setFeedOpenIn(id: String, mode: String) = viewModelScope.launch { sourceRepository.setOpenIn(id, mode) }
+    fun setFeedMaxItems(id: String, n: Int?) = viewModelScope.launch { sourceRepository.setMaxItems(id, n) }
+
     /** Playback state for the "Listen to all" queue, shared with the reader. */
     val tts: StateFlow<TtsReader.State> = ttsReader.state
 

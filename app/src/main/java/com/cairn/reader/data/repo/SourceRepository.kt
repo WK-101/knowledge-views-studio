@@ -13,6 +13,8 @@ class SourceRepository @Inject constructor(
     fun sources(): Flow<List<SourceEntity>> = sourceDao.observeAll()
     fun folders(): Flow<List<String>> = sourceDao.observeFolders()
 
+    suspend fun get(id: String): SourceEntity? = sourceDao.getById(id)
+
     suspend fun setTitle(id: String, title: String) = title.trim().takeIf { it.isNotBlank() }?.let { sourceDao.setTitle(id, it) }
     suspend fun setFolder(id: String, folder: String?) = sourceDao.setFolder(id, folder?.trim()?.ifBlank { null })
     suspend fun setFullText(id: String, enabled: Boolean) = sourceDao.setFullText(id, enabled)

@@ -79,6 +79,7 @@ fun ItemRow(
     onLongPress: (() -> Unit)? = null,
     selected: Boolean = false,
     compact: Boolean = false,
+    onOpenSource: ((String) -> Unit)? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
     val source = row.sourceTitle ?: row.siteName ?: "Unknown"
@@ -98,6 +99,7 @@ fun ItemRow(
                     Box(Modifier.size(7.dp).clip(CircleShape).background(scheme.primary))
                     Spacer(Modifier.width(8.dp))
                 }
+                val sid = row.sourceId
                 Text(
                     text = source,
                     style = MaterialTheme.typography.labelMedium,
@@ -105,7 +107,13 @@ fun ItemRow(
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .then(
+                            if (sid != null && onOpenSource != null) {
+                                Modifier.clip(RoundedCornerShape(4.dp)).clickable { onOpenSource(sid) }
+                            } else Modifier,
+                        ),
                 )
                 val ago = formatAgo(row.publishedAt ?: row.savedAt)
                 if (ago.isNotEmpty()) {

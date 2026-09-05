@@ -77,6 +77,7 @@ fun SwipeableItemRow(
     modifier: Modifier = Modifier,
     mode: ListViewMode = ListViewMode.CARD,
     compact: Boolean = false,
+    onOpenSource: ((String) -> Unit)? = null,
 ) {
     val density = androidx.compose.ui.platform.LocalDensity.current
     val halfPx = with(density) { 76.dp.toPx() }
@@ -109,7 +110,7 @@ fun SwipeableItemRow(
                     if (action != SwipeAction.NONE) onAction(action)
                 },
         ) {
-            FeedItemCell(row = row, mode = mode, onOpen = onOpen, onLongPress = onLongPress, compact = compact)
+            FeedItemCell(row = row, mode = mode, onOpen = onOpen, onLongPress = onLongPress, compact = compact, onOpenSource = onOpenSource)
         }
     }
 }

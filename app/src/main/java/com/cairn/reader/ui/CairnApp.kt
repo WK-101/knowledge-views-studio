@@ -135,6 +135,7 @@ fun CairnApp(
     onOpenReadLater: () -> Unit = {},
 ) {
     var showAddFeed by remember { mutableStateOf(false) }
+    var manageFeed by remember { mutableStateOf<com.cairn.reader.data.db.SourceEntity?>(null) }
     val appViewModel: AppViewModel = hiltViewModel()
     val appPrefs by appViewModel.preferences.collectAsStateWithLifecycle()
     // The bar shows the user's chosen subset, in a fixed canonical order; never empty. Capped at
@@ -190,7 +191,7 @@ fun CairnApp(
                     onSelectFolder = { name -> inboxViewModel.selectFolder(name); currentName = Destination.Inbox.name; scope.launch { drawerState.close() } },
                     onMarkFeedRead = { sourceId -> inboxViewModel.markFeedRead(sourceId) },
                     onMarkFolderRead = { name -> inboxViewModel.markFolderRead(name) },
-                    onManageFeed = { scope.launch { drawerState.close() }; onOpenFeeds() },
+                    onManageFeed = { feed -> scope.launch { drawerState.close() }; inboxViewModel.loadSource(feed.sourceId) { src -> manageFeed = src } },
                     onUnsubscribe = { feed -> inboxViewModel.unsubscribe(feed.sourceId) },
                     onSaved = { currentName = Destination.Library.name; scope.launch { drawerState.close() } },
                     onReadLater = { scope.launch { drawerState.close() }; onOpenReadLater() },
@@ -406,6 +407,25 @@ fun CairnApp(
             },
         )
     }
+
+    manageFeed?.let { source ->
+        val manageFolders by inboxViewModel.folders.collectAsStateWithLifecycle()
+        com.cairn.reader.ui.components.FeedSettingsSheet(
+            source = source,
+            folders = manageFolders,
+            onRename = { inboxViewModel.renameFeed(source.id, it) },
+            onFolder = { inboxViewModel.setFeedFolder(source.id, it) },
+            onFullText = { inboxViewModel.setFeedFullText(source.id, it) },
+            onNotify = { inboxViewModel.setFeedNotify(source.id, it) },
+            onPodcast = { inboxViewModel.setFeedPodcast(source.id, it) },
+            onFeedUrl = { inboxViewModel.setFeedUrl(source.id, it) },
+            onOpenIn = { inboxViewModel.setFeedOpenIn(source.id, it) },
+            onMaxItems = { inboxViewModel.setFeedMaxItems(source.id, it) },
+            onOpenSite = { source.siteUrl?.let(onOpenWeb) },
+            onRemove = { inboxViewModel.unsubscribe(source.id); manageFeed = null },
+            onDismiss = { manageFeed = null },
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -485,6 +505,7 @@ private fun InboxScreen(
                             onAction = { action -> viewModel.swipe(row, action) },
                             mode = viewMode,
                             compact = compact,
+                            onOpenSource = { sid -> viewModel.selectFeed(sid, row.sourceTitle ?: row.siteName ?: "Feed") },
                         )
                         if (viewMode != ListViewMode.MAGAZINE) {
                             androidx.compose.material3.HorizontalDivider(
